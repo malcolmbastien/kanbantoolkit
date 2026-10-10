@@ -107,6 +107,16 @@ describe('store actions (recursive lanes)', () => {
     expect(leaves.length).toBeGreaterThanOrEqual(7)
   })
 
+  it('a rows container can gain another child after its existing rows', () => {
+    const root = rootLane(s().lanes, 'b-core')! // root is split into rows (Team Alpha, Team Bravo)
+    const before = childrenOf(s().lanes, root.id).length
+    s().addLane(root.id)
+    const kids = childrenOf(s().lanes, root.id)
+    expect(kids.length).toBe(before + 1)
+    expect(kids[kids.length - 1].name).toBe(`Row ${before + 1}`)
+    expect(s().lanes.find((l) => l.id === root.id)?.orientation).toBe('rows')
+  })
+
   it('Save commits layout edits; Cancel reverts them', () => {
     const root = rootLane(s().lanes, s().boardId)!
     const beforeLanes = s().lanes.length
