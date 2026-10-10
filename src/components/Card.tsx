@@ -1,9 +1,9 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Ban, GripVertical, Layers, ShieldAlert } from 'lucide-react'
+import { Ban, CornerDownRight, GripVertical, Layers, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TYPE_STYLES } from '@/lib/colors'
-import type { Item } from '@/domain/types'
+import type { Item, ItemType } from '@/domain/types'
 
 export interface CardSummary {
   childCount: number
@@ -13,16 +13,25 @@ export interface CardSummary {
   openDescendants: number
 }
 
+/** The decomposition parent of a card, for the on-card lineage label. */
+export interface CardParent {
+  id: string
+  ref_: string
+  title: string
+  type: ItemType
+}
+
 interface Props {
   item: Item
   ref_: string
   stripe: string
   summary: CardSummary
+  parent?: CardParent
   selected?: boolean
   onOpen: (id: string) => void
 }
 
-export function Card({ item, ref_, stripe, summary, selected, onOpen }: Props) {
+export function Card({ item, ref_, stripe, summary, parent, selected, onOpen }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
     data: { itemId: item.id },
@@ -82,6 +91,28 @@ export function Card({ item, ref_, stripe, summary, selected, onOpen }: Props) {
           <div className="mt-0.5 line-clamp-2 text-[12px] font-medium leading-snug text-slate-800">
             {item.title}
           </div>
+          {parent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpen(parent.id)
+              }}
+              title={`In ${TYPE_STYLES[parent.type].label}: ${parent.title}`}
+              className="mt-1 flex w-full items-center gap-1 rounded border border-slate-100 bg-slate-50 px-1 py-0.5 text-left transition hover:border-slate-200 hover:bg-slate-100"
+            >
+              <CornerDownRight size={10} className="shrink-0 text-slate-300" />
+              <span
+                className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TYPE_STYLES[parent.type].dot)}
+                aria-hidden
+              />
+              <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                {TYPE_STYLES[parent.type].label}
+              </span>
+              <span className="min-w-0 truncate text-[10px] font-medium text-slate-600">
+                <span className="tabular-nums text-slate-400">{parent.ref_}</span> {parent.title}
+              </span>
+            </button>
+          )}
           <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400">
             {summary.childCount > 0 && (
               <span className="flex items-center gap-0.5" title={`${summary.childCount} children`}>

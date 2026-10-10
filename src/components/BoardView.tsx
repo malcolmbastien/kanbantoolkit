@@ -1,12 +1,13 @@
 import { DndContext, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { Layers } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
-import { Card } from './Card'
+import { Card, type CardParent } from './Card'
 import {
   applicableLimit,
   blockingDeps,
   blockingSummary,
   decompositionChildren,
+  decompositionParent,
   limitLevel,
   openDescendants,
   outgoingDependencies,
@@ -17,7 +18,7 @@ import { LIFECYCLES } from '@/domain/lifecycles'
 import { streamColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { Scope } from '@/domain/types'
+import type { Item, Scope } from '@/domain/types'
 
 interface Props {
   requestMove: (itemId: string, toScopeId: string, toState: string) => void
@@ -68,6 +69,14 @@ export function BoardView({ requestMove }: Props) {
     shown.filter((i) => homeScopeId(i, resolution) === row.id)
 
   const columnTotal = (state: string) => shown.filter((i) => i.state === state).length
+
+  // Lineage label: a story shows its parent epic; an epic shows its parent initiative.
+  const parentOf = (c: Item): CardParent | undefined => {
+    const pid = decompositionParent(c.id, edges)
+    if (!pid) return undefined
+    const p = items.find((i) => i.id === pid)
+    return p ? { id: p.id, ref_: refs.get(p.id) ?? '', title: p.title, type: p.type } : undefined
+  }
 
   const scopeLimit = applicableLimit(limits, resolution, itemType, scopeId)
   const scopeCount = all.filter((i) => i.valueStreamId === scopeId).length
@@ -222,6 +231,7 @@ export function BoardView({ requestMove }: Props) {
                               item={c}
                               ref_={refs.get(c.id) ?? ''}
                               stripe={streamColor(c.valueStreamId, scopes)}
+                              parent={parentOf(c)}
                               selected={selectedItemId === c.id}
                               onOpen={openItem}
                               summary={{
