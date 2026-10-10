@@ -8,6 +8,13 @@ export type MoveResult =
   | { ok: true }
   | { ok: false; needsReason: true; lane: Lane; count: number }
 
+export interface Draft {
+  boards: FlowState['boards']
+  lanes: FlowState['lanes']
+  placements: FlowState['placements']
+  boardId: string
+}
+
 export interface ViewState {
   boardId: string
   selectedItemId: string | null
@@ -16,6 +23,8 @@ export interface ViewState {
   showTypeEditor: boolean
   /** Board design controls (split / add / rename / delete lanes) only show in edit mode. */
   editMode: boolean
+  /** Snapshot taken on entering edit mode; Cancel restores it, Save drops it. */
+  draft: Draft | null
 }
 
 export interface Actions {
@@ -24,8 +33,9 @@ export interface Actions {
   setSearch: (q: string) => void
   toggleDemoGuide: () => void
   toggleTypeEditor: () => void
-  toggleEditMode: () => void
-  setEditMode: (v: boolean) => void
+  beginEdit: () => void
+  saveEdit: () => void
+  cancelEdit: () => void
   resetDemo: () => void
 
   addIssueType: (name: string, color: string) => void
@@ -71,6 +81,7 @@ const initialView: ViewState = {
   showDemoGuide: true,
   showTypeEditor: false,
   editMode: false,
+  draft: null,
 }
 
 /** First WIP limit in the target lane's chain that a new card would exceed. */
@@ -97,8 +108,29 @@ export const useStore = create<Store>()(
       setSearch: (search) => set({ search }),
       toggleDemoGuide: () => set({ showDemoGuide: !get().showDemoGuide }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
-      toggleEditMode: () => set({ editMode: !get().editMode }),
-      setEditMode: (v) => set({ editMode: v }),
+
+      beginEdit: () => {
+        const s = get()
+        if (s.editMode) return
+        set({
+          editMode: true,
+          draft: {
+            boards: structuredClone(s.boards),
+            lanes: structuredClone(s.lanes),
+            placements: structuredClone(s.placements),
+            boardId: s.boardId,
+          },
+        })
+      },
+      saveEdit: () => set({ editMode: false, draft: null }),
+      cancelEdit: () => {
+        const d = get().draft
+        if (!d) {
+          set({ editMode: false })
+          return
+        }
+        set({ editMode: false, draft: null, boards: d.boards, lanes: d.lanes, placements: d.placements, boardId: d.boardId })
+      },
       resetDemo: () => set({ ...createSeed(), ...initialView }),
 
       addIssueType: (name, color) => set({ issueTypes: [...get().issueTypes, { id: uid(), name, color }] }),
@@ -246,18 +278,22 @@ export const useStore = create<Store>()(
     {
       name: 'flowline-state-v3',
       version: 1,
-      partialize: (s) => ({
-        issueTypes: s.issueTypes,
-        boards: s.boards,
-        lanes: s.lanes,
-        items: s.items,
-        placements: s.placements,
-        edges: s.edges,
-        objectives: s.objectives,
-        keyResults: s.keyResults,
-        sponsors: s.sponsors,
-        boardId: s.boardId,
-      }),
+      // While editing, persist the pre-edit (draft) design so a reload reverts to it.
+      partialize: (s) => {
+        const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
+        return {
+          issueTypes: s.issueTypes,
+          items: s.items,
+          edges: s.edges,
+          objectives: s.objectives,
+          keyResults: s.keyResults,
+          sponsors: s.sponsors,
+          boardId: design.boardId,
+          boards: design.boards,
+          lanes: design.lanes,
+          placements: design.placements,
+        }
+      },
     },
   ),
 )

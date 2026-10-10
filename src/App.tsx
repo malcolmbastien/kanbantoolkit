@@ -33,8 +33,9 @@ export default function App() {
   const resetDemo = useStore((s) => s.resetDemo)
   const toggleDemoGuide = useStore((s) => s.toggleDemoGuide)
   const toggleTypeEditor = useStore((s) => s.toggleTypeEditor)
-  const toggleEditMode = useStore((s) => s.toggleEditMode)
-  const setEditMode = useStore((s) => s.setEditMode)
+  const beginEdit = useStore((s) => s.beginEdit)
+  const saveEdit = useStore((s) => s.saveEdit)
+  const cancelEdit = useStore((s) => s.cancelEdit)
   const openItem = useStore((s) => s.openItem)
   const moveCard = useStore((s) => s.moveCard)
   const addCard = useStore((s) => s.addCard)
@@ -48,7 +49,7 @@ export default function App() {
     const b = params.get('board')
     const it = params.get('item')
     if (b) selectBoard(b)
-    if (params.get('edit')) setEditMode(true)
+    if (params.get('edit')) beginEdit()
     if (it) openItem(it)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -96,7 +97,9 @@ export default function App() {
         onSelectBoard={selectBoard}
         onSearch={setSearch}
         onToggleDemoGuide={toggleDemoGuide}
-        onToggleEditMode={toggleEditMode}
+        onEditBoard={beginEdit}
+        onSaveEdit={saveEdit}
+        onCancelEdit={cancelEdit}
         onOpenTypes={toggleTypeEditor}
         onAddCard={quickAdd}
         onNewBoard={onNewBoard}

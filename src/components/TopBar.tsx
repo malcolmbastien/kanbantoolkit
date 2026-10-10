@@ -1,4 +1,4 @@
-import { LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Sparkles, Trash2 } from 'lucide-react'
+import { Check, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Sparkles, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Board } from '@/domain/types'
 
@@ -11,7 +11,9 @@ interface Props {
   onSelectBoard: (id: string) => void
   onSearch: (q: string) => void
   onToggleDemoGuide: () => void
-  onToggleEditMode: () => void
+  onEditBoard: () => void
+  onSaveEdit: () => void
+  onCancelEdit: () => void
   onOpenTypes: () => void
   onAddCard: () => void
   onNewBoard: () => void
@@ -24,7 +26,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, search, showDemoGuide, editMode, onSelectBoard, onSearch, onToggleDemoGuide, onToggleEditMode, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, search, showDemoGuide, editMode, onSelectBoard, onSearch, onToggleDemoGuide, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -90,16 +92,32 @@ export function TopBar(props: Props) {
           <Shapes size={13} /> Types
         </button>
 
-        <button
-          onClick={onToggleEditMode}
-          className={cn(
-            'flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium transition',
-            editMode ? 'border-amber-400/50 bg-amber-400/20 text-amber-200' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
-          )}
-          title="Edit board design (split/add/rename lanes)"
-        >
-          <Pencil size={13} /> Edit board
-        </button>
+        {editMode ? (
+          <>
+            <button
+              onClick={onSaveEdit}
+              className="flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-emerald-400"
+              title="Save layout changes"
+            >
+              <Check size={13} /> Save
+            </button>
+            <button
+              onClick={onCancelEdit}
+              className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+              title="Discard layout changes"
+            >
+              <X size={13} /> Cancel
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={onEditBoard}
+            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+            title="Edit board design (split/add/rename lanes)"
+          >
+            <Pencil size={13} /> Edit board
+          </button>
+        )}
 
         <button
           onClick={onToggleDemoGuide}

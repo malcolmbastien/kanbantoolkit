@@ -68,7 +68,8 @@ The **Guide** panel walks these:
 3. **Edit board** — create a **new board**, then build any layout: split a cell into
    **columns** or **rows** (locally — Team Alpha's `In Progress` is split, Team Bravo's is
    not), **add** lanes, **flip** a container's orientation, mark **start/done** columns, set
-   **WIP** limits, rename and remove. Turn edit mode off to get the clean board back.
+   **WIP** limits, rename and remove. Experiment freely: **Save** keeps the design,
+   **Cancel** reverts to the state you started editing from.
 4. **One card, two boards** — "New signup flow" sits on Core Experience *and* Portfolio.
 5. **Dependency self-cleans** — set "API decision" to Done; the blocked story flips to
    Satisfied with nobody touching it.

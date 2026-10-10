@@ -15,7 +15,7 @@ const CHECKS: { n: number; text: string; jump?: { boardId: string; itemId?: stri
   },
   {
     n: 3,
-    text: 'Edit board — new board, then split any cell into columns or rows, add lanes, set start/done/WIP. Build any layout.',
+    text: 'Edit board — split cells into columns/rows, add lanes, set start/done/WIP. Save keeps it, Cancel reverts.',
     jump: { boardId: 'b-core' },
   },
   {

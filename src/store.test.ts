@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionParent, statusOf } from './domain/derive'
-import { childrenOf, isLeaf, leafLanes } from './domain/lanes'
+import { childrenOf, isLeaf, leafLanes, rootLane } from './domain/lanes'
 import { useStore } from './store'
 
 vi.stubGlobal('localStorage', {
@@ -105,5 +105,32 @@ describe('store actions (recursive lanes)', () => {
 
     const leaves = leafLanes(s().lanes, boardId)
     expect(leaves.length).toBeGreaterThanOrEqual(7)
+  })
+
+  it('Save commits layout edits; Cancel reverts them', () => {
+    const root = rootLane(s().lanes, s().boardId)!
+    const beforeLanes = s().lanes.length
+    const beforeBoards = s().boards.length
+
+    // Cancel: a new board and an added lane are discarded.
+    s().beginEdit()
+    s().addBoard('Throwaway')
+    s().addLane(rootLane(s().lanes, s().boardId)!.id)
+    expect(s().boards.length).toBe(beforeBoards + 1)
+    expect(s().lanes.length).toBeGreaterThan(beforeLanes)
+    const originalBoard = 'b-core'
+    s().cancelEdit()
+    expect(s().boards.length).toBe(beforeBoards)
+    expect(s().lanes.length).toBe(beforeLanes)
+    expect(s().boardId).toBe(originalBoard)
+
+    // Save: the added lane is kept.
+    s().beginEdit()
+    s().addLane(root.id)
+    const afterAdd = s().lanes.length
+    s().saveEdit()
+    expect(s().lanes.length).toBe(afterAdd)
+    expect(s().editMode).toBe(false)
+    expect(s().draft).toBeNull()
   })
 })

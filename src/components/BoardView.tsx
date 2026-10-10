@@ -1,5 +1,5 @@
 import { DndContext, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { Layers, Plus } from 'lucide-react'
+import { Check, Layers, Plus, X } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
 import {
@@ -243,6 +243,8 @@ export function BoardView({ requestMove, onAddCard }: Props) {
   const setLaneWip = useStore((s) => s.setLaneWip)
   const removeLane = useStore((s) => s.removeLane)
   const renameLane = useStore((s) => s.renameLane)
+  const saveEdit = useStore((s) => s.saveEdit)
+  const cancelEdit = useStore((s) => s.cancelEdit)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const graph: Graph = { items, edges, placements, lanes }
@@ -282,7 +284,25 @@ export function BoardView({ requestMove, onAddCard }: Props) {
         <span className="font-semibold text-white">{board?.name}</span>
         <span className="text-slate-500">·</span>
         <span className="text-slate-400">leanlane board</span>
-        {editMode && <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">edit mode</span>}
+        {editMode && (
+          <>
+            <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">
+              edit mode · unsaved changes
+            </span>
+            <button
+              onClick={saveEdit}
+              className="flex items-center gap-1 rounded bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-400"
+            >
+              <Check size={11} /> Save
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-300 hover:text-white"
+            >
+              <X size={11} /> Cancel
+            </button>
+          </>
+        )}
         {external.length > 0 && (
           <span className="ml-auto flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">
             <Layers size={11} /> {external.length} external blocker{external.length > 1 ? 's' : ''}
