@@ -85,6 +85,27 @@ const initialView: ViewState = {
   draft: null,
 }
 
+/**
+ * Backfills fields added after earlier persisted versions. Currently: `Board.level`
+ * (boards saved before the flight-level badge existed). Exported for testing.
+ */
+export function migrateState(persisted: unknown): Partial<Store> {
+  const p = (persisted ?? {}) as Record<string, unknown>
+  const levelById: Record<string, BoardLevel> = {
+    'b-portfolio': 'portfolio',
+    'b-core': 'project',
+    'b-platform': 'project',
+    'b-design': 'team',
+  }
+  if (Array.isArray(p.boards)) {
+    p.boards = (p.boards as { id: string; level?: BoardLevel }[]).map((b) => ({
+      ...b,
+      level: b.level ?? levelById[b.id] ?? 'team',
+    }))
+  }
+  return p as Partial<Store>
+}
+
 /** First WIP limit in the target lane's chain that a new card would exceed. */
 function firstOver(state: FlowState, laneId: string): { lane: Lane; count: number } | null {
   const self = state.lanes.find((l) => l.id === laneId)
@@ -279,7 +300,9 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 1,
+      version: 2,
+      // Repair state persisted before Board.level existed.
+      migrate: (persisted) => migrateState(persisted) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
       partialize: (s) => {
         const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }

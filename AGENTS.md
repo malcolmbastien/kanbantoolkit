@@ -51,6 +51,18 @@ task-master list            # terminal 2
 - Limits are per-lane `wipLimit`s; soft-block with a required, recorded reason.
 - Before finishing any task, run the no-Google/Firebase scan above and `npm test`.
 
+## Persisted state (localStorage)
+
+The app persists to `flowline-state-v3` via `zustand/persist`. When you add a
+**required field** to a persisted entity (Board/Lane/Item/Placement):
+
+1. bump `version` in the persist config, and
+2. add a `migrate(persisted)` that backfills the field for old data.
+
+Also make display components defensive for fields that may be missing on rehydrate
+(e.g. `LevelBadge` falls back to `LEVEL_STYLES.team`). A hard-refresh with stale
+`localStorage` should never throw.
+
 ## Commands
 
 ```bash

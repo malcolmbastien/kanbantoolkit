@@ -12,7 +12,8 @@ export const LEVEL_STYLES: Record<BoardLevel, { label: string; chip: string; ico
 
 /** Kanban flight-level badge. Pass onChange to make it an inline selector. */
 export function LevelBadge({ level, onChange }: { level: BoardLevel; onChange?: (l: BoardLevel) => void }) {
-  const style = LEVEL_STYLES[level]
+  // Defensive: persisted boards from before this field existed default to Team.
+  const style = LEVEL_STYLES[level] ?? LEVEL_STYLES.team
   const Icon = style.icon
 
   if (!onChange) {

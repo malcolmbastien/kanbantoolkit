@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionParent, statusOf } from './domain/derive'
 import { childrenOf, isLeaf, leafLanes, rootLane } from './domain/lanes'
-import { useStore } from './store'
+import { migrateState, useStore } from './store'
 
 vi.stubGlobal('localStorage', {
   getItem: () => null,
@@ -127,6 +127,22 @@ describe('store actions (recursive lanes)', () => {
     s().addBoard('Fresh')
     expect(s().boards.length).toBe(before + 1)
     expect(s().boards[s().boards.length - 1].level).toBe('team')
+  })
+
+  it('migrateState backfills Board.level on state persisted before it existed', () => {
+    const old = {
+      boards: [
+        { id: 'b-portfolio', name: 'Portfolio' },
+        { id: 'b-core', name: 'Core' },
+        { id: 'unknown', name: 'Custom' },
+      ],
+      lanes: [],
+      placements: [],
+    }
+    const migrated = migrateState(old) as { boards: { id: string; level?: string }[] }
+    expect(migrated.boards.find((b) => b.id === 'b-portfolio')?.level).toBe('portfolio')
+    expect(migrated.boards.find((b) => b.id === 'b-core')?.level).toBe('project')
+    expect(migrated.boards.find((b) => b.id === 'unknown')?.level).toBe('team')
   })
 
   it('Save commits layout edits; Cancel reverts them', () => {
