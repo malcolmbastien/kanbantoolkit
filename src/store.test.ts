@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionParent, statusOf } from './domain/derive'
 import { childrenOf, effectiveStage, isLeaf, leafLanes, rootLane } from './domain/lanes'
-import { migrateState, useStore } from './store'
+import { migratePersisted, migrateState, useStore } from './store'
 
 vi.stubGlobal('localStorage', {
   getItem: () => null,
@@ -140,6 +140,17 @@ describe('store actions (recursive lanes)', () => {
     expect(migrated.boards.find((b) => b.id === 'b-portfolio')?.level).toBe('portfolio')
     expect(migrated.boards.find((b) => b.id === 'b-core')?.level).toBe('project')
     expect(migrated.boards.find((b) => b.id === 'unknown')?.level).toBe('team')
+  })
+
+  it('migratePersisted reseeds boards for a schema change (v<3)', () => {
+    const stale = { boards: [{ id: 'b-core', name: 'Core', level: 'project' }], lanes: [], placements: [] }
+    const reseeded = migratePersisted(stale, 2) as { boards: { id: string }[]; lanes: unknown[] }
+    expect(reseeded.boards.length).toBeGreaterThanOrEqual(5)
+    expect(reseeded.boards.some((b) => b.id === 'b-team-alpha')).toBe(true)
+    expect(reseeded.lanes.length).toBeGreaterThan(0)
+    // v3+ keeps the persisted boards (just backfills level)
+    const kept = migratePersisted(stale, 3) as { boards: { id: string }[] }
+    expect(kept.boards.length).toBe(1)
   })
 
   it('management view: setView, toggle boards, and mark a board rollup', () => {

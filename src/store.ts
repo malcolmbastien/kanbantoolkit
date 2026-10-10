@@ -115,6 +115,15 @@ export function migrateState(persisted: unknown): Partial<Store> {
   return p as Partial<Store>
 }
 
+/**
+ * Persisted-state migration. v3 reshaped the board model (three typed columns), so
+ * any older state is reseeded with the current demo design.
+ */
+export function migratePersisted(persisted: unknown, version: number): Partial<Store> {
+  if (version < 3) return createSeed() as unknown as Partial<Store>
+  return migrateState(persisted)
+}
+
 /** First WIP limit in the target lane's chain that a new card would exceed. */
 function firstOver(state: FlowState, laneId: string): { lane: Lane; count: number } | null {
   const self = state.lanes.find((l) => l.id === laneId)
@@ -333,9 +342,9 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 2,
-      // Repair state persisted before Board.level existed.
-      migrate: (persisted) => migrateState(persisted) as Store,
+      version: 3,
+      // v3 reshaped the board model; older state is reseeded (see migratePersisted).
+      migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
       partialize: (s) => {
         const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
