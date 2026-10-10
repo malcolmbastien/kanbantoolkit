@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionParent, statusOf } from './domain/derive'
-import { childrenOf, isLeaf, leafLanes, rootLane } from './domain/lanes'
+import { childrenOf, effectiveStage, isLeaf, leafLanes, rootLane } from './domain/lanes'
 import { migrateState, useStore } from './store'
 
 vi.stubGlobal('localStorage', {
@@ -71,20 +71,21 @@ describe('store actions (recursive lanes)', () => {
     expect(s().issueTypes.find((t) => t.id === added.id)?.name).toBe('Threat')
   })
 
-  it('can build the sketch design: Doing is a row-split holding a column row + a Projects row', () => {
+  it('can build the sketch design from the fixed three typed columns', () => {
     s().addBoard('Sketch')
     const boardId = s().boardId
-    const root = s().lanes.find((l) => l.boardId === boardId && l.parentId === null)!
+    const root = rootLane(s().lanes, boardId)!
     const cols = () => childrenOf(s().lanes, root.id)
 
+    // A new board starts as the canonical three typed columns.
+    expect(cols().map((c) => c.name)).toEqual(['Not Started', 'In Progress', 'Done'])
+    expect(cols().map((c) => c.stage)).toEqual(['notStarted', 'inProgress', 'done'])
+
     s().renameLane(cols()[0].id, 'To Do')
-    s().addLane(root.id)
-    s().addLane(root.id)
     s().renameLane(cols()[1].id, 'Doing')
     s().renameLane(cols()[2].id, 'Done')
-    expect(cols().map((c) => c.name)).toEqual(['To Do', 'Doing', 'Done'])
 
-    // Split "Doing" into two rows: (Build/Test/Deploy) and (Projects -> Research/Validate).
+    // Refine "Doing" into rows: (Build/Test/Deploy) and (Projects -> Research/Validate).
     s().splitLane(cols()[1].id, 'rows', 2)
     const rows = childrenOf(s().lanes, cols()[1].id)
     s().splitLane(rows[0].id, 'columns', 3)
@@ -96,25 +97,22 @@ describe('store actions (recursive lanes)', () => {
     expect(s().lanes.find((l) => l.id === cols()[1].id)?.orientation).toBe('rows')
     expect(built.length).toBe(3)
     expect(proj.length).toBe(2)
-    expect(isLeaf(s().lanes, rows[0].id)).toBe(false)
-    // Cell semantics can be configured: mark Done as a done column.
-    const doneCol = cols()[2]
-    s().splitLane(doneCol.id, 'columns', 2)
-    s().setLaneFlags(doneCol.id, { isDone: true })
-    expect(s().lanes.find((l) => l.id === doneCol.id)?.isDone).toBe(true)
-
-    const leaves = leafLanes(s().lanes, boardId)
-    expect(leaves.length).toBeGreaterThanOrEqual(7)
+    // The refined columns still carry the In Progress stage by inheritance.
+    expect(effectiveStage(s().lanes, built[0].id)).toBe('inProgress')
+    expect(leafLanes(s().lanes, boardId).length).toBeGreaterThanOrEqual(7)
   })
 
-  it('a rows container can gain another child after its existing rows', () => {
-    const root = rootLane(s().lanes, 'b-core')! // root is split into rows (Team Alpha, Team Bravo)
-    const before = childrenOf(s().lanes, root.id).length
-    s().addLane(root.id)
-    const kids = childrenOf(s().lanes, root.id)
-    expect(kids.length).toBe(before + 1)
-    expect(kids[kids.length - 1].name).toBe(`Row ${before + 1}`)
-    expect(s().lanes.find((l) => l.id === root.id)?.orientation).toBe('rows')
+  it('a nested rows container can gain a child; the top level is fixed at three', () => {
+    const doing = s().lanes.find((l) => l.boardId === 'b-design' && l.name === 'Doing')!
+    const before = childrenOf(s().lanes, doing.id).length
+    s().addLane(doing.id)
+    expect(childrenOf(s().lanes, doing.id).length).toBe(before + 1)
+
+    const root = rootLane(s().lanes, 'b-design')!
+    const topBefore = childrenOf(s().lanes, root.id).length
+    s().addLane(root.id) // top-level columns are fixed
+    expect(childrenOf(s().lanes, root.id).length).toBe(topBefore)
+    expect(topBefore).toBe(3)
   })
 
   it('boards carry a Kanban flight level that can be changed', () => {
@@ -161,28 +159,25 @@ describe('store actions (recursive lanes)', () => {
   })
 
   it('Save commits layout edits; Cancel reverts them', () => {
-    const root = rootLane(s().lanes, s().boardId)!
-    const beforeLanes = s().lanes.length
     const beforeBoards = s().boards.length
+    const doing = s().lanes.find((l) => l.boardId === 'b-design' && l.name === 'Doing')!
+    const beforeDoingKids = childrenOf(s().lanes, doing.id).length
 
-    // Cancel: a new board and an added lane are discarded.
+    // Cancel discards a new board.
     s().beginEdit()
     s().addBoard('Throwaway')
-    s().addLane(rootLane(s().lanes, s().boardId)!.id)
     expect(s().boards.length).toBe(beforeBoards + 1)
-    expect(s().lanes.length).toBeGreaterThan(beforeLanes)
-    const originalBoard = 'b-core'
     s().cancelEdit()
     expect(s().boards.length).toBe(beforeBoards)
-    expect(s().lanes.length).toBe(beforeLanes)
-    expect(s().boardId).toBe(originalBoard)
+    expect(s().boardId).toBe('b-core')
 
-    // Save: the added lane is kept.
+    // Save keeps a nested-lane change.
     s().beginEdit()
-    s().addLane(root.id)
-    const afterAdd = s().lanes.length
+    s().addLane(doing.id)
+    const afterKids = childrenOf(s().lanes, doing.id).length
+    expect(afterKids).toBe(beforeDoingKids + 1)
     s().saveEdit()
-    expect(s().lanes.length).toBe(afterAdd)
+    expect(childrenOf(s().lanes, doing.id).length).toBe(afterKids)
     expect(s().editMode).toBe(false)
     expect(s().draft).toBeNull()
   })

@@ -1,3 +1,4 @@
+import { effectiveStage } from './lanes'
 import type { Edge, Item, KeyResult, Lane, Objective, Placement } from './types'
 
 export interface Graph {
@@ -61,11 +62,13 @@ export function statusOf(itemId: string, graph: Graph): Status {
   const placement = graph.placements.find((p) => p.itemId === itemId)
   if (!placement) return { resolved: false, cancelled: false, started: false }
   const lane = graph.lanes.find((l) => l.id === placement.laneId)
-  return {
-    resolved: Boolean(lane?.isDone),
-    cancelled: Boolean(lane?.isCancelled),
-    started: !(lane?.isStart ?? false),
-  }
+  if (lane?.isCancelled) return { resolved: false, cancelled: true, started: false }
+  const stage = effectiveStage(graph.lanes, placement.laneId)
+  if (stage === 'done') return { resolved: true, cancelled: false, started: true }
+  if (stage === 'inProgress') return { resolved: false, cancelled: false, started: true }
+  if (stage === 'notStarted') return { resolved: false, cancelled: false, started: false }
+  // No stage anywhere in the chain: fall back to legacy flags.
+  return { resolved: false, cancelled: false, started: !(lane?.isStart ?? false) }
 }
 
 /* ------------------------------------------------------------------ *

@@ -16,6 +16,7 @@ const boards: Board[] = [
   { id: 'b-core', name: 'Core Experience', level: 'project' },
   { id: 'b-platform', name: 'Platform Services', level: 'project' },
   { id: 'b-design', name: 'Design board (sketch)', level: 'team' },
+  { id: 'b-team-alpha', name: 'Team Alpha', level: 'team' },
   { id: 'b-initiatives', name: 'Initiative Portfolio', level: 'portfolio', derived: true },
 ]
 
@@ -30,7 +31,7 @@ function lane(
   name: string,
   parentId: string | null,
   order: number,
-  opts: Partial<Pick<Lane, 'orientation' | 'wipLimit' | 'isStart' | 'isDone' | 'isCancelled'>> = {},
+  opts: Partial<Pick<Lane, 'orientation' | 'wipLimit' | 'isStart' | 'isDone' | 'isCancelled' | 'stage'>> = {},
 ): Lane {
   const l: Lane = { id: `lane-${++seq}`, boardId, name, parentId, order, ...opts }
   lanes.push(l)
@@ -80,8 +81,8 @@ const plDone = lane('b-platform', 'Done', plRoot.id, 2, { isDone: true })
 // Design board — mirrors the hand-drawn sketch: To Do | Doing | Done, where Doing is
 // row-split into a (Build/Test/Deploy) row and a Projects row (Research/Validate).
 const dRoot = root('b-design', 'columns')
-lane('b-design', 'To Do', dRoot.id, 0, { isStart: true })
-const dDoing = lane('b-design', 'Doing', dRoot.id, 1, { orientation: 'rows' })
+lane('b-design', 'To Do', dRoot.id, 0, { stage: 'notStarted' })
+const dDoing = lane('b-design', 'Doing', dRoot.id, 1, { orientation: 'rows', stage: 'inProgress' })
 const dBuildRow = lane('b-design', '', dDoing.id, 0, { orientation: 'columns' })
 const dBuild = lane('b-design', 'Build', dBuildRow.id, 0)
 lane('b-design', 'Test', dBuildRow.id, 1)
@@ -89,14 +90,23 @@ const dDeploy = lane('b-design', 'Deploy', dBuildRow.id, 2)
 const dProjects = lane('b-design', 'Projects', dDoing.id, 1, { orientation: 'columns', wipLimit: 4 })
 const dResearch = lane('b-design', 'Research', dProjects.id, 0)
 lane('b-design', 'Validate', dProjects.id, 1)
-const dDone = lane('b-design', 'Done', dRoot.id, 2, { isDone: true })
+const dDone = lane('b-design', 'Done', dRoot.id, 2, { stage: 'done' })
+
+// Team Alpha — the canonical team board: exactly three typed columns, with In Progress
+// split into Dev / Test (the refinement the pattern expects).
+const tRoot = root('b-team-alpha', 'columns')
+const tNotStarted = lane('b-team-alpha', 'Not Started', tRoot.id, 0, { stage: 'notStarted' })
+const tProgress = lane('b-team-alpha', 'In Progress', tRoot.id, 1, { stage: 'inProgress', orientation: 'columns' })
+const tDev = lane('b-team-alpha', 'Dev', tProgress.id, 0)
+const tTest = lane('b-team-alpha', 'Test', tProgress.id, 1)
+const tDone = lane('b-team-alpha', 'Done', tRoot.id, 2, { stage: 'done' })
 
 // Initiative Portfolio — a *derived* (rollup) board: a card's column is computed from the
 // status of the work at the lowest level of its subtree, not stored.
 const iRoot = root('b-initiatives', 'columns')
-const iRequested = lane('b-initiatives', 'Requested', iRoot.id, 0, { isStart: true })
-lane('b-initiatives', 'In Progress', iRoot.id, 1)
-lane('b-initiatives', 'Done', iRoot.id, 2, { isDone: true })
+const iRequested = lane('b-initiatives', 'Requested', iRoot.id, 0, { stage: 'notStarted' })
+lane('b-initiatives', 'In Progress', iRoot.id, 1, { stage: 'inProgress' })
+lane('b-initiatives', 'Done', iRoot.id, 2, { stage: 'done' })
 
 /* ------------------------------------------------------------------ *
  * Items
@@ -188,6 +198,12 @@ place('it-research', 'b-initiatives', iRequested.id)
 // Leaf work that drives those rollups:
 place('story-beta', 'b-core', aDone.id) // done -> initiative Done
 place('story-research', 'b-core', aBacklog.id) // not started -> initiative Requested
+
+// Team Alpha board — the same cards, flowing through the team's typed columns.
+place('st-gen-6', 'b-team-alpha', tNotStarted.id)
+place('st-gen-5', 'b-team-alpha', tDev.id)
+place('st-gen-10', 'b-team-alpha', tTest.id)
+place('st-design', 'b-team-alpha', tDone.id)
 
 // Silence unused-var checks on lanes only referenced structurally.
 void bDone

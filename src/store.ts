@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { ancestorsOf, childrenOf, isLeaf, laneCardCount, leavesUnder, subtreeIds } from '@/domain/lanes'
+import { ancestorsOf, childrenOf, isLeaf, laneCardCount, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { createSeed } from '@/domain/seed'
 import type { BoardLevel, Edge, FlowState, IssueType, Item, Lane, Placement, SplitOrientation } from '@/domain/types'
 
@@ -181,8 +181,16 @@ export const useStore = create<Store>()(
         const rootId = uid()
         const board = { id: boardId, name, level }
         const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
-        const first: Lane = { id: uid(), boardId, parentId: rootId, order: 0, name: 'Column 1' }
-        set({ boards: [...get().boards, board], lanes: [...get().lanes, root, first], boardId, editMode: true, managementBoards: [...get().managementBoards, boardId] })
+        // Every board starts as the fixed three typed columns; users split them to refine.
+        const cols: Lane[] = STAGES.map((s, i) => ({
+          id: uid(),
+          boardId,
+          parentId: rootId,
+          order: i,
+          name: STAGE_LABELS[s],
+          stage: s,
+        }))
+        set({ boards: [...get().boards, board], lanes: [...get().lanes, root, ...cols], boardId, editMode: true, managementBoards: [...get().managementBoards, boardId] })
       },
 
       removeBoard: (id) => {
@@ -246,8 +254,12 @@ export const useStore = create<Store>()(
         })
       },
 
-      setLaneOrientation: (laneId, orientation) =>
-        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)) }),
+      setLaneOrientation: (laneId, orientation) => {
+        const state = get()
+        const lane = state.lanes.find((l) => l.id === laneId)
+        if (!lane || lane.parentId === null) return // never flip the board root
+        set({ lanes: state.lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)) })
+      },
 
       setLaneFlags: (laneId, patch) =>
         set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, ...patch } : l)) }),
@@ -256,6 +268,8 @@ export const useStore = create<Store>()(
         const state = get()
         const parent = state.lanes.find((l) => l.id === parentId)
         if (!parent) return
+        // The top-level columns are fixed (three typed stages); refine by splitting.
+        if (parent.parentId === null) return
         const order = childrenOf(state.lanes, parentId).length
         const name = parent.orientation === 'rows' ? `Row ${order + 1}` : `Column ${order + 1}`
         const child: Lane = { id: uid(), boardId: parent.boardId, parentId, order, name }
@@ -267,6 +281,8 @@ export const useStore = create<Store>()(
         const state = get()
         const lane = state.lanes.find((l) => l.id === laneId)
         if (!lane || lane.parentId === null) return
+        const parent = state.lanes.find((l) => l.id === lane.parentId)
+        if (parent?.parentId === null) return // top-level columns are fixed; refine, don't delete
         const ids = new Set(subtreeIds(state.lanes, laneId))
         const siblings = childrenOf(state.lanes, lane.parentId).filter((l) => l.id !== laneId)
         const target = siblings.flatMap((s) => leavesUnder(state.lanes, s.id))[0]

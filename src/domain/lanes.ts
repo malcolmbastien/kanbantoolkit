@@ -1,4 +1,37 @@
-import type { Lane, Placement } from './types'
+import type { Lane, Placement, Stage } from './types'
+
+export const STAGES: Stage[] = ['notStarted', 'inProgress', 'done']
+export const STAGE_LABELS: Record<Stage, string> = {
+  notStarted: 'Not Started',
+  inProgress: 'In Progress',
+  done: 'Done',
+}
+
+/** The three top-level columns of a board. */
+export function topLevelLanes(lanes: Lane[], boardId: string): Lane[] {
+  const root = rootLane(lanes, boardId)
+  return root ? childrenOf(lanes, root.id) : []
+}
+
+export function isTopLevel(lanes: Lane[], laneId: string): boolean {
+  const lane = lanes.find((l) => l.id === laneId)
+  return Boolean(lane && lane.parentId && lanes.find((l) => l.id === lane.parentId)?.parentId === null)
+}
+
+/** Effective stage of a lane: its own, else the nearest ancestor's, else legacy flags. */
+export function effectiveStage(lanes: Lane[], laneId: string): Stage | undefined {
+  let cur = lanes.find((l) => l.id === laneId)
+  let hops = 0
+  while (cur && hops < 20) {
+    if (cur.stage) return cur.stage
+    cur = cur.parentId ? lanes.find((l) => l.id === cur!.parentId) : undefined
+    hops += 1
+  }
+  const leaf = lanes.find((l) => l.id === laneId)
+  if (leaf?.isStart) return 'notStarted'
+  if (leaf?.isDone) return 'done'
+  return undefined
+}
 
 export function childrenOf(lanes: Lane[], parentId: string): Lane[] {
   return lanes.filter((l) => l.parentId === parentId).sort((a, b) => a.order - b.order)
@@ -70,19 +103,19 @@ export function laneLeafCards(placements: Placement[], laneId: string): Placemen
   return placements.filter((p) => p.laneId === laneId)
 }
 
-/** Map a rollup bucket onto one of a board's leaf lanes (start / in-progress / done). */
-export function bucketLaneId(
-  lanes: Lane[],
-  boardId: string,
-  bucket: 'notStarted' | 'inProgress' | 'done',
-): string | undefined {
+/** Map a rollup bucket onto a board's typed top-level column (Not Started / In Progress / Done). */
+export function bucketLaneId(lanes: Lane[], boardId: string, bucket: Stage): string | undefined {
+  const top = topLevelLanes(lanes, boardId).find(
+    (l) => l.stage === bucket || effectiveStage(lanes, l.id) === bucket,
+  )
+  if (top) {
+    const leaves = leavesUnder(lanes, top.id)
+    return (leaves[0] ?? top).id
+  }
   const leaves = leafLanes(lanes, boardId)
   if (bucket === 'done') return (leaves.find((l) => l.isDone) ?? leaves[leaves.length - 1])?.id
   if (bucket === 'notStarted') return (leaves.find((l) => l.isStart) ?? leaves[0])?.id
-  return (
-    leaves.find((l) => !l.isStart && !l.isDone && !l.isCancelled)?.id ??
-    leaves.find((l) => !l.isDone)?.id
-  )
+  return (leaves.find((l) => !l.isStart && !l.isDone) ?? leaves[0])?.id
 }
 
 /** Ordered leaves somewhere in a subtree (not board-scoped). */

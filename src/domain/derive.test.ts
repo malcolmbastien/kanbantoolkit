@@ -12,7 +12,7 @@ import {
   statusOf,
   type Graph,
 } from './derive'
-import { bucketLaneId, isLeaf, laneCardCount, leafLanes, rootLane } from './lanes'
+import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './lanes'
 import { createSeed } from './seed'
 import type { FlowState } from './types'
 
@@ -126,5 +126,30 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     expect(bucketLaneId(s.lanes, 'b-initiatives', 'notStarted')).toBe(requested.id)
     expect(bucketLaneId(s.lanes, 'b-initiatives', 'done')).toBe(done.id)
     expect(bucketLaneId(s.lanes, 'b-initiatives', 'inProgress')).toBeDefined()
+  })
+})
+
+describe('typed stage columns (Not Started / In Progress / Done)', () => {
+  const s = createSeed()
+
+  it('a team board has exactly three typed top-level columns', () => {
+    const tops = topLevelLanes(s.lanes, 'b-team-alpha')
+    expect(tops.map((t) => t.name)).toEqual(['Not Started', 'In Progress', 'Done'])
+    expect(tops.map((t) => t.stage)).toEqual(['notStarted', 'inProgress', 'done'])
+  })
+
+  it('split sub-columns inherit their column type', () => {
+    const dev = s.lanes.find((l) => l.boardId === 'b-team-alpha' && l.name === 'Dev')!
+    const test = s.lanes.find((l) => l.boardId === 'b-team-alpha' && l.name === 'Test')!
+    expect(effectiveStage(s.lanes, dev.id)).toBe('inProgress')
+    expect(effectiveStage(s.lanes, test.id)).toBe('inProgress')
+    const done = s.lanes.find((l) => l.boardId === 'b-team-alpha' && l.name === 'Done')!
+    expect(effectiveStage(s.lanes, done.id)).toBe('done')
+  })
+
+  it('leaf status reads from the stage (a Done-column leaf resolves)', () => {
+    // st-design is placed on Done columns; effective stage there is done.
+    const g = graphOf(s)
+    expect(statusOf('st-design', g).resolved).toBe(true)
   })
 })

@@ -14,7 +14,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { buildRefs, externalBlockersOnBoard } from '@/domain/board'
-import { bucketLaneId, childrenOf, rootLane, subtreeIds } from '@/domain/lanes'
+import { bucketLaneId, childrenOf, effectiveStage, isTopLevel, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane } from '@/domain/types'
@@ -92,55 +92,81 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
     }).length
   }
 
-  const header = (isLeafCell: boolean) => (
-    <div className={cn('rounded-t-md px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
-      <div className="flex items-center gap-1.5">
-        <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
-        <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
-          {countInLane(lane.id)}
-          {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
-        </span>
-        {isLeafCell && lane.isStart && <span className="rounded bg-white/15 px-1 text-[9px] font-bold">start</span>}
-        {isLeafCell && lane.isDone && <span className="rounded bg-emerald-400/80 px-1 text-[9px] font-bold text-emerald-950">done</span>}
-        {isLeafCell && lane.isCancelled && <span className="rounded bg-rose-400/80 px-1 text-[9px] font-bold text-rose-950">cancelled</span>}
-      </div>
-
-      {editMode && (
-        <div className="mt-1 flex flex-wrap items-center gap-1">
-          {isLeafCell ? (
-            <>
-              <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split</Ctl>
-              <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split</Ctl>
-              <Ctl title="Mark as the start column (not started)" active={lane.isStart} onClick={() => ctx.setLaneFlags(lane.id, { isStart: !lane.isStart })}>start</Ctl>
-              <Ctl title="Mark as a done column (resolved)" active={lane.isDone} onClick={() => ctx.setLaneFlags(lane.id, { isDone: !lane.isDone, isStart: false, isCancelled: false })}>done</Ctl>
-              <input
-                type="number"
-                min={0}
-                value={lane.wipLimit ?? ''}
-                onChange={(e) => ctx.setLaneWip(lane.id, e.target.value === '' ? undefined : Number(e.target.value))}
-                placeholder="WIP"
-                title="WIP limit"
-                className="w-12 rounded bg-white/10 px-1 py-0.5 text-[10px] text-white placeholder:text-slate-400"
-              />
-            </>
-          ) : (
-            <>
-              <Ctl title={`Add a ${lane.orientation === 'rows' ? 'row' : 'column'}`} onClick={() => ctx.addLane(lane.id)}>
-                ＋ {lane.orientation === 'rows' ? 'row' : 'column'}
-              </Ctl>
-              <Ctl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, lane.orientation === 'rows' ? 'columns' : 'rows')}>
-                ⟷ flip
-              </Ctl>
-            </>
+  const header = (isLeafCell: boolean) => {
+    const top = isTopLevel(lanes, lane.id)
+    const stage = lane.stage ?? effectiveStage(lanes, lane.id)
+    const stageChip =
+      stage === 'done'
+        ? 'bg-emerald-400/80 text-emerald-950'
+        : stage === 'inProgress'
+          ? 'bg-indigo-400/80 text-indigo-950'
+          : stage === 'notStarted'
+            ? 'bg-slate-400/80 text-slate-900'
+            : ''
+    return (
+      <div className={cn('rounded-t-md px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+          <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
+            {countInLane(lane.id)}
+            {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
+          </span>
+          {top && stage && (
+            <span className={cn('rounded px-1 text-[9px] font-bold', stageChip)} title="Column type — drives rollup up the hierarchy">
+              {STAGE_LABELS[stage]}
+            </span>
           )}
-          <Ctl title="Rename lane" onClick={() => { const name = window.prompt('Lane name', lane.name); if (name !== null) ctx.renameLane(lane.id, name) }}>
-            rename
-          </Ctl>
-          {!isRoot && <Ctl danger title="Remove lane" onClick={() => ctx.removeLane(lane.id)}>remove</Ctl>}
+          {isLeafCell && lane.isCancelled && <span className="rounded bg-rose-400/80 px-1 text-[9px] font-bold text-rose-950">cancelled</span>}
         </div>
-      )}
-    </div>
-  )
+
+        {editMode && !isRoot && (
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {isLeafCell ? (
+              <>
+                <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split</Ctl>
+                <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split</Ctl>
+                {!top && (
+                  <>
+                    <Ctl title="Mark as the start column (not started)" active={lane.isStart} onClick={() => ctx.setLaneFlags(lane.id, { isStart: !lane.isStart })}>start</Ctl>
+                    <Ctl title="Mark as a done column (resolved)" active={lane.isDone} onClick={() => ctx.setLaneFlags(lane.id, { isDone: !lane.isDone, isStart: false, isCancelled: false })}>done</Ctl>
+                    <input
+                      type="number"
+                      min={0}
+                      value={lane.wipLimit ?? ''}
+                      onChange={(e) => ctx.setLaneWip(lane.id, e.target.value === '' ? undefined : Number(e.target.value))}
+                      placeholder="WIP"
+                      title="WIP limit"
+                      className="w-12 rounded bg-white/10 px-1 py-0.5 text-[10px] text-white placeholder:text-slate-400"
+                    />
+                  </>
+                )}
+              </>
+            ) : (
+              !top && (
+                <>
+                  <Ctl title={`Add a ${lane.orientation === 'rows' ? 'row' : 'column'}`} onClick={() => ctx.addLane(lane.id)}>
+                    ＋ {lane.orientation === 'rows' ? 'row' : 'column'}
+                  </Ctl>
+                  <Ctl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, lane.orientation === 'rows' ? 'columns' : 'rows')}>
+                    ⟷ flip
+                  </Ctl>
+                </>
+              )
+            )}
+            {!top && (
+              <>
+                <Ctl title="Rename lane" onClick={() => { const name = window.prompt('Lane name', lane.name); if (name !== null) ctx.renameLane(lane.id, name) }}>
+                  rename
+                </Ctl>
+                <Ctl danger title="Remove lane" onClick={() => ctx.removeLane(lane.id)}>remove</Ctl>
+              </>
+            )}
+            {top && <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">fixed column type — split to refine</span>}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   if (kids.length > 0) {
     const orientation = lane.orientation ?? 'columns'

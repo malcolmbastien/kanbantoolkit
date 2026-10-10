@@ -45,6 +45,11 @@ task-master list            # terminal 2
 - **Boards are a recursive lane tree.** A leaf lane is a cell; a container arranges children
   in columns or rows; any cell can be split. Board-design actions (`splitLane`, `addLane`,
   `removeLane`) mutate the tree and are surfaced only in **edit mode**.
+- **Three typed top-level columns.** Every board's root has exactly three children typed
+  `stage: 'notStarted' | 'inProgress' | 'done'` (Not Started / In Progress / Done). These are
+  fixed — `addLane`/`removeLane` on the root and `setLaneOrientation` on the root are no-ops;
+  refinement happens by **splitting**, and descendants inherit the stage via `effectiveStage`.
+  A leaf's status comes from its column's stage, which makes status roll up the hierarchy.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - Dependency state is derived from the two endpoints' cells; never store a dependency
   status field. Attribution never counts as WIP.

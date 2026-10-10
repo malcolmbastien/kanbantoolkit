@@ -27,6 +27,11 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   status of the work at the lowest level** of its subtree — mapped onto the board's start /
   in-progress / done lanes — rather than stored. Parents also show a computed **%** done.
   Nothing is typed: status, depth and rollup are all computed.
+- **Three typed columns.** Every board's top level is exactly three columns typed
+  **Not Started / In Progress / Done**. A leaf's status is the *type* of the column it
+  ultimately sits under, which is what makes status roll up the hierarchy. The top-level
+  columns are fixed — you refine them by **splitting** (e.g. In Progress → Dev / Test), and
+  sub-lanes inherit the type; the editor hides add/remove/flip/rename there.
 - **Explicit placements** — a card's board + cell is stored as a `Placement` record (one
   per board), so a single card can still live on several boards with one identity.
 

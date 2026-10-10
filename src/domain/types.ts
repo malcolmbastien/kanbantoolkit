@@ -14,6 +14,14 @@ export interface IssueType {
 export type SplitOrientation = 'columns' | 'rows'
 
 /**
+ * A stage type for a top-level column. Exactly three — Not Started / In Progress /
+ * Done — and this is what lets status roll up the hierarchy: a leaf's status is the
+ * stage of the top-level column it ultimately sits under. Users split these columns
+ * to build finer team workflows; sub-lanes inherit the stage.
+ */
+export type Stage = 'notStarted' | 'inProgress' | 'done'
+
+/**
  * A LeanKit lane. A lane with no children is a leaf **cell** that holds cards.
  * A lane with children is a **container**; `orientation` says how its children
  * are arranged ('columns' = side by side, 'rows' = stacked). Any leaf can be
@@ -28,9 +36,11 @@ export interface Lane {
   name: string
   /** Present on containers: how children are arranged. */
   orientation?: SplitOrientation
+  /** Stage type (top-level columns); inherited by descendants. */
+  stage?: Stage
   /** Optional WIP limit (counts placements anywhere in the lane's subtree). */
   wipLimit?: number
-  /** Column semantics for dependency derivation. */
+  /** Column semantics for dependency derivation (legacy; superseded by `stage`). */
   isStart?: boolean
   isDone?: boolean
   isCancelled?: boolean
