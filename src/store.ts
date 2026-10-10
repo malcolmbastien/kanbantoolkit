@@ -32,12 +32,18 @@ export interface Actions {
   updateIssueType: (id: string, patch: Partial<IssueType>) => void
   removeIssueType: (id: string) => void
 
+  addBoard: (name: string) => void
+  removeBoard: (id: string) => void
+  renameBoard: (id: string, name: string) => void
+
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
   moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => MoveResult
   setItemFields: (id: string, patch: Partial<Item>) => void
 
-  splitLane: (laneId: string, orientation: SplitOrientation) => void
+  splitLane: (laneId: string, orientation: SplitOrientation, count?: number) => void
   addLane: (parentId: string) => void
+  setLaneOrientation: (laneId: string, orientation: SplitOrientation) => void
+  setLaneFlags: (laneId: string, patch: Partial<Pick<Lane, 'isStart' | 'isDone' | 'isCancelled'>>) => void
   removeLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
@@ -100,6 +106,30 @@ export const useStore = create<Store>()(
         set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
       removeIssueType: (id) => set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
 
+      addBoard: (name) => {
+        const boardId = uid()
+        const rootId = uid()
+        const board = { id: boardId, name }
+        const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
+        const first: Lane = { id: uid(), boardId, parentId: rootId, order: 0, name: 'Column 1' }
+        set({ boards: [...get().boards, board], lanes: [...get().lanes, root, first], boardId, editMode: true })
+      },
+
+      removeBoard: (id) => {
+        const state = get()
+        if (state.boards.length <= 1) return
+        const laneIds = new Set(state.lanes.filter((l) => l.boardId === id).map((l) => l.id))
+        const boards = state.boards.filter((b) => b.id !== id)
+        set({
+          boards,
+          lanes: state.lanes.filter((l) => l.boardId !== id),
+          placements: state.placements.filter((p) => p.boardId !== id && !laneIds.has(p.laneId)),
+          boardId: state.boardId === id ? boards[0].id : state.boardId,
+        })
+      },
+
+      renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
+
       addCard: ({ boardId, typeId, laneId, title }) => {
         const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
         const placement: Placement = { id: uid(), boardId, itemId: item.id, laneId }
@@ -125,19 +155,30 @@ export const useStore = create<Store>()(
       setItemFields: (id, patch) =>
         set({ items: get().items.map((i) => (i.id === id ? { ...i, ...patch } : i)) }),
 
-      /** Split a leaf cell into a container of the given orientation, with two sub-lanes. */
-      splitLane: (laneId, orientation) => {
+      /** Split a leaf cell into a container of the given orientation, with N sub-lanes. */
+      splitLane: (laneId, orientation, count = 2) => {
         const state = get()
         const lane = state.lanes.find((l) => l.id === laneId)
         if (!lane || !isLeaf(state.lanes, laneId)) return
-        const c1: Lane = { id: uid(), boardId: lane.boardId, parentId: laneId, order: 0, name: 'Lane A' }
-        const c2: Lane = { id: uid(), boardId: lane.boardId, parentId: laneId, order: 1, name: 'Lane B' }
-        const placements = state.placements.map((p) => (p.laneId === laneId ? { ...p, laneId: c1.id } : p))
+        const children: Lane[] = Array.from({ length: count }, (_, i) => ({
+          id: uid(),
+          boardId: lane.boardId,
+          parentId: laneId,
+          order: i,
+          name: orientation === 'rows' ? `Row ${i + 1}` : `Column ${i + 1}`,
+        }))
+        const placements = state.placements.map((p) => (p.laneId === laneId ? { ...p, laneId: children[0].id } : p))
         set({
-          lanes: state.lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)).concat([c1, c2]),
+          lanes: state.lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)).concat(children),
           placements,
         })
       },
+
+      setLaneOrientation: (laneId, orientation) =>
+        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)) }),
+
+      setLaneFlags: (laneId, patch) =>
+        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, ...patch } : l)) }),
 
       addLane: (parentId) => {
         const state = get()

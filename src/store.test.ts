@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionParent, statusOf } from './domain/derive'
-import { childrenOf, isLeaf } from './domain/lanes'
+import { childrenOf, isLeaf, leafLanes } from './domain/lanes'
 import { useStore } from './store'
 
 vi.stubGlobal('localStorage', {
@@ -69,5 +69,41 @@ describe('store actions (recursive lanes)', () => {
     expect(s().issueTypes.length).toBe(before + 1)
     s().updateIssueType(added.id, { name: 'Threat' })
     expect(s().issueTypes.find((t) => t.id === added.id)?.name).toBe('Threat')
+  })
+
+  it('can build the sketch design: Doing is a row-split holding a column row + a Projects row', () => {
+    s().addBoard('Sketch')
+    const boardId = s().boardId
+    const root = s().lanes.find((l) => l.boardId === boardId && l.parentId === null)!
+    const cols = () => childrenOf(s().lanes, root.id)
+
+    s().renameLane(cols()[0].id, 'To Do')
+    s().addLane(root.id)
+    s().addLane(root.id)
+    s().renameLane(cols()[1].id, 'Doing')
+    s().renameLane(cols()[2].id, 'Done')
+    expect(cols().map((c) => c.name)).toEqual(['To Do', 'Doing', 'Done'])
+
+    // Split "Doing" into two rows: (Build/Test/Deploy) and (Projects -> Research/Validate).
+    s().splitLane(cols()[1].id, 'rows', 2)
+    const rows = childrenOf(s().lanes, cols()[1].id)
+    s().splitLane(rows[0].id, 'columns', 3)
+    const built = childrenOf(s().lanes, rows[0].id)
+    s().renameLane(rows[1].id, 'Projects')
+    s().splitLane(rows[1].id, 'columns', 2)
+    const proj = childrenOf(s().lanes, rows[1].id)
+
+    expect(s().lanes.find((l) => l.id === cols()[1].id)?.orientation).toBe('rows')
+    expect(built.length).toBe(3)
+    expect(proj.length).toBe(2)
+    expect(isLeaf(s().lanes, rows[0].id)).toBe(false)
+    // Cell semantics can be configured: mark Done as a done column.
+    const doneCol = cols()[2]
+    s().splitLane(doneCol.id, 'columns', 2)
+    s().setLaneFlags(doneCol.id, { isDone: true })
+    expect(s().lanes.find((l) => l.id === doneCol.id)?.isDone).toBe(true)
+
+    const leaves = leafLanes(s().lanes, boardId)
+    expect(leaves.length).toBeGreaterThanOrEqual(7)
   })
 })

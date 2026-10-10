@@ -64,9 +64,10 @@ The **Guide** panel walks these:
 1. **Custom types** — open **Types**; rename/add a type and recolour it. A card can be any type.
 2. **Generic hierarchy** — open a card; set its parent or add a child (choose the child's
    type). One parent, many children; depth updates.
-3. **Edit board** — toggle **Edit board**, then split any cell into **columns** or **rows**
-   (the split is local to that cell — Team Alpha's `In Progress` is split, Team Bravo's is
-   not) or **add a lane**. Turn edit mode off to get the clean board back.
+3. **Edit board** — create a **new board**, then build any layout: split a cell into
+   **columns** or **rows** (locally — Team Alpha's `In Progress` is split, Team Bravo's is
+   not), **add** lanes, **flip** a container's orientation, mark **start/done** columns, set
+   **WIP** limits, rename and remove. Turn edit mode off to get the clean board back.
 4. **One card, two boards** — "New signup flow" sits on Core Experience *and* Portfolio.
 5. **Dependency self-cleans** — set "API decision" to Done; the blocked story flips to
    Satisfied with nobody touching it.

@@ -38,6 +38,8 @@ export default function App() {
   const openItem = useStore((s) => s.openItem)
   const moveCard = useStore((s) => s.moveCard)
   const addCard = useStore((s) => s.addCard)
+  const addBoard = useStore((s) => s.addBoard)
+  const removeBoard = useStore((s) => s.removeBoard)
 
   const [pending, setPending] = useState<Pending | null>(null)
 
@@ -75,6 +77,14 @@ export default function App() {
     if (firstLeaf) onAddCard(firstLeaf.id)
   }
 
+  const onNewBoard = () => {
+    const name = window.prompt('New board name', 'New board')
+    if (name) addBoard(name)
+  }
+  const onDeleteBoard = () => {
+    if (window.confirm('Delete this board and its cards?')) removeBoard(boardId)
+  }
+
   return (
     <div className="flex h-full flex-col">
       <TopBar
@@ -89,6 +99,8 @@ export default function App() {
         onToggleEditMode={toggleEditMode}
         onOpenTypes={toggleTypeEditor}
         onAddCard={quickAdd}
+        onNewBoard={onNewBoard}
+        onDeleteBoard={onDeleteBoard}
         onReset={resetDemo}
       />
 

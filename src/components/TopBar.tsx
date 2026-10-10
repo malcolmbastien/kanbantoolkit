@@ -1,4 +1,4 @@
-import { LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Sparkles } from 'lucide-react'
+import { LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Board } from '@/domain/types'
 
@@ -14,6 +14,8 @@ interface Props {
   onToggleEditMode: () => void
   onOpenTypes: () => void
   onAddCard: () => void
+  onNewBoard: () => void
+  onDeleteBoard: () => void
   onReset: () => void
 }
 
@@ -22,7 +24,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, search, showDemoGuide, editMode, onSelectBoard, onSearch, onToggleDemoGuide, onToggleEditMode, onOpenTypes, onAddCard, onReset } = props
+  const { boards, boardId, search, showDemoGuide, editMode, onSelectBoard, onSearch, onToggleDemoGuide, onToggleEditMode, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -45,6 +47,24 @@ export function TopBar(props: Props) {
       </label>
 
       <div className="ml-auto flex items-center gap-2">
+        {editMode && (
+          <>
+            <button
+              onClick={onNewBoard}
+              className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+              title="Create a new board"
+            >
+              <Plus size={13} /> Board
+            </button>
+            <button
+              onClick={onDeleteBoard}
+              className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-400 hover:text-rose-300"
+              title="Delete this board"
+            >
+              <Trash2 size={13} />
+            </button>
+          </>
+        )}
         <button
           onClick={onAddCard}
           className="flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400"

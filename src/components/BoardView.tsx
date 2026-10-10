@@ -1,5 +1,5 @@
 import { DndContext, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { Layers, Plus, SplitSquareHorizontal, SplitSquareVertical, Trash2 } from 'lucide-react'
+import { Layers, Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
 import {
@@ -50,11 +50,41 @@ interface Ctx {
   search: string
   selectedItemId: string | null
   openItem: (id: string) => void
-  splitLane: (laneId: string, orientation: 'columns' | 'rows') => void
+  splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
+  setLaneOrientation: (laneId: string, orientation: 'columns' | 'rows') => void
+  setLaneFlags: (laneId: string, patch: { isStart?: boolean; isDone?: boolean; isCancelled?: boolean }) => void
+  setLaneWip: (laneId: string, wipLimit: number | undefined) => void
   removeLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
   onAddCard: (laneId: string) => void
+}
+
+function Ctl({
+  children, onClick, title, active, danger,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  title: string
+  active?: boolean
+  danger?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'rounded px-1.5 py-0.5 text-[10px] font-semibold transition',
+        active
+          ? 'bg-indigo-400 text-white'
+          : danger
+            ? 'bg-white/10 text-slate-200 hover:bg-rose-400/70 hover:text-white'
+            : 'bg-white/10 text-slate-200 hover:bg-white/25',
+      )}
+    >
+      {children}
+    </button>
+  )
 }
 
 function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean }) {
@@ -64,44 +94,59 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const header = (isLeafCell: boolean) => (
-    <div className={cn('flex items-center gap-1.5 rounded-t-md px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
-      <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
-      <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
-        {laneCardCount(lanes, placements, lane.id)}
-        {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
-      </span>
+    <div className={cn('rounded-t-md px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
+      <div className="flex items-center gap-1.5">
+        <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+        <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
+          {laneCardCount(lanes, placements, lane.id)}
+          {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
+        </span>
+        {isLeafCell && lane.isStart && <span className="rounded bg-white/15 px-1 text-[9px] font-bold">start</span>}
+        {isLeafCell && lane.isDone && <span className="rounded bg-emerald-400/80 px-1 text-[9px] font-bold text-emerald-950">done</span>}
+        {isLeafCell && lane.isCancelled && <span className="rounded bg-rose-400/80 px-1 text-[9px] font-bold text-rose-950">cancelled</span>}
+      </div>
+
       {editMode && (
-        <span className="ml-auto flex items-center gap-1">
+        <div className="mt-1 flex flex-wrap items-center gap-1">
           {isLeafCell ? (
             <>
-              <button onClick={() => ctx.splitLane(lane.id, 'columns')} title="Split into columns" className="text-slate-300/70 hover:text-white">
-                <SplitSquareHorizontal size={12} />
-              </button>
-              <button onClick={() => ctx.splitLane(lane.id, 'rows')} title="Split into rows" className="text-slate-300/70 hover:text-white">
-                <SplitSquareVertical size={12} />
-              </button>
+              <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split</Ctl>
+              <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split</Ctl>
+              <Ctl title="Mark as the start column (not started)" active={lane.isStart} onClick={() => ctx.setLaneFlags(lane.id, { isStart: !lane.isStart })}>start</Ctl>
+              <Ctl title="Mark as a done column (resolved)" active={lane.isDone} onClick={() => ctx.setLaneFlags(lane.id, { isDone: !lane.isDone, isStart: false, isCancelled: false })}>done</Ctl>
+              <input
+                type="number"
+                min={0}
+                value={lane.wipLimit ?? ''}
+                onChange={(e) => ctx.setLaneWip(lane.id, e.target.value === '' ? undefined : Number(e.target.value))}
+                placeholder="WIP"
+                title="WIP limit"
+                className="w-12 rounded bg-white/10 px-1 py-0.5 text-[10px] text-white placeholder:text-slate-400"
+              />
             </>
           ) : (
-            <button onClick={() => ctx.addLane(lane.id)} title="Add sub-lane" className="text-slate-300/70 hover:text-white">
-              <Plus size={12} />
-            </button>
+            <>
+              <Ctl title={`Add a ${lane.orientation === 'rows' ? 'row' : 'column'}`} onClick={() => ctx.addLane(lane.id)}>
+                ＋ {lane.orientation === 'rows' ? 'row' : 'column'}
+              </Ctl>
+              <Ctl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, lane.orientation === 'rows' ? 'columns' : 'rows')}>
+                ⟷ flip
+              </Ctl>
+            </>
           )}
-          <button
+          <Ctl
+            title="Rename lane"
             onClick={() => {
               const name = window.prompt('Lane name', lane.name)
               if (name !== null) ctx.renameLane(lane.id, name)
             }}
-            title="Rename lane"
-            className="text-slate-300/70 hover:text-white"
           >
-            ✎
-          </button>
+            rename
+          </Ctl>
           {!isRoot && (
-            <button onClick={() => ctx.removeLane(lane.id)} title="Remove lane" className="text-slate-300/70 hover:text-rose-300">
-              <Trash2 size={12} />
-            </button>
+            <Ctl danger title="Remove lane" onClick={() => ctx.removeLane(lane.id)}>remove</Ctl>
           )}
-        </span>
+        </div>
       )}
     </div>
   )
@@ -189,6 +234,9 @@ export function BoardView({ requestMove, onAddCard }: Props) {
   const openItem = useStore((s) => s.openItem)
   const splitLane = useStore((s) => s.splitLane)
   const addLane = useStore((s) => s.addLane)
+  const setLaneOrientation = useStore((s) => s.setLaneOrientation)
+  const setLaneFlags = useStore((s) => s.setLaneFlags)
+  const setLaneWip = useStore((s) => s.setLaneWip)
   const removeLane = useStore((s) => s.removeLane)
   const renameLane = useStore((s) => s.renameLane)
 
@@ -221,7 +269,7 @@ export function BoardView({ requestMove, onAddCard }: Props) {
 
   const ctx: Ctx = {
     lanes, placements, items, issueTypes, refs, graph, editMode, search, selectedItemId,
-    openItem, splitLane, addLane, removeLane, renameLane, onAddCard,
+    openItem, splitLane, addLane, setLaneOrientation, setLaneFlags, setLaneWip, removeLane, renameLane, onAddCard,
   }
 
   return (

@@ -15,7 +15,7 @@ const CHECKS: { n: number; text: string; jump?: { boardId: string; itemId?: stri
   },
   {
     n: 3,
-    text: 'Edit board — turn it on, then split any cell into columns or rows, or add a lane. Splits are local.',
+    text: 'Edit board — new board, then split any cell into columns or rows, add lanes, set start/done/WIP. Build any layout.',
     jump: { boardId: 'b-core' },
   },
   {
