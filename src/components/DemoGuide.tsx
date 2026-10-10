@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 import { useStore } from '@/store'
 import { cn } from '@/lib/utils'
 
-const CHECKS: { n: number; text: string; jump?: { boardId: string; itemId?: string } }[] = [
+const CHECKS: { n: number; text: string; jump?: { boardId: string; itemId?: string; view?: 'board' | 'management' } }[] = [
   {
     n: 1,
     text: 'Custom types — open Types; rename/add a type and recolour it. A card can be any type.',
@@ -38,12 +38,18 @@ const CHECKS: { n: number; text: string; jump?: { boardId: string; itemId?: stri
     text: 'WIP limit works — drag a card into a lane that is at its limit; a reason is required.',
     jump: { boardId: 'b-core' },
   },
+  {
+    n: 8,
+    text: 'Management view — stack boards as bands. A rollup board derives each initiative’s column from its lowest-level work.',
+    jump: { boardId: 'b-initiatives', itemId: 'it-onboarding', view: 'management' },
+  },
 ]
 
 export function DemoGuide() {
   const show = useStore((s) => s.showDemoGuide)
   const toggle = useStore((s) => s.toggleDemoGuide)
   const selectBoard = useStore((s) => s.selectBoard)
+  const setView = useStore((s) => s.setView)
   const openItem = useStore((s) => s.openItem)
 
   if (!show) return null
@@ -62,6 +68,7 @@ export function DemoGuide() {
             <button
               onClick={() => {
                 if (c.jump) {
+                  setView(c.jump.view ?? 'board')
                   selectBoard(c.jump.boardId)
                   if (c.jump.itemId) setTimeout(() => openItem(c.jump!.itemId!), 0)
                 }

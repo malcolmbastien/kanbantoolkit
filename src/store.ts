@@ -25,6 +25,10 @@ export interface ViewState {
   editMode: boolean
   /** Snapshot taken on entering edit mode; Cancel restores it, Save drops it. */
   draft: Draft | null
+  /** 'board' shows one board; 'management' stacks several boards as bands. */
+  view: 'board' | 'management'
+  /** Boards shown as bands in the management view. */
+  managementBoards: string[]
 }
 
 export interface Actions {
@@ -36,6 +40,9 @@ export interface Actions {
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
+  setView: (v: 'board' | 'management') => void
+  toggleManagementBoard: (id: string) => void
+  setBoardDerived: (id: string, derived: boolean) => void
   resetDemo: () => void
 
   addIssueType: (name: string, color: string) => void
@@ -83,6 +90,8 @@ const initialView: ViewState = {
   showTypeEditor: false,
   editMode: false,
   draft: null,
+  view: 'board',
+  managementBoards: createSeed().boards.map((b) => b.id),
 }
 
 /**
@@ -145,6 +154,13 @@ export const useStore = create<Store>()(
         })
       },
       saveEdit: () => set({ editMode: false, draft: null }),
+      setView: (view) => set({ view, editMode: false, draft: null }),
+      toggleManagementBoard: (id) => {
+        const list = get().managementBoards
+        set({ managementBoards: list.includes(id) ? list.filter((b) => b !== id) : [...list, id] })
+      },
+      setBoardDerived: (id, derived) =>
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, derived } : b)) }),
       cancelEdit: () => {
         const d = get().draft
         if (!d) {
@@ -166,7 +182,7 @@ export const useStore = create<Store>()(
         const board = { id: boardId, name, level }
         const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
         const first: Lane = { id: uid(), boardId, parentId: rootId, order: 0, name: 'Column 1' }
-        set({ boards: [...get().boards, board], lanes: [...get().lanes, root, first], boardId, editMode: true })
+        set({ boards: [...get().boards, board], lanes: [...get().lanes, root, first], boardId, editMode: true, managementBoards: [...get().managementBoards, boardId] })
       },
 
       removeBoard: (id) => {
@@ -179,6 +195,7 @@ export const useStore = create<Store>()(
           lanes: state.lanes.filter((l) => l.boardId !== id),
           placements: state.placements.filter((p) => p.boardId !== id && !laneIds.has(p.laneId)),
           boardId: state.boardId === id ? boards[0].id : state.boardId,
+          managementBoards: state.managementBoards.filter((b) => b !== id),
         })
       },
 

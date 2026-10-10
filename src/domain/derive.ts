@@ -155,6 +155,60 @@ export function openDescendants(id: string, graph: Graph): Item[] {
     .filter((i) => !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
 }
 
+/* ------------------------------------------------------------------ *
+ * Rollup — an item's status is determined by the status of the work at
+ * the lowest level of its subtree. Nothing is typed; it is computed.
+ * ------------------------------------------------------------------ */
+
+export function leafItems(id: string, graph: Graph): Item[] {
+  const out: Item[] = []
+  const walk = (nid: string) => {
+    const kids = decompositionChildren(nid, graph.edges)
+    if (kids.length === 0) {
+      const it = graph.items.find((i) => i.id === nid)
+      if (it) out.push(it)
+      return
+    }
+    kids.forEach(walk)
+  }
+  walk(id)
+  return out
+}
+
+export type RollupBucket = 'notStarted' | 'inProgress' | 'done'
+
+export interface Rollup {
+  total: number
+  done: number
+  inProgress: number
+  notStarted: number
+  cancelled: number
+  /** Done leaves as a percentage of countable leaves. */
+  percent: number
+  bucket: RollupBucket
+}
+
+export function rollupOf(id: string, graph: Graph): Rollup {
+  const leaves = leafItems(id, graph)
+  const done = leaves.filter((i) => statusOf(i.id, graph).resolved).length
+  const cancelled = leaves.filter((i) => statusOf(i.id, graph).cancelled).length
+  const started = leaves.filter((i) => statusOf(i.id, graph).started).length
+  const countable = Math.max(1, leaves.length - cancelled)
+  const percent = leaves.length === 0 ? 0 : Math.round((done / countable) * 100)
+  let bucket: RollupBucket = 'notStarted'
+  if (leaves.length > 0 && done === leaves.length) bucket = 'done'
+  else if (started > 0) bucket = 'inProgress'
+  return {
+    total: leaves.length,
+    done,
+    inProgress: Math.max(0, started - done - cancelled),
+    notStarted: Math.max(0, leaves.length - started - cancelled),
+    cancelled,
+    percent: Math.min(100, percent),
+    bucket,
+  }
+}
+
 export function attributedObjectives(itemId: string, edges: Edge[], objectives: Objective[]): Objective[] {
   const ids = edges.filter((e) => e.kind === 'attribution' && e.to === itemId).map((e) => e.from)
   return objectives.filter((o) => ids.includes(o.id))

@@ -145,6 +145,21 @@ describe('store actions (recursive lanes)', () => {
     expect(migrated.boards.find((b) => b.id === 'unknown')?.level).toBe('team')
   })
 
+  it('management view: setView, toggle boards, and mark a board rollup', () => {
+    s().setView('management')
+    expect(s().view).toBe('management')
+    s().toggleManagementBoard('b-core')
+    expect(s().managementBoards.includes('b-core')).toBe(false)
+    s().toggleManagementBoard('b-core')
+    expect(s().managementBoards.includes('b-core')).toBe(true)
+
+    s().setBoardDerived('b-core', true)
+    expect(s().boards.find((b) => b.id === 'b-core')?.derived).toBe(true)
+    s().setView('board')
+    expect(s().view).toBe('board')
+    expect(s().editMode).toBe(false)
+  })
+
   it('Save commits layout edits; Cancel reverts them', () => {
     const root = rootLane(s().lanes, s().boardId)!
     const beforeLanes = s().lanes.length

@@ -20,6 +20,13 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
 - **Flight-level badge.** Every board is labelled by Kanban flight level — **Portfolio**,
   **Project**, or **Team** — shown as a badge in the toolbar and board header and editable
   inline. It's an orientation label for a board, distinct from an item's derived `depth`.
+- **Management view.** Stack several boards as bands (each keeps its own lane tree), like
+  Kanbanize's *Linked workflows*. Toggle **Board ⇄ Management** in the toolbar; choose which
+  boards are stacked; open any band on its own.
+- **Rollup boards.** Mark a board as *rollup* and each card's column is **derived from the
+  status of the work at the lowest level** of its subtree — mapped onto the board's start /
+  in-progress / done lanes — rather than stored. Parents also show a computed **%** done.
+  Nothing is typed: status, depth and rollup are all computed.
 - **Explicit placements** — a card's board + cell is stored as a `Placement` record (one
   per board), so a single card can still live on several boards with one identity.
 
@@ -59,6 +66,8 @@ npm run lint         # oxlint
 /?board=b-core&item=it-signup         # open a card
 /?board=b-core&edit=1                 # start in board edit mode
 /?board=b-design                      # the seeded sketch layout (nested Doing/Projects)
+/?view=management                     # stack every board as bands
+/?board=b-initiatives                 # rollup board: initiative columns derived from leaf work
 ```
 
 ## What to try

@@ -70,6 +70,21 @@ export function laneLeafCards(placements: Placement[], laneId: string): Placemen
   return placements.filter((p) => p.laneId === laneId)
 }
 
+/** Map a rollup bucket onto one of a board's leaf lanes (start / in-progress / done). */
+export function bucketLaneId(
+  lanes: Lane[],
+  boardId: string,
+  bucket: 'notStarted' | 'inProgress' | 'done',
+): string | undefined {
+  const leaves = leafLanes(lanes, boardId)
+  if (bucket === 'done') return (leaves.find((l) => l.isDone) ?? leaves[leaves.length - 1])?.id
+  if (bucket === 'notStarted') return (leaves.find((l) => l.isStart) ?? leaves[0])?.id
+  return (
+    leaves.find((l) => !l.isStart && !l.isDone && !l.isCancelled)?.id ??
+    leaves.find((l) => !l.isDone)?.id
+  )
+}
+
 /** Ordered leaves somewhere in a subtree (not board-scoped). */
 export function leavesUnder(lanes: Lane[], laneId: string): Lane[] {
   const out: Lane[] = []

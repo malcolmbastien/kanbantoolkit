@@ -1,9 +1,26 @@
+import { blockingDeps, type DependencyInfo, type Graph } from './derive'
 import type { IssueType, Item, Placement } from './types'
 
 /** Items placed on a board (via explicit placement records). */
 export function itemsOnBoard(boardId: string, placements: Placement[], items: Item[]): Item[] {
   const ids = new Set(placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
   return items.filter((i) => ids.has(i.id))
+}
+
+/** Confirmed blockers of on-board work that live on another board (boundary pins). */
+export function externalBlockersOnBoard(graph: Graph, boardId: string): DependencyInfo[] {
+  const onBoard = new Set(graph.placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
+  const seen = new Set<string>()
+  const out: DependencyInfo[] = []
+  for (const p of graph.placements.filter((p) => p.boardId === boardId)) {
+    for (const dep of blockingDeps(p.itemId, graph)) {
+      if (!onBoard.has(dep.blocker.id) && !seen.has(dep.blocker.id)) {
+        seen.add(dep.blocker.id)
+        out.push(dep)
+      }
+    }
+  }
+  return out
 }
 
 /** Stable display reference per item, prefixed by its type, e.g. FEAT3, BUG1. */

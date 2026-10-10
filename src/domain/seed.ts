@@ -16,6 +16,7 @@ const boards: Board[] = [
   { id: 'b-core', name: 'Core Experience', level: 'project' },
   { id: 'b-platform', name: 'Platform Services', level: 'project' },
   { id: 'b-design', name: 'Design board (sketch)', level: 'team' },
+  { id: 'b-initiatives', name: 'Initiative Portfolio', level: 'portfolio', derived: true },
 ]
 
 /* ------------------------------------------------------------------ *
@@ -90,6 +91,13 @@ const dResearch = lane('b-design', 'Research', dProjects.id, 0)
 lane('b-design', 'Validate', dProjects.id, 1)
 const dDone = lane('b-design', 'Done', dRoot.id, 2, { isDone: true })
 
+// Initiative Portfolio — a *derived* (rollup) board: a card's column is computed from the
+// status of the work at the lowest level of its subtree, not stored.
+const iRoot = root('b-initiatives', 'columns')
+const iRequested = lane('b-initiatives', 'Requested', iRoot.id, 0, { isStart: true })
+lane('b-initiatives', 'In Progress', iRoot.id, 1)
+lane('b-initiatives', 'Done', iRoot.id, 2, { isDone: true })
+
 /* ------------------------------------------------------------------ *
  * Items
  * ------------------------------------------------------------------ */
@@ -121,6 +129,14 @@ item('st-invite-roles', 'Role picker', 't-story', { size: 2 })
 item('st-spike-cache', 'Spike: cache strategy', 't-spike', { size: 2 })
 item('st-api-contract', 'Define API contract', 't-story', { size: 5 })
 item('st-sdk', 'Client SDK generation', 't-story', { size: 8 })
+
+// More initiatives (with distinct rollup outcomes) for the management view.
+item('it-beta', 'Beta Launch', 't-initiative', { size: 20 })
+item('feat-beta', 'Closed beta', 't-feature', { size: 8 })
+item('story-beta', 'Ship beta to pilot cohort', 't-story', { size: 5 })
+item('it-research', 'Customer Research', 't-initiative', { size: 15 })
+item('feat-research', 'Discovery programme', 't-feature', { size: 5 })
+item('story-research', 'Discovery interviews', 't-story', { size: 3 })
 
 /* ------------------------------------------------------------------ *
  * Placements — one per board; a card sits in a leaf cell (lane).
@@ -165,6 +181,14 @@ place('st-gen-1', 'b-design', dDeploy.id)
 place('st-gen-2', 'b-design', dResearch.id)
 place('st-gen-3', 'b-design', dDone.id)
 
+// Initiative Portfolio — placement gives membership; the column is derived (rollup).
+place('it-onboarding', 'b-initiatives', iRequested.id)
+place('it-beta', 'b-initiatives', iRequested.id)
+place('it-research', 'b-initiatives', iRequested.id)
+// Leaf work that drives those rollups:
+place('story-beta', 'b-core', aDone.id) // done -> initiative Done
+place('story-research', 'b-core', aBacklog.id) // not started -> initiative Requested
+
 // Silence unused-var checks on lanes only referenced structurally.
 void bDone
 void plDone
@@ -185,6 +209,10 @@ decompose('it-profile', ['st-profile-schema', 'st-avatar', 'st-completeness', 's
 decompose('it-invite', ['st-invite-flow', 'st-invite-roles'])
 decompose('it-api', ['st-api-contract'])
 decompose('it-analytics', ['st-sdk'])
+decompose('it-beta', ['feat-beta'])
+decompose('feat-beta', ['story-beta'])
+decompose('it-research', ['feat-research'])
+decompose('feat-research', ['story-research'])
 
 edge('dependency', 'it-api', 'st-profile-schema', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-api-contract', reason: 'Profile writes depend on the API contract' })
 edge('dependency', 'it-api', 'st-sdk', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-api-contract', reason: 'SDK is generated from the contract' })

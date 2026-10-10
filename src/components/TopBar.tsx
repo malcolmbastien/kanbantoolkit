@@ -7,11 +7,13 @@ interface Props {
   boards: Board[]
   boardId: string
   boardLevel: BoardLevel
+  view: 'board' | 'management'
   search: string
   showDemoGuide: boolean
   editMode: boolean
   onSelectBoard: (id: string) => void
   onSetBoardLevel: (level: BoardLevel) => void
+  onSetView: (v: 'board' | 'management') => void
   onSearch: (q: string) => void
   onToggleDemoGuide: () => void
   onEditBoard: () => void
@@ -29,7 +31,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardLevel, search, showDemoGuide, editMode, onSelectBoard, onSetBoardLevel, onSearch, onToggleDemoGuide, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardLevel, view, search, showDemoGuide, editMode, onSelectBoard, onSetBoardLevel, onSetView, onSearch, onToggleDemoGuide, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -41,6 +43,22 @@ export function TopBar(props: Props) {
       </div>
 
       <div className="h-5 w-px bg-slate-700" />
+
+      {/* Board ⇄ Management view */}
+      <div className="flex items-center gap-0.5 rounded-md border border-slate-700 bg-slate-800 p-0.5">
+        {(['board', 'management'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => onSetView(v)}
+            className={cn(
+              'rounded px-2 py-1 text-[11px] font-medium transition',
+              view === v ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-100',
+            )}
+          >
+            {v === 'board' ? 'Board' : 'Management'}
+          </button>
+        ))}
+      </div>
 
       <LevelBadge level={boardLevel} onChange={onSetBoardLevel} />
 

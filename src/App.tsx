@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BoardView } from './components/BoardView'
 import { DemoGuide } from './components/DemoGuide'
 import { ItemPanel } from './components/ItemPanel'
+import { ManagementView } from './components/ManagementView'
 import { ReasonDialog } from './components/ReasonDialog'
 import { TopBar } from './components/TopBar'
 import { TypeEditor } from './components/TypeEditor'
@@ -26,6 +27,8 @@ export default function App() {
   const showDemoGuide = useStore((s) => s.showDemoGuide)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
+  const view = useStore((s) => s.view)
+  const setView = useStore((s) => s.setView)
   const items = useStore((s) => s.items)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
@@ -51,6 +54,7 @@ export default function App() {
     const b = params.get('board')
     const it = params.get('item')
     if (b) selectBoard(b)
+    if (params.get('view') === 'management') setView('management')
     if (params.get('edit')) beginEdit()
     if (it) openItem(it)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -94,11 +98,13 @@ export default function App() {
         boards={boards}
         boardId={boardId}
         boardLevel={boardLevel}
+        view={view}
         search={search}
         showDemoGuide={showDemoGuide}
         editMode={editMode}
         onSelectBoard={selectBoard}
         onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
+        onSetView={setView}
         onSearch={setSearch}
         onToggleDemoGuide={toggleDemoGuide}
         onEditBoard={beginEdit}
@@ -113,7 +119,11 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          <BoardView requestMove={requestMove} onAddCard={onAddCard} />
+          {view === 'management' ? (
+            <ManagementView />
+          ) : (
+            <BoardView requestMove={requestMove} />
+          )}
         </div>
         {selectedItemId && <ItemPanel itemId={selectedItemId} />}
       </div>

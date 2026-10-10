@@ -44,6 +44,12 @@ export interface Board {
   id: string
   name: string
   level: BoardLevel
+  /**
+   * Rollup board: an item's column is *derived* from the status of the work at the
+   * lowest level of its subtree (mapped onto the board's start/done lanes) rather
+   * than stored in its placement. Used for initiative/management boards.
+   */
+  derived?: boolean
 }
 
 /** A card, without any board/state/level field. */

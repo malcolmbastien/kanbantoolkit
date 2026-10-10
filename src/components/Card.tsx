@@ -10,6 +10,8 @@ export interface CardSummary {
   blockedCount: number
   blocksCount: number
   openDescendants: number
+  /** For parents: % of leaf descendants done (derived rollup). */
+  rollupPercent?: number
 }
 
 export interface CardParent {
@@ -83,6 +85,14 @@ export function Card({ item, type, ref_, depth, summary, parent, selected, onOpe
             >
               d{depth}
             </span>
+            {summary.rollupPercent !== undefined && (
+              <span
+                className="rounded bg-slate-700 px-1 py-px text-[9px] font-bold text-white"
+                title="Rollup — share of leaf work done"
+              >
+                {summary.rollupPercent}%
+              </span>
+            )}
             {summary.blocksCount > 0 && (
               <span
                 className="ml-auto flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm"

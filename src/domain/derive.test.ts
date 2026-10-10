@@ -8,10 +8,11 @@ import {
   depth,
   dependencyState,
   openDescendants,
+  rollupOf,
   statusOf,
   type Graph,
 } from './derive'
-import { isLeaf, laneCardCount, leafLanes, rootLane } from './lanes'
+import { bucketLaneId, isLeaf, laneCardCount, leafLanes, rootLane } from './lanes'
 import { createSeed } from './seed'
 import type { FlowState } from './types'
 
@@ -99,5 +100,31 @@ describe('composition pressure and attribution', () => {
   it('a story attributed to two objectives is one unit of work', () => {
     const objs = attributedObjectives('st-form', s.edges, s.objectives)
     expect(objs.map((o) => o.id).sort()).toEqual(['obj-activation', 'obj-ttv'])
+  })
+})
+
+describe('rollup — a parent status is determined by the lowest-level work', () => {
+  const s = createSeed()
+  const g = graphOf(s)
+
+  it('all leaves done → done; none started → notStarted; some started → inProgress', () => {
+    expect(rollupOf('it-beta', g).bucket).toBe('done')
+    expect(rollupOf('it-beta', g).percent).toBe(100)
+    expect(rollupOf('it-research', g).bucket).toBe('notStarted')
+    expect(rollupOf('it-onboarding', g).bucket).toBe('inProgress')
+  })
+
+  it('rollup counts walk down to the deepest leaves', () => {
+    // Beta Launch -> Closed beta -> Ship beta (one leaf, done)
+    expect(rollupOf('it-beta', g).total).toBe(1)
+    expect(rollupOf('it-beta', g).done).toBe(1)
+  })
+
+  it('a derived board maps a rollup bucket onto its start / done lanes', () => {
+    const requested = s.lanes.find((l) => l.boardId === 'b-initiatives' && l.name === 'Requested')!
+    const done = s.lanes.find((l) => l.boardId === 'b-initiatives' && l.name === 'Done')!
+    expect(bucketLaneId(s.lanes, 'b-initiatives', 'notStarted')).toBe(requested.id)
+    expect(bucketLaneId(s.lanes, 'b-initiatives', 'done')).toBe(done.id)
+    expect(bucketLaneId(s.lanes, 'b-initiatives', 'inProgress')).toBeDefined()
   })
 })
