@@ -3,80 +3,92 @@ import { Ban, ChevronRight, GitBranch, Plus, Sparkles, X } from 'lucide-react'
 import {
   attributedObjectives,
   blockingSummary,
-  computeLevel,
   decompositionChildren,
+  decompositionParent,
+  depth as depthOf,
   descendants,
   dependencyState,
   incomingDependencies,
   openDescendants,
   outgoingDependencies,
-  portfolioStatus,
-  resolved,
+  statusOf,
   type Graph,
 } from '@/domain/derive'
-import { homeScopeId } from '@/domain/board'
-import { LIFECYCLES, nominalResolution } from '@/domain/lifecycles'
-import { DEP_STATE_STYLES, TYPE_STYLES, streamColor } from '@/lib/colors'
+import { buildRefs } from '@/domain/board'
+import { DEP_STATE_STYLES, readableOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { Item, SponsorDecision } from '@/domain/types'
+import type { Item } from '@/domain/types'
 
 interface Props {
   itemId: string
-  requestMove: (itemId: string, toScopeId: string, toState: string) => void
 }
 
-export function ItemPanel({ itemId, requestMove }: Props) {
+export function ItemPanel({ itemId }: Props) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
-  const scopes = useStore((s) => s.scopes)
+  const placements = useStore((s) => s.placements)
+  const lanes = useStore((s) => s.lanes)
+  const boards = useStore((s) => s.boards)
+  const issueTypes = useStore((s) => s.issueTypes)
   const objectives = useStore((s) => s.objectives)
-  const sponsors = useStore((s) => s.sponsors)
   const close = useStore((s) => s.openItem)
-  const addStory = useStore((s) => s.addStory)
+  const setItemFields = useStore((s) => s.setItemFields)
+  const setParent = useStore((s) => s.setParent)
+  const addChild = useStore((s) => s.addChild)
   const raiseDependency = useStore((s) => s.raiseDependency)
   const confirmDependency = useStore((s) => s.confirmDependency)
   const rejectDependency = useStore((s) => s.rejectDependency)
   const setAttribution = useStore((s) => s.setAttribution)
-  const confirmSponsor = useStore((s) => s.confirmSponsor)
 
   const [blockerId, setBlockerId] = useState('')
-  const [overrideReason, setOverrideReason] = useState('')
-  const [showOverride, setShowOverride] = useState(false)
+  const [childType, setChildType] = useState('')
+  const [parentChoice, setParentChoice] = useState('')
 
-  const graph = { items, edges }
+  const graph: Graph = { items, edges, placements, lanes }
   const item = items.find((i) => i.id === itemId)
-
   if (!item) return null
 
-  const level = computeLevel(item, graph)
-  const lifecycle = LIFECYCLES[nominalResolution(item.type)]
-  const vs = scopes.find((s) => s.id === item.valueStreamId)
-  const team = scopes.find((s) => s.id === item.teamId)
+  const type = issueTypes.find((t) => t.id === item.typeId) ?? { id: item.typeId, name: 'Item', color: '#64748b' }
+  const refs = buildRefs(items, issueTypes)
+  const d = depthOf(item.id, graph)
+  const parentId = decompositionParent(item.id, edges)
+  const parent = parentId ? items.find((i) => i.id === parentId) : undefined
   const children = decompositionChildren(item.id, edges)
     .map((id) => items.find((i) => i.id === id))
     .filter((i): i is Item => Boolean(i))
   const incoming = incomingDependencies(item.id, graph)
   const outgoing = outgoingDependencies(item.id, graph)
   const exposure = openDescendants(item.id, graph)
-  const badge = blockingSummary(item.id, graph, scopes)
+  const badge = blockingSummary(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
-  const candidates = items.filter(
-    (i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id),
-  )
+  const status = statusOf(item.id, graph)
+  const itemPlacements = placements.filter((p) => p.itemId === item.id)
+
+  const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
+  const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
 
   return (
-    <aside className="flex h-full w-[380px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
+    <aside className="flex h-full w-[400px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
       <div className="flex items-start gap-2 border-b border-slate-200 bg-white px-4 py-3">
-        <span className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: streamColor(item.valueStreamId, scopes) }} />
+        <span className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: type.color }} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className={cn('rounded px-1 py-px text-[9px] font-semibold uppercase tracking-wide ring-1', TYPE_STYLES[item.type].pill)}>
-              {TYPE_STYLES[item.type].label}
+            <span
+              className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide"
+              style={{ backgroundColor: type.color, color: readableOn(type.color) }}
+            >
+              {type.name}
             </span>
-            <span className="text-[10px] text-slate-400">{vs?.name}{team ? ` · ${team.name}` : ''}</span>
+            <span className="text-[10px] text-slate-400">
+              {refs.get(item.id)} · depth {d}
+            </span>
           </div>
-          <h2 className="mt-0.5 text-[14px] font-semibold leading-snug text-slate-800">{item.title}</h2>
+          <input
+            value={item.title}
+            onChange={(e) => setItemFields(item.id, { title: e.target.value })}
+            className="mt-0.5 w-full rounded border border-transparent bg-transparent text-[14px] font-semibold leading-snug text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
+          />
         </div>
         <button onClick={() => close(null)} className="text-slate-400 hover:text-slate-600">
           <X size={16} />
@@ -84,85 +96,120 @@ export function ItemPanel({ itemId, requestMove }: Props) {
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 text-[12px]">
-        {/* Computed level */}
+        {/* Type + status */}
         <section className="rounded-md border border-indigo-100 bg-indigo-50/60 p-2.5">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700">
-            <Sparkles size={12} /> Level — computed, not a field
+            <Sparkles size={12} /> Type is a label · status comes from the board cell
           </div>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="rounded bg-indigo-600 px-1.5 py-px text-[11px] font-bold text-white">
-              {level.level}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <select
+              value={item.typeId}
+              onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
+              className="rounded border border-indigo-200 bg-white px-1.5 py-1 text-[11px] font-medium"
+            >
+              {issueTypes.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <span className="text-[11px] text-slate-600">
+              {status.resolved ? 'resolved' : status.cancelled ? 'cancelled' : status.started ? 'in progress' : 'not started'}
             </span>
-            <span className="text-slate-600">{LIFECYCLES[level.level].label} resolution</span>
           </div>
-          <p className="mt-1 text-[11px] text-indigo-700/80">
-            {level.derived ? 'Derived: ' : 'Nominal: '}
-            {level.derivation}
-          </p>
+          <div className="mt-1 text-[11px] text-indigo-700/80">
+            depth {d} — derived from the parent/child chain, not a field.
+          </div>
         </section>
 
-        {/* State */}
+        {/* Placements — board + cell */}
         <section>
-          <SectionLabel>State — {nominalResolution(item.type)} lifecycle</SectionLabel>
-          <div className="flex flex-wrap gap-1">
-            {lifecycle.states.map((s) => (
-              <button
-                key={s}
-                onClick={() => requestMove(item.id, homeScopeId(item, nominalResolution(item.type)), s)}
-                className={cn(
-                  'rounded-md border px-2 py-1 text-[11px] font-medium transition',
-                  item.state === s
-                    ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                    : 'border-slate-200 text-slate-500 hover:border-slate-300',
-                )}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-          {item.lastMoveReason && (
-            <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[10px] text-amber-700 ring-1 ring-amber-100">
-              Last move reason: {item.lastMoveReason}
-            </p>
-          )}
-        </section>
-
-        {/* Children + composition pressure */}
-        <section>
-          <SectionLabel>
-            Decomposes into ({children.length})
-            {exposure.length > 0 && (
-              <span className="ml-1 rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">
-                {exposure.length} open below
-              </span>
-            )}
-          </SectionLabel>
+          <SectionLabel>On these boards ({itemPlacements.length})</SectionLabel>
           <div className="space-y-1">
-            {children.length === 0 && (
-              <p className="text-[11px] text-slate-400">No children — level falls back to nominal.</p>
-            )}
-            {children.map((c) => {
-              const cl = computeLevel(c, graph)
+            {itemPlacements.length === 0 && <p className="text-[11px] text-slate-400">Not placed on any board.</p>}
+            {itemPlacements.map((p) => {
+              const col = lanes.find((l) => l.id === p.columnLaneId)
+              const row = p.rowLaneId ? lanes.find((l) => l.id === p.rowLaneId) : undefined
               return (
-                <button
-                  key={c.id}
-                  onClick={() => close(c.id)}
-                  className="flex w-full items-center gap-2 rounded border border-slate-200 px-2 py-1 text-left hover:bg-slate-50"
-                >
-                  <span className="rounded bg-slate-100 px-1 text-[9px] font-bold text-slate-500">{cl.level}</span>
-                  <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                  <span className="text-[10px] text-slate-400">{c.state}</span>
-                </button>
+                <div key={p.id} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+                  <span className="min-w-0 flex-1 truncate text-slate-700">{boards.find((b) => b.id === p.boardId)?.name}</span>
+                  <span className="text-[10px] text-slate-400">{row ? `${row.name} / ` : ''}{col?.name}</span>
+                </div>
               )
             })}
-            {(item.type === 'epic' || item.type === 'story') && (
-              <button
-                onClick={() => addStory(item.id, 'New story')}
-                className="flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-700"
+          </div>
+        </section>
+
+        {/* Parent + children */}
+        <section>
+          <SectionLabel>Hierarchy — one parent, any number of children</SectionLabel>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Parent</span>
+              {parent ? (
+                <>
+                  <button onClick={() => close(parent.id)} className="min-w-0 flex-1 truncate text-left text-slate-700 hover:text-indigo-600">
+                    {typeName(parent.typeId)} · {parent.title}
+                  </button>
+                  <button onClick={() => setParent(item.id, null)} className="text-slate-300 hover:text-rose-500" title="Remove parent">
+                    <X size={12} />
+                  </button>
+                </>
+              ) : (
+                <span className="flex-1 text-[11px] text-slate-400">none (root)</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <select
+                value={parentChoice}
+                onChange={(e) => setParentChoice(e.target.value)}
+                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px]"
               >
-                <Plus size={11} /> Add child story
+                <option value="">Set parent…</option>
+                {candidates.map((c) => (
+                  <option key={c.id} value={c.id}>{typeName(c.typeId)}: {c.title}</option>
+                ))}
+              </select>
+              <button
+                disabled={!parentChoice}
+                onClick={() => { setParent(item.id, parentChoice); setParentChoice('') }}
+                className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+              >
+                Set
               </button>
+            </div>
+
+            {exposure.length > 0 && (
+              <p className="text-[10px] text-amber-700">{exposure.length} open descendants (composition pressure).</p>
             )}
+            {children.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => close(c.id)}
+                className="flex w-full items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-left hover:bg-slate-50"
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: issueTypes.find((t) => t.id === c.typeId)?.color }} />
+                <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
+                <span className="text-[10px] text-slate-400">{statusOf(c.id, graph).resolved ? 'done' : ''}</span>
+              </button>
+            ))}
+            <div className="flex items-center gap-1">
+              <select
+                value={childType}
+                onChange={(e) => setChildType(e.target.value)}
+                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px]"
+              >
+                <option value="">Add child of type…</option>
+                {issueTypes.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <button
+                disabled={!childType}
+                onClick={() => { addChild(item.id, childType, `New ${typeName(childType)}`); setChildType('') }}
+                className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+              >
+                <Plus size={11} /> Add
+              </button>
+            </div>
           </div>
         </section>
 
@@ -171,112 +218,60 @@ export function ItemPanel({ itemId, requestMove }: Props) {
           <SectionLabel>Dependencies</SectionLabel>
           {badge.count > 0 && (
             <div className="mb-2 flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800 ring-1 ring-amber-100">
-              <Ban size={11} /> This blocks {badge.count} item{badge.count > 1 ? 's' : ''} across {badge.streams}{' '}
-              stream{badge.streams > 1 ? 's' : ''}
+              <Ban size={11} /> This blocks {badge.count} item{badge.count > 1 ? 's' : ''} across {badge.boards} board{badge.boards > 1 ? 's' : ''}
             </div>
           )}
-
           <div className="space-y-1">
-            {incoming.length === 0 && outgoing.length === 0 && (
-              <p className="text-[11px] text-slate-400">No dependency edges.</p>
-            )}
-
-            {incoming.map((d) => {
-              const state = DEP_STATE_STYLES[d.state]
+            {incoming.length === 0 && outgoing.length === 0 && <p className="text-[11px] text-slate-400">No dependency edges.</p>}
+            {incoming.map((dep) => {
+              const state = DEP_STATE_STYLES[dep.state]
               return (
-                <div key={d.edge.id} className="rounded border border-slate-200 px-2 py-1.5">
-                  <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                    <Ban size={10} /> blocked by
-                  </div>
+                <div key={dep.edge.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
+                  <div className="flex items-center gap-1 text-[10px] text-slate-400"><Ban size={10} /> blocked by</div>
                   <div className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate text-slate-700">{d.blocker.title}</span>
-                    {d.edge.dep?.status === 'proposed' ? (
-                      <span className="rounded bg-slate-100 px-1 text-[9px] font-semibold text-slate-500">
-                        pending confirmation
-                      </span>
+                    <span className="min-w-0 flex-1 truncate text-slate-700">{dep.blocker.title}</span>
+                    {dep.edge.dep?.status === 'proposed' ? (
+                      <span className="rounded bg-slate-100 px-1 text-[9px] font-semibold text-slate-500">pending</span>
                     ) : (
-                      <span className={cn('rounded px-1 text-[9px] font-semibold ring-1', state.className)}>
-                        {state.label}
-                      </span>
+                      <span className={cn('rounded px-1 text-[9px] font-semibold ring-1', state.className)}>{state.label}</span>
                     )}
                   </div>
                   <div className="text-[10px] text-slate-400">
-                    derived: Y={d.dependent.state}, X={d.blocker.state} → {dependencyState(d.blocker, d.dependent)}
+                    derived → {dependencyState(dep.blocker.id, dep.dependent.id, graph)}
                   </div>
-                  {d.edge.dep?.pinTo && (
+                  {dep.edge.dep?.pinTo && (
                     <div className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-500">
-                      <ChevronRight size={10} /> pinned to{' '}
-                      {items.find((i) => i.id === d.edge.dep?.pinTo)?.title ?? d.edge.dep.pinTo}
+                      <ChevronRight size={10} /> pinned to {items.find((i) => i.id === dep.edge.dep?.pinTo)?.title ?? dep.edge.dep.pinTo}
                     </div>
                   )}
                 </div>
               )
             })}
-
-            {outgoing.map((d) => {
-              const isProposed = d.edge.dep?.status === 'proposed'
-              return (
-                <div key={d.edge.id} className="rounded border border-slate-200 px-2 py-1.5">
-                  <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                    <GitBranch size={10} /> blocks
+            {outgoing.map((dep) => (
+              <div key={dep.edge.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
+                <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> blocks</div>
+                <div className="text-slate-700">{dep.dependent.title}</div>
+                {dep.edge.dep?.status === 'proposed' ? (
+                  <div className="mt-1 flex items-center gap-1">
+                    <span className="rounded bg-amber-50 px-1 text-[9px] font-semibold text-amber-700 ring-1 ring-amber-200">confirmation requested</span>
+                    <button onClick={() => confirmDependency(dep.edge.id)} className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700">Confirm</button>
+                    <button onClick={() => rejectDependency(dep.edge.id, 'Not a real dependency')} className="rounded border border-slate-200 px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-50">Reject</button>
                   </div>
-                  <div className="text-slate-700">{d.dependent.title}</div>
-                  {isProposed ? (
-                    <div className="mt-1 flex items-center gap-1">
-                      <span className="rounded bg-amber-50 px-1 text-[9px] font-semibold text-amber-700 ring-1 ring-amber-200">
-                        confirmation requested
-                      </span>
-                      <button
-                        onClick={() => confirmDependency(d.edge.id)}
-                        className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        onClick={() => rejectDependency(d.edge.id, 'Not a real dependency')}
-                        className="rounded border border-slate-200 px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-50"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-slate-400">
-                      {resolved(d.dependent) ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[d.state].label}`}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                ) : (
+                  <div className="text-[10px] text-slate-400">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
+                )}
+              </div>
+            ))}
           </div>
-
-          {/* Raise */}
           <div className="mt-2 flex items-center gap-1">
-            <select
-              value={blockerId}
-              onChange={(e) => setBlockerId(e.target.value)}
-              className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px]"
-            >
+            <select value={blockerId} onChange={(e) => setBlockerId(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px]">
               <option value="">Raise: this is blocked by…</option>
               {candidates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {TYPE_STYLES[c.type].label}: {c.title}
-                </option>
+                <option key={c.id} value={c.id}>{typeName(c.typeId)}: {c.title}</option>
               ))}
             </select>
-            <button
-              disabled={!blockerId}
-              onClick={() => {
-                raiseDependency(blockerId, item.id)
-                setBlockerId('')
-              }}
-              className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
-            >
-              Raise
-            </button>
+            <button disabled={!blockerId} onClick={() => { raiseDependency(blockerId, item.id); setBlockerId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Raise</button>
           </div>
-          <p className="mt-1 text-[10px] text-slate-400">
-            Raised edges are <span className="font-medium">proposed</span> until the blocker's board confirms.
-          </p>
         </section>
 
         {/* Attribution */}
@@ -286,12 +281,8 @@ export function ItemPanel({ itemId, requestMove }: Props) {
             {objectives.map((o) => {
               const on = attributed.some((a) => a.id === o.id)
               return (
-                <label key={o.id} className="flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={(e) => setAttribution(item.id, o.id, e.target.checked)}
-                  />
+                <label key={o.id} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+                  <input type="checkbox" checked={on} onChange={(e) => setAttribution(item.id, o.id, e.target.checked)} />
                   <span className="flex-1 text-slate-700">{o.title}</span>
                   <span className="text-[10px] text-slate-400">{o.period}</span>
                 </label>
@@ -299,25 +290,9 @@ export function ItemPanel({ itemId, requestMove }: Props) {
             })}
           </div>
           {attributed.length > 1 && (
-            <p className="mt-1 text-[10px] text-emerald-700">
-              Serves {attributed.length} objectives — still 1 unit of WIP.
-            </p>
+            <p className="mt-1 text-[10px] text-emerald-700">Serves {attributed.length} objectives — still 1 unit of WIP.</p>
           )}
         </section>
-
-        {/* Portfolio rollup — initiatives only */}
-        {item.type === 'initiative' && (
-          <PortfolioSection
-            item={item}
-            graph={graph}
-            sponsors={sponsors}
-            showOverride={showOverride}
-            overrideReason={overrideReason}
-            setShowOverride={setShowOverride}
-            setOverrideReason={setOverrideReason}
-            onConfirm={(decision, reason) => confirmSponsor(item.id, decision, reason)}
-          />
-        )}
       </div>
     </aside>
   )
@@ -325,89 +300,4 @@ export function ItemPanel({ itemId, requestMove }: Props) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{children}</div>
-}
-
-function PortfolioSection({
-  item, graph, sponsors, showOverride, overrideReason, setShowOverride, setOverrideReason, onConfirm,
-}: {
-  item: Item
-  graph: Graph
-  sponsors: Record<string, { decision: SponsorDecision; reason?: string }>
-  showOverride: boolean
-  overrideReason: string
-  setShowOverride: (v: boolean) => void
-  setOverrideReason: (v: string) => void
-  onConfirm: (decision: SponsorDecision, reason?: string) => void
-}) {
-  const status = portfolioStatus(item, graph)
-  const record = sponsors[item.id]
-  return (
-    <section className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
-      <SectionLabel>Portfolio status — computed from committed work</SectionLabel>
-      <div className="flex items-center gap-2">
-        <span className="rounded bg-slate-800 px-1.5 py-px text-[11px] font-bold text-white">{status.label}</span>
-        <span className="text-[11px] text-slate-500">{status.rationale}</span>
-      </div>
-      <div className="mt-1 flex gap-2 text-[10px] text-slate-500">
-        <span>{status.total} epics</span>
-        <span>· {status.inFlight} in flight</span>
-        <span>· {status.done} done</span>
-      </div>
-
-      <div className="mt-2 rounded border border-dashed border-indigo-200 bg-white p-2">
-        <div className="flex items-center gap-1 text-[11px] font-semibold text-indigo-700">
-          <Sparkles size={11} /> Sponsor recommendation
-        </div>
-        <p className="mt-0.5 text-[11px] text-slate-600">
-          Suggest <span className="font-semibold">{status.recommendation}</span>. A human confirms — no
-          auto-approval.
-        </p>
-        {record ? (
-          <p className="mt-1 rounded bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">
-            Confirmed {record.decision}
-            {record.reason ? ` — ${record.reason}` : ''}
-          </p>
-        ) : (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <button
-              onClick={() => onConfirm(status.recommendation)}
-              className="rounded bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-indigo-700"
-            >
-              Confirm {status.recommendation}
-            </button>
-            <button
-              onClick={() => setShowOverride(!showOverride)}
-              className="rounded border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Override…
-            </button>
-          </div>
-        )}
-        {showOverride && !record && (
-          <div className="mt-1.5 space-y-1">
-            <textarea
-              value={overrideReason}
-              onChange={(e) => setOverrideReason(e.target.value)}
-              rows={2}
-              placeholder="Reason for overriding the computed status (required)"
-              className="w-full rounded border border-slate-200 px-2 py-1 text-[11px]"
-            />
-            <div className="flex gap-1">
-              <button
-                disabled={overrideReason.trim().length < 4}
-                onClick={() => {
-                  onConfirm(status.recommendation === 'committed' ? 'rejected' : 'committed', overrideReason.trim())
-                  setShowOverride(false)
-                  setOverrideReason('')
-                }}
-                className="rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
-              >
-                Override with reason
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </section>
-  )
 }

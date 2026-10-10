@@ -1,116 +1,102 @@
 import { describe, expect, it } from 'vitest'
 import {
-  applicableLimit,
   attributedObjectives,
   blockingDeps,
   blockingSummary,
-  computeLevel,
+  decompositionChildren,
+  decompositionParent,
+  depth,
   dependencyState,
-  descendants,
   openDescendants,
-  outgoingDependencies,
-  portfolioStatus,
+  statusOf,
+  type Graph,
 } from './derive'
+import { laneCardCount, leafCount, leafLanes, maxDepth } from './lanes'
 import { createSeed } from './seed'
-import type { Edge, Item } from './types'
+import type { FlowState } from './types'
 
-const find = (items: Item[], id: string) => items.find((i) => i.id === id)!
+const graphOf = (s: FlowState): Graph => ({
+  items: s.items,
+  edges: s.edges,
+  placements: s.placements,
+  lanes: s.lanes,
+})
+const laneByName = (s: FlowState, boardId: string, name: string) =>
+  s.lanes.find((l) => l.boardId === boardId && l.name === name)!
 
-describe('level is derived, never stored', () => {
+describe('generic hierarchy — parent / child', () => {
   const s = createSeed()
-  const g = { items: s.items, edges: s.edges }
+  const g = graphOf(s)
 
-  it('initiative is L1, epics are L2, stories are L3', () => {
-    expect(computeLevel(find(s.items, 'init-onboarding'), g).level).toBe('L1')
-    expect(computeLevel(find(s.items, 'ep-signup'), g).level).toBe('L2')
-    expect(computeLevel(find(s.items, 'st-signup-form'), g).level).toBe('L3')
+  it('depth is derived from the parent chain', () => {
+    expect(depth('it-onboarding', g)).toBe(0)
+    expect(depth('it-signup', g)).toBe(1)
+    expect(depth('st-form', g)).toBe(2)
   })
 
-  it('changes when children change — a story that decomposes into stories becomes L2', () => {
-    const child: Item = {
-      id: 'child-x',
-      title: 'sub-story',
-      type: 'story',
-      valueStreamId: 'vs-core',
-      teamId: 'team-alpha',
-      state: 'Backlog',
-      createdAt: 0,
-    }
-    const edge: Edge = { id: 'dec-x', kind: 'decomposition', from: 'st-signup-form', to: 'child-x' }
-    const g2 = { items: [...s.items, child], edges: [...s.edges, edge] }
-    expect(computeLevel(find(s.items, 'st-signup-form'), g).level).toBe('L3')
-    expect(computeLevel(child, g2).level).toBe('L3')
-    expect(computeLevel(find(g2.items, 'st-signup-form'), g2).level).toBe('L2')
+  it('a card has at most one parent', () => {
+    expect(decompositionParent('st-form', s.edges)).toBe('it-signup')
+    expect(decompositionChildren('it-signup', s.edges)).toContain('st-form')
   })
 })
 
-describe('dependency state is computed from both endpoints', () => {
+describe('LeanKit lanes', () => {
   const s = createSeed()
-  const g = { items: s.items, edges: s.edges }
-  const blocked = find(s.items, 'st-profile-schema')
-  const blocker = find(s.items, 'ep-api')
 
-  it('unresolved blocker + not-started dependent = Open / planning risk', () => {
-    expect(dependencyState(blocker, blocked)).toBe('OpenPlanningRisk')
+  it('vertical leaves include the split sub-columns', () => {
+    const cols = leafLanes(s.lanes, 'b-core', 'vertical')
+    expect(cols.map((l) => l.name)).toEqual(['Backlog', 'Dev', 'Test', 'Review', 'Done'])
+    expect(maxDepth(s.lanes, 'b-core', 'vertical')).toBe(1)
+    expect(leafCount(s.lanes, laneByName(s, 'b-core', 'In Progress').id)).toBe(2)
   })
 
-  it('flips to Satisfied once the blocker resolves — with nobody touching the dependent', () => {
-    const resolvedBlocker = { ...blocker, state: 'Done', resolvedAt: Date.now() }
-    expect(dependencyState(resolvedBlocker, blocked)).toBe('Satisfied')
+  it('counts cards in a lane subtree', () => {
+    const inProgress = laneByName(s, 'b-core', 'In Progress')
+    // Dev + Test cards
+    expect(laneCardCount(s.lanes, s.placements, inProgress.id, 'vertical')).toBeGreaterThan(0)
+  })
+})
+
+describe('dependency state is computed from cells', () => {
+  const s = createSeed()
+  const g = graphOf(s)
+
+  it('unresolved blocker + not-started dependent = Open / planning risk', () => {
+    expect(statusOf('it-api', g).resolved).toBe(false)
+    expect(statusOf('st-profile-schema', g).started).toBe(false)
+    expect(dependencyState('it-api', 'st-profile-schema', g)).toBe('OpenPlanningRisk')
+  })
+
+  it('flips to Satisfied once the blocker moves to a done column — dependent untouched', () => {
+    const s2 = createSeed()
+    const done = laneByName(s2, 'b-platform', 'Done')
+    s2.placements = s2.placements.map((p) =>
+      p.itemId === 'it-api' && p.boardId === 'b-platform' ? { ...p, columnLaneId: done.id } : p,
+    )
+    expect(dependencyState('it-api', 'st-profile-schema', graphOf(s2))).toBe('Satisfied')
+  })
+
+  it('the blocker carries a cross-board badge', () => {
+    expect(blockingSummary('it-api', g).count).toBe(2)
   })
 
   it('shows one blocker badge on the dependent', () => {
     expect(blockingDeps('st-profile-schema', g).length).toBe(1)
   })
-
-  it('the healthy-looking blocker carries a cross-stream badge: 3 across 2 streams', () => {
-    const sum = blockingSummary('ep-api', g, s.scopes)
-    expect(sum.count).toBe(3)
-    expect(sum.streams).toBe(2)
-  })
-
-  it('proposed dependencies are not yet binding', () => {
-    const deps = outgoingDependencies('ep-analytics', g)
-    expect(deps[0].edge.dep?.status).toBe('proposed')
-  })
 })
 
 describe('composition pressure and attribution', () => {
   const s = createSeed()
-  const g = { items: s.items, edges: s.edges }
+  const g = graphOf(s)
 
-  it('ep-signup shows its open descendants against the deeper flow', () => {
-    expect(openDescendants('ep-signup', g).length).toBe(19)
-    expect(descendants('ep-signup', g).length).toBe(20)
+  it('a feature shows its open descendants', () => {
+    // 17 children, one (Design signup form) is in Done.
+    expect(decompositionChildren('it-signup', s.edges).length).toBe(17)
+    expect(openDescendants('it-signup', g).length).toBe(16)
   })
 
   it('a story attributed to two objectives is one unit of work', () => {
-    const objs = attributedObjectives('st-signup-form', s.edges, s.objectives)
+    const objs = attributedObjectives('st-form', s.edges, s.objectives)
     expect(objs.map((o) => o.id).sort()).toEqual(['obj-activation', 'obj-ttv'])
-  })
-})
-
-describe('portfolio rollup + sponsor recommendation', () => {
-  const s = createSeed()
-  const g = { items: s.items, edges: s.edges }
-
-  it('computes status from committed work and recommends, without auto-approving', () => {
-    const status = portfolioStatus(find(s.items, 'init-onboarding'), g)
-    expect(status.label).toBe('Committed')
-    expect(status.recommendation).toBe('committed')
-    expect(status.total).toBe(5)
-    // The initiative itself is still typed 'Bet' — the human has not confirmed.
-    expect(find(s.items, 'init-onboarding').state).toBe('Bet')
-  })
-})
-
-describe('limits', () => {
-  const s = createSeed()
-
-  it('resolves the epics-per-stream policy and sees the stream is over', () => {
-    const policy = applicableLimit(s.limits, 'L2', 'epic', 'vs-core')
-    expect(policy?.limit).toBe(4)
-    const count = s.items.filter((i) => i.type === 'epic' && i.valueStreamId === 'vs-core').length
-    expect(count).toBe(5)
   })
 })

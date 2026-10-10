@@ -1,58 +1,68 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { applicableLimit } from '@/domain/derive'
+import { laneCardCount, subtreeIds } from '@/domain/lanes'
 import { createSeed } from '@/domain/seed'
 import type {
   Edge,
   FlowState,
+  IssueType,
   Item,
-  ItemType,
-  LimitPolicy,
-  Resolution,
-  SponsorDecision,
+  Lane,
+  Placement,
 } from '@/domain/types'
 
 export type MoveResult =
   | { ok: true }
-  | { ok: false; needsReason: true; policy: LimitPolicy; count: number }
-  | { ok: false; blocked: true; policy: LimitPolicy; count: number }
+  | { ok: false; needsReason: true; lane: Lane; count: number }
+  | { ok: false; blocked: true; lane: Lane; count: number }
 
 export interface ViewState {
   boardId: string
-  resolution: Resolution
-  scopeId: string
   selectedItemId: string | null
   search: string
   showDemoGuide: boolean
+  showTypeEditor: boolean
 }
 
-interface Actions {
-  selectBoard: (boardId: string) => void
-  setResolution: (r: Resolution) => void
-  setScope: (scopeId: string) => void
+export interface Actions {
+  selectBoard: (id: string) => void
   openItem: (id: string | null) => void
   setSearch: (q: string) => void
   toggleDemoGuide: () => void
+  toggleTypeEditor: () => void
   resetDemo: () => void
 
-  moveItem: (id: string, toState: string, reason?: string) => MoveResult
-  addEpic: (valueStreamId: string, teamId: string | null, title: string, reason?: string) => MoveResult
-  addStory: (parentId: string, title: string) => void
-  addItem: (partial: {
-    type: ItemType
-    valueStreamId: string
-    teamId: string | null
+  addIssueType: (name: string, color: string) => void
+  updateIssueType: (id: string, patch: Partial<IssueType>) => void
+  removeIssueType: (id: string) => void
+
+  addCard: (input: {
+    boardId: string
+    typeId: string
+    columnLaneId: string
+    rowLaneId: string | null
     title: string
-    state?: string
   }) => void
+  moveCard: (
+    itemId: string,
+    boardId: string,
+    columnLaneId: string,
+    rowLaneId: string | null,
+    reason?: string,
+  ) => MoveResult
   setItemFields: (id: string, patch: Partial<Item>) => void
+
+  splitLane: (laneId: string) => void
+  renameLane: (laneId: string, name: string) => void
+  setLaneWip: (laneId: string, wipLimit: number | undefined) => void
+
+  setParent: (childId: string, parentId: string | null) => void
+  addChild: (parentId: string, typeId: string, title: string) => void
 
   raiseDependency: (blockerId: string, dependentId: string, pinTo?: string, reason?: string) => void
   confirmDependency: (edgeId: string) => void
   rejectDependency: (edgeId: string, reason: string) => void
   setAttribution: (itemId: string, objectiveId: string, on: boolean) => void
-
-  confirmSponsor: (initiativeId: string, decision: SponsorDecision, reason?: string) => void
 }
 
 export type Store = FlowState & ViewState & Actions
@@ -63,22 +73,18 @@ const uid = () =>
     : Math.random().toString(36).slice(2) + Date.now().toString(36)
 
 const initialView: ViewState = {
-  boardId: 'b-core-epics',
-  resolution: 'L2',
-  scopeId: 'vs-core',
+  boardId: 'b-core',
   selectedItemId: null,
   search: '',
   showDemoGuide: true,
+  showTypeEditor: false,
 }
 
-/** Count items of a type in a scope for a flow limit (no column = whole scope). */
-function countForLimit(state: FlowState, policy: LimitPolicy, scopeId: string | null): number {
-  return state.items.filter(
-    (i) =>
-      i.type === policy.itemType &&
-      (scopeId === null || i.valueStreamId === scopeId) &&
-      (policy.column === undefined || i.state === policy.column),
-  ).length
+function laneOver(state: FlowState, laneId: string): { lane: Lane; count: number } | null {
+  const lane = state.lanes.find((l) => l.id === laneId)
+  if (!lane || lane.wipLimit === undefined) return null
+  const count = laneCardCount(state.lanes, state.placements, laneId, lane.axis)
+  return { lane, count: count + 1 }
 }
 
 export const useStore = create<Store>()(
@@ -87,117 +93,98 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => {
-        const board = get().boards.find((b) => b.id === boardId)
-        if (!board) return
-        set({ boardId, resolution: board.resolution, scopeId: board.scopeId, selectedItemId: null })
-      },
-      setResolution: (resolution) => set({ resolution }),
-      setScope: (scopeId) => set({ scopeId }),
+      selectBoard: (boardId) => set({ boardId, selectedItemId: null }),
       openItem: (selectedItemId) => set({ selectedItemId }),
       setSearch: (search) => set({ search }),
       toggleDemoGuide: () => set({ showDemoGuide: !get().showDemoGuide }),
+      toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
       resetDemo: () => set({ ...createSeed(), ...initialView }),
 
-      moveItem: (id, toState, reason) => {
-        const state = get()
-        const item = state.items.find((i) => i.id === id)
-        if (!item) return { ok: true }
+      addIssueType: (name, color) =>
+        set({ issueTypes: [...get().issueTypes, { id: uid(), name, color }] }),
+      updateIssueType: (id, patch) =>
+        set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
+      removeIssueType: (id) =>
+        set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
 
-        const policy = applicableLimit(
-          state.limits,
-          item.type === 'initiative' ? 'L1' : item.type === 'epic' ? 'L2' : 'L3',
-          item.type,
-          item.valueStreamId,
-          toState,
-        )
-        if (policy && (policy.enforcement === 'soft_block' || policy.enforcement === 'hard_block')) {
-          const count = countForLimit(state, policy, item.valueStreamId)
-          if (count >= policy.limit && item.state !== toState) {
-            if (policy.enforcement === 'hard_block') return { ok: false, blocked: true, policy, count }
-            if (!reason) return { ok: false, needsReason: true, policy, count }
+      addCard: ({ boardId, typeId, columnLaneId, rowLaneId, title }) => {
+        const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
+        const placement: Placement = { id: uid(), boardId, itemId: item.id, columnLaneId, rowLaneId }
+        set({ items: [...get().items, item], placements: [...get().placements, placement] })
+      },
+
+      moveCard: (itemId, boardId, columnLaneId, rowLaneId, reason) => {
+        const state = get()
+        const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
+        const moved = existing && existing.columnLaneId === columnLaneId && existing.rowLaneId === rowLaneId
+
+        if (!moved) {
+          for (const lid of [columnLaneId, rowLaneId].filter(Boolean) as string[]) {
+            const over = laneOver(state, lid)
+            if (over && over.count > (over.lane.wipLimit ?? Infinity)) {
+              if (!reason) return { ok: false, needsReason: true, lane: over.lane, count: over.count }
+            }
           }
         }
-        const isDone = ['Done', 'Committed'].includes(toState)
+
+        const placements = existing
+          ? state.placements.map((p) =>
+              p.id === existing.id ? { ...p, columnLaneId, rowLaneId } : p,
+            )
+          : [...state.placements, { id: uid(), boardId, itemId, columnLaneId, rowLaneId }]
         set({
-          items: state.items.map((i) =>
-            i.id === id
-              ? {
-                  ...i,
-                  state: toState,
-                  resolvedAt: isDone ? Date.now() : null,
-                  lastMoveReason: reason,
-                }
-              : i,
-          ),
+          placements,
+          items: state.items.map((i) => (i.id === itemId ? { ...i, lastMoveReason: reason } : i)),
         })
         return { ok: true }
-      },
-
-      addEpic: (valueStreamId, teamId, title, reason) => {
-        const state = get()
-        const policy = applicableLimit(state.limits, 'L2', 'epic', valueStreamId)
-        if (policy && (policy.enforcement === 'soft_block' || policy.enforcement === 'hard_block')) {
-          const count = countForLimit(state, policy, valueStreamId)
-          if (count >= policy.limit) {
-            if (policy.enforcement === 'hard_block') return { ok: false, blocked: true, policy, count }
-            if (!reason) return { ok: false, needsReason: true, policy, count }
-          }
-        }
-        const it: Item = {
-          id: uid(),
-          title,
-          type: 'epic',
-          valueStreamId,
-          teamId,
-          state: 'Backlog',
-          createdAt: Date.now(),
-          lastMoveReason: reason,
-        }
-        set({ items: [...state.items, it] })
-        return { ok: true }
-      },
-
-      addItem: ({ type, valueStreamId, teamId, title, state: initState }) => {
-        const it: Item = {
-          id: uid(),
-          title,
-          type,
-          valueStreamId,
-          teamId,
-          state: initState ?? 'Backlog',
-          createdAt: Date.now(),
-        }
-        set({ items: [...get().items, it] })
-      },
-
-      addStory: (parentId, title) => {
-        const state = get()
-        const parent = state.items.find((i) => i.id === parentId)
-        if (!parent) return
-        const it: Item = {
-          id: uid(),
-          title,
-          type: 'story',
-          valueStreamId: parent.valueStreamId,
-          teamId: parent.teamId ?? null,
-          state: 'Backlog',
-          createdAt: Date.now(),
-        }
-        const edge: Edge = { id: uid(), kind: 'decomposition', from: parentId, to: it.id }
-        set({ items: [...state.items, it], edges: [...state.edges, edge] })
       },
 
       setItemFields: (id, patch) =>
         set({ items: get().items.map((i) => (i.id === id ? { ...i, ...patch } : i)) }),
 
+      splitLane: (laneId) => {
+        const state = get()
+        const lane = state.lanes.find((l) => l.id === laneId)
+        if (!lane) return
+        const childCount = state.lanes.filter((l) => l.parentId === laneId).length
+        const c1: Lane = { id: uid(), boardId: lane.boardId, axis: lane.axis, parentId: laneId, name: `${lane.name} A`, order: childCount }
+        const c2: Lane = { id: uid(), boardId: lane.boardId, axis: lane.axis, parentId: laneId, name: `${lane.name} B`, order: childCount + 1 }
+        // Reassign any cards currently in the lane's subtree to the first child.
+        const ids = new Set(subtreeIds(state.lanes, laneId))
+        const placements = state.placements.map((p) => {
+          if (lane.axis === 'vertical')
+            return ids.has(p.columnLaneId) ? { ...p, columnLaneId: c1.id } : p
+          return p.rowLaneId && ids.has(p.rowLaneId) ? { ...p, rowLaneId: c1.id } : p
+        })
+        set({ lanes: [...state.lanes, c1, c2], placements })
+      },
+
+      renameLane: (laneId, name) =>
+        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, name } : l)) }),
+
+      setLaneWip: (laneId, wipLimit) =>
+        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, wipLimit } : l)) }),
+
+      setParent: (childId, parentId) => {
+        const state = get()
+        // exactly one parent: drop any existing decomposition parent of the child.
+        let edges = state.edges.filter((e) => !(e.kind === 'decomposition' && e.to === childId))
+        if (parentId && parentId !== childId) {
+          edges = [...edges, { id: uid(), kind: 'decomposition', from: parentId, to: childId }]
+        }
+        set({ edges })
+      },
+
+      addChild: (parentId, typeId, title) => {
+        const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
+        const edge: Edge = { id: uid(), kind: 'decomposition', from: parentId, to: item.id }
+        set({ items: [...get().items, item], edges: [...get().edges, edge] })
+      },
+
       raiseDependency: (blockerId, dependentId, pinTo, reason) => {
         if (blockerId === dependentId) return
         const state = get()
-        const exists = state.edges.some(
-          (e) => e.kind === 'dependency' && e.from === blockerId && e.to === dependentId,
-        )
-        if (exists) return
+        if (state.edges.some((e) => e.kind === 'dependency' && e.from === blockerId && e.to === dependentId)) return
         const edge: Edge = {
           id: uid(),
           kind: 'dependency',
@@ -228,52 +215,26 @@ export const useStore = create<Store>()(
           (e) => e.kind === 'attribution' && e.from === objectiveId && e.to === itemId,
         )
         if (on && !existing) {
-          set({
-            edges: [
-              ...state.edges,
-              { id: uid(), kind: 'attribution', from: objectiveId, to: itemId },
-            ],
-          })
+          set({ edges: [...state.edges, { id: uid(), kind: 'attribution', from: objectiveId, to: itemId }] })
         } else if (!on && existing) {
           set({ edges: state.edges.filter((e) => e.id !== existing.id) })
         }
       },
-
-      confirmSponsor: (initiativeId, decision, reason) => {
-        const state = get()
-        const stateFor: Record<SponsorDecision, string> = {
-          committed: 'Committed',
-          rejected: 'Rejected',
-          dormant: 'Dormant',
-        }
-        set({
-          items: state.items.map((i) =>
-            i.id === initiativeId
-              ? { ...i, state: stateFor[decision], resolvedAt: decision === 'committed' ? Date.now() : null }
-              : i,
-          ),
-          sponsors: {
-            ...state.sponsors,
-            [initiativeId]: { decision, reason, at: Date.now() },
-          },
-        })
-      },
     }),
     {
-      name: 'flowline-state',
+      name: 'flowline-state-v2',
       version: 1,
       partialize: (s) => ({
-        scopes: s.scopes,
+        issueTypes: s.issueTypes,
+        boards: s.boards,
+        lanes: s.lanes,
         items: s.items,
+        placements: s.placements,
         edges: s.edges,
         objectives: s.objectives,
         keyResults: s.keyResults,
-        limits: s.limits,
-        boards: s.boards,
         sponsors: s.sponsors,
         boardId: s.boardId,
-        resolution: s.resolution,
-        scopeId: s.scopeId,
       }),
     },
   ),

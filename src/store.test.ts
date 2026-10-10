@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { blockingDeps } from './domain/derive'
+import { decompositionParent, statusOf } from './domain/derive'
+import { leafLanes } from './domain/lanes'
 import { useStore } from './store'
 
-// zustand/persist touches localStorage; give Node a minimal shim.
 vi.stubGlobal('localStorage', {
   getItem: () => null,
   setItem: () => {},
@@ -10,47 +10,62 @@ vi.stubGlobal('localStorage', {
 })
 
 const s = () => useStore.getState()
+const graph = () => {
+  const st = s()
+  return { items: st.items, edges: st.edges, placements: st.placements, lanes: st.lanes }
+}
+const laneByName = (boardId: string, name: string) =>
+  s().lanes.find((l) => l.boardId === boardId && l.name === name)!
 
-describe('store actions', () => {
+describe('store actions (v2)', () => {
   beforeEach(() => s().resetDemo())
 
-  it('dependency self-cleans: resolving the blocker clears the dependent with no manual edit', () => {
-    const g = () => ({ items: s().items, edges: s().edges })
-    expect(blockingDeps('st-profile-schema', g()).length).toBe(1)
-    s().moveItem('ep-api', 'Done')
-    expect(blockingDeps('st-profile-schema', g()).length).toBe(0)
+  it('one parent: setParent replaces any existing parent', () => {
+    s().setParent('st-form', 'it-tour')
+    expect(decompositionParent('st-form', s().edges)).toBe('it-tour')
+    s().setParent('st-form', 'it-signup')
+    expect(decompositionParent('st-form', s().edges)).toBe('it-signup')
   })
 
-  it('epics-per-stream soft block requires a reason, then allows it', () => {
-    const before = s().items.length
-    const blocked = s().addEpic('vs-core', null, 'Sixth epic')
-    expect(blocked.ok).toBe(false)
-    expect('needsReason' in blocked && blocked.needsReason).toBe(true)
+  it('splitting a lane creates two sub-lanes and moves cards into the first', () => {
+    const progress = laneByName('b-core', 'In Progress')
+    const before = s().lanes.filter((l) => l.parentId === progress.id).length
+    s().splitLane(progress.id)
+    const kids = s().lanes.filter((l) => l.parentId === progress.id)
+    expect(kids.length).toBe(before + 2)
+    // no card references the now-non-leaf In Progress lane
+    expect(s().placements.some((p) => p.columnLaneId === progress.id)).toBe(false)
+  })
 
-    const ok = s().addEpic('vs-core', null, 'Sixth epic', 'Splitting an epic; net WIP unchanged.')
+  it('dependency self-cleans when the blocker moves to a done column', () => {
+    const done = laneByName('b-platform', 'Done')
+    expect(statusOf('st-profile-schema', graph()).resolved).toBe(false)
+    s().moveCard('it-api', 'b-platform', done.id, null)
+    expect(statusOf('it-api', graph()).resolved).toBe(true)
+  })
+
+  it('a WIP limit soft-blocks with a required reason', () => {
+    const backlog = leafLanes(s().lanes, 'b-core', 'vertical')[0] // Backlog
+    s().setLaneWip(backlog.id, 1)
+    const blocked = s().moveCard('st-email', 'b-core', backlog.id, null)
+    expect(blocked.ok).toBe(false)
+    const ok = s().moveCard('st-email', 'b-core', backlog.id, null, 'hotfix triage')
     expect(ok.ok).toBe(true)
-    expect(s().items.length).toBe(before + 1)
+  })
+
+  it('custom types can be added, renamed and recoloured', () => {
+    const before = s().issueTypes.length
+    s().addIssueType('Risk', '#ef4444')
+    const added = s().issueTypes[s().issueTypes.length - 1]
+    expect(s().issueTypes.length).toBe(before + 1)
+    s().updateIssueType(added.id, { name: 'Threat' })
+    expect(s().issueTypes.find((t) => t.id === added.id)?.name).toBe('Threat')
   })
 
   it('raising a dependency is proposed until confirmed', () => {
-    const edge = () => s().edges.find((e) => e.id === 'dep-analytics-invite')!
+    const edge = () => s().edges.find((e) => e.from === 'it-analytics' && e.to === 'st-invite-flow')!
     expect(edge().dep?.status).toBe('proposed')
-    s().confirmDependency('dep-analytics-invite')
+    s().confirmDependency(edge().id)
     expect(edge().dep?.status).toBe('confirmed')
-  })
-
-  it('attribution is many-to-many and does not create work', () => {
-    const before = s().items.length
-    s().setAttribution('st-tour-copy', 'obj-activation', true)
-    s().setAttribution('st-tour-copy', 'obj-ttv', true)
-    expect(s().items.length).toBe(before)
-    const attrs = s().edges.filter((e) => e.kind === 'attribution' && e.to === 'st-tour-copy')
-    expect(attrs.length).toBe(2)
-  })
-
-  it('sponsor confirms the computed recommendation — human in the loop', () => {
-    s().confirmSponsor('init-onboarding', 'committed', undefined)
-    expect(s().items.find((i) => i.id === 'init-onboarding')?.state).toBe('Committed')
-    expect(s().sponsors['init-onboarding'].decision).toBe('committed')
   })
 })

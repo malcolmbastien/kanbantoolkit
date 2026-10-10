@@ -2,56 +2,54 @@ import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Ban, CornerDownRight, GripVertical, Layers, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TYPE_STYLES, hexToRgba } from '@/lib/colors'
-import type { Item, ItemType } from '@/domain/types'
+import { hexToRgba, readableOn } from '@/lib/colors'
+import type { IssueType, Item } from '@/domain/types'
 
 export interface CardSummary {
   childCount: number
   blockedCount: number
   blocksCount: number
-  blocksStreams: number
   openDescendants: number
 }
 
-/** The decomposition parent of a card, for the on-card lineage label. */
 export interface CardParent {
   id: string
   ref_: string
   title: string
-  type: ItemType
+  type: IssueType
 }
 
 interface Props {
   item: Item
+  type: IssueType
   ref_: string
-  stripe: string
+  depth: number
   summary: CardSummary
   parent?: CardParent
   selected?: boolean
   onOpen: (id: string) => void
 }
 
-export function Card({ item, ref_, stripe, summary, parent, selected, onOpen }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, selected, onOpen }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
     data: { itemId: item.id },
   })
-  const type = TYPE_STYLES[item.type]
 
   return (
     <div
       ref={setNodeRef}
       style={{
         transform: CSS.Translate.toString(transform),
-        backgroundColor: hexToRgba(stripe, 0.09),
-        borderLeftColor: stripe,
+        backgroundColor: hexToRgba(type.color, 0.1),
+        borderLeftColor: type.color,
       }}
       onClick={(e) => {
         e.stopPropagation()
         onOpen(item.id)
       }}
       className={cn(
-        'group relative cursor-pointer overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] pl-0 text-left shadow-sm transition',
+        'group relative cursor-pointer overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
         'hover:shadow-md hover:border-slate-400',
         selected && 'ring-2 ring-indigo-400',
         isDragging && 'opacity-40',
@@ -70,21 +68,25 @@ export function Card({ item, ref_, stripe, summary, parent, selected, onOpen }: 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span
-              className={cn(
-                'rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm',
-                type.chip,
-              )}
+              className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm"
+              style={{ backgroundColor: type.color, color: readableOn(type.color) }}
             >
-              {type.label}
+              {type.name}
             </span>
             <span className="text-[10px] font-semibold tabular-nums text-slate-500">
               {ref_}
               {item.size ? ` · ${item.size}` : ''}
             </span>
+            <span
+              className="text-[9px] font-bold text-slate-400"
+              title={`Structural depth ${depth} (derived from parent/child)`}
+            >
+              d{depth}
+            </span>
             {summary.blocksCount > 0 && (
               <span
                 className="ml-auto flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm"
-                title={`Blocks ${summary.blocksCount} items across ${summary.blocksStreams} stream(s)`}
+                title={`Blocks ${summary.blocksCount} items`}
               >
                 <ShieldAlert size={9} />
                 {summary.blocksCount}
@@ -100,13 +102,13 @@ export function Card({ item, ref_, stripe, summary, parent, selected, onOpen }: 
                 e.stopPropagation()
                 onOpen(parent.id)
               }}
-              title={`In ${TYPE_STYLES[parent.type].label}: ${parent.title}`}
+              title={`Parent ${parent.type.name}: ${parent.title}`}
               className="mt-1 flex w-full items-center gap-1 rounded border border-slate-300/70 bg-white/60 px-1 py-0.5 text-left transition hover:border-slate-400 hover:bg-white"
             >
               <CornerDownRight size={10} className="shrink-0 text-slate-400" />
-              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TYPE_STYLES[parent.type].dot)} aria-hidden />
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: parent.type.color }} aria-hidden />
               <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-slate-500">
-                {TYPE_STYLES[parent.type].label}
+                {parent.type.name}
               </span>
               <span className="min-w-0 truncate text-[10px] font-medium text-slate-600">
                 <span className="tabular-nums text-slate-400">{parent.ref_}</span> {parent.title}
@@ -121,10 +123,7 @@ export function Card({ item, ref_, stripe, summary, parent, selected, onOpen }: 
               </span>
             )}
             {summary.blockedCount > 0 && (
-              <span
-                className="flex items-center gap-0.5 font-bold text-rose-600"
-                title={`Blocked by ${summary.blockedCount}`}
-              >
+              <span className="flex items-center gap-0.5 font-bold text-rose-600" title={`Blocked by ${summary.blockedCount}`}>
                 <Ban size={11} />
                 blocked
               </span>

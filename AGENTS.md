@@ -38,9 +38,15 @@ task-master list            # terminal 2
 - TypeScript strict; path alias `@/*` → `src/*`.
 - Domain logic lives in `src/domain/` and must stay pure and framework-free; it is unit
   tested in `*.test.ts` (`npm test`).
-- Levels and dependency state are **derived** — never add a `level` or `depStatus` field.
-- Limits default to soft-block with a required, recorded reason.
-- Keep the board a projection: `scope ∩ { items where level(item) == resolution }`.
+- **Hierarchy is generic and structural.** A card has at most one parent (`setParent`
+  enforces it). `depth` is derived — never add a `level` field.
+- **Issue types are labels + colour.** Columns come from a board's lane tree, never from
+  the type. Never add a lifecycle to `IssueType`.
+- **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
+- Dependency state is derived from the two endpoints' cells; never store a dependency
+  status field. Attribution never counts as WIP.
+- Limits are per-lane `wipLimit`s; soft-block with a required, recorded reason.
+- Before finishing any task, run the no-Google/Firebase scan above and `npm test`.
 
 ## Commands
 

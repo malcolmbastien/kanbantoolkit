@@ -1,42 +1,67 @@
-// Flowline domain model.
+// Flowline domain model (v2).
 //
-// Everything reduces to nodes and typed edges. There is deliberately NO board
-// membership field on Item: board membership is computed from scope ∩ resolution.
+// Generic parent/child hierarchy + user-defined issue types + LeanKit-style lane
+// boards. A card's board and cell are explicit Placement records; there is no
+// level or resolution field anywhere.
 
-export type ScopeKind = 'enterprise' | 'value_stream' | 'team' | 'function'
-
-/** Flight-level resolutions. A resolution fixes the counting unit. */
-export type Resolution = 'L1' | 'L2' | 'L3'
-
-/** Flow item types. Note: an item's *level* is derived, never stored. */
-export type ItemType = 'initiative' | 'epic' | 'story' | 'defect'
-
-export interface Scope {
+/** A user-defined issue type. A label + colour — columns come from the board. */
+export interface IssueType {
   id: string
   name: string
-  kind: ScopeKind
-  parentId: string | null
+  color: string
 }
 
+export type LaneAxis = 'vertical' | 'horizontal'
+
+/**
+ * A LeanKit lane. Vertical lanes are process columns; horizontal lanes are
+ * swimlanes. Either can be split into ordered sub-lanes (parentId points up).
+ */
+export interface Lane {
+  id: string
+  boardId: string
+  axis: LaneAxis
+  parentId: string | null
+  name: string
+  order: number
+  /** Optional per-lane WIP limit. */
+  wipLimit?: number
+  /** Column semantics for dependency derivation. */
+  isStart?: boolean
+  isDone?: boolean
+  isCancelled?: boolean
+}
+
+/** A board: a container that owns a lane grid. */
+export interface Board {
+  id: string
+  name: string
+}
+
+/** A card, without any board/state/level field. */
 export interface Item {
   id: string
   title: string
   description?: string
-  type: ItemType
-  /** Required: the structural spine. Membership of a board is by value stream. */
-  valueStreamId: string
-  /** Optional owning team; used only for lane placement, not a board field. */
-  teamId?: string | null
-  /** Position in this type's lifecycle (see lifecycles.ts). */
-  state: string
-  /** Relative size, for the size display. Not used for level. */
+  typeId: string
   size?: number
   assignee?: string
   createdAt: number
   resolvedAt?: number | null
   cancelledAt?: number | null
-  /** Reason captured when a soft limit was crossed (audit trail). */
+  /** Reason captured when a soft WIP limit was crossed. */
   lastMoveReason?: string
+}
+
+/** The explicit "board + cell" a card sits in. One per board. */
+export interface Placement {
+  id: string
+  boardId: string
+  itemId: string
+  /** Leaf vertical lane (the column). */
+  columnLaneId: string
+  /** Leaf horizontal lane (the row), if any. */
+  rowLaneId: string | null
 }
 
 export type DepKind = 'FS' | 'SS' | 'FF'
@@ -46,10 +71,8 @@ export type EdgeKind = 'decomposition' | 'dependency' | 'attribution'
 export interface DependencyDetail {
   fsKind: DepKind
   lagDays?: number
-  /** Raise → confirm/reject gate. Only confirmed edges bind. */
   status: DepStatus
   reason?: string
-  /** Cross-level endpoint binding: the specific descendant this edge pins to. */
   pinTo?: string
 }
 
@@ -63,7 +86,7 @@ export interface Edge {
   dep?: DependencyDetail
 }
 
-/** Objectives and KRs are commitment-limited entities. Never in columns. */
+/** Objectives and KRs are commitment-limited entities, never cards. */
 export interface Objective {
   id: string
   title: string
@@ -78,46 +101,20 @@ export interface KeyResult {
   title: string
 }
 
-export type Enforcement = 'visualize' | 'warn' | 'soft_block' | 'hard_block'
-
-export interface LimitPolicy {
-  id: string
-  resolution: Resolution
-  itemType: ItemType
-  /** null = applies to every scope at this resolution. */
-  scopeId: string | null
-  /** Flow limits key on a column; commitment limits key on a period. */
-  column?: string
-  limit: number
-  enforcement: Enforcement
-  thresholds: { yellow: number; red: number }
-  effectiveFrom: number
-  effectiveUntil?: number | null
-}
-
-export interface Board {
-  id: string
-  name: string
-  resolution: Resolution
-  scopeId: string
-}
-
-export type SponsorDecision = 'committed' | 'rejected' | 'dormant'
-
 export interface SponsorRecord {
-  decision: SponsorDecision
+  decision: 'committed' | 'rejected' | 'dormant'
   reason?: string
   at: number
 }
 
 export interface FlowState {
-  scopes: Scope[]
+  issueTypes: IssueType[]
+  boards: Board[]
+  lanes: Lane[]
   items: Item[]
+  placements: Placement[]
   edges: Edge[]
   objectives: Objective[]
   keyResults: KeyResult[]
-  limits: LimitPolicy[]
-  boards: Board[]
-  /** Human overrides of the computed portfolio recommendation. */
   sponsors: Record<string, SponsorRecord>
 }
