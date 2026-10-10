@@ -17,6 +17,9 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   remove lanes) live behind an **Edit board** mode.
 - **Fixed post-it cards, fluid lanes.** A card is a fixed 180×112 note; lanes **expand to
   fit every card** in them (no in-cell scrolling), so a row is as tall as its busiest cell.
+- **Flight-level badge.** Every board is labelled by Kanban flight level — **Portfolio**,
+  **Project**, or **Team** — shown as a badge in the toolbar and board header and editable
+  inline. It's an orientation label for a board, distinct from an item's derived `depth`.
 - **Explicit placements** — a card's board + cell is stored as a `Placement` record (one
   per board), so a single card can still live on several boards with one identity.
 

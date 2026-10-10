@@ -36,10 +36,14 @@ export interface Lane {
   isCancelled?: boolean
 }
 
+/** Kanban flight level a board represents. */
+export type BoardLevel = 'portfolio' | 'project' | 'team'
+
 /** A board: a container that owns a lane grid. */
 export interface Board {
   id: string
   name: string
+  level: BoardLevel
 }
 
 /** A card, without any board/state/level field. */

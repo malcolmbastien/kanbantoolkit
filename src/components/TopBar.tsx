@@ -1,14 +1,17 @@
 import { Check, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Sparkles, Trash2, X } from 'lucide-react'
+import { LevelBadge } from './LevelBadge'
 import { cn } from '@/lib/utils'
-import type { Board } from '@/domain/types'
+import type { Board, BoardLevel } from '@/domain/types'
 
 interface Props {
   boards: Board[]
   boardId: string
+  boardLevel: BoardLevel
   search: string
   showDemoGuide: boolean
   editMode: boolean
   onSelectBoard: (id: string) => void
+  onSetBoardLevel: (level: BoardLevel) => void
   onSearch: (q: string) => void
   onToggleDemoGuide: () => void
   onEditBoard: () => void
@@ -26,7 +29,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, search, showDemoGuide, editMode, onSelectBoard, onSearch, onToggleDemoGuide, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardLevel, search, showDemoGuide, editMode, onSelectBoard, onSetBoardLevel, onSearch, onToggleDemoGuide, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -38,6 +41,8 @@ export function TopBar(props: Props) {
       </div>
 
       <div className="h-5 w-px bg-slate-700" />
+
+      <LevelBadge level={boardLevel} onChange={onSetBoardLevel} />
 
       <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
         Board

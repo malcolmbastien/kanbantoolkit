@@ -19,6 +19,8 @@ interface Pending {
 export default function App() {
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
+  const boardLevel = boards.find((b) => b.id === boardId)?.level ?? 'team'
+  const setBoardLevel = useStore((s) => s.setBoardLevel)
   const search = useStore((s) => s.search)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showDemoGuide = useStore((s) => s.showDemoGuide)
@@ -91,10 +93,12 @@ export default function App() {
       <TopBar
         boards={boards}
         boardId={boardId}
+        boardLevel={boardLevel}
         search={search}
         showDemoGuide={showDemoGuide}
         editMode={editMode}
         onSelectBoard={selectBoard}
+        onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
         onSearch={setSearch}
         onToggleDemoGuide={toggleDemoGuide}
         onEditBoard={beginEdit}

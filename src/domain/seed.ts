@@ -12,10 +12,10 @@ const issueTypes: IssueType[] = [
 ]
 
 const boards: Board[] = [
-  { id: 'b-portfolio', name: 'Digital Transformation Portfolio' },
-  { id: 'b-core', name: 'Core Experience' },
-  { id: 'b-platform', name: 'Platform Services' },
-  { id: 'b-design', name: 'Design board (sketch)' },
+  { id: 'b-portfolio', name: 'Digital Transformation Portfolio', level: 'portfolio' },
+  { id: 'b-core', name: 'Core Experience', level: 'project' },
+  { id: 'b-platform', name: 'Platform Services', level: 'project' },
+  { id: 'b-design', name: 'Design board (sketch)', level: 'team' },
 ]
 
 /* ------------------------------------------------------------------ *

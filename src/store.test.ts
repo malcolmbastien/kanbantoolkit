@@ -117,6 +117,18 @@ describe('store actions (recursive lanes)', () => {
     expect(s().lanes.find((l) => l.id === root.id)?.orientation).toBe('rows')
   })
 
+  it('boards carry a Kanban flight level that can be changed', () => {
+    expect(s().boards.find((b) => b.id === 'b-portfolio')?.level).toBe('portfolio')
+    expect(s().boards.find((b) => b.id === 'b-core')?.level).toBe('project')
+    s().setBoardLevel('b-core', 'team')
+    expect(s().boards.find((b) => b.id === 'b-core')?.level).toBe('team')
+    // a new board defaults to Team level
+    const before = s().boards.length
+    s().addBoard('Fresh')
+    expect(s().boards.length).toBe(before + 1)
+    expect(s().boards[s().boards.length - 1].level).toBe('team')
+  })
+
   it('Save commits layout edits; Cancel reverts them', () => {
     const root = rootLane(s().lanes, s().boardId)!
     const beforeLanes = s().lanes.length

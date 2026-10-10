@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, isLeaf, laneCardCount, leavesUnder, subtreeIds } from '@/domain/lanes'
 import { createSeed } from '@/domain/seed'
-import type { Edge, FlowState, IssueType, Item, Lane, Placement, SplitOrientation } from '@/domain/types'
+import type { BoardLevel, Edge, FlowState, IssueType, Item, Lane, Placement, SplitOrientation } from '@/domain/types'
 
 export type MoveResult =
   | { ok: true }
@@ -42,9 +42,10 @@ export interface Actions {
   updateIssueType: (id: string, patch: Partial<IssueType>) => void
   removeIssueType: (id: string) => void
 
-  addBoard: (name: string) => void
+  addBoard: (name: string, level?: BoardLevel) => void
   removeBoard: (id: string) => void
   renameBoard: (id: string, name: string) => void
+  setBoardLevel: (id: string, level: BoardLevel) => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
   moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => MoveResult
@@ -138,10 +139,10 @@ export const useStore = create<Store>()(
         set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
       removeIssueType: (id) => set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
 
-      addBoard: (name) => {
+      addBoard: (name, level = 'team') => {
         const boardId = uid()
         const rootId = uid()
-        const board = { id: boardId, name }
+        const board = { id: boardId, name, level }
         const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
         const first: Lane = { id: uid(), boardId, parentId: rootId, order: 0, name: 'Column 1' }
         set({ boards: [...get().boards, board], lanes: [...get().lanes, root, first], boardId, editMode: true })
@@ -161,6 +162,7 @@ export const useStore = create<Store>()(
       },
 
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
+      setBoardLevel: (id, level) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, level } : b)) }),
 
       addCard: ({ boardId, typeId, laneId, title }) => {
         const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }

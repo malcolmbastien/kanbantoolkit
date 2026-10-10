@@ -1,5 +1,6 @@
 import { DndContext, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { Check, Layers, Plus, X } from 'lucide-react'
+import { LevelBadge } from './LevelBadge'
 import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
 import {
@@ -281,6 +282,7 @@ export function BoardView({ requestMove, onAddCard }: Props) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
+        {board && <LevelBadge level={board.level} />}
         <span className="font-semibold text-white">{board?.name}</span>
         <span className="text-slate-500">·</span>
         <span className="text-slate-400">leanlane board</span>
