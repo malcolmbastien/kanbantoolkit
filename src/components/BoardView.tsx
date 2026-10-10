@@ -160,7 +160,11 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
           {kids.map((k) => (
             <div
               key={k.id}
-              className={orientation === 'columns' ? 'flex min-w-[196px] flex-1 basis-0 flex-col' : 'flex w-full flex-col'}
+              className={
+                orientation === 'columns'
+                  ? 'flex min-w-[196px] shrink-0 grow basis-auto flex-col'
+                  : 'flex shrink-0 basis-auto flex-col'
+              }
             >
               <LaneBox lane={k} ctx={ctx} isRoot={false} />
             </div>

@@ -15,6 +15,7 @@ const boards: Board[] = [
   { id: 'b-portfolio', name: 'Digital Transformation Portfolio' },
   { id: 'b-core', name: 'Core Experience' },
   { id: 'b-platform', name: 'Platform Services' },
+  { id: 'b-design', name: 'Design board (sketch)' },
 ]
 
 /* ------------------------------------------------------------------ *
@@ -74,6 +75,20 @@ const plRoot = root('b-platform', 'columns')
 const plBacklog = lane('b-platform', 'Backlog', plRoot.id, 0, { isStart: true })
 const plProgress = lane('b-platform', 'In Progress', plRoot.id, 1)
 const plDone = lane('b-platform', 'Done', plRoot.id, 2, { isDone: true })
+
+// Design board — mirrors the hand-drawn sketch: To Do | Doing | Done, where Doing is
+// row-split into a (Build/Test/Deploy) row and a Projects row (Research/Validate).
+const dRoot = root('b-design', 'columns')
+lane('b-design', 'To Do', dRoot.id, 0, { isStart: true })
+const dDoing = lane('b-design', 'Doing', dRoot.id, 1, { orientation: 'rows' })
+const dBuildRow = lane('b-design', '', dDoing.id, 0, { orientation: 'columns' })
+const dBuild = lane('b-design', 'Build', dBuildRow.id, 0)
+lane('b-design', 'Test', dBuildRow.id, 1)
+const dDeploy = lane('b-design', 'Deploy', dBuildRow.id, 2)
+const dProjects = lane('b-design', 'Projects', dDoing.id, 1, { orientation: 'columns', wipLimit: 4 })
+const dResearch = lane('b-design', 'Research', dProjects.id, 0)
+lane('b-design', 'Validate', dProjects.id, 1)
+const dDone = lane('b-design', 'Done', dRoot.id, 2, { isDone: true })
 
 /* ------------------------------------------------------------------ *
  * Items
@@ -143,6 +158,12 @@ place('it-api', 'b-platform', plProgress.id)
 place('it-analytics', 'b-platform', plBacklog.id)
 place('st-api-contract', 'b-platform', plProgress.id)
 place('st-sdk', 'b-platform', plBacklog.id)
+
+// Design board — a few cards so the nested layout reads.
+place('st-gen-0', 'b-design', dBuild.id)
+place('st-gen-1', 'b-design', dDeploy.id)
+place('st-gen-2', 'b-design', dResearch.id)
+place('st-gen-3', 'b-design', dDone.id)
 
 // Silence unused-var checks on lanes only referenced structurally.
 void bDone

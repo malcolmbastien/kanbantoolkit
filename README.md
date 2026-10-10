@@ -55,6 +55,7 @@ npm run lint         # oxlint
 /?board=b-platform                    # Platform Services
 /?board=b-core&item=it-signup         # open a card
 /?board=b-core&edit=1                 # start in board edit mode
+/?board=b-design                      # the seeded sketch layout (nested Doing/Projects)
 ```
 
 ## What to try
