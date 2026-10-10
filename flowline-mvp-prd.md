@@ -1,0 +1,277 @@
+# PRD — Flowline (working title)
+
+**MVP scoped to prove one thing: work is a graph, and boards are views over it.**
+
+Version 0.1 — draft for review
+Author: Malcolm B.
+
+---
+
+## 1. Problem
+
+Enterprise kanban tools are board-centric. A card lives *in* a list, a list lives *on* a board, and a board is a container. Three failures follow directly from that containment:
+
+1. **One board at a time.** The same work lives on a portfolio board, a program board, and a team board. Since items can't be in two containers, tools either duplicate them (three copies that drift) or link them (three hyperlinks that rot). Exec boards lie because nobody maintains them.
+2. **Dependencies can't cross containers.** "Team A's story is blocked by Team B's epic" has no address. Tools book fake work to represent the dependency, then forget to clear it. Dependency registers are half-stale within a quarter.
+3. **Level is a typed field.** Someone marks an item "Epic" in a dropdown. Nothing ever checks that. Three years later the label is a guess.
+
+None of this is a bug in Trello, Jira, or LeanKit. It's the predictable decay of a containment data model.
+
+## 2. Thesis
+
+> Work is a graph, not a board. Flight levels are resolutions of a view over that graph. Nothing carries hand-maintained state that could be derived.
+
+Three derived facts, versus the typed fields every competitor uses:
+
+| Fact | Competitor | Flowline |
+|---|---|---|
+| Item level | typed field | computed from decomposition DAG |
+| Dependency state | typed field | computed from both endpoints' current state |
+| Portfolio status | curated board | computed from committed items |
+
+Derivation is the moat. Retrofitting it into a tool whose foundation is typed fields is a rewrite — which is what this PRD proposes.
+
+The model draws on Kanban Flight Levels (L1 strategy, L2 coordination, L3 team execution) but replaces the "boards per level" framing with a single graph read at stated resolutions.
+
+## 3. Data model
+
+Everything reduces to nodes and typed edges. There is no board membership field anywhere in the schema.
+
+### 3.1 Items
+
+```
+Item {
+  id, title, description,
+  type,                  // initiative | epic | story | defect
+  value_stream_id,       // required — the structural spine
+  state,                 // position in this type's lifecycle
+  created_at, resolved_at
+}
+```
+
+**Level is not a field.** It is computed: an item's level follows from what it decomposes into.
+
+```
+level(item):
+  if item.type == initiative      -> L1
+  if it decomposes into epics     -> L2   // enterprise span
+  if it decomposes into stories   -> L3
+  else                            -> L3   // schedulable unit, the floor
+```
+
+Consequences worth stating: level cannot be wrong, because the children determine it. And resolution has a floor — a story doesn't get sub-stories just because someone wants more zoom. Finer decomposition than schedulable work is a checklist.
+
+### 3.2 Boards are projections
+
+A board is a stored query, not a container.
+
+```
+Board {
+  id, name,
+  resolution,      // L1 | L2 | L3 — fixes the counting unit
+  scope,           // (value_stream | function | team | enterprise)
+  columns,         // lifecycle columns for this resolution
+  policy           // optional limits
+}
+```
+
+Rendering is `Board.scope ∩ Items where level(item) == Board.resolution`. The same epic appears on three boards with one identity:
+
+- L2 value-stream board — a card in the epic workflow, counting against that lane's epic limit
+- L3 team board — a **boundary pin**: no column, no WIP count, labelled "waiting on: API decision"
+- L1 portfolio board — not as itself; its initiative's status is computed from it and its siblings
+
+**Scope and resolution are independent.** "The Core Experience board" (scope) can be read at epic resolution or initiative resolution. That is a saved-view parameter, not a hierarchy of tiers — the fix for "one board open at a time" recurring at the program tier.
+
+### 3.3 Edges, and the distinction that makes counting honest
+
+Three edge types exist in MVP. Generic relations do not.
+
+| Edge | Meaning | Counts as WIP? |
+|---|---|---|
+| **Decomposition** (epic → story) | composition; the parent *is* its children | yes, at the parent's level only |
+| **Attribution** (initiative → objective) | many-to-many tagging; informs, never composes | **never** |
+| **Dependency** (A blocks B, +FS/SS/FF/lag) | a claim about sequencing | no — never work |
+
+**Attribution never counts.** A story serving two objectives is one unit of work reaching two outcomes. This is the single most important line in the schema: it is what makes cross-objective reporting possible without corrupting anyone's WIP, and what stops limits being gamed by relinking items to a second objective.
+
+### 3.4 Dependencies: edge vs. assertion
+
+The decision that makes dependency registers self-cleaning. Two separate facts:
+
+- **The edge** — permanent record that X relates to Y. Never deleted.
+- **The assertion** — computed, not stored: is this edge currently binding?
+
+```
+dependency_state(X blocks Y):
+  Y resolved                      -> Closed
+  X resolved, Y unresolved        -> Satisfied
+  X unresolved, Y not started     -> Open / planning risk
+  X unresolved, Y in progress     -> Open / live blockage
+  X cancelled, Y unresolved       -> Void (edge retains the reason)
+```
+
+Nothing to maintain. The risk state is arithmetic over endpoints. Crucially, the two "Open" readings are **different operational signals despite the same state**:
+
+- *Dependent not started, blocker unresolved* — the plan may be wrong. Cheapest moment in the system for two teams to re-sequence. Information, not interruption.
+- *Dependent in progress, blocker unresolved* — someone is actively waiting. Needs a person now.
+
+Most tools emit one "blocked" badge and you cannot tell which you are looking at.
+
+**Slip is computed, not entered.** The quantity that matters is: X cannot enter Done until Y exits. X has a forecast from its position in flow plus its lead-time distribution; Y has a forecast exit. The gap is expected slip. No estimate fields, no dates, nothing to maintain. Dependencies with real slip are the ones to manage; the rest sit quietly. This requires the graph model and cannot be bolted onto a board tool.
+
+**Raising is asymmetric; confirmation is the gate.** The person who notices a dependency is always on the dependent side. Team A asserts it against Team B's item; B's board shows a confirmation request, and confirmation is what turns the assertion into an edge. Rejection with a reason is valuable data ("we're doing that anyway" is exactly the staleness you want caught at birth). Once confirmed, B's own card carries a badge: *3 items blocked by this across 2 streams.* In every current tool the blocking team's board looks perfectly healthy — because it is. That asymmetry is what kills coordination, and nothing addresses it.
+
+**Cross-level endpoints bind by pinning.** A story waiting on an epic pins to a specific descendant, not to the whole epic. Most such dependencies are really "waiting on the API decision," which is one story; waiting on an entire epic manufactures nine months of artificial wait.
+
+### 3.5 Limits
+
+Limits are **optional and configurable**, keyed on `(resolution, item type, scope)`.
+
+Flow limits (per column/lane) — don't start more than N:
+- L1: initiatives
+- L2: epics per value stream
+- L3: stories
+
+Commitment limits (per period) — don't adopt more than N in a time-box:
+- L1: objectives and key results
+
+Objectives and KRs are **not flow items**. They are not started, in progress, or done; they exist for a period and get scored. Putting them in columns builds a measurement register wearing a kanban costume, and it lies within a quarter. "3–5 objectives" was always a commitment limit, not a WIP limit.
+
+Limit policy:
+
+```
+LimitPolicy {
+  scope_key:       (resolution, item_type, scope_node, column | period)
+  counting_rule:   count | size_banded | conflation
+  enforcement:     visualize | warn | soft_block(reason required) | hard_block
+  thresholds:      { yellow, red }
+  effective_dates: from, until
+}
+```
+
+Defaults: **soft-block with required reason.** Hard blocks drive card-splitting to fit the number rather than fit the work, and you learn nothing. Policies are versioned with effective dates because limits get renegotiated — that is what they are for — and a CFD from last quarter must know which limit was in force.
+
+**Composition pressure is visible, not capped.** Five epics inside a limit of five, each with twenty open stories, is a hundred stories of real work, all "within limits." Do not add a global cap. The epic card carries its open-descendant count against the deeper flow's limit. Levels stay independently limited and visibly coupled.
+
+## 4. UX — LeanKit visual language
+
+Familiar on the surface. The novel machinery is invisible until someone needs it.
+
+### 4.1 Board anatomy
+
+A LeanKit-style sliced board: vertical lanes (state columns) crossed by horizontal rows (lanes), each row's own column set.
+
+```
+┌─ Top bar ─────────────────────────────────────────────┐
+│ ⊞ Flowline   [Board ▾]  Scope: Core Experience ▾      │
+│ Resolution: ◉ Epic (L2)  ○ Initiative (L1)  ○ Story (L3)  ⚙ 🔍  ⊡ 100%  │
+├──┬────────────────────────────────────────────────────┤
+│  │  Backlog │ Analyze │ In Progress │ Ready │ Done     │
+│ L│────────────────────────────────────────────────────││
+│ A│  [card]    [card]    [card]        [card]           ││
+│ N│  ── Team Alpha ───────────────────────────────────││
+│ E│  New  Sprint 1  Sprint 2   ...                      ││
+│ S│  [card]  [card]  [card]                             ││
+└──┴────────────────────────────────────────────────────┘
+```
+
+- **Vertical lanes** are states (columns). Lane headers carry `count / limit`, coloured at yellow/red threshold.
+- **Horizontal rows** are scopes. Rows nest — a value-stream row contains team rows, each with their own column set (a team may run a different workflow inside the same stream).
+- Row rail on the left shows a count badge per row.
+
+### 4.2 Resolution switcher — the structural move
+
+Resolution sits in the board header next to scope, not in navigation. Switching it changes two things at once: **the column set** (initiative lifecycle vs. epic workflow vs. team flow) and **the counting unit**. Scope does not change. Zoom is a dimension of the view, not a jump between containers.
+
+This is what makes "every cell might be another flow" real without nesting boards inside boards: the graph is fixed, and you are choosing the resolution you read it at.
+
+### 4.3 Cards
+
+Compact, dense, LeanKit-like. Each card carries:
+
+| Element | Meaning |
+|---|---|
+| Type pill (top) | `Objective` `Initiative` `Epic` `Story` — colour-coded |
+| Title | one line |
+| ID + size | e.g. `(IT2) 472` + points |
+| Left edge stripe | colour by value stream |
+| Bottom icon row | dependency count, child count, blocked flag |
+| Assignee avatar / date | where set |
+
+**Boundary pins** — a card appearing on a board where it does not belong renders differently: no type pill, no column, no WIP count. Dashed left border, "waiting on: <title> (Core Experience)" and a link that opens the item **in a side panel, scoped to its own board**. You never navigate away and lose context.
+
+**Ghost lanes** — when a dependency enters from outside the current scope, the board edge gains a read-only lane containing only the binding items. Cross-scope dependency becomes a visible seam rather than a jump.
+
+### 4.4 Dependency rendering per resolution
+
+The edge is computed once and interpreted per view. Same object, two readings:
+
+- At **L3** — a team-level boundary pin. "Blocked by: API decision (epic, Core Experience)."
+- At **L2** — a constraint on the epic's lead-time forecast, shown as the expected-slip number on the connecting edge.
+
+Deliberately two mental models for what looks like one object. Design accordingly rather than falling into it.
+
+## 5. MVP scope
+
+The demo is one enterprise. Three flights, one graph.
+
+### In scope
+
+- Three-way board model: scope × resolution × columns. Scope values: enterprise, value stream, team, function.
+- The three counting units with their own lifecycles: initiative (Idea → Option → Bet → Committed / Rejected, plus Dormant as a first-class state — not an archive), epic (standard entry/exit), story.
+- Items with no board field. Membership by value stream.
+- Edges: decomposition, dependency (FS/SS/FF + lag, with pinning across levels), attribution.
+- Dependency lifecycle: raise → confirm/reject → computed state → Closed. Slippage computed from forecasts.
+- Boundary pins and ghost lanes.
+- Optional, configurable limits per (resolution, item type, scope), with inheritance, override, versioning, and effective dates.
+- Objectives and key results as commitment-limited entities, never in columns.
+- Computed portfolio rollup: an initiative's status derives from its committed epics and its own decisions.
+- **Sponsor recommendation, not auto-approval.** A bet's computed status may *suggest* committed or rejected; a human confirms. The board stops lying without removing judgement.
+
+### Out of scope for MVP
+
+- Org charts. Departments are *not* modelled. The scope tree covers value streams, functions, and teams — in most enterprises the functional tree and the value-stream tree are different things, and conflating them is how these tools die.
+- Custom entity types and generic relations. Targetprocess won on this model and still lost, because the freedom required a consultant. Flight levels are grammar, not configuration. Nobody invents L2.5.
+- Time-boxes/iterations. Board columns handle current work; a time-box is a roadmap entity, which is a version 2 problem.
+- Metrics beyond the WIP/lane counts needed to prove counting. CFD, lead-time distributions, Monte Carlo — the *reason* slip computation works — come later. Forecasts use simple flow-based estimates in MVP.
+- Burndowns, capacity planning, sprint ceremonies, time tracking.
+- Integrations. No Jira, no SSO, no calendar.
+
+### 5.1 Definition of done for the MVP
+
+The demo must show, in one sitting, on real screens:
+
+1. **One item, three boards, no duplication.** An epic on its value-stream board at L2, a boundary pin on a team board at L3, and a rollup contribution on the L1 portfolio view. One identity, three renderings.
+2. **Level computed.** Change an item's children, watch its level change. There is no level field to wrong.
+3. **Dependency self-cleaning.** Blocked story on Team A, blocker epic on Team B. Blocker resolves; dependency state flips to Satisfied with nobody touching it. Then show it on *both* boards simultaneously.
+4. **Attribution that doesn't inflate.** One story attributed to two objectives; WIP count reads 1.
+5. **A limit working.** Set epics-per-stream to 4, add a fifth, get the soft block and required reason. Then show the pressure display on the epic carrying 18 open stories.
+6. **The exec board that stops lying.** An initiative's status computed from committed work, with a one-click sponsor recommendation.
+
+Items 1 and 3 are the load-bearing ones. If a viewer doesn't feel those, nothing else matters.
+
+## 6. Open decisions
+
+1. **Personal resolution vs. shared.** Can a viewer switch resolution on a shared board? Useful in a portfolio review, but two people reading "the board" would count different things. Proposal: board-level, with personal exploration as a quarantineed state.
+2. **Parent boards holding work.** Do nested parent scopes hold items, or only roll up children? Real divisions do both. Proposal: allowed, with rollup explicitly computed so nothing double-counts — but it makes the parent board do two jobs, which is where UX gets hard.
+3. **Functions with delivery boards.** Do functions get their own L3 work, or exist only as coordination endpoints at L1? Leaner if the latter; one less thing to explain. The reference picture suggests the latter, but only for this org.
+4. **Estimated size at L2.** Counting epics as 1 each when one is a week and another is nine months is the known weak point. Counting rule is policy in the schema; whether MVP ships size-banded defaults is open.
+
+## 7. Risks
+
+| Risk | Mitigation |
+|---|---|
+| **Targetprocess's graveyard** — the model is right and still failed | Fixed grammar. Flight levels are not configurable. This is the single hardest position to hold in the first enterprise pilot, and the one that most needs defending. |
+| **Learning curve** — Trello wins on four-second readability | Default view is a familiar L3 board. Novelty appears only on zoom, and appears as *already-recorded facts* rather than new concepts to learn. |
+| **Trusting computed status** — execs who want to type it | Sponsor recommendation pattern in 5. Show the derivation. Let them override with a recorded reason. |
+| **Scope creep into "just one more level"** | Section 6.2 and Section 3.3 are the refusal, in advance. |
+| **Vision cost** — this needs more screens than a boarding app | It doesn't. It needs one more concept (resolution) and two renderings (boundary pin, ghost lane). |
+
+## 8. What comes after
+
+Roadmap, not scope: the dependency-topology classifier (an initiative whose epics' dependencies cluster across value streams is a shared-services bet in disguise — the graph says it, nobody declares it); org-tree-vs-dependency-graph diagnostics, the sociotechnical angle that falls out of the architecture free; time-boxes as roadmap entities; per-value-stream limit templates.
+
+---
+
+*Working note on visual spec: details in section 4 were derived from the supplied screenshots at the design-system level. Card pill colours, header chrome, and exact lane-header count styling still need pixel verification against the source screenshots before build.*

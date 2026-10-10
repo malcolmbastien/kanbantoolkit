@@ -1,0 +1,191 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Initialize project with Vite, React 19, TypeScript, Tailwind, and dependencies",
+        "description": "Set up the Vite project with React 19, TypeScript strict mode, Tailwind CSS v4, and install all required libraries: Zustand, @dnd-kit, lucide-react, clsx, tailwind-merge, Vitest.",
+        "details": "Run `npm create vite@latest flowline-mvp -- --template react-ts` to scaffold the project. Upgrade React to v19 and ensure TypeScript is in strict mode (set `\"strict\": true` in tsconfig.json). Install Tailwind CSS v4 following its Vite plugin instructions: `npm install tailwindcss @tailwindcss/vite` and add the plugin to `vite.config.ts`. Install Zustand: `npm install zustand`; @dnd-kit: `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities`; lucide-react: `npm install lucide-react`; clsx and tailwind-merge: `npm install clsx tailwind-merge`. Install Vitest as dev dependency: `npm install -D vitest`. Configure `package.json` scripts: `\"dev\": \"vite\"`, `\"build\": \"tsc && vite build\"`, `\"test\": \"vitest\"`. Create a basic Tailwind entry CSS file and import it in `main.tsx`. Verify that `npm run dev` starts without errors.",
+        "testStrategy": "Run `npm run dev` to ensure the development server starts. Run `npm run build` to confirm TypeScript compilation and production build succeed. Run `npm test` to check Vitest runs (even with no tests yet). Confirm all dependencies are listed in package.json.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.355Z"
+      },
+      {
+        "id": "2",
+        "title": "Define domain model types and constants",
+        "description": "Create TypeScript interfaces, enums, and constants for Scope, Item, Edge, LimitPolicy, Objective, KeyResult, plus resolution, item type, state, dependency kinds, and lifecycle columns.",
+        "details": "In a new file `src/types.ts`, define: `Resolution = 'L1' | 'L2' | 'L3'`; `ItemType = 'initiative' | 'epic' | 'story' | 'defect'`; `State` union for all lifecycle states: `'Idea' | 'Option' | 'Bet' | 'Committed' | 'Rejected' | 'Dormant' | 'Backlog' | 'Analyze' | 'In Progress' | 'Ready' | 'Done' | 'Review'`. Interface `Scope` with `id: string; name: string; kind: 'enterprise' | 'value_stream' | 'team' | 'function'; parentId?: string`. Interface `Item` with `id, title, description?, type, valueStreamId, teamId?, state, size?, assignee?, createdAt, resolvedAt?`. Interface `DependencyInfo` with `fsKind: 'FS' | 'SS' | 'FF'`, `lagDays?`, `status: 'proposed' | 'confirmed' | 'rejected'`, `reason?`. Interface `Edge` with `id, kind: 'decomposition' | 'dependency' | 'attribution', from: string, to: string, dep?: DependencyInfo`. Interface `LimitPolicy` with `id, resolution, itemType, scopeId?, column?, enforcement: 'soft' | 'hard', thresholds: { yellow: number, red: number }`. Interface `Objective` and `KeyResult` for commitment-limited entities: Objective with `id, name, description?` and KeyResult with `id, objectiveId, description, target, current`. Define column mappings: `COLUMNS_BY_RESOLUTION: Record<Resolution, State[]>` mapping L1 to `['Idea', 'Option', 'Bet', 'Committed', 'Rejected', 'Dormant']`, L2 to `['Backlog', 'Analyze', 'In Progress', 'Ready', 'Done']`, L3 to `['Backlog', 'In Progress', 'Review', 'Done']` (adjust defect lifecycle to same states). Export all types and constants.",
+        "testStrategy": "Run `npm run build` to ensure TypeScript compiles without errors. Add basic type-level tests if desired (e.g., using `tsd` or simply rely on build). Ensure no `board` field exists on Item.",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.358Z"
+      },
+      {
+        "id": "3",
+        "title": "Implement seed data and Zustand store with localStorage persistence",
+        "description": "Create a seeded in-memory demo enterprise graph and set up a Zustand store with actions to update items, edges, and reset to seed.",
+        "details": "In `src/seed.ts`, construct the demo enterprise exactly as described: one enterprise scope 'Acme', two value streams 'Core Experience' and 'Platform Services', three teams: Team Alpha, Team Bravo (under Core Experience), Team Platform (under Platform Services). Create one initiative 'Onboarding Redesign' decomposing into 5 epics across both streams (e.g., 3 in Core Experience, 2 in Platform Services). Ensure one epic (e.g., 'API decision') is in Platform Services and is a blocker for a story in Team Bravo. Create 2 objectives and several stories attributed many-to-many; ensure one story is attributed to both objectives. Create stories under each epic, including ~18 open descendants in one epic to show composition pressure. Include a defect. Set limit policy: epic per value stream limit = 4, seeded with 5 epics in one stream to demonstrate soft block. Use a separate `edges` array with instances for decomposition, dependency, and attribution edges. In `src/store.ts`, define a Zustand store with state: `items: Item[]`, `scopes: Scope[]`, `edges: Edge[]`, `objectives: Objective[]`, `keyResults: KeyResult[]`, `limitPolicies: LimitPolicy[]`, `resolution: Resolution`, `selectedScopeId: string | null`, and actions: `updateItem(id, patch)`, `addEdge(edge)`, `updateEdge(id, patch)`, `resetDemo()`, `setResolution(r)`, `setSelectedScope(id)`. Use Zustand `persist` middleware with name 'flowline-mvp' to persist to localStorage. On first load, use seed data. Provide `resetDemo` to restore seed and clear persisted state.",
+        "testStrategy": "Write Vitest tests to verify seed data integrity: number of items, edges, correct level relationships, limit policy, etc. Test store initialization and hydration from localStorage (simulate by setting localStorage). Test `resetDemo` restores original seed.",
+        "priority": "high",
+        "dependencies": [
+          "2"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.360Z"
+      },
+      {
+        "id": "4",
+        "title": "Implement derivation functions: level, dependencyState, portfolioStatus, and WIP counting",
+        "description": "Create pure functions to compute item level, dependency state, portfolio status, and work-in-progress counts excluding attribution edges.",
+        "details": "In `src/derivations.ts`, implement: `level(itemId: string, items: Item[], edges: Edge[]): Resolution` following rules: if item.type is initiative → 'L1'; else if item decomposes into epics (i.e., there exists an edge of kind 'decomposition' from item to an item of type 'epic') → 'L2'; else if decomposes into stories/defects → 'L3'; else 'L3' (schedulable floor). `dependencyState(blockerId: string, dependentId: string, items: Item[], edges: Edge[]): string` using rules: dependent resolved → 'Closed'; blocker resolved, dependent unresolved → 'Satisfied'; blocker unresolved, dependent not started → 'Open (planning risk)'; blocker unresolved, dependent in progress → 'Open (live blockage)'; blocker cancelled → 'Void'. Need to determine 'cancelled' state (maybe blocker state is 'Rejected' for initiatives or 'Done' for resolved, 'Dormant' cancelled?). Define a helper to check resolved and cancelled based on item type and state. `portfolioStatus(initiativeId: string, items: Item[], edges: Edge[]): string` computed from committed/decomposed epics: e.g., aggregate states of child epics (e.g., if all Done → 'Done', if any In Progress → 'In Progress', etc.) or a simplified algorithm: count epics in each state and derive. `getWIPCount(scopeId: string, resolution: Resolution, items: Item[], edges: Edge[]): number` returns count of items in scope (via valueStreamId/teamId depending on resolution?) excluding attribution. Specifically, for attribution, edge kind 'attribution' should not cause an item to be counted multiple times; count each item once if it belongs to scope. Implement helper `getBoardItems(scopeId, resolution, items, edges, scopes)` that returns items visible on the board, handling boundary pins and ghost lane. All functions must be pure and typed.",
+        "testStrategy": "Write unit tests in Vitest for each function: test level computation for initiative, epic with child epics/stories, story; test dependencyState transitions (resolving blocker flips dependent to Satisfied; rejecting/cancelling blocker gives Void; etc.); test portfolioStatus for combinations of epic states; test WIP counting excludes attribution and counts a story attributed to two objectives as one unit. Ensure no level field is used.",
+        "priority": "high",
+        "dependencies": [
+          "2"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.362Z"
+      },
+      {
+        "id": "5",
+        "title": "Build board layout components: columns, scope lanes, lane headers, and card containers",
+        "description": "Create the main board UI with vertical state columns and horizontal scope lanes, including lane headers with count/limit and row rails.",
+        "details": "In `src/components/Board.tsx`, build a grid layout using Tailwind. Columns are determined by the current resolution from `COLUMNS_BY_RESOLUTION`. Lanes are determined by selected scope: if scope is enterprise, lanes are value streams; if scope is value stream, lanes are teams; if scope is team, single lane. Use Zustand store to get scopes, items, edges, limitPolicies. Compute per lane and column the visible items using `getBoardItems` or similar. Render lane headers showing `count / limit` where count is WIP count for that lane and column, limit from LimitPolicy for corresponding item type and scope. Color threshold: yellow when count >= 70% of limit, red when >= limit. Row rail on the left shows per-row total count. Use `clsx` and `tailwind-merge` for class composition. Ensure the layout is dense like LeanKit: small cards, compact spacing.",
+        "testStrategy": "Write component tests using React Testing Library (if desired) or manual testing: render Board with seed data, verify columns appear based on resolution, lanes appear, lane headers show correct counts and colors for yellow/red thresholds. Ensure row rail shows correct totals. Check that no items appear twice due to attribution on same lane.",
+        "priority": "medium",
+        "dependencies": [
+          "3",
+          "4"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.364Z"
+      },
+      {
+        "id": "6",
+        "title": "Implement resolution switcher and board data computation",
+        "description": "Add top bar resolution switcher (Initiative L1 / Epic L2 / Story L3) and update board columns and counting unit accordingly while preserving scope.",
+        "details": "In `src/components/TopBar.tsx` (or within Board), add three buttons for L1/L2/L3. On click, call `setResolution` from store. The board (already dependent on resolution) will re-render with new columns and item mapping. Ensure that switching resolution does not change selected scope. The counting unit: for L1, count initiatives; L2 count epics; L3 count stories/defects. Items that are not of the current resolution but have decomposition to items of that resolution should appear as boundary pins (e.g., epic on L3 board). Implement logic in `getBoardItems` to map items to columns based on level and state. For each item, if its computed level equals resolution, it is a regular card; if level > resolution (e.g., initiative on L2 board), it appears as rollup contribution or not shown? The PRD says: 'One epic renders on three boards with one identity: L2 card on its value-stream board, L3 boundary pin on a team board, rollup contribution on the L1 portfolio.' So for L3 board, an epic (level L2) should appear as a boundary pin in the column corresponding to its state? Actually boundary pin is shown where it does not belong, e.g., epic on team board (L3). So implement: if item's computed level != resolution, but item has descendants of the current resolution, show as boundary pin in the appropriate column (the column of the descendant? or a ghost lane?). The PRD: 'Boundary pins: a card shown where it does not belong renders with no pill, no WIP count, dashed left border, \"waiting on: <title>\"'. Also 'Ghost lane: when a dependency enters from outside the scope, a read-only lane at the board edge lists only the binding items.' We'll implement boundary pins and ghost lane in later tasks. For now, ensure resolution switcher updates columns and counting unit.",
+        "testStrategy": "Manual test: switch between L1, L2, L3 and verify columns change to respective lifecycles and items appear/disappear as appropriate. Check that selected scope remains unchanged. Unit test the mapping function that transforms items to board slots based on resolution.",
+        "priority": "medium",
+        "dependencies": [
+          "5"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.366Z"
+      },
+      {
+        "id": "7",
+        "title": "Implement card component and boundary pin rendering",
+        "description": "Create card component with type pill, title, id+size, value stream stripe, icon row, and distinct boundary pin styling.",
+        "details": "In `src/components/Card.tsx`, render an item card with: type pill color-coded by type (initiative=purple, epic=blue, story=green, defect=red), title, bottom row showing id and size (e.g., '#123 · 5 pts'), left border stripe colored by value stream (map valueStreamId to color), icon row at bottom showing dependency count (number of dependency edges where item is blocker or dependent), child count (number of decomposition edges from item), and blocked flag if any dependency open. For boundary pins (when item is shown outside its natural level), render without type pill, no WIP count contribution, dashed left border, and text 'waiting on: <title>' where title is the dependent's title (or blocker's title?). The PRD says \"waiting on: <title>\" and opens the item in a side panel scoped to its own board. Implement conditional rendering based on a prop `isBoundaryPin`. Use lucide-react icons for counts and flags.",
+        "testStrategy": "Component test: render a regular card and verify all elements present. Render a boundary pin variant and ensure no pill, dashed border, and 'waiting on' text appears. Verify that the card does not affect WIP count when in boundary pin mode (by checking that the count computation excludes it).",
+        "priority": "medium",
+        "dependencies": [
+          "5"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.367Z"
+      },
+      {
+        "id": "8",
+        "title": "Implement item side panel with details, children, dependencies, and derivation display",
+        "description": "Create a side panel that opens when clicking a card, showing the item's full details, its children, dependencies, computed level and dependency states with derivation explanation.",
+        "details": "In `src/components/SidePanel.tsx`, use Zustand to get selected item (add `selectedItemId` to store with action `setSelectedItemId`). The panel slides in from right side. Show item title, type, state, value stream, team, size, assignee, createdAt. Show children section: list of child items via decomposition edges, with ability to click to navigate (set selected item). Show dependencies section: list of dependency edges involving this item (both as blocker and dependent), with status and actions to confirm/reject (for proposed) and maybe resolve. Show computed level: display `level(item)` result and the decomposition path used. Show dependency state for each dependency: display `dependencyState(blocker, dependent)` and the reasons. For boundary pins, ensure panel is scoped to the item's own board (meaning the panel shows the item in its natural resolution context, not the current board resolution). Implement by passing the item's computed level to the panel content.",
+        "testStrategy": "Test manually: click on a regular card, panel opens with correct details. Click on a boundary pin, panel shows content appropriate to the item's own level (e.g., epic details, not story details). Verify children and dependency lists are accurate. Check that dependency actions (confirm/reject) work and update edge status.",
+        "priority": "medium",
+        "dependencies": [
+          "7"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.368Z"
+      },
+      {
+        "id": "9",
+        "title": "Implement drag-and-drop with dnd-kit for moving cards between columns",
+        "description": "Enable drag-and-drop of cards between columns to update item state, triggering level recomputation when children are moved.",
+        "details": "In Board component, wrap each card with dnd-kit's `useDraggable` and each column with `useDroppable`. On drag end, determine target column state and call `updateItem(itemId, { state: newState })`. Only allow dragging regular cards (not boundary pins) and only within the current resolution's columns. For L2 resolution, dragging an epic between columns updates its state; moving an epic to a column that reflects decomposition? No, only state changes. For L3, dragging a story updates its story state. After any state change, derived values (level, dependency states, portfolio status) will recompute automatically. To demonstrate level change via decomposition: implement ability to drag child items away from a parent? That might be done via side panel editing children, not drag. The PRD says \"Dragging all children away from an epic changes its computed level.\" This implies moving decomposition edges, possibly via UI to reassign parent. For MVP, we can implement in side panel a 'change parent' action or drag between cards to establish decomposition? Simplify: add a button in side panel to detach child from parent, or drag child card onto another card to set as new parent? The PRD does not specify exactly how; we can implement a simple method: in side panel, for each child, provide a 'Detach' button that removes the decomposition edge, and maybe a 'Reparent' option. That is sufficient to show level change. Ensure that after detach, the epic's level recomputes to L3 if no children left.",
+        "testStrategy": "Unit test the store update logic: when item state changes, all derived functions reflect changes. Integration test: drag a card to another column, verify state updates. Simulate detaching all children from an epic, verify its computed level changes from L2 to L3.",
+        "priority": "medium",
+        "dependencies": [
+          "3",
+          "4",
+          "5",
+          "7"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.370Z"
+      },
+      {
+        "id": "10",
+        "title": "Implement dependency management and computed dependency state updates",
+        "description": "Add UI to create, confirm, reject, and resolve dependencies; ensure dependent state automatically updates when blocker resolves.",
+        "details": "In side panel dependencies section, provide a button 'Add dependency' that allows selecting another item and creating a dependency edge with default status 'proposed'. For each dependency, show actions: confirm (set status to 'confirmed'), reject (set status to 'rejected'), and for blocker items, a 'Resolve' button that updates the blocker item's state to its resolved state (e.g., for epic, set state to 'Done'; for story, set to 'Done'). The dependent's dependency state will then recompute to 'Satisfied' automatically (via derivation). Ensure that when a dependency is confirmed, the dependent shows blocked flag if blocker unresolved. Also implement cross-level dependency: the seeded dependency from Platform epic to Team Bravo story should display correctly on both boards, with the epic appearing as boundary pin on the story's board. Use `dependencyState` function to display the current state and reason. Ensure attribution edges are not considered dependencies.",
+        "testStrategy": "Test manually: open the blocked story's panel, see the dependency on 'API decision' epic with status. Click 'Resolve' on the blocker epic; verify the story's dependency state changes to 'Satisfied' and the blocked flag disappears. Unit test the update logic for confirming/rejecting dependencies. Verify that resolving blocker updates state on both boards without manual edit.",
+        "priority": "medium",
+        "dependencies": [
+          "4",
+          "8"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.371Z"
+      },
+      {
+        "id": "11",
+        "title": "Implement limit policy enforcement and composition pressure display",
+        "description": "Add soft-block enforcement for item limits per scope, requiring a reason before allowing a move that would exceed limit; show composition pressure on cards with many open descendants.",
+        "details": "When a drag-and-drop operation would cause a lane's count to exceed its limit (e.g., adding a 5th epic to a value stream with limit 4), intercept the drop and open a dialog (LimitDialog) requiring the user to enter a reason (text input). Only after entering a non-empty reason, allow the move (call updateItem) and record the reason (could store in a separate log or on the item as `limitOverrideReason`). Show a toast or indicator. For composition pressure: on cards that have many open descendants (e.g., epic with 18 open stories), display a visual indicator (e.g., a small pressure icon or red dot) and tooltip with count of open children. This is computed from decomposition edges and child states. No hard block; always soft. Ensure limit policies are configurable but seeded with epic limit per value stream = 4.",
+        "testStrategy": "Manual test: attempt to drag a 5th epic into a column that would exceed the limit; dialog appears, cannot proceed without reason. Enter reason, move allowed. Check composition pressure indicator on the seeded epic with many open descendants. Unit test the function that checks limit thresholds and returns whether a move requires reason.",
+        "priority": "medium",
+        "dependencies": [
+          "9"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.373Z"
+      },
+      {
+        "id": "12",
+        "title": "Implement portfolio rollup, sponsor recommendation, reset demo, search, zoom, and final integration",
+        "description": "Add portfolio view (L1) with computed initiative status and sponsor recommendation override, plus top bar search and zoom controls, and ensure reset demo restores seed.",
+        "details": "In L1 resolution, show portfolio view: a list of initiatives with their computed `portfolioStatus`. For each initiative, display a sponsor recommendation (e.g., based on status: if all child epics Done, recommend 'Approve'; if any In Progress, recommend 'Watch'; else 'Review') as a one-click button. The human can confirm the recommendation or override with a reason (open dialog to input reason, then set a `sponsorOverride` on the initiative item). Add a 'Reset demo' button in top bar that calls `resetDemo` from store. Add search input in top bar that filters cards by title or id. Add zoom controls (buttons for 75%, 100%, 125%) that scale the board via CSS transform. Ensure all features integrate without errors. Run build and tests.",
+        "testStrategy": "Manual test: switch to L1, see initiative with computed status. Click sponsor recommendation, status updates; override with reason is recorded. Test reset demo: after making changes, click reset and verify board returns to seed state. Test search filters visible cards. Test zoom changes scale. Run `npm run build` and `npm test` to ensure green.",
+        "priority": "medium",
+        "dependencies": [
+          "4",
+          "5",
+          "6",
+          "8",
+          "10",
+          "11"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-10-10T17:53:37.374Z"
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2026-10-10T17:53:37.374Z",
+      "taskCount": 12,
+      "completedCount": 12,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}
