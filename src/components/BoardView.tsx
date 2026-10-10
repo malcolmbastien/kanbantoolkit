@@ -30,7 +30,7 @@ function DroppableCell({ id, children }: { id: string; children: React.ReactNode
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-h-[54px] flex-1 flex-col gap-1 overflow-y-auto rounded-b-md p-1 transition',
+        'flex min-h-[48px] flex-col gap-1 rounded-b-md p-1 transition',
         isOver ? 'bg-indigo-300/50 ring-1 ring-inset ring-indigo-500' : 'bg-transparent',
       )}
     >
@@ -109,11 +109,16 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
   if (kids.length > 0) {
     const orientation = lane.orientation ?? 'columns'
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex w-full flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
         {(editMode || lane.name) && header(false)}
-        <div className={cn('flex min-h-0 min-w-0 flex-1 gap-1 p-1', orientation === 'rows' ? 'flex-col' : 'flex-row')}>
+        <div className={cn('flex gap-1 p-1', orientation === 'rows' ? 'flex-col' : 'flex-row items-stretch')}>
           {kids.map((k) => (
-            <LaneBox key={k.id} lane={k} ctx={ctx} isRoot={false} />
+            <div
+              key={k.id}
+              className={orientation === 'columns' ? 'flex min-w-[196px] flex-1 basis-0 flex-col' : 'flex w-full flex-col'}
+            >
+              <LaneBox lane={k} ctx={ctx} isRoot={false} />
+            </div>
           ))}
         </div>
       </div>
@@ -127,7 +132,7 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
     .filter((i) => !ctx.search || i.title.toLowerCase().includes(ctx.search.toLowerCase()))
 
   return (
-    <div className="flex min-h-[120px] min-w-[170px] flex-1 flex-col rounded-md border border-slate-300 bg-slate-100 shadow-sm">
+    <div className="flex w-full flex-col rounded-md border border-slate-300 bg-slate-100 shadow-sm">
       {header(true)}
       <DroppableCell id={`lane:${lane.id}`}>
         {cards.map((c) => {
@@ -236,7 +241,7 @@ export function BoardView({ requestMove, onAddCard }: Props) {
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <div className="flex min-h-0 flex-1">
           <div className="min-h-0 flex-1 overflow-auto p-3">
-            <div className="flex h-full min-h-[200px] w-max min-w-full">
+            <div className="min-h-[200px] w-full min-w-max">
               {root ? (
                 <LaneBox lane={root} ctx={ctx} isRoot />
               ) : (

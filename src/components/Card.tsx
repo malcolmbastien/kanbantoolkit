@@ -49,13 +49,13 @@ export function Card({ item, type, ref_, depth, summary, parent, selected, onOpe
         onOpen(item.id)
       }}
       className={cn(
-        'group relative cursor-pointer overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
+        'group relative flex h-[112px] w-[180px] shrink-0 cursor-pointer flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
         'hover:shadow-md hover:border-slate-400',
         selected && 'ring-2 ring-indigo-400',
         isDragging && 'opacity-40',
       )}
     >
-      <div className="flex items-start gap-1 px-1.5 py-1.5">
+      <div className="flex h-full items-start gap-1 px-1.5 py-1.5">
         <button
           {...attributes}
           {...listeners}

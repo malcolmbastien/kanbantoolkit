@@ -15,6 +15,8 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   can be split into a container of either orientation, recursively — so the grid is
   **non-uniform**, exactly like LeanKit. All design controls (split / add / rename /
   remove lanes) live behind an **Edit board** mode.
+- **Fixed post-it cards, fluid lanes.** A card is a fixed 180×112 note; lanes **expand to
+  fit every card** in them (no in-cell scrolling), so a row is as tall as its busiest cell.
 - **Explicit placements** — a card's board + cell is stored as a `Placement` record (one
   per board), so a single card can still live on several boards with one identity.
 
