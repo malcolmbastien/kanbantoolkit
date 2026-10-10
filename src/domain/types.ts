@@ -11,20 +11,24 @@ export interface IssueType {
   color: string
 }
 
-export type LaneAxis = 'vertical' | 'horizontal'
+export type SplitOrientation = 'columns' | 'rows'
 
 /**
- * A LeanKit lane. Vertical lanes are process columns; horizontal lanes are
- * swimlanes. Either can be split into ordered sub-lanes (parentId points up).
+ * A LeanKit lane. A lane with no children is a leaf **cell** that holds cards.
+ * A lane with children is a **container**; `orientation` says how its children
+ * are arranged ('columns' = side by side, 'rows' = stacked). Any leaf can be
+ * split into a container of either orientation, recursively — so the grid is
+ * non-uniform, exactly like LeanKit.
  */
 export interface Lane {
   id: string
   boardId: string
-  axis: LaneAxis
   parentId: string | null
-  name: string
   order: number
-  /** Optional per-lane WIP limit. */
+  name: string
+  /** Present on containers: how children are arranged. */
+  orientation?: SplitOrientation
+  /** Optional WIP limit (counts placements anywhere in the lane's subtree). */
   wipLimit?: number
   /** Column semantics for dependency derivation. */
   isStart?: boolean
@@ -53,15 +57,13 @@ export interface Item {
   lastMoveReason?: string
 }
 
-/** The explicit "board + cell" a card sits in. One per board. */
+/** The explicit board + cell a card sits in. One per board. */
 export interface Placement {
   id: string
   boardId: string
   itemId: string
-  /** Leaf vertical lane (the column). */
-  columnLaneId: string
-  /** Leaf horizontal lane (the row), if any. */
-  rowLaneId: string | null
+  /** The leaf lane (cell) the card sits in. */
+  laneId: string
 }
 
 export type DepKind = 'FS' | 'SS' | 'FF'

@@ -42,6 +42,9 @@ task-master list            # terminal 2
   enforces it). `depth` is derived — never add a `level` field.
 - **Issue types are labels + colour.** Columns come from a board's lane tree, never from
   the type. Never add a lifecycle to `IssueType`.
+- **Boards are a recursive lane tree.** A leaf lane is a cell; a container arranges children
+  in columns or rows; any cell can be split. Board-design actions (`splitLane`, `addLane`,
+  `removeLane`) mutate the tree and are surfaced only in **edit mode**.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - Dependency state is derived from the two endpoints' cells; never store a dependency
   status field. Attribution never counts as WIP.

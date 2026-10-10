@@ -60,7 +60,7 @@ export interface Status {
 export function statusOf(itemId: string, graph: Graph): Status {
   const placement = graph.placements.find((p) => p.itemId === itemId)
   if (!placement) return { resolved: false, cancelled: false, started: false }
-  const lane = graph.lanes.find((l) => l.id === placement.columnLaneId)
+  const lane = graph.lanes.find((l) => l.id === placement.laneId)
   return {
     resolved: Boolean(lane?.isDone),
     cancelled: Boolean(lane?.isCancelled),

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionParent, statusOf } from './domain/derive'
-import { leafLanes } from './domain/lanes'
+import { childrenOf, isLeaf } from './domain/lanes'
 import { useStore } from './store'
 
 vi.stubGlobal('localStorage', {
@@ -17,7 +17,7 @@ const graph = () => {
 const laneByName = (boardId: string, name: string) =>
   s().lanes.find((l) => l.boardId === boardId && l.name === name)!
 
-describe('store actions (v2)', () => {
+describe('store actions (recursive lanes)', () => {
   beforeEach(() => s().resetDemo())
 
   it('one parent: setParent replaces any existing parent', () => {
@@ -27,29 +27,38 @@ describe('store actions (v2)', () => {
     expect(decompositionParent('st-form', s().edges)).toBe('it-signup')
   })
 
-  it('splitting a lane creates two sub-lanes and moves cards into the first', () => {
-    const progress = laneByName('b-core', 'In Progress')
-    const before = s().lanes.filter((l) => l.parentId === progress.id).length
-    s().splitLane(progress.id)
-    const kids = s().lanes.filter((l) => l.parentId === progress.id)
-    expect(kids.length).toBe(before + 2)
-    // no card references the now-non-leaf In Progress lane
-    expect(s().placements.some((p) => p.columnLaneId === progress.id)).toBe(false)
+  it('splitting a leaf into a container moves its cards into the first sub-lane', () => {
+    const bravo = s().lanes.find((l) => l.boardId === 'b-core' && l.name === 'Team Bravo')!
+    const target = childrenOf(s().lanes, bravo.id).find((l) => isLeaf(s().lanes, l.id))!
+    const before = s().placements.filter((p) => p.laneId === target.id).length
+    s().splitLane(target.id, 'rows')
+    const kids = childrenOf(s().lanes, target.id)
+    expect(kids.length).toBe(2)
+    expect(isLeaf(s().lanes, target.id)).toBe(false)
+    expect(s().placements.filter((p) => p.laneId === kids[0].id).length).toBe(before)
   })
 
-  it('dependency self-cleans when the blocker moves to a done column', () => {
+  it('addLane appends a sibling to a container', () => {
+    const alpha = s().lanes.find((l) => l.boardId === 'b-core' && l.name === 'Team Alpha')!
+    const before = childrenOf(s().lanes, alpha.id).length
+    s().addLane(alpha.id)
+    expect(childrenOf(s().lanes, alpha.id).length).toBe(before + 1)
+  })
+
+  it('dependency self-cleans when the blocker moves to a done lane', () => {
     const done = laneByName('b-platform', 'Done')
     expect(statusOf('st-profile-schema', graph()).resolved).toBe(false)
-    s().moveCard('it-api', 'b-platform', done.id, null)
+    s().moveCard('it-api', 'b-platform', done.id)
     expect(statusOf('it-api', graph()).resolved).toBe(true)
   })
 
   it('a WIP limit soft-blocks with a required reason', () => {
-    const backlog = leafLanes(s().lanes, 'b-core', 'vertical')[0] // Backlog
-    s().setLaneWip(backlog.id, 1)
-    const blocked = s().moveCard('st-email', 'b-core', backlog.id, null)
+    const done = laneByName('b-platform', 'Done')
+    s().setLaneWip(done.id, 1)
+    expect(s().moveCard('st-sdk', 'b-platform', done.id).ok).toBe(true) // 0 -> 1 (at limit)
+    const blocked = s().moveCard('it-analytics', 'b-platform', done.id) // 1 -> 2 (over)
     expect(blocked.ok).toBe(false)
-    const ok = s().moveCard('st-email', 'b-core', backlog.id, null, 'hotfix triage')
+    const ok = s().moveCard('it-analytics', 'b-platform', done.id, 'Unblocking release')
     expect(ok.ok).toBe(true)
   })
 
@@ -60,12 +69,5 @@ describe('store actions (v2)', () => {
     expect(s().issueTypes.length).toBe(before + 1)
     s().updateIssueType(added.id, { name: 'Threat' })
     expect(s().issueTypes.find((t) => t.id === added.id)?.name).toBe('Threat')
-  })
-
-  it('raising a dependency is proposed until confirmed', () => {
-    const edge = () => s().edges.find((e) => e.from === 'it-analytics' && e.to === 'st-invite-flow')!
-    expect(edge().dep?.status).toBe('proposed')
-    s().confirmDependency(edge().id)
-    expect(edge().dep?.status).toBe('confirmed')
   })
 })

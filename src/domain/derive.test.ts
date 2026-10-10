@@ -11,16 +11,11 @@ import {
   statusOf,
   type Graph,
 } from './derive'
-import { laneCardCount, leafCount, leafLanes, maxDepth } from './lanes'
+import { isLeaf, laneCardCount, leafLanes, rootLane } from './lanes'
 import { createSeed } from './seed'
 import type { FlowState } from './types'
 
-const graphOf = (s: FlowState): Graph => ({
-  items: s.items,
-  edges: s.edges,
-  placements: s.placements,
-  lanes: s.lanes,
-})
+const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, placements: s.placements, lanes: s.lanes })
 const laneByName = (s: FlowState, boardId: string, name: string) =>
   s.lanes.find((l) => l.boardId === boardId && l.name === name)!
 
@@ -40,20 +35,27 @@ describe('generic hierarchy — parent / child', () => {
   })
 })
 
-describe('LeanKit lanes', () => {
+describe('recursive LeanKit lanes', () => {
   const s = createSeed()
 
-  it('vertical leaves include the split sub-columns', () => {
-    const cols = leafLanes(s.lanes, 'b-core', 'vertical')
-    expect(cols.map((l) => l.name)).toEqual(['Backlog', 'Dev', 'Test', 'Review', 'Done'])
-    expect(maxDepth(s.lanes, 'b-core', 'vertical')).toBe(1)
-    expect(leafCount(s.lanes, laneByName(s, 'b-core', 'In Progress').id)).toBe(2)
+  it('a board has a single root and the tree skips no axis', () => {
+    expect(rootLane(s.lanes, 'b-core')?.orientation).toBe('rows')
+    expect(rootLane(s.lanes, 'b-portfolio')?.orientation).toBe('columns')
   })
 
-  it('counts cards in a lane subtree', () => {
-    const inProgress = laneByName(s, 'b-core', 'In Progress')
-    // Dev + Test cards
-    expect(laneCardCount(s.lanes, s.placements, inProgress.id, 'vertical')).toBeGreaterThan(0)
+  it('Team Alpha splits In Progress into Dev/Test; Team Bravo does not', () => {
+    const alphaProgress = s.lanes.filter((l) => l.boardId === 'b-core' && l.name === 'In Progress')[0]
+    expect(isLeaf(s.lanes, alphaProgress.id)).toBe(false)
+    const leaves = leafLanes(s.lanes, 'b-core').map((l) => l.name)
+    expect(leaves).toContain('Dev')
+    expect(leaves).toContain('Test')
+    // exactly one In Progress leaf (Team Bravo's), the other is a container
+    expect(leaves.filter((n) => n === 'In Progress').length).toBe(1)
+  })
+
+  it('wip counts walk the subtree', () => {
+    const alpha = s.lanes.find((l) => l.boardId === 'b-core' && l.name === 'Team Alpha')!
+    expect(laneCardCount(s.lanes, s.placements, alpha.id)).toBeGreaterThan(5)
   })
 })
 
@@ -67,11 +69,11 @@ describe('dependency state is computed from cells', () => {
     expect(dependencyState('it-api', 'st-profile-schema', g)).toBe('OpenPlanningRisk')
   })
 
-  it('flips to Satisfied once the blocker moves to a done column — dependent untouched', () => {
+  it('flips to Satisfied once the blocker moves to a done lane — dependent untouched', () => {
     const s2 = createSeed()
     const done = laneByName(s2, 'b-platform', 'Done')
     s2.placements = s2.placements.map((p) =>
-      p.itemId === 'it-api' && p.boardId === 'b-platform' ? { ...p, columnLaneId: done.id } : p,
+      p.itemId === 'it-api' && p.boardId === 'b-platform' ? { ...p, laneId: done.id } : p,
     )
     expect(dependencyState('it-api', 'st-profile-schema', graphOf(s2))).toBe('Satisfied')
   })
@@ -90,7 +92,6 @@ describe('composition pressure and attribution', () => {
   const g = graphOf(s)
 
   it('a feature shows its open descendants', () => {
-    // 17 children, one (Design signup form) is in Done.
     expect(decompositionChildren('it-signup', s.edges).length).toBe(17)
     expect(openDescendants('it-signup', g).length).toBe(16)
   })

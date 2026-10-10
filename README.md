@@ -10,9 +10,11 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   children**. Structural **depth** is derived from that chain; there is no level field.
 - **User-defined issue types** — create, rename and recolour types in-app. A type is a
   label + colour; any type can sit in any column.
-- **LeanKit-style lane boards** — vertical lanes (columns) and horizontal lanes (rows),
-  each **splittable into sub-lanes**. A card's cell is the intersection of a leaf column
-  and a leaf row.
+- **LeanKit-style lane boards** — a recursive lane tree. A **leaf lane is a cell**; a
+  **container** arranges its children in columns (side by side) or rows (stacked). Any cell
+  can be split into a container of either orientation, recursively — so the grid is
+  **non-uniform**, exactly like LeanKit. All design controls (split / add / rename /
+  remove lanes) live behind an **Edit board** mode.
 - **Explicit placements** — a card's board + cell is stored as a `Placement` record (one
   per board), so a single card can still live on several boards with one identity.
 
@@ -50,6 +52,7 @@ npm run lint         # oxlint
 /?board=b-portfolio                   # Portfolio (row-less board)
 /?board=b-platform                    # Platform Services
 /?board=b-core&item=it-signup         # open a card
+/?board=b-core&edit=1                 # start in board edit mode
 ```
 
 ## What to try
@@ -59,8 +62,9 @@ The **Guide** panel walks these:
 1. **Custom types** — open **Types**; rename/add a type and recolour it. A card can be any type.
 2. **Generic hierarchy** — open a card; set its parent or add a child (choose the child's
    type). One parent, many children; depth updates.
-3. **LeanKit lanes** — split the **In Progress** column (or a **Team** row) with the split
-   icon, then drag a card into a sub-lane.
+3. **Edit board** — toggle **Edit board**, then split any cell into **columns** or **rows**
+   (the split is local to that cell — Team Alpha's `In Progress` is split, Team Bravo's is
+   not) or **add a lane**. Turn edit mode off to get the clean board back.
 4. **One card, two boards** — "New signup flow" sits on Core Experience *and* Portfolio.
 5. **Dependency self-cleans** — set "API decision" to Done; the blocked story flips to
    Satisfied with nobody touching it.
@@ -82,8 +86,10 @@ src/
   lib/            # class utils, colour helpers
 ```
 
-- A **board** owns a **lane tree** per axis. `leafLanes()` gives the columns/rows;
-  `leafCount()` drives `colSpan`/`rowSpan` so nested headers align.
+- A **board** owns a recursive **lane tree**: a leaf lane is a cell that holds cards; a
+  container arranges children in columns or rows. `leafLanes()` flattens it; the renderer
+  recurses so the grid can be non-uniform. `splitLane`/`addLane`/`removeLane` mutate the
+  tree; all design controls show only in **edit mode**.
 - **Status is derived from the cell**: a card's column lane carries `isStart`/`isDone`/
   `isCancelled`, and `statusOf()` reads it. Dependency state is arithmetic over two cells.
 - **`setParent`** drops any existing decomposition parent, enforcing one parent.

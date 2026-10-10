@@ -15,7 +15,7 @@ const CHECKS: { n: number; text: string; jump?: { boardId: string; itemId?: stri
   },
   {
     n: 3,
-    text: 'LeanKit lanes — split the “In Progress” column (or “Team Alpha” row), then drag a card into a sub-lane.',
+    text: 'Edit board — turn it on, then split any cell into columns or rows, or add a lane. Splits are local.',
     jump: { boardId: 'b-core' },
   },
   {

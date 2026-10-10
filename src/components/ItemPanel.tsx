@@ -15,6 +15,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { buildRefs } from '@/domain/board'
+import { lanePath } from '@/domain/lanes'
 import { DEP_STATE_STYLES, readableOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -125,16 +126,12 @@ export function ItemPanel({ itemId }: Props) {
           <SectionLabel>On these boards ({itemPlacements.length})</SectionLabel>
           <div className="space-y-1">
             {itemPlacements.length === 0 && <p className="text-[11px] text-slate-400">Not placed on any board.</p>}
-            {itemPlacements.map((p) => {
-              const col = lanes.find((l) => l.id === p.columnLaneId)
-              const row = p.rowLaneId ? lanes.find((l) => l.id === p.rowLaneId) : undefined
-              return (
-                <div key={p.id} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
-                  <span className="min-w-0 flex-1 truncate text-slate-700">{boards.find((b) => b.id === p.boardId)?.name}</span>
-                  <span className="text-[10px] text-slate-400">{row ? `${row.name} / ` : ''}{col?.name}</span>
-                </div>
-              )
-            })}
+            {itemPlacements.map((p) => (
+              <div key={p.id} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+                <span className="min-w-0 flex-1 truncate text-slate-700">{boards.find((b) => b.id === p.boardId)?.name}</span>
+                <span className="min-w-0 max-w-[55%] truncate text-[10px] text-slate-400">{lanePath(lanes, p.laneId).join(' / ')}</span>
+              </div>
+            ))}
           </div>
         </section>
 

@@ -23,6 +23,7 @@ export default function App() {
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showDemoGuide = useStore((s) => s.showDemoGuide)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
+  const editMode = useStore((s) => s.editMode)
   const items = useStore((s) => s.items)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
@@ -32,6 +33,8 @@ export default function App() {
   const resetDemo = useStore((s) => s.resetDemo)
   const toggleDemoGuide = useStore((s) => s.toggleDemoGuide)
   const toggleTypeEditor = useStore((s) => s.toggleTypeEditor)
+  const toggleEditMode = useStore((s) => s.toggleEditMode)
+  const setEditMode = useStore((s) => s.setEditMode)
   const openItem = useStore((s) => s.openItem)
   const moveCard = useStore((s) => s.moveCard)
   const addCard = useStore((s) => s.addCard)
@@ -43,35 +46,33 @@ export default function App() {
     const b = params.get('board')
     const it = params.get('item')
     if (b) selectBoard(b)
+    if (params.get('edit')) setEditMode(true)
     if (it) openItem(it)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const requestMove = (itemId: string, bId: string, columnLaneId: string, rowLaneId: string | null) => {
+  const requestMove = (itemId: string, bId: string, laneId: string) => {
     const item = items.find((i) => i.id === itemId)
-    const res = moveCard(itemId, bId, columnLaneId, rowLaneId)
+    const res = moveCard(itemId, bId, laneId)
     if (!res.ok && 'needsReason' in res) {
       setPending({
         title: item?.title ?? 'Card',
         lane: res.lane,
         count: res.count,
-        run: (reason) => moveCard(itemId, bId, columnLaneId, rowLaneId, reason),
+        run: (reason) => moveCard(itemId, bId, laneId, reason),
       })
-    } else if (!res.ok && 'blocked' in res) {
-      window.alert('Hard WIP limit reached — the move is not allowed.')
     }
   }
 
-  const onAddCard = (columnLaneId: string, rowLaneId: string | null) => {
+  const onAddCard = (laneId: string) => {
     const typeId = issueTypes[0]?.id
     if (!typeId) return
-    addCard({ boardId, typeId, columnLaneId, rowLaneId, title: 'New card' })
+    addCard({ boardId, typeId, laneId, title: 'New card' })
   }
 
   const quickAdd = () => {
-    const firstCol = leafLanes(lanes, boardId, 'vertical')[0]
-    const firstRow = leafLanes(lanes, boardId, 'horizontal')[0]
-    if (firstCol) onAddCard(firstCol.id, firstRow?.id ?? null)
+    const firstLeaf = leafLanes(lanes, boardId)[0]
+    if (firstLeaf) onAddCard(firstLeaf.id)
   }
 
   return (
@@ -81,9 +82,11 @@ export default function App() {
         boardId={boardId}
         search={search}
         showDemoGuide={showDemoGuide}
+        editMode={editMode}
         onSelectBoard={selectBoard}
         onSearch={setSearch}
         onToggleDemoGuide={toggleDemoGuide}
+        onToggleEditMode={toggleEditMode}
         onOpenTypes={toggleTypeEditor}
         onAddCard={quickAdd}
         onReset={resetDemo}
