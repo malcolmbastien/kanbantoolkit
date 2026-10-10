@@ -39,24 +39,24 @@ describe('generic hierarchy — parent / child', () => {
 describe('recursive LeanKit lanes', () => {
   const s = createSeed()
 
-  it('a board has a single root and the tree skips no axis', () => {
-    expect(rootLane(s.lanes, 'b-core')?.orientation).toBe('rows')
+  it('every board root is a column split with three typed children', () => {
+    expect(rootLane(s.lanes, 'b-core')?.orientation).toBe('columns')
     expect(rootLane(s.lanes, 'b-portfolio')?.orientation).toBe('columns')
+    expect(topLevelLanes(s.lanes, 'b-core').length).toBe(3)
+    expect(topLevelLanes(s.lanes, 'b-portfolio').length).toBe(3)
   })
 
-  it('Team Alpha splits In Progress into Dev/Test; Team Bravo does not', () => {
-    const alphaProgress = s.lanes.filter((l) => l.boardId === 'b-core' && l.name === 'In Progress')[0]
-    expect(isLeaf(s.lanes, alphaProgress.id)).toBe(false)
+  it('In Progress is refined per team (Dev/Test nested under Team Alpha)', () => {
+    const inProgress = s.lanes.find((l) => l.boardId === 'b-core' && l.name === 'In Progress')!
+    expect(isLeaf(s.lanes, inProgress.id)).toBe(false)
     const leaves = leafLanes(s.lanes, 'b-core').map((l) => l.name)
     expect(leaves).toContain('Dev')
     expect(leaves).toContain('Test')
-    // exactly one In Progress leaf (Team Bravo's), the other is a container
-    expect(leaves.filter((n) => n === 'In Progress').length).toBe(1)
   })
 
   it('wip counts walk the subtree', () => {
-    const alpha = s.lanes.find((l) => l.boardId === 'b-core' && l.name === 'Team Alpha')!
-    expect(laneCardCount(s.lanes, s.placements, alpha.id)).toBeGreaterThan(5)
+    const ns = topLevelLanes(s.lanes, 'b-core')[0]
+    expect(laneCardCount(s.lanes, s.placements, ns.id)).toBeGreaterThan(0)
   })
 })
 
@@ -121,11 +121,11 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
   })
 
   it('a derived board maps a rollup bucket onto its start / done lanes', () => {
-    const requested = s.lanes.find((l) => l.boardId === 'b-initiatives' && l.name === 'Requested')!
-    const done = s.lanes.find((l) => l.boardId === 'b-initiatives' && l.name === 'Done')!
-    expect(bucketLaneId(s.lanes, 'b-initiatives', 'notStarted')).toBe(requested.id)
-    expect(bucketLaneId(s.lanes, 'b-initiatives', 'done')).toBe(done.id)
-    expect(bucketLaneId(s.lanes, 'b-initiatives', 'inProgress')).toBeDefined()
+    const requested = s.lanes.find((l) => l.boardId === 'b-portfolio' && l.name === 'Not Started')!
+    const done = s.lanes.find((l) => l.boardId === 'b-portfolio' && l.name === 'Done')!
+    expect(bucketLaneId(s.lanes, 'b-portfolio', 'notStarted')).toBe(requested.id)
+    expect(bucketLaneId(s.lanes, 'b-portfolio', 'done')).toBe(done.id)
+    expect(bucketLaneId(s.lanes, 'b-portfolio', 'inProgress')).toBeDefined()
   })
 })
 

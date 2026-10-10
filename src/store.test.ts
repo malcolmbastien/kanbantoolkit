@@ -28,13 +28,12 @@ describe('store actions (recursive lanes)', () => {
   })
 
   it('splitting a leaf into a container moves its cards into the first sub-lane', () => {
-    const bravo = s().lanes.find((l) => l.boardId === 'b-core' && l.name === 'Team Bravo')!
-    const target = childrenOf(s().lanes, bravo.id).find((l) => isLeaf(s().lanes, l.id))!
-    const before = s().placements.filter((p) => p.laneId === target.id).length
-    s().splitLane(target.id, 'rows')
-    const kids = childrenOf(s().lanes, target.id)
+    const bravo = s().lanes.find((l) => l.boardId === 'b-core' && l.name === 'Team Bravo' && isLeaf(s().lanes, l.id))!
+    const before = s().placements.filter((p) => p.laneId === bravo.id).length
+    s().splitLane(bravo.id, 'rows')
+    const kids = childrenOf(s().lanes, bravo.id)
     expect(kids.length).toBe(2)
-    expect(isLeaf(s().lanes, target.id)).toBe(false)
+    expect(isLeaf(s().lanes, bravo.id)).toBe(false)
     expect(s().placements.filter((p) => p.laneId === kids[0].id).length).toBe(before)
   })
 

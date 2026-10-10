@@ -41,7 +41,7 @@ const CHECKS: { n: number; text: string; jump?: { boardId: string; itemId?: stri
   {
     n: 8,
     text: 'Management view — stack boards as bands. A rollup board derives each initiative’s column from its lowest-level work.',
-    jump: { boardId: 'b-initiatives', itemId: 'it-onboarding', view: 'management' },
+    jump: { boardId: 'b-portfolio', itemId: 'it-onboarding', view: 'management' },
   },
 ]
 
