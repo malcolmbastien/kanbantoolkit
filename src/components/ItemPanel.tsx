@@ -66,8 +66,8 @@ export function ItemPanel({ itemId, requestMove }: Props) {
   )
 
   return (
-    <aside className="flex h-full w-[380px] shrink-0 flex-col border-l border-slate-200 bg-white">
-      <div className="flex items-start gap-2 border-b border-slate-100 px-4 py-3">
+    <aside className="flex h-full w-[380px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
+      <div className="flex items-start gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <span className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: streamColor(item.valueStreamId, scopes) }} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">

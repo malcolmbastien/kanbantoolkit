@@ -31,7 +31,7 @@ function DroppableCell({ id, children }: { id: string; children: React.ReactNode
       ref={setNodeRef}
       className={cn(
         'flex min-h-[64px] flex-col gap-1 rounded-md p-1 transition',
-        isOver ? 'bg-indigo-50 ring-1 ring-inset ring-indigo-300' : 'bg-transparent',
+        isOver ? 'bg-indigo-300/50 ring-1 ring-inset ring-indigo-500' : 'bg-transparent',
       )}
     >
       {children}
@@ -92,25 +92,25 @@ export function BoardView({ requestMove }: Props) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col bg-slate-200">
       {/* Board subheader: scope · resolution · limits · pressure */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-3 py-1.5 text-[11px]">
-        <span className="font-semibold text-slate-700">{scope?.name}</span>
-        <span className="text-slate-400">·</span>
-        <span className="text-slate-500">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
+        <span className="font-semibold text-white">{scope?.name}</span>
+        <span className="text-slate-500">·</span>
+        <span className="text-slate-400">
           {lifecycle.label} resolution ({resolution}) — counting unit: {lifecycle.itemTypes.join(' / ')}
         </span>
         {scope?.kind === 'value_stream' && scopeLimit && (
           <span
             className={cn(
-              'ml-1 rounded px-1.5 py-px font-semibold ring-1',
+              'ml-1 rounded px-1.5 py-px font-semibold',
               limitLevel(scopeCount, scopeLimit) === 'over'
-                ? 'bg-rose-50 text-rose-700 ring-rose-200'
+                ? 'bg-rose-500 text-white'
                 : limitLevel(scopeCount, scopeLimit) === 'red'
-                  ? 'bg-rose-50 text-rose-600 ring-rose-200'
+                  ? 'bg-rose-500/80 text-white'
                   : limitLevel(scopeCount, scopeLimit) === 'yellow'
-                    ? 'bg-amber-50 text-amber-700 ring-amber-200'
-                    : 'bg-white text-slate-500 ring-slate-200',
+                    ? 'bg-amber-400 text-amber-950'
+                    : 'bg-slate-700 text-slate-200',
             )}
             title={`Policy ${scopeLimit.id} · ${scopeLimit.enforcement.replace('_', ' ')}`}
           >
@@ -118,7 +118,7 @@ export function BoardView({ requestMove }: Props) {
           </span>
         )}
         {external.length > 0 && (
-          <span className="ml-auto flex items-center gap-1 rounded bg-slate-200/70 px-1.5 py-px font-medium text-slate-600">
+          <span className="ml-auto flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">
             <Layers size={11} /> {external.length} external blocker{external.length > 1 ? 's' : ''}
           </span>
         )}
@@ -143,29 +143,36 @@ export function BoardView({ requestMove }: Props) {
               return (
                 <div
                   key={state}
-                  className="mb-1 flex items-center gap-1.5 rounded-t-md border-b-2 border-slate-200 bg-white px-2 py-1.5"
+                  className="mb-1 overflow-hidden rounded-t-md border border-slate-900/30 border-b-2 border-b-slate-900/50 bg-slate-700 shadow-sm"
                 >
-                  <span className={cn('h-2 w-2 rounded-full', lifecycle.accents[state])} />
-                  <span className="text-[11px] font-semibold text-slate-600">{state}</span>
-                  <span className="ml-auto text-[10px] tabular-nums text-slate-400">
-                    {count}
-                    {policy ? ` / ${policy.limit}` : ''}
-                  </span>
-                  {policy && lvl !== 'ok' && (
-                    <span
-                      className={cn(
-                        'h-1.5 w-1.5 rounded-full',
-                        lvl === 'over' || lvl === 'red' ? 'bg-rose-500' : 'bg-amber-400',
-                      )}
-                      title={`Column limit ${policy.limit} (${policy.enforcement})`}
-                    />
-                  )}
+                  <div className={cn('h-1 w-full', lifecycle.accents[state])} />
+                  <div className="flex items-center gap-1.5 px-2 py-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-slate-100">
+                      {state}
+                    </span>
+                    <span className="ml-auto text-[10px] font-semibold tabular-nums text-slate-300">
+                      {count}
+                      {policy ? ` / ${policy.limit}` : ''}
+                    </span>
+                    {policy && lvl !== 'ok' && (
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full shadow',
+                          lvl === 'over' || lvl === 'red' ? 'bg-rose-400' : 'bg-amber-300',
+                        )}
+                        title={`Column limit ${policy.limit} (${policy.enforcement})`}
+                      />
+                    )}
+                  </div>
                 </div>
               )
             })}
             {external.length > 0 && (
-              <div className="mb-1 rounded-t-md border-b-2 border-dashed border-slate-300 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-slate-500">
-                Boundary · waiting on
+              <div className="mb-1 overflow-hidden rounded-t-md border border-slate-900/30 border-b-2 border-dashed border-b-slate-900/50 bg-slate-600 shadow-sm">
+                <div className="h-1 w-full bg-slate-400" />
+                <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white">
+                  Boundary · waiting on
+                </div>
               </div>
             )}
 
@@ -186,32 +193,33 @@ export function BoardView({ requestMove }: Props) {
                   {/* rail */}
                   <div
                     className={cn(
-                      'flex items-start gap-2 rounded-l-md border-y border-l border-slate-200 bg-white p-2',
+                      'flex items-start gap-2 rounded-l-md border-y border-slate-900/30 p-2',
+                      row.scope.kind === 'value_stream' ? 'bg-slate-800' : 'bg-slate-600',
                       row.depth === 1 && 'pl-4',
                     )}
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-[11px] font-semibold text-slate-600">
-                        {row.depth === 1 && <span className="text-slate-300">↳ </span>}
+                      <div className="truncate text-[11px] font-bold text-white">
+                        {row.depth === 1 && <span className="text-slate-300/70">↳ </span>}
                         {row.scope.name}
                       </div>
                       <div className="mt-1 flex items-center gap-1">
                         {rowLimit ? (
                           <span
                             className={cn(
-                              'rounded px-1 py-px text-[9px] font-bold ring-1',
+                              'rounded px-1 py-px text-[9px] font-bold',
                               limitLevel(rowCount, rowLimit) === 'over' ||
                                 limitLevel(rowCount, rowLimit) === 'red'
-                                ? 'bg-rose-50 text-rose-700 ring-rose-200'
+                                ? 'bg-rose-500 text-white'
                                 : limitLevel(rowCount, rowLimit) === 'yellow'
-                                  ? 'bg-amber-50 text-amber-700 ring-amber-200'
-                                  : 'bg-slate-100 text-slate-500 ring-slate-200',
+                                  ? 'bg-amber-400 text-amber-950'
+                                  : 'bg-white/15 text-slate-100',
                             )}
                           >
                             {rowCount}/{rowLimit.limit}
                           </span>
                         ) : (
-                          <span className="rounded bg-slate-100 px-1 py-px text-[9px] font-bold text-slate-500">
+                          <span className="rounded bg-white/15 px-1 py-px text-[9px] font-bold text-slate-100">
                             {rowCount}
                           </span>
                         )}
@@ -221,7 +229,7 @@ export function BoardView({ requestMove }: Props) {
 
                   {/* cells */}
                   {lifecycle.states.map((state) => (
-                    <div key={state} className="border-y border-slate-200 bg-white/60 px-1">
+                    <div key={state} className="border-y border-slate-300/70 bg-slate-100 px-1">
                       <DroppableCell id={`cell:${row.scope.id}:${state}`}>
                         {cards
                           .filter((c) => c.state === state)
@@ -251,7 +259,7 @@ export function BoardView({ requestMove }: Props) {
 
                   {/* boundary column */}
                   {external.length > 0 && (
-                    <div className="border-y border-slate-200 bg-slate-50/60 px-1">
+                    <div className="border-y border-slate-300/70 bg-slate-100 px-1">
                       <div className="flex min-h-[64px] flex-col gap-1 p-1">
                         {pins.map((d) => {
                           const pin = d.edge.dep?.pinTo

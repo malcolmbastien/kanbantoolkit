@@ -27,6 +27,10 @@ const RES_HINT: Record<Resolution, string> = {
   L3: 'team flow',
 }
 
+const SELECT_CLS =
+  'rounded-md border border-slate-700 bg-slate-800 px-1.5 py-1 text-[12px] font-medium text-slate-100 outline-none focus:ring-2 focus:ring-indigo-400'
+const SELECT_OPT = 'bg-slate-800 text-slate-100'
+
 export function TopBar(props: Props) {
   const {
     boards, scopes, boardId, resolution, scopeId, search, showDemoGuide,
@@ -38,54 +42,42 @@ export function TopBar(props: Props) {
   const teams = scopes.filter((s) => s.kind === 'team')
 
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 shadow-sm">
+    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
       <div className="flex items-center gap-2">
-        <div className="grid h-6 w-6 place-items-center rounded bg-slate-800 text-white">
+        <div className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
         </div>
-        <span className="text-sm font-semibold tracking-tight text-slate-800">Flowline</span>
+        <span className="text-sm font-semibold tracking-tight text-white">Flowline</span>
       </div>
 
-      <div className="h-5 w-px bg-slate-200" />
+      <div className="h-5 w-px bg-slate-700" />
 
-      <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+      <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
         Board
-        <select
-          value={boardId}
-          onChange={(e) => onSelectBoard(e.target.value)}
-          className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[12px] font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-400"
-        >
+        <select value={boardId} onChange={(e) => onSelectBoard(e.target.value)} className={SELECT_CLS}>
           {boards.map((b) => (
-            <option key={b.id} value={b.id}>
+            <option key={b.id} value={b.id} className={SELECT_OPT}>
               {b.name}
             </option>
           ))}
         </select>
       </label>
 
-      <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+      <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
         Scope
-        <select
-          value={scopeId}
-          onChange={(e) => onSetScope(e.target.value)}
-          className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[12px] font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-400"
-        >
-          <option value="ent">Enterprise</option>
+        <select value={scopeId} onChange={(e) => onSetScope(e.target.value)} className={SELECT_CLS}>
+          <option value="ent" className={SELECT_OPT}>Enterprise</option>
           {streams.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
+            <option key={s.id} value={s.id} className={SELECT_OPT}>{s.name}</option>
           ))}
           {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              ↳ {t.name}
-            </option>
+            <option key={t.id} value={t.id} className={SELECT_OPT}>↳ {t.name}</option>
           ))}
         </select>
       </label>
 
       {/* Resolution switcher — changes the column set AND the counting unit. Scope does not change. */}
-      <div className="flex items-center gap-0.5 rounded-md border border-slate-200 bg-slate-50 p-0.5">
+      <div className="flex items-center gap-0.5 rounded-md border border-slate-700 bg-slate-800 p-0.5">
         {RESOLUTIONS.map((r) => (
           <button
             key={r}
@@ -94,8 +86,8 @@ export function TopBar(props: Props) {
             className={cn(
               'rounded px-2 py-1 text-[11px] font-medium transition',
               resolution === r
-                ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200'
-                : 'text-slate-500 hover:text-slate-700',
+                ? 'bg-indigo-500 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-100',
             )}
           >
             <span className="font-semibold">{r}</span>{' '}
@@ -111,14 +103,14 @@ export function TopBar(props: Props) {
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder="Filter cards…"
-            className="w-36 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+            className="w-36 rounded-md border border-slate-700 bg-slate-800 py-1 pl-7 pr-2 text-[12px] text-slate-100 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-400"
           />
         </div>
 
         {resolution === 'L2' && (
           <button
             onClick={onAddEpic}
-            className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-700"
+            className="flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400"
           >
             <Plus size={13} /> Epic
           </button>
@@ -126,7 +118,7 @@ export function TopBar(props: Props) {
         {resolution === 'L3' && (
           <button
             onClick={onAddStory}
-            className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-700"
+            className="flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400"
           >
             <Plus size={13} /> Story
           </button>
@@ -135,10 +127,10 @@ export function TopBar(props: Props) {
         <button
           onClick={onToggleDemoGuide}
           className={cn(
-            'flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium',
+            'flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium transition',
             showDemoGuide
-              ? 'border-amber-200 bg-amber-50 text-amber-700'
-              : 'border-slate-200 bg-white text-slate-500 hover:text-slate-700',
+              ? 'border-amber-400/50 bg-amber-400/20 text-amber-200'
+              : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-100',
           )}
           title="Toggle the demo guide"
         >
@@ -147,7 +139,7 @@ export function TopBar(props: Props) {
 
         <button
           onClick={onReset}
-          className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-500 hover:text-slate-700"
+          className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-400 hover:text-slate-100"
           title="Reset the demo data"
         >
           <RotateCcw size={13} /> Reset

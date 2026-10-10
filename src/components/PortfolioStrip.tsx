@@ -22,8 +22,8 @@ export function PortfolioStrip() {
   }
 
   return (
-    <div className="flex flex-wrap items-stretch gap-2 border-b border-slate-200 bg-white px-3 py-2">
-      <div className="flex items-center gap-1 pr-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+    <div className="flex flex-wrap items-stretch gap-2 border-b border-slate-300 bg-slate-100 px-3 py-2">
+      <div className="flex items-center gap-1 pr-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
         <Sparkles size={12} /> Portfolio rollup
       </div>
       {initiatives.map((i: Item) => {
@@ -33,7 +33,7 @@ export function PortfolioStrip() {
           <button
             key={i.id}
             onClick={() => openItem(i.id)}
-            className="flex min-w-[240px] flex-col rounded-md border border-slate-200 px-2.5 py-1.5 text-left transition hover:border-slate-300 hover:shadow-sm"
+            className="flex min-w-[240px] flex-col rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:border-slate-400 hover:shadow-md"
           >
             <div className="flex items-center gap-1.5">
               <span className="truncate text-[12px] font-semibold text-slate-800">{i.title}</span>

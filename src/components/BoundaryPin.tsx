@@ -23,8 +23,8 @@ export function BoundaryPin({ dep, pin, scopes, onOpen }: Props) {
     <button
       onClick={() => onOpen(dep.blocker.id)}
       className={cn(
-        'w-full rounded-md border border-dashed border-slate-300 bg-slate-50/70 px-2 py-1.5 text-left transition',
-        'hover:border-slate-400 hover:bg-white',
+        'w-full rounded-md border border-dashed border-slate-400 bg-white px-2 py-1.5 text-left shadow-sm transition',
+        'hover:border-slate-500 hover:shadow-md',
       )}
     >
       <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
