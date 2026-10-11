@@ -72,6 +72,9 @@ interface Ctx {
   filters: CardFilters
   /** External dependency (boundary lane) whose local dependents are highlighted. */
   boundaryId: string | null
+  /** Multi-select group (shift+click). */
+  multiSelect: string[]
+  toggleMultiSelect: (id: string) => void
   selectedItemId: string | null
   boardItems: Item[]
   effectiveLane: Map<string, string>
@@ -345,6 +348,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               parent={parent}
               selected={ctx.selectedItemId === c.id}
               boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}
+              multi={ctx.multiSelect.includes(c.id)}
+              onMultiSelect={ctx.toggleMultiSelect}
               lens={lensRole(c.id, ctx.lensId, graph)}
               onLens={ctx.toggleLens}
               draggable={ctx.interactive && !ctx.editMode}
@@ -455,6 +460,8 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const filters = useStore((s) => s.filters)
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
+  const multiSelect = useStore((s) => s.multiSelect)
+  const toggleMultiSelect = useStore((s) => s.toggleMultiSelect)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const storeEdit = useStore((s) => s.editMode)
   const openItem = useStore((s) => s.openItem)
@@ -496,7 +503,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, editMode, search, filters, boundaryId, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, refs, graph, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,

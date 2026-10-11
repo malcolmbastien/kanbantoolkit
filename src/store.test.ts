@@ -450,6 +450,55 @@ describe('store actions', () => {
     expect(s().boundaryId).toBe(null)
   })
 
+  it('multi-select: shift+click seeds from the open card; bulk actions apply', () => {
+    s().selectBoard('b-atlas')
+    // A card is open; shift+click a second → group of two, panel closed.
+    s().openItem('st-email')
+    s().toggleMultiSelect('st-sso')
+    expect([...s().multiSelect].sort()).toEqual(['st-email', 'st-sso'])
+    expect(s().selectedItemId).toBe(null)
+
+    // Shift+click again removes it from the group.
+    s().toggleMultiSelect('st-email')
+    expect(s().multiSelect).toEqual(['st-sso'])
+
+    // Bulk: type, assign, move.
+    s().setItemsType(['st-sso'], 't-bug')
+    expect(s().items.find((i) => i.id === 'st-sso')?.typeId).toBe('t-bug')
+    s().setItemsAssignee(['st-sso'], 'ZZ')
+    expect(s().items.find((i) => i.id === 'st-sso')?.assignee).toBe('ZZ')
+    s().setItemsAssignee(['st-sso'], '   ') // blank clears
+    expect(s().items.find((i) => i.id === 'st-sso')?.assignee).toBeUndefined()
+
+    const done = laneByName('b-atlas', 'Done')
+    s().moveCardsToLane(['st-sso'], done.id)
+    expect(s().placements.find((p) => p.itemId === 'st-sso' && p.boardId === 'b-atlas')?.laneId).toBe(done.id)
+    expect(s().items.find((i) => i.id === 'st-sso')?.resolvedAt).toBeTruthy() // entering Done starts the clock
+
+    // Initiative is never a card type.
+    s().setItemsType(['st-sso'], 't-initiative')
+    expect(s().items.find((i) => i.id === 'st-sso')?.typeId).toBe('t-bug')
+
+    // Opening a card clears the group.
+    s().openItem('st-email')
+    expect(s().multiSelect).toEqual([])
+  })
+
+  it('bulk delete and archive act on the whole selection', () => {
+    s().toggleMultiSelect('st-email')
+    s().toggleMultiSelect('st-sso')
+    s().deleteItems(['st-email', 'st-sso'])
+    expect(s().items.some((i) => i.id === 'st-email')).toBe(false)
+    expect(s().items.some((i) => i.id === 'st-sso')).toBe(false)
+    expect(s().multiSelect).toEqual([])
+    expect(s().links.some((l) => l.from === 'st-email' || l.to === 'st-email')).toBe(false)
+
+    s().toggleMultiSelect('st-signup-form')
+    s().archiveItems(['st-signup-form'])
+    expect(s().items.find((i) => i.id === 'st-signup-form')?.archived).toBe(true)
+    expect(s().multiSelect).toEqual([])
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

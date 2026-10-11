@@ -57,12 +57,16 @@ interface Props {
   selected?: boolean
   /** Highlighted because it waits on the selected boundary-lane dependency. */
   boundary?: boolean
+  /** Part of the multi-select group (shift+click). */
+  multi?: boolean
   onOpen: (id: string) => void
+  /** Shift+click — start/extend the multi-select group. */
+  onMultiSelect?: (id: string) => void
 }
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, onOpen }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, multi, onOpen, onMultiSelect }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -74,18 +78,21 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         }
       : {}
 
-  // Highlight priority: a selected boundary dependency (amber) > item selection (indigo) > lens.
+  // Highlight priority: a selected boundary dependency (amber) > multi-select
+  // (indigo-600) > item selection (indigo-400) > lens.
   const lensCls = cn(
     lens === 'out' ? 'opacity-40 saturate-50' : '',
     boundary
       ? 'ring-2 ring-amber-400'
-      : selected
-        ? 'ring-2 ring-indigo-400'
-        : lens === 'in'
+      : multi
+        ? 'ring-2 ring-indigo-600'
+        : selected
           ? 'ring-2 ring-indigo-400'
-          : lens === 'self'
-            ? 'ring-2 ring-indigo-600'
-            : '',
+          : lens === 'in'
+            ? 'ring-2 ring-indigo-400'
+            : lens === 'self'
+              ? 'ring-2 ring-indigo-600'
+              : '',
   )
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
 
@@ -143,7 +150,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         {...dragProps}
         onClick={(e) => {
           e.stopPropagation()
-          if (!locked) onOpen(item.id)
+          if (locked) return
+          if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
+          else onOpen(item.id)
         }}
         className={cn(
           'group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
@@ -266,7 +275,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
       style={{ backgroundColor: hexToRgba(type.color, 0.1), borderLeftColor: type.color }}
       onClick={(e) => {
         e.stopPropagation()
-        if (!locked) onOpen(item.id)
+        if (locked) return
+        if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
+        else onOpen(item.id)
       }}
       className={cn(
         'group relative flex h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',

@@ -42,6 +42,11 @@ export interface ViewState {
    * cards that wait on it are highlighted on the board. View-only.
    */
   boundaryId: string | null
+  /**
+   * Multi-select group (shift+click on cards). Non-empty hides the item panel
+   * and shows the bulk-action bar. View-only.
+   */
+  multiSelect: string[]
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -70,6 +75,16 @@ export interface Actions {
   clearFilters: () => void
   /** Select/clear the boundary-lane external dependency to highlight its local dependents. */
   toggleBoundary: (id: string) => void
+
+  /** Shift+click a card: add/remove it from the multi-select group (seeding from the open card). */
+  toggleMultiSelect: (id: string) => void
+  clearMultiSelect: () => void
+  /** Bulk actions over the multi-select group. */
+  moveCardsToLane: (itemIds: string[], laneId: string) => void
+  setItemsType: (itemIds: string[], typeId: string) => void
+  setItemsAssignee: (itemIds: string[], assignee: string | undefined) => void
+  archiveItems: (itemIds: string[]) => void
+  deleteItems: (itemIds: string[]) => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -194,6 +209,7 @@ const initialView: ViewState = {
   showFilters: false,
   filters: NO_FILTERS,
   boundaryId: null,
+  multiSelect: [],
 }
 
 /**
@@ -266,8 +282,8 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, boundaryId: null }),
-      openItem: (selectedItemId) => set({ selectedItemId, ...(selectedItemId ? { showFilters: false } : {}) }),
+      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, boundaryId: null, multiSelect: [] }),
+      openItem: (selectedItemId) => set({ selectedItemId, multiSelect: [], ...(selectedItemId ? { showFilters: false } : {}) }),
       setSearch: (search) => set({ search }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
       toggleFilters: () => {
@@ -283,6 +299,78 @@ export const useStore = create<Store>()(
       },
       clearFilters: () => set({ filters: NO_FILTERS }),
       toggleBoundary: (id) => set({ boundaryId: get().boundaryId === id ? null : id }),
+
+      toggleMultiSelect: (id) => {
+        const s = get()
+        // Seed from the open card so a shift+click on a second card starts a group.
+        const base = s.multiSelect.length > 0 ? s.multiSelect : s.selectedItemId ? [s.selectedItemId] : []
+        const group = base.includes(id) ? base.filter((x) => x !== id) : [...base, id]
+        set({ multiSelect: group, selectedItemId: null, showFilters: false })
+      },
+      clearMultiSelect: () => set({ multiSelect: [] }),
+
+      moveCardsToLane: (itemIds, laneId) => {
+        const state = get()
+        const ids = new Set(itemIds)
+        const stage = effectiveStage(state.lanes, laneId)
+        set({
+          // Only this board's placements move.
+          placements: state.placements.map((p) =>
+            p.boardId === state.boardId && ids.has(p.itemId) ? { ...p, laneId } : p,
+          ),
+          // Keep the auto-archive clock in step with the target stage.
+          items: state.items.map((i) => {
+            if (!ids.has(i.id)) return i
+            if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
+            if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
+            return i
+          }),
+        })
+      },
+
+      setItemsType: (itemIds, typeId) => {
+        const state = get()
+        if (initiativeTypeId(state.issueTypes) === typeId) return // Initiative is reserved
+        const ids = new Set(itemIds)
+        set({ items: state.items.map((i) => (ids.has(i.id) ? { ...i, typeId } : i)) })
+      },
+
+      setItemsAssignee: (itemIds, assignee) => {
+        const state = get()
+        const ids = new Set(itemIds)
+        const a = assignee?.trim() || undefined
+        set({ items: state.items.map((i) => (ids.has(i.id) ? { ...i, assignee: a } : i)) })
+      },
+
+      archiveItems: (itemIds) => {
+        const state = get()
+        const ids = subtreeRoots(itemIds, state)
+        if (ids.size === 0) return
+        const at = Date.now()
+        set({
+          items: state.items.map((i) =>
+            ids.has(i.id) && !i.archived ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] } : i,
+          ),
+          multiSelect: [],
+        })
+      },
+
+      deleteItems: (itemIds) => {
+        const state = get()
+        const ids = new Set(itemIds)
+        set({
+          items: state.items.filter((i) => !ids.has(i.id)),
+          placements: state.placements.filter((p) => !ids.has(p.itemId)),
+          edges: state.edges.filter(
+            (e) =>
+              !(e.kind === 'decomposition' && (ids.has(e.from) || ids.has(e.to))) &&
+              !(e.kind === 'attribution' && ids.has(e.to)),
+          ),
+          links: state.links.filter((l) => !ids.has(l.from) && !ids.has(l.to)),
+          selectedItemId: state.selectedItemId && ids.has(state.selectedItemId) ? null : state.selectedItemId,
+          multiSelect: [],
+        })
+      },
 
       beginEdit: () => {
         const s = get()

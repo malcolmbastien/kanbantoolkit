@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { ArchiveView } from './components/ArchiveView'
 import { BoardView } from './components/BoardView'
+import { BulkActions } from './components/BulkActions'
 import { FilterPanel } from './components/FilterPanel'
 import { ItemPanel } from './components/ItemPanel'
 import { ManagementDashboard } from './components/ManagementDashboard'
@@ -63,6 +64,13 @@ export default function App() {
     if (lens) setLens(lens)
     const boundary = params.get('boundary')
     if (boundary && useStore.getState().boundaryId !== boundary) useStore.getState().toggleBoundary(boundary)
+    // ?select=id1,id2 pre-selects cards in the multi-select group.
+    const select = params.get('select')
+    if (select) {
+      for (const id of select.split(',').map((s) => s.trim()).filter(Boolean)) {
+        if (!useStore.getState().multiSelect.includes(id)) useStore.getState().toggleMultiSelect(id)
+      }
+    }
     const q = params.get('q')
     if (q) setSearch(q)
     // ?filters=1 opens the panel; ?filters=blocked,overdue also applies those filters.
@@ -157,6 +165,7 @@ export default function App() {
       </div>
 
       {showTypeEditor && <TypeEditor />}
+      <BulkActions />
     </div>
   )
 }
