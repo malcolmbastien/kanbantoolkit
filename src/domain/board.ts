@@ -65,3 +65,13 @@ export function boardCardTypeId(board: Board | undefined, types: IssueType[]): s
   if (configured && cardTypes(types).some((t) => t.id === configured)) return configured
   return defaultCardTypeId(types)
 }
+
+/**
+ * Global search: items whose title or display ref contains the query
+ * (case-insensitive). An empty query returns no matches.
+ */
+export function searchItems(items: Item[], refs: Map<string, string>, query: string): Item[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  return items.filter((i) => i.title.toLowerCase().includes(q) || (refs.get(i.id) ?? '').toLowerCase().includes(q))
+}

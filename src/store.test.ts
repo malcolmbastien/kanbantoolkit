@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, cardTypes, defaultCardTypeId } from './domain/board'
+import { boardCardTypeId, buildRefs, cardTypes, defaultCardTypeId, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, useStore } from './store'
 
@@ -343,6 +343,15 @@ describe('store actions', () => {
     s().setBoardWipEnforcement('b-atlas', 'visualize')
     s().moveCard('st-signup-form', 'b-atlas', ns.id)
     expect(s().placements.find((p) => p.itemId === 'st-signup-form')?.laneId).toBe(ns.id)
+  })
+
+  it('global search matches by title or ref, and nothing on an empty query', () => {
+    const refs = buildRefs(s().items, s().issueTypes)
+    expect(searchItems(s().items, refs, 'gateway').map((i) => i.id)).toContain('init-gateway')
+    const ref = refs.get('st-email')!
+    expect(searchItems(s().items, refs, ref.toLowerCase()).map((i) => i.id)).toContain('st-email')
+    expect(searchItems(s().items, refs, '   ')).toEqual([])
+    expect(searchItems(s().items, refs, 'zzzzzz')).toEqual([])
   })
 
   it('migrateState backfills Board.level', () => {

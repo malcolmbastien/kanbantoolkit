@@ -15,7 +15,6 @@ export default function App() {
   const boardId = useStore((s) => s.boardId)
   const boardLevel = boards.find((b) => b.id === boardId)?.level ?? 'team'
   const setBoardLevel = useStore((s) => s.setBoardLevel)
-  const search = useStore((s) => s.search)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
@@ -57,6 +56,8 @@ export default function App() {
     if (it) openItem(it)
     const lens = params.get('lens')
     if (lens) setLens(lens)
+    const q = params.get('q')
+    if (q) setSearch(q)
     // Idempotent: StrictMode double-invokes this effect, and toggleCollapse would flip twice.
     for (const id of params.getAll('collapse')) {
       if (!useStore.getState().collapsedLanes[id]) toggleCollapse(id)
@@ -99,7 +100,6 @@ export default function App() {
         boards={boards}
         boardId={boardId}
         boardLevel={boardLevel}
-        search={search}
         editMode={editMode}
         showObjectives={showObjectives}
         showDashboard={showDashboard}
@@ -109,7 +109,6 @@ export default function App() {
         onToggleObjectives={toggleObjectives}
         onToggleDashboard={toggleDashboard}
         onToggleArchive={toggleArchive}
-        onSearch={setSearch}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}

@@ -1,4 +1,5 @@
-import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Target, Trash2, X } from 'lucide-react'
+import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Shapes, Target, Trash2, X } from 'lucide-react'
+import { GlobalSearch } from './GlobalSearch'
 import { LevelBadge } from './LevelBadge'
 import { cn } from '@/lib/utils'
 import type { Board, BoardLevel } from '@/domain/types'
@@ -7,7 +8,6 @@ interface Props {
   boards: Board[]
   boardId: string
   boardLevel: BoardLevel
-  search: string
   editMode: boolean
   showObjectives: boolean
   showDashboard: boolean
@@ -17,7 +17,6 @@ interface Props {
   onToggleObjectives: () => void
   onToggleDashboard: () => void
   onToggleArchive: () => void
-  onSearch: (q: string) => void
   onEditBoard: () => void
   onSaveEdit: () => void
   onCancelEdit: () => void
@@ -33,7 +32,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardLevel, search, editMode, showObjectives, showDashboard, showArchive, onSelectBoard, onSetBoardLevel, onToggleObjectives, onToggleDashboard, onToggleArchive, onSearch, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardLevel, editMode, showObjectives, showDashboard, showArchive, onSelectBoard, onSetBoardLevel, onToggleObjectives, onToggleDashboard, onToggleArchive, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -118,15 +117,7 @@ export function TopBar(props: Props) {
           <Plus size={13} /> Card
         </button>
 
-        <div className="relative">
-          <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
-            placeholder="Filter cards…"
-            className="w-36 rounded-md border border-slate-700 bg-slate-800 py-1 pl-7 pr-2 text-[12px] text-slate-100 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-        </div>
+        <GlobalSearch />
 
         <button
           onClick={onOpenTypes}
