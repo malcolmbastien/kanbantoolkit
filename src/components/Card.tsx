@@ -40,6 +40,8 @@ interface Props {
   onLens?: (id: string) => void
   /** Native HTML5 drag (cards workflow). */
   draggable?: boolean
+  /** Locked (edit mode): no drag, no click-to-open, no lens. */
+  locked?: boolean
   selected?: boolean
   onOpen: (id: string) => void
 }
@@ -52,21 +54,22 @@ const BUCKET_DOT: Record<CardSymbol['bucket'], string> = {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, lens, onLens, draggable, selected, onOpen }: Props) {
-  const dragProps = draggable
-    ? {
-        draggable: true,
-        onDragStart: (e: React.DragEvent) => {
-          e.dataTransfer.setData('text/plain', item.id)
-          e.dataTransfer.effectAllowed = 'move'
-        },
-      }
-    : {}
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, lens, onLens, draggable, locked, selected, onOpen }: Props) {
+  const dragProps =
+    draggable && !locked
+      ? {
+          draggable: true,
+          onDragStart: (e: React.DragEvent) => {
+            e.dataTransfer.setData('text/plain', item.id)
+            e.dataTransfer.effectAllowed = 'move'
+          },
+        }
+      : {}
 
   const lensCls =
     lens === 'out' ? 'opacity-40 saturate-50' : lens === 'in' ? 'ring-2 ring-indigo-400' : lens === 'self' ? 'ring-2 ring-indigo-600' : ''
 
-  const lensButton = onLens ? (
+  const lensButton = onLens && !locked ? (
     <button
       onClick={(e) => {
         e.stopPropagation()
@@ -90,11 +93,11 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         {...dragProps}
         onClick={(e) => {
           e.stopPropagation()
-          onOpen(item.id)
+          if (!locked) onOpen(item.id)
         }}
         className={cn(
-          'group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
-          'hover:shadow-md hover:border-slate-400',
+          'group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
+          locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
           selected && 'ring-2 ring-indigo-400',
           lensCls,
         )}
@@ -176,11 +179,11 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
       style={{ backgroundColor: hexToRgba(type.color, 0.1), borderLeftColor: type.color }}
       onClick={(e) => {
         e.stopPropagation()
-        onOpen(item.id)
+        if (!locked) onOpen(item.id)
       }}
       className={cn(
-        'group relative flex h-[112px] w-[180px] shrink-0 cursor-pointer flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
-        'hover:shadow-md hover:border-slate-400',
+        'group relative flex h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
+        locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
         selected && 'ring-2 ring-indigo-400',
         lensCls,
       )}

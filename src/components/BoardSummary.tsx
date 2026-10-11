@@ -32,6 +32,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
   const openItem = useStore((s) => s.openItem)
   const lensId = useStore((s) => s.lensId)
   const toggleLens = useStore((s) => s.toggleLens)
+  const editMode = useStore((s) => s.editMode)
 
   const graph: Graph = { items, edges, placements, lanes }
   const refs = buildRefs(items, issueTypes)
@@ -116,6 +117,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
                   selected={selectedItemId === c.id}
                   lens={lensRole(c.id, lensId, graph)}
                   onLens={toggleLens}
+                  locked={editMode}
                   onOpen={openItem}
                   summary={{
                     childCount: decompositionChildren(c.id, edges).length,

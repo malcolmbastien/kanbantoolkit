@@ -221,7 +221,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   return (
     <div className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col rounded-md border border-slate-300 bg-slate-100 shadow-sm">
       {!hideHeader && header(true)}
-      <DroppableCell enabled={ctx.interactive} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
+      <DroppableCell enabled={ctx.interactive && !ctx.editMode} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
         {cards.map((c) => {
           const pid = decompositionParent(c.id, graph.edges)
           const p = pid ? items.find((i) => i.id === pid) : undefined
@@ -238,7 +238,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               selected={ctx.selectedItemId === c.id}
               lens={lensRole(c.id, ctx.lensId, graph)}
               onLens={ctx.toggleLens}
-              draggable={ctx.interactive}
+              draggable={ctx.interactive && !ctx.editMode}
+              locked={ctx.editMode}
               onOpen={ctx.openItem}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
@@ -250,7 +251,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             />
           )
         })}
-        {ctx.editMode && (
+        {ctx.interactive && !ctx.editMode && (
           <button
             onClick={() => ctx.onAddCard(lane.id)}
             className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-0.5 text-[10px] text-slate-400 hover:border-indigo-400 hover:text-indigo-600"
