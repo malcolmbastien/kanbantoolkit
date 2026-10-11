@@ -33,6 +33,8 @@ export default function App() {
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
   const toggleFilters = useStore((s) => s.toggleFilters)
+  const multiSelect = useStore((s) => s.multiSelect)
+  const clearMultiSelect = useStore((s) => s.clearMultiSelect)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
   const runAutoArchive = useStore((s) => s.runAutoArchive)
@@ -99,6 +101,38 @@ export default function App() {
   useEffect(() => {
     runAutoArchive()
   }, [autoArchiveDays, runAutoArchive])
+
+  // Escape, or a click on any empty part of the screen, dismisses the current
+  // selection — a multi-select group, or a single card open in the panel.
+  // Clicks on a card (to toggle/open it), the bulk bar, or the item panel are
+  // left alone.
+  useEffect(() => {
+    if (multiSelect.length === 0 && !selectedItemId) return
+    const dismiss = () => {
+      if (multiSelect.length > 0) clearMultiSelect()
+      else openItem(null)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss()
+    }
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (
+        target?.closest('[data-card-id]') ||
+        target?.closest('[data-bulk-actions]') ||
+        target?.closest('[data-item-panel]')
+      ) {
+        return
+      }
+      dismiss()
+    }
+    window.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [multiSelect.length, selectedItemId, clearMultiSelect, openItem])
 
   const requestMove = (itemId: string, bId: string, laneId: string) => moveCard(itemId, bId, laneId)
 

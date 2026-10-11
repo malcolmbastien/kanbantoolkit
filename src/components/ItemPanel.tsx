@@ -113,7 +113,7 @@ export function ItemPanel({ itemId }: Props) {
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
 
   return (
-    <aside className="flex h-full w-[400px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
+    <aside data-item-panel className="flex h-full w-[400px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
       <div className="flex items-start gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <span className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: type.color }} />
         <div className="min-w-0 flex-1">

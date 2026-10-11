@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Archive, CheckSquare, Trash2, X } from 'lucide-react'
 import { cardTypes } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -26,26 +26,6 @@ export function BulkActions() {
   const clearMultiSelect = useStore((s) => s.clearMultiSelect)
 
   const [assignee, setAssignee] = useState('')
-
-  // Escape, or a click on any empty part of the screen, dismisses the selection.
-  // A click on a card (to toggle it) or on this bar is left alone.
-  useEffect(() => {
-    if (multiSelect.length === 0) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') clearMultiSelect()
-    }
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null
-      if (target?.closest('[data-card-id]') || target?.closest('[data-bulk-actions]')) return
-      clearMultiSelect()
-    }
-    window.addEventListener('keydown', onKey)
-    document.addEventListener('mousedown', onDown)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.removeEventListener('mousedown', onDown)
-    }
-  }, [multiSelect.length, clearMultiSelect])
 
   if (multiSelect.length === 0) return null
 
