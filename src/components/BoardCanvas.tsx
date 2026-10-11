@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { DndContext, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
@@ -78,7 +79,7 @@ function Ctl({ children, onClick, title, active, danger }: { children: React.Rea
   )
 }
 
-function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean }) {
+function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
   const kids = childrenOf(lanes, lane.id)
   const typeOf = (typeId: string): IssueType =>
@@ -170,9 +171,18 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
 
   if (kids.length > 0) {
     const orientation = lane.orientation ?? 'columns'
+
+    // Columns-of-rows (leanKit swimlanes): render one shared grid so lanes span the
+    // columns and every cell in a lane stretches to the lane's height.
+    const transposable =
+      orientation === 'columns' &&
+      kids.length >= 2 &&
+      kids.every((k) => (k.orientation ?? 'columns') === 'rows' && childrenOf(lanes, k.id).length > 0)
+    if (transposable) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} />
+
     return (
       <div className="flex h-full min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
-        {(editMode || lane.name) && header(false)}
+        {!hideHeader && (editMode || lane.name) && header(false)}
         <div
           className={cn('w-full gap-1 p-1', orientation === 'rows' ? 'flex flex-col' : 'grid')}
           style={orientation === 'columns' ? { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' } : undefined}
@@ -193,7 +203,7 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col rounded-md border border-slate-300 bg-slate-100 shadow-sm">
-      {header(true)}
+      {!hideHeader && header(true)}
       <DroppableCell id={`lane:${lane.id}`} enabled={ctx.editMode}>
         {cards.map((c) => {
           const pid = decompositionParent(c.id, graph.edges)
@@ -229,6 +239,74 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
           </button>
         )}
       </DroppableCell>
+    </div>
+  )
+}
+
+function countInLane(laneId: string, ctx: Ctx): number {
+  const ids = new Set(subtreeIds(ctx.lanes, laneId))
+  return ctx.boardItems.filter((i) => {
+    const lid = ctx.effectiveLane.get(i.id)
+    return lid !== undefined && ids.has(lid)
+  }).length
+}
+
+/** columns × lanes grid: lanes span the columns; cells in a lane share its height. */
+function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ctx: Ctx }) {
+  const { lanes, editMode } = ctx
+  const rowNames: string[] = []
+  for (const col of columns) {
+    for (const r of childrenOf(lanes, col.id)) if (!rowNames.includes(r.name)) rowNames.push(r.name)
+  }
+
+  return (
+    <div className="flex min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
+      {(editMode || lane.name) && (
+        <div className="rounded-t-md bg-slate-800 px-2 py-1 text-white">
+          <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+        </div>
+      )}
+      <div
+        className="grid w-full gap-1 p-1"
+        style={{ gridTemplateColumns: `160px repeat(${columns.length}, minmax(min-content, 1fr))` }}
+      >
+        {/* column headers */}
+        <div />
+        {columns.map((col) => (
+          <div key={col.id} className="flex items-center gap-1.5 rounded-md bg-slate-700 px-2 py-1 text-slate-100">
+            <span className="text-[11px] font-bold uppercase tracking-wide">{col.name}</span>
+            <span className="ml-auto text-[10px] font-semibold tabular-nums text-slate-300/80">{countInLane(col.id, ctx)}</span>
+          </div>
+        ))}
+
+        {/* lane rows */}
+        {rowNames.map((name) => {
+          const railCount = columns.reduce((sum, col) => {
+            const cell = childrenOf(lanes, col.id).find((r) => r.name === name)
+            return sum + (cell ? countInLane(cell.id, ctx) : 0)
+          }, 0)
+          return (
+            <Fragment key={name}>
+              <div className="flex flex-col justify-start rounded-md bg-slate-800 px-2 py-2 text-white">
+                <span className="text-[11px] font-bold">{name}</span>
+                <span className="mt-1 w-fit rounded bg-white/15 px-1 py-px text-[9px] font-bold text-slate-100">{railCount}</span>
+              </div>
+              {columns.map((col) => {
+                const cell = childrenOf(lanes, col.id).find((r) => r.name === name)
+                return (
+                  <div key={col.id + name} className="flex min-h-[64px] w-full flex-col">
+                    {cell ? (
+                      <LaneBox lane={cell} ctx={ctx} isRoot={false} hideHeader />
+                    ) : (
+                      <div className="flex-1 rounded-md border border-dashed border-slate-300/60 bg-slate-100/40" />
+                    )}
+                  </div>
+                )
+              })}
+            </Fragment>
+          )
+        })}
+      </div>
     </div>
   )
 }
