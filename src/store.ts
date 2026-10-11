@@ -389,6 +389,8 @@ export const useStore = create<Store>()(
         const state = get()
         const lane = state.lanes.find((l) => l.id === laneId)
         if (!lane || lane.parentId === null) return // the board root has no siblings
+        const parent = state.lanes.find((l) => l.id === lane.parentId)
+        if (!parent || parent.parentId === null) return // top-level columns are fixed in place
         const siblings = childrenOf(state.lanes, lane.parentId)
         const idx = siblings.findIndex((s) => s.id === laneId)
         const j = idx + delta

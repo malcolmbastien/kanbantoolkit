@@ -147,19 +147,24 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
         {editMode && !isRoot && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
-            {/* Move this lane among its siblings — columns move left/right, rows up/down */}
-            {parentOrientation === 'rows' ? (
+            {/* Top-level columns (Backlog / Not Started / In Progress / Done) are fixed in
+                place; only sub-lanes move, and only within their top-level parent. */}
+            {!top && (
               <>
-                <Ctl title="Move up" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}>▲</Ctl>
-                <Ctl title="Move down" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▼</Ctl>
-              </>
-            ) : (
-              <>
-                <Ctl title="Move left" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}>◀</Ctl>
-                <Ctl title="Move right" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▶</Ctl>
+                {parentOrientation === 'rows' ? (
+                  <>
+                    <Ctl title="Move up" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}>▲</Ctl>
+                    <Ctl title="Move down" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▼</Ctl>
+                  </>
+                ) : (
+                  <>
+                    <Ctl title="Move left" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}>◀</Ctl>
+                    <Ctl title="Move right" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▶</Ctl>
+                  </>
+                )}
+                <span className="mx-0.5 h-4 w-px bg-white/20" />
               </>
             )}
-            <span className="mx-0.5 h-4 w-px bg-white/20" />
 
             {isLeafCell ? (
               <>

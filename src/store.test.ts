@@ -210,22 +210,21 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === 'st-signup-design')?.archived ?? false).toBe(false)
   })
 
-  it('moves lanes within their parent via buttons (no drag)', () => {
+  it('moves sub-lanes within their top-level parent; top-level columns are fixed', () => {
     const root = rootLane(s().lanes, 'b-atlas')!
     const topNames = () => childrenOf(s().lanes, root.id).map((l) => l.name)
+    // Top-level columns cannot move.
+    expect(topNames()).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+    s().moveLane(laneByName('b-atlas', 'Not Started').id, -1)
     expect(topNames()).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
 
-    const ns = laneByName('b-atlas', 'Not Started')
-    s().moveLane(ns.id, -1) // left
-    expect(topNames()).toEqual(['Not Started', 'Backlog', 'In Progress', 'Done'])
-    s().moveLane(ns.id, -1) // already first → no-op
-    expect(topNames()).toEqual(['Not Started', 'Backlog', 'In Progress', 'Done'])
-
-    // columns within a split
+    // Sub-columns move within their top-level parent.
     const ip = laneByName('b-atlas', 'In Progress')
     const colNames = () => childrenOf(s().lanes, ip.id).map((l) => l.name)
     expect(colNames()).toEqual(['Dev', 'Test'])
     s().moveLane(laneByName('b-atlas', 'Dev').id, 1) // right
+    expect(colNames()).toEqual(['Test', 'Dev'])
+    s().moveLane(laneByName('b-atlas', 'Dev').id, 1) // already last → no-op
     expect(colNames()).toEqual(['Test', 'Dev'])
   })
 
