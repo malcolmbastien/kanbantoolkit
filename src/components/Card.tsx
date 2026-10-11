@@ -68,6 +68,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
 
   const lensCls =
     lens === 'out' ? 'opacity-40 saturate-50' : lens === 'in' ? 'ring-2 ring-indigo-400' : lens === 'self' ? 'ring-2 ring-indigo-600' : ''
+  const lockCls = locked ? 'opacity-50 saturate-75' : ''
 
   const lensButton = onLens && !locked ? (
     <button
@@ -100,6 +101,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
           selected && 'ring-2 ring-indigo-400',
           lensCls,
+          lockCls,
         )}
       >
         {/* progress bar */}
@@ -186,16 +188,19 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
         selected && 'ring-2 ring-indigo-400',
         lensCls,
+        lockCls,
       )}
     >
       <div className="flex h-full items-start gap-1 px-1.5 py-1.5">
-        <span
-          className="mt-0.5 cursor-grab text-slate-300 opacity-0 transition group-hover:opacity-100"
-          title={draggable ? 'Drag to another lane' : undefined}
-          aria-hidden
-        >
-          <GripVertical size={12} />
-        </span>
+        {draggable && !locked && (
+          <span
+            className="mt-0.5 cursor-grab text-slate-300 opacity-0 transition group-hover:opacity-100"
+            title="Drag to another lane"
+            aria-hidden
+          >
+            <GripVertical size={12} />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
