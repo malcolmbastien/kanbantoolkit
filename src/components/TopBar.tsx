@@ -1,4 +1,4 @@
-import { Check, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Sparkles, Trash2, X } from 'lucide-react'
+import { Check, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Trash2, X } from 'lucide-react'
 import { LevelBadge } from './LevelBadge'
 import { cn } from '@/lib/utils'
 import type { Board, BoardLevel } from '@/domain/types'
@@ -9,13 +9,11 @@ interface Props {
   boardLevel: BoardLevel
   view: 'board' | 'management'
   search: string
-  showDemoGuide: boolean
   editMode: boolean
   onSelectBoard: (id: string) => void
   onSetBoardLevel: (level: BoardLevel) => void
   onSetView: (v: 'board' | 'management') => void
   onSearch: (q: string) => void
-  onToggleDemoGuide: () => void
   onEditBoard: () => void
   onSaveEdit: () => void
   onCancelEdit: () => void
@@ -31,7 +29,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardLevel, view, search, showDemoGuide, editMode, onSelectBoard, onSetBoardLevel, onSetView, onSearch, onToggleDemoGuide, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardLevel, view, search, editMode, onSelectBoard, onSetBoardLevel, onSetView, onSearch, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -141,17 +139,6 @@ export function TopBar(props: Props) {
             <Pencil size={13} /> Edit board
           </button>
         )}
-
-        <button
-          onClick={onToggleDemoGuide}
-          className={cn(
-            'flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium transition',
-            showDemoGuide ? 'border-amber-400/50 bg-amber-400/20 text-amber-200' : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-white',
-          )}
-          title="Toggle the demo guide"
-        >
-          <Sparkles size={13} /> Guide
-        </button>
 
         <button
           onClick={onReset}

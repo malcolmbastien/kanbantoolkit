@@ -53,7 +53,7 @@ task-master list            # terminal 2
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - Dependency state is derived from the two endpoints' cells; never store a dependency
   status field. Attribution never counts as WIP.
-- Limits are per-lane `wipLimit`s; soft-block with a required, recorded reason.
+- Limits are per-lane `wipLimit`s and are **visual only** — a lane over its limit shows red, but moves are never blocked (no prompts).
 - Before finishing any task, run the no-Google/Firebase scan above and `npm test`.
 
 ## Persisted state (localStorage)

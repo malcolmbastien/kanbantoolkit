@@ -1,21 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { BoardView } from './components/BoardView'
-import { DemoGuide } from './components/DemoGuide'
 import { ItemPanel } from './components/ItemPanel'
 import { ManagementView } from './components/ManagementView'
-import { ReasonDialog } from './components/ReasonDialog'
 import { TopBar } from './components/TopBar'
 import { TypeEditor } from './components/TypeEditor'
 import { leafLanes } from './domain/lanes'
 import { useStore } from './store'
-import type { Lane } from './domain/types'
-
-interface Pending {
-  title: string
-  lane: Lane
-  count: number
-  run: (reason: string) => void
-}
 
 export default function App() {
   const boards = useStore((s) => s.boards)
@@ -24,19 +14,16 @@ export default function App() {
   const setBoardLevel = useStore((s) => s.setBoardLevel)
   const search = useStore((s) => s.search)
   const selectedItemId = useStore((s) => s.selectedItemId)
-  const showDemoGuide = useStore((s) => s.showDemoGuide)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
   const view = useStore((s) => s.view)
   const setView = useStore((s) => s.setView)
-  const items = useStore((s) => s.items)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
 
   const selectBoard = useStore((s) => s.selectBoard)
   const setSearch = useStore((s) => s.setSearch)
   const resetDemo = useStore((s) => s.resetDemo)
-  const toggleDemoGuide = useStore((s) => s.toggleDemoGuide)
   const toggleTypeEditor = useStore((s) => s.toggleTypeEditor)
   const beginEdit = useStore((s) => s.beginEdit)
   const saveEdit = useStore((s) => s.saveEdit)
@@ -46,8 +33,6 @@ export default function App() {
   const addCard = useStore((s) => s.addCard)
   const addBoard = useStore((s) => s.addBoard)
   const removeBoard = useStore((s) => s.removeBoard)
-
-  const [pending, setPending] = useState<Pending | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -60,18 +45,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const requestMove = (itemId: string, bId: string, laneId: string) => {
-    const item = items.find((i) => i.id === itemId)
-    const res = moveCard(itemId, bId, laneId)
-    if (!res.ok && 'needsReason' in res) {
-      setPending({
-        title: item?.title ?? 'Card',
-        lane: res.lane,
-        count: res.count,
-        run: (reason) => moveCard(itemId, bId, laneId, reason),
-      })
-    }
-  }
+  const requestMove = (itemId: string, bId: string, laneId: string) => moveCard(itemId, bId, laneId)
 
   const onAddCard = (laneId: string) => {
     const typeId = issueTypes[0]?.id
@@ -100,13 +74,11 @@ export default function App() {
         boardLevel={boardLevel}
         view={view}
         search={search}
-        showDemoGuide={showDemoGuide}
         editMode={editMode}
         onSelectBoard={selectBoard}
         onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
         onSetView={setView}
         onSearch={setSearch}
-        onToggleDemoGuide={toggleDemoGuide}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}
@@ -119,30 +91,12 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          {view === 'management' ? (
-            <ManagementView />
-          ) : (
-            <BoardView requestMove={requestMove} />
-          )}
+          {view === 'management' ? <ManagementView /> : <BoardView requestMove={requestMove} />}
         </div>
         {selectedItemId && <ItemPanel itemId={selectedItemId} />}
       </div>
 
-      <DemoGuide />
       {showTypeEditor && <TypeEditor />}
-
-      {pending && (
-        <ReasonDialog
-          title={pending.title}
-          lane={pending.lane}
-          count={pending.count}
-          onCancel={() => setPending(null)}
-          onSubmit={(reason) => {
-            pending.run(reason)
-            setPending(null)
-          }}
-        />
-      )}
     </div>
   )
 }

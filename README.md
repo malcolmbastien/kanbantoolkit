@@ -77,7 +77,7 @@ npm run lint         # oxlint
 
 ## What to try
 
-The **Guide** panel walks these:
+Things to try:
 
 1. **Custom types** — open **Types**; rename/add a type and recolour it. A card can be any type.
 2. **Generic hierarchy** — open a card; set its parent or add a child (choose the child's
@@ -91,7 +91,7 @@ The **Guide** panel walks these:
 5. **Dependency self-cleans** — set "API decision" to Done; the blocked story flips to
    Satisfied with nobody touching it.
 6. **Attribution never inflates** — "Build signup form" serves 2 objectives; WIP stays 1.
-7. **WIP limit** — drag a card into a lane at its limit; a reason is required.
+7. **WIP limits are visible, not enforced** — a lane over its limit shows red; moves are never blocked.
 
 ## Architecture
 

@@ -1,12 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { ancestorsOf, childrenOf, isLeaf, laneCardCount, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { childrenOf, isLeaf, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { createSeed } from '@/domain/seed'
 import type { BoardLevel, Edge, FlowState, IssueType, Item, Lane, Placement, SplitOrientation } from '@/domain/types'
-
-export type MoveResult =
-  | { ok: true }
-  | { ok: false; needsReason: true; lane: Lane; count: number }
 
 export interface Draft {
   boards: FlowState['boards']
@@ -19,7 +15,6 @@ export interface ViewState {
   boardId: string
   selectedItemId: string | null
   search: string
-  showDemoGuide: boolean
   showTypeEditor: boolean
   /** Board design controls (split / add / rename / delete lanes) only show in edit mode. */
   editMode: boolean
@@ -35,7 +30,6 @@ export interface Actions {
   selectBoard: (id: string) => void
   openItem: (id: string | null) => void
   setSearch: (q: string) => void
-  toggleDemoGuide: () => void
   toggleTypeEditor: () => void
   beginEdit: () => void
   saveEdit: () => void
@@ -55,7 +49,7 @@ export interface Actions {
   setBoardLevel: (id: string, level: BoardLevel) => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
-  moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => MoveResult
+  moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
 
   splitLane: (laneId: string, orientation: SplitOrientation, count?: number) => void
@@ -86,7 +80,6 @@ const initialView: ViewState = {
   boardId: 'b-core',
   selectedItemId: null,
   search: '',
-  showDemoGuide: true,
   showTypeEditor: false,
   editMode: false,
   draft: null,
@@ -124,19 +117,6 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
   return migrateState(persisted)
 }
 
-/** First WIP limit in the target lane's chain that a new card would exceed. */
-function firstOver(state: FlowState, laneId: string): { lane: Lane; count: number } | null {
-  const self = state.lanes.find((l) => l.id === laneId)
-  if (!self) return null
-  const chain = [self, ...ancestorsOf(state.lanes, laneId)]
-  for (const lane of chain) {
-    if (lane.wipLimit === undefined) continue
-    const count = laneCardCount(state.lanes, state.placements, lane.id) + 1
-    if (count > lane.wipLimit) return { lane, count }
-  }
-  return null
-}
-
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
@@ -146,7 +126,6 @@ export const useStore = create<Store>()(
       selectBoard: (boardId) => set({ boardId, selectedItemId: null }),
       openItem: (selectedItemId) => set({ selectedItemId }),
       setSearch: (search) => set({ search }),
-      toggleDemoGuide: () => set({ showDemoGuide: !get().showDemoGuide }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
 
       beginEdit: () => {
@@ -225,20 +204,14 @@ export const useStore = create<Store>()(
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
       },
 
-      moveCard: (itemId, boardId, laneId, reason) => {
+      moveCard: (itemId, boardId, laneId) => {
         const state = get()
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
-        if (existing && existing.laneId === laneId) return { ok: true }
-        const over = firstOver(state, laneId)
-        if (over && !reason) return { ok: false, needsReason: true, lane: over.lane, count: over.count }
+        if (existing && existing.laneId === laneId) return
         const placements = existing
           ? state.placements.map((p) => (p.id === existing.id ? { ...p, laneId } : p))
           : [...state.placements, { id: uid(), boardId, itemId, laneId }]
-        set({
-          placements,
-          items: state.items.map((i) => (i.id === itemId ? { ...i, lastMoveReason: reason } : i)),
-        })
-        return { ok: true }
+        set({ placements })
       },
 
       setItemFields: (id, patch) =>

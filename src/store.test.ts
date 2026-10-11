@@ -51,14 +51,12 @@ describe('store actions (recursive lanes)', () => {
     expect(statusOf('it-api', graph()).resolved).toBe(true)
   })
 
-  it('a WIP limit soft-blocks with a required reason', () => {
+  it('WIP limits are visual only — they never block a move', () => {
     const done = laneByName('b-platform', 'Done')
     s().setLaneWip(done.id, 1)
-    expect(s().moveCard('st-sdk', 'b-platform', done.id).ok).toBe(true) // 0 -> 1 (at limit)
-    const blocked = s().moveCard('it-analytics', 'b-platform', done.id) // 1 -> 2 (over)
-    expect(blocked.ok).toBe(false)
-    const ok = s().moveCard('it-analytics', 'b-platform', done.id, 'Unblocking release')
-    expect(ok.ok).toBe(true)
+    s().moveCard('st-sdk', 'b-platform', done.id)
+    s().moveCard('it-analytics', 'b-platform', done.id) // over the limit, still allowed
+    expect(s().placements.find((p) => p.itemId === 'it-analytics' && p.boardId === 'b-platform')?.laneId).toBe(done.id)
   })
 
   it('custom types can be added, renamed and recoloured', () => {
