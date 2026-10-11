@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { ChevronsRight, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsRight, Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
 import {
@@ -153,10 +153,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           {top && (
             <button
               onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
-              className="rounded px-0.5 text-[10px] font-bold text-slate-300 hover:bg-white/10 hover:text-white"
-              title={collapsed ? 'Expand' : 'Collapse'}
+              className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-200 hover:bg-white/15 hover:text-white"
+              title={collapsed ? 'Expand column' : 'Collapse column'}
             >
-              {collapsed ? '▸' : '▾'}
+              {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
             </button>
           )}
           <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
