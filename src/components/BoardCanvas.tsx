@@ -173,11 +173,11 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
     return (
       <div className="flex min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
         {(editMode || lane.name) && header(false)}
-        <div className={cn('flex min-h-0 w-full flex-1 gap-1 p-1', orientation === 'rows' ? 'flex-col' : 'flex-row items-stretch')}>
+        <div className={cn('flex w-full gap-1 p-1', orientation === 'rows' ? 'flex-col' : 'flex-row items-stretch')}>
           {kids.map((k) => (
             <div
               key={k.id}
-              className={orientation === 'columns' ? 'flex min-w-[196px] shrink-0 grow basis-auto flex-col' : 'flex w-full shrink-0 basis-auto flex-col'}
+              className={orientation === 'columns' ? 'flex min-w-[196px] shrink-0 grow basis-auto self-stretch flex-col' : 'flex w-full shrink-0 basis-auto flex-col'}
             >
               <LaneBox lane={k} ctx={ctx} isRoot={false} />
             </div>
