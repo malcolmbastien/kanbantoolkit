@@ -20,9 +20,11 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
 - **Flight-level badge.** Every board is labelled by Kanban flight level — **Portfolio**,
   **Project**, or **Team** — shown as a badge in the toolbar and board header and editable
   inline. It's an orientation label for a board, distinct from an item's derived `depth`.
-- **Management view.** Stack several boards as bands (each keeps its own lane tree), like
-  Kanbanize's *Linked workflows*. Toggle **Board ⇄ Management** in the toolbar; choose which
-  boards are stacked; open any band on its own.
+- **Management view.** Stack several boards as bands, like Kanbanize's *Linked workflows*.
+  Like Kanbanize, each band is a **summary**, not the team board: it shows only that board's
+  **initiative-level work** (items that decompose into children) in the three typed columns by
+  rollup — **Not Started / In Progress / Done** — without the detailed team card flow. Toggle
+  **Board ⇄ Management** in the toolbar; choose which boards are stacked; open any band on its own.
 - **Rollup boards.** Mark a board as *rollup* and each card's column is **derived from the
   status of the work at the lowest level** of its subtree — mapped onto the board's start /
   in-progress / done lanes — rather than stored. Parents also show a computed **%** done.

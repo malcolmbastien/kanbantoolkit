@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Layers } from 'lucide-react'
-import { BoardCanvas } from './BoardCanvas'
+import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -68,10 +68,8 @@ export function ManagementView() {
                 </button>
               </div>
               {!isCollapsed && (
-                <div className="flex max-h-[560px] min-h-[140px] overflow-auto">
-                  <div className="w-full">
-                    <BoardCanvas boardId={board.id} interactive={false} />
-                  </div>
+                <div className="max-h-[560px] overflow-auto">
+                  <BoardSummary boardId={board.id} />
                 </div>
               )}
             </section>
@@ -79,7 +77,7 @@ export function ManagementView() {
         })}
         {bands.length > 0 && (
           <p className="flex items-center gap-1 px-1 text-[10px] text-slate-400">
-            <Layers size={11} /> Each band is the same board you edit on its own — initiatives appear where their lowest-level work puts them.
+            <Layers size={11} /> Management view shows each board’s initiatives only — a rollup flow of Not Started / In Progress / Done, without the team’s detailed card flow.
           </p>
         )}
       </div>
