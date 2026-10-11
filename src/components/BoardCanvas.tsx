@@ -296,7 +296,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             }
           >
             {kids.map((k) => (
-              <div key={k.id} className={cn('flex min-h-0 min-w-0 flex-col', orientation === 'rows' ? 'w-full' : 'flex-1')}>
+              <div key={k.id} className={cn('flex min-h-0 min-w-0 flex-col', orientation === 'rows' ? 'w-full grow' : 'flex-1')}>
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />
               </div>
             ))}
