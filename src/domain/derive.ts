@@ -1,5 +1,5 @@
 import { effectiveStage } from './lanes'
-import type { Edge, Item, ItemLink, KeyResult, Lane, Objective, Placement, Stage } from './types'
+import type { ChecklistEntry, Edge, Item, ItemLink, KeyResult, Lane, Objective, Placement, Stage } from './types'
 
 export interface Graph {
   items: Item[]
@@ -187,6 +187,21 @@ export function blockedBelow(id: string, graph: Graph): number {
  */
 export function isArchived(item: Item | undefined): boolean {
   return item?.archived === true
+}
+
+/* ------------------------------------------------------------------ *
+ * Checklist — sub-tasks inside a card (never schedulable, never WIP)
+ * ------------------------------------------------------------------ */
+
+/** A card's checklist entries (empty when it has none). */
+export function checklistItems(item: Item | undefined): ChecklistEntry[] {
+  return item?.checklist ?? []
+}
+
+/** Checklist progress: how many entries are done, out of the total. */
+export function checklistProgress(item: Item | undefined): { done: number; total: number } {
+  const list = checklistItems(item)
+  return { done: list.filter((c) => c.done).length, total: list.length }
 }
 
 /* ------------------------------------------------------------------ *

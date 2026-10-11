@@ -72,6 +72,16 @@ export interface Board {
 /** A notable event in an item's history. Append-only. */
 export type ItemLogKind = 'created' | 'blocked' | 'unblocked' | 'archived' | 'unarchived' | 'noted'
 
+/**
+ * A checklist entry inside a card — finer-grained work than a schedulable card.
+ * It has no placement, never counts as WIP, and never affects rollup.
+ */
+export interface ChecklistEntry {
+  id: string
+  text: string
+  done: boolean
+}
+
 export interface ItemLogEntry {
   id: string
   at: number
@@ -111,6 +121,11 @@ export interface Item {
   archivedAt?: number
   /** Append-only history of notable events (blocked / unblocked / notes). */
   log?: ItemLogEntry[]
+  /**
+   * A lightweight checklist — sub-tasks that live inside the card. They are
+   * never schedulable work: no placement, no WIP, no rollup.
+   */
+  checklist?: ChecklistEntry[]
 }
 
 /** The explicit board + cell a card sits in. One per board. */

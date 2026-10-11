@@ -88,6 +88,13 @@ export interface Actions {
   moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
 
+  /** Checklist inside a card — sub-tasks (never schedulable, never WIP). */
+  addChecklistItem: (itemId: string, text: string) => void
+  toggleChecklistItem: (itemId: string, entryId: string) => void
+  /** Reorder a checklist entry within its card (delta -1 = up, +1 = down). */
+  moveChecklistItem: (itemId: string, entryId: string, delta: number) => void
+  removeChecklistItem: (itemId: string, entryId: string) => void
+
   splitLane: (laneId: string, orientation: SplitOrientation, count?: number) => void
   addLane: (parentId: string) => void
   /** Insert a new sibling lane immediately after this one. */
@@ -409,6 +416,42 @@ export const useStore = create<Store>()(
 
       setItemFields: (id, patch) =>
         set({ items: get().items.map((i) => (i.id === id ? { ...i, ...patch } : i)) }),
+
+      addChecklistItem: (itemId, text) => {
+        const t = text.trim()
+        if (!t) return
+        set({
+          items: get().items.map((i) =>
+            i.id === itemId ? { ...i, checklist: [...(i.checklist ?? []), { id: uid(), text: t, done: false }] } : i,
+          ),
+        })
+      },
+      toggleChecklistItem: (itemId, entryId) =>
+        set({
+          items: get().items.map((i) =>
+            i.id === itemId
+              ? { ...i, checklist: (i.checklist ?? []).map((c) => (c.id === entryId ? { ...c, done: !c.done } : c)) }
+              : i,
+          ),
+        }),
+      moveChecklistItem: (itemId, entryId, delta) =>
+        set({
+          items: get().items.map((i) => {
+            if (i.id !== itemId) return i
+            const list = [...(i.checklist ?? [])]
+            const idx = list.findIndex((c) => c.id === entryId)
+            const to = idx + delta
+            if (idx < 0 || to < 0 || to >= list.length) return i
+            ;[list[idx], list[to]] = [list[to], list[idx]]
+            return { ...i, checklist: list }
+          }),
+        }),
+      removeChecklistItem: (itemId, entryId) =>
+        set({
+          items: get().items.map((i) =>
+            i.id === itemId ? { ...i, checklist: (i.checklist ?? []).filter((c) => c.id !== entryId) } : i,
+          ),
+        }),
 
       /** Split a leaf cell into a container of the given orientation, with N sub-lanes. */
       splitLane: (laneId, orientation, count = 2) => {

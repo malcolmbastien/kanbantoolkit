@@ -1,6 +1,7 @@
 import { Card, type CardParent } from './Card'
 import {
   blockedBelow,
+  checklistProgress,
   decompositionChildren,
   decompositionParent,
   dependenciesOf,
@@ -129,6 +130,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
                     blockedBelow: blockedBelow(c.id, graph),
                     openDescendants: openDescendants(c.id, graph).length,
                     rollupPercent: rollupOf(c.id, graph).percent,
+                    checklist: checklistProgress(c),
                   }}
                 />
               )

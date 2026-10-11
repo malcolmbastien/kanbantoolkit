@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   attributedObjectives,
   blockedBelow,
+  checklistItems,
+  checklistProgress,
   dependentSummary,
   decompositionChildren,
   decompositionParent,
@@ -17,7 +19,7 @@ import {
 } from './derive'
 import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes, wipState } from './lanes'
 import { createSeed } from './seed'
-import type { FlowState } from './types'
+import type { FlowState, Item } from './types'
 
 const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes })
 const laneByName = (s: FlowState, boardId: string, name: string) =>
@@ -243,5 +245,20 @@ describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () 
 
   it('leaf status reads from the stage (a Done-column leaf resolves)', () => {
     expect(statusOf('st-signup-design', graphOf(s)).resolved).toBe(true)
+  })
+})
+
+describe('checklist — sub-tasks inside a card', () => {
+  const card = (checklist?: Item['checklist']): Item => ({ id: 'x', title: 'X', typeId: 't-story', createdAt: 0, checklist })
+
+  it('reports progress and tolerates a missing checklist', () => {
+    expect(checklistProgress(undefined)).toEqual({ done: 0, total: 0 })
+    expect(checklistItems(card())).toEqual([])
+    const c = card([
+      { id: 'a', text: 'One', done: true },
+      { id: 'b', text: 'Two', done: false },
+      { id: 'c', text: 'Three', done: true },
+    ])
+    expect(checklistProgress(c)).toEqual({ done: 2, total: 3 })
   })
 })

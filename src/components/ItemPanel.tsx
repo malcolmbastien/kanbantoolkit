@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Archive, Ban, GitBranch, Plus, Sparkles, Trash2, X } from 'lucide-react'
+import { Archive, Ban, ChevronDown, ChevronUp, GitBranch, ListChecks, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import {
   attributedObjectives,
+  checklistItems,
+  checklistProgress,
   decompositionChildren,
   decompositionParent,
   dependenciesOf,
@@ -45,6 +47,10 @@ export function ItemPanel({ itemId }: Props) {
   const objectives = useStore((s) => s.objectives)
   const close = useStore((s) => s.openItem)
   const setItemFields = useStore((s) => s.setItemFields)
+  const addChecklistItem = useStore((s) => s.addChecklistItem)
+  const toggleChecklistItem = useStore((s) => s.toggleChecklistItem)
+  const moveChecklistItem = useStore((s) => s.moveChecklistItem)
+  const removeChecklistItem = useStore((s) => s.removeChecklistItem)
   const setParent = useStore((s) => s.setParent)
   const addChild = useStore((s) => s.addChild)
   const linkTeamInitiative = useStore((s) => s.linkTeamInitiative)
@@ -67,6 +73,7 @@ export function ItemPanel({ itemId }: Props) {
   const [showPreview, setShowPreview] = useState(false)
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
+  const [newChecklist, setNewChecklist] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const item = items.find((i) => i.id === itemId)
@@ -87,6 +94,8 @@ export function ItemPanel({ itemId }: Props) {
   const attributed = attributedObjectives(item.id, edges, objectives)
   const status = statusOf(item.id, graph)
   const log = item.log ?? []
+  const checklist = checklistItems(item)
+  const progress = checklistProgress(item)
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
@@ -316,6 +325,82 @@ export function ItemPanel({ itemId }: Props) {
               </label>
             </div>
           </div>
+        </section>
+
+        {/* Checklist — sub-tasks inside the card (never scheduled, never WIP) */}
+        <section>
+          <SectionLabel>
+            <span className="flex items-center gap-1">
+              <ListChecks size={12} /> Checklist{progress.total > 0 ? ` · ${progress.done}/${progress.total}` : ''}
+            </span>
+          </SectionLabel>
+          {progress.total > 0 && (
+            <div className="mb-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full bg-emerald-500 transition-all"
+                style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+              />
+            </div>
+          )}
+          <div className="space-y-1">
+            {checklist.length === 0 && <p className="text-[11px] text-slate-400">No checklist items yet.</p>}
+            {checklist.map((c, i) => (
+              <div key={c.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1">
+                <input type="checkbox" checked={c.done} onChange={() => toggleChecklistItem(item.id, c.id)} />
+                <span className={cn('min-w-0 flex-1 truncate text-slate-700', c.done && 'text-slate-400 line-through')}>{c.text}</span>
+                <button
+                  disabled={i === 0}
+                  onClick={() => moveChecklistItem(item.id, c.id, -1)}
+                  className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent"
+                  title="Move up"
+                >
+                  <ChevronUp size={13} />
+                </button>
+                <button
+                  disabled={i === checklist.length - 1}
+                  onClick={() => moveChecklistItem(item.id, c.id, 1)}
+                  className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent"
+                  title="Move down"
+                >
+                  <ChevronDown size={13} />
+                </button>
+                <button
+                  onClick={() => removeChecklistItem(item.id, c.id)}
+                  className="rounded p-0.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                  title="Delete"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-1">
+            <input
+              value={newChecklist}
+              onChange={(e) => setNewChecklist(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  addChecklistItem(item.id, newChecklist)
+                  setNewChecklist('')
+                }
+              }}
+              placeholder="Add a checklist item…"
+              className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+            <button
+              disabled={newChecklist.trim().length === 0}
+              onClick={() => {
+                addChecklistItem(item.id, newChecklist)
+                setNewChecklist('')
+              }}
+              className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+            >
+              <Plus size={11} /> Add
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] text-slate-400">
+            Sub-tasks that live inside this card — never scheduled, never counted as WIP, never rolled up.
+          </p>
         </section>
 
         {/* Placements — board + cell */}

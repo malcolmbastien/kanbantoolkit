@@ -88,8 +88,23 @@ item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignee: 'JT', 
 
 // Cards — Team Atlas.
 item('st-signup-design', 'Design signup screens', 't-story', { size: 3 })
-item('st-signup-form', 'Build signup form', 't-story', { size: 5, assignee: 'RK' })
-item('st-email', 'Email verification', 't-story', { size: 3 })
+item('st-signup-form', 'Build signup form', 't-story', {
+  size: 5,
+  assignee: 'RK',
+  checklist: [
+    { id: 'cl-form-1', text: 'Form markup + validation', done: true },
+    { id: 'cl-form-2', text: 'Wire up the API call', done: true },
+    { id: 'cl-form-3', text: 'Error states', done: false },
+    { id: 'cl-form-4', text: 'Analytics events', done: false },
+  ],
+})
+item('st-email', 'Email verification', 't-story', {
+  size: 3,
+  checklist: [
+    { id: 'cl-email-1', text: 'Draft the template', done: true },
+    { id: 'cl-email-2', text: 'Send on signup', done: false },
+  ],
+})
 item('st-sso', 'SSO buttons', 't-story', {
   size: 2,
   blocked: true,

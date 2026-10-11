@@ -4,6 +4,7 @@ import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
 import {
   blockedBelow,
+  checklistProgress,
   decompositionChildren,
   decompositionParent,
   dependenciesOf,
@@ -351,6 +352,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 blockedBelow: blockedBelow(c.id, graph),
                 openDescendants: openDescendants(c.id, graph).length,
                 rollupPercent: decompositionChildren(c.id, graph.edges).length > 0 ? roll.percent : undefined,
+                checklist: checklistProgress(c),
               }}
             />
           )

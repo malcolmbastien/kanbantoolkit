@@ -1,4 +1,4 @@
-import { Ban, Clock, CornerDownRight, Crosshair, GripVertical, Layers, Link2, ShieldAlert } from 'lucide-react'
+import { Ban, Clock, CornerDownRight, Crosshair, GripVertical, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
 import type { IssueType, Item, Stage } from '@/domain/types'
@@ -14,6 +14,8 @@ export interface CardSummary {
   openDescendants: number
   /** For parents: % of leaf descendants done (derived rollup). */
   rollupPercent?: number
+  /** Checklist progress inside the card (sub-tasks). */
+  checklist?: { done: number; total: number }
 }
 
 /** The decomposition parent of a card, for the on-card lineage label. */
@@ -186,6 +188,14 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 <Link2 size={11} /> {summary.linksCount}
               </span>
             )}
+            {summary.checklist && summary.checklist.total > 0 && (
+              <span
+                className={cn('flex items-center gap-0.5', summary.checklist.done === summary.checklist.total && 'font-semibold text-emerald-600')}
+                title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} done`}
+              >
+                <ListChecks size={11} /> {summary.checklist.done}/{summary.checklist.total}
+              </span>
+            )}
             {blockedChip}
             {summary.openDescendants > 0 && summary.childCount > 0 && (
               <span className="text-slate-400">{summary.openDescendants} open below</span>
@@ -284,6 +294,15 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               <span className="flex items-center gap-0.5 text-slate-500" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
                 <Link2 size={11} />
                 {summary.linksCount}
+              </span>
+            )}
+            {summary.checklist && summary.checklist.total > 0 && (
+              <span
+                className={cn('flex items-center gap-0.5', summary.checklist.done === summary.checklist.total && 'font-semibold text-emerald-600')}
+                title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} done`}
+              >
+                <ListChecks size={11} />
+                {summary.checklist.done}/{summary.checklist.total}
               </span>
             )}
             {blockedChip}

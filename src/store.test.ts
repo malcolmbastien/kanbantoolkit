@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { decompositionChildren, decompositionParent, rollupOf, statusOf } from './domain/derive'
+import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, buildRefs, cardTypes, defaultCardTypeId, searchItems } from './domain/board'
-import { childrenOf, effectiveStage, isLeaf, leafLanes, rootLane } from './domain/lanes'
+import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, useStore } from './store'
 
 vi.stubGlobal('localStorage', {
@@ -377,6 +377,40 @@ describe('store actions', () => {
 
     s().clearFilters()
     expect(s().filters).toEqual({ typeIds: [], blocked: false, overdue: false, unassigned: false })
+  })
+
+  it('checklists live inside a card and never count as work', () => {
+    const done = laneByName('b-atlas', 'Done')
+    const before = laneCardCount(s().lanes, s().placements, done.id)
+    const rollBefore = rollupOf('init-signup', graph()).total
+    const placementsBefore = s().placements.length
+    const check = (id: string) => s().items.find((i) => i.id === id)!.checklist!
+
+    s().addChecklistItem('st-signup-design', 'Write copy')
+    s().addChecklistItem('st-signup-design', 'Wire the API')
+    expect(check('st-signup-design').map((c) => c.text)).toEqual(['Write copy', 'Wire the API'])
+
+    // A blank add is ignored.
+    s().addChecklistItem('st-signup-design', '   ')
+    expect(check('st-signup-design').length).toBe(2)
+
+    // Check/uncheck.
+    s().toggleChecklistItem('st-signup-design', check('st-signup-design')[0].id)
+    expect(check('st-signup-design')[0].done).toBe(true)
+    expect(checklistProgress(s().items.find((i) => i.id === 'st-signup-design'))).toEqual({ done: 1, total: 2 })
+
+    // Reorder.
+    s().moveChecklistItem('st-signup-design', check('st-signup-design')[0].id, 1)
+    expect(check('st-signup-design').map((c) => c.text)).toEqual(['Wire the API', 'Write copy'])
+
+    // Delete.
+    s().removeChecklistItem('st-signup-design', check('st-signup-design')[0].id)
+    expect(check('st-signup-design').map((c) => c.text)).toEqual(['Write copy'])
+
+    // Never schedulable: lane counts, rollup and placements are unchanged.
+    expect(laneCardCount(s().lanes, s().placements, done.id)).toBe(before)
+    expect(rollupOf('init-signup', graph()).total).toBe(rollBefore)
+    expect(s().placements.length).toBe(placementsBefore)
   })
 
   it('migrateState backfills Board.level', () => {
