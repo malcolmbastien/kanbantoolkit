@@ -33,6 +33,27 @@ Derivation is the moat. Retrofitting it into a tool whose foundation is typed fi
 
 The model draws on Kanban Flight Levels (L1 strategy, L2 coordination, L3 team execution) but replaces the "boards per level" framing with a single graph read at stated resolutions.
 
+## 2.1 Product principles — a joy to use, and never a waste of time
+
+Derivation makes the model honest. These principles make it *worth using*. They are constraints on the product, not aspirations.
+
+**It is a joy to use.** Fast, quiet, predictable. Interactions land where the user expects, a board reads at a glance, and nothing asks for information the graph already knows. Joy is not decoration here — it is the absence of friction and the presence of trust: the tool does what you mean, the first time.
+
+**It respects time.** Every manual update is a tax the tool chose to levy. Flowline derives what it can — level, status, dependency state, roll-up — so nobody hand-maintains a fact the system already knows. The measure is not features shipped; it is the answers a person reaches in seconds instead of by chasing six boards and a spreadsheet.
+
+**The human is in control — no AI slop.** Nothing on the board is generated, guessed, or changed behind the user's back. No auto-status, no invented summaries, no recommendation that quietly becomes a fact. Every consequential state is either *derived* from the user's own structure or *set explicitly by a person*, with a reason recorded. If a capability cannot show its work, it does not ship. The user decides what they want, and keeps it.
+
+## 2.2 One truth, two audiences
+
+The same graph must serve people who need different things from it — not by storing two versions of the truth, but by reading one truth at the resolution each audience needs.
+
+- **Executives** get a high-level view that matches what they actually act on: a standard, legible flow; clear status; the ability to drill down; and a visible line to **who is accountable**. They see *that* work is blocked — how much, and where to look — without wading through every team's day-to-day. (The management-board dashboard is this promise made concrete: progress, target date, status, and a count of blocked work down the chain.)
+- **Teams** get the opposite: **freedom**. They define their own card flows — split and name their columns, run the workflow that fits them — and break initiatives down however the work actually decomposes. No central schema committee, no single "correct" board.
+
+The two do not conflict, because both read the **same** graph from opposite ends. **Intelligent roll-up is the bridge**: teams work the way they want at the bottom; the information a leader needs rolls up on its own, in the shape of their view — no second data-entry burden, no status anyone has to babysit.
+
+This is the payoff of derivation. Roll-up is not a report someone writes and keeps current; it is a *view of the graph*, so it stays honest for free.
+
 ## 3. Data model
 
 Everything reduces to nodes and typed edges. There is no board membership field anywhere in the schema.

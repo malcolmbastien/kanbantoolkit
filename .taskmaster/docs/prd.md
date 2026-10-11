@@ -6,6 +6,22 @@
 >
 > **1. One item, three boards, no duplication.**  **2. Dependency self-cleaning.**
 
+## Product principles (inherited from the full PRD)
+
+These are build constraints, not aspirations. See `flowline-mvp-prd.md` §2.1–2.2.
+
+1. **A joy to use** — fast, quiet, predictable; a board reads at a glance.
+2. **Respect the user's time** — derive what the graph already knows (level, status,
+   dependency state, roll-up); never ask for a fact the system can compute.
+3. **Human in control — no AI slop** — nothing is generated, guessed, or changed behind the
+   user's back; every state is derived from the user's structure or set explicitly. If it
+   can't show its work, it doesn't ship.
+4. **Intelligent roll-up, one truth for two audiences** — the same graph read at the
+   resolution each audience needs. Executives get a clear high-level flow with accountability
+   and a way to drill down; teams get the freedom to define their own flows and decompose
+   initiatives their way. Roll-up is a view of the graph, so it stays honest without a second
+   data-entry burden.
+
 ## 1. What this MVP must prove
 
 A single graph read at different resolutions. Items have **no board membership field**.
