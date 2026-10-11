@@ -140,30 +140,40 @@ describe('store actions (recursive lanes)', () => {
     expect(migrated.boards.find((b) => b.id === 'unknown')?.level).toBe('team')
   })
 
-  it('migratePersisted reseeds boards for a schema change (v<3)', () => {
+  it('migratePersisted reseeds boards for a schema change (v<4)', () => {
     const stale = { boards: [{ id: 'b-core', name: 'Core', level: 'project' }], lanes: [], placements: [] }
-    const reseeded = migratePersisted(stale, 2) as { boards: { id: string }[]; lanes: unknown[] }
+    const reseeded = migratePersisted(stale, 3) as { boards: { id: string }[]; lanes: unknown[] }
     expect(reseeded.boards.length).toBeGreaterThanOrEqual(5)
     expect(reseeded.boards.some((b) => b.id === 'b-team-alpha')).toBe(true)
     expect(reseeded.lanes.length).toBeGreaterThan(0)
-    // v3+ keeps the persisted boards (just backfills level)
-    const kept = migratePersisted(stale, 3) as { boards: { id: string }[] }
+    // v4+ keeps the persisted boards (just backfills level)
+    const kept = migratePersisted(stale, 4) as { boards: { id: string }[] }
     expect(kept.boards.length).toBe(1)
   })
 
-  it('management view: setView, toggle boards, and mark a board rollup', () => {
+  it('management view: starts empty, toggle boards, and mark a board rollup', () => {
+    expect(s().managementBoards.length).toBe(0)
     s().setView('management')
     expect(s().view).toBe('management')
     s().toggleManagementBoard('b-core')
-    expect(s().managementBoards.includes('b-core')).toBe(false)
-    s().toggleManagementBoard('b-core')
     expect(s().managementBoards.includes('b-core')).toBe(true)
+    s().toggleManagementBoard('b-core')
+    expect(s().managementBoards.includes('b-core')).toBe(false)
 
     s().setBoardDerived('b-core', true)
     expect(s().boards.find((b) => b.id === 'b-core')?.derived).toBe(true)
     s().setView('board')
     expect(s().view).toBe('board')
     expect(s().editMode).toBe(false)
+  })
+
+  it('links a team initiative under a management initiative', () => {
+    const before = s().items.length
+    s().linkTeamInitiative('it-onboarding', 'b-team-alpha', 'Linked initiative')
+    expect(s().items.length).toBe(before + 1)
+    const created = s().items[s().items.length - 1]
+    expect(s().edges.some((e) => e.kind === 'decomposition' && e.from === 'it-onboarding' && e.to === created.id)).toBe(true)
+    expect(s().placements.some((p) => p.itemId === created.id && p.boardId === 'b-team-alpha')).toBe(true)
   })
 
   it('Save commits layout edits; Cancel reverts them', () => {

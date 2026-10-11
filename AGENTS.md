@@ -51,6 +51,10 @@ task-master list            # terminal 2
   refinement happens by **splitting**, and descendants inherit the stage via `effectiveStage`.
   A leaf's status comes from its column's stage, which makes status roll up the hierarchy.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
+- **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
+  placed by rollup (card children are drill-in). The management view starts empty and lists
+  added boards' initiatives; `linkTeamInitiative` creates a team initiative as a decomposition
+  child of a management initiative so it rolls up.
 - Dependency state is derived from the two endpoints' cells; never store a dependency
   status field. Attribution never counts as WIP.
 - Limits are per-lane `wipLimit`s and are **visual only** — a lane over its limit shows red, but moves are never blocked (no prompts).

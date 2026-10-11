@@ -4,7 +4,6 @@ const T = Date.UTC(2026, 9, 1, 9, 0, 0)
 
 const issueTypes: IssueType[] = [
   { id: 't-initiative', name: 'Initiative', color: '#6366f1' },
-  { id: 't-feature', name: 'Feature', color: '#8b5cf6' },
   { id: 't-story', name: 'User Story', color: '#0ea5e9' },
   { id: 't-task', name: 'Task', color: '#64748b' },
   { id: 't-bug', name: 'Bug', color: '#f43f5e' },
@@ -94,12 +93,12 @@ const item = (id: string, title: string, typeId: string, extra: Partial<Item> = 
   items.push({ id, title, typeId, createdAt: T, ...extra })
 
 item('it-onboarding', 'Onboarding Redesign', 't-initiative', { size: 40, assignee: 'MB' })
-item('it-signup', 'New signup flow', 't-feature', { size: 13, assignee: 'RK' })
-item('it-tour', 'Guided onboarding tour', 't-feature', { size: 8, assignee: 'LM' })
-item('it-profile', 'Profile completeness', 't-feature', { size: 5, assignee: 'SP' })
-item('it-invite', 'Invite & team setup', 't-feature', { size: 8 })
-item('it-api', 'API decision', 't-feature', { size: 21, assignee: 'JT' })
-item('it-analytics', 'Analytics pipeline', 't-feature', { size: 13 })
+item('it-signup', 'New signup flow', 't-initiative', { size: 13, assignee: 'RK' })
+item('it-tour', 'Guided onboarding tour', 't-initiative', { size: 8, assignee: 'LM' })
+item('it-profile', 'Profile completeness', 't-initiative', { size: 5, assignee: 'SP' })
+item('it-invite', 'Invite & team setup', 't-initiative', { size: 8 })
+item('it-api', 'API decision', 't-initiative', { size: 21, assignee: 'JT' })
+item('it-analytics', 'Analytics pipeline', 't-initiative', { size: 13 })
 
 item('st-design', 'Design signup form', 't-story', { size: 3 })
 item('st-form', 'Build signup form', 't-story', { size: 5 })
@@ -118,11 +117,17 @@ item('st-spike-cache', 'Spike: cache strategy', 't-spike', { size: 2 })
 item('st-api-contract', 'Define API contract', 't-story', { size: 5 })
 item('st-sdk', 'Client SDK generation', 't-story', { size: 8 })
 item('it-beta', 'Beta Launch', 't-initiative', { size: 20 })
-item('feat-beta', 'Closed beta', 't-feature', { size: 8 })
+item('feat-beta', 'Closed beta', 't-initiative', { size: 8 })
 item('story-beta', 'Ship beta to pilot cohort', 't-story', { size: 5 })
 item('it-research', 'Customer Research', 't-initiative', { size: 15 })
-item('feat-research', 'Discovery programme', 't-feature', { size: 5 })
+item('feat-research', 'Discovery programme', 't-initiative', { size: 5 })
 item('story-research', 'Discovery interviews', 't-story', { size: 3 })
+
+// A team-level initiative (hosted on a team board) linked up to the management initiative.
+item('it-alpha', 'Team Alpha Onboarding', 't-initiative', { size: 12 })
+item('st-alpha-1', 'Alpha: signup copy', 't-story', { size: 2 })
+item('st-alpha-2', 'Alpha: invite flow', 't-story', { size: 3 })
+item('st-alpha-3', 'Alpha: profile polish', 't-story', { size: 2 })
 
 /* ------------------------------------------------------------------ *
  * Placements — membership + the stored cell. On a derived board the column
@@ -172,11 +177,11 @@ place('st-gen-1', 'b-design', dDeploy.id)
 place('st-gen-2', 'b-design', dResearch.id)
 place('st-gen-3', 'b-design', dDone.id)
 
-// Team Alpha — the same cards flowing through the team's typed columns.
-place('st-gen-6', 'b-team-alpha', tNotStarted.id)
-place('st-gen-5', 'b-team-alpha', tDev.id)
-place('st-gen-10', 'b-team-alpha', tTest.id)
-place('st-design', 'b-team-alpha', tDone.id)
+// Team Alpha — hosts a team-level initiative (its cards are the children).
+place('it-alpha', 'b-team-alpha', tDone.id)
+place('st-alpha-1', 'b-team-alpha', tNotStarted.id)
+place('st-alpha-2', 'b-team-alpha', tDev.id)
+place('st-alpha-3', 'b-team-alpha', tTest.id)
 
 /* ------------------------------------------------------------------ *
  * Edges
@@ -187,7 +192,7 @@ const edge = (kind: Edge['kind'], from: string, to: string, dep?: Edge['dep']) =
   edges.push({ id: `e-${++edgeSeq}`, kind, from, to, dep })
 const decompose = (parent: string, children: string[]) => children.forEach((c) => edge('decomposition', parent, c))
 
-decompose('it-onboarding', ['it-signup', 'it-tour', 'it-profile', 'it-invite'])
+decompose('it-onboarding', ['it-signup', 'it-tour', 'it-profile', 'it-invite', 'it-alpha'])
 decompose('it-signup', ['st-design', 'st-form', 'st-email', 'st-sso', 'df-validation', ...items.filter((i) => i.id.startsWith('st-gen-')).map((i) => i.id)])
 decompose('it-tour', ['st-tour-framework', 'st-tour-copy'])
 decompose('it-profile', ['st-profile-schema', 'st-avatar', 'st-completeness', 'st-spike-cache'])
@@ -198,6 +203,7 @@ decompose('it-beta', ['feat-beta'])
 decompose('feat-beta', ['story-beta'])
 decompose('it-research', ['feat-research'])
 decompose('feat-research', ['story-research'])
+decompose('it-alpha', ['st-alpha-1', 'st-alpha-2', 'st-alpha-3'])
 
 edge('dependency', 'it-api', 'st-profile-schema', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-api-contract', reason: 'Profile writes depend on the API contract' })
 edge('dependency', 'it-api', 'st-sdk', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-api-contract', reason: 'SDK is generated from the contract' })

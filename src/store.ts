@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { childrenOf, isLeaf, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { childrenOf, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { createSeed } from '@/domain/seed'
 import type { BoardLevel, Edge, FlowState, IssueType, Item, Lane, Placement, SplitOrientation } from '@/domain/types'
 
@@ -62,6 +62,8 @@ export interface Actions {
 
   setParent: (childId: string, parentId: string | null) => void
   addChild: (parentId: string, typeId: string, title: string) => void
+  /** Create a team-level initiative on a team board, linked (as a child) to a management initiative. */
+  linkTeamInitiative: (parentId: string, boardId: string, title: string) => void
 
   raiseDependency: (blockerId: string, dependentId: string, pinTo?: string, reason?: string) => void
   confirmDependency: (edgeId: string) => void
@@ -84,7 +86,7 @@ const initialView: ViewState = {
   editMode: false,
   draft: null,
   view: 'board',
-  managementBoards: createSeed().boards.map((b) => b.id),
+  managementBoards: [],
 }
 
 /**
@@ -109,11 +111,11 @@ export function migrateState(persisted: unknown): Partial<Store> {
 }
 
 /**
- * Persisted-state migration. v3 reshaped the board model (three typed columns), so
- * any older state is reseeded with the current demo design.
+ * Persisted-state migration. The board model has been reshaped twice (three typed
+ * columns; initiatives on boards), so any state older than v4 is reseeded.
  */
 export function migratePersisted(persisted: unknown, version: number): Partial<Store> {
-  if (version < 3) return createSeed() as unknown as Partial<Store>
+  if (version < 4) return createSeed() as unknown as Partial<Store>
   return migrateState(persisted)
 }
 
@@ -291,6 +293,19 @@ export const useStore = create<Store>()(
         set({ items: [...get().items, item], edges: [...get().edges, edge] })
       },
 
+      linkTeamInitiative: (parentId, boardId, title) => {
+        const state = get()
+        const lane = leafLanes(state.lanes, boardId)[0]
+        const typeId = state.issueTypes.find((t) => t.name === 'Initiative')?.id ?? state.issueTypes[0]?.id
+        if (!lane || !typeId) return
+        const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
+        set({
+          items: [...state.items, item],
+          placements: [...state.placements, { id: uid(), boardId, itemId: item.id, laneId: lane.id }],
+          edges: [...state.edges, { id: uid(), kind: 'decomposition', from: parentId, to: item.id }],
+        })
+      },
+
       raiseDependency: (blockerId, dependentId, pinTo, reason) => {
         if (blockerId === dependentId) return
         const state = get()
@@ -315,8 +330,8 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 3,
-      // v3 reshaped the board model; older state is reseeded (see migratePersisted).
+      version: 4,
+      // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
       partialize: (s) => {

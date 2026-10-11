@@ -37,6 +37,7 @@ export function ItemPanel({ itemId }: Props) {
   const setItemFields = useStore((s) => s.setItemFields)
   const setParent = useStore((s) => s.setParent)
   const addChild = useStore((s) => s.addChild)
+  const linkTeamInitiative = useStore((s) => s.linkTeamInitiative)
   const raiseDependency = useStore((s) => s.raiseDependency)
   const confirmDependency = useStore((s) => s.confirmDependency)
   const rejectDependency = useStore((s) => s.rejectDependency)
@@ -45,6 +46,8 @@ export function ItemPanel({ itemId }: Props) {
   const [blockerId, setBlockerId] = useState('')
   const [childType, setChildType] = useState('')
   const [parentChoice, setParentChoice] = useState('')
+  const [linkBoardId, setLinkBoardId] = useState('')
+  const [linkTitle, setLinkTitle] = useState('')
 
   const graph: Graph = { items, edges, placements, lanes }
   const item = items.find((i) => i.id === itemId)
@@ -65,6 +68,13 @@ export function ItemPanel({ itemId }: Props) {
   const attributed = attributedObjectives(item.id, edges, objectives)
   const status = statusOf(item.id, graph)
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
+
+  const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
+  const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
+  const teamBoards = boards.filter((b) => b.level !== 'portfolio')
+  const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
+  const boardOf = (id: string) =>
+    boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
 
   const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
@@ -209,6 +219,60 @@ export function ItemPanel({ itemId }: Props) {
             </div>
           </div>
         </section>
+
+        {/* Team initiatives (link a management initiative down to a team board) */}
+        {isInitiative && (
+          <section>
+            <SectionLabel>Team initiatives — linked</SectionLabel>
+            <div className="space-y-1">
+              {linkedInitiatives.length === 0 && (
+                <p className="text-[11px] text-slate-400">No linked team initiatives yet.</p>
+              )}
+              {linkedInitiatives.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => close(c.id)}
+                  className="flex w-full items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-left hover:bg-slate-50"
+                >
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
+                  <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
+                  <span className="text-[10px] text-slate-400">{boardOf(c.id)?.name ?? '—'}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex items-center gap-1">
+              <select
+                value={linkBoardId}
+                onChange={(e) => setLinkBoardId(e.target.value)}
+                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px]"
+              >
+                <option value="">Link to a team board…</option>
+                {teamBoards.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <input
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                placeholder="New initiative"
+                className="w-32 rounded border border-slate-200 px-1.5 py-1 text-[11px]"
+              />
+              <button
+                disabled={!linkBoardId || linkTitle.trim().length < 2}
+                onClick={() => {
+                  linkTeamInitiative(item.id, linkBoardId, linkTitle.trim())
+                  setLinkTitle('')
+                }}
+                className="rounded bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+              >
+                Create &amp; link
+              </button>
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400">
+              Creates a team initiative on that board, beneath this one — its cards roll up here.
+            </p>
+          </section>
+        )}
 
         {/* Dependencies */}
         <section>

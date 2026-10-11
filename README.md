@@ -21,10 +21,15 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   **Project**, or **Team** — shown as a badge in the toolbar and board header and editable
   inline. It's an orientation label for a board, distinct from an item's derived `depth`.
 - **Management view.** Stack several boards as bands, like Kanbanize's *Linked workflows*.
-  Like Kanbanize, each band is a **summary**, not the team board: it shows only that board's
-  **initiative-level work** (items that decompose into children) in the three typed columns by
-  rollup — **Not Started / In Progress / Done** — without the detailed team card flow. Toggle
-  **Board ⇄ Management** in the toolbar; choose which boards are stacked; open any band on its own.
+  It starts **empty** — you add the teams you want. Each band is a **summary**, not the team
+  board: it shows only that board's **initiatives** (Initiative-typed items) in the three
+  typed columns by rollup — **Not Started / In Progress / Done** — without the detailed team
+  card flow. Toggle **Board ⇄ Management**; add teams with the chips; open any band on its own.
+- **Initiatives on boards; cards beneath.** A board's flow shows its **Initiative-typed
+  items** (positioned by rollup); their children are the detailed cards, seen by opening an
+  initiative. A management board has its own top-level initiatives, and you can **link** one
+  down to a new team initiative: it's created on a team board as a child, so its cards roll
+  up the hierarchy.
 - **Rollup boards.** Mark a board as *rollup* and each card's column is **derived from the
   status of the work at the lowest level** of its subtree — mapped onto the board's start /
   in-progress / done lanes — rather than stored. Parents also show a computed **%** done.

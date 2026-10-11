@@ -40,8 +40,11 @@ export function BoardSummary({ boardId }: { boardId: string }) {
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
 
-  // Initiative-level work only — anything that decomposes into children.
-  const initiatives = onBoard.filter((i) => decompositionChildren(i.id, edges).length > 0)
+  // Initiative-level work only — items of the Initiative type.
+  const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
+  const initiatives = initiativeTypeId
+    ? onBoard.filter((i) => i.typeId === initiativeTypeId)
+    : onBoard.filter((i) => decompositionChildren(i.id, edges).length > 0)
 
   const columns = topLevelLanes(lanes, boardId)
     .slice()
