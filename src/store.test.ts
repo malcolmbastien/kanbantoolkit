@@ -309,6 +309,25 @@ describe('store actions', () => {
     expect(boardCardTypeId(s().boards.find((b) => b.id === 'b-atlas'), types)).toBe('t-story')
   })
 
+  it('deleting a card removes its placements, parent edge, links and attribution', () => {
+    s().deleteItem('st-signup-form')
+    expect(s().items.some((i) => i.id === 'st-signup-form')).toBe(false)
+    expect(s().placements.some((p) => p.itemId === 'st-signup-form')).toBe(false)
+    // its parent edge and its attribution edges are gone
+    expect(s().edges.some((e) => e.to === 'st-signup-form' || e.from === 'st-signup-form')).toBe(false)
+    // its link (st-signup-form → st-tour) is gone, but the other endpoint survives
+    expect(s().links.some((l) => l.from === 'st-signup-form' || l.to === 'st-signup-form')).toBe(false)
+    expect(s().items.some((i) => i.id === 'st-tour')).toBe(true)
+  })
+
+  it('deleting a parent leaves its children parentless', () => {
+    s().deleteItem('init-signup')
+    expect(s().items.some((i) => i.id === 'init-signup')).toBe(false)
+    expect(decompositionParent('st-signup-form', s().edges)).toBeUndefined()
+    expect(decompositionParent('st-email', s().edges)).toBeUndefined()
+    expect(decompositionChildren('init-onboarding', s().edges)).not.toContain('init-signup')
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, Ban, GitBranch, Plus, Sparkles, X } from 'lucide-react'
+import { Archive, Ban, GitBranch, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import {
   attributedObjectives,
   decompositionChildren,
@@ -57,6 +57,7 @@ export function ItemPanel({ itemId }: Props) {
   const addLogNote = useStore((s) => s.addLogNote)
   const archiveItem = useStore((s) => s.archiveItem)
   const unarchiveItem = useStore((s) => s.unarchiveItem)
+  const deleteItem = useStore((s) => s.deleteItem)
 
   const [dependencyId, setDependencyId] = useState('')
   const [childType, setChildType] = useState('')
@@ -218,6 +219,26 @@ export function ItemPanel({ itemId }: Props) {
           <p className="mt-1 text-[10px] text-slate-400">
             Archived items leave the boards but stay searchable and linked. Archiving cascades to the whole subtree.
           </p>
+        </section>
+
+        {/* Delete — permanent; removes the card and its relationships */}
+        <section>
+          <SectionLabel>Delete</SectionLabel>
+          <button
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Delete "${item.title}"? This can't be undone. Its parent, links and attribution are removed, and its children lose their parent.`,
+                )
+              ) {
+                deleteItem(item.id)
+              }
+            }}
+            className="flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-50"
+          >
+            <Trash2 size={11} /> Delete card
+          </button>
+          <p className="mt-1 text-[10px] text-slate-400">Permanent. Use Archive to file a card away instead.</p>
         </section>
 
         {/* Details — full card editor */}

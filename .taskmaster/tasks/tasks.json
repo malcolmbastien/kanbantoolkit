@@ -650,13 +650,13 @@
       },
       {
         "id": "39",
-        "title": "Implement delete items with child handling rules",
-        "description": "P0 delete items, with clear rules for handling children (split from task 12 so deletion logic is reviewed separately).",
-        "status": "pending",
+        "title": "Implement delete cards (remove the card and its relationships)",
+        "description": "P0 delete a card. Deleting removes the card and every relationship it participates in; its children lose their parent (become roots). Split from task 12 so deletion logic is reviewed separately.",
+        "status": "in-progress",
         "dependencies": [],
         "priority": "high",
-        "details": "Add a delete action to cards and initiatives with a confirmation modal that explains child behaviour. Define and implement the child rules: cascade delete, reparent children to the item's parent, or move children to the board backlog. Clean up all references so nothing is orphaned: placements, decomposition edges, attribution edges, links (including pinTo references), and item-log references. Deletion is permanent; archiving (task 12) is the non-destructive alternative.",
-        "testStrategy": "Delete a leaf item and a parent item. Confirm children are handled per the chosen rule. Verify no orphan references remain in placements, decomposition/attribution edges, links, or rollup trees. Verify the confirmation modal explains the rule and that cancel is non-destructive.",
+        "details": "Add a delete action to cards (surfaced in the item panel). Deleting an item removes it and every reference to it: its placements (board + cell); its decomposition edge to its parent; the decomposition edges to its children (children lose their parent and become root cards); its links, both as the dependency (from) and the dependent (to); and its attribution edges. Nothing is reparented or moved. Deletion is permanent; archiving (task 12) is the non-destructive alternative. Use window.confirm for now — task 18 replaces it with a confirmation modal.",
+        "testStrategy": "Delete a leaf card: verify the item, its placement, its parent edge, its links (both directions) and its attribution are gone, while the other endpoints survive. Delete a parent: verify its children lose their parent (become roots). Verify no orphan references remain in placements, edges, links, or rollup.",
         "subtasks": [],
         "updatedAt": "2026-10-11T15:47:23.590Z"
       },

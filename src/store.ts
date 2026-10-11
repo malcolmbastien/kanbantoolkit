@@ -112,6 +112,8 @@ export interface Actions {
   /** Auto-archive Done items older than N days (0/undefined turns it off). */
   setAutoArchiveDays: (days?: number) => void
   runAutoArchive: () => void
+  /** Delete a card and every relationship it participates in. */
+  deleteItem: (itemId: string) => void
 }
 
 export type Store = FlowState & ViewState & Actions
@@ -641,6 +643,23 @@ export const useStore = create<Store>()(
               ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
               : i,
           ),
+        })
+      },
+
+      deleteItem: (itemId) => {
+        const state = get()
+        set({
+          items: state.items.filter((i) => i.id !== itemId),
+          placements: state.placements.filter((p) => p.itemId !== itemId),
+          // Drop the card's parent edge AND its children's edges (children lose their parent);
+          // plus any attribution to the card. Links in either direction are removed too.
+          edges: state.edges.filter(
+            (e) =>
+              !(e.kind === 'decomposition' && (e.from === itemId || e.to === itemId)) &&
+              !(e.kind === 'attribution' && e.to === itemId),
+          ),
+          links: state.links.filter((l) => l.from !== itemId && l.to !== itemId),
+          selectedItemId: state.selectedItemId === itemId ? null : state.selectedItemId,
         })
       },
     }),
