@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Ban, CornerDownRight, GripVertical, Layers, ShieldAlert } from 'lucide-react'
+import { Ban, Clock, CornerDownRight, GripVertical, Layers, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { hexToRgba, readableOn } from '@/lib/colors'
 import type { IssueType, Item } from '@/domain/types'
@@ -56,6 +56,8 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
   })
 
   if (wide) {
+    const pct = summary.rollupPercent
+    const days = Math.max(0, Math.floor((Date.now() - item.createdAt) / 86_400_000))
     return (
       <div
         ref={setNodeRef}
@@ -73,48 +75,68 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
       >
         {/* progress bar */}
         <div className="h-1.5 w-full bg-slate-200">
-          <div className="h-full transition-all" style={{ width: `${summary.rollupPercent ?? 0}%`, backgroundColor: barColor(summary.rollupPercent) }} />
+          <div className="h-full transition-all" style={{ width: `${pct ?? 0}%`, backgroundColor: barColor(pct) }} />
         </div>
-        <div className="p-2">
-          <div className="flex items-center gap-1.5">
-            <span
-              className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide"
-              style={{ backgroundColor: type.color, color: readableOn(type.color) }}
-            >
+
+        <div className="flex flex-1 flex-col gap-1.5 p-2.5">
+          {/* header row */}
+          <div className="flex items-center gap-2">
+            <span className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
               {type.name}
             </span>
             <span className="text-[10px] font-semibold tabular-nums text-slate-400">{ref_}</span>
-            {summary.rollupPercent !== undefined && (
-              <span className="ml-auto text-[11px] font-bold" style={{ color: summary.rollupPercent >= 100 ? '#059669' : summary.rollupPercent > 0 ? '#4f46e5' : '#94a3b8' }}>
-                {summary.rollupPercent}%
+            {item.size ? <span className="text-[10px] tabular-nums text-slate-400">· {item.size}</span> : null}
+            <span className="ml-auto flex items-center gap-1.5">
+              {summary.blocksCount > 0 && (
+                <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white" title={`Blocks ${summary.blocksCount}`}>
+                  <ShieldAlert size={9} /> {summary.blocksCount}
+                </span>
+              )}
+              {pct !== undefined && (
+                <span
+                  className="text-[13px] font-bold tabular-nums"
+                  style={{ color: pct >= 100 ? '#059669' : pct > 0 ? '#4f46e5' : '#94a3b8' }}
+                  title="Rollup — share of leaf work done"
+                >
+                  {pct}%
+                </span>
+              )}
+            </span>
+          </div>
+
+          <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{item.title}</div>
+
+          {/* meta row */}
+          <div className="mt-auto flex items-center gap-3 text-[10px] text-slate-500">
+            {symbols && symbols.length > 0 && (
+              <span className="flex items-center gap-1" title={`${symbols.length} linked items`}>
+                {symbols.slice(0, 16).map((s, i) => (
+                  <span key={i} className={cn('h-2.5 w-2.5 rounded-sm', BUCKET_DOT[s.bucket])} title={s.title} />
+                ))}
+                {symbols.length > 16 && <span className="font-semibold text-slate-400">+{symbols.length - 16}</span>}
               </span>
             )}
-          </div>
-          <div className="mt-1 line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{item.title}</div>
-
-          {/* linked-initiative symbols */}
-          {symbols && symbols.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1" title={`${symbols.length} linked items`}>
-              {symbols.slice(0, 14).map((s, i) => (
-                <span key={i} className={cn('h-2.5 w-2.5 rounded-sm', BUCKET_DOT[s.bucket])} title={s.title} />
-              ))}
-              {symbols.length > 14 && <span className="text-[9px] font-semibold text-slate-400">+{symbols.length - 14}</span>}
-            </div>
-          )}
-
-          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-500">
             {summary.childCount > 0 && (
-              <span className="flex items-center gap-0.5" title={`${summary.childCount} linked initiatives`}>
-                <Layers size={11} />
-                {summary.childCount}
+              <span className="flex items-center gap-0.5" title={`${summary.childCount} linked items`}>
+                <Layers size={11} /> {summary.childCount}
               </span>
             )}
             {summary.blockedCount > 0 && (
-              <span className="flex items-center gap-0.5 font-bold text-rose-600"><Ban size={11} />blocked</span>
+              <span className="flex items-center gap-0.5 font-bold text-rose-600" title="Blocked">
+                <Ban size={11} /> blocked
+              </span>
             )}
-            {item.assignee && (
-              <span className="ml-auto grid h-4 w-4 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">{item.assignee}</span>
+            {summary.openDescendants > 0 && summary.childCount > 0 && (
+              <span className="text-slate-400">{summary.openDescendants} open below</span>
             )}
+            <span className="ml-auto flex items-center gap-2">
+              <span className="flex items-center gap-0.5" title="Time since created">
+                <Clock size={11} /> {days}d
+              </span>
+              {item.assignee && (
+                <span className="grid h-4 w-4 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">{item.assignee}</span>
+              )}
+            </span>
           </div>
         </div>
       </div>
