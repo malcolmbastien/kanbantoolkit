@@ -1,12 +1,14 @@
 import { useEffect } from 'react'
 import { ArchiveView } from './components/ArchiveView'
 import { BoardView } from './components/BoardView'
+import { FilterPanel } from './components/FilterPanel'
 import { ItemPanel } from './components/ItemPanel'
 import { ManagementDashboard } from './components/ManagementDashboard'
 import { ObjectivesView } from './components/ObjectivesView'
 import { TopBar } from './components/TopBar'
 import { TypeEditor } from './components/TypeEditor'
 import { boardCardTypeId } from './domain/board'
+import { activeFilterCount } from './domain/filters'
 import { leafLanes } from './domain/lanes'
 import { useStore } from './store'
 
@@ -27,6 +29,9 @@ export default function App() {
   const showArchive = useStore((s) => s.showArchive)
   const toggleArchive = useStore((s) => s.toggleArchive)
   const setArchive = useStore((s) => s.setArchive)
+  const showFilters = useStore((s) => s.showFilters)
+  const filters = useStore((s) => s.filters)
+  const toggleFilters = useStore((s) => s.toggleFilters)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
   const runAutoArchive = useStore((s) => s.runAutoArchive)
@@ -58,6 +63,18 @@ export default function App() {
     if (lens) setLens(lens)
     const q = params.get('q')
     if (q) setSearch(q)
+    // ?filters=1 opens the panel; ?filters=blocked,overdue also applies those filters.
+    const filtersParam = params.get('filters')
+    if (filtersParam) {
+      const store = useStore.getState()
+      if (!store.showFilters) store.toggleFilters()
+      const flags = filtersParam.split(',').map((f) => f.trim().toLowerCase())
+      store.setFilters({
+        ...(flags.includes('blocked') ? { blocked: true } : {}),
+        ...(flags.includes('overdue') ? { overdue: true } : {}),
+        ...(flags.includes('unassigned') ? { unassigned: true } : {}),
+      })
+    }
     // Idempotent: StrictMode double-invokes this effect, and toggleCollapse would flip twice.
     for (const id of params.getAll('collapse')) {
       if (!useStore.getState().collapsedLanes[id]) toggleCollapse(id)
@@ -104,11 +121,14 @@ export default function App() {
         showObjectives={showObjectives}
         showDashboard={showDashboard}
         showArchive={showArchive}
+        showFilters={showFilters}
+        activeFilterCount={activeFilterCount(filters)}
         onSelectBoard={selectBoard}
         onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
         onToggleObjectives={toggleObjectives}
         onToggleDashboard={toggleDashboard}
         onToggleArchive={toggleArchive}
+        onToggleFilters={toggleFilters}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}
@@ -131,7 +151,7 @@ export default function App() {
             <BoardView requestMove={requestMove} />
           )}
         </div>
-        {selectedItemId && <ItemPanel itemId={selectedItemId} />}
+        {showFilters ? <FilterPanel /> : selectedItemId ? <ItemPanel itemId={selectedItemId} /> : null}
       </div>
 
       {showTypeEditor && <TypeEditor />}

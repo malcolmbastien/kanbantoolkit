@@ -17,6 +17,7 @@ import {
 } from '@/domain/derive'
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
+import { matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -65,6 +66,7 @@ interface Ctx {
   graph: Graph
   editMode: boolean
   search: string
+  filters: CardFilters
   selectedItemId: string | null
   boardItems: Item[]
   effectiveLane: Map<string, string>
@@ -314,6 +316,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   const cards = boardItems
     .filter((i) => effectiveLane.get(i.id) === lane.id)
     .filter((i) => !ctx.search || i.title.toLowerCase().includes(ctx.search.toLowerCase()))
+    .filter((i) => matchesFilters(i, ctx.filters, statusOf(i.id, graph).resolved))
 
   return (
     <div
@@ -442,6 +445,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
   const search = useStore((s) => s.search)
+  const filters = useStore((s) => s.filters)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const storeEdit = useStore((s) => s.editMode)
   const openItem = useStore((s) => s.openItem)
@@ -482,7 +486,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, editMode, search, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, refs, graph, editMode, search, filters, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,

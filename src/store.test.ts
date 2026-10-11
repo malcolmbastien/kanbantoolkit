@@ -354,6 +354,31 @@ describe('store actions', () => {
     expect(searchItems(s().items, refs, 'zzzzzz')).toEqual([])
   })
 
+  it('filters: the panel and the item panel share one slot; type toggles are additive', () => {
+    s().openItem('st-email')
+    expect(s().selectedItemId).toBe('st-email')
+
+    s().toggleFilters()
+    expect(s().showFilters).toBe(true)
+    expect(s().selectedItemId).toBe(null) // opening filters dismissed the card
+
+    s().toggleFilterType('t-bug')
+    s().toggleFilterType('t-spike')
+    expect([...s().filters.typeIds].sort()).toEqual(['t-bug', 't-spike'])
+    s().toggleFilterType('t-bug')
+    expect(s().filters.typeIds).toEqual(['t-spike'])
+
+    s().setFilters({ blocked: true, unassigned: true })
+    expect(s().filters).toEqual({ typeIds: ['t-spike'], blocked: true, overdue: false, unassigned: true })
+
+    s().openItem('st-email')
+    expect(s().showFilters).toBe(false) // opening a card dismissed the panel
+    expect(s().selectedItemId).toBe('st-email')
+
+    s().clearFilters()
+    expect(s().filters).toEqual({ typeIds: [], blocked: false, overdue: false, unassigned: false })
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

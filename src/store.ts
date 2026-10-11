@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { decompositionParent, descendants, statusOf } from '@/domain/derive'
+import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
 import type { Board, BoardLevel, DepStatus, Edge, FlowState, IssueType, Item, ItemLink, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
 
@@ -31,6 +32,10 @@ export interface ViewState {
   showArchive: boolean
   /** Collapsed containers (view-only; not persisted to localStorage). */
   collapsedLanes: Record<string, boolean>
+  /** Card filters panel open (a right-side panel, like the item panel). */
+  showFilters: boolean
+  /** Active card filters applied to the current board. */
+  filters: CardFilters
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -50,6 +55,13 @@ export interface Actions {
   setDashboard: (v: boolean) => void
   toggleArchive: () => void
   setArchive: (v: boolean) => void
+  /** Toggle the filters side panel (closes the item panel when opening). */
+  toggleFilters: () => void
+  /** Merge a patch into the active card filters. */
+  setFilters: (patch: Partial<CardFilters>) => void
+  /** Add/remove a card type from the type filter. */
+  toggleFilterType: (typeId: string) => void
+  clearFilters: () => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -165,6 +177,8 @@ const initialView: ViewState = {
   showDashboard: false,
   showArchive: false,
   collapsedLanes: {},
+  showFilters: false,
+  filters: NO_FILTERS,
 }
 
 /**
@@ -228,9 +242,21 @@ export const useStore = create<Store>()(
       ...initialView,
 
       selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false }),
-      openItem: (selectedItemId) => set({ selectedItemId }),
+      openItem: (selectedItemId) => set({ selectedItemId, ...(selectedItemId ? { showFilters: false } : {}) }),
       setSearch: (search) => set({ search }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
+      toggleFilters: () => {
+        const show = !get().showFilters
+        // One side panel at a time: opening filters dismisses an open card.
+        set({ showFilters: show, ...(show ? { selectedItemId: null } : {}) })
+      },
+      setFilters: (patch) => set({ filters: { ...get().filters, ...patch } }),
+      toggleFilterType: (typeId) => {
+        const f = get().filters
+        const typeIds = f.typeIds.includes(typeId) ? f.typeIds.filter((t) => t !== typeId) : [...f.typeIds, typeId]
+        set({ filters: { ...f, typeIds } })
+      },
+      clearFilters: () => set({ filters: NO_FILTERS }),
 
       beginEdit: () => {
         const s = get()
