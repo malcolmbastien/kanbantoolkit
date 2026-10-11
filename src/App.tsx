@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { ArchiveView } from './components/ArchiveView'
 import { BoardView } from './components/BoardView'
 import { ItemPanel } from './components/ItemPanel'
 import { ManagementDashboard } from './components/ManagementDashboard'
@@ -23,6 +24,11 @@ export default function App() {
   const showDashboard = useStore((s) => s.showDashboard)
   const toggleDashboard = useStore((s) => s.toggleDashboard)
   const setDashboard = useStore((s) => s.setDashboard)
+  const showArchive = useStore((s) => s.showArchive)
+  const toggleArchive = useStore((s) => s.toggleArchive)
+  const setArchive = useStore((s) => s.setArchive)
+  const autoArchiveDays = useStore((s) => s.autoArchiveDays)
+  const runAutoArchive = useStore((s) => s.runAutoArchive)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
 
@@ -51,8 +57,14 @@ export default function App() {
     if (lens) setLens(lens)
     if (params.get('view') === 'objectives') setObjectives(true)
     if (params.get('view') === 'dashboard') setDashboard(true)
+    if (params.get('view') === 'archive') setArchive(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Auto-archive (a user-set rule): file Done items once they age past the threshold.
+  useEffect(() => {
+    runAutoArchive()
+  }, [autoArchiveDays, runAutoArchive])
 
   const requestMove = (itemId: string, bId: string, laneId: string) => moveCard(itemId, bId, laneId)
 
@@ -85,10 +97,12 @@ export default function App() {
         editMode={editMode}
         showObjectives={showObjectives}
         showDashboard={showDashboard}
+        showArchive={showArchive}
         onSelectBoard={selectBoard}
         onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
         onToggleObjectives={toggleObjectives}
         onToggleDashboard={toggleDashboard}
+        onToggleArchive={toggleArchive}
         onSearch={setSearch}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -102,7 +116,9 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          {showObjectives ? (
+          {showArchive ? (
+            <ArchiveView />
+          ) : showObjectives ? (
             <ObjectivesView />
           ) : showDashboard && boardLevel === 'portfolio' ? (
             <ManagementDashboard boardId={boardId} />

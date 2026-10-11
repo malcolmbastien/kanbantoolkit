@@ -326,14 +326,15 @@
       },
       {
         "id": "12",
-        "title": "Implement delete and archive items with child handling rules",
-        "description": "P0 delete or archive items, with clear rules for handling children.",
-        "status": "pending",
+        "title": "Implement archive items (clear Done work off boards, keep it searchable)",
+        "description": "Archive items so completed (Done) work can be cleared off boards without deleting it; archived items leave the boards but stay searchable and still appear in linked-issue surfaces. Deletion is split into a separate task (39).",
+        "status": "in-progress",
         "dependencies": [],
         "priority": "high",
-        "details": "Add delete and archive actions to cards and initiatives. Provide confirmation modal explaining child behavior. Define child rules: cascade delete, archive descendants, or reparent to parent/board backlog based on item type. Clean up dependencies and attribution edges.",
-        "testStrategy": "Delete a leaf item and a parent item. Confirm children are handled according to the selected rule. Verify no orphan references remain in dependencies, attribution edges, or rollup trees.",
-        "subtasks": []
+        "details": "Add an `archived` flag (with `archivedAt`) to Item and 'archived'/'unarchived' item-log events. Provide archive/unarchive actions: a per-card action, a board-level 'Archive done' bulk action (archive every Done item on a board), and a user-set auto-archive after N days in Done (applied on load and when changed; each archive is logged). Archiving a parent cascades to its whole subtree; unarchive restores it. Archived items are excluded from board rendering (cards workflow, initiatives workflow, boundary pins, lane WIP counts) so they do not clutter, but remain in the data: rollup still counts them and they still appear in linked-issue lists (hierarchy children, links) with an 'archived' marker. Add an Archive view (top bar) listing archived items with search, restore, and the auto-archive setting. Record resolvedAt when an item enters/leaves a Done lane so auto-archive has a clock.",
+        "testStrategy": "Archive a leaf and a parent; verify the whole subtree is archived, hidden from the board and its lane counts, yet still listed in the parent's children and the Archive view/search. Unarchive restores the subtree. Bulk 'Archive done' archives all resolved board cards. Auto-archive archives only items whose resolvedAt is older than the threshold. Verify rollup still counts archived leaves and that no archived item appears on a board.",
+        "subtasks": [],
+        "updatedAt": "2026-10-11T15:47:23.590Z"
       },
       {
         "id": "13",
@@ -641,12 +642,24 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-10-11T15:18:47.967Z"
+      },
+      {
+        "id": "39",
+        "title": "Implement delete items with child handling rules",
+        "description": "P0 delete items, with clear rules for handling children (split from task 12 so deletion logic is reviewed separately).",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Add a delete action to cards and initiatives with a confirmation modal that explains child behaviour. Define and implement the child rules: cascade delete, reparent children to the item's parent, or move children to the board backlog. Clean up all references so nothing is orphaned: placements, decomposition edges, attribution edges, links (including pinTo references), and item-log references. Deletion is permanent; archiving (task 12) is the non-destructive alternative.",
+        "testStrategy": "Delete a leaf item and a parent item. Confirm children are handled per the chosen rule. Verify no orphan references remain in placements, decomposition/attribution edges, links, or rollup trees. Verify the confirmation modal explains the rule and that cancel is non-destructive.",
+        "subtasks": [],
+        "updatedAt": "2026-10-11T15:47:23.590Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-11T15:22:01.711Z",
-      "taskCount": 37,
+      "lastModified": "2026-10-11T15:47:23.590Z",
+      "taskCount": 38,
       "completedCount": 9,
       "tags": [
         "backlog"

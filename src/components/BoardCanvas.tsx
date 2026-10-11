@@ -363,7 +363,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const boardItems = boardPlacements
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
-    .filter((i) => !isInitiative(i.typeId))
+    .filter((i) => !isInitiative(i.typeId) && !i.archived)
 
   const effectiveLane = new Map<string, string>()
   for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)

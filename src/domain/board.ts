@@ -1,4 +1,4 @@
-import { openIncomingLinks, type DependencyInfo, type Graph } from './derive'
+import { isArchived, openIncomingLinks, type DependencyInfo, type Graph } from './derive'
 import type { IssueType, Item, Placement } from './types'
 
 /** Items placed on a board (via explicit placement records). */
@@ -12,9 +12,11 @@ export function externalBlockersOnBoard(graph: Graph, boardId: string): Dependen
   const onBoard = new Set(graph.placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
   const seen = new Set<string>()
   const out: DependencyInfo[] = []
-  for (const p of graph.placements.filter((p) => p.boardId === boardId)) {
+  for (const p of graph.placements.filter((pl) => pl.boardId === boardId)) {
+    // Archived work is off the board — it produces no boundary pins.
+    if (isArchived(graph.items.find((i) => i.id === p.itemId))) continue
     for (const dep of openIncomingLinks(p.itemId, graph)) {
-      if (!onBoard.has(dep.blocker.id) && !seen.has(dep.blocker.id)) {
+      if (!onBoard.has(dep.blocker.id) && !dep.blocker.archived && !seen.has(dep.blocker.id)) {
         seen.add(dep.blocker.id)
         out.push(dep)
       }

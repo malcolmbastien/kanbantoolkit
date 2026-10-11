@@ -112,6 +112,27 @@ item('st-ratelimit', 'Rate limiting', 't-story', {
 })
 item('sp-gateway', 'Spike: gateway options', 't-spike', { size: 2 })
 
+// A filed-away initiative: off the boards, but still linked and searchable.
+item('init-legacy', 'Legacy SSO migration', 't-initiative', {
+  size: 13,
+  assignee: 'JT',
+  archived: true,
+  archivedAt: T + 86_400_000,
+  log: [
+    { id: 'log-legacy-1', at: T, kind: 'created' },
+    { id: 'log-legacy-2', at: T + 86_400_000, kind: 'archived' },
+  ],
+})
+item('st-legacy-a', 'Retire legacy auth endpoint', 't-story', {
+  size: 3,
+  archived: true,
+  archivedAt: T + 86_400_000,
+  log: [
+    { id: 'log-legacy-a-1', at: T, kind: 'created' },
+    { id: 'log-legacy-a-2', at: T + 86_400_000, kind: 'archived' },
+  ],
+})
+
 /* ------------------------------------------------------------------ *
  * Placements
  * ------------------------------------------------------------------ */
@@ -141,6 +162,10 @@ place('st-gateway-contract', 'b-nova', n.backlog.id)
 place('st-ratelimit', 'b-nova', n.backlog.id)
 place('sp-gateway', 'b-nova', n.backlog.id)
 
+// Archived work keeps its placement record (its last board/lane) but is hidden.
+place('init-legacy', 'b-nova', n.done.id)
+place('st-legacy-a', 'b-nova', n.done.id)
+
 /* ------------------------------------------------------------------ *
  * Edges
  * ------------------------------------------------------------------ */
@@ -156,6 +181,7 @@ decompose('init-platform', ['init-gateway'])
 decompose('init-signup', ['st-signup-design', 'st-signup-form', 'st-email', 'st-sso', 'df-signup'])
 decompose('init-welcome', ['st-welcome-copy', 'st-tour'])
 decompose('init-gateway', ['st-gateway-contract', 'st-ratelimit', 'sp-gateway'])
+decompose('init-legacy', ['st-legacy-a'])
 
 // Links: item-to-item dependency relationships only (FS/SS/FF). They describe
 // sequencing — they never set an item's blocked status.

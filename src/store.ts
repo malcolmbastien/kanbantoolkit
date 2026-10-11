@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { childrenOf, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { decompositionParent, descendants, statusOf } from '@/domain/derive'
 import { createSeed } from '@/domain/seed'
 import type { Board, BoardLevel, DepKind, DepStatus, Edge, FlowState, IssueType, Item, ItemLink, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
 
@@ -26,6 +27,8 @@ export interface ViewState {
   showObjectives: boolean
   /** Show the management dashboard for the current board (management boards only). */
   showDashboard: boolean
+  /** Show the Archive view (filed-away items) instead of a board. */
+  showArchive: boolean
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -43,6 +46,8 @@ export interface Actions {
   setObjectives: (v: boolean) => void
   toggleDashboard: () => void
   setDashboard: (v: boolean) => void
+  toggleArchive: () => void
+  setArchive: (v: boolean) => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -89,6 +94,15 @@ export interface Actions {
   blockItem: (itemId: string, reason?: string) => void
   unblockItem: (itemId: string, note?: string) => void
   addLogNote: (itemId: string, note: string) => void
+
+  /** File an item away (cascades to its whole subtree); stays searchable and in links. */
+  archiveItem: (itemId: string) => void
+  unarchiveItem: (itemId: string) => void
+  /** Archive every resolved (Done) item on a board. */
+  archiveDoneOnBoard: (boardId: string) => void
+  /** Auto-archive Done items older than N days (0/undefined turns it off). */
+  setAutoArchiveDays: (days?: number) => void
+  runAutoArchive: () => void
 }
 
 export type Store = FlowState & ViewState & Actions
@@ -105,6 +119,28 @@ const logEntry = (kind: ItemLogEntry['kind'], note?: string): ItemLogEntry => ({
   ...(note ? { note } : {}),
 })
 
+/**
+ * Expand item ids to the union of their subtrees, cascading only from *roots* (ids
+ * whose ancestor is not also in the set) so a cascade never double-processes work.
+ */
+function subtreeRoots(ids: string[], graph: Pick<FlowState, 'items' | 'edges' | 'links' | 'placements' | 'lanes'>): Set<string> {
+  const have = new Set(ids)
+  const roots = ids.filter((id) => {
+    let cur = decompositionParent(id, graph.edges)
+    while (cur) {
+      if (have.has(cur)) return false
+      cur = decompositionParent(cur, graph.edges)
+    }
+    return true
+  })
+  const out = new Set<string>()
+  for (const r of roots) {
+    out.add(r)
+    for (const d of descendants(r, graph)) out.add(d)
+  }
+  return out
+}
+
 const initialView: ViewState = {
   boardId: 'b-portfolio',
   selectedItemId: null,
@@ -115,6 +151,7 @@ const initialView: ViewState = {
   lensId: null,
   showObjectives: false,
   showDashboard: false,
+  showArchive: false,
 }
 
 /**
@@ -180,7 +217,7 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false }),
+      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false }),
       openItem: (selectedItemId) => set({ selectedItemId }),
       setSearch: (search) => set({ search }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
@@ -204,10 +241,12 @@ export const useStore = create<Store>()(
       toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
-      toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false }),
-      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false } : {}) }),
-      toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false }),
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false } : {}) }),
+      toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false, showArchive: false }),
+      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showArchive: false } : {}) }),
+      toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false, showArchive: false }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showArchive: false } : {}) }),
+      toggleArchive: () => set({ showArchive: !get().showArchive, showObjectives: false, showDashboard: false }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false } : {}) }),
 
       addObjective: (title, period) =>
         set({ objectives: [...get().objectives, { id: uid(), title, period, status: 'active' }] }),
@@ -304,7 +343,15 @@ export const useStore = create<Store>()(
         const placements = existing
           ? state.placements.map((p) => (p.id === existing.id ? { ...p, laneId } : p))
           : [...state.placements, { id: uid(), boardId, itemId, laneId }]
-        set({ placements })
+        // Track when work enters/leaves Done — the clock auto-archive reads.
+        const stage = effectiveStage(state.lanes, laneId)
+        const items = state.items.map((i) => {
+          if (i.id !== itemId) return i
+          if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
+          if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
+          return i
+        })
+        set({ placements, items })
       },
 
       setItemFields: (id, patch) =>
@@ -444,6 +491,79 @@ export const useStore = create<Store>()(
         set({
           items: get().items.map((i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('noted', note)] } : i)),
         }),
+
+      archiveItem: (itemId) => {
+        const state = get()
+        const at = Date.now()
+        const ids = new Set([itemId, ...descendants(itemId, state)])
+        set({
+          items: state.items.map((i) =>
+            ids.has(i.id) && !i.archived
+              ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
+              : i,
+          ),
+        })
+      },
+
+      unarchiveItem: (itemId) => {
+        const state = get()
+        const ids = new Set([itemId, ...descendants(itemId, state)])
+        set({
+          items: state.items.map((i) =>
+            ids.has(i.id) && i.archived
+              ? { ...i, archived: false, archivedAt: undefined, log: [...(i.log ?? []), logEntry('unarchived')] }
+              : i,
+          ),
+        })
+      },
+
+      archiveDoneOnBoard: (boardId) => {
+        const state = get()
+        // Items placed in a Done lane on this board (via one of their placements).
+        const doneIds = [
+          ...new Set(
+            state.placements
+              .filter((p) => p.boardId === boardId && effectiveStage(state.lanes, p.laneId) === 'done')
+              .map((p) => p.itemId)
+              .filter((id) => {
+                const it = state.items.find((i) => i.id === id)
+                return it && !it.archived
+              }),
+          ),
+        ]
+        const ids = subtreeRoots(doneIds, state)
+        if (ids.size === 0) return
+        const at = Date.now()
+        set({
+          items: state.items.map((i) =>
+            ids.has(i.id) && !i.archived
+              ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
+              : i,
+          ),
+        })
+      },
+
+      setAutoArchiveDays: (days) => set({ autoArchiveDays: days && days > 0 ? days : undefined }),
+
+      runAutoArchive: () => {
+        const state = get()
+        const days = state.autoArchiveDays ?? 0
+        if (days <= 0) return
+        const cutoff = Date.now() - days * 86_400_000
+        const candidates = state.items.filter(
+          (i) => !i.archived && statusOf(i.id, state).resolved && (i.resolvedAt ?? i.createdAt) <= cutoff,
+        )
+        const ids = subtreeRoots(candidates.map((i) => i.id), state)
+        if (ids.size === 0) return
+        const at = Date.now()
+        set({
+          items: state.items.map((i) =>
+            ids.has(i.id) && !i.archived
+              ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
+              : i,
+          ),
+        })
+      },
     }),
     {
       name: 'flowline-state-v3',
@@ -451,7 +571,7 @@ export const useStore = create<Store>()(
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
-      partialize: (s) => {
+      partialize: (s): Partial<Store> => {
         const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
         return {
           issueTypes: s.issueTypes,
@@ -460,6 +580,7 @@ export const useStore = create<Store>()(
           links: s.links,
           objectives: s.objectives,
           keyResults: s.keyResults,
+          autoArchiveDays: s.autoArchiveDays,
           boardId: design.boardId,
           boards: design.boards,
           lanes: design.lanes,

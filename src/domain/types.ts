@@ -66,7 +66,7 @@ export interface Board {
 }
 
 /** A notable event in an item's history. Append-only. */
-export type ItemLogKind = 'created' | 'blocked' | 'unblocked' | 'noted'
+export type ItemLogKind = 'created' | 'blocked' | 'unblocked' | 'archived' | 'unarchived' | 'noted'
 
 export interface ItemLogEntry {
   id: string
@@ -97,6 +97,15 @@ export interface Item {
   blocked?: boolean
   /** Optional reason captured when the item was blocked. */
   blockedReason?: string
+  /**
+   * Filed away: archived items leave the boards (cards workflow, initiatives
+   * workflow, boundary pins, lane counts) but stay in the data — they remain
+   * searchable and still appear in linked-issue surfaces (hierarchy, links).
+   * Archiving a parent cascades to its whole subtree.
+   */
+  archived?: boolean
+  /** When the item was archived. */
+  archivedAt?: number
   /** Append-only history of notable events (blocked / unblocked / notes). */
   log?: ItemLogEntry[]
 }
@@ -174,4 +183,6 @@ export interface FlowState {
   links: ItemLink[]
   objectives: Objective[]
   keyResults: KeyResult[]
+  /** Auto-archive Done items after this many days (0/undefined = off). */
+  autoArchiveDays?: number
 }

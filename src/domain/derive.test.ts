@@ -7,6 +7,7 @@ import {
   decompositionParent,
   depth,
   dependencyState,
+  isArchived,
   isBlocked,
   openDescendants,
   openIncomingLinks,
@@ -118,6 +119,23 @@ describe('blocked is an explicit status, not derived from links', () => {
     expect(blockedBelow('init-signup', g)).toBe(1)
     expect(blockedBelow('init-onboarding', g)).toBe(1)
     expect(blockedBelow('init-gateway', g)).toBe(1) // st-ratelimit
+  })
+})
+
+describe('archive — filed away, still in the data', () => {
+  const s = createSeed()
+  const g = graphOf(s)
+
+  it('reads the archived flag', () => {
+    expect(isArchived(s.items.find((i) => i.id === 'init-legacy'))).toBe(true)
+    expect(isArchived(s.items.find((i) => i.id === 'init-signup'))).toBe(false)
+    expect(isArchived(undefined)).toBe(false)
+  })
+
+  it('archived leaves still count toward rollup but not toward open pressure', () => {
+    expect(rollupOf('init-legacy', g).bucket).toBe('done')
+    expect(openDescendants('init-legacy', g).length).toBe(0)
+    expect(blockedBelow('init-legacy', g)).toBe(0)
   })
 })
 

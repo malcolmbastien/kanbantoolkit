@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { decompositionParent, statusOf } from './domain/derive'
+import { decompositionChildren, decompositionParent, rollupOf, statusOf } from './domain/derive'
 import { childrenOf, effectiveStage, isLeaf, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, useStore } from './store'
 
@@ -120,8 +120,7 @@ describe('store actions', () => {
     expect(s().boards[s().boards.length - 1].level).toBe('team')
   })
 
-  it('blocking is an explicit status recorded in the item log', () => {
-    expect(s().items.find((i) => i.id === 'st-email')?.blocked ?? false).toBe(false)
+  it('blocking is an explicit status recorded in the item log', () => {    expect(s().items.find((i) => i.id === 'st-email')?.blocked ?? false).toBe(false)
     s().blockItem('st-email', 'Waiting on gateway')
     const b = s().items.find((i) => i.id === 'st-email')!
     expect(b.blocked).toBe(true)
@@ -165,6 +164,50 @@ describe('store actions', () => {
     expect(migrated.edges.map((e) => e.id)).toEqual(['e1', 'e3'])
     expect(migrated.links).toHaveLength(1)
     expect(migrated.links[0]).toMatchObject({ id: 'e2', from: 'a', to: 'b', kind: 'SS', status: 'confirmed', reason: 'r', pinTo: 'p' })
+  })
+
+  it('archiving a parent cascades to its subtree and keeps the data linked', () => {
+    const before = rollupOf('init-signup', graph()).percent
+    s().archiveItem('init-signup')
+    for (const id of ['init-signup', 'st-signup-design', 'st-signup-form', 'st-email', 'st-sso', 'df-signup']) {
+      expect(s().items.find((i) => i.id === id)?.archived).toBe(true)
+    }
+    // Still in the hierarchy (so it appears in linked-issue lists), and rollup is unaffected.
+    expect(decompositionChildren('init-signup', s().edges).length).toBe(5)
+    expect(rollupOf('init-signup', graph()).percent).toBe(before)
+    expect(s().items.find((i) => i.id === 'init-signup')!.log?.some((e) => e.kind === 'archived')).toBe(true)
+
+    s().unarchiveItem('init-signup')
+    expect(s().items.find((i) => i.id === 'init-signup')?.archived).toBe(false)
+    expect(s().items.find((i) => i.id === 'st-email')?.archived).toBe(false)
+    expect(s().items.find((i) => i.id === 'init-signup')!.log?.some((e) => e.kind === 'unarchived')).toBe(true)
+  })
+
+  it('moving into Done stamps resolvedAt; moving out clears it', () => {
+    const done = laneByName('b-atlas', 'Done')
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().moveCard('st-email', 'b-atlas', done.id)
+    expect(typeof s().items.find((i) => i.id === 'st-email')?.resolvedAt).toBe('number')
+    s().moveCard('st-email', 'b-atlas', ns.id)
+    expect(s().items.find((i) => i.id === 'st-email')?.resolvedAt ?? null).toBeNull()
+  })
+
+  it('Archive done archives the board\'s resolved cards', () => {
+    s().archiveDoneOnBoard('b-atlas')
+    expect(s().items.find((i) => i.id === 'st-signup-design')?.archived).toBe(true)
+    // a card that is not Done is untouched
+    expect(s().items.find((i) => i.id === 'st-email')?.archived ?? false).toBe(false)
+  })
+
+  it('auto-archive files Done items older than the threshold', () => {
+    const done = laneByName('b-atlas', 'Done')
+    s().moveCard('st-email', 'b-atlas', done.id)
+    s().setItemFields('st-email', { resolvedAt: Date.now() - 40 * 86_400_000 })
+    s().setAutoArchiveDays(30)
+    s().runAutoArchive()
+    expect(s().items.find((i) => i.id === 'st-email')?.archived).toBe(true)
+    // a Done item without an old resolvedAt is left alone
+    expect(s().items.find((i) => i.id === 'st-signup-design')?.archived ?? false).toBe(false)
   })
 
   it('migrateState backfills Board.level', () => {

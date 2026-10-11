@@ -1,9 +1,10 @@
-import { Check, Crosshair, Layers, X } from 'lucide-react'
+import { Archive, Check, Crosshair, Layers, X } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
 import { ManagementBoard } from './ManagementBoard'
 import { externalBlockersOnBoard } from '@/domain/board'
+import { effectiveStage } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Graph } from '@/domain/derive'
@@ -26,6 +27,7 @@ export function BoardView({ requestMove }: Props) {
   const setBoardDerived = useStore((s) => s.setBoardDerived)
   const lensId = useStore((s) => s.lensId)
   const clearLens = useStore((s) => s.clearLens)
+  const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
 
   const board = boards.find((b) => b.id === boardId)
 
@@ -34,6 +36,9 @@ export function BoardView({ requestMove }: Props) {
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const external = externalBlockersOnBoard(graph, boardId)
+  const doneCount = placements.filter(
+    (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
+  ).length
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
@@ -76,11 +81,26 @@ export function BoardView({ requestMove }: Props) {
             </button>
           </span>
         )}
-        {external.length > 0 && (
-          <span className="ml-auto flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">
-            <Layers size={11} /> {external.length} external blocker{external.length > 1 ? 's' : ''}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {doneCount > 0 && !editMode && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Archive ${doneCount} done item${doneCount === 1 ? '' : 's'} off this board? They stay searchable in the Archive.`)) {
+                  archiveDoneOnBoard(boardId)
+                }
+              }}
+              className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-200 hover:text-white"
+              title="Archive all Done cards on this board so they stop cluttering it"
+            >
+              <Archive size={11} /> Archive done ({doneCount})
+            </button>
+          )}
+          {external.length > 0 && (
+            <span className="flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">
+              <Layers size={11} /> {external.length} external blocker{external.length > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">

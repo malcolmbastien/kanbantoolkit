@@ -166,7 +166,7 @@ export function openDescendants(id: string, graph: Graph): Item[] {
   return descendants(id, graph)
     .map((d) => graph.items.find((i) => i.id === d))
     .filter((i): i is Item => Boolean(i))
-    .filter((i) => !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
+    .filter((i) => !i.archived && !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
 }
 
 /**
@@ -179,8 +179,17 @@ export function blockedBelow(id: string, graph: Graph): number {
   return descendants(id, graph)
     .map((d) => graph.items.find((i) => i.id === d))
     .filter((i): i is Item => Boolean(i))
-    .filter((i) => i.blocked === true && !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
+    .filter((i) => !i.archived && i.blocked === true && !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
     .length
+}
+
+/**
+ * Filed away. Archived items leave the boards but stay in the data: they remain
+ * searchable and still appear in linked-issue surfaces. Rollup still counts their
+ * work (archiving a done card must not drop a parent's progress).
+ */
+export function isArchived(item: Item | undefined): boolean {
+  return item?.archived === true
 }
 
 /* ------------------------------------------------------------------ *

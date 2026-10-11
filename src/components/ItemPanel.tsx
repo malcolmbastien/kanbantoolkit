@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Ban, ChevronRight, GitBranch, Plus, Sparkles, X } from 'lucide-react'
+import { Archive, Ban, ChevronRight, GitBranch, Plus, Sparkles, X } from 'lucide-react'
 import {
   attributedObjectives,
   blockingSummary,
@@ -55,6 +55,8 @@ export function ItemPanel({ itemId }: Props) {
   const blockItem = useStore((s) => s.blockItem)
   const unblockItem = useStore((s) => s.unblockItem)
   const addLogNote = useStore((s) => s.addLogNote)
+  const archiveItem = useStore((s) => s.archiveItem)
+  const unarchiveItem = useStore((s) => s.unarchiveItem)
 
   const [blockerId, setBlockerId] = useState('')
   const [childType, setChildType] = useState('')
@@ -183,6 +185,36 @@ export function ItemPanel({ itemId }: Props) {
           )}
           <p className="mt-1 text-[10px] text-slate-400">
             Blocking is independent of links — it never changes the cell and never counts as WIP. Each block/unblock is recorded below.
+          </p>
+        </section>
+
+        {/* Archive — file the item away (cascades to its whole subtree) */}
+        <section>
+          <SectionLabel>Archive</SectionLabel>
+          {item.archived ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
+                <Archive size={12} /> Archived
+                {item.archivedAt && <span className="font-normal text-amber-600/80">· {new Date(item.archivedAt).toLocaleDateString()}</span>}
+              </div>
+              <button
+                onClick={() => unarchiveItem(item.id)}
+                className="mt-1.5 rounded bg-amber-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-amber-700"
+              >
+                Restore
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => archiveItem(item.id)}
+              className="flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+              title="File this item (and its children) off the boards"
+            >
+              <Archive size={11} /> Archive (with children)
+            </button>
+          )}
+          <p className="mt-1 text-[10px] text-slate-400">
+            Archived items leave the boards but stay searchable and linked. Archiving cascades to the whole subtree.
           </p>
         </section>
 
@@ -327,6 +359,7 @@ export function ItemPanel({ itemId }: Props) {
               >
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: issueTypes.find((t) => t.id === c.typeId)?.color }} />
                 <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
+                {c.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
                 <span className="text-[10px] text-slate-400">{statusOf(c.id, graph).resolved ? 'done' : ''}</span>
               </button>
             ))}
@@ -423,6 +456,7 @@ export function ItemPanel({ itemId }: Props) {
                   <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> depends on</div>
                   <div className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate text-slate-700">{dep.blocker.title}</span>
+                    {dep.blocker.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
                     {dep.link.status === 'proposed' ? (
                       <span className="rounded bg-slate-100 px-1 text-[9px] font-semibold text-slate-500">pending</span>
                     ) : (
@@ -443,7 +477,10 @@ export function ItemPanel({ itemId }: Props) {
             {outgoing.map((dep) => (
               <div key={dep.link.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
                 <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> blocks</div>
-                <div className="text-slate-700">{dep.dependent.title}</div>
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 truncate text-slate-700">{dep.dependent.title}</div>
+                  {dep.dependent.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
+                </div>
                 {dep.link.status === 'proposed' ? (
                   <div className="mt-1 flex items-center gap-1">
                     <span className="rounded bg-amber-50 px-1 text-[9px] font-semibold text-amber-700 ring-1 ring-amber-200">confirmation requested</span>

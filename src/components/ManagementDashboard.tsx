@@ -60,7 +60,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     initiativeTypeId
       ? onBoard.filter((i) => i.typeId === initiativeTypeId)
       : onBoard.filter((i) => decompositionChildren(i.id, edges).length > 0)
-  ).filter((i) => {
+  ).filter((i) => !i.archived).filter((i) => {
     const parent = decompositionParent(i.id, edges)
     return !parent || !onBoardIds.has(parent)
   })

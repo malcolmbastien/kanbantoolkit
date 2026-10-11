@@ -56,7 +56,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
   const initiatives = (initiativeTypeId
     ? onBoard.filter((i) => i.typeId === initiativeTypeId)
     : onBoard.filter((i) => decompositionChildren(i.id, edges).length > 0)
-  ).filter((i) => {
+  ).filter((i) => !i.archived).filter((i) => {
     if (!rootsOnly) return true
     const parent = decompositionParent(i.id, edges)
     return !parent || !onBoardIds.has(parent)
@@ -102,6 +102,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
               const childItems = decompositionChildren(c.id, edges)
                 .map((id) => items.find((i) => i.id === id))
                 .filter((i): i is Item => Boolean(i))
+                .filter((i) => !i.archived)
               // Symbols summarise the direct children — team initiatives for a top-level
               // initiative, cards for a team-level one — coloured by their status.
               const symbols = childItems.map((ci) => ({ bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
