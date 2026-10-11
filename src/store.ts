@@ -36,6 +36,11 @@ export interface ViewState {
   showFilters: boolean
   /** Active card filters applied to the current board. */
   filters: CardFilters
+  /**
+   * An external dependency (from the boundary lane) being inspected; the local
+   * cards that wait on it are highlighted on the board. View-only.
+   */
+  boundaryId: string | null
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -62,6 +67,8 @@ export interface Actions {
   /** Add/remove a card type from the type filter. */
   toggleFilterType: (typeId: string) => void
   clearFilters: () => void
+  /** Select/clear the boundary-lane external dependency to highlight its local dependents. */
+  toggleBoundary: (id: string) => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -186,6 +193,7 @@ const initialView: ViewState = {
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
+  boundaryId: null,
 }
 
 /**
@@ -248,7 +256,7 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false }),
+      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, boundaryId: null }),
       openItem: (selectedItemId) => set({ selectedItemId, ...(selectedItemId ? { showFilters: false } : {}) }),
       setSearch: (search) => set({ search }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
@@ -264,6 +272,7 @@ export const useStore = create<Store>()(
         set({ filters: { ...f, typeIds } })
       },
       clearFilters: () => set({ filters: NO_FILTERS }),
+      toggleBoundary: (id) => set({ boundaryId: get().boundaryId === id ? null : id }),
 
       beginEdit: () => {
         const s = get()

@@ -413,6 +413,17 @@ describe('store actions', () => {
     expect(s().placements.length).toBe(placementsBefore)
   })
 
+  it('boundary: toggling selects an external dependency; changing board clears it', () => {
+    s().toggleBoundary('init-gateway')
+    expect(s().boundaryId).toBe('init-gateway')
+    s().toggleBoundary('init-gateway')
+    expect(s().boundaryId).toBe(null)
+
+    s().toggleBoundary('init-gateway')
+    s().selectBoard('b-nova')
+    expect(s().boundaryId).toBe(null)
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

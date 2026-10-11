@@ -55,12 +55,14 @@ interface Props {
   /** Locked (edit mode): no drag, no click-to-open, no lens. */
   locked?: boolean
   selected?: boolean
+  /** Highlighted because it waits on the selected boundary-lane dependency. */
+  boundary?: boolean
   onOpen: (id: string) => void
 }
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, onOpen }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, onOpen }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -72,8 +74,19 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         }
       : {}
 
-  const lensCls =
-    lens === 'out' ? 'opacity-40 saturate-50' : lens === 'in' ? 'ring-2 ring-indigo-400' : lens === 'self' ? 'ring-2 ring-indigo-600' : ''
+  // Highlight priority: a selected boundary dependency (amber) > item selection (indigo) > lens.
+  const lensCls = cn(
+    lens === 'out' ? 'opacity-40 saturate-50' : '',
+    boundary
+      ? 'ring-2 ring-amber-400'
+      : selected
+        ? 'ring-2 ring-indigo-400'
+        : lens === 'in'
+          ? 'ring-2 ring-indigo-400'
+          : lens === 'self'
+            ? 'ring-2 ring-indigo-600'
+            : '',
+  )
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
 
   // Blocked rolls up: the item's own status is precise; a count of blocked
@@ -135,7 +148,6 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         className={cn(
           'group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
           locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
-          selected && 'ring-2 ring-indigo-400',
           lensCls,
           lockCls,
         )}
@@ -195,6 +207,14 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
 
           {/* meta row */}
           <div className="mt-auto flex items-center gap-3 text-[10px] text-slate-500">
+            {boundary && (
+              <span
+                className="flex items-center gap-0.5 font-semibold text-amber-600"
+                title="Waiting on an external dependency — see the boundary lane"
+              >
+                <Link2 size={11} /> waiting on
+              </span>
+            )}
             {symbols && symbols.length > 0 && (
               <span className="flex items-center gap-1" title={`${symbols.length} linked items`}>
                 {symbols.slice(0, 16).map((s, i) => (
@@ -301,6 +321,14 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           </button>
         )}
         <div className="mt-auto flex items-center gap-2 pt-1 text-[10px] text-slate-500">
+          {boundary && (
+            <span
+              className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"
+              title="Waiting on an external dependency — see the boundary lane"
+            >
+              <Link2 size={11} /> waiting on
+            </span>
+          )}
           {hasChecklist && (
             <span
               className={cn('flex shrink-0 items-center gap-0.5', checklistDone === checklistTotal && 'font-semibold text-emerald-600')}

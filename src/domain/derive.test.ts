@@ -15,6 +15,7 @@ import {
   openDependenciesOf,
   rollupOf,
   statusOf,
+  waitsOn,
   type Graph,
 } from './derive'
 import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes, wipState } from './lanes'
@@ -245,6 +246,20 @@ describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () 
 
   it('leaf status reads from the stage (a Done-column leaf resolves)', () => {
     expect(statusOf('st-signup-design', graphOf(s)).resolved).toBe(true)
+  })
+})
+
+describe('boundary waiting — local cards waiting on an external item', () => {
+  const s = createSeed()
+
+  it('is true for a local card with a confirmed, open dependency on the external item', () => {
+    const g = graphOf(s)
+    // st-email and st-sso both depend on init-gateway (a Team Nova initiative).
+    expect(waitsOn('st-email', 'init-gateway', g)).toBe(true)
+    expect(waitsOn('st-sso', 'init-gateway', g)).toBe(true)
+    // Not the other direction, and not for an unrelated item.
+    expect(waitsOn('init-gateway', 'st-email', g)).toBe(false)
+    expect(waitsOn('st-email', 'init-onboarding', g)).toBe(false)
   })
 })
 

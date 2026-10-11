@@ -14,6 +14,7 @@ import {
   openDescendants,
   rollupOf,
   statusOf,
+  waitsOn,
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
@@ -68,6 +69,8 @@ interface Ctx {
   editMode: boolean
   search: string
   filters: CardFilters
+  /** External dependency (boundary lane) whose local dependents are highlighted. */
+  boundaryId: string | null
   selectedItemId: string | null
   boardItems: Item[]
   effectiveLane: Map<string, string>
@@ -340,6 +343,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               depth={depthOf(c.id, graph)}
               parent={parent}
               selected={ctx.selectedItemId === c.id}
+              boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}
               lens={lensRole(c.id, ctx.lensId, graph)}
               onLens={ctx.toggleLens}
               draggable={ctx.interactive && !ctx.editMode}
@@ -448,6 +452,8 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const issueTypes = useStore((s) => s.issueTypes)
   const search = useStore((s) => s.search)
   const filters = useStore((s) => s.filters)
+  const boundaryId = useStore((s) => s.boundaryId)
+  const toggleBoundary = useStore((s) => s.toggleBoundary)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const storeEdit = useStore((s) => s.editMode)
   const openItem = useStore((s) => s.openItem)
@@ -488,7 +494,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, editMode, search, filters, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, refs, graph, editMode, search, filters, boundaryId, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,
@@ -515,6 +521,9 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
                 dep={d}
                 dependencyType={typeOf(d.dependency.typeId)}
                 boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.dependency.id)?.boardId)?.name ?? '—'}
+                selected={boundaryId === d.dependency.id}
+                dependentCount={boardItems.filter((i) => waitsOn(i.id, d.dependency.id, graph)).length}
+                onSelect={toggleBoundary}
                 onOpen={openItem}
               />
             ))}

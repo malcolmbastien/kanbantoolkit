@@ -61,6 +61,8 @@ export default function App() {
     if (it) openItem(it)
     const lens = params.get('lens')
     if (lens) setLens(lens)
+    const boundary = params.get('boundary')
+    if (boundary && useStore.getState().boundaryId !== boundary) useStore.getState().toggleBoundary(boundary)
     const q = params.get('q')
     if (q) setSearch(q)
     // ?filters=1 opens the panel; ?filters=blocked,overdue also applies those filters.

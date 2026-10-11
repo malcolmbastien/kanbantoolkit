@@ -133,6 +133,14 @@ export function openDependenciesOf(itemId: string, graph: Graph): DependencyInfo
 }
 
 /**
+ * Does this item wait on the given item — i.e. a confirmed, still-open dependency?
+ * Used to link a boundary-lane pin to the local cards that wait on that external work.
+ */
+export function waitsOn(itemId: string, dependencyId: string, graph: Graph): boolean {
+  return openDependenciesOf(itemId, graph).some((d) => d.dependency.id === dependencyId)
+}
+
+/**
  * Blocking is a status the user sets on the item — it is *not* derived from
  * links. `openDependenciesOf` describes dependency state; this describes intent.
  */
