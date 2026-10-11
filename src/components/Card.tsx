@@ -59,6 +59,8 @@ interface Props {
   boundary?: boolean
   /** Part of the multi-select group (shift+click). */
   multi?: boolean
+  /** Dimmed because another card is part of the active multi-select group. */
+  dimmed?: boolean
   onOpen: (id: string) => void
   /** Shift+click — start/extend the multi-select group. */
   onMultiSelect?: (id: string) => void
@@ -66,7 +68,7 @@ interface Props {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, multi, onOpen, onMultiSelect }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, multi, dimmed, onOpen, onMultiSelect }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -95,6 +97,8 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               : '',
   )
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
+  // While a multi-select group is active, the cards outside it recede.
+  const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
 
   // Blocked rolls up: the item's own status is precise; a count of blocked
   // descendants is what lets a team blockage surface on its initiative.
@@ -159,6 +163,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
           lensCls,
           lockCls,
+          dimCls,
         )}
       >
         {/* progress bar */}
@@ -282,9 +287,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
       className={cn(
         'group relative flex h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
-        selected && 'ring-2 ring-indigo-400',
         lensCls,
         lockCls,
+        dimCls,
       )}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-1.5 py-1.5">
@@ -371,6 +376,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           )}
         </div>
       </div>
+      {multi && <span className="pointer-events-none absolute inset-0 bg-indigo-500/15" aria-hidden />}
       {hasChecklist && (
         <div className="h-[3px] w-full shrink-0 bg-slate-200" title={`Checklist ${checklistDone}/${checklistTotal}`}>
           <div

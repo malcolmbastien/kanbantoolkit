@@ -349,6 +349,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               selected={ctx.selectedItemId === c.id}
               boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}
               multi={ctx.multiSelect.includes(c.id)}
+              dimmed={ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)}
               onMultiSelect={ctx.toggleMultiSelect}
               lens={lensRole(c.id, ctx.lensId, graph)}
               onLens={ctx.toggleLens}
