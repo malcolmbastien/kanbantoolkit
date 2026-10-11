@@ -48,7 +48,7 @@ function DroppableCell({ enabled, onDropItem, children }: { enabled: boolean; on
         if (id) onDropItem(id)
       }}
       className={cn(
-        'flex min-h-[48px] flex-1 flex-col gap-1 p-1 transition',
+        'flex min-h-[96px] flex-1 flex-col gap-1 p-1 transition',
         enabled && over ? 'bg-indigo-300/50 ring-1 ring-inset ring-indigo-500' : 'bg-transparent',
       )}
     >
@@ -295,8 +295,16 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 : undefined
             }
           >
-            {kids.map((k) => (
-              <div key={k.id} className={cn('flex min-h-0 min-w-0 flex-col', orientation === 'rows' ? 'w-full grow' : 'flex-1')}>
+            {kids.map((k, i) => (
+              <div
+                key={k.id}
+                className={cn(
+                  'flex min-h-0 min-w-0 flex-col',
+                  // Rows size to their content (+ buffer); only the last row stretches
+                  // to fill the column's remaining height.
+                  orientation === 'rows' ? (i === kids.length - 1 ? 'w-full grow' : 'w-full') : 'flex-1',
+                )}
+              >
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />
               </div>
             ))}
