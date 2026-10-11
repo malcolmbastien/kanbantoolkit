@@ -1,4 +1,4 @@
-import { ArrowUp, Ban, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
+import { ArrowUp, Ban, Check, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
 import type { IssueType, Item, Stage } from '@/domain/types'
@@ -313,9 +313,18 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 {summary.dependentsCount}
               </span>
             )}
-            <span className="text-[9px] font-bold text-slate-400" title={`Structural depth ${depth} (derived from parent/child)`}>
-              d{depth}
-            </span>
+            {multi ? (
+              <span
+                className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-indigo-600 text-white shadow-sm"
+                title="Selected"
+              >
+                <Check size={10} strokeWidth={3} />
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold text-slate-400" title={`Structural depth ${depth} (derived from parent/child)`}>
+                d{depth}
+              </span>
+            )}
             {lensButton}
           </span>
         </div>
