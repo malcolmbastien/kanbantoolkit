@@ -1,4 +1,4 @@
-import { Ban, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
+import { ArrowUp, Ban, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
 import type { IssueType, Item, Stage } from '@/domain/types'
@@ -173,6 +173,25 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           </div>
 
           <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{item.title}</div>
+
+          {/* Roll-up: a team initiative linked under a top-level initiative. */}
+          {parent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpen(parent.id)
+              }}
+              title={`Rolls up to ${parent.type.name}: ${parent.title}`}
+              className="flex w-fit max-w-full items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-left transition hover:border-indigo-300 hover:bg-indigo-100"
+            >
+              <ArrowUp size={11} className="shrink-0 text-indigo-400" />
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-indigo-500">rolls up to</span>
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: parent.type.color }} aria-hidden />
+              <span className="min-w-0 truncate text-[10px] font-medium text-indigo-700">
+                <span className="tabular-nums text-indigo-400">{parent.ref_}</span> {parent.title}
+              </span>
+            </button>
+          )}
 
           {/* meta row */}
           <div className="mt-auto flex items-center gap-3 text-[10px] text-slate-500">
