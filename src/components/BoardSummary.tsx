@@ -60,7 +60,7 @@ export function BoardSummary({ boardId }: { boardId: string }) {
   return (
     <div className="flex gap-2 p-2">
       {columns.map(({ lane, stage, cards }) => (
-        <div key={lane.id} className="flex min-w-[196px] flex-1 basis-0 flex-col rounded-md border border-slate-300 bg-slate-100">
+        <div key={lane.id} className="flex min-w-[320px] flex-1 basis-0 flex-col rounded-md border border-slate-300 bg-slate-100">
           <div className="flex items-center gap-1.5 rounded-t-md bg-slate-700 px-2 py-1 text-slate-100">
             <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name}</span>
             <span
@@ -77,13 +77,18 @@ export function BoardSummary({ boardId }: { boardId: string }) {
             </span>
             <span className="ml-auto text-[10px] font-semibold tabular-nums text-slate-300/80">{cards.length}</span>
           </div>
-          <div className="flex flex-1 flex-col gap-1 p-1">
+          <div className="flex flex-1 flex-wrap content-start gap-2 p-2">
             {cards.map((c) => {
               const pid = decompositionParent(c.id, edges)
               const p = pid ? items.find((i) => i.id === pid) : undefined
               const parent: CardParent | undefined = p
                 ? { id: p.id, ref_: refs.get(p.id) ?? '', title: p.title, type: typeOf(p.typeId) }
                 : undefined
+              const childInits = decompositionChildren(c.id, edges)
+                .map((id) => items.find((i) => i.id === id))
+                .filter((i): i is Item => Boolean(i))
+                .filter((i) => !initiativeTypeId || i.typeId === initiativeTypeId)
+              const symbols = childInits.map((ci) => ({ bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
               return (
                 <Card
                   key={c.id}
@@ -92,6 +97,8 @@ export function BoardSummary({ boardId }: { boardId: string }) {
                   ref_={refs.get(c.id) ?? ''}
                   depth={depthOf(c.id, graph)}
                   parent={parent}
+                  wide
+                  symbols={symbols}
                   selected={selectedItemId === c.id}
                   onOpen={openItem}
                   summary={{
@@ -106,9 +113,7 @@ export function BoardSummary({ boardId }: { boardId: string }) {
                 />
               )
             })}
-            {cards.length === 0 && (
-              <p className="px-1 py-2 text-[10px] text-slate-400">No initiatives</p>
-            )}
+            {cards.length === 0 && <p className="px-1 py-2 text-[10px] text-slate-400">No initiatives</p>}
           </div>
         </div>
       ))}
