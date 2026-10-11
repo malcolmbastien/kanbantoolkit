@@ -1,6 +1,7 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronsRight, Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
+import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
 import {
   blockedBelow,
@@ -476,6 +477,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const refs = buildRefs(items, issueTypes)
   const root = rootLane(lanes, boardId)
   const editMode = storeEdit && interactive
+  const rowRef = useRef<HTMLDivElement>(null)
 
   const boardPlacements = placements.filter((p) => p.boardId === boardId)
   const isInitiative = (typeId: string) => issueTypes.find((t) => t.id === typeId)?.name === 'Initiative'
@@ -505,7 +507,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   }
 
   const canvas = (
-    <div className="flex min-h-0 flex-1">
+    <div ref={rowRef} className="relative flex min-h-0 flex-1">
       <div className="min-h-0 flex-1 overflow-auto p-3">
         <div className="min-h-[120px] w-full min-w-min">
           {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-[12px] text-slate-500">This board has no lanes.</p>}
@@ -530,6 +532,11 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
           </div>
         </div>
       )}
+      <BoundaryConnectors
+        containerRef={rowRef}
+        boundaryId={boundaryId}
+        cardIds={boundaryId ? boardItems.filter((i) => waitsOn(i.id, boundaryId, graph)).map((i) => i.id) : []}
+      />
     </div>
   )
 

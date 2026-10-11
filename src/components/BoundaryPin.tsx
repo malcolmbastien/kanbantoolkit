@@ -24,6 +24,7 @@ export function BoundaryPin({ dep, dependencyType, boardName, selected, dependen
     <div
       role="button"
       tabIndex={0}
+      data-boundary-pin={dep.dependency.id}
       onClick={() => onSelect(dep.dependency.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

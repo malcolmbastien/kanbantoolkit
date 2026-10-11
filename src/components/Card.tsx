@@ -262,6 +262,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
   return (
     <div
       {...dragProps}
+      data-card-id={item.id}
       style={{ backgroundColor: hexToRgba(type.color, 0.1), borderLeftColor: type.color }}
       onClick={(e) => {
         e.stopPropagation()
