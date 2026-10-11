@@ -171,7 +171,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         </div>
 
         {editMode && !isRoot && (
-          <div className="mt-1 flex flex-wrap items-center gap-1">
+          <div className="mt-1 flex w-0 min-w-full flex-wrap items-center gap-1" style={{ contain: 'inline-size' }}>
             {/* Top-level columns (Backlog / Not Started / In Progress / Done) are fixed in
                 place; only sub-lanes move, and only within their top-level parent. */}
             {!top && (
