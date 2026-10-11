@@ -14,6 +14,16 @@ export interface Draft {
   boardId: string
 }
 
+/** A pending confirmation, rendered by the global ConfirmDialog. */
+export interface ConfirmRequest {
+  title: string
+  body?: string
+  confirmLabel?: string
+  /** Destructive actions get a red confirm button. */
+  danger?: boolean
+  onConfirm: () => void
+}
+
 export interface ViewState {
   boardId: string
   selectedItemId: string | null
@@ -47,6 +57,8 @@ export interface ViewState {
    * and shows the bulk-action bar. View-only.
    */
   multiSelect: string[]
+  /** Pending confirmation (destructive actions) — rendered by ConfirmDialog. */
+  confirm: ConfirmRequest | null
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -85,6 +97,10 @@ export interface Actions {
   setItemsAssignee: (itemIds: string[], assignee: string | undefined) => void
   archiveItems: (itemIds: string[]) => void
   deleteItems: (itemIds: string[]) => void
+
+  /** Ask the user to confirm a destructive action (a styled in-app modal). */
+  askConfirm: (request: ConfirmRequest) => void
+  closeConfirm: () => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -210,6 +226,7 @@ const initialView: ViewState = {
   filters: NO_FILTERS,
   boundaryId: null,
   multiSelect: [],
+  confirm: null,
 }
 
 /**
@@ -308,6 +325,8 @@ export const useStore = create<Store>()(
         set({ multiSelect: group, selectedItemId: null, showFilters: false })
       },
       clearMultiSelect: () => set({ multiSelect: [] }),
+      askConfirm: (confirm) => set({ confirm }),
+      closeConfirm: () => set({ confirm: null }),
 
       moveCardsToLane: (itemIds, laneId) => {
         const state = get()

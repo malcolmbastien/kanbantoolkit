@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ChevronsRight, Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
+import { InlineEdit } from './InlineEdit'
 import {
   blockedBelow,
   checklistProgress,
@@ -25,6 +26,7 @@ import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane } from '@/domain/types'
+import type { ConfirmRequest } from '@/store'
 
 export interface BoardCanvasProps {
   boardId: string
@@ -75,6 +77,7 @@ interface Ctx {
   /** Multi-select group (shift+click). */
   multiSelect: string[]
   toggleMultiSelect: (id: string) => void
+  askConfirm: (request: ConfirmRequest) => void
   selectedItemId: string | null
   boardItems: Item[]
   effectiveLane: Map<string, string>
@@ -121,6 +124,7 @@ function Ctl({ children, onClick, title, active, danger, disabled }: { children:
 
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
+  const [renaming, setRenaming] = useState(false)
   const kids = childrenOf(lanes, lane.id)
   const top = isTopLevel(lanes, lane.id)
   const stage = lane.stage ?? effectiveStage(lanes, lane.id)
@@ -153,8 +157,13 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     const parts: string[] = []
     if (count > 0) parts.push(`${count} card${count === 1 ? '' : 's'} will move to ${target ? `"${target.name}"` : 'no lane (they leave the board)'}`)
     if (kids.length > 0) parts.push(`${kids.length} sub-lane${kids.length === 1 ? '' : 's'} removed`)
-    const detail = parts.length ? ` ${parts.join('; ')}.` : ''
-    if (window.confirm(`Remove "${lane.name || 'lane'}"?${detail}`)) ctx.removeLane(lane.id)
+    ctx.askConfirm({
+      title: `Remove "${lane.name || 'lane'}"?`,
+      body: parts.length ? `${parts.join('; ')}.` : undefined,
+      confirmLabel: 'Remove lane',
+      danger: true,
+      onConfirm: () => ctx.removeLane(lane.id),
+    })
   }
 
   const header = (isLeafCell: boolean) => {
@@ -170,7 +179,18 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
             </button>
           )}
-          <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+          {renaming ? (
+            <InlineEdit
+              autoEdit
+              value={lane.name}
+              ariaLabel="Lane name"
+              onSave={(name) => ctx.renameLane(lane.id, name)}
+              onDone={() => setRenaming(false)}
+              inputClassName="min-w-0 flex-1 rounded bg-white/15 px-1 py-px text-[11px] font-bold uppercase tracking-wide text-white outline-none ring-1 ring-white/40"
+            />
+          ) : (
+            <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+          )}
           <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
             {countInLane(lane.id)}
             {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
@@ -228,9 +248,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               <>
                 <Ctl title="Insert a new lane after this one" onClick={() => ctx.insertLaneAfter(lane.id)}>＋ insert</Ctl>
                 <Ctl title="Duplicate this lane and its sub-lanes" onClick={() => ctx.duplicateLane(lane.id)}>duplicate</Ctl>
-                <Ctl title="Rename lane" onClick={() => { const name = window.prompt('Lane name', lane.name); if (name !== null) ctx.renameLane(lane.id, name) }}>
-                  rename
-                </Ctl>
+                <Ctl title="Rename lane" onClick={() => setRenaming(true)}>rename</Ctl>
                 <Ctl danger title="Remove lane" onClick={removeWithConfirm}>remove</Ctl>
               </>
             )}
@@ -463,6 +481,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const toggleBoundary = useStore((s) => s.toggleBoundary)
   const multiSelect = useStore((s) => s.multiSelect)
   const toggleMultiSelect = useStore((s) => s.toggleMultiSelect)
+  const askConfirm = useStore((s) => s.askConfirm)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const storeEdit = useStore((s) => s.editMode)
   const openItem = useStore((s) => s.openItem)
@@ -504,7 +523,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, refs, graph, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,

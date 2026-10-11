@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { ArchiveView } from './components/ArchiveView'
 import { BoardView } from './components/BoardView'
 import { BulkActions } from './components/BulkActions'
+import { ConfirmDialog } from './components/ConfirmDialog'
 import { FilterPanel } from './components/FilterPanel'
 import { ItemPanel } from './components/ItemPanel'
 import { ManagementDashboard } from './components/ManagementDashboard'
@@ -35,6 +36,7 @@ export default function App() {
   const toggleFilters = useStore((s) => s.toggleFilters)
   const multiSelect = useStore((s) => s.multiSelect)
   const clearMultiSelect = useStore((s) => s.clearMultiSelect)
+  const askConfirm = useStore((s) => s.askConfirm)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
   const runAutoArchive = useStore((s) => s.runAutoArchive)
@@ -113,14 +115,18 @@ export default function App() {
       else openItem(null)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') dismiss()
+      if (e.key !== 'Escape') return
+      // A confirm dialog is the topmost layer — let it handle Escape.
+      if (useStore.getState().confirm) return
+      dismiss()
     }
     const onDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
       if (
         target?.closest('[data-card-id]') ||
         target?.closest('[data-bulk-actions]') ||
-        target?.closest('[data-item-panel]')
+        target?.closest('[data-item-panel]') ||
+        target?.closest('[data-confirm-dialog]')
       ) {
         return
       }
@@ -147,13 +153,15 @@ export default function App() {
     if (firstLeaf) onAddCard(firstLeaf.id)
   }
 
-  const onNewBoard = () => {
-    const name = window.prompt('New board name', 'New board')
-    if (name) addBoard(name)
-  }
-  const onDeleteBoard = () => {
-    if (window.confirm('Delete this board and its cards?')) removeBoard(boardId)
-  }
+  const onNewBoard = (name: string) => addBoard(name)
+  const onDeleteBoard = () =>
+    askConfirm({
+      title: 'Delete this board?',
+      body: 'The board and its cards are removed. Cards that also live on another board survive there.',
+      confirmLabel: 'Delete board',
+      danger: true,
+      onConfirm: () => removeBoard(boardId),
+    })
 
   return (
     <div className="flex h-full flex-col">
@@ -199,6 +207,7 @@ export default function App() {
       </div>
 
       {showTypeEditor && <TypeEditor />}
+      <ConfirmDialog />
       <BulkActions />
     </div>
   )

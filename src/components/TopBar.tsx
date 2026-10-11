@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Shapes, SlidersHorizontal, Target, Trash2, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
+import { InlineEdit } from './InlineEdit'
 import { LevelBadge } from './LevelBadge'
 import { cn } from '@/lib/utils'
 import type { Board, BoardLevel } from '@/domain/types'
@@ -26,7 +28,7 @@ interface Props {
   onCancelEdit: () => void
   onOpenTypes: () => void
   onAddCard: () => void
-  onNewBoard: () => void
+  onNewBoard: (name: string) => void
   onDeleteBoard: () => void
   onReset: () => void
 }
@@ -37,6 +39,7 @@ const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
   const { boards, boardId, boardLevel, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onSetBoardLevel, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const [namingBoard, setNamingBoard] = useState(false)
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -114,13 +117,25 @@ export function TopBar(props: Props) {
       <div className="ml-auto flex items-center gap-2">
         {editMode && (
           <>
-            <button
-              onClick={onNewBoard}
-              className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
-              title="Create a new board"
-            >
-              <Plus size={13} /> Board
-            </button>
+            {namingBoard ? (
+              <InlineEdit
+                autoEdit
+                value=""
+                placeholder="New board name"
+                ariaLabel="New board name"
+                onSave={onNewBoard}
+                onDone={() => setNamingBoard(false)}
+                inputClassName="w-40 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-[12px] text-slate-100 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            ) : (
+              <button
+                onClick={() => setNamingBoard(true)}
+                className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+                title="Create a new board"
+              >
+                <Plus size={13} /> Board
+              </button>
+            )}
             <button
               onClick={onDeleteBoard}
               className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-400 hover:text-rose-300"

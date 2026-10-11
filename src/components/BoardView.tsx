@@ -28,6 +28,7 @@ export function BoardView({ requestMove }: Props) {
   const lensId = useStore((s) => s.lensId)
   const clearLens = useStore((s) => s.clearLens)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
+  const askConfirm = useStore((s) => s.askConfirm)
   const issueTypes = useStore((s) => s.issueTypes)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
@@ -113,11 +114,14 @@ export function BoardView({ requestMove }: Props) {
         <div className="ml-auto flex items-center gap-2">
           {doneCount > 0 && !editMode && (
             <button
-              onClick={() => {
-                if (window.confirm(`Archive ${doneCount} done item${doneCount === 1 ? '' : 's'} off this board? They stay searchable in the Archive.`)) {
-                  archiveDoneOnBoard(boardId)
-                }
-              }}
+              onClick={() =>
+                askConfirm({
+                  title: `Archive ${doneCount} done item${doneCount === 1 ? '' : 's'}?`,
+                  body: 'They leave this board but stay searchable in the Archive.',
+                  confirmLabel: 'Archive',
+                  onConfirm: () => archiveDoneOnBoard(boardId),
+                })
+              }
               className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-200 hover:text-white"
               title="Archive all Done cards on this board so they stop cluttering it"
             >

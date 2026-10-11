@@ -499,6 +499,16 @@ describe('store actions', () => {
     expect(s().multiSelect).toEqual([])
   })
 
+  it('confirm requests are held in view state until resolved', () => {
+    let confirmed = false
+    s().askConfirm({ title: 'Delete?', confirmLabel: 'Delete', danger: true, onConfirm: () => { confirmed = true } })
+    expect(s().confirm?.title).toBe('Delete?')
+    s().confirm!.onConfirm()
+    s().closeConfirm()
+    expect(confirmed).toBe(true)
+    expect(s().confirm).toBe(null)
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

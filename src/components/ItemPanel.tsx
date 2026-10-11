@@ -63,6 +63,7 @@ export function ItemPanel({ itemId }: Props) {
   const archiveItem = useStore((s) => s.archiveItem)
   const unarchiveItem = useStore((s) => s.unarchiveItem)
   const deleteItem = useStore((s) => s.deleteItem)
+  const askConfirm = useStore((s) => s.askConfirm)
 
   const [dependencyId, setDependencyId] = useState('')
   const [childType, setChildType] = useState('')
@@ -235,15 +236,15 @@ export function ItemPanel({ itemId }: Props) {
         <section>
           <SectionLabel>Delete</SectionLabel>
           <button
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Delete "${item.title}"? This can't be undone. Its parent, links and attribution are removed, and its children lose their parent.`,
-                )
-              ) {
-                deleteItem(item.id)
-              }
-            }}
+            onClick={() =>
+              askConfirm({
+                title: `Delete "${item.title}"?`,
+                body: "This can't be undone. Its parent, links and attribution are removed, and its children lose their parent.",
+                confirmLabel: 'Delete card',
+                danger: true,
+                onConfirm: () => deleteItem(item.id),
+              })
+            }
             className="flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-50"
           >
             <Trash2 size={11} /> Delete card

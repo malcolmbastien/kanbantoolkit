@@ -23,6 +23,7 @@ export function BulkActions() {
   const setItemsAssignee = useStore((s) => s.setItemsAssignee)
   const archiveItems = useStore((s) => s.archiveItems)
   const deleteItems = useStore((s) => s.deleteItems)
+  const askConfirm = useStore((s) => s.askConfirm)
   const clearMultiSelect = useStore((s) => s.clearMultiSelect)
 
   const [assignee, setAssignee] = useState('')
@@ -116,9 +117,15 @@ export function BulkActions() {
         <Archive size={12} /> Archive
       </button>
       <button
-        onClick={() => {
-          if (window.confirm(`Delete ${count} card${count === 1 ? '' : 's'}? This can't be undone.`)) deleteItems(multiSelect)
-        }}
+        onClick={() =>
+          askConfirm({
+            title: `Delete ${count} card${count === 1 ? '' : 's'}?`,
+            body: "This can't be undone.",
+            confirmLabel: `Delete ${count}`,
+            danger: true,
+            onConfirm: () => deleteItems(multiSelect),
+          })
+        }
         className="flex items-center gap-1 rounded border border-rose-500/50 px-2 py-1 font-medium text-rose-300 hover:bg-rose-500/20"
         title="Delete the selected cards permanently"
       >
