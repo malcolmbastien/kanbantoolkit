@@ -337,7 +337,7 @@
         "id": "13",
         "title": "Implement quick-add and paste-many card creation in lanes",
         "description": "P1 quick-add and paste-many: paste a list into a lane to create multiple cards.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [],
         "priority": "medium",
         "details": "Add a lane-level composer with quick-add for a single card and a paste area for multi-line text. Parse lines as separate card titles. Create cards sequentially in the lane. Show feedback and allow undo for the batch.",
