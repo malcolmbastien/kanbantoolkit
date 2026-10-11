@@ -15,6 +15,7 @@ interface Props {
 export function BoardView({ requestMove }: Props) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const boards = useStore((s) => s.boards)
@@ -31,7 +32,7 @@ export function BoardView({ requestMove }: Props) {
   // A board is either a management board (Portfolio level) or a team board.
   if (board?.level === 'portfolio') return <ManagementBoard boardId={boardId} />
 
-  const graph: Graph = { items, edges, placements, lanes }
+  const graph: Graph = { items, edges, links, placements, lanes }
   const external = externalBlockersOnBoard(graph, boardId)
 
   return (

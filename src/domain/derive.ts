@@ -1,9 +1,10 @@
 import { effectiveStage } from './lanes'
-import type { Edge, Item, KeyResult, Lane, Objective, Placement, Stage } from './types'
+import type { Edge, Item, ItemLink, KeyResult, Lane, Objective, Placement, Stage } from './types'
 
 export interface Graph {
   items: Item[]
   edges: Edge[]
+  links: ItemLink[]
   placements: Placement[]
   lanes: Lane[]
 }
@@ -79,7 +80,7 @@ export function stageOf(itemId: string, graph: Graph): Stage | undefined {
 }
 
 /* ------------------------------------------------------------------ *
- * Dependency state — computed from both endpoints
+ * Dependency state — computed from both endpoints of a link
  * ------------------------------------------------------------------ */
 
 export type DependencyState =
@@ -102,51 +103,54 @@ export function dependencyState(blockerId: string, dependentId: string, graph: G
 export const isOpen = (s: DependencyState) => s === 'OpenPlanningRisk' || s === 'OpenLiveBlockage'
 
 export interface DependencyInfo {
-  edge: Edge
+  link: ItemLink
   blocker: Item
   dependent: Item
   state: DependencyState
 }
 
-export function readDependency(edge: Edge, graph: Graph): DependencyInfo | null {
-  const blocker = graph.items.find((i) => i.id === edge.from)
-  const dependent = graph.items.find((i) => i.id === edge.to)
-  if (!blocker || !dependent || edge.kind !== 'dependency') return null
-  return { edge, blocker, dependent, state: dependencyState(edge.from, edge.to, graph) }
+export function readDependency(link: ItemLink, graph: Graph): DependencyInfo | null {
+  const blocker = graph.items.find((i) => i.id === link.from)
+  const dependent = graph.items.find((i) => i.id === link.to)
+  if (!blocker || !dependent) return null
+  return { link, blocker, dependent, state: dependencyState(link.from, link.to, graph) }
 }
 
 export function incomingDependencies(itemId: string, graph: Graph): DependencyInfo[] {
-  return graph.edges
-    .filter((e) => e.kind === 'dependency' && e.to === itemId)
-    .map((e) => readDependency(e, graph))
+  return graph.links
+    .filter((l) => l.to === itemId)
+    .map((l) => readDependency(l, graph))
     .filter((x): x is DependencyInfo => x !== null)
 }
 
 export function outgoingDependencies(itemId: string, graph: Graph): DependencyInfo[] {
-  return graph.edges
-    .filter((e) => e.kind === 'dependency' && e.from === itemId)
-    .map((e) => readDependency(e, graph))
+  return graph.links
+    .filter((l) => l.from === itemId)
+    .map((l) => readDependency(l, graph))
     .filter((x): x is DependencyInfo => x !== null)
 }
 
-export function blockingDeps(itemId: string, graph: Graph): DependencyInfo[] {
-  return incomingDependencies(itemId, graph).filter(
-    (d) => d.edge.dep?.status === 'confirmed' && isOpen(d.state),
-  )
+/** Confirmed links into this item whose blocker is not yet done — still open. */
+export function openIncomingLinks(itemId: string, graph: Graph): DependencyInfo[] {
+  return incomingDependencies(itemId, graph).filter((d) => d.link.status === 'confirmed' && isOpen(d.state))
 }
 
+/**
+ * Blocking is a status the user sets on the item — it is *not* derived from
+ * links. `openIncomingLinks` describes dependency state; this describes intent.
+ */
 export function isBlocked(itemId: string, graph: Graph): boolean {
-  return blockingDeps(itemId, graph).length > 0
+  return graph.items.find((i) => i.id === itemId)?.blocked === true
 }
 
 export function confirmationRequests(itemId: string, graph: Graph): DependencyInfo[] {
-  return outgoingDependencies(itemId, graph).filter((d) => d.edge.dep?.status === 'proposed')
+  return outgoingDependencies(itemId, graph).filter((d) => d.link.status === 'proposed')
 }
 
 /** "N items blocked by this" — distinct boards among the dependents. */
 export function blockingSummary(itemId: string, graph: Graph): { count: number; boards: number } {
   const confirmed = outgoingDependencies(itemId, graph).filter(
-    (d) => d.edge.dep?.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved,
+    (d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved,
   )
   const boardOf = (itemId: string) =>
     graph.placements.find((p) => p.itemId === itemId)?.boardId ?? 'none'

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { childrenOf, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { createSeed } from '@/domain/seed'
-import type { Board, BoardLevel, Edge, FlowState, IssueType, Item, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
+import type { Board, BoardLevel, DepKind, DepStatus, Edge, FlowState, IssueType, Item, ItemLink, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -77,9 +77,14 @@ export interface Actions {
   linkTeamInitiative: (parentId: string, boardId: string, title: string) => void
 
   raiseDependency: (blockerId: string, dependentId: string, pinTo?: string, reason?: string) => void
-  confirmDependency: (edgeId: string) => void
-  rejectDependency: (edgeId: string, reason: string) => void
+  confirmDependency: (linkId: string) => void
+  rejectDependency: (linkId: string, reason: string) => void
   setAttribution: (itemId: string, objectiveId: string, on: boolean) => void
+
+  /** Explicitly block/unblock an item — a status independent of any link. */
+  blockItem: (itemId: string, reason?: string) => void
+  unblockItem: (itemId: string, note?: string) => void
+  addLogNote: (itemId: string, note: string) => void
 }
 
 export type Store = FlowState & ViewState & Actions
@@ -89,8 +94,15 @@ const uid = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2) + Date.now().toString(36)
 
+const logEntry = (kind: ItemLogEntry['kind'], note?: string): ItemLogEntry => ({
+  id: uid(),
+  at: Date.now(),
+  kind,
+  ...(note ? { note } : {}),
+})
+
 const initialView: ViewState = {
-  boardId: 'b-core',
+  boardId: 'b-portfolio',
   selectedItemId: null,
   search: '',
   showTypeEditor: false,
@@ -101,8 +113,10 @@ const initialView: ViewState = {
 }
 
 /**
- * Backfills fields added after earlier persisted versions. Currently: `Board.level`
- * (boards saved before the flight-level badge existed). Exported for testing.
+ * Backfills fields added after earlier persisted versions:
+ * - `Board.level` (boards saved before the flight-level badge existed);
+ * - item-to-item `links` (v9 kept dependencies inside `edges`).
+ * Exported for testing.
  */
 export function migrateState(persisted: unknown): Partial<Store> {
   const p = (persisted ?? {}) as Record<string, unknown>
@@ -117,6 +131,31 @@ export function migrateState(persisted: unknown): Partial<Store> {
       ...b,
       level: b.level ?? levelById[b.id] ?? 'team',
     }))
+  }
+  // v9 → v10: item-to-item dependencies became first-class `links`; `edges`
+  // now holds only hierarchy (decomposition) and objective (attribution).
+  if (!Array.isArray(p.links)) {
+    type LegacyEdge = {
+      id: string
+      kind: 'decomposition' | 'dependency' | 'attribution'
+      from: string
+      to: string
+      dep?: { fsKind?: DepKind; lagDays?: number; status?: DepStatus; reason?: string; pinTo?: string }
+    }
+    const edges = Array.isArray(p.edges) ? (p.edges as LegacyEdge[]) : []
+    p.links = edges
+      .filter((e) => e.kind === 'dependency')
+      .map((e) => ({
+        id: e.id,
+        from: e.from,
+        to: e.to,
+        kind: e.dep?.fsKind ?? 'FS',
+        lagDays: e.dep?.lagDays,
+        status: e.dep?.status ?? 'confirmed',
+        reason: e.dep?.reason,
+        pinTo: e.dep?.pinTo,
+      }))
+    p.edges = edges.filter((e) => e.kind !== 'dependency').map(({ id, kind, from, to }) => ({ id, kind, from, to }))
   }
   return p as Partial<Store>
 }
@@ -246,7 +285,7 @@ export const useStore = create<Store>()(
       setBoardLevel: (id, level) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, level } : b)) }),
 
       addCard: ({ boardId, typeId, laneId, title }) => {
-        const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
+        const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), log: [logEntry('created')] }
         const placement: Placement = { id: uid(), boardId, itemId: item.id, laneId }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
       },
@@ -354,17 +393,16 @@ export const useStore = create<Store>()(
       raiseDependency: (blockerId, dependentId, pinTo, reason) => {
         if (blockerId === dependentId) return
         const state = get()
-        if (state.edges.some((e) => e.kind === 'dependency' && e.from === blockerId && e.to === dependentId)) return
-        set({
-          edges: [...state.edges, { id: uid(), kind: 'dependency', from: blockerId, to: dependentId, dep: { fsKind: 'FS', status: 'proposed', pinTo, reason } }],
-        })
+        if (state.links.some((l) => l.from === blockerId && l.to === dependentId)) return
+        const link: ItemLink = { id: uid(), from: blockerId, to: dependentId, kind: 'FS', status: 'proposed', pinTo, reason }
+        set({ links: [...state.links, link] })
       },
 
-      confirmDependency: (edgeId) =>
-        set({ edges: get().edges.map((e) => (e.id === edgeId && e.dep ? { ...e, dep: { ...e.dep, status: 'confirmed' } } : e)) }),
+      confirmDependency: (linkId) =>
+        set({ links: get().links.map((l) => (l.id === linkId ? { ...l, status: 'confirmed' } : l)) }),
 
-      rejectDependency: (edgeId, reason) =>
-        set({ edges: get().edges.map((e) => (e.id === edgeId && e.dep ? { ...e, dep: { ...e.dep, status: 'rejected', reason } } : e)) }),
+      rejectDependency: (linkId, reason) =>
+        set({ links: get().links.map((l) => (l.id === linkId ? { ...l, status: 'rejected', reason } : l)) }),
 
       setAttribution: (itemId, objectiveId, on) => {
         const state = get()
@@ -372,10 +410,37 @@ export const useStore = create<Store>()(
         if (on && !existing) set({ edges: [...state.edges, { id: uid(), kind: 'attribution', from: objectiveId, to: itemId }] })
         else if (!on && existing) set({ edges: state.edges.filter((e) => e.id !== existing.id) })
       },
+
+      blockItem: (itemId, reason) => {
+        const note = reason?.trim() || undefined
+        set({
+          items: get().items.map((i) =>
+            i.id === itemId
+              ? { ...i, blocked: true, blockedReason: note, log: [...(i.log ?? []), logEntry('blocked', note)] }
+              : i,
+          ),
+        })
+      },
+
+      unblockItem: (itemId, note) => {
+        const text = note?.trim() || undefined
+        set({
+          items: get().items.map((i) =>
+            i.id === itemId
+              ? { ...i, blocked: false, blockedReason: undefined, log: [...(i.log ?? []), logEntry('unblocked', text)] }
+              : i,
+          ),
+        })
+      },
+
+      addLogNote: (itemId, note) =>
+        set({
+          items: get().items.map((i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('noted', note)] } : i)),
+        }),
     }),
     {
       name: 'flowline-state-v3',
-      version: 9,
+      version: 10,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
@@ -385,6 +450,7 @@ export const useStore = create<Store>()(
           issueTypes: s.issueTypes,
           items: s.items,
           edges: s.edges,
+          links: s.links,
           objectives: s.objectives,
           keyResults: s.keyResults,
           sponsors: s.sponsors,

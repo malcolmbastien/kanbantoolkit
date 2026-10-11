@@ -1,9 +1,9 @@
 import { Card, type CardParent } from './Card'
 import {
-  blockingDeps,
   decompositionChildren,
   decompositionParent,
   depth as depthOf,
+  incomingDependencies,
   lensRole,
   openDescendants,
   outgoingDependencies,
@@ -29,13 +29,14 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
+  const links = useStore((s) => s.links)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const openItem = useStore((s) => s.openItem)
   const lensId = useStore((s) => s.lensId)
   const toggleLens = useStore((s) => s.toggleLens)
   const editMode = useStore((s) => s.editMode)
 
-  const graph: Graph = { items, edges, placements, lanes }
+  const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
@@ -120,10 +121,10 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
                   onOpen={openItem}
                   summary={{
                     childCount: decompositionChildren(c.id, edges).length,
-                    blockedCount: blockingDeps(c.id, graph).length,
                     blocksCount: outgoingDependencies(c.id, graph).filter(
-                      (d) => d.edge.dep?.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved,
+                      (d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved,
                     ).length,
+                    linksCount: incomingDependencies(c.id, graph).length + outgoingDependencies(c.id, graph).length,
                     openDescendants: openDescendants(c.id, graph).length,
                     rollupPercent: rollupOf(c.id, graph).percent,
                   }}

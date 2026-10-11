@@ -65,6 +65,16 @@ export interface Board {
   teamBoardIds?: string[]
 }
 
+/** A notable event in an item's history. Append-only. */
+export type ItemLogKind = 'created' | 'blocked' | 'unblocked' | 'noted'
+
+export interface ItemLogEntry {
+  id: string
+  at: number
+  kind: ItemLogKind
+  note?: string
+}
+
 /** A card, without any board/state/level field. */
 export interface Item {
   id: string
@@ -78,6 +88,15 @@ export interface Item {
   cancelledAt?: number | null
   /** Reason captured when a soft WIP limit was crossed. */
   lastMoveReason?: string
+  /**
+   * A special status the user applies explicitly. It is independent of the board
+   * cell and of any link — blocking an item never moves it and never counts as WIP.
+   */
+  blocked?: boolean
+  /** Optional reason captured when the item was blocked. */
+  blockedReason?: string
+  /** Append-only history of notable events (blocked / unblocked / notes). */
+  log?: ItemLogEntry[]
 }
 
 /** The explicit board + cell a card sits in. One per board. */
@@ -91,24 +110,35 @@ export interface Placement {
 
 export type DepKind = 'FS' | 'SS' | 'FF'
 export type DepStatus = 'proposed' | 'confirmed' | 'rejected'
-export type EdgeKind = 'decomposition' | 'dependency' | 'attribution'
 
-export interface DependencyDetail {
-  fsKind: DepKind
+/**
+ * An item-to-item link. Links capture **dependency-type relationships only**
+ * (finish-to-start / start-to-start / finish-to-finish). They never imply a
+ * "blocked" status — blocking is an explicit status the user sets on an item.
+ */
+export interface ItemLink {
+  id: string
+  /** Blocker. */
+  from: string
+  /** Dependent. */
+  to: string
+  kind: DepKind
   lagDays?: number
   status: DepStatus
   reason?: string
   pinTo?: string
 }
 
+/** Structural (decomposition) and objective (attribution) relationships. */
+export type EdgeKind = 'decomposition' | 'attribution'
+
 export interface Edge {
   id: string
   kind: EdgeKind
-  /** decomposition: parent; dependency: blocker; attribution: objective. */
+  /** decomposition: parent; attribution: objective. */
   from: string
-  /** decomposition: child; dependency: dependent; attribution: item. */
+  /** decomposition: child; attribution: item. */
   to: string
-  dep?: DependencyDetail
 }
 
 /** Objectives and KRs are commitment-limited entities, never cards. */
@@ -142,7 +172,10 @@ export interface FlowState {
   lanes: Lane[]
   items: Item[]
   placements: Placement[]
+  /** Structural + objective relationships (hierarchy, attribution). */
   edges: Edge[]
+  /** Item-to-item links: dependency relationships only. */
+  links: ItemLink[]
   objectives: Objective[]
   keyResults: KeyResult[]
   sponsors: Record<string, SponsorRecord>

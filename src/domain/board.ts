@@ -1,4 +1,4 @@
-import { blockingDeps, type DependencyInfo, type Graph } from './derive'
+import { openIncomingLinks, type DependencyInfo, type Graph } from './derive'
 import type { IssueType, Item, Placement } from './types'
 
 /** Items placed on a board (via explicit placement records). */
@@ -7,13 +7,13 @@ export function itemsOnBoard(boardId: string, placements: Placement[], items: It
   return items.filter((i) => ids.has(i.id))
 }
 
-/** Confirmed blockers of on-board work that live on another board (boundary pins). */
+/** Open links from off-board blockers into on-board work (boundary pins). */
 export function externalBlockersOnBoard(graph: Graph, boardId: string): DependencyInfo[] {
   const onBoard = new Set(graph.placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
   const seen = new Set<string>()
   const out: DependencyInfo[] = []
   for (const p of graph.placements.filter((p) => p.boardId === boardId)) {
-    for (const dep of blockingDeps(p.itemId, graph)) {
+    for (const dep of openIncomingLinks(p.itemId, graph)) {
       if (!onBoard.has(dep.blocker.id) && !seen.has(dep.blocker.id)) {
         seen.add(dep.blocker.id)
         out.push(dep)

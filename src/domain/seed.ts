@@ -1,4 +1,4 @@
-import type { Board, Edge, FlowState, IssueType, Item, Lane, Placement, Objective, SplitOrientation } from './types'
+import type { Board, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, SplitOrientation } from './types'
 
 const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 
@@ -86,7 +86,15 @@ item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignee: 'JT' }
 item('st-signup-design', 'Design signup screens', 't-story', { size: 3 })
 item('st-signup-form', 'Build signup form', 't-story', { size: 5, assignee: 'RK' })
 item('st-email', 'Email verification', 't-story', { size: 3 })
-item('st-sso', 'SSO buttons', 't-story', { size: 2 })
+item('st-sso', 'SSO buttons', 't-story', {
+  size: 2,
+  blocked: true,
+  blockedReason: 'Gateway contract not ready',
+  log: [
+    { id: 'log-sso-1', at: T, kind: 'created' },
+    { id: 'log-sso-2', at: T + 2 * 3_600_000, kind: 'blocked', note: 'Gateway contract not ready' },
+  ],
+})
 item('df-signup', 'Signup validation on retry', 't-bug', { size: 2 })
 
 // Cards — Team Nova.
@@ -130,8 +138,8 @@ place('sp-gateway', 'b-nova', n.backlog.id)
  * ------------------------------------------------------------------ */
 const edges: Edge[] = []
 let edgeSeq = 0
-const edge = (kind: Edge['kind'], from: string, to: string, dep?: Edge['dep']) =>
-  edges.push({ id: `e-${++edgeSeq}`, kind, from, to, dep })
+const edge = (kind: Edge['kind'], from: string, to: string) =>
+  edges.push({ id: `e-${++edgeSeq}`, kind, from, to })
 const decompose = (parent: string, children: string[]) =>
   children.forEach((c) => edge('decomposition', parent, c))
 
@@ -141,10 +149,17 @@ decompose('init-signup', ['st-signup-design', 'st-signup-form', 'st-email', 'st-
 decompose('init-welcome', ['st-welcome-copy', 'st-tour'])
 decompose('init-gateway', ['st-gateway-contract', 'st-ratelimit', 'sp-gateway'])
 
-// Dependencies: a Platform blocker of Team Atlas work (cross-team) + a proposed one.
-edge('dependency', 'init-gateway', 'st-email', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-gateway-contract', reason: 'Email verification needs the gateway contract' })
-edge('dependency', 'init-gateway', 'st-sso', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-gateway-contract', reason: 'SSO goes through the gateway' })
-edge('dependency', 'st-signup-form', 'st-tour', { fsKind: 'FS', status: 'proposed', reason: 'Tour depends on the new signup flow' })
+// Links: item-to-item dependency relationships only (FS/SS/FF). They describe
+// sequencing — they never set an item's blocked status.
+const links: ItemLink[] = []
+let linkSeq = 0
+const link = (from: string, to: string, extra: Partial<ItemLink> = {}) =>
+  links.push({ id: `lnk-${++linkSeq}`, from, to, kind: 'FS', status: 'confirmed', ...extra })
+
+// A Platform blocker of Team Atlas work (cross-team) + a proposed one.
+link('init-gateway', 'st-email', { pinTo: 'st-gateway-contract', reason: 'Email verification needs the gateway contract' })
+link('init-gateway', 'st-sso', { pinTo: 'st-gateway-contract', reason: 'SSO goes through the gateway' })
+link('st-signup-form', 'st-tour', { status: 'proposed', reason: 'Tour depends on the new signup flow' })
 
 // Attribution — informs, never counts as WIP.
 edge('attribution', 'obj-activation', 'init-onboarding')
@@ -164,6 +179,7 @@ export function createSeed(): FlowState {
     items: structuredClone(items),
     placements: structuredClone(placements),
     edges: structuredClone(edges),
+    links: structuredClone(links),
     objectives: structuredClone(objectives),
     keyResults: structuredClone(keyResults),
     sponsors: {},

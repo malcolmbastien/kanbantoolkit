@@ -26,9 +26,18 @@ interface Props {
   itemId: string
 }
 
+/** Dot colour per log event kind. */
+const LOG_STYLES: Record<string, string> = {
+  created: 'bg-slate-300',
+  blocked: 'bg-rose-500',
+  unblocked: 'bg-emerald-500',
+  noted: 'bg-indigo-400',
+}
+
 export function ItemPanel({ itemId }: Props) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const boards = useStore((s) => s.boards)
@@ -43,6 +52,9 @@ export function ItemPanel({ itemId }: Props) {
   const confirmDependency = useStore((s) => s.confirmDependency)
   const rejectDependency = useStore((s) => s.rejectDependency)
   const setAttribution = useStore((s) => s.setAttribution)
+  const blockItem = useStore((s) => s.blockItem)
+  const unblockItem = useStore((s) => s.unblockItem)
+  const addLogNote = useStore((s) => s.addLogNote)
 
   const [blockerId, setBlockerId] = useState('')
   const [childType, setChildType] = useState('')
@@ -50,8 +62,10 @@ export function ItemPanel({ itemId }: Props) {
   const [linkBoardId, setLinkBoardId] = useState('')
   const [linkTitle, setLinkTitle] = useState('')
   const [showPreview, setShowPreview] = useState(false)
+  const [blockReason, setBlockReason] = useState('')
+  const [note, setNote] = useState('')
 
-  const graph: Graph = { items, edges, placements, lanes }
+  const graph: Graph = { items, edges, links, placements, lanes }
   const item = items.find((i) => i.id === itemId)
   if (!item) return null
 
@@ -69,6 +83,7 @@ export function ItemPanel({ itemId }: Props) {
   const badge = blockingSummary(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
   const status = statusOf(item.id, graph)
+  const log = item.log ?? []
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
@@ -132,6 +147,43 @@ export function ItemPanel({ itemId }: Props) {
           <div className="mt-1 text-[11px] text-indigo-700/80">
             depth {d} — derived from the parent/child chain, not a field.
           </div>
+        </section>
+
+        {/* Blocked — an explicit status, independent of the cell and of links */}
+        <section>
+          <SectionLabel>Blocked — a status you set</SectionLabel>
+          {item.blocked ? (
+            <div className="rounded-md border border-rose-200 bg-rose-50 p-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-700">
+                <Ban size={12} /> Blocked
+              </div>
+              {item.blockedReason && <p className="mt-0.5 text-[11px] text-rose-700/80">{item.blockedReason}</p>}
+              <button
+                onClick={() => unblockItem(item.id)}
+                className="mt-1.5 rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-rose-700"
+              >
+                Unblock
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <input
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+                placeholder="Reason (optional)…"
+                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-rose-300"
+              />
+              <button
+                onClick={() => { blockItem(item.id, blockReason); setBlockReason('') }}
+                className="flex items-center gap-1 rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-rose-700"
+              >
+                <Ban size={11} /> Block
+              </button>
+            </div>
+          )}
+          <p className="mt-1 text-[10px] text-slate-400">
+            Blocking is independent of links — it never changes the cell and never counts as WIP. Each block/unblock is recorded below.
+          </p>
         </section>
 
         {/* Details — full card editor */}
@@ -345,49 +397,49 @@ export function ItemPanel({ itemId }: Props) {
           </section>
         )}
 
-        {/* Dependencies */}
+        {/* Links — item-to-item dependency relationships only */}
         <section>
-          <SectionLabel>Dependencies</SectionLabel>
+          <SectionLabel>Links — dependencies</SectionLabel>
           {badge.count > 0 && (
             <div className="mb-2 flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800 ring-1 ring-amber-100">
               <Ban size={11} /> This blocks {badge.count} item{badge.count > 1 ? 's' : ''} across {badge.boards} board{badge.boards > 1 ? 's' : ''}
             </div>
           )}
           <div className="space-y-1">
-            {incoming.length === 0 && outgoing.length === 0 && <p className="text-[11px] text-slate-400">No dependency edges.</p>}
+            {incoming.length === 0 && outgoing.length === 0 && <p className="text-[11px] text-slate-400">No links.</p>}
             {incoming.map((dep) => {
               const state = DEP_STATE_STYLES[dep.state]
               return (
-                <div key={dep.edge.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
-                  <div className="flex items-center gap-1 text-[10px] text-slate-400"><Ban size={10} /> blocked by</div>
+                <div key={dep.link.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
+                  <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> depends on</div>
                   <div className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate text-slate-700">{dep.blocker.title}</span>
-                    {dep.edge.dep?.status === 'proposed' ? (
+                    {dep.link.status === 'proposed' ? (
                       <span className="rounded bg-slate-100 px-1 text-[9px] font-semibold text-slate-500">pending</span>
                     ) : (
                       <span className={cn('rounded px-1 text-[9px] font-semibold ring-1', state.className)}>{state.label}</span>
                     )}
                   </div>
                   <div className="text-[10px] text-slate-400">
-                    derived → {dependencyState(dep.blocker.id, dep.dependent.id, graph)}
+                    {dep.link.kind} · derived → {dependencyState(dep.blocker.id, dep.dependent.id, graph)}
                   </div>
-                  {dep.edge.dep?.pinTo && (
+                  {dep.link.pinTo && (
                     <div className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-500">
-                      <ChevronRight size={10} /> pinned to {items.find((i) => i.id === dep.edge.dep?.pinTo)?.title ?? dep.edge.dep.pinTo}
+                      <ChevronRight size={10} /> pinned to {items.find((i) => i.id === dep.link.pinTo)?.title ?? dep.link.pinTo}
                     </div>
                   )}
                 </div>
               )
             })}
             {outgoing.map((dep) => (
-              <div key={dep.edge.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
+              <div key={dep.link.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
                 <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> blocks</div>
                 <div className="text-slate-700">{dep.dependent.title}</div>
-                {dep.edge.dep?.status === 'proposed' ? (
+                {dep.link.status === 'proposed' ? (
                   <div className="mt-1 flex items-center gap-1">
                     <span className="rounded bg-amber-50 px-1 text-[9px] font-semibold text-amber-700 ring-1 ring-amber-200">confirmation requested</span>
-                    <button onClick={() => confirmDependency(dep.edge.id)} className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700">Confirm</button>
-                    <button onClick={() => rejectDependency(dep.edge.id, 'Not a real dependency')} className="rounded border border-slate-200 px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-50">Reject</button>
+                    <button onClick={() => confirmDependency(dep.link.id)} className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700">Confirm</button>
+                    <button onClick={() => rejectDependency(dep.link.id, 'Not a real dependency')} className="rounded border border-slate-200 px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-50">Reject</button>
                   </div>
                 ) : (
                   <div className="text-[10px] text-slate-400">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
@@ -397,13 +449,16 @@ export function ItemPanel({ itemId }: Props) {
           </div>
           <div className="mt-2 flex items-center gap-1">
             <select value={blockerId} onChange={(e) => setBlockerId(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px]">
-              <option value="">Raise: this is blocked by…</option>
+              <option value="">Add link: this depends on…</option>
               {candidates.map((c) => (
                 <option key={c.id} value={c.id}>{typeName(c.typeId)}: {c.title}</option>
               ))}
             </select>
-            <button disabled={!blockerId} onClick={() => { raiseDependency(blockerId, item.id); setBlockerId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Raise</button>
+            <button disabled={!blockerId} onClick={() => { raiseDependency(blockerId, item.id); setBlockerId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Add link</button>
           </div>
+          <p className="mt-1 text-[10px] text-slate-400">
+            Links describe sequencing (FS/SS/FF). They indicate linked items but never set the blocked status above.
+          </p>
         </section>
 
         {/* Attribution */}
@@ -424,6 +479,41 @@ export function ItemPanel({ itemId }: Props) {
           {attributed.length > 1 && (
             <p className="mt-1 text-[10px] text-emerald-700">Serves {attributed.length} objectives — still 1 unit of WIP.</p>
           )}
+        </section>
+
+        {/* Log — append-only history (block/unblock events, notes) */}
+        <section>
+          <SectionLabel>Log ({log.length})</SectionLabel>
+          <div className="space-y-1">
+            {log.length === 0 && <p className="text-[11px] text-slate-400">No events yet.</p>}
+            {[...log].reverse().map((e) => (
+              <div key={e.id} className="flex items-start gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+                <span className={cn('mt-1 h-1.5 w-1.5 shrink-0 rounded-full', LOG_STYLES[e.kind] ?? 'bg-slate-300')} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] text-slate-700">
+                    <span className="font-semibold capitalize">{e.kind}</span>
+                    {e.note ? ` — ${e.note}` : ''}
+                  </div>
+                  <div className="text-[10px] text-slate-400">{new Date(e.at).toLocaleString()}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-1">
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Add a note…"
+              className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+            <button
+              disabled={note.trim().length === 0}
+              onClick={() => { addLogNote(item.id, note.trim()); setNote('') }}
+              className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+            >
+              Log
+            </button>
+          </div>
         </section>
       </div>
     </aside>

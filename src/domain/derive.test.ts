@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   attributedObjectives,
-  blockingDeps,
   blockingSummary,
   decompositionChildren,
   decompositionParent,
   depth,
   dependencyState,
+  isBlocked,
   openDescendants,
+  openIncomingLinks,
   rollupOf,
   statusOf,
   type Graph,
@@ -16,7 +17,7 @@ import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLan
 import { createSeed } from './seed'
 import type { FlowState } from './types'
 
-const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, placements: s.placements, lanes: s.lanes })
+const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes })
 const laneByName = (s: FlowState, boardId: string, name: string) =>
   s.lanes.find((l) => l.boardId === boardId && l.name === name)!
 
@@ -87,8 +88,28 @@ describe('dependency state is computed from cells', () => {
     expect(blockingSummary('init-gateway', g).count).toBe(2)
   })
 
-  it('shows one blocker badge on the dependent', () => {
-    expect(blockingDeps('st-email', g).length).toBe(1)
+  it('shows one blocking link on the dependent', () => {
+    expect(openIncomingLinks('st-email', g).length).toBe(1)
+  })
+})
+
+describe('blocked is an explicit status, not derived from links', () => {
+  const s = createSeed()
+  const g = graphOf(s)
+
+  it('reads the status set on the item', () => {
+    expect(isBlocked('st-sso', g)).toBe(true)
+    expect(isBlocked('st-email', g)).toBe(false)
+  })
+
+  it('blocking an item does not change its cell or dependency state', () => {
+    const s2 = createSeed()
+    const before = statusOf('st-email', graphOf(s2))
+    s2.items = s2.items.map((i) => (i.id === 'st-email' ? { ...i, blocked: true } : i))
+    const after = statusOf('st-email', graphOf(s2))
+    expect({ ...after }).toEqual({ ...before })
+    // A link into an unblocked item stays open — the status is orthogonal.
+    expect(dependencyState('init-gateway', 'st-email', graphOf(s2))).toBe('OpenPlanningRisk')
   })
 })
 

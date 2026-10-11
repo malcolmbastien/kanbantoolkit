@@ -18,6 +18,7 @@ export function ObjectivesView() {
   const keyResults = useStore((s) => s.keyResults)
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
@@ -30,7 +31,7 @@ export function ObjectivesView() {
   const setAttribution = useStore((s) => s.setAttribution)
   const openItem = useStore((s) => s.openItem)
 
-  const graph: Graph = { items, edges, placements, lanes }
+  const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
   const typeOf = (id: string): IssueType => issueTypes.find((t) => t.id === id) ?? { id, name: 'Item', color: '#64748b' }
 

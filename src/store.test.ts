@@ -12,7 +12,7 @@ vi.stubGlobal('localStorage', {
 const s = () => useStore.getState()
 const graph = () => {
   const st = s()
-  return { items: st.items, edges: st.edges, placements: st.placements, lanes: st.lanes }
+  return { items: st.items, edges: st.edges, links: st.links, placements: st.placements, lanes: st.lanes }
 }
 const laneByName = (boardId: string, name: string) =>
   s().lanes.find((l) => l.boardId === boardId && l.name === name)!
@@ -118,6 +118,53 @@ describe('store actions', () => {
     s().addBoard('Fresh')
     expect(s().boards.length).toBe(before + 1)
     expect(s().boards[s().boards.length - 1].level).toBe('team')
+  })
+
+  it('blocking is an explicit status recorded in the item log', () => {
+    expect(s().items.find((i) => i.id === 'st-email')?.blocked ?? false).toBe(false)
+    s().blockItem('st-email', 'Waiting on gateway')
+    const b = s().items.find((i) => i.id === 'st-email')!
+    expect(b.blocked).toBe(true)
+    expect(b.blockedReason).toBe('Waiting on gateway')
+    expect(b.log?.some((e) => e.kind === 'blocked' && e.note === 'Waiting on gateway')).toBe(true)
+
+    s().unblockItem('st-email')
+    const u = s().items.find((i) => i.id === 'st-email')!
+    expect(u.blocked).toBe(false)
+    expect(u.blockedReason).toBeUndefined()
+    expect(u.log?.some((e) => e.kind === 'unblocked')).toBe(true)
+
+    s().addLogNote('st-email', 'note text')
+    expect(s().items.find((i) => i.id === 'st-email')!.log?.some((e) => e.kind === 'noted' && e.note === 'note text')).toBe(true)
+  })
+
+  it('links are the only item-to-item dependency relationships', () => {
+    const before = s().links.length
+    s().raiseDependency('st-signup-form', 'st-signup-design')
+    expect(s().links.length).toBe(before + 1)
+    const link = s().links[s().links.length - 1]
+    expect(link.status).toBe('proposed')
+    expect(link.kind).toBe('FS')
+    s().confirmDependency(link.id)
+    expect(s().links.find((l) => l.id === link.id)?.status).toBe('confirmed')
+  })
+
+  it('migrateState moves legacy dependency edges into links', () => {
+    const legacy = {
+      boards: [],
+      edges: [
+        { id: 'e1', kind: 'decomposition', from: 'p', to: 'c' },
+        { id: 'e2', kind: 'dependency', from: 'a', to: 'b', dep: { fsKind: 'SS', status: 'confirmed', reason: 'r', pinTo: 'p' } },
+        { id: 'e3', kind: 'attribution', from: 'o', to: 'c' },
+      ],
+    }
+    const migrated = migrateState(legacy) as {
+      edges: { id: string }[]
+      links: { id: string; kind: string; status: string; reason?: string; pinTo?: string }[]
+    }
+    expect(migrated.edges.map((e) => e.id)).toEqual(['e1', 'e3'])
+    expect(migrated.links).toHaveLength(1)
+    expect(migrated.links[0]).toMatchObject({ id: 'e2', from: 'a', to: 'b', kind: 'SS', status: 'confirmed', reason: 'r', pinTo: 'p' })
   })
 
   it('migrateState backfills Board.level', () => {

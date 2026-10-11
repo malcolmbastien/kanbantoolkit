@@ -3,10 +3,10 @@ import { Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
 import {
-  blockingDeps,
   decompositionChildren,
   decompositionParent,
   depth as depthOf,
+  incomingDependencies,
   lensRole,
   openDescendants,
   outgoingDependencies,
@@ -236,8 +236,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               onOpen={ctx.openItem}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
-                blockedCount: blockingDeps(c.id, graph).length,
-                blocksCount: outgoingDependencies(c.id, graph).filter((d) => d.edge.dep?.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved).length,
+                blocksCount: outgoingDependencies(c.id, graph).filter((d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved).length,
+                linksCount: incomingDependencies(c.id, graph).length + outgoingDependencies(c.id, graph).length,
                 openDescendants: openDescendants(c.id, graph).length,
                 rollupPercent: decompositionChildren(c.id, graph.edges).length > 0 ? roll.percent : undefined,
               }}
@@ -328,6 +328,7 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
 export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const boards = useStore((s) => s.boards)
@@ -347,7 +348,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const lensId = useStore((s) => s.lensId)
   const toggleLens = useStore((s) => s.toggleLens)
 
-  const graph: Graph = { items, edges, placements, lanes }
+  const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
   const root = rootLane(lanes, boardId)
   const editMode = storeEdit && interactive
@@ -392,11 +393,11 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
           <div className="flex flex-col gap-1">
             {external.map((d) => (
               <BoundaryPin
-                key={d.edge.id}
+                key={d.link.id}
                 dep={d}
                 blockerType={typeOf(d.blocker.typeId)}
                 boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.blocker.id)?.boardId)?.name ?? '—'}
-                pin={d.edge.dep?.pinTo ? items.find((i) => i.id === d.edge.dep?.pinTo) : undefined}
+                pin={d.link.pinTo ? items.find((i) => i.id === d.link.pinTo) : undefined}
                 onOpen={openItem}
               />
             ))}
