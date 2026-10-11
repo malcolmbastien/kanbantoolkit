@@ -1,5 +1,4 @@
-import { Fragment } from 'react'
-import { DndContext, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { Fragment, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
@@ -28,14 +27,27 @@ export interface BoardCanvasProps {
   onMove?: (itemId: string, boardId: string, laneId: string) => void
 }
 
-function DroppableCell({ id, enabled, children }: { id: string; enabled: boolean; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id, disabled: !enabled })
+function DroppableCell({ enabled, onDropItem, children }: { enabled: boolean; onDropItem: (itemId: string) => void; children: React.ReactNode }) {
+  const [over, setOver] = useState(false)
   return (
     <div
-      ref={setNodeRef}
+      onDragOver={(e) => {
+        if (!enabled) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        if (!over) setOver(true)
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        if (!enabled) return
+        e.preventDefault()
+        setOver(false)
+        const id = e.dataTransfer.getData('text/plain')
+        if (id) onDropItem(id)
+      }}
       className={cn(
         'flex min-h-[48px] flex-1 flex-col gap-1 rounded-b-md p-1 transition',
-        enabled && isOver ? 'bg-indigo-300/50 ring-1 ring-inset ring-indigo-500' : 'bg-transparent',
+        enabled && over ? 'bg-indigo-300/50 ring-1 ring-inset ring-indigo-500' : 'bg-transparent',
       )}
     >
       {children}
@@ -56,6 +68,8 @@ interface Ctx {
   effectiveLane: Map<string, string>
   lensId: string | null
   toggleLens: (id: string) => void
+  interactive: boolean
+  dropCard: (itemId: string, laneId: string) => void
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
@@ -207,7 +221,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   return (
     <div className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col rounded-md border border-slate-300 bg-slate-100 shadow-sm">
       {!hideHeader && header(true)}
-      <DroppableCell id={`lane:${lane.id}`} enabled={ctx.editMode}>
+      <DroppableCell enabled={ctx.interactive} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
         {cards.map((c) => {
           const pid = decompositionParent(c.id, graph.edges)
           const p = pid ? items.find((i) => i.id === pid) : undefined
@@ -224,6 +238,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               selected={ctx.selectedItemId === c.id}
               lens={lensRole(c.id, ctx.lensId, graph)}
               onLens={ctx.toggleLens}
+              draggable={ctx.interactive}
               onOpen={ctx.openItem}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
@@ -338,7 +353,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const lensId = useStore((s) => s.lensId)
   const toggleLens = useStore((s) => s.toggleLens)
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const graph: Graph = { items, edges, placements, lanes }
   const refs = buildRefs(items, issueTypes)
   const root = rootLane(lanes, boardId)
@@ -358,19 +372,12 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
 
   const external = externalBlockersOnBoard(graph, boardId)
-  const canDrag = interactive && Boolean(onMove)
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
-
-  const onDragEnd = (e: DragEndEvent) => {
-    if (!onMove) return
-    const overId = e.over?.id
-    if (!overId || typeof overId !== 'string' || !overId.startsWith('lane:')) return
-    onMove(String(e.active.id), boardId, overId.slice('lane:'.length))
-  }
 
   const ctx: Ctx = {
     lanes, items, issueTypes, refs, graph, editMode, search, selectedItemId, boardItems, effectiveLane,
-    lensId, toggleLens,
+    lensId, toggleLens, interactive,
+    dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, setLaneOrientation, setLaneFlags, setLaneWip, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = issueTypes[0]?.id
@@ -405,9 +412,5 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     </div>
   )
 
-  return canDrag ? (
-    <DndContext sensors={sensors} onDragEnd={onDragEnd}>{canvas}</DndContext>
-  ) : (
-    canvas
-  )
+  return canvas
 }

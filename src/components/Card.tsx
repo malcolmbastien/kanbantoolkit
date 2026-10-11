@@ -1,5 +1,3 @@
-import { useDraggable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
 import { Ban, Clock, CornerDownRight, Crosshair, GripVertical, Layers, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { hexToRgba, readableOn } from '@/lib/colors'
@@ -40,6 +38,8 @@ interface Props {
   /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
   lens?: 'self' | 'in' | 'out'
   onLens?: (id: string) => void
+  /** Native HTML5 drag (cards workflow). */
+  draggable?: boolean
   selected?: boolean
   onOpen: (id: string) => void
 }
@@ -52,11 +52,16 @@ const BUCKET_DOT: Record<CardSymbol['bucket'], string> = {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, lens, onLens, selected, onOpen }: Props) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: item.id,
-    data: { itemId: item.id },
-  })
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, lens, onLens, draggable, selected, onOpen }: Props) {
+  const dragProps = draggable
+    ? {
+        draggable: true,
+        onDragStart: (e: React.DragEvent) => {
+          e.dataTransfer.setData('text/plain', item.id)
+          e.dataTransfer.effectAllowed = 'move'
+        },
+      }
+    : {}
 
   const lensCls =
     lens === 'out' ? 'opacity-40 saturate-50' : lens === 'in' ? 'ring-2 ring-indigo-400' : lens === 'self' ? 'ring-2 ring-indigo-600' : ''
@@ -82,8 +87,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
     const days = Math.max(0, Math.floor((Date.now() - item.createdAt) / 86_400_000))
     return (
       <div
-        ref={setNodeRef}
-        style={{ transform: CSS.Translate.toString(transform) }}
+        {...dragProps}
         onClick={(e) => {
           e.stopPropagation()
           onOpen(item.id)
@@ -92,7 +96,6 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           'group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
           'hover:shadow-md hover:border-slate-400',
           selected && 'ring-2 ring-indigo-400',
-          isDragging && 'opacity-40',
           lensCls,
         )}
       >
@@ -169,12 +172,8 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
 
   return (
     <div
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Translate.toString(transform),
-        backgroundColor: hexToRgba(type.color, 0.1),
-        borderLeftColor: type.color,
-      }}
+      {...dragProps}
+      style={{ backgroundColor: hexToRgba(type.color, 0.1), borderLeftColor: type.color }}
       onClick={(e) => {
         e.stopPropagation()
         onOpen(item.id)
@@ -183,20 +182,17 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         'group relative flex h-[112px] w-[180px] shrink-0 cursor-pointer flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
         'hover:shadow-md hover:border-slate-400',
         selected && 'ring-2 ring-indigo-400',
-        isDragging && 'opacity-40',
         lensCls,
       )}
     >
       <div className="flex h-full items-start gap-1 px-1.5 py-1.5">
-        <button
-          {...attributes}
-          {...listeners}
-          onClick={(e) => e.stopPropagation()}
-          className="mt-0.5 cursor-grab text-slate-400/70 opacity-0 transition group-hover:opacity-100 active:cursor-grabbing"
-          aria-label="Drag card"
+        <span
+          className="mt-0.5 cursor-grab text-slate-300 opacity-0 transition group-hover:opacity-100"
+          title={draggable ? 'Drag to another lane' : undefined}
+          aria-hidden
         >
           <GripVertical size={12} />
-        </button>
+        </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
