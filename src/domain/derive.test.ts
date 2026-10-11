@@ -160,6 +160,35 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     expect(rollupOf('init-onboarding', graphOf(s2)).bucket).toBe('backlog')
   })
 
+  it('moving the last Backlog leaf out returns the ancestors to a committed stage', () => {
+    const s2 = createSeed()
+    const backlog = laneByName(s2, 'b-nova', 'Backlog')
+    const notStarted = laneByName(s2, 'b-nova', 'Not Started')
+    // API gateway's three leaves all start in Backlog, so it and its parent are Backlog.
+    expect(rollupOf('init-gateway', graphOf(s2)).bucket).toBe('backlog')
+    expect(rollupOf('init-platform', graphOf(s2)).bucket).toBe('backlog')
+
+    s2.placements = s2.placements.map((p) =>
+      p.boardId === 'b-nova' && p.laneId === backlog.id ? { ...p, laneId: notStarted.id } : p,
+    )
+
+    // The last Backlog leaf is gone — ancestors recalculate back to committed.
+    expect(rollupOf('init-gateway', graphOf(s2)).bucket).toBe('notStarted')
+    expect(rollupOf('init-platform', graphOf(s2)).bucket).toBe('notStarted')
+  })
+
+  it('all committed leaves done → the parent rolls up to done', () => {
+    const s2 = createSeed()
+    const done = laneByName(s2, 'b-atlas', 'Done')
+    const children = ['st-signup-design', 'st-signup-form', 'st-email', 'st-sso', 'df-signup']
+    s2.placements = s2.placements.map((p) =>
+      p.boardId === 'b-atlas' && children.includes(p.itemId) ? { ...p, laneId: done.id } : p,
+    )
+    const roll = rollupOf('init-signup', graphOf(s2))
+    expect(roll.bucket).toBe('done')
+    expect(roll.percent).toBe(100)
+  })
+
   it('a derived board maps a rollup bucket onto its typed column', () => {
     expect(bucketLaneId(s.lanes, 'b-portfolio', 'backlog')).toBe(laneByName(s, 'b-portfolio', 'Backlog').id)
     expect(bucketLaneId(s.lanes, 'b-portfolio', 'notStarted')).toBe(laneByName(s, 'b-portfolio', 'Not Started').id)
@@ -170,10 +199,13 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
 describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () => {
   const s = createSeed()
 
-  it('a team board has the standard typed top-level columns', () => {
-    const tops = topLevelLanes(s.lanes, 'b-atlas')
-    expect(tops.map((t) => t.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
-    expect(tops.map((t) => t.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+  it('every seeded board includes Backlog as the first typed column', () => {
+    expect(s.boards.length).toBeGreaterThan(0)
+    for (const board of s.boards) {
+      const tops = topLevelLanes(s.lanes, board.id)
+      expect(tops.map((t) => t.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+      expect(tops.map((t) => t.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+    }
   })
 
   it('split sub-columns inherit their column type', () => {
