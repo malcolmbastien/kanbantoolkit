@@ -289,16 +289,13 @@
       },
       {
         "id": "8",
-        "title": "Implement limits editor with configurable enforcement modes",
-        "description": "Build a limits editor for commitment limits and configurable enforcement with thresholds, effective dates, and soft-block reason off by default.",
-        "status": "pending",
-        "dependencies": [
-          "2",
-          "3"
-        ],
+        "title": "Column WIP limits: board-level enforcement mode with at/over tints",
+        "description": "Per-lane WIP limits with a board-level enforcement mode and yellow/red column tints. No thresholds, effective dates, or soft-block.",
+        "status": "done",
+        "dependencies": [],
         "priority": "medium",
-        "details": "Provide settings UI for Objective commitment limits with modes: visualize, warn, soft-block, hard-block. Support thresholds and effective dates. Include a configurable soft-block reason field that is off by default. Integrate enforcement into Objective creation and period views.",
-        "testStrategy": "Configure each enforcement mode. Exceed limits and verify the correct action: visualization, warning, soft block, or hard block. Verify effective dates control when limits apply. Confirm soft-block reason is hidden unless enabled.",
+        "details": "Keep the per-lane wipLimit. Add Board.wipEnforcement ('visualize' | 'block'; default visualize). A lane whose card count reaches its limit gets an amber tint (header + body); over the limit it gets a red tint. In 'block' mode a move that would push the target lane or any limited ancestor over its limit is rejected; 'visualize' only tints. A board-level WIP selector lives in the board header (edit mode); the WIP limit input is available on leaf lanes including top-level columns. No thresholds, effective dates, or soft-block.",
+        "testStrategy": "wipState reports at / over the limit. Set a lane limit and verify amber at the limit and red over it. In 'block' mode a move that would exceed is rejected; in 'visualize' it is allowed. setBoardWipEnforcement persists. Run npm test.",
         "subtasks": []
       },
       {
