@@ -252,7 +252,7 @@ describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () 
 describe('boundary waiting — local cards waiting on an external item', () => {
   const s = createSeed()
 
-  it('is true for a local card with a confirmed, open dependency on the external item', () => {
+  it('is true for a local card with a still-open dependency on the external item', () => {
     const g = graphOf(s)
     // st-email and st-sso both depend on init-gateway (a Team Nova initiative).
     expect(waitsOn('st-email', 'init-gateway', g)).toBe(true)

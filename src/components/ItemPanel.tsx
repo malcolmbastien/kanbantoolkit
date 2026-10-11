@@ -54,9 +54,7 @@ export function ItemPanel({ itemId }: Props) {
   const setParent = useStore((s) => s.setParent)
   const addChild = useStore((s) => s.addChild)
   const linkTeamInitiative = useStore((s) => s.linkTeamInitiative)
-  const raiseDependency = useStore((s) => s.raiseDependency)
-  const confirmDependency = useStore((s) => s.confirmDependency)
-  const rejectDependency = useStore((s) => s.rejectDependency)
+  const addDependency = useStore((s) => s.addDependency)
   const setAttribution = useStore((s) => s.setAttribution)
   const blockItem = useStore((s) => s.blockItem)
   const unblockItem = useStore((s) => s.unblockItem)
@@ -565,11 +563,7 @@ export function ItemPanel({ itemId }: Props) {
                   <div className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependency.title}</span>
                     {dep.dependency.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
-                    {dep.link.status === 'proposed' ? (
-                      <span className="rounded bg-slate-100 px-1 text-[9px] font-semibold text-slate-500">pending</span>
-                    ) : (
-                      <span className={cn('rounded px-1 text-[9px] font-semibold ring-1', state.className)}>{state.label}</span>
-                    )}
+                    <span className={cn('rounded px-1 text-[9px] font-semibold ring-1', state.className)}>{state.label}</span>
                   </div>
                   <div className="text-[10px] text-slate-400">
                     derived → {dependencyState(dep.dependency.id, dep.dependent.id, graph)}
@@ -584,15 +578,7 @@ export function ItemPanel({ itemId }: Props) {
                   <div className="min-w-0 flex-1 truncate text-slate-700">{dep.dependent.title}</div>
                   {dep.dependent.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
                 </div>
-                {dep.link.status === 'proposed' ? (
-                  <div className="mt-1 flex items-center gap-1">
-                    <span className="rounded bg-amber-50 px-1 text-[9px] font-semibold text-amber-700 ring-1 ring-amber-200">confirmation requested</span>
-                    <button onClick={() => confirmDependency(dep.link.id)} className="rounded bg-emerald-600 px-1.5 py-px text-[10px] font-medium text-white hover:bg-emerald-700">Confirm</button>
-                    <button onClick={() => rejectDependency(dep.link.id, 'Not a real dependency')} className="rounded border border-slate-200 px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-50">Reject</button>
-                  </div>
-                ) : (
-                  <div className="text-[10px] text-slate-400">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
-                )}
+                <div className="text-[10px] text-slate-400">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
               </div>
             ))}
           </div>
@@ -603,7 +589,7 @@ export function ItemPanel({ itemId }: Props) {
                 <option key={c.id} value={c.id}>{typeName(c.typeId)}: {c.title}</option>
               ))}
             </select>
-            <button disabled={!dependencyId} onClick={() => { raiseDependency(dependencyId, item.id); setDependencyId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Add link</button>
+            <button disabled={!dependencyId} onClick={() => { addDependency(dependencyId, item.id); setDependencyId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Add link</button>
           </div>
           <p className="mt-1 text-[10px] text-slate-400">
             Links connect two items — this one depends on another. They indicate linked items but never set the blocked status above.

@@ -352,7 +352,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               onOpen={ctx.openItem}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
-                dependentsCount: dependentsOf(c.id, graph).filter((d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved).length,
+                dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
                 linksCount: dependenciesOf(c.id, graph).length + dependentsOf(c.id, graph).length,
                 blockedBelow: blockedBelow(c.id, graph),
                 openDescendants: openDescendants(c.id, graph).length,

@@ -127,13 +127,13 @@ export function dependentsOf(itemId: string, graph: Graph): DependencyInfo[] {
     .filter((x): x is DependencyInfo => x !== null)
 }
 
-/** Confirmed dependencies of this item whose dependency is not yet done — still open. */
+/** Open dependencies of this item — the dependency is not yet done. */
 export function openDependenciesOf(itemId: string, graph: Graph): DependencyInfo[] {
-  return dependenciesOf(itemId, graph).filter((d) => d.link.status === 'confirmed' && isOpen(d.state))
+  return dependenciesOf(itemId, graph).filter((d) => isOpen(d.state))
 }
 
 /**
- * Does this item wait on the given item — i.e. a confirmed, still-open dependency?
+ * Does this item wait on the given item — i.e. a still-open dependency?
  * Used to link a boundary-lane pin to the local cards that wait on that external work.
  */
 export function waitsOn(itemId: string, dependencyId: string, graph: Graph): boolean {
@@ -148,19 +148,13 @@ export function isBlocked(itemId: string, graph: Graph): boolean {
   return graph.items.find((i) => i.id === itemId)?.blocked === true
 }
 
-export function confirmationRequests(itemId: string, graph: Graph): DependencyInfo[] {
-  return dependentsOf(itemId, graph).filter((d) => d.link.status === 'proposed')
-}
-
 /** "N cards depend on this" — distinct boards among the dependents. */
 export function dependentSummary(itemId: string, graph: Graph): { count: number; boards: number } {
-  const confirmed = dependentsOf(itemId, graph).filter(
-    (d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved,
-  )
+  const open = dependentsOf(itemId, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved)
   const boardOf = (itemId: string) =>
     graph.placements.find((p) => p.itemId === itemId)?.boardId ?? 'none'
-  const boards = new Set(confirmed.map((d) => boardOf(d.dependent.id)))
-  return { count: confirmed.length, boards: boards.size }
+  const boards = new Set(open.map((d) => boardOf(d.dependent.id)))
+  return { count: open.length, boards: boards.size }
 }
 
 /* ------------------------------------------------------------------ *

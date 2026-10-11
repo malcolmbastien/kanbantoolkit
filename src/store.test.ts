@@ -140,30 +140,47 @@ describe('store actions', () => {
 
   it('links are the only item-to-item dependency relationships', () => {
     const before = s().links.length
-    s().raiseDependency('st-signup-form', 'st-signup-design')
+    s().addDependency('st-signup-form', 'st-signup-design')
     expect(s().links.length).toBe(before + 1)
     const link = s().links[s().links.length - 1]
-    expect(link.status).toBe('proposed')
-    s().confirmDependency(link.id)
-    expect(s().links.find((l) => l.id === link.id)?.status).toBe('confirmed')
+    expect(link).toMatchObject({ from: 'st-signup-form', to: 'st-signup-design' })
+    expect('status' in link).toBe(false) // links are immediate — no approval state
+    // Duplicates are ignored.
+    s().addDependency('st-signup-form', 'st-signup-design')
+    expect(s().links.length).toBe(before + 1)
   })
 
-  it('migrateState moves legacy dependency edges into links', () => {
+  it('migrateState moves legacy dependency edges into links, dropping rejected ones', () => {
     const legacy = {
       boards: [],
       edges: [
         { id: 'e1', kind: 'decomposition', from: 'p', to: 'c' },
         { id: 'e2', kind: 'dependency', from: 'a', to: 'b', dep: { status: 'confirmed', reason: 'r' } },
         { id: 'e3', kind: 'attribution', from: 'o', to: 'c' },
+        { id: 'e4', kind: 'dependency', from: 'x', to: 'y', dep: { status: 'rejected' } },
       ],
     }
     const migrated = migrateState(legacy) as {
       edges: { id: string }[]
-      links: { id: string; status: string; reason?: string }[]
+      links: { id: string; from: string; to: string; reason?: string }[]
     }
     expect(migrated.edges.map((e) => e.id)).toEqual(['e1', 'e3'])
     expect(migrated.links).toHaveLength(1)
-    expect(migrated.links[0]).toMatchObject({ id: 'e2', from: 'a', to: 'b', status: 'confirmed', reason: 'r' })
+    expect(migrated.links[0]).toMatchObject({ id: 'e2', from: 'a', to: 'b', reason: 'r' })
+    expect('status' in migrated.links[0]).toBe(false)
+  })
+
+  it('migrateState strips the removed link status from existing links', () => {
+    const state = {
+      links: [
+        { id: 'l1', from: 'a', to: 'b', status: 'confirmed', reason: 'r' },
+        { id: 'l2', from: 'c', to: 'd', status: 'rejected' },
+      ],
+    }
+    const migrated = migrateState(state) as { links: { id: string; from: string; to: string; reason?: string }[] }
+    expect(migrated.links.map((l) => l.id)).toEqual(['l1'])
+    expect(migrated.links[0]).toMatchObject({ from: 'a', to: 'b', reason: 'r' })
+    expect('status' in migrated.links[0]).toBe(false)
   })
 
   it('archiving a parent cascades to its subtree and keeps the data linked', () => {

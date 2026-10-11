@@ -29,7 +29,7 @@ Priorities: P0 = needed for a usable MVP; P1 = next; P2 = later.
 
 ## 3. Coordination — dependencies
 - Dependency links are intentionally simple: **"A depends on B"** — no FS/SS/FF, lag, or pinning.
-- The dependent raises a link; the other card confirms or rejects it (with a reason) in the item panel.
+- The dependent raises a link; it exists immediately — the depended-on card shows how many others depend on it. No confirm/reject step.
 - Dependency state is derived from both endpoints: planning risk / live blockage / satisfied / closed.
 - A card shows how many others depend on it ("N depend on this").
 

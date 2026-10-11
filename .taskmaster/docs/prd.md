@@ -58,7 +58,7 @@ Scope { id, name, kind: enterprise | value_stream | team | function, parentId }
 Item  { id, title, description?, type: initiative|epic|story|defect,
         valueStreamId, teamId?, state, size?, assignee?, createdAt, resolvedAt? }
 Edge      { id, kind: decomposition | attribution, from, to }
-ItemLink  { id, from, to, status: proposed|confirmed|rejected, reason? }   # "to depends on from"
+ItemLink  { id, from, to, reason? }   # "to depends on from" — immediate, no approval state
 LimitPolicy { id, resolution, itemType, scopeId?, column?, enforcement, thresholds }
 Objective / KeyResult — commitment-limited entities, never in columns.
 ```
@@ -92,7 +92,7 @@ Objective / KeyResult — commitment-limited entities, never in columns.
   scoped to its own board (never navigate away).
 - **Ghost lane**: when a dependency enters from outside the scope, a read-only lane at the
   board edge lists only the binding items.
-- **Item side panel**: details, children, dependencies (raise / confirm / reject), the
+- **Item side panel**: details, children, dependencies (raise), the
   computed level and dependency states with the derivation shown.
 - **Limit dialog**: soft-block returns a **required reason** before the move is allowed.
 

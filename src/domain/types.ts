@@ -137,8 +137,6 @@ export interface Placement {
   laneId: string
 }
 
-export type DepStatus = 'proposed' | 'confirmed' | 'rejected'
-
 /**
  * A dependency link between two items: the card that depends on another (`to`)
  * and the card it depends on (`from`). This is the only way two items are
@@ -151,7 +149,6 @@ export interface ItemLink {
   from: string
   /** The card that depends on it. */
   to: string
-  status: DepStatus
   reason?: string
 }
 

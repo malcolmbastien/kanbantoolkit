@@ -140,7 +140,7 @@ Most tools emit one "blocked" badge and you cannot tell which you are looking at
 
 **Slip is computed, not entered.** The quantity that matters is: X cannot enter Done until Y exits. X has a forecast from its position in flow plus its lead-time distribution; Y has a forecast exit. The gap is expected slip. No estimate fields, no dates, nothing to maintain. Dependencies with real slip are the ones to manage; the rest sit quietly. This requires the graph model and cannot be bolted onto a board tool.
 
-**Raising is asymmetric; confirmation is the gate.** The person who notices a dependency is always on the dependent side. Team A asserts it against Team B's item; B's board shows a confirmation request, and confirmation is what turns the assertion into an edge. Rejection with a reason is valuable data ("we're doing that anyway" is exactly the staleness you want caught at birth). Once confirmed, B's own card carries a badge: *3 cards depend on this across 2 streams.* In every current tool the depended-on team's board looks perfectly healthy — because it is. That asymmetry is what kills coordination, and nothing addresses it.
+**Raising a dependency is immediate.** The person who notices a dependency is always on the dependent side: Team A asserts it against Team B's item and the edge exists at once — there is no confirmation gate to clear. The value is the asymmetry it exposes: B's own card carries a badge — *3 cards depend on this across 2 streams* — so the depended-on team sees the pressure its own board hides. In every current tool the depended-on team's board looks perfectly healthy — because it is. That asymmetry is what kills coordination, and nothing addresses it.
 
 **Cross-level endpoints bind by pinning.** A story waiting on an epic pins to a specific descendant, not to the whole epic. Most such dependencies are really "waiting on the API decision," which is one story; waiting on an entire epic manufactures nine months of artificial wait.
 
@@ -242,7 +242,7 @@ The demo is one enterprise. Three flights, one graph.
 - The three counting units with their own lifecycles: initiative (Idea → Option → Bet → Committed / Rejected, plus Dormant as a first-class state — not an archive), epic (standard entry/exit), story.
 - Items with no board field. Membership by value stream.
 - Edges: decomposition, dependency (FS/SS/FF + lag, with pinning across levels), attribution.
-- Dependency lifecycle: raise → confirm/reject → computed state → Closed. Slippage computed from forecasts.
+- Dependency lifecycle: raise → computed state → Closed (no confirm/reject gate). Slippage computed from forecasts.
 - Boundary pins and ghost lanes.
 - Optional, configurable limits per (resolution, item type, scope), with inheritance, override, versioning, and effective dates.
 - Objectives and key results as commitment-limited entities, never in columns.

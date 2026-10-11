@@ -5,7 +5,7 @@ import type { IssueType, Item, Stage } from '@/domain/types'
 
 export interface CardSummary {
   childCount: number
-  /** Cards that depend on this one (confirmed, unresolved). */
+  /** Cards that depend on this one (unresolved). */
   dependentsCount: number
   /** Distinct item-to-item links (dependencies + dependents). */
   linksCount: number

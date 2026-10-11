@@ -4,7 +4,7 @@ import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder
 import { decompositionParent, descendants, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
-import type { Board, BoardLevel, DepStatus, Edge, FlowState, IssueType, Item, ItemLink, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
+import type { Board, BoardLevel, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -121,9 +121,8 @@ export interface Actions {
   /** Create a team-level initiative on a team board, linked (as a child) to a management initiative. */
   linkTeamInitiative: (parentId: string, boardId: string, title: string) => void
 
-  raiseDependency: (dependencyId: string, dependentId: string, reason?: string) => void
-  confirmDependency: (linkId: string) => void
-  rejectDependency: (linkId: string, reason: string) => void
+  /** Link two items: `dependentId` depends on `dependencyId`. Immediate — no approval step. */
+  addDependency: (dependencyId: string, dependentId: string, reason?: string) => void
   setAttribution: (itemId: string, objectiveId: string, on: boolean) => void
 
   /** Explicitly block/unblock an item — a status independent of any link. */
@@ -218,25 +217,26 @@ export function migrateState(persisted: unknown): Partial<Store> {
   }
   // v9 → v10: item-to-item dependencies became first-class `links`; `edges`
   // now holds only hierarchy (decomposition) and objective (attribution).
+  // v11: links no longer carry an approval status.
   if (!Array.isArray(p.links)) {
     type LegacyEdge = {
       id: string
       kind: 'decomposition' | 'dependency' | 'attribution'
       from: string
       to: string
-      dep?: { status?: DepStatus; reason?: string }
+      dep?: { status?: string; reason?: string }
     }
     const edges = Array.isArray(p.edges) ? (p.edges as LegacyEdge[]) : []
     p.links = edges
-      .filter((e) => e.kind === 'dependency')
-      .map((e) => ({
-        id: e.id,
-        from: e.from,
-        to: e.to,
-        status: e.dep?.status ?? 'confirmed',
-        reason: e.dep?.reason,
-      }))
+      .filter((e) => e.kind === 'dependency' && e.dep?.status !== 'rejected')
+      .map((e) => ({ id: e.id, from: e.from, to: e.to, reason: e.dep?.reason }))
     p.edges = edges.filter((e) => e.kind !== 'dependency').map(({ id, kind, from, to }) => ({ id, kind, from, to }))
+  } else {
+    // Drop links that were rejected (they were never real dependencies) and
+    // strip the now-removed status field.
+    p.links = (p.links as { id: string; from: string; to: string; status?: string; reason?: string }[])
+      .filter((l) => l.status !== 'rejected')
+      .map((l) => ({ id: l.id, from: l.from, to: l.to, ...(l.reason ? { reason: l.reason } : {}) }))
   }
   return p as Partial<Store>
 }
@@ -619,19 +619,12 @@ export const useStore = create<Store>()(
         })
       },
 
-      raiseDependency: (dependencyId, dependentId, reason) => {
+      addDependency: (dependencyId, dependentId, reason) => {
         if (dependencyId === dependentId) return
         const state = get()
         if (state.links.some((l) => l.from === dependencyId && l.to === dependentId)) return
-        const link: ItemLink = { id: uid(), from: dependencyId, to: dependentId, status: 'proposed', reason }
-        set({ links: [...state.links, link] })
+        set({ links: [...state.links, { id: uid(), from: dependencyId, to: dependentId, reason }] })
       },
-
-      confirmDependency: (linkId) =>
-        set({ links: get().links.map((l) => (l.id === linkId ? { ...l, status: 'confirmed' } : l)) }),
-
-      rejectDependency: (linkId, reason) =>
-        set({ links: get().links.map((l) => (l.id === linkId ? { ...l, status: 'rejected', reason } : l)) }),
 
       setAttribution: (itemId, objectiveId, on) => {
         const state = get()
@@ -759,7 +752,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 10,
+      version: 11,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
