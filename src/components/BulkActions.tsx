@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Archive, CheckSquare, Trash2, X } from 'lucide-react'
 import { cardTypes } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -27,6 +27,26 @@ export function BulkActions() {
 
   const [assignee, setAssignee] = useState('')
 
+  // Escape, or a click on any empty part of the screen, dismisses the selection.
+  // A click on a card (to toggle it) or on this bar is left alone.
+  useEffect(() => {
+    if (multiSelect.length === 0) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clearMultiSelect()
+    }
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('[data-card-id]') || target?.closest('[data-bulk-actions]')) return
+      clearMultiSelect()
+    }
+    window.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [multiSelect.length, clearMultiSelect])
+
   if (multiSelect.length === 0) return null
 
   const leaves = leafLanes(lanes, boardId)
@@ -40,7 +60,10 @@ export function BulkActions() {
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-40 flex w-max max-w-[95vw] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-[11px] text-slate-200 shadow-2xl">
+    <div
+      data-bulk-actions
+      className="fixed bottom-4 left-1/2 z-40 flex w-max max-w-[95vw] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-[11px] text-slate-200 shadow-2xl"
+    >
       <span className="flex items-center gap-1 font-semibold text-white">
         <CheckSquare size={13} className="text-indigo-300" /> {count} selected
       </span>
@@ -124,7 +147,7 @@ export function BulkActions() {
       <button
         onClick={clearMultiSelect}
         className="flex items-center gap-1 rounded px-2 py-1 font-medium text-slate-400 hover:bg-slate-700 hover:text-white"
-        title="Clear the selection"
+        title="Clear the selection (Esc)"
       >
         <X size={12} /> Clear
       </button>
