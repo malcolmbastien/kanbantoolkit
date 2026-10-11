@@ -142,12 +142,12 @@ describe('store actions (recursive lanes)', () => {
 
   it('migratePersisted reseeds boards for a schema change (v<6)', () => {
     const stale = { boards: [{ id: 'b-core', name: 'Core', level: 'project' }], lanes: [], placements: [] }
-    const reseeded = migratePersisted(stale, 5) as { boards: { id: string }[]; lanes: unknown[] }
+    const reseeded = migratePersisted(stale, 6) as { boards: { id: string }[]; lanes: unknown[] }
     expect(reseeded.boards.length).toBeGreaterThanOrEqual(5)
     expect(reseeded.boards.some((b) => b.id === 'b-team-alpha')).toBe(true)
     expect(reseeded.lanes.length).toBeGreaterThan(0)
-    // v6+ keeps the persisted boards (just backfills level)
-    const kept = migratePersisted(stale, 6) as { boards: { id: string }[] }
+    // v7+ keeps the persisted boards (just backfills level)
+    const kept = migratePersisted(stale, 7) as { boards: { id: string }[] }
     expect(kept.boards.length).toBe(1)
   })
 

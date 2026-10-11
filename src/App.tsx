@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BoardView } from './components/BoardView'
 import { ItemPanel } from './components/ItemPanel'
+import { ObjectivesView } from './components/ObjectivesView'
 import { TopBar } from './components/TopBar'
 import { TypeEditor } from './components/TypeEditor'
 import { leafLanes } from './domain/lanes'
@@ -15,6 +16,9 @@ export default function App() {
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
+  const showObjectives = useStore((s) => s.showObjectives)
+  const toggleObjectives = useStore((s) => s.toggleObjectives)
+  const setObjectives = useStore((s) => s.setObjectives)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
 
@@ -41,6 +45,7 @@ export default function App() {
     if (it) openItem(it)
     const lens = params.get('lens')
     if (lens) setLens(lens)
+    if (params.get('view') === 'objectives') setObjectives(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -73,8 +78,10 @@ export default function App() {
         boardLevel={boardLevel}
         search={search}
         editMode={editMode}
+        showObjectives={showObjectives}
         onSelectBoard={selectBoard}
         onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
+        onToggleObjectives={toggleObjectives}
         onSearch={setSearch}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -88,7 +95,7 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          <BoardView requestMove={requestMove} />
+          {showObjectives ? <ObjectivesView /> : <BoardView requestMove={requestMove} />}
         </div>
         {selectedItemId && <ItemPanel itemId={selectedItemId} />}
       </div>

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { childrenOf, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { createSeed } from '@/domain/seed'
-import type { Board, BoardLevel, Edge, FlowState, IssueType, Item, Lane, Placement, SplitOrientation } from '@/domain/types'
+import type { Board, BoardLevel, Edge, FlowState, IssueType, Item, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -22,6 +22,8 @@ export interface ViewState {
   draft: Draft | null
   /** Focus lens: highlight this item and its ancestors/descendants; dim the rest. */
   lensId: string | null
+  /** Show the Objectives & KRs view instead of a board. */
+  showObjectives: boolean
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -35,6 +37,15 @@ export interface Actions {
   toggleLens: (id: string) => void
   setLens: (id: string | null) => void
   clearLens: () => void
+  toggleObjectives: () => void
+  setObjectives: (v: boolean) => void
+
+  addObjective: (title: string, period: string) => void
+  updateObjective: (id: string, patch: Partial<Objective>) => void
+  removeObjective: (id: string) => void
+  addKeyResult: (objectiveId: string, title: string) => void
+  updateKeyResult: (id: string, patch: Partial<KeyResult>) => void
+  removeKeyResult: (id: string) => void
   addManagementTeam: (managementBoardId: string, teamBoardId: string) => void
   removeManagementTeam: (managementBoardId: string, teamBoardId: string) => void
   resetDemo: () => void
@@ -86,6 +97,7 @@ const initialView: ViewState = {
   editMode: false,
   draft: null,
   lensId: null,
+  showObjectives: false,
 }
 
 /**
@@ -114,7 +126,7 @@ export function migrateState(persisted: unknown): Partial<Store> {
  * state older than v5 is reseeded with the current demo design.
  */
 export function migratePersisted(persisted: unknown, version: number): Partial<Store> {
-  if (version < 6) return createSeed() as unknown as Partial<Store>
+  if (version < 7) return createSeed() as unknown as Partial<Store>
   return migrateState(persisted)
 }
 
@@ -148,6 +160,24 @@ export const useStore = create<Store>()(
       toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
+      toggleObjectives: () => set({ showObjectives: !get().showObjectives }),
+      setObjectives: (v) => set({ showObjectives: v }),
+
+      addObjective: (title, period) =>
+        set({ objectives: [...get().objectives, { id: uid(), title, period, status: 'active' }] }),
+      updateObjective: (id, patch) =>
+        set({ objectives: get().objectives.map((o) => (o.id === id ? { ...o, ...patch } : o)) }),
+      removeObjective: (id) =>
+        set({
+          objectives: get().objectives.filter((o) => o.id !== id),
+          keyResults: get().keyResults.filter((k) => k.objectiveId !== id),
+          edges: get().edges.filter((e) => !(e.kind === 'attribution' && e.from === id)),
+        }),
+      addKeyResult: (objectiveId, title) =>
+        set({ keyResults: [...get().keyResults, { id: uid(), objectiveId, title }] }),
+      updateKeyResult: (id, patch) =>
+        set({ keyResults: get().keyResults.map((k) => (k.id === id ? { ...k, ...patch } : k)) }),
+      removeKeyResult: (id) => set({ keyResults: get().keyResults.filter((k) => k.id !== id) }),
 
       addManagementTeam: (managementBoardId, teamBoardId) =>
         set({
@@ -345,7 +375,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 6,
+      version: 7,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

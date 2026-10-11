@@ -123,6 +123,10 @@ export interface KeyResult {
   id: string
   objectiveId: string
   title: string
+  target?: string
+  current?: string
+  /** 0–100 progress. */
+  progress?: number
 }
 
 export interface SponsorRecord {

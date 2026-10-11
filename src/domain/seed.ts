@@ -14,6 +14,7 @@ const issueTypes: IssueType[] = [
  * Boards. Every board's top level is the three typed columns.
  * ------------------------------------------------------------------ */
 const boards: Board[] = [
+  { id: 'b-exec', name: 'Executive Portfolio', level: 'portfolio', derived: true, teamBoardIds: [] },
   { id: 'b-portfolio', name: 'Digital Transformation Portfolio', level: 'portfolio', derived: true, teamBoardIds: ['b-core', 'b-platform', 'b-team-alpha'] },
   { id: 'b-core', name: 'Core Experience', level: 'project' },
   { id: 'b-platform', name: 'Platform Services', level: 'project' },
@@ -41,6 +42,13 @@ const pRoot = root('b-portfolio', 'columns')
 const pNS = lane('b-portfolio', 'Not Started', pRoot.id, 0, { stage: 'notStarted' })
 lane('b-portfolio', 'In Progress', pRoot.id, 1, { stage: 'inProgress' })
 lane('b-portfolio', 'Done', pRoot.id, 2, { stage: 'done' })
+
+// Executive Portfolio (a second management board): its top-level initiative rolls up
+// initiatives that live on the Digital Transformation Portfolio board.
+const eRoot = root('b-exec', 'columns')
+const eNS = lane('b-exec', 'Not Started', eRoot.id, 0, { stage: 'notStarted' })
+lane('b-exec', 'In Progress', eRoot.id, 1, { stage: 'inProgress' })
+lane('b-exec', 'Done', eRoot.id, 2, { stage: 'done' })
 
 // Core Experience: three typed columns, each split into team rows. In Progress refines
 // Team Alpha into Dev / Test.
@@ -93,6 +101,7 @@ const item = (id: string, title: string, typeId: string, extra: Partial<Item> = 
   items.push({ id, title, typeId, createdAt: T, ...extra })
 
 item('it-onboarding', 'Onboarding Redesign', 't-initiative', { size: 40, assignee: 'MB' })
+item('it-dt', 'Digital Transformation', 't-initiative', { size: 60, assignee: 'CEO' })
 item('it-signup', 'New signup flow', 't-initiative', { size: 13, assignee: 'RK' })
 item('it-tour', 'Guided onboarding tour', 't-initiative', { size: 8, assignee: 'LM' })
 item('it-profile', 'Profile completeness', 't-initiative', { size: 5, assignee: 'SP' })
@@ -142,6 +151,10 @@ const place = (itemId: string, boardId: string, laneId: string) =>
 place('it-onboarding', 'b-portfolio', pNS.id)
 place('it-beta', 'b-portfolio', pNS.id)
 place('it-research', 'b-portfolio', pNS.id)
+
+// Executive Portfolio — a top-level initiative that rolls up the onboarding initiative
+// from the Digital Transformation Portfolio board.
+place('it-dt', 'b-exec', eNS.id)
 
 // Core Experience — cells live under the typed columns, within team rows.
 place('it-signup', 'b-core', cIPDev.id)
@@ -193,6 +206,7 @@ const edge = (kind: Edge['kind'], from: string, to: string, dep?: Edge['dep']) =
 const decompose = (parent: string, children: string[]) => children.forEach((c) => edge('decomposition', parent, c))
 
 decompose('it-onboarding', ['it-signup', 'it-tour', 'it-profile', 'it-invite', 'it-alpha'])
+decompose('it-dt', ['it-onboarding'])
 decompose('it-signup', ['st-design', 'st-form', 'st-email', 'st-sso', 'df-validation', ...items.filter((i) => i.id.startsWith('st-gen-')).map((i) => i.id)])
 decompose('it-tour', ['st-tour-framework', 'st-tour-copy'])
 decompose('it-profile', ['st-profile-schema', 'st-avatar', 'st-completeness', 'st-spike-cache'])

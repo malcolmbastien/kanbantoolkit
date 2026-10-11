@@ -44,13 +44,20 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
 
-  // Initiative-level work only — items of the Initiative type. `rootsOnly` restricts to
-  // top-level initiatives (no parent), which is what a management board shows.
+  // Initiative-level work only — items of the Initiative type. `rootsOnly` restricts to a
+  // board's *local* top-level initiatives: ones whose parent is not on this same board, so
+  // an initiative can roll up to a top-level initiative on another management board and
+  // still appear as top-level on its own board.
+  const onBoardIds = new Set(onBoard.map((i) => i.id))
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
   const initiatives = (initiativeTypeId
     ? onBoard.filter((i) => i.typeId === initiativeTypeId)
     : onBoard.filter((i) => decompositionChildren(i.id, edges).length > 0)
-  ).filter((i) => !rootsOnly || !decompositionParent(i.id, edges))
+  ).filter((i) => {
+    if (!rootsOnly) return true
+    const parent = decompositionParent(i.id, edges)
+    return !parent || !onBoardIds.has(parent)
+  })
 
   const columns = topLevelLanes(lanes, boardId)
     .slice()

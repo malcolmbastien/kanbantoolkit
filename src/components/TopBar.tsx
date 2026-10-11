@@ -1,5 +1,6 @@
-import { Check, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Trash2, X } from 'lucide-react'
+import { Check, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Target, Trash2, X } from 'lucide-react'
 import { LevelBadge } from './LevelBadge'
+import { cn } from '@/lib/utils'
 import type { Board, BoardLevel } from '@/domain/types'
 
 interface Props {
@@ -8,8 +9,10 @@ interface Props {
   boardLevel: BoardLevel
   search: string
   editMode: boolean
+  showObjectives: boolean
   onSelectBoard: (id: string) => void
   onSetBoardLevel: (level: BoardLevel) => void
+  onToggleObjectives: () => void
   onSearch: (q: string) => void
   onEditBoard: () => void
   onSaveEdit: () => void
@@ -26,7 +29,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardLevel, search, editMode, onSelectBoard, onSetBoardLevel, onSearch, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardLevel, search, editMode, showObjectives, onSelectBoard, onSetBoardLevel, onToggleObjectives, onSearch, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -40,6 +43,17 @@ export function TopBar(props: Props) {
       <div className="h-5 w-px bg-slate-700" />
 
       <LevelBadge level={boardLevel} onChange={onSetBoardLevel} />
+
+      <button
+        onClick={onToggleObjectives}
+        className={cn(
+          'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+          showObjectives ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+        )}
+        title="Objectives & Key Results — how work maps to priorities"
+      >
+        <Target size={12} /> Objectives
+      </button>
 
       <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
         Board
