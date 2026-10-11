@@ -66,7 +66,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
             <span className="text-[10px] text-slate-400">top-level initiatives</span>
           </>,
-          <BoardSummary boardId={board.id} />,
+          <BoardSummary boardId={board.id} rootsOnly />,
         )}
 
         {/* Linked workflows — the team boards */}

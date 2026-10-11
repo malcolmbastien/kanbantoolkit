@@ -140,7 +140,6 @@ const place = (itemId: string, boardId: string, laneId: string) =>
 
 // Portfolio (derived) — membership only; the column is the rollup.
 place('it-onboarding', 'b-portfolio', pNS.id)
-place('it-signup', 'b-portfolio', pNS.id)
 place('it-beta', 'b-portfolio', pNS.id)
 place('it-research', 'b-portfolio', pNS.id)
 

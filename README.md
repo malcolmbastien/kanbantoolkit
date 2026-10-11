@@ -94,7 +94,7 @@ Things to try:
    not), **add** lanes, **flip** a container's orientation, mark **start/done** columns, set
    **WIP** limits, rename and remove. Experiment freely: **Save** keeps the design,
    **Cancel** reverts to the state you started editing from.
-4. **One card, two boards** — "New signup flow" sits on Core Experience *and* Portfolio.
+4. **Initiatives roll up** — open *Onboarding Redesign*: its children are team initiatives (one per team board), never cards; each team initiative's cards roll up into its %.
 5. **Dependency self-cleans** — set "API decision" to Done; the blocked story flips to
    Satisfied with nobody touching it.
 6. **Attribution never inflates** — "Build signup form" serves 2 objectives; WIP stays 1.

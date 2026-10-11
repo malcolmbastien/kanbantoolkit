@@ -21,7 +21,7 @@ import type { IssueType, Item, Stage } from '@/domain/types'
  * (items that decompose into children), placed in the three typed columns by rollup.
  * No detailed team flow and no leaf cards.
  */
-export function BoardSummary({ boardId }: { boardId: string }) {
+export function BoardSummary({ boardId, rootsOnly }: { boardId: string; rootsOnly?: boolean }) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
   const placements = useStore((s) => s.placements)
@@ -40,11 +40,13 @@ export function BoardSummary({ boardId }: { boardId: string }) {
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
 
-  // Initiative-level work only — items of the Initiative type.
+  // Initiative-level work only — items of the Initiative type. `rootsOnly` restricts to
+  // top-level initiatives (no parent), which is what a management board shows.
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
-  const initiatives = initiativeTypeId
+  const initiatives = (initiativeTypeId
     ? onBoard.filter((i) => i.typeId === initiativeTypeId)
     : onBoard.filter((i) => decompositionChildren(i.id, edges).length > 0)
+  ).filter((i) => !rootsOnly || !decompositionParent(i.id, edges))
 
   const columns = topLevelLanes(lanes, boardId)
     .slice()
