@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": "1",
+        "id": 1,
         "title": "Initialize project with Vite, React 19, TypeScript, Tailwind, and dependencies",
         "description": "Set up the Vite project with React 19, TypeScript strict mode, Tailwind CSS v4, and install all required libraries: Zustand, @dnd-kit, lucide-react, clsx, tailwind-merge, Vitest.",
         "details": "Run `npm create vite@latest flowline-mvp -- --template react-ts` to scaffold the project. Upgrade React to v19 and ensure TypeScript is in strict mode (set `\"strict\": true` in tsconfig.json). Install Tailwind CSS v4 following its Vite plugin instructions: `npm install tailwindcss @tailwindcss/vite` and add the plugin to `vite.config.ts`. Install Zustand: `npm install zustand`; @dnd-kit: `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities`; lucide-react: `npm install lucide-react`; clsx and tailwind-merge: `npm install clsx tailwind-merge`. Install Vitest as dev dependency: `npm install -D vitest`. Configure `package.json` scripts: `\"dev\": \"vite\"`, `\"build\": \"tsc && vite build\"`, `\"test\": \"vitest\"`. Create a basic Tailwind entry CSS file and import it in `main.tsx`. Verify that `npm run dev` starts without errors.",
@@ -14,7 +14,7 @@
         "updatedAt": "2026-10-10T17:53:37.355Z"
       },
       {
-        "id": "2",
+        "id": 2,
         "title": "Define domain model types and constants",
         "description": "Create TypeScript interfaces, enums, and constants for Scope, Item, Edge, LimitPolicy, Objective, KeyResult, plus resolution, item type, state, dependency kinds, and lifecycle columns.",
         "details": "In a new file `src/types.ts`, define: `Resolution = 'L1' | 'L2' | 'L3'`; `ItemType = 'initiative' | 'epic' | 'story' | 'defect'`; `State` union for all lifecycle states: `'Idea' | 'Option' | 'Bet' | 'Committed' | 'Rejected' | 'Dormant' | 'Backlog' | 'Analyze' | 'In Progress' | 'Ready' | 'Done' | 'Review'`. Interface `Scope` with `id: string; name: string; kind: 'enterprise' | 'value_stream' | 'team' | 'function'; parentId?: string`. Interface `Item` with `id, title, description?, type, valueStreamId, teamId?, state, size?, assignee?, createdAt, resolvedAt?`. Interface `DependencyInfo` with `fsKind: 'FS' | 'SS' | 'FF'`, `lagDays?`, `status: 'proposed' | 'confirmed' | 'rejected'`, `reason?`. Interface `Edge` with `id, kind: 'decomposition' | 'dependency' | 'attribution', from: string, to: string, dep?: DependencyInfo`. Interface `LimitPolicy` with `id, resolution, itemType, scopeId?, column?, enforcement: 'soft' | 'hard', thresholds: { yellow: number, red: number }`. Interface `Objective` and `KeyResult` for commitment-limited entities: Objective with `id, name, description?` and KeyResult with `id, objectiveId, description, target, current`. Define column mappings: `COLUMNS_BY_RESOLUTION: Record<Resolution, State[]>` mapping L1 to `['Idea', 'Option', 'Bet', 'Committed', 'Rejected', 'Dormant']`, L2 to `['Backlog', 'Analyze', 'In Progress', 'Ready', 'Done']`, L3 to `['Backlog', 'In Progress', 'Review', 'Done']` (adjust defect lifecycle to same states). Export all types and constants.",
@@ -28,7 +28,7 @@
         "updatedAt": "2026-10-10T17:53:37.358Z"
       },
       {
-        "id": "3",
+        "id": 3,
         "title": "Implement seed data and Zustand store with localStorage persistence",
         "description": "Create a seeded in-memory demo enterprise graph and set up a Zustand store with actions to update items, edges, and reset to seed.",
         "details": "In `src/seed.ts`, construct the demo enterprise exactly as described: one enterprise scope 'Acme', two value streams 'Core Experience' and 'Platform Services', three teams: Team Alpha, Team Bravo (under Core Experience), Team Platform (under Platform Services). Create one initiative 'Onboarding Redesign' decomposing into 5 epics across both streams (e.g., 3 in Core Experience, 2 in Platform Services). Ensure one epic (e.g., 'API decision') is in Platform Services and is a blocker for a story in Team Bravo. Create 2 objectives and several stories attributed many-to-many; ensure one story is attributed to both objectives. Create stories under each epic, including ~18 open descendants in one epic to show composition pressure. Include a defect. Set limit policy: epic per value stream limit = 4, seeded with 5 epics in one stream to demonstrate soft block. Use a separate `edges` array with instances for decomposition, dependency, and attribution edges. In `src/store.ts`, define a Zustand store with state: `items: Item[]`, `scopes: Scope[]`, `edges: Edge[]`, `objectives: Objective[]`, `keyResults: KeyResult[]`, `limitPolicies: LimitPolicy[]`, `resolution: Resolution`, `selectedScopeId: string | null`, and actions: `updateItem(id, patch)`, `addEdge(edge)`, `updateEdge(id, patch)`, `resetDemo()`, `setResolution(r)`, `setSelectedScope(id)`. Use Zustand `persist` middleware with name 'flowline-mvp' to persist to localStorage. On first load, use seed data. Provide `resetDemo` to restore seed and clear persisted state.",
@@ -42,7 +42,7 @@
         "updatedAt": "2026-10-10T17:53:37.360Z"
       },
       {
-        "id": "4",
+        "id": 4,
         "title": "Implement derivation functions: level, dependencyState, portfolioStatus, and WIP counting",
         "description": "Create pure functions to compute item level, dependency state, portfolio status, and work-in-progress counts excluding attribution edges.",
         "details": "In `src/derivations.ts`, implement: `level(itemId: string, items: Item[], edges: Edge[]): Resolution` following rules: if item.type is initiative → 'L1'; else if item decomposes into epics (i.e., there exists an edge of kind 'decomposition' from item to an item of type 'epic') → 'L2'; else if decomposes into stories/defects → 'L3'; else 'L3' (schedulable floor). `dependencyState(blockerId: string, dependentId: string, items: Item[], edges: Edge[]): string` using rules: dependent resolved → 'Closed'; blocker resolved, dependent unresolved → 'Satisfied'; blocker unresolved, dependent not started → 'Open (planning risk)'; blocker unresolved, dependent in progress → 'Open (live blockage)'; blocker cancelled → 'Void'. Need to determine 'cancelled' state (maybe blocker state is 'Rejected' for initiatives or 'Done' for resolved, 'Dormant' cancelled?). Define a helper to check resolved and cancelled based on item type and state. `portfolioStatus(initiativeId: string, items: Item[], edges: Edge[]): string` computed from committed/decomposed epics: e.g., aggregate states of child epics (e.g., if all Done → 'Done', if any In Progress → 'In Progress', etc.) or a simplified algorithm: count epics in each state and derive. `getWIPCount(scopeId: string, resolution: Resolution, items: Item[], edges: Edge[]): number` returns count of items in scope (via valueStreamId/teamId depending on resolution?) excluding attribution. Specifically, for attribution, edge kind 'attribution' should not cause an item to be counted multiple times; count each item once if it belongs to scope. Implement helper `getBoardItems(scopeId, resolution, items, edges, scopes)` that returns items visible on the board, handling boundary pins and ghost lane. All functions must be pure and typed.",
@@ -56,7 +56,7 @@
         "updatedAt": "2026-10-10T17:53:37.362Z"
       },
       {
-        "id": "5",
+        "id": 5,
         "title": "Build board layout components: columns, scope lanes, lane headers, and card containers",
         "description": "Create the main board UI with vertical state columns and horizontal scope lanes, including lane headers with count/limit and row rails.",
         "details": "In `src/components/Board.tsx`, build a grid layout using Tailwind. Columns are determined by the current resolution from `COLUMNS_BY_RESOLUTION`. Lanes are determined by selected scope: if scope is enterprise, lanes are value streams; if scope is value stream, lanes are teams; if scope is team, single lane. Use Zustand store to get scopes, items, edges, limitPolicies. Compute per lane and column the visible items using `getBoardItems` or similar. Render lane headers showing `count / limit` where count is WIP count for that lane and column, limit from LimitPolicy for corresponding item type and scope. Color threshold: yellow when count >= 70% of limit, red when >= limit. Row rail on the left shows per-row total count. Use `clsx` and `tailwind-merge` for class composition. Ensure the layout is dense like LeanKit: small cards, compact spacing.",
@@ -71,7 +71,7 @@
         "updatedAt": "2026-10-10T17:53:37.364Z"
       },
       {
-        "id": "6",
+        "id": 6,
         "title": "Implement resolution switcher and board data computation",
         "description": "Add top bar resolution switcher (Initiative L1 / Epic L2 / Story L3) and update board columns and counting unit accordingly while preserving scope.",
         "details": "In `src/components/TopBar.tsx` (or within Board), add three buttons for L1/L2/L3. On click, call `setResolution` from store. The board (already dependent on resolution) will re-render with new columns and item mapping. Ensure that switching resolution does not change selected scope. The counting unit: for L1, count initiatives; L2 count epics; L3 count stories/defects. Items that are not of the current resolution but have decomposition to items of that resolution should appear as boundary pins (e.g., epic on L3 board). Implement logic in `getBoardItems` to map items to columns based on level and state. For each item, if its computed level equals resolution, it is a regular card; if level > resolution (e.g., initiative on L2 board), it appears as rollup contribution or not shown? The PRD says: 'One epic renders on three boards with one identity: L2 card on its value-stream board, L3 boundary pin on a team board, rollup contribution on the L1 portfolio.' So for L3 board, an epic (level L2) should appear as a boundary pin in the column corresponding to its state? Actually boundary pin is shown where it does not belong, e.g., epic on team board (L3). So implement: if item's computed level != resolution, but item has descendants of the current resolution, show as boundary pin in the appropriate column (the column of the descendant? or a ghost lane?). The PRD: 'Boundary pins: a card shown where it does not belong renders with no pill, no WIP count, dashed left border, \"waiting on: <title>\"'. Also 'Ghost lane: when a dependency enters from outside the scope, a read-only lane at the board edge lists only the binding items.' We'll implement boundary pins and ghost lane in later tasks. For now, ensure resolution switcher updates columns and counting unit.",
@@ -85,7 +85,7 @@
         "updatedAt": "2026-10-10T17:53:37.366Z"
       },
       {
-        "id": "7",
+        "id": 7,
         "title": "Implement card component and boundary pin rendering",
         "description": "Create card component with type pill, title, id+size, value stream stripe, icon row, and distinct boundary pin styling.",
         "details": "In `src/components/Card.tsx`, render an item card with: type pill color-coded by type (initiative=purple, epic=blue, story=green, defect=red), title, bottom row showing id and size (e.g., '#123 · 5 pts'), left border stripe colored by value stream (map valueStreamId to color), icon row at bottom showing dependency count (number of dependency edges where item is blocker or dependent), child count (number of decomposition edges from item), and blocked flag if any dependency open. For boundary pins (when item is shown outside its natural level), render without type pill, no WIP count contribution, dashed left border, and text 'waiting on: <title>' where title is the dependent's title (or blocker's title?). The PRD says \"waiting on: <title>\" and opens the item in a side panel scoped to its own board. Implement conditional rendering based on a prop `isBoundaryPin`. Use lucide-react icons for counts and flags.",
@@ -99,7 +99,7 @@
         "updatedAt": "2026-10-10T17:53:37.367Z"
       },
       {
-        "id": "8",
+        "id": 8,
         "title": "Implement item side panel with details, children, dependencies, and derivation display",
         "description": "Create a side panel that opens when clicking a card, showing the item's full details, its children, dependencies, computed level and dependency states with derivation explanation.",
         "details": "In `src/components/SidePanel.tsx`, use Zustand to get selected item (add `selectedItemId` to store with action `setSelectedItemId`). The panel slides in from right side. Show item title, type, state, value stream, team, size, assignee, createdAt. Show children section: list of child items via decomposition edges, with ability to click to navigate (set selected item). Show dependencies section: list of dependency edges involving this item (both as blocker and dependent), with status and actions to confirm/reject (for proposed) and maybe resolve. Show computed level: display `level(item)` result and the decomposition path used. Show dependency state for each dependency: display `dependencyState(blocker, dependent)` and the reasons. For boundary pins, ensure panel is scoped to the item's own board (meaning the panel shows the item in its natural resolution context, not the current board resolution). Implement by passing the item's computed level to the panel content.",
@@ -113,7 +113,7 @@
         "updatedAt": "2026-10-10T17:53:37.368Z"
       },
       {
-        "id": "9",
+        "id": 9,
         "title": "Implement drag-and-drop with dnd-kit for moving cards between columns",
         "description": "Enable drag-and-drop of cards between columns to update item state, triggering level recomputation when children are moved.",
         "details": "In Board component, wrap each card with dnd-kit's `useDraggable` and each column with `useDroppable`. On drag end, determine target column state and call `updateItem(itemId, { state: newState })`. Only allow dragging regular cards (not boundary pins) and only within the current resolution's columns. For L2 resolution, dragging an epic between columns updates its state; moving an epic to a column that reflects decomposition? No, only state changes. For L3, dragging a story updates its story state. After any state change, derived values (level, dependency states, portfolio status) will recompute automatically. To demonstrate level change via decomposition: implement ability to drag child items away from a parent? That might be done via side panel editing children, not drag. The PRD says \"Dragging all children away from an epic changes its computed level.\" This implies moving decomposition edges, possibly via UI to reassign parent. For MVP, we can implement in side panel a 'change parent' action or drag between cards to establish decomposition? Simplify: add a button in side panel to detach child from parent, or drag child card onto another card to set as new parent? The PRD does not specify exactly how; we can implement a simple method: in side panel, for each child, provide a 'Detach' button that removes the decomposition edge, and maybe a 'Reparent' option. That is sufficient to show level change. Ensure that after detach, the epic's level recomputes to L3 if no children left.",
@@ -130,7 +130,7 @@
         "updatedAt": "2026-10-10T17:53:37.370Z"
       },
       {
-        "id": "10",
+        "id": 10,
         "title": "Implement dependency management and computed dependency state updates",
         "description": "Add UI to create, confirm, reject, and resolve dependencies; ensure dependent state automatically updates when blocker resolves.",
         "details": "In side panel dependencies section, provide a button 'Add dependency' that allows selecting another item and creating a dependency edge with default status 'proposed'. For each dependency, show actions: confirm (set status to 'confirmed'), reject (set status to 'rejected'), and for blocker items, a 'Resolve' button that updates the blocker item's state to its resolved state (e.g., for epic, set state to 'Done'; for story, set to 'Done'). The dependent's dependency state will then recompute to 'Satisfied' automatically (via derivation). Ensure that when a dependency is confirmed, the dependent shows blocked flag if blocker unresolved. Also implement cross-level dependency: the seeded dependency from Platform epic to Team Bravo story should display correctly on both boards, with the epic appearing as boundary pin on the story's board. Use `dependencyState` function to display the current state and reason. Ensure attribution edges are not considered dependencies.",
@@ -145,7 +145,7 @@
         "updatedAt": "2026-10-10T17:53:37.371Z"
       },
       {
-        "id": "11",
+        "id": 11,
         "title": "Implement limit policy enforcement and composition pressure display",
         "description": "Add soft-block enforcement for item limits per scope, requiring a reason before allowing a move that would exceed limit; show composition pressure on cards with many open descendants.",
         "details": "When a drag-and-drop operation would cause a lane's count to exceed its limit (e.g., adding a 5th epic to a value stream with limit 4), intercept the drop and open a dialog (LimitDialog) requiring the user to enter a reason (text input). Only after entering a non-empty reason, allow the move (call updateItem) and record the reason (could store in a separate log or on the item as `limitOverrideReason`). Show a toast or indicator. For composition pressure: on cards that have many open descendants (e.g., epic with 18 open stories), display a visual indicator (e.g., a small pressure icon or red dot) and tooltip with count of open children. This is computed from decomposition edges and child states. No hard block; always soft. Ensure limit policies are configurable but seeded with epic limit per value stream = 4.",
@@ -159,7 +159,7 @@
         "updatedAt": "2026-10-10T17:53:37.373Z"
       },
       {
-        "id": "12",
+        "id": 12,
         "title": "Implement portfolio rollup, sponsor recommendation, reset demo, search, zoom, and final integration",
         "description": "Add portfolio view (L1) with computed initiative status and sponsor recommendation override, plus top bar search and zoom controls, and ensure reset demo restores seed.",
         "details": "In L1 resolution, show portfolio view: a list of initiatives with their computed `portfolioStatus`. For each initiative, display a sponsor recommendation (e.g., based on status: if all child epics Done, recommend 'Approve'; if any In Progress, recommend 'Watch'; else 'Review') as a one-click button. The human can confirm the recommendation or override with a reason (open dialog to input reason, then set a `sponsorOverride` on the initiative item). Add a 'Reset demo' button in top bar that calls `resetDemo` from store. Add search input in top bar that filters cards by title or id. Add zoom controls (buttons for 75%, 100%, 125%) that scale the board via CSS transform. Ensure all features integrate without errors. Run build and tests.",
@@ -185,13 +185,16 @@
       "completedCount": 12,
       "tags": [
         "master"
-      ]
+      ],
+      "created": "2026-10-11T13:38:53.564Z",
+      "description": "Tasks for master context",
+      "updated": "2026-10-11T13:38:53.564Z"
     }
   },
   "backlog": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Implement Objective and Key Result data model and persistence",
         "description": "Define and persist Objectives and Key Results as commitment-limited entities with period, status, score, target, current, and progress fields.",
         "status": "done",
@@ -202,12 +205,12 @@
         "subtasks": []
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Build Objectives & Key Results view with period selector and score summary",
         "description": "Create the OKR view where objectives are listed by period, with commitment limit status and score summary, and nested key results.",
         "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
         "details": "Build an OKR page that filters objectives by period and shows active versus scored state. Display the period commitment limit indicator, defaulting to 3-5 active objectives. Show nested KeyResults below each objective and compute an overall score summary for the selected period.",
@@ -215,13 +218,13 @@
         "subtasks": []
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Implement Objective create, edit, delete, and status workflow",
         "description": "Add UI and behavior to create, edit, delete, activate, score, and close Objectives.",
         "status": "done",
         "dependencies": [
-          1,
-          2
+          "1",
+          "2"
         ],
         "priority": "high",
         "details": "Create a form/modal for Objective title, description, period, status, and score. Support active-to-scored transitions. Validate against commitment limits from task 2. Use confirm-before-destructive actions. Persist updates through the Objective store.",
@@ -229,14 +232,14 @@
         "subtasks": []
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Implement Key Result add, edit, and score UI",
         "description": "Add the ability to create, edit, update current/target values, and score Key Results under Objectives.",
         "status": "done",
         "dependencies": [
-          1,
-          2,
-          3
+          "1",
+          "2",
+          "3"
         ],
         "priority": "high",
         "details": "Within the OKR view, allow adding/editing KRs for a selected objective. Support target, current, and progress fields. Compute progress from current/target where possible. Score KRs without placing them in board columns or affecting WIP.",
@@ -244,12 +247,12 @@
         "subtasks": []
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Implement objective-work attribution edges and rollup computation",
         "description": "Implement many-to-many attribution edges from initiatives and cards to objectives, and compute objective rollup without inflating WIP.",
         "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
         "details": "Create attribution edge records for many-to-many linkage between work items and objectives. Provide query helpers that return attributed initiatives/cards for an objective. Calculate coverage and rollup status/percent complete from attributed work. Ensure attribution edges never count as WIP.",
@@ -257,13 +260,13 @@
         "subtasks": []
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Build map-work-to-objectives UI and attribution UX with coverage/impact reporting",
         "description": "Allow attaching initiatives and cards to objectives and display coverage, rollup status, and percent of attributed work.",
         "status": "done",
         "dependencies": [
-          2,
-          5
+          "2",
+          "5"
         ],
         "priority": "high",
         "details": "Add an objective attribution control to initiative/card panels and item editors. Show objective chips on attributed work. Display coverage percentages and unattributed-work hints. Provide impact reporting so users can see how mapped work contributes to an objective.",
@@ -271,13 +274,13 @@
         "subtasks": []
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Implement cross-board initiative rollup and board-local top-level initiative semantics",
         "description": "Enable top-level initiatives from one management board to roll up to top-level initiatives on another management board, while preserving board-local top-level definitions.",
         "status": "done",
         "dependencies": [
-          5,
-          6
+          "5",
+          "6"
         ],
         "priority": "high",
         "details": "Define an initiative decomposition tree that spans boards. A top-level initiative on a management board can roll up to a top-level initiative on another management board. On any management board, an initiative whose parent is not on the same board is treated as board-local top-level. Update the Initiatives workflow to reflect these board-local top-level initiatives.",
@@ -285,13 +288,13 @@
         "subtasks": []
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Implement limits editor with configurable enforcement modes",
         "description": "Build a limits editor for commitment limits and configurable enforcement with thresholds, effective dates, and soft-block reason off by default.",
         "status": "pending",
         "dependencies": [
-          2,
-          3
+          "2",
+          "3"
         ],
         "priority": "medium",
         "details": "Provide settings UI for Objective commitment limits with modes: visualize, warn, soft-block, hard-block. Support thresholds and effective dates. Include a configurable soft-block reason field that is off by default. Integrate enforcement into Objective creation and period views.",
@@ -299,13 +302,13 @@
         "subtasks": []
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Implement portfolio rollup and sponsor recommendation with override reason",
         "description": "Compute initiative status across the portfolio and provide a one-click sponsor recommendation that a human can confirm or override with a reason.",
         "status": "pending",
         "dependencies": [
-          5,
-          7
+          "5",
+          "7"
         ],
         "priority": "medium",
         "details": "Build a portfolio rollup that computes initiative status from children and attributed work. Surface a recommended status with one-click confirmation. Allow users to override the recommendation and require a reason. Store the confirmation or override reason for auditability.",
@@ -313,12 +316,12 @@
         "subtasks": []
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Implement initiative health and at-risk flags beyond percent complete",
         "description": "Add P2 initiative health and at-risk flags based on signals beyond simple percent complete.",
         "status": "pending",
         "dependencies": [
-          9
+          "9"
         ],
         "priority": "low",
         "details": "Define rules for health flags using blockers, dependency risk, stale progress, uncovered work, and rollup anomalies. Add flag badges in portfolio and initiative views. Keep rule evaluation on compact state/derived selectors.",
@@ -326,18 +329,19 @@
         "subtasks": []
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "Build full card editor in side panel",
         "description": "P0 full card editor supports title, markdown description, assignee, size, and type in the side panel.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Create a panel that opens when a card is selected. Include title input, markdown description editor/preview, assignee picker, size field, and issue type selector. Persist all changes immediately or on save/cancel. Integrate with existing item store and undo stack.",
         "testStrategy": "Open editor for a card. Change title, description markdown, assignee, size, and type. Verify each persists and renders correctly. Test save and cancel behavior.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-11T13:41:40.403Z"
       },
       {
-        "id": 12,
+        "id": "12",
         "title": "Implement delete and archive items with child handling rules",
         "description": "P0 delete or archive items, with clear rules for handling children.",
         "status": "pending",
@@ -348,7 +352,7 @@
         "subtasks": []
       },
       {
-        "id": 13,
+        "id": "13",
         "title": "Implement quick-add and paste-many card creation in lanes",
         "description": "P1 quick-add and paste-many: paste a list into a lane to create multiple cards.",
         "status": "pending",
@@ -359,12 +363,12 @@
         "subtasks": []
       },
       {
-        "id": 14,
+        "id": "14",
         "title": "Add checklists inside a card",
         "description": "P2 checklist support inside a card for finer-grained work than schedulable cards.",
         "status": "pending",
         "dependencies": [
-          11
+          "11"
         ],
         "priority": "low",
         "details": "Add checklist model data inside items. Provide UI to add, check, uncheck, reorder, and delete checklist entries. Show checklist progress on the card face. Do not treat checklist items as schedulable work or WIP.",
@@ -372,12 +376,12 @@
         "subtasks": []
       },
       {
-        "id": 15,
+        "id": "15",
         "title": "Add comments and activity log per item",
         "description": "P2 comments and activity log per item.",
         "status": "pending",
         "dependencies": [
-          11
+          "11"
         ],
         "priority": "low",
         "details": "Add a chronological activity log to each item. Support adding comments and automatically record meaningful changes such as title, assignee, status, type, size, dependency changes, and rollup changes. Render markdown in comments.",
@@ -385,13 +389,13 @@
         "subtasks": []
       },
       {
-        "id": 16,
+        "id": "16",
         "title": "Implement multi-select and bulk actions",
         "description": "P2 multi-select cards and bulk actions for move, retype, assign, and delete.",
         "status": "pending",
         "dependencies": [
-          11,
-          12
+          "11",
+          "12"
         ],
         "priority": "low",
         "details": "Add selection mode to board and lane views. Provide a bulk action toolbar supporting move to lane/board, change type, assign, and delete/archive. Batch mutations should use the same persistence/undo path as single-item actions.",
@@ -399,7 +403,7 @@
         "subtasks": []
       },
       {
-        "id": 17,
+        "id": "17",
         "title": "Implement lane drag reorder and resize with persistence",
         "description": "P0 drag to reorder lanes and drag to resize lanes, persisting sizes and order.",
         "status": "pending",
@@ -410,12 +414,12 @@
         "subtasks": []
       },
       {
-        "id": 18,
+        "id": "18",
         "title": "Implement inline rename and confirm-before-delete replacing window.prompt",
         "description": "P0 inline rename for lanes/items and confirm-before-delete modal instead of window.prompt.",
         "status": "pending",
         "dependencies": [
-          17
+          "17"
         ],
         "priority": "high",
         "details": "Replace any window.prompt usage with inline editable fields and a proper confirmation modal for delete operations. Support Enter to save, Escape to cancel, and click-away behavior. Use accessible labels and focus management.",
@@ -423,12 +427,12 @@
         "subtasks": []
       },
       {
-        "id": 19,
+        "id": "19",
         "title": "Implement lane settings popover",
         "description": "P1 lane settings popover provides name, WIP limit, stage, colour, merge, and delete actions.",
         "status": "pending",
         "dependencies": [
-          18
+          "18"
         ],
         "priority": "medium",
         "details": "Add a lane header settings popover. Expose fields for name, WIP limit, stage, and colour. Include merge target selection and delete action that follows child handling rules. Persist changes through lane store.",
@@ -436,12 +440,12 @@
         "subtasks": []
       },
       {
-        "id": 20,
+        "id": "20",
         "title": "Implement collapse/expand lanes and management bands with persisted state",
         "description": "P1 collapse/expand lanes and management bands while remembering state.",
         "status": "pending",
         "dependencies": [
-          19
+          "19"
         ],
         "priority": "medium",
         "details": "Add collapse/expand controls to lane and management band headers. Persist collapsed state per board/user. Ensure collapsed lanes do not hide work from board totals unexpectedly; use visual indicators for hidden items.",
@@ -449,12 +453,12 @@
         "subtasks": []
       },
       {
-        "id": 21,
+        "id": "21",
         "title": "Implement board settings, templates, new-team-board wizard, and duplicate board",
         "description": "P1 board settings and templates include board level, rollup toggle, new-team-board wizard, and duplicate board.",
         "status": "pending",
         "dependencies": [
-          20
+          "20"
         ],
         "priority": "medium",
         "details": "Create a board settings panel for board level and rollup toggle. Add template defaults for recurring board configurations. Build a new-team-board wizard that scaffolds lanes, levels, and rollup rules. Add duplicate board while avoiding ID collisions and preserving config.",
@@ -462,7 +466,7 @@
         "subtasks": []
       },
       {
-        "id": 22,
+        "id": "22",
         "title": "Build pending dependency confirmation inbox on blocker side",
         "description": "P0 inbox for blockers to confirm or reject dependency requests with a reason.",
         "status": "pending",
@@ -473,12 +477,12 @@
         "subtasks": []
       },
       {
-        "id": 23,
+        "id": "23",
         "title": "Build dependency register view split into live blockage vs planning risk",
         "description": "P0 dependency register shows all open dependencies split into live blockage and planning risk.",
         "status": "pending",
         "dependencies": [
-          22
+          "22"
         ],
         "priority": "high",
         "details": "Create a dependency register view that categorizes open dependencies. Live blockage includes dependencies currently blocking execution. Planning risk includes future or soft dependencies. Support filtering and jump-to-source/target items.",
@@ -486,12 +490,12 @@
         "subtasks": []
       },
       {
-        "id": 24,
+        "id": "24",
         "title": "Implement raise dependency with pin picker, FS/SS/FF types, and lag editor",
         "description": "P1 raise a dependency with a pin picker, finish-to-start/start-to-start/finish-to-finish types, and lag editor.",
         "status": "pending",
         "dependencies": [
-          23
+          "23"
         ],
         "priority": "medium",
         "details": "Add a dependency creation flow with a pin picker to select the target item. Provide FS, SS, and FF dependency types. Add a lag editor for numeric lead/lag values. Validate target selection, type, and lag before creating the edge.",
@@ -499,7 +503,7 @@
         "subtasks": []
       },
       {
-        "id": 25,
+        "id": "25",
         "title": "Implement blocker badge drill-in with cross-board count",
         "description": "P1 blocker badge showing 'blocks N across M boards'",
         "status": "pending",
@@ -510,7 +514,7 @@
         "testStrategy": ""
       },
       {
-        "id": 26,
+        "id": "26",
         "title": "Build global search across all boards",
         "description": "Search items by title/ref across every board with jump-to results.",
         "status": "pending",
@@ -521,7 +525,7 @@
         "subtasks": []
       },
       {
-        "id": 27,
+        "id": "27",
         "title": "Implement board filters and saved presets",
         "description": "Filter the current board by assignee, type, blocked state, or initiative; save presets.",
         "status": "pending",
@@ -532,7 +536,7 @@
         "subtasks": []
       },
       {
-        "id": 28,
+        "id": "28",
         "title": "Add lineage breadcrumb and show-on-other-boards to the item panel",
         "description": "Show the parent chain and the boards an item appears on, with jump links.",
         "status": "pending",
@@ -543,7 +547,7 @@
         "subtasks": []
       },
       {
-        "id": 29,
+        "id": "29",
         "title": "Add a command palette / quick board switcher",
         "description": "Keyboard-driven switcher for boards, items and actions.",
         "status": "pending",
@@ -554,7 +558,7 @@
         "subtasks": []
       },
       {
-        "id": 30,
+        "id": "30",
         "title": "Add ghost lanes for cross-scope dependencies",
         "description": "Surface inbound external dependencies as a read-only edge lane.",
         "status": "pending",
@@ -565,7 +569,7 @@
         "subtasks": []
       },
       {
-        "id": 31,
+        "id": "31",
         "title": "Implement undo/redo for mutations",
         "description": "Undo/redo across edits, ideally by wrapping mutations in a command layer.",
         "status": "pending",
@@ -576,7 +580,7 @@
         "subtasks": []
       },
       {
-        "id": 32,
+        "id": "32",
         "title": "Implement workspace export and import (JSON)",
         "description": "Back up and restore the whole workspace as JSON.",
         "status": "pending",
@@ -587,7 +591,7 @@
         "subtasks": []
       },
       {
-        "id": 33,
+        "id": "33",
         "title": "Add toasts and action feedback",
         "description": "Give immediate feedback for moves, confirms, saves and errors.",
         "status": "pending",
@@ -598,7 +602,7 @@
         "subtasks": []
       },
       {
-        "id": 34,
+        "id": "34",
         "title": "Add empty states and contextual hints",
         "description": "Guide first-run and empty boards/lanes/columns.",
         "status": "pending",
@@ -609,7 +613,7 @@
         "subtasks": []
       },
       {
-        "id": 35,
+        "id": "35",
         "title": "Virtualize large columns and boards",
         "description": "Keep boards fast with hundreds of cards.",
         "status": "pending",
@@ -620,7 +624,7 @@
         "subtasks": []
       },
       {
-        "id": 36,
+        "id": "36",
         "title": "Touch and responsive layout with touch drag",
         "description": "Usable on tablet/mobile, including drag.",
         "status": "pending",
@@ -631,7 +635,7 @@
         "subtasks": []
       },
       {
-        "id": 37,
+        "id": "37",
         "title": "Keyboard navigation and accessibility pass",
         "description": "Make the app keyboard-navigable and screen-reader friendly.",
         "status": "pending",
@@ -643,9 +647,13 @@
       }
     ],
     "metadata": {
-      "created": "2026-10-11T12:27:39.769Z",
-      "updated": "2026-10-11T12:31:09.222Z",
-      "description": "Tasks for backlog context"
+      "version": "1.0.0",
+      "lastModified": "2026-10-11T13:41:40.403Z",
+      "taskCount": 37,
+      "completedCount": 8,
+      "tags": [
+        "backlog"
+      ]
     }
   }
 }

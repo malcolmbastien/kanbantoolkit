@@ -16,6 +16,7 @@ import {
 } from '@/domain/derive'
 import { buildRefs } from '@/domain/board'
 import { lanePath } from '@/domain/lanes'
+import { renderMarkdown } from '@/lib/markdown'
 import { DEP_STATE_STYLES, readableOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -48,6 +49,7 @@ export function ItemPanel({ itemId }: Props) {
   const [parentChoice, setParentChoice] = useState('')
   const [linkBoardId, setLinkBoardId] = useState('')
   const [linkTitle, setLinkTitle] = useState('')
+  const [showPreview, setShowPreview] = useState(false)
 
   const graph: Graph = { items, edges, placements, lanes }
   const item = items.find((i) => i.id === itemId)
@@ -75,6 +77,7 @@ export function ItemPanel({ itemId }: Props) {
   const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
+  const assignees = [...new Set(items.map((i) => i.assignee).filter((a): a is string => Boolean(a)))]
 
   const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
@@ -128,6 +131,74 @@ export function ItemPanel({ itemId }: Props) {
           </div>
           <div className="mt-1 text-[11px] text-indigo-700/80">
             depth {d} — derived from the parent/child chain, not a field.
+          </div>
+        </section>
+
+        {/* Details — full card editor */}
+        <section>
+          <SectionLabel>Details</SectionLabel>
+          <div className="space-y-2">
+            <div>
+              <div className="mb-1 flex items-center gap-1">
+                <span className="text-[11px] font-medium text-slate-500">Description</span>
+                <span className="text-[10px] text-slate-400">(markdown)</span>
+                <div className="ml-auto flex items-center gap-0.5 rounded border border-slate-200 p-0.5">
+                  {(['Write', 'Preview'] as const).map((m) => {
+                    const on = (m === 'Preview') === showPreview
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => setShowPreview(m === 'Preview')}
+                        className={cn('rounded px-1.5 py-px text-[10px] font-medium', on ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-700')}
+                      >
+                        {m}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              {showPreview ? (
+                <div
+                  className="min-h-[72px] rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[12px] leading-relaxed text-slate-700"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(item.description ?? '') || '<p class="text-slate-400">Nothing to preview.</p>' }}
+                />
+              ) : (
+                <textarea
+                  value={item.description ?? ''}
+                  onChange={(e) => setItemFields(item.id, { description: e.target.value })}
+                  rows={5}
+                  placeholder="Add a description… (supports **bold**, lists, `code`, links)"
+                  className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              )}
+            </div>
+            <div className="flex items-end gap-2">
+              <label className="flex min-w-0 flex-1 flex-col gap-1 text-[11px] text-slate-500">
+                Assignee
+                <input
+                  list="flowline-assignees"
+                  value={item.assignee ?? ''}
+                  onChange={(e) => setItemFields(item.id, { assignee: e.target.value })}
+                  placeholder="initials…"
+                  className="w-full rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <datalist id="flowline-assignees">
+                  {assignees.map((a) => (
+                    <option key={a} value={a} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="flex flex-col gap-1 text-[11px] text-slate-500">
+                Size
+                <input
+                  type="number"
+                  min={0}
+                  value={item.size ?? ''}
+                  onChange={(e) => setItemFields(item.id, { size: e.target.value === '' ? undefined : Number(e.target.value) })}
+                  className="w-20 rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </label>
+            </div>
           </div>
         </section>
 
