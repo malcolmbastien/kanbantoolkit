@@ -412,14 +412,14 @@
       {
         "id": "19",
         "title": "Implement lane settings popover",
-        "description": "P1 lane settings popover provides name, WIP limit, stage, colour, merge, and delete actions.",
-        "status": "pending",
+        "description": "P1 lane settings popover: name, WIP limit, policy, and delete.",
+        "status": "done",
         "dependencies": [
           "18"
         ],
         "priority": "medium",
-        "details": "Add a lane header settings popover. Expose fields for name, WIP limit, stage, and colour. Include merge target selection and delete action that follows child handling rules. Persist changes through lane store.",
-        "testStrategy": "Update each lane setting and verify persistence. Merge a lane and confirm children move to the selected target. Delete a lane and confirm child handling rules apply.",
+        "details": "A '⚙ settings' control in the lane header opens a settings popover: name, WIP limit, policy (the new Lane.description field) and remove. Sub-lanes can be renamed and removed (with the existing child-handling rules); top-level typed columns keep a read-only name and no remove. Stage, colour and merge were explicitly out of scope. Fields commit live (commit-on-blur lost edits because closing the popover unmounts the field first). A lane with a policy shows an info icon in the header; hovering/focusing it reveals the policy in a popover. All lanes — including top-level columns — can carry a policy.",
+        "testStrategy": "Open the popover on a sub-lane and a top-level column; verify name/WIP/policy persist (after Save in edit mode) and that top-level columns have no remove. Verify the info icon appears only with a policy and its tooltip shows the text. Store test for setLaneDescription; CDP verification. Run npm test.",
         "subtasks": []
       },
       {
@@ -700,7 +700,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
       "taskCount": 41,
-      "completedCount": 19,
+      "completedCount": 20,
       "tags": [
         "backlog"
       ]
