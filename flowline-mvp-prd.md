@@ -227,7 +227,7 @@ The demo is one enterprise. Three flights, one graph.
 - Optional, configurable limits per (resolution, item type, scope), with inheritance, override, versioning, and effective dates.
 - Objectives and key results as commitment-limited entities, never in columns.
 - Computed portfolio rollup: an initiative's status derives from its committed epics and its own decisions.
-- **Sponsor recommendation, not auto-approval.** A bet's computed status may *suggest* committed or rejected; a human confirms. The board stops lying without removing judgement.
+- **Computed portfolio rollup, not auto-status.** An initiative's status derives from committed work and is shown on a management board dashboard — the board stops lying without removing judgement.
 
 ### Out of scope for MVP
 
@@ -247,7 +247,7 @@ The demo must show, in one sitting, on real screens:
 3. **Dependency self-cleaning.** Blocked story on Team A, blocker epic on Team B. Blocker resolves; dependency state flips to Satisfied with nobody touching it. Then show it on *both* boards simultaneously.
 4. **Attribution that doesn't inflate.** One story attributed to two objectives; WIP count reads 1.
 5. **A limit working.** Set epics-per-stream to 4, add a fifth, get the soft block and required reason. Then show the pressure display on the epic carrying 18 open stories.
-6. **The exec board that stops lying.** An initiative's status computed from committed work, with a one-click sponsor recommendation.
+6. **The exec board that stops lying.** An initiative's status computed from committed work, shown on a management board dashboard.
 
 Items 1 and 3 are the load-bearing ones. If a viewer doesn't feel those, nothing else matters.
 
@@ -264,7 +264,7 @@ Items 1 and 3 are the load-bearing ones. If a viewer doesn't feel those, nothing
 |---|---|
 | **Targetprocess's graveyard** — the model is right and still failed | Fixed grammar. Flight levels are not configurable. This is the single hardest position to hold in the first enterprise pilot, and the one that most needs defending. |
 | **Learning curve** — Trello wins on four-second readability | Default view is a familiar L3 board. Novelty appears only on zoom, and appears as *already-recorded facts* rather than new concepts to learn. |
-| **Trusting computed status** — execs who want to type it | Sponsor recommendation pattern in 5. Show the derivation. Let them override with a recorded reason. |
+| **Trusting computed status** — execs who want to type it | Show the derivation on the management board dashboard, with target dates and blocked-down-chain counts, so the computed state is auditable. |
 | **Scope creep into "just one more level"** | Section 6.2 and Section 3.3 are the refusal, in advance. |
 | **Vision cost** — this needs more screens than a boarding app | It doesn't. It needs one more concept (resolution) and two renderings (boundary pin, ghost lane). |
 

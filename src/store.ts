@@ -24,6 +24,8 @@ export interface ViewState {
   lensId: string | null
   /** Show the Objectives & KRs view instead of a board. */
   showObjectives: boolean
+  /** Show the management dashboard for the current board (management boards only). */
+  showDashboard: boolean
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -39,6 +41,8 @@ export interface Actions {
   clearLens: () => void
   toggleObjectives: () => void
   setObjectives: (v: boolean) => void
+  toggleDashboard: () => void
+  setDashboard: (v: boolean) => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -110,6 +114,7 @@ const initialView: ViewState = {
   draft: null,
   lensId: null,
   showObjectives: false,
+  showDashboard: false,
 }
 
 /**
@@ -175,7 +180,7 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => set({ boardId, selectedItemId: null }),
+      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false }),
       openItem: (selectedItemId) => set({ selectedItemId }),
       setSearch: (search) => set({ search }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
@@ -199,8 +204,10 @@ export const useStore = create<Store>()(
       toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
-      toggleObjectives: () => set({ showObjectives: !get().showObjectives }),
-      setObjectives: (v) => set({ showObjectives: v }),
+      toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false }),
+      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false } : {}) }),
+      toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false } : {}) }),
 
       addObjective: (title, period) =>
         set({ objectives: [...get().objectives, { id: uid(), title, period, status: 'active' }] }),
@@ -453,7 +460,6 @@ export const useStore = create<Store>()(
           links: s.links,
           objectives: s.objectives,
           keyResults: s.keyResults,
-          sponsors: s.sponsors,
           boardId: design.boardId,
           boards: design.boards,
           lanes: design.lanes,

@@ -1,4 +1,4 @@
-import { Check, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Target, Trash2, X } from 'lucide-react'
+import { Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Search, Shapes, Target, Trash2, X } from 'lucide-react'
 import { LevelBadge } from './LevelBadge'
 import { cn } from '@/lib/utils'
 import type { Board, BoardLevel } from '@/domain/types'
@@ -10,9 +10,11 @@ interface Props {
   search: string
   editMode: boolean
   showObjectives: boolean
+  showDashboard: boolean
   onSelectBoard: (id: string) => void
   onSetBoardLevel: (level: BoardLevel) => void
   onToggleObjectives: () => void
+  onToggleDashboard: () => void
   onSearch: (q: string) => void
   onEditBoard: () => void
   onSaveEdit: () => void
@@ -29,7 +31,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardLevel, search, editMode, showObjectives, onSelectBoard, onSetBoardLevel, onToggleObjectives, onSearch, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardLevel, search, editMode, showObjectives, showDashboard, onSelectBoard, onSetBoardLevel, onToggleObjectives, onToggleDashboard, onSearch, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
@@ -54,6 +56,19 @@ export function TopBar(props: Props) {
       >
         <Target size={12} /> Objectives
       </button>
+
+      {boardLevel === 'portfolio' && (
+        <button
+          onClick={onToggleDashboard}
+          className={cn(
+            'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+            showDashboard ? 'border-violet-400/50 bg-violet-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+          )}
+          title="Portfolio dashboard — a summary view of this board's initiatives"
+        >
+          <LayoutDashboard size={12} /> Dashboard
+        </button>
+      )}
 
       <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
         Board

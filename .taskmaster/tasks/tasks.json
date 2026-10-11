@@ -160,10 +160,10 @@
       },
       {
         "id": 12,
-        "title": "Implement portfolio rollup, sponsor recommendation, reset demo, search, zoom, and final integration",
-        "description": "Add portfolio view (L1) with computed initiative status and sponsor recommendation override, plus top bar search and zoom controls, and ensure reset demo restores seed.",
-        "details": "In L1 resolution, show portfolio view: a list of initiatives with their computed `portfolioStatus`. For each initiative, display a sponsor recommendation (e.g., based on status: if all child epics Done, recommend 'Approve'; if any In Progress, recommend 'Watch'; else 'Review') as a one-click button. The human can confirm the recommendation or override with a reason (open dialog to input reason, then set a `sponsorOverride` on the initiative item). Add a 'Reset demo' button in top bar that calls `resetDemo` from store. Add search input in top bar that filters cards by title or id. Add zoom controls (buttons for 75%, 100%, 125%) that scale the board via CSS transform. Ensure all features integrate without errors. Run build and tests.",
-        "testStrategy": "Manual test: switch to L1, see initiative with computed status. Click sponsor recommendation, status updates; override with reason is recorded. Test reset demo: after making changes, click reset and verify board returns to seed state. Test search filters visible cards. Test zoom changes scale. Run `npm run build` and `npm test` to ensure green.",
+        "title": "Implement portfolio rollup, reset demo, search, zoom, and final integration",
+        "description": "Add a portfolio view with computed initiative status, plus top bar search and zoom controls, and ensure reset demo restores seed.",
+        "details": "In the portfolio view, show a list of initiatives with their computed status. Add a 'Reset demo' button in top bar that calls `resetDemo` from store. Add search input in top bar that filters cards by title or id. Add zoom controls (buttons for 75%, 100%, 125%) that scale the board via CSS transform. Ensure all features integrate without errors. Run build and tests.",
+        "testStrategy": "Manual test: open the portfolio view, see initiative with computed status. Test reset demo: after making changes, click reset and verify board returns to seed state. Test search filters visible cards. Test zoom changes scale. Run `npm run build` and `npm test` to ensure green.",
         "priority": "medium",
         "dependencies": [
           "4",
@@ -302,27 +302,11 @@
         "subtasks": []
       },
       {
-        "id": 9,
-        "title": "Implement portfolio rollup and sponsor recommendation with override reason",
-        "description": "Compute initiative status across the portfolio and provide a one-click sponsor recommendation that a human can confirm or override with a reason.",
-        "status": "pending",
-        "dependencies": [
-          "5",
-          "7"
-        ],
-        "priority": "medium",
-        "details": "Build a portfolio rollup that computes initiative status from children and attributed work. Surface a recommended status with one-click confirmation. Allow users to override the recommendation and require a reason. Store the confirmation or override reason for auditability.",
-        "testStrategy": "Create multi-level initiatives and verify rollup status matches expected contribution. Confirm a recommendation updates the initiative. Override a recommendation and verify the reason is saved and displayed.",
-        "subtasks": []
-      },
-      {
         "id": 10,
         "title": "Implement initiative health and at-risk flags beyond percent complete",
         "description": "Add P2 initiative health and at-risk flags based on signals beyond simple percent complete.",
         "status": "pending",
-        "dependencies": [
-          "9"
-        ],
+        "dependencies": [],
         "priority": "low",
         "details": "Define rules for health flags using blockers, dependency risk, stale progress, uncovered work, and rollup anomalies. Add flag badges in portfolio and initiative views. Keep rule evaluation on compact state/derived selectors.",
         "testStrategy": "Seed initiatives with blockers, stale progress, and uncovered children. Confirm expected at-risk flags appear. Verify flags clear when conditions are resolved.",

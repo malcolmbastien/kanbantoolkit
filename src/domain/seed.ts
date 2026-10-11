@@ -74,13 +74,13 @@ const item = (id: string, title: string, typeId: string, extra: Partial<Item> = 
   items.push({ id, title, typeId, createdAt: T, ...extra })
 
 // Top-level initiatives (company portfolio).
-item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignee: 'MB' })
-item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignee: 'DS' })
+item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignee: 'MB', targetDate: '2026-12-15' })
+item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignee: 'DS', targetDate: '2027-03-31' })
 
 // Team-level initiatives.
-item('init-signup', 'New signup flow', 't-initiative', { size: 13, assignee: 'RK' })
-item('init-welcome', 'Welcome experience', 't-initiative', { size: 8, assignee: 'LM' })
-item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignee: 'JT' })
+item('init-signup', 'New signup flow', 't-initiative', { size: 13, assignee: 'RK', targetDate: '2026-11-30' })
+item('init-welcome', 'Welcome experience', 't-initiative', { size: 8, assignee: 'LM', targetDate: '2026-11-15' })
+item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignee: 'JT', targetDate: '2027-02-28' })
 
 // Cards — Team Atlas.
 item('st-signup-design', 'Design signup screens', 't-story', { size: 3 })
@@ -190,6 +190,5 @@ export function createSeed(): FlowState {
     links: structuredClone(links),
     objectives: structuredClone(objectives),
     keyResults: structuredClone(keyResults),
-    sponsors: {},
   }
 }

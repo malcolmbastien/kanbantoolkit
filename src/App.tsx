@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BoardView } from './components/BoardView'
 import { ItemPanel } from './components/ItemPanel'
+import { ManagementDashboard } from './components/ManagementDashboard'
 import { ObjectivesView } from './components/ObjectivesView'
 import { TopBar } from './components/TopBar'
 import { TypeEditor } from './components/TypeEditor'
@@ -19,6 +20,9 @@ export default function App() {
   const showObjectives = useStore((s) => s.showObjectives)
   const toggleObjectives = useStore((s) => s.toggleObjectives)
   const setObjectives = useStore((s) => s.setObjectives)
+  const showDashboard = useStore((s) => s.showDashboard)
+  const toggleDashboard = useStore((s) => s.toggleDashboard)
+  const setDashboard = useStore((s) => s.setDashboard)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
 
@@ -46,6 +50,7 @@ export default function App() {
     const lens = params.get('lens')
     if (lens) setLens(lens)
     if (params.get('view') === 'objectives') setObjectives(true)
+    if (params.get('view') === 'dashboard') setDashboard(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -79,9 +84,11 @@ export default function App() {
         search={search}
         editMode={editMode}
         showObjectives={showObjectives}
+        showDashboard={showDashboard}
         onSelectBoard={selectBoard}
         onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
         onToggleObjectives={toggleObjectives}
+        onToggleDashboard={toggleDashboard}
         onSearch={setSearch}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -95,7 +102,13 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          {showObjectives ? <ObjectivesView /> : <BoardView requestMove={requestMove} />}
+          {showObjectives ? (
+            <ObjectivesView />
+          ) : showDashboard && boardLevel === 'portfolio' ? (
+            <ManagementDashboard boardId={boardId} />
+          ) : (
+            <BoardView requestMove={requestMove} />
+          )}
         </div>
         {selectedItemId && <ItemPanel itemId={selectedItemId} />}
       </div>

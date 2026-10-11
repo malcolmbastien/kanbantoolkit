@@ -41,7 +41,7 @@ Priorities: P0 = needed for a usable MVP; P1 = next; P2 = later.
 - P0 Cross-board initiative rollup: a top-level initiative on one management board can roll up to a top-level initiative on another management board. A management board's Initiatives workflow shows its board-local top-level initiatives (an initiative whose parent is not on the same board is top-level there).
 - P1 Attribution UX: attach initiatives to objectives, coverage/impact reporting.
 - P1 Limits editor with configurable enforcement (visualize/warn/soft-block/hard-block), thresholds and effective dates; soft-block reason off by default.
-- P1 Portfolio rollup and sponsor recommendation: computed initiative status with a one-click recommendation the human confirms or overrides with a reason.
+- P1 Management board dashboard: a summary view of a board's initiatives with work progress, target date, status, and an indicator of blocked work down the chain.
 - P2 Initiative health / at-risk flags beyond percent complete.
 
 ## 5. Navigation, search & filters

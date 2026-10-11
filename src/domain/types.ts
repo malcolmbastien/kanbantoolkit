@@ -83,6 +83,8 @@ export interface Item {
   typeId: string
   size?: number
   assignee?: string
+  /** Target completion date, ISO 'YYYY-MM-DD'. Shown on the management dashboard. */
+  targetDate?: string
   createdAt: number
   resolvedAt?: number | null
   cancelledAt?: number | null
@@ -160,12 +162,6 @@ export interface KeyResult {
   progress?: number
 }
 
-export interface SponsorRecord {
-  decision: 'committed' | 'rejected' | 'dormant'
-  reason?: string
-  at: number
-}
-
 export interface FlowState {
   issueTypes: IssueType[]
   boards: Board[]
@@ -178,5 +174,4 @@ export interface FlowState {
   links: ItemLink[]
   objectives: Objective[]
   keyResults: KeyResult[]
-  sponsors: Record<string, SponsorRecord>
 }

@@ -250,6 +250,15 @@ export function ItemPanel({ itemId }: Props) {
                   className="w-20 rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
                 />
               </label>
+              <label className="flex flex-col gap-1 text-[11px] text-slate-500">
+                Target date
+                <input
+                  type="date"
+                  value={item.targetDate ?? ''}
+                  onChange={(e) => setItemFields(item.id, { targetDate: e.target.value || undefined })}
+                  className="rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </label>
             </div>
           </div>
         </section>

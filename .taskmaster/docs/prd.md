@@ -20,7 +20,7 @@ Board membership is computed from scope ∩ resolution. Levels and dependency st
 | D | **Dependency state is computed** from both endpoints. Resolving a blocker flips the dependent's state with nobody touching it. | Item 3 — the other load-bearing idea. |
 | E | **Attribution never counts as WIP.** One story attributed to two objectives reads as one unit of work. | Keeps counting honest. |
 | F | A configurable **limit** (epics per value stream) soft-blocks with a **required reason**, and the epic carrying open descendants shows **composition pressure**. | Limits working. |
-| G | **Portfolio rollup**: an initiative's status is computed from committed work, with a **sponsor recommendation** the human confirms or overrides (with reason). | The exec board stops lying. |
+| G | **Portfolio rollup**: an initiative's status is computed from committed work and shown on a **management board dashboard**. | The exec board stops lying. |
 
 ## 2. Tech stack (local-first prototype)
 
@@ -113,5 +113,5 @@ screen that does not serve behaviours A–G.
    with no manual edit.
 6. The two-objective story contributes **1** to WIP.
 7. Adding a 5th epic to a stream triggers the soft block and demands a reason.
-8. The portfolio view shows a computed initiative status and a one-click sponsor
-   recommendation the human can override with a recorded reason.
+8. Each management board has a dashboard listing its initiatives with work progress,
+   target date, status, and a count of blocked work down the chain.
