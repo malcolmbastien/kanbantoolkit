@@ -21,7 +21,7 @@ import type { IssueType, Item, Stage } from '@/domain/types'
  * (items that decompose into children), placed in the three typed columns by rollup.
  * No detailed team flow and no leaf cards.
  */
-export function BoardSummary({ boardId, rootsOnly }: { boardId: string; rootsOnly?: boolean }) {
+export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId: string; rootsOnly?: boolean; variant?: 'initiatives' | 'team' }) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
   const placements = useStore((s) => s.placements)
@@ -59,11 +59,19 @@ export function BoardSummary({ boardId, rootsOnly }: { boardId: string; rootsOnl
 
   if (columns.length === 0) return <p className="p-3 text-[12px] text-slate-500">This board has no typed columns.</p>
 
+  const isInitiatives = variant === 'initiatives'
+
   return (
     <div className="flex gap-2 p-2">
       {columns.map(({ lane, stage, cards }) => (
-        <div key={lane.id} className="flex min-w-[320px] flex-1 basis-0 flex-col rounded-md border border-slate-300 bg-slate-100">
-          <div className="flex items-center gap-1.5 rounded-t-md bg-slate-700 px-2 py-1 text-slate-100">
+        <div
+          key={lane.id}
+          className={cn(
+            'flex min-w-[320px] flex-1 basis-0 flex-col rounded-md border',
+            isInitiatives ? 'border-violet-200 bg-violet-50/70' : 'border-slate-300 bg-slate-100',
+          )}
+        >
+          <div className={cn('flex items-center gap-1.5 rounded-t-md px-2 py-1', isInitiatives ? 'bg-violet-700 text-white' : 'bg-slate-700 text-slate-100')}>
             <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name}</span>
             <span
               className={cn(
@@ -77,7 +85,7 @@ export function BoardSummary({ boardId, rootsOnly }: { boardId: string; rootsOnl
             >
               {STAGE_LABELS[stage]}
             </span>
-            <span className="ml-auto text-[10px] font-semibold tabular-nums text-slate-300/80">{cards.length}</span>
+            <span className={cn('ml-auto text-[10px] font-semibold tabular-nums', isInitiatives ? 'text-violet-200' : 'text-slate-300/80')}>{cards.length}</span>
           </div>
           <div className="flex flex-1 flex-wrap content-start gap-2 p-2">
             {cards.map((c) => {

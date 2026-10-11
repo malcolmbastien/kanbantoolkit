@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Layers, Plus, X } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
+import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 
 /**
@@ -31,11 +32,12 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
     body: React.ReactNode,
     right?: React.ReactNode,
     collapsible = true,
+    accent: 'violet' | 'slate' = 'slate',
   ) => {
     const isCollapsed = collapsed[key]
     return (
-      <section key={key} className="rounded-lg border border-slate-300 bg-slate-100 shadow-sm">
-        <div className="flex items-center gap-2 rounded-t-lg border-b border-slate-300 bg-slate-800 px-3 py-1.5 text-slate-200">
+      <section key={key} className={cn('rounded-lg border shadow-sm', accent === 'violet' ? 'border-violet-300 bg-violet-50/60' : 'border-slate-300 bg-slate-100')}>
+        <div className={cn('flex items-center gap-2 rounded-t-lg border-b px-3 py-1.5 text-slate-200', accent === 'violet' ? 'border-violet-300 bg-violet-800' : 'border-slate-300 bg-slate-800')}>
           {collapsible && (
             <button onClick={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))} className="text-slate-300 hover:text-white">
               {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
@@ -64,9 +66,12 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           `${board.id}-initiatives`,
           <>
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
-            <span className="text-[10px] text-slate-400">top-level initiatives</span>
+            <span className="text-[10px] text-violet-200">top-level initiatives</span>
           </>,
-          <BoardSummary boardId={board.id} rootsOnly />,
+          <BoardSummary boardId={board.id} rootsOnly variant="initiatives" />,
+          undefined,
+          true,
+          'violet',
         )}
 
         {/* Linked workflows — the team boards */}
