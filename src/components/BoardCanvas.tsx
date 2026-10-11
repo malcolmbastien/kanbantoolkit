@@ -274,7 +274,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     return (
       <div
         className={cn('flex h-full min-h-0 w-full flex-1 flex-col', isRoot && 'overflow-hidden rounded-md border border-slate-300/70')}
-        style={top && stage ? { borderLeft: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
+        style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
       >
         {!hideHeader && (editMode || lane.name) && header(false)}
         {collapsed ? (
@@ -319,7 +319,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   return (
     <div
       className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col bg-slate-100"
-      style={top && stage ? { borderLeft: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
+      style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
       {!hideHeader && header(true)}
       <DroppableCell enabled={ctx.interactive && !ctx.editMode} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
