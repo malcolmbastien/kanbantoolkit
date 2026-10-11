@@ -1,5 +1,6 @@
 import { Card, type CardParent } from './Card'
 import {
+  blockedBelow,
   decompositionChildren,
   decompositionParent,
   depth as depthOf,
@@ -114,6 +115,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
                   parent={parent}
                   wide
                   symbols={symbols}
+                  blockedTone={isInitiatives ? 'aggregate' : 'detail'}
                   selected={selectedItemId === c.id}
                   lens={lensRole(c.id, lensId, graph)}
                   onLens={toggleLens}
@@ -125,6 +127,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
                       (d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved,
                     ).length,
                     linksCount: incomingDependencies(c.id, graph).length + outgoingDependencies(c.id, graph).length,
+                    blockedBelow: blockedBelow(c.id, graph),
                     openDescendants: openDescendants(c.id, graph).length,
                     rollupPercent: rollupOf(c.id, graph).percent,
                   }}

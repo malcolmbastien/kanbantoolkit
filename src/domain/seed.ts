@@ -101,7 +101,15 @@ item('df-signup', 'Signup validation on retry', 't-bug', { size: 2 })
 item('st-welcome-copy', 'Welcome copy', 't-story', { size: 1 })
 item('st-tour', 'Guided tour', 't-story', { size: 5, assignee: 'LM' })
 item('st-gateway-contract', 'Define gateway contract', 't-story', { size: 5, assignee: 'JT' })
-item('st-ratelimit', 'Rate limiting', 't-story', { size: 3 })
+item('st-ratelimit', 'Rate limiting', 't-story', {
+  size: 3,
+  blocked: true,
+  blockedReason: 'Awaiting capacity review',
+  log: [
+    { id: 'log-rl-1', at: T + 3_600_000, kind: 'created' },
+    { id: 'log-rl-2', at: T + 5 * 3_600_000, kind: 'blocked', note: 'Awaiting capacity review' },
+  ],
+})
 item('sp-gateway', 'Spike: gateway options', 't-spike', { size: 2 })
 
 /* ------------------------------------------------------------------ *

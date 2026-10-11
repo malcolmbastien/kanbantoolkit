@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   attributedObjectives,
   blockingSummary,
+  blockedBelow,
   decompositionChildren,
   decompositionParent,
   depth,
@@ -110,6 +111,13 @@ describe('blocked is an explicit status, not derived from links', () => {
     expect({ ...after }).toEqual({ ...before })
     // A link into an unblocked item stays open — the status is orthogonal.
     expect(dependencyState('init-gateway', 'st-email', graphOf(s2))).toBe('OpenPlanningRisk')
+  })
+
+  it('a blockage on a leaf rolls up to its initiative and its top-level parent', () => {
+    expect(blockedBelow('st-sso', g)).toBe(0) // a leaf has nothing below it
+    expect(blockedBelow('init-signup', g)).toBe(1)
+    expect(blockedBelow('init-onboarding', g)).toBe(1)
+    expect(blockedBelow('init-gateway', g)).toBe(1) // st-ratelimit
   })
 })
 

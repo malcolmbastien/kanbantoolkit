@@ -8,6 +8,8 @@ export interface CardSummary {
   blocksCount: number
   /** Distinct item-to-item links (incoming + outgoing). */
   linksCount: number
+  /** Descendants (any depth) explicitly blocked and still open — rolled up. */
+  blockedBelow: number
   openDescendants: number
   /** For parents: % of leaf descendants done (derived rollup). */
   rollupPercent?: number
@@ -36,6 +38,12 @@ interface Props {
   /** Wide "summary" card for management/initiative boards: progress bar + symbols. */
   wide?: boolean
   symbols?: CardSymbol[]
+  /**
+   * How blocked descendants roll up onto this card:
+   * - `detail`   — precise, red (team initiative: "N blocked")
+   * - `aggregate` — softened, amber (top-level: "N blocked below")
+   */
+  blockedTone?: 'detail' | 'aggregate'
   /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
   lens?: 'self' | 'in' | 'out'
   onLens?: (id: string) => void
@@ -49,7 +57,7 @@ interface Props {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, lens, onLens, draggable, locked, selected, onOpen }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, onOpen }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -64,6 +72,30 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
   const lensCls =
     lens === 'out' ? 'opacity-40 saturate-50' : lens === 'in' ? 'ring-2 ring-indigo-400' : lens === 'self' ? 'ring-2 ring-indigo-600' : ''
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
+
+  // Blocked rolls up: the item's own status is precise; a count of blocked
+  // descendants is what lets a team blockage surface on its initiative.
+  const blockedChip = item.blocked ? (
+    <span
+      className="flex items-center gap-0.5 font-bold text-rose-600"
+      title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
+    >
+      <Ban size={11} /> blocked
+    </span>
+  ) : summary.blockedBelow > 0 ? (
+    blockedTone === 'aggregate' ? (
+      <span
+        className="flex items-center gap-0.5 font-semibold text-amber-600"
+        title={`${summary.blockedBelow} blocked below — rolled up from team cards`}
+      >
+        <Ban size={11} /> {summary.blockedBelow} blocked below
+      </span>
+    ) : (
+      <span className="flex items-center gap-0.5 font-bold text-rose-600" title={`${summary.blockedBelow} blocked below`}>
+        <Ban size={11} /> {summary.blockedBelow} blocked
+      </span>
+    )
+  ) : null
 
   const lensButton = onLens && !locked ? (
     <button
@@ -153,14 +185,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 <Link2 size={11} /> {summary.linksCount}
               </span>
             )}
-            {item.blocked && (
-              <span
-                className="flex items-center gap-0.5 font-bold text-rose-600"
-                title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
-              >
-                <Ban size={11} /> blocked
-              </span>
-            )}
+            {blockedChip}
             {summary.openDescendants > 0 && summary.childCount > 0 && (
               <span className="text-slate-400">{summary.openDescendants} open below</span>
             )}
@@ -260,15 +285,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 {summary.linksCount}
               </span>
             )}
-            {item.blocked && (
-              <span
-                className="flex items-center gap-0.5 font-bold text-rose-600"
-                title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
-              >
-                <Ban size={11} />
-                blocked
-              </span>
-            )}
+            {blockedChip}
             {summary.openDescendants > 0 && summary.childCount > 0 && (
               <span className="text-slate-500" title="Open descendants (composition pressure)">
                 {summary.openDescendants} open below

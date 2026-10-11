@@ -169,6 +169,20 @@ export function openDescendants(id: string, graph: Graph): Item[] {
     .filter((i) => !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
 }
 
+/**
+ * How many descendants (at any depth) are explicitly blocked and still open.
+ * This is what lets a blockage on a team card roll up into its team initiative
+ * and, aggregated, into a top-level initiative — without the top board having
+ * to know the individual blocker.
+ */
+export function blockedBelow(id: string, graph: Graph): number {
+  return descendants(id, graph)
+    .map((d) => graph.items.find((i) => i.id === d))
+    .filter((i): i is Item => Boolean(i))
+    .filter((i) => i.blocked === true && !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
+    .length
+}
+
 /* ------------------------------------------------------------------ *
  * Rollup — an item's status is determined by the status of the work at
  * the lowest level of its subtree. Nothing is typed; it is computed.

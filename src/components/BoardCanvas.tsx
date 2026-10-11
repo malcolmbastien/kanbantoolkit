@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
 import {
+  blockedBelow,
   decompositionChildren,
   decompositionParent,
   depth as depthOf,
@@ -238,6 +239,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 childCount: decompositionChildren(c.id, graph.edges).length,
                 blocksCount: outgoingDependencies(c.id, graph).filter((d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved).length,
                 linksCount: incomingDependencies(c.id, graph).length + outgoingDependencies(c.id, graph).length,
+                blockedBelow: blockedBelow(c.id, graph),
                 openDescendants: openDescendants(c.id, graph).length,
                 rollupPercent: decompositionChildren(c.id, graph.edges).length > 0 ? roll.percent : undefined,
               }}
