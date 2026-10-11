@@ -210,6 +210,40 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === 'st-signup-design')?.archived ?? false).toBe(false)
   })
 
+  it('moves lanes within their parent via buttons (no drag)', () => {
+    const root = rootLane(s().lanes, 'b-atlas')!
+    const topNames = () => childrenOf(s().lanes, root.id).map((l) => l.name)
+    expect(topNames()).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().moveLane(ns.id, -1) // left
+    expect(topNames()).toEqual(['Not Started', 'Backlog', 'In Progress', 'Done'])
+    s().moveLane(ns.id, -1) // already first → no-op
+    expect(topNames()).toEqual(['Not Started', 'Backlog', 'In Progress', 'Done'])
+
+    // columns within a split
+    const ip = laneByName('b-atlas', 'In Progress')
+    const colNames = () => childrenOf(s().lanes, ip.id).map((l) => l.name)
+    expect(colNames()).toEqual(['Dev', 'Test'])
+    s().moveLane(laneByName('b-atlas', 'Dev').id, 1) // right
+    expect(colNames()).toEqual(['Test', 'Dev'])
+  })
+
+  it('adds a column to a column split and a row to a row split', () => {
+    const ip = laneByName('b-atlas', 'In Progress')
+    const before = childrenOf(s().lanes, ip.id).length
+    s().addLane(ip.id)
+    const cols = childrenOf(s().lanes, ip.id)
+    expect(cols.length).toBe(before + 1)
+    expect(cols[cols.length - 1].name).toBe('Column 3')
+
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().splitLane(ns.id, 'rows')
+    expect(childrenOf(s().lanes, ns.id).map((r) => r.name)).toEqual(['Row 1', 'Row 2'])
+    s().addLane(ns.id)
+    expect(childrenOf(s().lanes, ns.id).map((r) => r.name)).toEqual(['Row 1', 'Row 2', 'Row 3'])
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

@@ -74,6 +74,8 @@ export interface Actions {
 
   splitLane: (laneId: string, orientation: SplitOrientation, count?: number) => void
   addLane: (parentId: string) => void
+  /** Reorder a lane within its parent (delta -1 = left/up, +1 = right/down). */
+  moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: SplitOrientation) => void
   setLaneFlags: (laneId: string, patch: Partial<Pick<Lane, 'isStart' | 'isDone' | 'isCancelled'>>) => void
   removeLane: (laneId: string) => void
@@ -381,6 +383,22 @@ export const useStore = create<Store>()(
         const lane = state.lanes.find((l) => l.id === laneId)
         if (!lane || lane.parentId === null) return // never flip the board root
         set({ lanes: state.lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)) })
+      },
+
+      moveLane: (laneId, delta) => {
+        const state = get()
+        const lane = state.lanes.find((l) => l.id === laneId)
+        if (!lane || lane.parentId === null) return // the board root has no siblings
+        const siblings = childrenOf(state.lanes, lane.parentId)
+        const idx = siblings.findIndex((s) => s.id === laneId)
+        const j = idx + delta
+        if (idx < 0 || j < 0 || j >= siblings.length) return
+        const reordered = [...siblings]
+        const [moved] = reordered.splice(idx, 1)
+        reordered.splice(j, 0, moved)
+        // Renumber siblings so order stays a clean 0..n-1 sequence.
+        const orderById = new Map(reordered.map((s, i) => [s.id, i]))
+        set({ lanes: state.lanes.map((l) => (orderById.has(l.id) ? { ...l, order: orderById.get(l.id)! } : l)) })
       },
 
       setLaneFlags: (laneId, patch) =>

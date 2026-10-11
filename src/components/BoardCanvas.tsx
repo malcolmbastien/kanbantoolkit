@@ -75,6 +75,7 @@ interface Ctx {
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
+  moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: 'columns' | 'rows') => void
   setLaneFlags: (laneId: string, patch: { isStart?: boolean; isDone?: boolean; isCancelled?: boolean }) => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
@@ -83,14 +84,21 @@ interface Ctx {
   onAddCard: (laneId: string) => void
 }
 
-function Ctl({ children, onClick, title, active, danger }: { children: React.ReactNode; onClick: () => void; title: string; active?: boolean; danger?: boolean }) {
+function Ctl({ children, onClick, title, active, danger, disabled }: { children: React.ReactNode; onClick: () => void; title: string; active?: boolean; danger?: boolean; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       title={title}
       className={cn(
         'rounded px-1.5 py-0.5 text-[10px] font-semibold transition',
-        active ? 'bg-indigo-400 text-white' : danger ? 'bg-white/10 text-slate-200 hover:bg-rose-400/70 hover:text-white' : 'bg-white/10 text-slate-200 hover:bg-white/25',
+        disabled
+          ? 'cursor-not-allowed bg-white/5 text-slate-500'
+          : active
+            ? 'bg-indigo-400 text-white'
+            : danger
+              ? 'bg-white/10 text-slate-200 hover:bg-rose-400/70 hover:text-white'
+              : 'bg-white/10 text-slate-200 hover:bg-white/25',
       )}
     >
       {children}
@@ -101,6 +109,12 @@ function Ctl({ children, onClick, title, active, danger }: { children: React.Rea
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
   const kids = childrenOf(lanes, lane.id)
+  const parent = lane.parentId ? lanes.find((l) => l.id === lane.parentId) : undefined
+  const siblings = lane.parentId ? childrenOf(lanes, lane.parentId) : []
+  const sibIdx = siblings.findIndex((s) => s.id === lane.id)
+  const canMovePrev = sibIdx > 0
+  const canMoveNext = sibIdx >= 0 && sibIdx < siblings.length - 1
+  const parentOrientation = parent?.orientation ?? 'columns'
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
@@ -133,10 +147,24 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
         {editMode && !isRoot && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
+            {/* Move this lane among its siblings — columns move left/right, rows up/down */}
+            {parentOrientation === 'rows' ? (
+              <>
+                <Ctl title="Move up" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}>▲</Ctl>
+                <Ctl title="Move down" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▼</Ctl>
+              </>
+            ) : (
+              <>
+                <Ctl title="Move left" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}>◀</Ctl>
+                <Ctl title="Move right" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▶</Ctl>
+              </>
+            )}
+            <span className="mx-0.5 h-4 w-px bg-white/20" />
+
             {isLeafCell ? (
               <>
-                <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split</Ctl>
-                <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split</Ctl>
+                <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split col</Ctl>
+                <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split row</Ctl>
                 {!top && (
                   <>
                     <Ctl title="Mark as the start column (not started)" active={lane.isStart} onClick={() => ctx.setLaneFlags(lane.id, { isStart: !lane.isStart })}>start</Ctl>
@@ -154,16 +182,16 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 )}
               </>
             ) : (
-              !top && (
-                <>
-                  <Ctl title={`Add a ${lane.orientation === 'rows' ? 'row' : 'column'}`} onClick={() => ctx.addLane(lane.id)}>
-                    ＋ {lane.orientation === 'rows' ? 'row' : 'column'}
-                  </Ctl>
-                  <Ctl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, lane.orientation === 'rows' ? 'columns' : 'rows')}>
+              <>
+                <Ctl title={`Add a ${(lane.orientation ?? 'columns') === 'rows' ? 'row' : 'column'} to this split`} onClick={() => ctx.addLane(lane.id)}>
+                  ＋ add {(lane.orientation ?? 'columns') === 'rows' ? 'row' : 'column'}
+                </Ctl>
+                {!top && (
+                  <Ctl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, (lane.orientation ?? 'columns') === 'rows' ? 'columns' : 'rows')}>
                     ⟷ flip
                   </Ctl>
-                </>
-              )
+                )}
+              </>
             )}
             {!top && (
               <>
@@ -173,7 +201,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 <Ctl danger title="Remove lane" onClick={() => ctx.removeLane(lane.id)}>remove</Ctl>
               </>
             )}
-            {top && <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">fixed column type — split to refine</span>}
+            {top && <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">typed column — split to refine</span>}
           </div>
         )}
       </div>
@@ -341,6 +369,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const openItem = useStore((s) => s.openItem)
   const splitLane = useStore((s) => s.splitLane)
   const addLane = useStore((s) => s.addLane)
+  const moveLane = useStore((s) => s.moveLane)
   const setLaneOrientation = useStore((s) => s.setLaneOrientation)
   const setLaneFlags = useStore((s) => s.setLaneFlags)
   const setLaneWip = useStore((s) => s.setLaneWip)
@@ -375,7 +404,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     lanes, items, issueTypes, refs, graph, editMode, search, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
-    openItem, splitLane, addLane, setLaneOrientation, setLaneFlags, setLaneWip, removeLane, renameLane,
+    openItem, splitLane, addLane, moveLane, setLaneOrientation, setLaneFlags, setLaneWip, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = issueTypes[0]?.id
       if (typeId) addCard({ boardId, typeId, laneId, title: 'New card' })

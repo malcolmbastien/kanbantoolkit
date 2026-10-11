@@ -389,14 +389,15 @@
       },
       {
         "id": "17",
-        "title": "Implement lane drag reorder and resize with persistence",
-        "description": "P0 drag to reorder lanes and drag to resize lanes, persisting sizes and order.",
-        "status": "pending",
+        "title": "Implement lane reorder and add via buttons (Cards workflow)",
+        "description": "P0 button-driven board editing for the Cards workflow: move columns left/right and rows up/down, and add a column to a column split or a row to a row split. No drag; order persists.",
+        "status": "in-progress",
         "dependencies": [],
         "priority": "high",
-        "details": "Add drag-to-reorder and drag-to-resize interactions for lanes. Persist lane order and width per board. Respect responsive boundaries and minimum widths. Avoid triggering content edits during drag.",
-        "testStrategy": "Reorder lanes and reload the board to confirm order persists. Resize lanes and reload to confirm widths persist. Test keyboard-accessible alternative if available.",
-        "subtasks": []
+        "details": "Scope: the Cards workflow only (the Initiatives workflow is static/derived; management boards are unaffected). Add a moveLane(laneId, delta) action that reorders a lane within its parent and renumbers siblings (0..n-1). Expose ◀ ▶ buttons for column containers and ▲ ▼ for row containers, disabled at the ends. Add '＋ add column' / '＋ add row' buttons on any split container (including top-level splits such as In Progress), labelled by the container's orientation. Keep the existing split / rename / remove / flip / WIP controls. All editing lives in edit mode behind Save/Cancel; lane order is persisted as Lane.order. Drag reorder and drag resize are explicitly out of scope.",
+        "testStrategy": "Move a top-level column left/right and a column within a split; verify the order changes and that moving past the ends is a no-op. Add a column to a column split and a row to a row split; verify the generated names (Column/Row N). Reload to confirm order persists.",
+        "subtasks": [],
+        "updatedAt": "2026-10-11T16:19:38.963Z"
       },
       {
         "id": "18",
@@ -658,7 +659,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-11T16:05:39.991Z",
+      "lastModified": "2026-10-11T16:19:38.963Z",
       "taskCount": 38,
       "completedCount": 10,
       "tags": [
