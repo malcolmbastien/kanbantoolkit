@@ -116,13 +116,12 @@ export interface Placement {
   laneId: string
 }
 
-export type DepKind = 'FS' | 'SS' | 'FF'
 export type DepStatus = 'proposed' | 'confirmed' | 'rejected'
 
 /**
- * An item-to-item link. Links capture **dependency-type relationships only**
- * (finish-to-start / start-to-start / finish-to-finish). They never imply a
- * "blocked" status — blocking is an explicit status the user sets on an item.
+ * An item-to-item link: `from` (the blocker) blocks `to` (the dependent). This is
+ * the only way two items are connected. A link never implies a "blocked" status —
+ * blocking is an explicit status the user sets on an item.
  */
 export interface ItemLink {
   id: string
@@ -130,11 +129,8 @@ export interface ItemLink {
   from: string
   /** Dependent. */
   to: string
-  kind: DepKind
-  lagDays?: number
   status: DepStatus
   reason?: string
-  pinTo?: string
 }
 
 /** Structural (decomposition) and objective (attribution) relationships. */

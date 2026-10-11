@@ -144,7 +144,6 @@ describe('store actions', () => {
     expect(s().links.length).toBe(before + 1)
     const link = s().links[s().links.length - 1]
     expect(link.status).toBe('proposed')
-    expect(link.kind).toBe('FS')
     s().confirmDependency(link.id)
     expect(s().links.find((l) => l.id === link.id)?.status).toBe('confirmed')
   })
@@ -154,17 +153,17 @@ describe('store actions', () => {
       boards: [],
       edges: [
         { id: 'e1', kind: 'decomposition', from: 'p', to: 'c' },
-        { id: 'e2', kind: 'dependency', from: 'a', to: 'b', dep: { fsKind: 'SS', status: 'confirmed', reason: 'r', pinTo: 'p' } },
+        { id: 'e2', kind: 'dependency', from: 'a', to: 'b', dep: { status: 'confirmed', reason: 'r' } },
         { id: 'e3', kind: 'attribution', from: 'o', to: 'c' },
       ],
     }
     const migrated = migrateState(legacy) as {
       edges: { id: string }[]
-      links: { id: string; kind: string; status: string; reason?: string; pinTo?: string }[]
+      links: { id: string; status: string; reason?: string }[]
     }
     expect(migrated.edges.map((e) => e.id)).toEqual(['e1', 'e3'])
     expect(migrated.links).toHaveLength(1)
-    expect(migrated.links[0]).toMatchObject({ id: 'e2', from: 'a', to: 'b', kind: 'SS', status: 'confirmed', reason: 'r', pinTo: 'p' })
+    expect(migrated.links[0]).toMatchObject({ id: 'e2', from: 'a', to: 'b', status: 'confirmed', reason: 'r' })
   })
 
   it('archiving a parent cascades to its subtree and keeps the data linked', () => {

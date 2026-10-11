@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, Ban, ChevronRight, GitBranch, Plus, Sparkles, X } from 'lucide-react'
+import { Archive, Ban, GitBranch, Plus, Sparkles, X } from 'lucide-react'
 import {
   attributedObjectives,
   blockingSummary,
@@ -466,13 +466,8 @@ export function ItemPanel({ itemId }: Props) {
                     )}
                   </div>
                   <div className="text-[10px] text-slate-400">
-                    {dep.link.kind} · derived → {dependencyState(dep.blocker.id, dep.dependent.id, graph)}
+                    derived → {dependencyState(dep.blocker.id, dep.dependent.id, graph)}
                   </div>
-                  {dep.link.pinTo && (
-                    <div className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-500">
-                      <ChevronRight size={10} /> pinned to {items.find((i) => i.id === dep.link.pinTo)?.title ?? dep.link.pinTo}
-                    </div>
-                  )}
                 </div>
               )
             })}
@@ -505,7 +500,7 @@ export function ItemPanel({ itemId }: Props) {
             <button disabled={!blockerId} onClick={() => { raiseDependency(blockerId, item.id); setBlockerId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Add link</button>
           </div>
           <p className="mt-1 text-[10px] text-slate-400">
-            Links describe sequencing (FS/SS/FF). They indicate linked items but never set the blocked status above.
+            Links connect two items — this one depends on another. They indicate linked items but never set the blocked status above.
           </p>
         </section>
 

@@ -509,7 +509,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
                 dep={d}
                 blockerType={typeOf(d.blocker.typeId)}
                 boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.blocker.id)?.boardId)?.name ?? '—'}
-                pin={d.link.pinTo ? items.find((i) => i.id === d.link.pinTo) : undefined}
                 onOpen={openItem}
               />
             ))}

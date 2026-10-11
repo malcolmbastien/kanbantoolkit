@@ -57,8 +57,8 @@ Everything is nodes and typed edges. No `board` field anywhere.
 Scope { id, name, kind: enterprise | value_stream | team | function, parentId }
 Item  { id, title, description?, type: initiative|epic|story|defect,
         valueStreamId, teamId?, state, size?, assignee?, createdAt, resolvedAt? }
-Edge  { id, kind: decomposition | dependency | attribution, from, to,
-        dep?: { fsKind: FS|SS|FF, lagDays?, status: proposed|confirmed|rejected, reason? } }
+Edge      { id, kind: decomposition | attribution, from, to }
+ItemLink  { id, from, to, status: proposed|confirmed|rejected, reason? }   # "from blocks to"
 LimitPolicy { id, resolution, itemType, scopeId?, column?, enforcement, thresholds }
 Objective / KeyResult — commitment-limited entities, never in columns.
 ```
@@ -106,8 +106,7 @@ One enterprise, two value streams, three teams.
 - 1 initiative (Onboarding Redesign) decomposing into ~5 epics across both streams.
 - 2 objectives; stories attributed many-to-many to prove attribution doesn't inflate.
 - Stories per epic; a defect.
-- Cross-team + cross-level dependency: a Team Bravo story blocked by the Platform
-  **"API decision"** epic, **pinned to its descendant** story (not the whole epic).
+- Cross-team dependency: a Team Bravo story blocked by the Platform **"API decision"** epic.
 - Epic limit per value stream = 4, seeded with 5 epics so the soft block is demonstrable.
 - One epic carries ~18 open descendants to show composition pressure.
 

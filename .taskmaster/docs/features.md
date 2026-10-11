@@ -30,7 +30,7 @@ Priorities: P0 = needed for a usable MVP; P1 = next; P2 = later.
 ## 3. Coordination — dependencies
 - P0 Pending-confirmations inbox on the blocker side: confirm/reject with a reason.
 - P0 Dependency register view: all open dependencies split into live blockage vs planning risk.
-- P1 Raise-dependency with a pin picker, FS/SS/FF and lag editor.
+- Dependency links are intentionally simple: **"A blocks B"** — no FS/SS/FF, lag, or pinning.
 - P1 Blocker badge drill-in: "blocks N across M boards" opens the list.
 - P2 Ghost lanes for cross-scope dependencies.
 

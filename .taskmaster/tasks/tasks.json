@@ -481,25 +481,27 @@
         "id": "24",
         "title": "Implement raise dependency with pin picker, FS/SS/FF types, and lag editor",
         "description": "P1 raise a dependency with a pin picker, finish-to-start/start-to-start/finish-to-finish types, and lag editor.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [
           "23"
         ],
         "priority": "medium",
         "details": "Add a dependency creation flow with a pin picker to select the target item. Provide FS, SS, and FF dependency types. Add a lag editor for numeric lead/lag values. Validate target selection, type, and lag before creating the edge.",
         "testStrategy": "Create dependencies for each FS/SS/FF type with different lag values. Verify the dependency graph and scheduling visualization reflect type and lag. Validate invalid lag or target selection shows errors.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-11T18:55:46.464Z"
       },
       {
         "id": "25",
         "title": "Implement blocker badge drill-in with cross-board count",
         "description": "P1 blocker badge showing 'blocks N across M boards'",
-        "status": "pending",
+        "status": "cancelled",
         "priority": "medium",
         "dependencies": [],
         "subtasks": [],
         "details": "",
-        "testStrategy": ""
+        "testStrategy": "",
+        "updatedAt": "2026-10-11T18:55:46.475Z"
       },
       {
         "id": "26",
@@ -673,7 +675,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-11T18:36:19.853Z",
+      "lastModified": "2026-10-11T18:55:46.475Z",
       "taskCount": 39,
       "completedCount": 12,
       "tags": [

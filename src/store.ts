@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { decompositionParent, descendants, statusOf } from '@/domain/derive'
 import { createSeed } from '@/domain/seed'
-import type { Board, BoardLevel, DepKind, DepStatus, Edge, FlowState, IssueType, Item, ItemLink, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
+import type { Board, BoardLevel, DepStatus, Edge, FlowState, IssueType, Item, ItemLink, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -94,7 +94,7 @@ export interface Actions {
   /** Create a team-level initiative on a team board, linked (as a child) to a management initiative. */
   linkTeamInitiative: (parentId: string, boardId: string, title: string) => void
 
-  raiseDependency: (blockerId: string, dependentId: string, pinTo?: string, reason?: string) => void
+  raiseDependency: (blockerId: string, dependentId: string, reason?: string) => void
   confirmDependency: (linkId: string) => void
   rejectDependency: (linkId: string, reason: string) => void
   setAttribution: (itemId: string, objectiveId: string, on: boolean) => void
@@ -192,7 +192,7 @@ export function migrateState(persisted: unknown): Partial<Store> {
       kind: 'decomposition' | 'dependency' | 'attribution'
       from: string
       to: string
-      dep?: { fsKind?: DepKind; lagDays?: number; status?: DepStatus; reason?: string; pinTo?: string }
+      dep?: { status?: DepStatus; reason?: string }
     }
     const edges = Array.isArray(p.edges) ? (p.edges as LegacyEdge[]) : []
     p.links = edges
@@ -201,11 +201,8 @@ export function migrateState(persisted: unknown): Partial<Store> {
         id: e.id,
         from: e.from,
         to: e.to,
-        kind: e.dep?.fsKind ?? 'FS',
-        lagDays: e.dep?.lagDays,
         status: e.dep?.status ?? 'confirmed',
         reason: e.dep?.reason,
-        pinTo: e.dep?.pinTo,
       }))
     p.edges = edges.filter((e) => e.kind !== 'dependency').map(({ id, kind, from, to }) => ({ id, kind, from, to }))
   }
@@ -526,11 +523,11 @@ export const useStore = create<Store>()(
         })
       },
 
-      raiseDependency: (blockerId, dependentId, pinTo, reason) => {
+      raiseDependency: (blockerId, dependentId, reason) => {
         if (blockerId === dependentId) return
         const state = get()
         if (state.links.some((l) => l.from === blockerId && l.to === dependentId)) return
-        const link: ItemLink = { id: uid(), from: blockerId, to: dependentId, kind: 'FS', status: 'proposed', pinTo, reason }
+        const link: ItemLink = { id: uid(), from: blockerId, to: dependentId, status: 'proposed', reason }
         set({ links: [...state.links, link] })
       },
 

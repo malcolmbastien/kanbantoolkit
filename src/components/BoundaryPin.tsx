@@ -1,19 +1,18 @@
-import { CornerDownRight, Link2 } from 'lucide-react'
+import { Link2 } from 'lucide-react'
 import { DEP_STATE_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import type { DependencyInfo } from '@/domain/derive'
-import type { IssueType, Item } from '@/domain/types'
+import type { IssueType } from '@/domain/types'
 
 interface Props {
   dep: DependencyInfo
   blockerType: IssueType
   boardName: string
-  pin?: Item
   onOpen: (id: string) => void
 }
 
 /** A card shown where it does not belong: no column, no WIP count, dashed. */
-export function BoundaryPin({ dep, blockerType, boardName, pin, onOpen }: Props) {
+export function BoundaryPin({ dep, blockerType, boardName, onOpen }: Props) {
   const state = DEP_STATE_STYLES[dep.state]
   return (
     <button
@@ -27,11 +26,6 @@ export function BoundaryPin({ dep, blockerType, boardName, pin, onOpen }: Props)
       <div className="text-[10px] text-slate-400">
         {blockerType.name} · {boardName}
       </div>
-      {pin && (
-        <div className="mt-1 flex items-center gap-1 rounded bg-white px-1 py-0.5 text-[10px] text-slate-500 ring-1 ring-slate-200">
-          <CornerDownRight size={10} /> pin: {pin.title}
-        </div>
-      )}
       <div className="mt-1 flex items-center gap-1">
         <span className={cn('rounded px-1 py-px text-[9px] font-semibold ring-1', state.className)}>
           {state.label}
