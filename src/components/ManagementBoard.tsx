@@ -44,7 +44,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           {title}
           {right && <span className="ml-auto flex items-center gap-1">{right}</span>}
         </div>
-        {!isCollapsed && <div className="max-h-[560px] overflow-auto">{body}</div>}
+        {!isCollapsed && <div>{body}</div>}
       </section>
     )
   }

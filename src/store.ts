@@ -108,7 +108,7 @@ export function migrateState(persisted: unknown): Partial<Store> {
  * state older than v5 is reseeded with the current demo design.
  */
 export function migratePersisted(persisted: unknown, version: number): Partial<Store> {
-  if (version < 5) return createSeed() as unknown as Partial<Store>
+  if (version < 6) return createSeed() as unknown as Partial<Store>
   return migrateState(persisted)
 }
 
@@ -336,7 +336,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 5,
+      version: 6,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

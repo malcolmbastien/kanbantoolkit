@@ -144,6 +144,7 @@ place('it-beta', 'b-portfolio', pNS.id)
 place('it-research', 'b-portfolio', pNS.id)
 
 // Core Experience — cells live under the typed columns, within team rows.
+place('it-signup', 'b-core', cIPDev.id)
 place('it-tour', 'b-core', cNSAlpha.id)
 place('it-profile', 'b-core', cIPBravo.id)
 place('it-invite', 'b-core', cNSBravo.id)
