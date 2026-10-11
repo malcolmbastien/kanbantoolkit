@@ -40,3 +40,12 @@ export function buildRefs(items: Item[], types: IssueType[]): Map<string, string
   }
   return map
 }
+
+/**
+ * The type a freshly-created card should get. Cards live in the Cards workflow, so
+ * this is never the Initiative type — otherwise a new card would surface in the
+ * Initiatives workflow instead of the lane you clicked.
+ */
+export function defaultCardTypeId(types: IssueType[]): string | undefined {
+  return (types.find((t) => t.name !== 'Initiative') ?? types[0])?.id
+}

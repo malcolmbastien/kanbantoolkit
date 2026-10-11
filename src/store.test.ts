@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, rollupOf, statusOf } from './domain/derive'
+import { defaultCardTypeId } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, useStore } from './store'
 
@@ -285,6 +286,15 @@ describe('store actions', () => {
     expect(s().collapsedLanes[ip.id]).toBe(true)
     s().toggleCollapse(ip.id)
     expect(s().collapsedLanes[ip.id]).toBe(false)
+  })
+
+  it('a new card gets a non-initiative type (cards workflow, not initiatives)', () => {
+    const typeId = defaultCardTypeId(s().issueTypes)!
+    const lane = laneByName('b-atlas', 'Backlog')
+    s().addCard({ boardId: 'b-atlas', typeId, laneId: lane.id, title: 'New card' })
+    const created = s().items[s().items.length - 1]
+    expect(s().issueTypes.find((t) => t.id === created.typeId)?.name).not.toBe('Initiative')
+    expect(s().placements.some((p) => p.itemId === created.id && p.boardId === 'b-atlas' && p.laneId === lane.id)).toBe(true)
   })
 
   it('migrateState backfills Board.level', () => {

@@ -15,7 +15,7 @@ import {
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { buildRefs, externalBlockersOnBoard } from '@/domain/board'
+import { buildRefs, defaultCardTypeId, externalBlockersOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -441,7 +441,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,
     onAddCard: (laneId) => {
-      const typeId = issueTypes[0]?.id
+      const typeId = defaultCardTypeId(issueTypes)
       if (typeId) addCard({ boardId, typeId, laneId, title: 'New card' })
     },
   }
