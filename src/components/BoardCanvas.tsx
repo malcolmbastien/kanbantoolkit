@@ -48,7 +48,7 @@ function DroppableCell({ enabled, onDropItem, children }: { enabled: boolean; on
         if (id) onDropItem(id)
       }}
       className={cn(
-        'flex min-h-[48px] flex-1 flex-col gap-1 rounded-b-md p-1 transition',
+        'flex min-h-[48px] flex-1 flex-col gap-1 p-1 transition',
         enabled && over ? 'bg-indigo-300/50 ring-1 ring-inset ring-indigo-500' : 'bg-transparent',
       )}
     >
@@ -147,7 +147,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     const top = isTopLevel(lanes, lane.id)
     const stage = lane.stage ?? effectiveStage(lanes, lane.id)
     return (
-      <div className={cn('rounded-t-md px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
+      <div className={cn('px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
         <div className="flex items-center gap-1.5">
           {kids.length > 0 && (
             <button
@@ -248,17 +248,20 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     if (transposable && !collapsed) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} />
 
     return (
-      <div className="flex h-full min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
+      <div className={cn('flex h-full min-h-0 w-full flex-1 flex-col', isRoot && 'overflow-hidden rounded-md border border-slate-300/70')}>
         {!hideHeader && (editMode || lane.name) && header(false)}
         {collapsed ? (
           <div className="px-2 py-1 text-[10px] italic text-slate-400">{kids.length} hidden</div>
         ) : (
           <div
-            className={cn('w-full gap-1 p-1', orientation === 'rows' ? 'flex flex-col' : 'grid')}
+            className={cn(
+              'flex w-full flex-1 min-h-0',
+              orientation === 'rows' ? 'flex-col divide-y divide-slate-400/50' : 'grid divide-x divide-slate-400/50',
+            )}
             style={orientation === 'columns' ? { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' } : undefined}
           >
             {kids.map((k) => (
-              <div key={k.id} className={cn('flex flex-col', orientation === 'rows' && 'w-full')}>
+              <div key={k.id} className={cn('flex min-h-0 min-w-0 flex-col', orientation === 'rows' ? 'w-full' : 'flex-1')}>
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />
               </div>
             ))}
@@ -273,7 +276,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     .filter((i) => !ctx.search || i.title.toLowerCase().includes(ctx.search.toLowerCase()))
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col rounded-md border border-slate-300 bg-slate-100 shadow-sm">
+    <div className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col bg-slate-100">
       {!hideHeader && header(true)}
       <DroppableCell enabled={ctx.interactive && !ctx.editMode} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
         {cards.map((c) => {
@@ -336,14 +339,14 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
   }
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
+    <div className="flex min-h-0 w-full flex-1 flex-col">
       {(editMode || lane.name) && (
-        <div className="rounded-t-md bg-slate-800 px-2 py-1 text-white">
+        <div className="bg-slate-800 px-2 py-1 text-white">
           <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
         </div>
       )}
       <div
-        className="grid w-full gap-1 p-1"
+        className="grid w-full flex-1 min-h-0"
         style={{ gridTemplateColumns: `160px repeat(${columns.length}, minmax(min-content, 1fr))` }}
       >
         {/* column headers */}
