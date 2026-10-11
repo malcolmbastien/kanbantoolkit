@@ -87,7 +87,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
             </span>
             <span className={cn('ml-auto text-[10px] font-semibold tabular-nums', isInitiatives ? 'text-violet-200' : 'text-slate-300/80')}>{cards.length}</span>
           </div>
-          <div className="flex flex-1 flex-wrap content-start gap-2 p-2">
+          <div className="flex flex-1 flex-col gap-2 p-2">
             {cards.map((c) => {
               const pid = decompositionParent(c.id, edges)
               const p = pid ? items.find((i) => i.id === pid) : undefined

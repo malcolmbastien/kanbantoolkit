@@ -65,7 +65,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           onOpen(item.id)
         }}
         className={cn(
-          'group relative flex w-[300px] shrink-0 cursor-pointer flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
+          'group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
           'hover:shadow-md hover:border-slate-400',
           selected && 'ring-2 ring-indigo-400',
           isDragging && 'opacity-40',
