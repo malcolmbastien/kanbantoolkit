@@ -504,7 +504,7 @@
         "id": "26",
         "title": "Build global search across all boards",
         "description": "Search items by title/ref across every board with jump-to results.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Index items by title + ref; a command-style search input in the top bar returning matches grouped by board; selecting a result opens the board and item panel. Keyboard navigable.",
@@ -674,7 +674,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
       "taskCount": 39,
-      "completedCount": 13,
+      "completedCount": 15,
       "tags": [
         "backlog"
       ]
