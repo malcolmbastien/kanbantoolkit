@@ -19,7 +19,6 @@ export const DEP_STATE_STYLES: Record<string, { label: string; className: string
     label: 'Open · live blockage',
     className: 'bg-rose-100 text-rose-800 ring-rose-300',
   },
-  Void: { label: 'Void', className: 'bg-zinc-200 text-zinc-600 ring-zinc-300' },
 }
 
 /** A readable text/edge colour from an arbitrary type colour (dark text on light tints). */

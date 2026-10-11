@@ -11,7 +11,7 @@
 IssueType  { id, name, color }                              # custom, editable in-app
 Board      { id, name }
 Lane       { id, boardId, parentId, order, name,            # recursive tree
-             orientation?, wipLimit?, isStart?, isDone?, isCancelled? }
+             orientation?, stage?, wipLimit? }              # stage lives on top-level columns
 Item       { id, title, typeId, size?, assignee?, ... }     # no board/state/level field
 Edge       { decomposition | dependency | attribution }
 Placement  { id, boardId, itemId, laneId }                  # the card's board + cell
@@ -32,13 +32,13 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
 - **Types are labels.** Columns come from the board's lane tree, not the type.
 - **Derived facts (not stored):**
   - `depth(item)` = distance from a root via decomposition — replaces the old level.
-  - `statusOf(item)` = read from the card's cell (its leaf lane's `isStart`/`isDone`/
-    `isCancelled`); dependency state is arithmetic over two cells.
+  - `statusOf(item)` = the `stage` of the top-level column the card's cell sits under
+    (sub-lanes inherit it); dependency state is arithmetic over two cells.
   - attribution never counts as work.
 - **Placement is explicit but many-to-many.** One placement record per board, so an item
   can sit on several boards with one identity.
-- **WIP limits** are per-lane `wipLimit`s, checked along the target lane's ancestor chain;
-  default soft-block with a required, recorded reason.
+- **WIP limits** are per-lane `wipLimit`s and are **visual only** — a lane over its limit
+  shows red; moves are never blocked.
 
 ## What changed from v1
 
@@ -48,5 +48,5 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
 | resolution L1/L2/L3 + derived level | removed; `depth` is the structural fact |
 | `Board.resolution` + `scopeId` | `Board` owns a recursive lane tree |
 | scope ∩ level == resolution | `Placement` records (one per board) |
-| lifecycles keyed by resolution | leaf lanes carry the cell semantics |
+| lifecycles keyed by resolution | top-level columns carry the `stage`; sub-lanes inherit |
 | `LimitPolicy` | `Lane.wipLimit` |

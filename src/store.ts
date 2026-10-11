@@ -77,7 +77,6 @@ export interface Actions {
   /** Reorder a lane within its parent (delta -1 = left/up, +1 = right/down). */
   moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: SplitOrientation) => void
-  setLaneFlags: (laneId: string, patch: Partial<Pick<Lane, 'isStart' | 'isDone' | 'isCancelled'>>) => void
   removeLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
@@ -402,9 +401,6 @@ export const useStore = create<Store>()(
         const orderById = new Map(reordered.map((s, i) => [s.id, i]))
         set({ lanes: state.lanes.map((l) => (orderById.has(l.id) ? { ...l, order: orderById.get(l.id)! } : l)) })
       },
-
-      setLaneFlags: (laneId, patch) =>
-        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, ...patch } : l)) }),
 
       addLane: (parentId) => {
         const state = get()

@@ -119,8 +119,9 @@ src/
   container arranges children in columns or rows. `leafLanes()` flattens it; the renderer
   recurses so the grid can be non-uniform. `splitLane`/`addLane`/`removeLane` mutate the
   tree; all design controls show only in **edit mode**.
-- **Status is derived from the cell**: a card's column lane carries `isStart`/`isDone`/
-  `isCancelled`, and `statusOf()` reads it. Dependency state is arithmetic over two cells.
+- **Status is derived from the column type**: a leaf's status is the `stage` of the
+  top-level column it sits under (sub-lanes inherit it), and `statusOf()` reads that.
+  Dependency state is arithmetic over two cells.
 - **`setParent`** drops any existing decomposition parent, enforcing one parent.
 
 ## Taskmaster (authoring workflow)

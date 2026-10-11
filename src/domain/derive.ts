@@ -55,22 +55,17 @@ export function roots(graph: Graph): Item[] {
 
 export interface Status {
   resolved: boolean
-  cancelled: boolean
   started: boolean
 }
 
+/** A card's status is the stage of the top-level column its cell sits under. */
 export function statusOf(itemId: string, graph: Graph): Status {
   const placement = graph.placements.find((p) => p.itemId === itemId)
-  if (!placement) return { resolved: false, cancelled: false, started: false }
-  const lane = graph.lanes.find((l) => l.id === placement.laneId)
-  if (lane?.isCancelled) return { resolved: false, cancelled: true, started: false }
+  if (!placement) return { resolved: false, started: false }
   const stage = effectiveStage(graph.lanes, placement.laneId)
-  if (stage === 'done') return { resolved: true, cancelled: false, started: true }
-  if (stage === 'inProgress') return { resolved: false, cancelled: false, started: true }
-  if (stage === 'notStarted') return { resolved: false, cancelled: false, started: false }
-  if (stage === 'backlog') return { resolved: false, cancelled: false, started: false }
-  // No stage anywhere in the chain: fall back to legacy flags.
-  return { resolved: false, cancelled: false, started: !(lane?.isStart ?? false) }
+  if (stage === 'done') return { resolved: true, started: true }
+  if (stage === 'inProgress') return { resolved: false, started: true }
+  return { resolved: false, started: false } // notStarted, backlog, or unknown
 }
 
 /** The stage (commitment state) a leaf currently sits in. */
@@ -88,13 +83,11 @@ export type DependencyState =
   | 'Satisfied'
   | 'OpenPlanningRisk'
   | 'OpenLiveBlockage'
-  | 'Void'
 
 export function dependencyState(blockerId: string, dependentId: string, graph: Graph): DependencyState {
   const b = statusOf(blockerId, graph)
   const d = statusOf(dependentId, graph)
   if (d.resolved) return 'Closed'
-  if (b.cancelled) return 'Void'
   if (b.resolved) return 'Satisfied'
   if (!d.started) return 'OpenPlanningRisk'
   return 'OpenLiveBlockage'
@@ -166,7 +159,7 @@ export function openDescendants(id: string, graph: Graph): Item[] {
   return descendants(id, graph)
     .map((d) => graph.items.find((i) => i.id === d))
     .filter((i): i is Item => Boolean(i))
-    .filter((i) => !i.archived && !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
+    .filter((i) => !i.archived && !statusOf(i.id, graph).resolved)
 }
 
 /**
@@ -179,7 +172,7 @@ export function blockedBelow(id: string, graph: Graph): number {
   return descendants(id, graph)
     .map((d) => graph.items.find((i) => i.id === d))
     .filter((i): i is Item => Boolean(i))
-    .filter((i) => !i.archived && i.blocked === true && !statusOf(i.id, graph).resolved && !statusOf(i.id, graph).cancelled)
+    .filter((i) => !i.archived && i.blocked === true && !statusOf(i.id, graph).resolved)
     .length
 }
 
@@ -219,7 +212,6 @@ export interface Rollup {
   done: number
   inProgress: number
   notStarted: number
-  cancelled: number
   /** Done leaves as a percentage of countable (committed) leaves. */
   percent: number
   bucket: RollupBucket
@@ -232,9 +224,8 @@ export function rollupOf(id: string, graph: Graph): Rollup {
   const backlog = leaves.filter(isBacklog).length
   const committed = total - backlog
   const done = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).resolved).length
-  const cancelled = leaves.filter((l) => statusOf(l.id, graph).cancelled).length
   const started = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).started).length
-  const countable = Math.max(1, committed - cancelled)
+  const countable = Math.max(1, committed)
   const percent = total === 0 ? 0 : Math.round((done / countable) * 100)
 
   // A committed parent cannot have uncommitted (Backlog) children, so any backlog
@@ -247,9 +238,8 @@ export function rollupOf(id: string, graph: Graph): Rollup {
   return {
     total,
     done,
-    inProgress: Math.max(0, started - done - cancelled),
-    notStarted: Math.max(0, committed - started - cancelled),
-    cancelled,
+    inProgress: Math.max(0, started - done),
+    notStarted: Math.max(0, committed - started),
     percent: Math.min(100, percent),
     bucket,
   }

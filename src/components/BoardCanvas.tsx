@@ -77,7 +77,6 @@ interface Ctx {
   addLane: (parentId: string) => void
   moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: 'columns' | 'rows') => void
-  setLaneFlags: (laneId: string, patch: { isStart?: boolean; isDone?: boolean; isCancelled?: boolean }) => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
   removeLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
@@ -142,7 +141,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               {STAGE_LABELS[stage]}
             </span>
           )}
-          {isLeafCell && lane.isCancelled && <span className="rounded bg-rose-400/80 px-1 text-[9px] font-bold text-rose-950">cancelled</span>}
         </div>
 
         {editMode && !isRoot && (
@@ -171,19 +169,15 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split col</Ctl>
                 <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split row</Ctl>
                 {!top && (
-                  <>
-                    <Ctl title="Mark as the start column (not started)" active={lane.isStart} onClick={() => ctx.setLaneFlags(lane.id, { isStart: !lane.isStart })}>start</Ctl>
-                    <Ctl title="Mark as a done column (resolved)" active={lane.isDone} onClick={() => ctx.setLaneFlags(lane.id, { isDone: !lane.isDone, isStart: false, isCancelled: false })}>done</Ctl>
-                    <input
-                      type="number"
-                      min={0}
-                      value={lane.wipLimit ?? ''}
-                      onChange={(e) => ctx.setLaneWip(lane.id, e.target.value === '' ? undefined : Number(e.target.value))}
-                      placeholder="WIP"
-                      title="WIP limit"
-                      className="w-12 rounded bg-white/10 px-1 py-0.5 text-[10px] text-white placeholder:text-slate-400"
-                    />
-                  </>
+                  <input
+                    type="number"
+                    min={0}
+                    value={lane.wipLimit ?? ''}
+                    onChange={(e) => ctx.setLaneWip(lane.id, e.target.value === '' ? undefined : Number(e.target.value))}
+                    placeholder="WIP"
+                    title="WIP limit"
+                    className="w-12 rounded bg-white/10 px-1 py-0.5 text-[10px] text-white placeholder:text-slate-400"
+                  />
                 )}
               </>
             ) : (
@@ -376,7 +370,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const addLane = useStore((s) => s.addLane)
   const moveLane = useStore((s) => s.moveLane)
   const setLaneOrientation = useStore((s) => s.setLaneOrientation)
-  const setLaneFlags = useStore((s) => s.setLaneFlags)
   const setLaneWip = useStore((s) => s.setLaneWip)
   const removeLane = useStore((s) => s.removeLane)
   const renameLane = useStore((s) => s.renameLane)
@@ -409,7 +402,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     lanes, items, issueTypes, refs, graph, editMode, search, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
-    openItem, splitLane, addLane, moveLane, setLaneOrientation, setLaneFlags, setLaneWip, removeLane, renameLane,
+    openItem, splitLane, addLane, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = issueTypes[0]?.id
       if (typeId) addCard({ boardId, typeId, laneId, title: 'New card' })

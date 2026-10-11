@@ -143,7 +143,7 @@ export function ItemPanel({ itemId }: Props) {
               ))}
             </select>
             <span className="text-[11px] text-slate-600">
-              {status.resolved ? 'resolved' : status.cancelled ? 'cancelled' : status.started ? 'in progress' : 'not started'}
+              {status.resolved ? 'resolved' : status.started ? 'in progress' : 'not started'}
             </span>
           </div>
           <div className="mt-1 text-[11px] text-indigo-700/80">

@@ -21,7 +21,7 @@ export function isTopLevel(lanes: Lane[], laneId: string): boolean {
   return Boolean(lane && lane.parentId && lanes.find((l) => l.id === lane.parentId)?.parentId === null)
 }
 
-/** Effective stage of a lane: its own, else the nearest ancestor's, else legacy flags. */
+/** Effective stage of a lane: its own, else the nearest ancestor's. */
 export function effectiveStage(lanes: Lane[], laneId: string): Stage | undefined {
   let cur = lanes.find((l) => l.id === laneId)
   let hops = 0
@@ -30,9 +30,6 @@ export function effectiveStage(lanes: Lane[], laneId: string): Stage | undefined
     cur = cur.parentId ? lanes.find((l) => l.id === cur!.parentId) : undefined
     hops += 1
   }
-  const leaf = lanes.find((l) => l.id === laneId)
-  if (leaf?.isStart) return 'notStarted'
-  if (leaf?.isDone) return 'done'
   return undefined
 }
 
@@ -106,7 +103,7 @@ export function laneLeafCards(placements: Placement[], laneId: string): Placemen
   return placements.filter((p) => p.laneId === laneId)
 }
 
-/** Map a rollup bucket onto a board's typed top-level column (Not Started / In Progress / Done). */
+/** Map a rollup bucket onto a board's typed top-level column. */
 export function bucketLaneId(lanes: Lane[], boardId: string, bucket: Stage): string | undefined {
   const top = topLevelLanes(lanes, boardId).find(
     (l) => l.stage === bucket || effectiveStage(lanes, l.id) === bucket,
@@ -115,10 +112,8 @@ export function bucketLaneId(lanes: Lane[], boardId: string, bucket: Stage): str
     const leaves = leavesUnder(lanes, top.id)
     return (leaves[0] ?? top).id
   }
-  const leaves = leafLanes(lanes, boardId)
-  if (bucket === 'done') return (leaves.find((l) => l.isDone) ?? leaves[leaves.length - 1])?.id
-  if (bucket === 'notStarted') return (leaves.find((l) => l.isStart) ?? leaves[0])?.id
-  return (leaves.find((l) => !l.isStart && !l.isDone) ?? leaves[0])?.id
+  // Fallback for a board without typed columns: first leaf.
+  return leafLanes(lanes, boardId)[0]?.id
 }
 
 /** Ordered leaves somewhere in a subtree (not board-scoped). */

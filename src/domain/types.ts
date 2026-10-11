@@ -41,10 +41,6 @@ export interface Lane {
   stage?: Stage
   /** Optional WIP limit (counts placements anywhere in the lane's subtree). */
   wipLimit?: number
-  /** Column semantics for dependency derivation (legacy; superseded by `stage`). */
-  isStart?: boolean
-  isDone?: boolean
-  isCancelled?: boolean
 }
 
 /** Kanban flight level a board represents. */
@@ -87,7 +83,6 @@ export interface Item {
   targetDate?: string
   createdAt: number
   resolvedAt?: number | null
-  cancelledAt?: number | null
   /** Reason captured when a soft WIP limit was crossed. */
   lastMoveReason?: string
   /**
