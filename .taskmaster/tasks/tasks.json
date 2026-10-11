@@ -655,13 +655,25 @@
         "testStrategy": "Delete a leaf item and a parent item. Confirm children are handled per the chosen rule. Verify no orphan references remain in placements, decomposition/attribution edges, links, or rollup trees. Verify the confirmation modal explains the rule and that cancel is non-destructive.",
         "subtasks": [],
         "updatedAt": "2026-10-11T15:47:23.590Z"
+      },
+      {
+        "id": "40",
+        "title": "Lane editor: insert-after, delete safety, duplicate subtree, collapse",
+        "description": "Cards-workflow lane editing extras: insert a lane after a sibling, confirm before removing a lane with cards, duplicate a lane with its sub-lanes, and collapse/expand containers.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Add insertLaneAfter(laneId) (new sibling right after a sub-lane, shifting later siblings; top-level columns excluded), duplicateLane(laneId) (deep-copy a sub-lane and its whole subtree with fresh ids and name 'X copy'; structure only, cards not copied), and a remove confirmation that reports how many cards will move to which sibling lane and how many sub-lanes are removed. Add collapse/expand for containers via a view-only collapsedLanes map (not persisted), showing 'N hidden' when collapsed. All lane design controls live in edit mode; insert/duplicate/move apply to sub-lanes only.",
+        "testStrategy": "Insert a lane after a sibling and verify position; duplicate a container and verify its subtree is cloned with new ids; toggle collapse and verify the view state flips; verify top-level columns are neither insertable nor cloneable. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-11T16:22:51.266Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-11T16:22:51.266Z",
-      "taskCount": 38,
-      "completedCount": 11,
+      "taskCount": 39,
+      "completedCount": 12,
       "tags": [
         "backlog"
       ]
