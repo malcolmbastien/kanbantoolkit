@@ -171,14 +171,14 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
   if (kids.length > 0) {
     const orientation = lane.orientation ?? 'columns'
     return (
-      <div className="flex min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
+      <div className="flex h-full min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
         {(editMode || lane.name) && header(false)}
-        <div className={cn('flex w-full gap-1 p-1', orientation === 'rows' ? 'flex-col' : 'flex-row items-stretch')}>
+        <div
+          className={cn('w-full gap-1 p-1', orientation === 'rows' ? 'flex flex-col' : 'grid')}
+          style={orientation === 'columns' ? { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' } : undefined}
+        >
           {kids.map((k) => (
-            <div
-              key={k.id}
-              className={orientation === 'columns' ? 'flex min-w-[196px] shrink-0 grow basis-auto self-stretch flex-col' : 'flex w-full shrink-0 basis-auto flex-col'}
-            >
+            <div key={k.id} className={cn('flex flex-col', orientation === 'rows' && 'w-full')}>
               <LaneBox lane={k} ctx={ctx} isRoot={false} />
             </div>
           ))}
@@ -192,7 +192,7 @@ function LaneBox({ lane, ctx, isRoot }: { lane: Lane; ctx: Ctx; isRoot: boolean 
     .filter((i) => !ctx.search || i.title.toLowerCase().includes(ctx.search.toLowerCase()))
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300 bg-slate-100 shadow-sm">
+    <div className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col rounded-md border border-slate-300 bg-slate-100 shadow-sm">
       {header(true)}
       <DroppableCell id={`lane:${lane.id}`} enabled={ctx.editMode}>
         {cards.map((c) => {
