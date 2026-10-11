@@ -28,6 +28,7 @@ export default function App() {
   const showArchive = useStore((s) => s.showArchive)
   const toggleArchive = useStore((s) => s.toggleArchive)
   const setArchive = useStore((s) => s.setArchive)
+  const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
   const runAutoArchive = useStore((s) => s.runAutoArchive)
   const lanes = useStore((s) => s.lanes)
@@ -56,6 +57,10 @@ export default function App() {
     if (it) openItem(it)
     const lens = params.get('lens')
     if (lens) setLens(lens)
+    // Idempotent: StrictMode double-invokes this effect, and toggleCollapse would flip twice.
+    for (const id of params.getAll('collapse')) {
+      if (!useStore.getState().collapsedLanes[id]) toggleCollapse(id)
+    }
     if (params.get('view') === 'objectives') setObjectives(true)
     if (params.get('view') === 'dashboard') setDashboard(true)
     if (params.get('view') === 'archive') setArchive(true)

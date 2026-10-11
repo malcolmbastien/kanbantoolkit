@@ -112,7 +112,9 @@ function Ctl({ children, onClick, title, active, danger, disabled }: { children:
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
   const kids = childrenOf(lanes, lane.id)
-  const collapsed = ctx.collapsedLanes[lane.id] === true
+  const top = isTopLevel(lanes, lane.id)
+  // Only top-level columns (Backlog / Not Started / In Progress / Done) can collapse.
+  const collapsed = ctx.collapsedLanes[lane.id] === true && top
   const parent = lane.parentId ? lanes.find((l) => l.id === lane.parentId) : undefined
   const siblings = lane.parentId ? childrenOf(lanes, lane.parentId) : []
   const sibIdx = siblings.findIndex((s) => s.id === lane.id)
@@ -144,12 +146,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
-    const top = isTopLevel(lanes, lane.id)
     const stage = lane.stage ?? effectiveStage(lanes, lane.id)
     return (
       <div className={cn('px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
         <div className="flex items-center gap-1.5">
-          {kids.length > 0 && (
+          {top && (
             <button
               onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
               className="rounded px-0.5 text-[10px] font-bold text-slate-300 hover:bg-white/10 hover:text-white"
@@ -236,6 +237,37 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     )
   }
 
+  // A collapsed top-level column: a narrow vertical strip (LeanKit style) with an
+  // add button, a card counter, and the column name reading bottom-to-top.
+  if (collapsed && top) {
+    const count = countInLane(lane.id)
+    const target = leavesUnder(lanes, lane.id)[0]
+    return (
+      <div className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden bg-slate-700 py-2 text-slate-100">
+        {ctx.interactive && !editMode && target && (
+          <button
+            onClick={() => ctx.onAddCard(target.id)}
+            className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 hover:bg-white/15 hover:text-white"
+            title="Add a card"
+          >
+            <Plus size={12} />
+          </button>
+        )}
+        <span
+          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-white/20 px-1 text-[10px] font-bold tabular-nums"
+          title={`${count} card${count === 1 ? '' : 's'}`}
+        >
+          {count}
+        </span>
+        <button onClick={() => ctx.toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand column">
+          <span className="rotate-180 whitespace-nowrap text-[11px] font-bold uppercase tracking-wide [writing-mode:vertical-rl]">
+            {lane.name}
+          </span>
+        </button>
+      </div>
+    )
+  }
+
   if (kids.length > 0) {
     const orientation = lane.orientation ?? 'columns'
 
@@ -258,7 +290,13 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               'flex w-full flex-1 min-h-0',
               orientation === 'rows' ? 'flex-col divide-y divide-slate-400/50' : 'grid divide-x divide-slate-400/50',
             )}
-            style={orientation === 'columns' ? { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' } : undefined}
+            style={
+              orientation === 'columns'
+                ? isRoot
+                  ? { gridTemplateColumns: kids.map((k) => (ctx.collapsedLanes[k.id] ? '36px' : 'minmax(min-content, 1fr)')).join(' ') }
+                  : { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' }
+                : undefined
+            }
           >
             {kids.map((k) => (
               <div key={k.id} className={cn('flex min-h-0 min-w-0 flex-col', orientation === 'rows' ? 'w-full' : 'flex-1')}>
