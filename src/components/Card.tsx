@@ -116,6 +116,12 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
     </button>
   ) : null
 
+  const checklist = summary.checklist
+  const hasChecklist = Boolean(checklist && checklist.total > 0)
+  const checklistDone = checklist?.done ?? 0
+  const checklistTotal = checklist?.total ?? 0
+  const checklistPct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0
+
   if (wide) {
     const pct = summary.rollupPercent
     const days = Math.max(0, Math.floor((Date.now() - item.createdAt) / 86_400_000))
@@ -230,7 +236,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         lockCls,
       )}
     >
-      <div className="flex h-full items-start gap-1 px-1.5 py-1.5">
+      <div className="flex min-h-0 flex-1 items-start gap-1 px-1.5 py-1.5">
         {draggable && !locked && (
           <span
             className="mt-0.5 cursor-grab text-slate-300 opacity-0 transition group-hover:opacity-100"
@@ -240,30 +246,32 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
             <GripVertical size={12} />
           </span>
         )}
-        <div className="min-w-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-1.5">
-            <span className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
+            <span className="shrink-0 whitespace-nowrap rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
               {type.name}
             </span>
-            <span className="text-[10px] font-semibold tabular-nums text-slate-500">
+            <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500">
               {ref_}
               {item.size ? ` · ${item.size}` : ''}
             </span>
-            <span className="text-[9px] font-bold text-slate-400" title={`Structural depth ${depth} (derived from parent/child)`}>
-              d{depth}
+            <span className="ml-auto flex shrink-0 items-center gap-1">
+              {summary.rollupPercent !== undefined && (
+                <span className="rounded bg-slate-700 px-1 py-px text-[9px] font-bold text-white" title="Rollup — share of leaf work done">
+                  {summary.rollupPercent}%
+                </span>
+              )}
+              {summary.dependentsCount > 0 && (
+                <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm" title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}>
+                  <ShieldAlert size={9} />
+                  {summary.dependentsCount}
+                </span>
+              )}
+              <span className="text-[9px] font-bold text-slate-400" title={`Structural depth ${depth} (derived from parent/child)`}>
+                d{depth}
+              </span>
+              {lensButton}
             </span>
-            {summary.rollupPercent !== undefined && (
-              <span className="rounded bg-slate-700 px-1 py-px text-[9px] font-bold text-white" title="Rollup — share of leaf work done">
-                {summary.rollupPercent}%
-              </span>
-            )}
-            {summary.dependentsCount > 0 && (
-              <span className="ml-auto flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm" title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}>
-                <ShieldAlert size={9} />
-                {summary.dependentsCount}
-              </span>
-            )}
-            {lensButton}
           </div>
           <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-snug text-slate-900">{item.title}</div>
           {parent && (
@@ -283,40 +291,46 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               </span>
             </button>
           )}
-          <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
-            {summary.childCount > 0 && (
-              <span className="flex items-center gap-0.5" title={`${summary.childCount} children`}>
-                <Layers size={11} />
-                {summary.childCount}
+          <div className="mt-auto flex items-center gap-2 pt-1 text-[10px] text-slate-500">
+            {hasChecklist && (
+              <span
+                className={cn('flex shrink-0 items-center gap-0.5', checklistDone === checklistTotal && 'font-semibold text-emerald-600')}
+                title={`Checklist — ${checklistDone} of ${checklistTotal} done`}
+              >
+                <ListChecks size={11} />
+                {checklistDone}/{checklistTotal}
               </span>
             )}
             {summary.linksCount > 0 && (
-              <span className="flex items-center gap-0.5 text-slate-500" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
+              <span className="flex shrink-0 items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
                 <Link2 size={11} />
                 {summary.linksCount}
               </span>
             )}
-            {summary.checklist && summary.checklist.total > 0 && (
+            {summary.childCount > 0 && (
               <span
-                className={cn('flex items-center gap-0.5', summary.checklist.done === summary.checklist.total && 'font-semibold text-emerald-600')}
-                title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} done`}
+                className="flex shrink-0 items-center gap-0.5"
+                title={`${summary.childCount} children${summary.openDescendants > 0 ? ` · ${summary.openDescendants} open` : ''}`}
               >
-                <ListChecks size={11} />
-                {summary.checklist.done}/{summary.checklist.total}
+                <Layers size={11} />
+                {summary.childCount}
               </span>
             )}
             {blockedChip}
-            {summary.openDescendants > 0 && summary.childCount > 0 && (
-              <span className="text-slate-500" title="Open descendants (composition pressure)">
-                {summary.openDescendants} open below
-              </span>
-            )}
             {item.assignee && (
-              <span className="ml-auto grid h-4 w-4 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">{item.assignee}</span>
+              <span className="ml-auto grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">{item.assignee}</span>
             )}
           </div>
         </div>
       </div>
+      {hasChecklist && (
+        <div className="h-[3px] w-full shrink-0 bg-slate-200" title={`Checklist ${checklistDone}/${checklistTotal}`}>
+          <div
+            className="h-full transition-all"
+            style={{ width: `${checklistPct}%`, backgroundColor: checklistDone === checklistTotal ? '#10b981' : '#6366f1' }}
+          />
+        </div>
+      )}
     </div>
   )
 }
