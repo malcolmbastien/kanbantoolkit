@@ -1,4 +1,4 @@
-import { Ban, Clock, CornerDownRight, Crosshair, GripVertical, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
+import { Ban, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
 import type { IssueType, Item, Stage } from '@/domain/types'
@@ -236,91 +236,80 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         lockCls,
       )}
     >
-      <div className="flex min-h-0 flex-1 items-start gap-1 px-1.5 py-1.5">
-        {draggable && !locked && (
-          <span
-            className="mt-0.5 cursor-grab text-slate-300 opacity-0 transition group-hover:opacity-100"
-            title="Drag to another lane"
-            aria-hidden
-          >
-            <GripVertical size={12} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-1.5 py-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="shrink-0 whitespace-nowrap rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
+            {type.name}
           </span>
+          <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500">
+            {ref_}
+            {item.size ? ` · ${item.size}` : ''}
+          </span>
+          <span className="ml-auto flex shrink-0 items-center gap-1">
+            {summary.rollupPercent !== undefined && (
+              <span className="rounded bg-slate-700 px-1 py-px text-[9px] font-bold text-white" title="Rollup — share of leaf work done">
+                {summary.rollupPercent}%
+              </span>
+            )}
+            {summary.dependentsCount > 0 && (
+              <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm" title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}>
+                <ShieldAlert size={9} />
+                {summary.dependentsCount}
+              </span>
+            )}
+            <span className="text-[9px] font-bold text-slate-400" title={`Structural depth ${depth} (derived from parent/child)`}>
+              d{depth}
+            </span>
+            {lensButton}
+          </span>
+        </div>
+        <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-snug text-slate-900">{item.title}</div>
+        {parent && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpen(parent.id)
+            }}
+            title={`Parent ${parent.type.name}: ${parent.title}`}
+            className="mt-1 flex w-full items-center gap-1 rounded border border-slate-300/70 bg-white/60 px-1 py-0.5 text-left transition hover:border-slate-400 hover:bg-white"
+          >
+            <CornerDownRight size={10} className="shrink-0 text-slate-400" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: parent.type.color }} aria-hidden />
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-slate-500">{parent.type.name}</span>
+            <span className="min-w-0 truncate text-[10px] font-medium text-slate-600">
+              <span className="tabular-nums text-slate-400">{parent.ref_}</span> {parent.title}
+            </span>
+          </button>
         )}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-1.5">
-            <span className="shrink-0 whitespace-nowrap rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
-              {type.name}
-            </span>
-            <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500">
-              {ref_}
-              {item.size ? ` · ${item.size}` : ''}
-            </span>
-            <span className="ml-auto flex shrink-0 items-center gap-1">
-              {summary.rollupPercent !== undefined && (
-                <span className="rounded bg-slate-700 px-1 py-px text-[9px] font-bold text-white" title="Rollup — share of leaf work done">
-                  {summary.rollupPercent}%
-                </span>
-              )}
-              {summary.dependentsCount > 0 && (
-                <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm" title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}>
-                  <ShieldAlert size={9} />
-                  {summary.dependentsCount}
-                </span>
-              )}
-              <span className="text-[9px] font-bold text-slate-400" title={`Structural depth ${depth} (derived from parent/child)`}>
-                d{depth}
-              </span>
-              {lensButton}
-            </span>
-          </div>
-          <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-snug text-slate-900">{item.title}</div>
-          {parent && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onOpen(parent.id)
-              }}
-              title={`Parent ${parent.type.name}: ${parent.title}`}
-              className="mt-1 flex w-full items-center gap-1 rounded border border-slate-300/70 bg-white/60 px-1 py-0.5 text-left transition hover:border-slate-400 hover:bg-white"
+        <div className="mt-auto flex items-center gap-2 pt-1 text-[10px] text-slate-500">
+          {hasChecklist && (
+            <span
+              className={cn('flex shrink-0 items-center gap-0.5', checklistDone === checklistTotal && 'font-semibold text-emerald-600')}
+              title={`Checklist — ${checklistDone} of ${checklistTotal} done`}
             >
-              <CornerDownRight size={10} className="shrink-0 text-slate-400" />
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: parent.type.color }} aria-hidden />
-              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-slate-500">{parent.type.name}</span>
-              <span className="min-w-0 truncate text-[10px] font-medium text-slate-600">
-                <span className="tabular-nums text-slate-400">{parent.ref_}</span> {parent.title}
-              </span>
-            </button>
+              <ListChecks size={11} />
+              {checklistDone}/{checklistTotal}
+            </span>
           )}
-          <div className="mt-auto flex items-center gap-2 pt-1 text-[10px] text-slate-500">
-            {hasChecklist && (
-              <span
-                className={cn('flex shrink-0 items-center gap-0.5', checklistDone === checklistTotal && 'font-semibold text-emerald-600')}
-                title={`Checklist — ${checklistDone} of ${checklistTotal} done`}
-              >
-                <ListChecks size={11} />
-                {checklistDone}/{checklistTotal}
-              </span>
-            )}
-            {summary.linksCount > 0 && (
-              <span className="flex shrink-0 items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
-                <Link2 size={11} />
-                {summary.linksCount}
-              </span>
-            )}
-            {summary.childCount > 0 && (
-              <span
-                className="flex shrink-0 items-center gap-0.5"
-                title={`${summary.childCount} children${summary.openDescendants > 0 ? ` · ${summary.openDescendants} open` : ''}`}
-              >
-                <Layers size={11} />
-                {summary.childCount}
-              </span>
-            )}
-            {blockedChip}
-            {item.assignee && (
-              <span className="ml-auto grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">{item.assignee}</span>
-            )}
-          </div>
+          {summary.linksCount > 0 && (
+            <span className="flex shrink-0 items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
+              <Link2 size={11} />
+              {summary.linksCount}
+            </span>
+          )}
+          {summary.childCount > 0 && (
+            <span
+              className="flex shrink-0 items-center gap-0.5"
+              title={`${summary.childCount} children${summary.openDescendants > 0 ? ` · ${summary.openDescendants} open` : ''}`}
+            >
+              <Layers size={11} />
+              {summary.childCount}
+            </span>
+          )}
+          {blockedChip}
+          {item.assignee && (
+            <span className="ml-auto grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">{item.assignee}</span>
+          )}
         </div>
       </div>
       {hasChecklist && (
