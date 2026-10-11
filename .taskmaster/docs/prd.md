@@ -34,7 +34,7 @@ Board membership is computed from scope ∩ resolution. Levels and dependency st
 | B | One epic renders on three boards with one identity: L2 card on its value-stream board, L3 **boundary pin** on a team board, rollup contribution on the L1 portfolio. | Item 1 of the PRD definition-of-done. |
 | C | **Level is computed** from decomposition. Re-parenting children changes an item's level. There is no level field. | Derivation is the moat. |
 | D | **Dependency state is computed** from both endpoints. Resolving a dependency flips the dependent's state with nobody touching it. | Item 3 — the other load-bearing idea. |
-| E | **Attribution never counts as WIP.** One story attributed to two objectives reads as one unit of work. | Keeps counting honest. |
+| E | **Attribution never counts as WIP.** One initiative mapped to two OKRs reads as one unit of work. | Keeps counting honest. |
 | F | A configurable **limit** (epics per value stream) soft-blocks with a **required reason**, and the epic carrying open descendants shows **composition pressure**. | Limits working. |
 | G | **Portfolio rollup**: an initiative's status is computed from committed work and shown on a **management board dashboard**. | The exec board stops lying. |
 
@@ -104,7 +104,7 @@ One enterprise, two value streams, three teams.
   - **Core Experience**: Team Alpha, Team Bravo
   - **Platform Services**: Team Platform
 - 1 initiative (Onboarding Redesign) decomposing into ~5 epics across both streams.
-- 2 objectives; stories attributed many-to-many to prove attribution doesn't inflate.
+- 2 objectives; initiatives mapped many-to-many to prove attribution doesn't inflate.
 - Stories per epic; a defect.
 - Cross-team dependency: a Team Bravo story blocked by the Platform **"API decision"** epic.
 - Epic limit per value stream = 4, seeded with 5 epics so the soft block is demonstrable.

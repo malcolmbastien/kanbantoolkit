@@ -12,6 +12,7 @@ import {
   descendants,
   dependencyState,
   dependentSummary,
+  initiativeOf,
   openDescendants,
   statusOf,
   type Graph,
@@ -98,6 +99,8 @@ export function ItemPanel({ itemId }: Props) {
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
+  // A card's initiative: the nearest ancestor of the Initiative type.
+  const initiative = initiativeOf(item.id, graph, initiativeTypeId)
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   const typeOptions = issueTypes.filter((t) => t.id !== initiativeTypeId || t.id === item.typeId)
   const teamBoards = boards.filter((b) => b.level !== 'portfolio')
@@ -596,25 +599,54 @@ export function ItemPanel({ itemId }: Props) {
           </p>
         </section>
 
-        {/* Attribution */}
-        <section>
-          <SectionLabel>Attribution — informs, never counts</SectionLabel>
-          <div className="space-y-1">
-            {objectives.map((o) => {
-              const on = attributed.some((a) => a.id === o.id)
-              return (
-                <label key={o.id} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
-                  <input type="checkbox" checked={on} onChange={(e) => setAttribution(item.id, o.id, e.target.checked)} />
-                  <span className="flex-1 text-slate-700">{o.title}</span>
-                  <span className="text-[10px] text-slate-400">{o.period}</span>
-                </label>
-              )
-            })}
-          </div>
-          {attributed.length > 1 && (
-            <p className="mt-1 text-[10px] text-emerald-700">Serves {attributed.length} objectives — still 1 unit of WIP.</p>
-          )}
-        </section>
+        {/* Mapping — a card maps to an initiative; an initiative maps to OKRs */}
+        {isInitiative ? (
+          <section>
+            <SectionLabel>OKRs — informs, never counts</SectionLabel>
+            <div className="space-y-1">
+              {objectives.map((o) => {
+                const on = attributed.some((a) => a.id === o.id)
+                return (
+                  <label key={o.id} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+                    <input type="checkbox" checked={on} onChange={(e) => setAttribution(item.id, o.id, e.target.checked)} />
+                    <span className="flex-1 text-slate-700">{o.title}</span>
+                    <span className="text-[10px] text-slate-400">{o.period}</span>
+                  </label>
+                )
+              })}
+            </div>
+            {attributed.length > 1 && (
+              <p className="mt-1 text-[10px] text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
+            )}
+            <p className="mt-1 text-[10px] text-slate-400">
+              OKRs map to initiatives. This initiative's cards inherit it through the hierarchy — no card-level traceability to maintain.
+            </p>
+          </section>
+        ) : (
+          <section>
+            <SectionLabel>Initiative — what this card serves</SectionLabel>
+            {initiative ? (
+              <button
+                onClick={() => close(initiative.id)}
+                className="flex w-full items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-left hover:bg-slate-50"
+              >
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: issueTypes.find((t) => t.id === initiative.typeId)?.color ?? '#6366f1' }}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 truncate text-slate-700">
+                  <span className="tabular-nums text-slate-400">{refs.get(initiative.id)}</span> {initiative.title}
+                </span>
+              </button>
+            ) : (
+              <p className="text-[11px] text-slate-400">Not under an initiative — nest this card under one to show what it serves.</p>
+            )}
+            <p className="mt-1 text-[10px] text-slate-400">
+              Cards map to initiatives; initiatives map to OKRs. The OKR link is a management concern.
+            </p>
+          </section>
+        )}
 
         {/* Log — append-only history (block/unblock events, notes) */}
         <section>

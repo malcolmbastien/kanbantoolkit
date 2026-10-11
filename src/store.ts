@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { initiativeTypeId } from '@/domain/board'
 import { decompositionParent, descendants, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
@@ -237,6 +238,15 @@ export function migrateState(persisted: unknown): Partial<Store> {
     p.links = (p.links as { id: string; from: string; to: string; status?: string; reason?: string }[])
       .filter((l) => l.status !== 'rejected')
       .map((l) => ({ id: l.id, from: l.from, to: l.to, ...(l.reason ? { reason: l.reason } : {}) }))
+  }
+  // v12: OKR attribution is reserved for initiatives — cards map to initiatives
+  // through the hierarchy. Drop any attribution edges pointing at a non-initiative.
+  if (Array.isArray(p.edges) && Array.isArray(p.items) && Array.isArray(p.issueTypes)) {
+    const initId = (p.issueTypes as { id: string; name: string }[]).find((t) => t.name === 'Initiative')?.id
+    if (initId) {
+      const typeOf = new Map((p.items as { id: string; typeId: string }[]).map((i) => [i.id, i.typeId]))
+      p.edges = (p.edges as { kind: string; to: string }[]).filter((e) => e.kind !== 'attribution' || typeOf.get(e.to) === initId)
+    }
   }
   return p as Partial<Store>
 }
@@ -628,6 +638,10 @@ export const useStore = create<Store>()(
 
       setAttribution: (itemId, objectiveId, on) => {
         const state = get()
+        // OKR attribution is reserved for initiatives — cards map to initiatives
+        // through the hierarchy, not to objectives.
+        const initId = initiativeTypeId(state.issueTypes)
+        if (on && initId && state.items.find((i) => i.id === itemId)?.typeId !== initId) return
         const existing = state.edges.find((e) => e.kind === 'attribution' && e.from === objectiveId && e.to === itemId)
         if (on && !existing) set({ edges: [...state.edges, { id: uid(), kind: 'attribution', from: objectiveId, to: itemId }] })
         else if (!on && existing) set({ edges: state.edges.filter((e) => e.id !== existing.id) })
@@ -752,7 +766,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 11,
+      version: 12,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

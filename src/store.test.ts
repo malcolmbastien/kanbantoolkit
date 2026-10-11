@@ -326,6 +326,15 @@ describe('store actions', () => {
     expect(boardCardTypeId(s().boards.find((b) => b.id === 'b-atlas'), types)).toBe('t-story')
   })
 
+  it('OKR attribution is initiative-only; cards map via the hierarchy', () => {
+    // A card can't be attributed to an objective…
+    s().setAttribution('st-signup-form', 'obj-efficiency', true)
+    expect(s().edges.some((e) => e.kind === 'attribution' && e.to === 'st-signup-form')).toBe(false)
+    // …but an initiative can.
+    s().setAttribution('init-signup', 'obj-efficiency', true)
+    expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-signup')).toBe(true)
+  })
+
   it('deleting a card removes its placements, parent edge, links and attribution', () => {
     s().deleteItem('st-signup-form')
     expect(s().items.some((i) => i.id === 'st-signup-form')).toBe(false)

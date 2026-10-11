@@ -11,6 +11,7 @@ import {
   dependencyState,
   isArchived,
   isBlocked,
+  initiativeOf,
   openDescendants,
   openDependenciesOf,
   rollupOf,
@@ -152,9 +153,18 @@ describe('composition pressure and attribution', () => {
     expect(openDescendants('init-signup', g).length).toBe(4)
   })
 
-  it('a story attributed to two objectives is one unit of work', () => {
-    const objs = attributedObjectives('st-signup-form', s.edges, s.objectives)
+  it('an initiative can map to several OKRs', () => {
+    const edges = [...s.edges, { id: 'x1', kind: 'attribution' as const, from: 'obj-efficiency', to: 'init-signup' }]
+    const objs = attributedObjectives('init-signup', edges, s.objectives)
     expect(objs.map((o) => o.id).sort()).toEqual(['obj-activation', 'obj-efficiency'])
+  })
+
+  it('initiativeOf walks up to the nearest initiative; cards have no OKRs', () => {
+    const initiativeTypeId = s.issueTypes.find((t) => t.name === 'Initiative')?.id
+    expect(initiativeOf('st-signup-form', g, initiativeTypeId)?.id).toBe('init-signup')
+    expect(initiativeOf('init-signup', g, initiativeTypeId)?.id).toBe('init-signup')
+    // OKR attribution is initiative-only.
+    expect(attributedObjectives('st-signup-form', s.edges, s.objectives)).toEqual([])
   })
 })
 

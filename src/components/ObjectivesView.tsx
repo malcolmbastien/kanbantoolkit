@@ -52,7 +52,7 @@ export function ObjectivesView() {
     edges
       .filter((e) => e.kind === 'attribution' && e.from === objectiveId)
       .map((e) => items.find((i) => i.id === e.to))
-      .filter((i): i is Item => Boolean(i))
+      .filter((i): i is Item => i !== undefined && isInitiative(i.id))
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
@@ -192,8 +192,8 @@ export function ObjectivesView() {
                   {/* attributed work */}
                   <div className="mt-auto">
                     <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                      Work mapping here <span className="rounded bg-slate-100 px-1 text-slate-500">{work.length}</span>
-                      <span className="ml-1 font-normal normal-case text-slate-400">(attribution — never counts as WIP)</span>
+                      Initiatives mapping here <span className="rounded bg-slate-100 px-1 text-slate-500">{work.length}</span>
+                      <span className="ml-1 font-normal normal-case text-slate-400">(never counts as WIP)</span>
                     </div>
                     <div className="space-y-1">
                       {work.map((it) => {

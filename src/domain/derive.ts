@@ -271,6 +271,23 @@ export function attributedObjectives(itemId: string, edges: Edge[], objectives: 
   return objectives.filter((o) => ids.includes(o.id))
 }
 
+/**
+ * The nearest ancestor (or self) that is an Initiative — how a card maps to an
+ * initiative. OKR attribution is reserved for initiatives; cards inherit it.
+ */
+export function initiativeOf(itemId: string, graph: Graph, initiativeTypeId?: string): Item | undefined {
+  if (!initiativeTypeId) return undefined
+  let cur: string | undefined = itemId
+  const seen = new Set<string>()
+  while (cur && !seen.has(cur)) {
+    seen.add(cur)
+    const item = graph.items.find((i) => i.id === cur)
+    if (item?.typeId === initiativeTypeId) return item
+    cur = decompositionParent(cur, graph.edges)
+  }
+  return undefined
+}
+
 export function periodObjectives(objectives: Objective[], keyResults: KeyResult[]) {
   return objectives.map((o) => ({ ...o, keyResults: keyResults.filter((k) => k.objectiveId === o.id) }))
 }

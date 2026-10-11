@@ -214,15 +214,13 @@ link('init-gateway', 'st-email', { reason: 'Email verification needs the gateway
 link('init-gateway', 'st-sso', { reason: 'SSO goes through the gateway' })
 link('st-signup-form', 'st-tour', { reason: 'Tour depends on the new signup flow' })
 
-// Attribution — informs, never counts as WIP.
+// Attribution — informs, never counts as WIP. OKRs map to initiatives only;
+// cards map to initiatives through the hierarchy, never to objectives directly.
 edge('attribution', 'obj-activation', 'init-onboarding')
 edge('attribution', 'obj-activation', 'init-signup')
 edge('attribution', 'obj-activation', 'init-welcome')
 edge('attribution', 'obj-efficiency', 'init-platform')
 edge('attribution', 'obj-efficiency', 'init-gateway')
-// One story serving two objectives — still a single unit of work.
-edge('attribution', 'obj-activation', 'st-signup-form')
-edge('attribution', 'obj-efficiency', 'st-signup-form')
 
 export function createSeed(): FlowState {
   return {

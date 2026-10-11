@@ -34,9 +34,9 @@ Priorities: P0 = needed for a usable MVP; P1 = next; P2 = later.
 - A card shows how many others depend on it ("N depend on this").
 
 ## 4. Objectives, limits & rollup — BUILD FIRST
-- P0 Objectives & Key Results view: periods, commitment limits (3–5 objectives), score, and the work attributed to each objective.
+- P0 Objectives & Key Results view: periods, commitment limits (3–5 objectives), score, and the initiatives mapped to each objective.
 - P0 Key Results: add/edit/score KRs under an objective.
-- P0 Map work to objectives: attach initiatives (and cards) to objectives via attribution; show coverage and the rollup status/% of attributed work without inflating WIP.
+- P0 Map work to objectives: attach **initiatives** to objectives via attribution (cards map to initiatives through the hierarchy, never to OKRs directly); show coverage and the rollup status/% of mapped work without inflating WIP.
 - P0 Cross-board initiative rollup: a top-level initiative on one management board can roll up to a top-level initiative on another management board. A management board's Initiatives workflow shows its board-local top-level initiatives (an initiative whose parent is not on the same board is top-level there).
 - P1 Attribution UX: attach initiatives to objectives, coverage/impact reporting.
 - P1 Limits editor with configurable enforcement (visualize/warn/soft-block/hard-block), thresholds and effective dates; soft-block reason off by default.
@@ -66,9 +66,10 @@ Priorities: P0 = needed for a usable MVP; P1 = next; P2 = later.
 - `KeyResult { id, objectiveId, title, target?, current?, progress? }`.
 - Objectives and KRs are commitment-limited entities — never in columns. A period
   has a commitment limit (default 3–5 objectives).
-- Work maps to objectives through attribution edges (many-to-many), which never
-  count as WIP. An objective's displayed work is the rollup of its attributed
-  initiatives.
+- Initiatives map to objectives through attribution edges (many-to-many), which
+  never count as WIP. An objective's displayed work is the rollup of its mapped
+  initiatives. Cards never carry OKR attribution — they map to initiatives
+  through the hierarchy, so the team isn't burdened with corporate traceability.
 - Initiatives form one decomposition tree across boards, so a team's tasks roll up
   through team initiatives to a management initiative, and where required up to
   another management board's top-level initiative.
