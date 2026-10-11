@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { ChevronsRight, Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { Card, type CardParent } from './Card'
 import {
@@ -238,21 +238,18 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   // A collapsed top-level column: a narrow vertical strip (LeanKit style) with an
-  // add button, a card counter, and the column name reading bottom-to-top.
+  // expand control, a card counter, and the column name reading bottom-to-top.
   if (collapsed && top) {
     const count = countInLane(lane.id)
-    const target = leavesUnder(lanes, lane.id)[0]
     return (
       <div className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden bg-slate-700 py-2 text-slate-100">
-        {ctx.interactive && !editMode && target && (
-          <button
-            onClick={() => ctx.onAddCard(target.id)}
-            className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 hover:bg-white/15 hover:text-white"
-            title="Add a card"
-          >
-            <Plus size={12} />
-          </button>
-        )}
+        <button
+          onClick={() => ctx.toggleCollapse(lane.id)}
+          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 hover:bg-white/15 hover:text-white"
+          title="Expand column"
+        >
+          <ChevronsRight size={13} />
+        </button>
         <span
           className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-white/20 px-1 text-[10px] font-bold tabular-nums"
           title={`${count} card${count === 1 ? '' : 's'}`}
