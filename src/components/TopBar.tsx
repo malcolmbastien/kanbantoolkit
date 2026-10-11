@@ -37,6 +37,13 @@ export function TopBar(props: Props) {
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
+      <div className="flex items-center gap-2">
+        <div className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
+          <LayoutGrid size={14} />
+        </div>
+        <span className="text-sm font-semibold tracking-tight text-white">Flowline</span>
+      </div>
+
       <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
         Board
         <select value={boardId} onChange={(e) => onSelectBoard(e.target.value)} className={SELECT_CLS}>
@@ -45,13 +52,6 @@ export function TopBar(props: Props) {
           ))}
         </select>
       </label>
-
-      <div className="flex items-center gap-2">
-        <div className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
-          <LayoutGrid size={14} />
-        </div>
-        <span className="text-sm font-semibold tracking-tight text-white">Flowline</span>
-      </div>
 
       <div className="h-5 w-px bg-slate-700" />
 
