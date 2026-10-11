@@ -140,24 +140,24 @@ describe('store actions (recursive lanes)', () => {
     expect(migrated.boards.find((b) => b.id === 'unknown')?.level).toBe('team')
   })
 
-  it('migratePersisted reseeds boards for a schema change (v<4)', () => {
+  it('migratePersisted reseeds boards for a schema change (v<5)', () => {
     const stale = { boards: [{ id: 'b-core', name: 'Core', level: 'project' }], lanes: [], placements: [] }
-    const reseeded = migratePersisted(stale, 3) as { boards: { id: string }[]; lanes: unknown[] }
+    const reseeded = migratePersisted(stale, 4) as { boards: { id: string }[]; lanes: unknown[] }
     expect(reseeded.boards.length).toBeGreaterThanOrEqual(5)
     expect(reseeded.boards.some((b) => b.id === 'b-team-alpha')).toBe(true)
     expect(reseeded.lanes.length).toBeGreaterThan(0)
-    // v4+ keeps the persisted boards (just backfills level)
-    const kept = migratePersisted(stale, 4) as { boards: { id: string }[] }
+    // v5+ keeps the persisted boards (just backfills level)
+    const kept = migratePersisted(stale, 5) as { boards: { id: string }[] }
     expect(kept.boards.length).toBe(1)
   })
 
   it('management board aggregates the team boards chosen for it', () => {
     const mgmt = () => s().boards.find((b) => b.id === 'b-portfolio')!
-    expect(mgmt().teamBoardIds ?? []).toEqual([])
-    s().addManagementTeam('b-portfolio', 'b-core')
-    expect(mgmt().teamBoardIds).toContain('b-core')
+    expect(mgmt().teamBoardIds).toContain('b-core') // seeded
     s().removeManagementTeam('b-portfolio', 'b-core')
     expect(mgmt().teamBoardIds ?? []).not.toContain('b-core')
+    s().addManagementTeam('b-portfolio', 'b-core')
+    expect(mgmt().teamBoardIds).toContain('b-core')
 
     s().setBoardDerived('b-core', true)
     expect(s().boards.find((b) => b.id === 'b-core')?.derived).toBe(true)

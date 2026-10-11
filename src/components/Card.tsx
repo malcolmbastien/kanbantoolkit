@@ -94,7 +94,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
 
           {/* linked-initiative symbols */}
           {symbols && symbols.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1" title={`${symbols.length} linked team initiatives`}>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1" title={`${symbols.length} linked items`}>
               {symbols.slice(0, 14).map((s, i) => (
                 <span key={i} className={cn('h-2.5 w-2.5 rounded-sm', BUCKET_DOT[s.bucket])} title={s.title} />
               ))}

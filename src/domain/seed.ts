@@ -14,7 +14,7 @@ const issueTypes: IssueType[] = [
  * Boards. Every board's top level is the three typed columns.
  * ------------------------------------------------------------------ */
 const boards: Board[] = [
-  { id: 'b-portfolio', name: 'Digital Transformation Portfolio', level: 'portfolio', derived: true, teamBoardIds: [] },
+  { id: 'b-portfolio', name: 'Digital Transformation Portfolio', level: 'portfolio', derived: true, teamBoardIds: ['b-core', 'b-platform', 'b-team-alpha'] },
   { id: 'b-core', name: 'Core Experience', level: 'project' },
   { id: 'b-platform', name: 'Platform Services', level: 'project' },
   { id: 'b-design', name: 'Design board (sketch)', level: 'team' },

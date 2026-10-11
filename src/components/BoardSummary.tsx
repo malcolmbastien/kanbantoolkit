@@ -84,11 +84,12 @@ export function BoardSummary({ boardId }: { boardId: string }) {
               const parent: CardParent | undefined = p
                 ? { id: p.id, ref_: refs.get(p.id) ?? '', title: p.title, type: typeOf(p.typeId) }
                 : undefined
-              const childInits = decompositionChildren(c.id, edges)
+              const childItems = decompositionChildren(c.id, edges)
                 .map((id) => items.find((i) => i.id === id))
                 .filter((i): i is Item => Boolean(i))
-                .filter((i) => !initiativeTypeId || i.typeId === initiativeTypeId)
-              const symbols = childInits.map((ci) => ({ bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
+              // Symbols summarise the direct children — team initiatives for a top-level
+              // initiative, cards for a team-level one — coloured by their status.
+              const symbols = childItems.map((ci) => ({ bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
               return (
                 <Card
                   key={c.id}

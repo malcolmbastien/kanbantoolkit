@@ -23,9 +23,10 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
 - **Management boards vs team boards.** A board is one or the other, by level: a
   **management board** (Portfolio level) shows an **Initiatives workflow** of its own top-level
   initiatives — wide summary cards with a **progress bar + %** and **card symbols** summarising
-  the linked team initiatives at a glance — plus **Linked workflows**: a rollup band per team
-  board it aggregates (add them via **Add linked workflow**). A **team board** shows its own
-  initiative flow. Pick a board from the **Board** menu; there's no separate view toggle.
+  the **linked work** at a glance (team initiatives for a top-level initiative, cards for a
+  team-level one) — plus **Linked workflows**: a rollup band per team board it aggregates (add
+  them via **Add linked workflow**). A **team board** shows its own initiative flow. Pick a
+  board from the **Board** menu; there's no separate view toggle.
 - **Initiatives on boards; cards beneath.** A board's flow shows its **Initiative-typed
   items** (positioned by rollup); their children are the detailed cards, seen by opening an
   initiative. From a management initiative you can **link** down to a new team initiative: it's
