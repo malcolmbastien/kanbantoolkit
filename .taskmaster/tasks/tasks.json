@@ -348,7 +348,7 @@
         "id": "14",
         "title": "Add checklists inside a card",
         "description": "P2 checklist support inside a card for finer-grained work than schedulable cards.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "11"
         ],
@@ -687,7 +687,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
       "taskCount": 40,
-      "completedCount": 16,
+      "completedCount": 17,
       "tags": [
         "backlog"
       ]
