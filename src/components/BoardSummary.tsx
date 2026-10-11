@@ -3,11 +3,11 @@ import {
   blockedBelow,
   decompositionChildren,
   decompositionParent,
+  dependenciesOf,
+  dependentsOf,
   depth as depthOf,
-  incomingDependencies,
   lensRole,
   openDescendants,
-  outgoingDependencies,
   rollupOf,
   statusOf,
   type Graph,
@@ -124,10 +124,10 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
                   onOpen={openItem}
                   summary={{
                     childCount: decompositionChildren(c.id, edges).length,
-                    blocksCount: outgoingDependencies(c.id, graph).filter(
+                    dependentsCount: dependentsOf(c.id, graph).filter(
                       (d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved,
                     ).length,
-                    linksCount: incomingDependencies(c.id, graph).length + outgoingDependencies(c.id, graph).length,
+                    linksCount: dependenciesOf(c.id, graph).length + dependentsOf(c.id, graph).length,
                     blockedBelow: blockedBelow(c.id, graph),
                     openDescendants: openDescendants(c.id, graph).length,
                     rollupPercent: rollupOf(c.id, graph).percent,

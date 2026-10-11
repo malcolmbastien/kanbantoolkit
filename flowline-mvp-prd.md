@@ -112,7 +112,7 @@ Three edge types exist in MVP. Generic relations do not.
 |---|---|---|
 | **Decomposition** (epic → story) | composition; the parent *is* its children | yes, at the parent's level only |
 | **Attribution** (initiative → objective) | many-to-many tagging; informs, never composes | **never** |
-| **Dependency** (A blocks B, +FS/SS/FF/lag) | a claim about sequencing | no — never work |
+| **Dependency** (A depends on B) | a dependency between two items | no — never work |
 
 **Attribution never counts.** A story serving two objectives is one unit of work reaching two outcomes. This is the single most important line in the schema: it is what makes cross-objective reporting possible without corrupting anyone's WIP, and what stops limits being gamed by relinking items to a second objective.
 
@@ -124,24 +124,23 @@ The decision that makes dependency registers self-cleaning. Two separate facts:
 - **The assertion** — computed, not stored: is this edge currently binding?
 
 ```
-dependency_state(X blocks Y):
-  Y resolved                      -> Closed
-  X resolved, Y unresolved        -> Satisfied
-  X unresolved, Y not started     -> Open / planning risk
-  X unresolved, Y in progress     -> Open / live blockage
-  X cancelled, Y unresolved       -> Void (edge retains the reason)
+dependency_state(X depends on Y):   // X is the dependent, Y the dependency
+  X resolved                      -> Closed
+  Y resolved, X unresolved        -> Satisfied
+  Y unresolved, X not started     -> Open / planning risk
+  Y unresolved, X in progress     -> Open / live blockage
 ```
 
 Nothing to maintain. The risk state is arithmetic over endpoints. Crucially, the two "Open" readings are **different operational signals despite the same state**:
 
-- *Dependent not started, blocker unresolved* — the plan may be wrong. Cheapest moment in the system for two teams to re-sequence. Information, not interruption.
-- *Dependent in progress, blocker unresolved* — someone is actively waiting. Needs a person now.
+- *Dependent not started, dependency unresolved* — the plan may be wrong. Cheapest moment in the system for two teams to re-sequence. Information, not interruption.
+- *Dependent in progress, dependency unresolved* — someone is actively waiting. Needs a person now.
 
 Most tools emit one "blocked" badge and you cannot tell which you are looking at.
 
 **Slip is computed, not entered.** The quantity that matters is: X cannot enter Done until Y exits. X has a forecast from its position in flow plus its lead-time distribution; Y has a forecast exit. The gap is expected slip. No estimate fields, no dates, nothing to maintain. Dependencies with real slip are the ones to manage; the rest sit quietly. This requires the graph model and cannot be bolted onto a board tool.
 
-**Raising is asymmetric; confirmation is the gate.** The person who notices a dependency is always on the dependent side. Team A asserts it against Team B's item; B's board shows a confirmation request, and confirmation is what turns the assertion into an edge. Rejection with a reason is valuable data ("we're doing that anyway" is exactly the staleness you want caught at birth). Once confirmed, B's own card carries a badge: *3 items blocked by this across 2 streams.* In every current tool the blocking team's board looks perfectly healthy — because it is. That asymmetry is what kills coordination, and nothing addresses it.
+**Raising is asymmetric; confirmation is the gate.** The person who notices a dependency is always on the dependent side. Team A asserts it against Team B's item; B's board shows a confirmation request, and confirmation is what turns the assertion into an edge. Rejection with a reason is valuable data ("we're doing that anyway" is exactly the staleness you want caught at birth). Once confirmed, B's own card carries a badge: *3 cards depend on this across 2 streams.* In every current tool the depended-on team's board looks perfectly healthy — because it is. That asymmetry is what kills coordination, and nothing addresses it.
 
 **Cross-level endpoints bind by pinning.** A story waiting on an epic pins to a specific descendant, not to the whole epic. Most such dependencies are really "waiting on the API decision," which is one story; waiting on an entire epic manufactures nine months of artificial wait.
 
@@ -265,7 +264,7 @@ The demo must show, in one sitting, on real screens:
 
 1. **One item, three boards, no duplication.** An epic on its value-stream board at L2, a boundary pin on a team board at L3, and a rollup contribution on the L1 portfolio view. One identity, three renderings.
 2. **Level computed.** Change an item's children, watch its level change. There is no level field to wrong.
-3. **Dependency self-cleaning.** Blocked story on Team A, blocker epic on Team B. Blocker resolves; dependency state flips to Satisfied with nobody touching it. Then show it on *both* boards simultaneously.
+3. **Dependency self-cleaning.** Dependent story on Team A, dependency epic on Team B. The dependency resolves; dependency state flips to Satisfied with nobody touching it. Then show it on *both* boards simultaneously.
 4. **Attribution that doesn't inflate.** One story attributed to two objectives; WIP count reads 1.
 5. **A limit working.** Set epics-per-stream to 4, add a fifth, get the soft block and required reason. Then show the pressure display on the epic carrying 18 open stories.
 6. **The exec board that stops lying.** An initiative's status computed from committed work, shown on a management board dashboard.

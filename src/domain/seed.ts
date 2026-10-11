@@ -183,14 +183,14 @@ decompose('init-welcome', ['st-welcome-copy', 'st-tour'])
 decompose('init-gateway', ['st-gateway-contract', 'st-ratelimit', 'sp-gateway'])
 decompose('init-legacy', ['st-legacy-a'])
 
-// Links: the only item-to-item connection — "from blocks to". They never set an
+// Links: the only item-to-item connection — "to depends on from". They never set an
 // item's blocked status.
 const links: ItemLink[] = []
 let linkSeq = 0
 const link = (from: string, to: string, extra: Partial<ItemLink> = {}) =>
   links.push({ id: `lnk-${++linkSeq}`, from, to, status: 'confirmed', ...extra })
 
-// A Platform blocker of Team Atlas work (cross-team) + a proposed one.
+// A Platform dependency of Team Atlas work (cross-team) + a proposed one.
 link('init-gateway', 'st-email', { reason: 'Email verification needs the gateway contract' })
 link('init-gateway', 'st-sso', { reason: 'SSO goes through the gateway' })
 link('st-signup-form', 'st-tour', { status: 'proposed', reason: 'Tour depends on the new signup flow' })

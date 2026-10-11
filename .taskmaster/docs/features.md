@@ -28,11 +28,10 @@ Priorities: P0 = needed for a usable MVP; P1 = next; P2 = later.
 - P1 Board settings & templates: level, rollup toggle, new-team-board wizard, duplicate board.
 
 ## 3. Coordination — dependencies
-- P0 Pending-confirmations inbox on the blocker side: confirm/reject with a reason.
-- P0 Dependency register view: all open dependencies split into live blockage vs planning risk.
-- Dependency links are intentionally simple: **"A blocks B"** — no FS/SS/FF, lag, or pinning.
-- P1 Blocker badge drill-in: "blocks N across M boards" opens the list.
-- P2 Ghost lanes for cross-scope dependencies.
+- Dependency links are intentionally simple: **"A depends on B"** — no FS/SS/FF, lag, or pinning.
+- The dependent raises a link; the other card confirms or rejects it (with a reason) in the item panel.
+- Dependency state is derived from both endpoints: planning risk / live blockage / satisfied / closed.
+- A card shows how many others depend on it ("N depend on this").
 
 ## 4. Objectives, limits & rollup — BUILD FIRST
 - P0 Objectives & Key Results view: periods, commitment limits (3–5 objectives), score, and the work attributed to each objective.

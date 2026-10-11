@@ -6,16 +6,16 @@ import {
   blockedBelow,
   decompositionChildren,
   decompositionParent,
+  dependenciesOf,
+  dependentsOf,
   depth as depthOf,
-  incomingDependencies,
   lensRole,
   openDescendants,
-  outgoingDependencies,
   rollupOf,
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { boardCardTypeId, buildRefs, externalBlockersOnBoard } from '@/domain/board'
+import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -343,8 +343,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               onOpen={ctx.openItem}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
-                blocksCount: outgoingDependencies(c.id, graph).filter((d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved).length,
-                linksCount: incomingDependencies(c.id, graph).length + outgoingDependencies(c.id, graph).length,
+                dependentsCount: dependentsOf(c.id, graph).filter((d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved).length,
+                linksCount: dependenciesOf(c.id, graph).length + dependentsOf(c.id, graph).length,
                 blockedBelow: blockedBelow(c.id, graph),
                 openDescendants: openDescendants(c.id, graph).length,
                 rollupPercent: decompositionChildren(c.id, graph.edges).length > 0 ? roll.percent : undefined,
@@ -478,7 +478,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const effectiveLane = new Map<string, string>()
   for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
 
-  const external = externalBlockersOnBoard(graph, boardId)
+  const external = externalDependenciesOnBoard(graph, boardId)
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const ctx: Ctx = {
@@ -507,8 +507,8 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
               <BoundaryPin
                 key={d.link.id}
                 dep={d}
-                blockerType={typeOf(d.blocker.typeId)}
-                boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.blocker.id)?.boardId)?.name ?? '—'}
+                dependencyType={typeOf(d.dependency.typeId)}
+                boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.dependency.id)?.boardId)?.name ?? '—'}
                 onOpen={openItem}
               />
             ))}

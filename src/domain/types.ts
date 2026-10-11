@@ -119,15 +119,16 @@ export interface Placement {
 export type DepStatus = 'proposed' | 'confirmed' | 'rejected'
 
 /**
- * An item-to-item link: `from` (the blocker) blocks `to` (the dependent). This is
- * the only way two items are connected. A link never implies a "blocked" status —
- * blocking is an explicit status the user sets on an item.
+ * A dependency link between two items: the card that depends on another (`to`)
+ * and the card it depends on (`from`). This is the only way two items are
+ * connected. A link never implies a "blocked" status — blocking is an explicit
+ * status set on a single item.
  */
 export interface ItemLink {
   id: string
-  /** Blocker. */
+  /** The card depended upon. */
   from: string
-  /** Dependent. */
+  /** The card that depends on it. */
   to: string
   status: DepStatus
   reason?: string

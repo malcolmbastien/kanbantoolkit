@@ -33,7 +33,7 @@ Board membership is computed from scope ∩ resolution. Levels and dependency st
 | A | Resolution switcher (L1 initiative / L2 epic / L3 story) changes the **column set** and the **counting unit**, without changing scope. | The structural move. |
 | B | One epic renders on three boards with one identity: L2 card on its value-stream board, L3 **boundary pin** on a team board, rollup contribution on the L1 portfolio. | Item 1 of the PRD definition-of-done. |
 | C | **Level is computed** from decomposition. Re-parenting children changes an item's level. There is no level field. | Derivation is the moat. |
-| D | **Dependency state is computed** from both endpoints. Resolving a blocker flips the dependent's state with nobody touching it. | Item 3 — the other load-bearing idea. |
+| D | **Dependency state is computed** from both endpoints. Resolving a dependency flips the dependent's state with nobody touching it. | Item 3 — the other load-bearing idea. |
 | E | **Attribution never counts as WIP.** One story attributed to two objectives reads as one unit of work. | Keeps counting honest. |
 | F | A configurable **limit** (epics per value stream) soft-blocks with a **required reason**, and the epic carrying open descendants shows **composition pressure**. | Limits working. |
 | G | **Portfolio rollup**: an initiative's status is computed from committed work and shown on a **management board dashboard**. | The exec board stops lying. |
@@ -58,7 +58,7 @@ Scope { id, name, kind: enterprise | value_stream | team | function, parentId }
 Item  { id, title, description?, type: initiative|epic|story|defect,
         valueStreamId, teamId?, state, size?, assignee?, createdAt, resolvedAt? }
 Edge      { id, kind: decomposition | attribution, from, to }
-ItemLink  { id, from, to, status: proposed|confirmed|rejected, reason? }   # "from blocks to"
+ItemLink  { id, from, to, status: proposed|confirmed|rejected, reason? }   # "to depends on from"
 LimitPolicy { id, resolution, itemType, scopeId?, column?, enforcement, thresholds }
 Objective / KeyResult — commitment-limited entities, never in columns.
 ```
@@ -72,10 +72,10 @@ Objective / KeyResult — commitment-limited entities, never in columns.
 ### Derivation rules (the point of the product)
 - `level(item)`: initiative → L1. Else if it decomposes into epics → L2. Else if it
   decomposes into stories → L3. Else L3 (schedulable floor).
-- `dependencyState(blocker, dependent)`: dependent resolved → Closed; blocker resolved,
-  dependent unresolved → Satisfied; blocker unresolved, dependent not started → Open
-  (planning risk); blocker unresolved, dependent in progress → Open (live blockage);
-  blocker cancelled → Void.
+- `dependencyState(dependency, dependent)`: dependent resolved → Closed; dependency
+  resolved, dependent unresolved → Satisfied; dependency unresolved, dependent not
+  started → Open (planning risk); dependency unresolved, dependent in progress →
+  Open (live blockage).
 - `portfolioStatus(initiative)`: computed from its committed/decomposed epics.
 - Attribution edges are excluded from all WIP counts and composition pressure.
 
@@ -124,7 +124,7 @@ screen that does not serve behaviours A–G.
 3. The seeded epic appears as an L2 card, an L3 boundary pin, and an L1 rollup
    contribution — one identity, three renderings.
 4. Dragging all children away from an epic changes its computed level.
-5. Resolving the blocker epic flips the blocked story to **Satisfied** on both boards
+5. Resolving the dependency epic flips the dependent story to **Satisfied** on both boards
    with no manual edit.
 6. The two-objective story contributes **1** to WIP.
 7. Adding a 5th epic to a stream triggers the soft block and demands a reason.

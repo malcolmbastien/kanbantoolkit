@@ -5,8 +5,9 @@ import type { IssueType, Item, Stage } from '@/domain/types'
 
 export interface CardSummary {
   childCount: number
-  blocksCount: number
-  /** Distinct item-to-item links (incoming + outgoing). */
+  /** Cards that depend on this one (confirmed, unresolved). */
+  dependentsCount: number
+  /** Distinct item-to-item links (dependencies + dependents). */
   linksCount: number
   /** Descendants (any depth) explicitly blocked and still open — rolled up. */
   blockedBelow: number
@@ -145,9 +146,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
             <span className="text-[10px] font-semibold tabular-nums text-slate-400">{ref_}</span>
             {item.size ? <span className="text-[10px] tabular-nums text-slate-400">· {item.size}</span> : null}
             <span className="ml-auto flex items-center gap-1.5">
-              {summary.blocksCount > 0 && (
-                <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white" title={`Blocks ${summary.blocksCount}`}>
-                  <ShieldAlert size={9} /> {summary.blocksCount}
+              {summary.dependentsCount > 0 && (
+                <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white" title={`${summary.dependentsCount} depend on this`}>
+                  <ShieldAlert size={9} /> {summary.dependentsCount}
                 </span>
               )}
               {pct !== undefined && (
@@ -246,10 +247,10 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 {summary.rollupPercent}%
               </span>
             )}
-            {summary.blocksCount > 0 && (
-              <span className="ml-auto flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm" title={`Blocks ${summary.blocksCount} items`}>
+            {summary.dependentsCount > 0 && (
+              <span className="ml-auto flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm" title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}>
                 <ShieldAlert size={9} />
-                {summary.blocksCount}
+                {summary.dependentsCount}
               </span>
             )}
             {lensButton}

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   attributedObjectives,
-  blockingSummary,
   blockedBelow,
+  dependentSummary,
   decompositionChildren,
   decompositionParent,
   depth,
@@ -10,7 +10,7 @@ import {
   isArchived,
   isBlocked,
   openDescendants,
-  openIncomingLinks,
+  openDependenciesOf,
   rollupOf,
   statusOf,
   type Graph,
@@ -67,17 +67,17 @@ describe('dependency state is computed from cells', () => {
   const s = createSeed()
   const g = graphOf(s)
 
-  it('unresolved blocker + not-started dependent = Open / planning risk', () => {
+  it('unresolved dependency + not-started dependent = Open / planning risk', () => {
     expect(statusOf('init-gateway', g).resolved).toBe(false)
     expect(statusOf('st-email', g).started).toBe(false)
     expect(dependencyState('init-gateway', 'st-email', g)).toBe('OpenPlanningRisk')
   })
 
-  it('unresolved blocker + in-progress dependent = Open / live blockage', () => {
+  it('unresolved dependency + in-progress dependent = Open / live blockage', () => {
     expect(dependencyState('init-gateway', 'st-sso', g)).toBe('OpenLiveBlockage')
   })
 
-  it('flips to Satisfied once the blocker moves to a done lane — dependents untouched', () => {
+  it('flips to Satisfied once the dependency moves to a done lane — dependents untouched', () => {
     const s2 = createSeed()
     const done = laneByName(s2, 'b-nova', 'Done')
     s2.placements = s2.placements.map((p) =>
@@ -86,12 +86,12 @@ describe('dependency state is computed from cells', () => {
     expect(dependencyState('init-gateway', 'st-email', graphOf(s2))).toBe('Satisfied')
   })
 
-  it('the blocker carries a cross-team badge', () => {
-    expect(blockingSummary('init-gateway', g).count).toBe(2)
+  it('the dependency carries a cross-team dependents count', () => {
+    expect(dependentSummary('init-gateway', g).count).toBe(2)
   })
 
-  it('shows one blocking link on the dependent', () => {
-    expect(openIncomingLinks('st-email', g).length).toBe(1)
+  it('shows one open dependency on the dependent', () => {
+    expect(openDependenciesOf('st-email', g).length).toBe(1)
   })
 })
 

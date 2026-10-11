@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { Archive, Ban, GitBranch, Plus, Sparkles, X } from 'lucide-react'
 import {
   attributedObjectives,
-  blockingSummary,
   decompositionChildren,
   decompositionParent,
+  dependenciesOf,
+  dependentsOf,
   depth as depthOf,
   descendants,
   dependencyState,
-  incomingDependencies,
+  dependentSummary,
   openDescendants,
-  outgoingDependencies,
   statusOf,
   type Graph,
 } from '@/domain/derive'
@@ -58,7 +58,7 @@ export function ItemPanel({ itemId }: Props) {
   const archiveItem = useStore((s) => s.archiveItem)
   const unarchiveItem = useStore((s) => s.unarchiveItem)
 
-  const [blockerId, setBlockerId] = useState('')
+  const [dependencyId, setDependencyId] = useState('')
   const [childType, setChildType] = useState('')
   const [parentChoice, setParentChoice] = useState('')
   const [linkBoardId, setLinkBoardId] = useState('')
@@ -79,10 +79,10 @@ export function ItemPanel({ itemId }: Props) {
   const children = decompositionChildren(item.id, edges)
     .map((id) => items.find((i) => i.id === id))
     .filter((i): i is Item => Boolean(i))
-  const incoming = incomingDependencies(item.id, graph)
-  const outgoing = outgoingDependencies(item.id, graph)
+  const dependencies = dependenciesOf(item.id, graph)
+  const dependents = dependentsOf(item.id, graph)
   const exposure = openDescendants(item.id, graph)
-  const badge = blockingSummary(item.id, graph)
+  const badge = dependentSummary(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
   const status = statusOf(item.id, graph)
   const log = item.log ?? []
@@ -441,24 +441,24 @@ export function ItemPanel({ itemId }: Props) {
           </section>
         )}
 
-        {/* Links — item-to-item dependency relationships only */}
+        {/* Links — dependencies between two items */}
         <section>
           <SectionLabel>Links — dependencies</SectionLabel>
           {badge.count > 0 && (
             <div className="mb-2 flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800 ring-1 ring-amber-100">
-              <Ban size={11} /> This blocks {badge.count} item{badge.count > 1 ? 's' : ''} across {badge.boards} board{badge.boards > 1 ? 's' : ''}
+              <GitBranch size={11} /> {badge.count} card{badge.count > 1 ? 's' : ''} depend on this across {badge.boards} board{badge.boards > 1 ? 's' : ''}
             </div>
           )}
           <div className="space-y-1">
-            {incoming.length === 0 && outgoing.length === 0 && <p className="text-[11px] text-slate-400">No links.</p>}
-            {incoming.map((dep) => {
+            {dependencies.length === 0 && dependents.length === 0 && <p className="text-[11px] text-slate-400">No links.</p>}
+            {dependencies.map((dep) => {
               const state = DEP_STATE_STYLES[dep.state]
               return (
                 <div key={dep.link.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
                   <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> depends on</div>
                   <div className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate text-slate-700">{dep.blocker.title}</span>
-                    {dep.blocker.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
+                    <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependency.title}</span>
+                    {dep.dependency.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
                     {dep.link.status === 'proposed' ? (
                       <span className="rounded bg-slate-100 px-1 text-[9px] font-semibold text-slate-500">pending</span>
                     ) : (
@@ -466,14 +466,14 @@ export function ItemPanel({ itemId }: Props) {
                     )}
                   </div>
                   <div className="text-[10px] text-slate-400">
-                    derived → {dependencyState(dep.blocker.id, dep.dependent.id, graph)}
+                    derived → {dependencyState(dep.dependency.id, dep.dependent.id, graph)}
                   </div>
                 </div>
               )
             })}
-            {outgoing.map((dep) => (
+            {dependents.map((dep) => (
               <div key={dep.link.id} className="rounded border border-slate-200 bg-white px-2 py-1.5">
-                <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> blocks</div>
+                <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> depended on by</div>
                 <div className="flex items-center gap-2">
                   <div className="min-w-0 flex-1 truncate text-slate-700">{dep.dependent.title}</div>
                   {dep.dependent.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
@@ -491,13 +491,13 @@ export function ItemPanel({ itemId }: Props) {
             ))}
           </div>
           <div className="mt-2 flex items-center gap-1">
-            <select value={blockerId} onChange={(e) => setBlockerId(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px]">
+            <select value={dependencyId} onChange={(e) => setDependencyId(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px]">
               <option value="">Add link: this depends on…</option>
               {candidates.map((c) => (
                 <option key={c.id} value={c.id}>{typeName(c.typeId)}: {c.title}</option>
               ))}
             </select>
-            <button disabled={!blockerId} onClick={() => { raiseDependency(blockerId, item.id); setBlockerId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Add link</button>
+            <button disabled={!dependencyId} onClick={() => { raiseDependency(dependencyId, item.id); setDependencyId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Add link</button>
           </div>
           <p className="mt-1 text-[10px] text-slate-400">
             Links connect two items — this one depends on another. They indicate linked items but never set the blocked status above.

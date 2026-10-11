@@ -3,7 +3,7 @@ import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
 import { ManagementBoard } from './ManagementBoard'
-import { boardCardTypeId, cardTypes, externalBlockersOnBoard } from '@/domain/board'
+import { boardCardTypeId, cardTypes, externalDependenciesOnBoard } from '@/domain/board'
 import { effectiveStage } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -37,7 +37,7 @@ export function BoardView({ requestMove }: Props) {
   if (board?.level === 'portfolio') return <ManagementBoard boardId={boardId} />
 
   const graph: Graph = { items, edges, links, placements, lanes }
-  const external = externalBlockersOnBoard(graph, boardId)
+  const external = externalDependenciesOnBoard(graph, boardId)
   const doneCount = placements.filter(
     (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
   ).length
@@ -113,7 +113,7 @@ export function BoardView({ requestMove }: Props) {
           )}
           {external.length > 0 && (
             <span className="flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">
-              <Layers size={11} /> {external.length} external blocker{external.length > 1 ? 's' : ''}
+              <Layers size={11} /> {external.length} external dependenc{external.length > 1 ? 'ies' : 'y'}
             </span>
           )}
         </div>

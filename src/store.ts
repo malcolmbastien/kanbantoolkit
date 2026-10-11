@@ -94,7 +94,7 @@ export interface Actions {
   /** Create a team-level initiative on a team board, linked (as a child) to a management initiative. */
   linkTeamInitiative: (parentId: string, boardId: string, title: string) => void
 
-  raiseDependency: (blockerId: string, dependentId: string, reason?: string) => void
+  raiseDependency: (dependencyId: string, dependentId: string, reason?: string) => void
   confirmDependency: (linkId: string) => void
   rejectDependency: (linkId: string, reason: string) => void
   setAttribution: (itemId: string, objectiveId: string, on: boolean) => void
@@ -523,11 +523,11 @@ export const useStore = create<Store>()(
         })
       },
 
-      raiseDependency: (blockerId, dependentId, reason) => {
-        if (blockerId === dependentId) return
+      raiseDependency: (dependencyId, dependentId, reason) => {
+        if (dependencyId === dependentId) return
         const state = get()
-        if (state.links.some((l) => l.from === blockerId && l.to === dependentId)) return
-        const link: ItemLink = { id: uid(), from: blockerId, to: dependentId, status: 'proposed', reason }
+        if (state.links.some((l) => l.from === dependencyId && l.to === dependentId)) return
+        const link: ItemLink = { id: uid(), from: dependencyId, to: dependentId, status: 'proposed', reason }
         set({ links: [...state.links, link] })
       },
 

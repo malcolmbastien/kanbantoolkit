@@ -84,11 +84,11 @@ export type DependencyState =
   | 'OpenPlanningRisk'
   | 'OpenLiveBlockage'
 
-export function dependencyState(blockerId: string, dependentId: string, graph: Graph): DependencyState {
-  const b = statusOf(blockerId, graph)
+export function dependencyState(dependencyId: string, dependentId: string, graph: Graph): DependencyState {
+  const dep = statusOf(dependencyId, graph)
   const d = statusOf(dependentId, graph)
   if (d.resolved) return 'Closed'
-  if (b.resolved) return 'Satisfied'
+  if (dep.resolved) return 'Satisfied'
   if (!d.started) return 'OpenPlanningRisk'
   return 'OpenLiveBlockage'
 }
@@ -97,52 +97,56 @@ export const isOpen = (s: DependencyState) => s === 'OpenPlanningRisk' || s === 
 
 export interface DependencyInfo {
   link: ItemLink
-  blocker: Item
+  /** The card depended upon. */
+  dependency: Item
+  /** The card that depends on it. */
   dependent: Item
   state: DependencyState
 }
 
 export function readDependency(link: ItemLink, graph: Graph): DependencyInfo | null {
-  const blocker = graph.items.find((i) => i.id === link.from)
+  const dependency = graph.items.find((i) => i.id === link.from)
   const dependent = graph.items.find((i) => i.id === link.to)
-  if (!blocker || !dependent) return null
-  return { link, blocker, dependent, state: dependencyState(link.from, link.to, graph) }
+  if (!dependency || !dependent) return null
+  return { link, dependency, dependent, state: dependencyState(link.from, link.to, graph) }
 }
 
-export function incomingDependencies(itemId: string, graph: Graph): DependencyInfo[] {
+/** The cards this item depends on (its links). */
+export function dependenciesOf(itemId: string, graph: Graph): DependencyInfo[] {
   return graph.links
     .filter((l) => l.to === itemId)
     .map((l) => readDependency(l, graph))
     .filter((x): x is DependencyInfo => x !== null)
 }
 
-export function outgoingDependencies(itemId: string, graph: Graph): DependencyInfo[] {
+/** The cards that depend on this item. */
+export function dependentsOf(itemId: string, graph: Graph): DependencyInfo[] {
   return graph.links
     .filter((l) => l.from === itemId)
     .map((l) => readDependency(l, graph))
     .filter((x): x is DependencyInfo => x !== null)
 }
 
-/** Confirmed links into this item whose blocker is not yet done — still open. */
-export function openIncomingLinks(itemId: string, graph: Graph): DependencyInfo[] {
-  return incomingDependencies(itemId, graph).filter((d) => d.link.status === 'confirmed' && isOpen(d.state))
+/** Confirmed dependencies of this item whose dependency is not yet done — still open. */
+export function openDependenciesOf(itemId: string, graph: Graph): DependencyInfo[] {
+  return dependenciesOf(itemId, graph).filter((d) => d.link.status === 'confirmed' && isOpen(d.state))
 }
 
 /**
  * Blocking is a status the user sets on the item — it is *not* derived from
- * links. `openIncomingLinks` describes dependency state; this describes intent.
+ * links. `openDependenciesOf` describes dependency state; this describes intent.
  */
 export function isBlocked(itemId: string, graph: Graph): boolean {
   return graph.items.find((i) => i.id === itemId)?.blocked === true
 }
 
 export function confirmationRequests(itemId: string, graph: Graph): DependencyInfo[] {
-  return outgoingDependencies(itemId, graph).filter((d) => d.link.status === 'proposed')
+  return dependentsOf(itemId, graph).filter((d) => d.link.status === 'proposed')
 }
 
-/** "N items blocked by this" — distinct boards among the dependents. */
-export function blockingSummary(itemId: string, graph: Graph): { count: number; boards: number } {
-  const confirmed = outgoingDependencies(itemId, graph).filter(
+/** "N cards depend on this" — distinct boards among the dependents. */
+export function dependentSummary(itemId: string, graph: Graph): { count: number; boards: number } {
+  const confirmed = dependentsOf(itemId, graph).filter(
     (d) => d.link.status === 'confirmed' && !statusOf(d.dependent.id, graph).resolved,
   )
   const boardOf = (itemId: string) =>
@@ -166,7 +170,7 @@ export function openDescendants(id: string, graph: Graph): Item[] {
  * How many descendants (at any depth) are explicitly blocked and still open.
  * This is what lets a blockage on a team card roll up into its team initiative
  * and, aggregated, into a top-level initiative — without the top board having
- * to know the individual blocker.
+ * to know the individual blocked card.
  */
 export function blockedBelow(id: string, graph: Graph): number {
   return descendants(id, graph)

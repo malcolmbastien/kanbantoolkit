@@ -51,7 +51,7 @@ describe('store actions', () => {
     expect(topBefore).toBe(4)
   })
 
-  it('dependency self-cleans when the blocker moves to a done lane', () => {
+  it('dependency self-cleans when the dependency moves to a done lane', () => {
     const done = laneByName('b-nova', 'Done')
     expect(statusOf('st-email', graph()).resolved).toBe(false)
     s().moveCard('init-gateway', 'b-nova', done.id)
