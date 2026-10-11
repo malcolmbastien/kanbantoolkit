@@ -487,7 +487,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const canvas = (
     <div className="flex min-h-0 flex-1">
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        <div className="min-h-[120px] w-full min-w-max">
+        <div className="min-h-[120px] w-full min-w-min">
           {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-[12px] text-slate-500">This board has no lanes.</p>}
         </div>
       </div>
