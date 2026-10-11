@@ -16,7 +16,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { buildRefs, externalBlockersOnBoard } from '@/domain/board'
-import { childrenOf, effectiveStage, isTopLevel, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -75,6 +75,10 @@ interface Ctx {
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
+  insertLaneAfter: (laneId: string) => void
+  duplicateLane: (laneId: string) => void
+  toggleCollapse: (laneId: string) => void
+  collapsedLanes: Record<string, boolean>
   moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: 'columns' | 'rows') => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
@@ -108,6 +112,7 @@ function Ctl({ children, onClick, title, active, danger, disabled }: { children:
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
   const kids = childrenOf(lanes, lane.id)
+  const collapsed = ctx.collapsedLanes[lane.id] === true
   const parent = lane.parentId ? lanes.find((l) => l.id === lane.parentId) : undefined
   const siblings = lane.parentId ? childrenOf(lanes, lane.parentId) : []
   const sibIdx = siblings.findIndex((s) => s.id === lane.id)
@@ -125,12 +130,34 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     }).length
   }
 
+  // Confirm before removing a lane that carries cards or sub-lanes.
+  const removeWithConfirm = () => {
+    const count = countInLane(lane.id)
+    const target = childrenOf(lanes, lane.parentId!)
+      .filter((s) => s.id !== lane.id)
+      .flatMap((s) => leavesUnder(lanes, s.id))[0]
+    const parts: string[] = []
+    if (count > 0) parts.push(`${count} card${count === 1 ? '' : 's'} will move to ${target ? `"${target.name}"` : 'no lane (they leave the board)'}`)
+    if (kids.length > 0) parts.push(`${kids.length} sub-lane${kids.length === 1 ? '' : 's'} removed`)
+    const detail = parts.length ? ` ${parts.join('; ')}.` : ''
+    if (window.confirm(`Remove "${lane.name || 'lane'}"?${detail}`)) ctx.removeLane(lane.id)
+  }
+
   const header = (isLeafCell: boolean) => {
     const top = isTopLevel(lanes, lane.id)
     const stage = lane.stage ?? effectiveStage(lanes, lane.id)
     return (
       <div className={cn('rounded-t-md px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
         <div className="flex items-center gap-1.5">
+          {kids.length > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
+              className="rounded px-0.5 text-[10px] font-bold text-slate-300 hover:bg-white/10 hover:text-white"
+              title={collapsed ? 'Expand' : 'Collapse'}
+            >
+              {collapsed ? '▸' : '▾'}
+            </button>
+          )}
           <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
           <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
             {countInLane(lane.id)}
@@ -194,10 +221,12 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             )}
             {!top && (
               <>
+                <Ctl title="Insert a new lane after this one" onClick={() => ctx.insertLaneAfter(lane.id)}>＋ insert</Ctl>
+                <Ctl title="Duplicate this lane and its sub-lanes" onClick={() => ctx.duplicateLane(lane.id)}>duplicate</Ctl>
                 <Ctl title="Rename lane" onClick={() => { const name = window.prompt('Lane name', lane.name); if (name !== null) ctx.renameLane(lane.id, name) }}>
                   rename
                 </Ctl>
-                <Ctl danger title="Remove lane" onClick={() => ctx.removeLane(lane.id)}>remove</Ctl>
+                <Ctl danger title="Remove lane" onClick={removeWithConfirm}>remove</Ctl>
               </>
             )}
             {top && <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">typed column — split to refine</span>}
@@ -216,21 +245,25 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       orientation === 'columns' &&
       kids.length >= 2 &&
       kids.every((k) => (k.orientation ?? 'columns') === 'rows' && childrenOf(lanes, k.id).length > 0)
-    if (transposable) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} />
+    if (transposable && !collapsed) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} />
 
     return (
       <div className="flex h-full min-h-0 w-full flex-1 flex-col rounded-md border border-slate-300/70 bg-slate-300/20">
         {!hideHeader && (editMode || lane.name) && header(false)}
-        <div
-          className={cn('w-full gap-1 p-1', orientation === 'rows' ? 'flex flex-col' : 'grid')}
-          style={orientation === 'columns' ? { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' } : undefined}
-        >
-          {kids.map((k) => (
-            <div key={k.id} className={cn('flex flex-col', orientation === 'rows' && 'w-full')}>
-              <LaneBox lane={k} ctx={ctx} isRoot={false} />
-            </div>
-          ))}
-        </div>
+        {collapsed ? (
+          <div className="px-2 py-1 text-[10px] italic text-slate-400">{kids.length} hidden</div>
+        ) : (
+          <div
+            className={cn('w-full gap-1 p-1', orientation === 'rows' ? 'flex flex-col' : 'grid')}
+            style={orientation === 'columns' ? { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' } : undefined}
+          >
+            {kids.map((k) => (
+              <div key={k.id} className={cn('flex flex-col', orientation === 'rows' && 'w-full')}>
+                <LaneBox lane={k} ctx={ctx} isRoot={false} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -368,6 +401,10 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const openItem = useStore((s) => s.openItem)
   const splitLane = useStore((s) => s.splitLane)
   const addLane = useStore((s) => s.addLane)
+  const insertLaneAfter = useStore((s) => s.insertLaneAfter)
+  const duplicateLane = useStore((s) => s.duplicateLane)
+  const toggleCollapse = useStore((s) => s.toggleCollapse)
+  const collapsedLanes = useStore((s) => s.collapsedLanes)
   const moveLane = useStore((s) => s.moveLane)
   const setLaneOrientation = useStore((s) => s.setLaneOrientation)
   const setLaneWip = useStore((s) => s.setLaneWip)
@@ -402,7 +439,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     lanes, items, issueTypes, refs, graph, editMode, search, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
-    openItem, splitLane, addLane, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,
+    openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = issueTypes[0]?.id
       if (typeId) addCard({ boardId, typeId, laneId, title: 'New card' })

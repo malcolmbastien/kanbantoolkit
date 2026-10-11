@@ -29,6 +29,8 @@ export interface ViewState {
   showDashboard: boolean
   /** Show the Archive view (filed-away items) instead of a board. */
   showArchive: boolean
+  /** Collapsed containers (view-only; not persisted to localStorage). */
+  collapsedLanes: Record<string, boolean>
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -74,6 +76,11 @@ export interface Actions {
 
   splitLane: (laneId: string, orientation: SplitOrientation, count?: number) => void
   addLane: (parentId: string) => void
+  /** Insert a new sibling lane immediately after this one. */
+  insertLaneAfter: (laneId: string) => void
+  /** Duplicate a lane and its whole sub-lane subtree (cards are not copied). */
+  duplicateLane: (laneId: string) => void
+  toggleCollapse: (laneId: string) => void
   /** Reorder a lane within its parent (delta -1 = left/up, +1 = right/down). */
   moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: SplitOrientation) => void
@@ -153,6 +160,7 @@ const initialView: ViewState = {
   showObjectives: false,
   showDashboard: false,
   showArchive: false,
+  collapsedLanes: {},
 }
 
 /**
@@ -414,6 +422,61 @@ export const useStore = create<Store>()(
         const lanes = state.lanes.map((l) => (l.id === parentId ? { ...l, orientation: parent.orientation ?? 'columns' } : l))
         set({ lanes: lanes.concat([child]) })
       },
+
+      insertLaneAfter: (laneId) => {
+        const state = get()
+        const lane = state.lanes.find((l) => l.id === laneId)
+        if (!lane || lane.parentId === null) return
+        const parent = state.lanes.find((l) => l.id === lane.parentId)
+        // Top-level columns are fixed in place; insert only among sub-lanes.
+        if (!parent || parent.parentId === null) return
+        const siblings = childrenOf(state.lanes, lane.parentId)
+        const idx = siblings.findIndex((s) => s.id === laneId)
+        const orientation = parent.orientation ?? 'columns'
+        const child: Lane = {
+          id: uid(),
+          boardId: lane.boardId,
+          parentId: lane.parentId,
+          order: idx + 1,
+          name: orientation === 'rows' ? `Row ${siblings.length + 1}` : `Column ${siblings.length + 1}`,
+        }
+        const lanes = state.lanes.map((l) =>
+          l.parentId === lane.parentId && l.order > idx ? { ...l, order: l.order + 1 } : l,
+        )
+        set({ lanes: [...lanes, child] })
+      },
+
+      duplicateLane: (laneId) => {
+        const state = get()
+        const src = state.lanes.find((l) => l.id === laneId)
+        if (!src || src.parentId === null) return
+        const parent = state.lanes.find((l) => l.id === src.parentId)
+        if (!parent || parent.parentId === null) return // don't clone top-level columns
+        const ids = subtreeIds(state.lanes, laneId)
+        const idMap = new Map(ids.map((id) => [id, uid()]))
+        const siblings = childrenOf(state.lanes, src.parentId)
+        const idx = siblings.findIndex((s) => s.id === laneId)
+        const clones: Lane[] = ids.map((id) => {
+          const l = state.lanes.find((x) => x.id === id)!
+          const clone: Lane = {
+            ...l,
+            id: idMap.get(id)!,
+            parentId: l.parentId && idMap.has(l.parentId) ? idMap.get(l.parentId)! : l.parentId,
+          }
+          if (id === laneId) {
+            clone.name = `${l.name} copy`
+            clone.order = idx + 1
+          }
+          return clone
+        })
+        const lanes = state.lanes.map((l) =>
+          l.parentId === src.parentId && l.order > idx ? { ...l, order: l.order + 1 } : l,
+        )
+        set({ lanes: [...lanes, ...clones] })
+      },
+
+      toggleCollapse: (laneId) =>
+        set({ collapsedLanes: { ...get().collapsedLanes, [laneId]: !get().collapsedLanes[laneId] } }),
 
       removeLane: (laneId) => {
         const state = get()

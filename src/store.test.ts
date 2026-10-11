@@ -243,6 +243,50 @@ describe('store actions', () => {
     expect(childrenOf(s().lanes, ns.id).map((r) => r.name)).toEqual(['Row 1', 'Row 2', 'Row 3'])
   })
 
+  it('inserts a lane after a sibling and duplicates a subtree', () => {
+    const ip = laneByName('b-atlas', 'In Progress')
+    const colNames = () => childrenOf(s().lanes, ip.id).map((l) => l.name)
+    expect(colNames()).toEqual(['Dev', 'Test'])
+
+    s().insertLaneAfter(laneByName('b-atlas', 'Dev').id)
+    expect(colNames()).toEqual(['Dev', 'Column 3', 'Test'])
+
+    s().duplicateLane(laneByName('b-atlas', 'Dev').id)
+    expect(colNames()).toEqual(['Dev', 'Dev copy', 'Column 3', 'Test'])
+
+    // top-level columns are neither insertable nor cloneable
+    const root = rootLane(s().lanes, 'b-atlas')!
+    const topBefore = childrenOf(s().lanes, root.id).map((l) => l.name)
+    s().insertLaneAfter(laneByName('b-atlas', 'Not Started').id)
+    s().duplicateLane(laneByName('b-atlas', 'Not Started').id)
+    expect(childrenOf(s().lanes, root.id).map((l) => l.name)).toEqual(topBefore)
+  })
+
+  it('duplicates a container with its sub-lanes (structure, not cards)', () => {
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().splitLane(ns.id, 'columns')
+    const c1 = childrenOf(s().lanes, ns.id)[0]
+    s().splitLane(c1.id, 'rows')
+    const sub = childrenOf(s().lanes, c1.id).length
+
+    s().duplicateLane(c1.id)
+    const cols = childrenOf(s().lanes, ns.id)
+    expect(cols.length).toBe(3)
+    const clone = cols[1]
+    expect(clone.name).toBe(`${c1.name} copy`)
+    expect(clone.id).not.toBe(c1.id)
+    expect(childrenOf(s().lanes, clone.id).length).toBe(sub)
+  })
+
+  it('toggles container collapse (view state)', () => {
+    const ip = laneByName('b-atlas', 'In Progress')
+    expect(s().collapsedLanes[ip.id] ?? false).toBe(false)
+    s().toggleCollapse(ip.id)
+    expect(s().collapsedLanes[ip.id]).toBe(true)
+    s().toggleCollapse(ip.id)
+    expect(s().collapsedLanes[ip.id]).toBe(false)
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')
