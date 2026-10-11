@@ -138,3 +138,5 @@ task-master parse-prd .taskmaster/docs/prd.md
 
 - `OPENAI_COMPATIBLE_API_KEY` lives in `.env` (gitignored; see `.env.example`).
 - Models are configured in `.taskmaster/config.json`.
+- Tags: `master` (the original MVP breakdown) and `backlog` (the post-foundation
+  feature backlog, `.taskmaster/docs/features.md`). Use `task-master list --tag=backlog`.

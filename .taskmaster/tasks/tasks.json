@@ -187,5 +187,465 @@
         "master"
       ]
     }
+  },
+  "backlog": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Implement Objective and Key Result data model and persistence",
+        "description": "Define and persist Objectives and Key Results as commitment-limited entities with period, status, score, target, current, and progress fields.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Create types: Objective { id, title, description?, period, status: 'active' | 'scored', score? } and KeyResult { id, objectiveId, title, target?, current?, progress? }. Store in workspace JSON/state using normalized lookup maps. Validate objectiveId exists, period is non-empty, status is valid, and numeric fields are non-negative when present. Ensure these entities are not represented as cards or lanes.",
+        "testStrategy": "Unit test CRUD roundtrip for both entities. Reject KeyResults with missing or invalid objectiveId. Verify persisted state reloads correctly and no lane or WIP entities are created.",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Build Objectives & Key Results view with period selector and score summary",
+        "description": "Create the OKR view where objectives are listed by period, with commitment limit status and score summary, and nested key results.",
+        "status": "done",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "details": "Build an OKR page that filters objectives by period and shows active versus scored state. Display the period commitment limit indicator, defaulting to 3-5 active objectives. Show nested KeyResults below each objective and compute an overall score summary for the selected period.",
+        "testStrategy": "Verify each period filter shows the correct objectives. Confirm score summary recalculates after score changes. Confirm commitment-limit highlight appears when active objective count is outside the 3-5 range.",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement Objective create, edit, delete, and status workflow",
+        "description": "Add UI and behavior to create, edit, delete, activate, score, and close Objectives.",
+        "status": "done",
+        "dependencies": [
+          1,
+          2
+        ],
+        "priority": "high",
+        "details": "Create a form/modal for Objective title, description, period, status, and score. Support active-to-scored transitions. Validate against commitment limits from task 2. Use confirm-before-destructive actions. Persist updates through the Objective store.",
+        "testStrategy": "Create an objective and verify it appears in the selected period. Edit fields and confirm persistence. Activate and score an objective. Delete with confirmation and verify dependent KeyResults are handled.",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Implement Key Result add, edit, and score UI",
+        "description": "Add the ability to create, edit, update current/target values, and score Key Results under Objectives.",
+        "status": "done",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "priority": "high",
+        "details": "Within the OKR view, allow adding/editing KRs for a selected objective. Support target, current, and progress fields. Compute progress from current/target where possible. Score KRs without placing them in board columns or affecting WIP.",
+        "testStrategy": "Add KRs under multiple objectives. Edit target/current and confirm progress calculation. Score KRs and verify objective score summary updates. Validate that KRs do not appear in lanes or WIP calculations.",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement objective-work attribution edges and rollup computation",
+        "description": "Implement many-to-many attribution edges from initiatives and cards to objectives, and compute objective rollup without inflating WIP.",
+        "status": "done",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "details": "Create attribution edge records for many-to-many linkage between work items and objectives. Provide query helpers that return attributed initiatives/cards for an objective. Calculate coverage and rollup status/percent complete from attributed work. Ensure attribution edges never count as WIP.",
+        "testStrategy": "Link and unlink work to objectives. Verify no WIP count changes. Verify objective rollup percentage reflects attributed work progress only. Test with multiple initiatives and cards.",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Build map-work-to-objectives UI and attribution UX with coverage/impact reporting",
+        "description": "Allow attaching initiatives and cards to objectives and display coverage, rollup status, and percent of attributed work.",
+        "status": "done",
+        "dependencies": [
+          2,
+          5
+        ],
+        "priority": "high",
+        "details": "Add an objective attribution control to initiative/card panels and item editors. Show objective chips on attributed work. Display coverage percentages and unattributed-work hints. Provide impact reporting so users can see how mapped work contributes to an objective.",
+        "testStrategy": "Attach/detach initiatives and cards to objectives. Confirm objective coverage updates immediately. Verify the coverage report lists the correct work and excludes unattributed work.",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement cross-board initiative rollup and board-local top-level initiative semantics",
+        "description": "Enable top-level initiatives from one management board to roll up to top-level initiatives on another management board, while preserving board-local top-level definitions.",
+        "status": "done",
+        "dependencies": [
+          5,
+          6
+        ],
+        "priority": "high",
+        "details": "Define an initiative decomposition tree that spans boards. A top-level initiative on a management board can roll up to a top-level initiative on another management board. On any management board, an initiative whose parent is not on the same board is treated as board-local top-level. Update the Initiatives workflow to reflect these board-local top-level initiatives.",
+        "testStrategy": "Create parent/child initiatives across boards. Verify cross-board rollup path. Verify a child with an off-board parent appears as top-level on its local board. Verify management board Initiatives workflow shows only board-local top-level initiatives.",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement limits editor with configurable enforcement modes",
+        "description": "Build a limits editor for commitment limits and configurable enforcement with thresholds, effective dates, and soft-block reason off by default.",
+        "status": "pending",
+        "dependencies": [
+          2,
+          3
+        ],
+        "priority": "medium",
+        "details": "Provide settings UI for Objective commitment limits with modes: visualize, warn, soft-block, hard-block. Support thresholds and effective dates. Include a configurable soft-block reason field that is off by default. Integrate enforcement into Objective creation and period views.",
+        "testStrategy": "Configure each enforcement mode. Exceed limits and verify the correct action: visualization, warning, soft block, or hard block. Verify effective dates control when limits apply. Confirm soft-block reason is hidden unless enabled.",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement portfolio rollup and sponsor recommendation with override reason",
+        "description": "Compute initiative status across the portfolio and provide a one-click sponsor recommendation that a human can confirm or override with a reason.",
+        "status": "pending",
+        "dependencies": [
+          5,
+          7
+        ],
+        "priority": "medium",
+        "details": "Build a portfolio rollup that computes initiative status from children and attributed work. Surface a recommended status with one-click confirmation. Allow users to override the recommendation and require a reason. Store the confirmation or override reason for auditability.",
+        "testStrategy": "Create multi-level initiatives and verify rollup status matches expected contribution. Confirm a recommendation updates the initiative. Override a recommendation and verify the reason is saved and displayed.",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement initiative health and at-risk flags beyond percent complete",
+        "description": "Add P2 initiative health and at-risk flags based on signals beyond simple percent complete.",
+        "status": "pending",
+        "dependencies": [
+          9
+        ],
+        "priority": "low",
+        "details": "Define rules for health flags using blockers, dependency risk, stale progress, uncovered work, and rollup anomalies. Add flag badges in portfolio and initiative views. Keep rule evaluation on compact state/derived selectors.",
+        "testStrategy": "Seed initiatives with blockers, stale progress, and uncovered children. Confirm expected at-risk flags appear. Verify flags clear when conditions are resolved.",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Build full card editor in side panel",
+        "description": "P0 full card editor supports title, markdown description, assignee, size, and type in the side panel.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Create a panel that opens when a card is selected. Include title input, markdown description editor/preview, assignee picker, size field, and issue type selector. Persist all changes immediately or on save/cancel. Integrate with existing item store and undo stack.",
+        "testStrategy": "Open editor for a card. Change title, description markdown, assignee, size, and type. Verify each persists and renders correctly. Test save and cancel behavior.",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Implement delete and archive items with child handling rules",
+        "description": "P0 delete or archive items, with clear rules for handling children.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Add delete and archive actions to cards and initiatives. Provide confirmation modal explaining child behavior. Define child rules: cascade delete, archive descendants, or reparent to parent/board backlog based on item type. Clean up dependencies and attribution edges.",
+        "testStrategy": "Delete a leaf item and a parent item. Confirm children are handled according to the selected rule. Verify no orphan references remain in dependencies, attribution edges, or rollup trees.",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Implement quick-add and paste-many card creation in lanes",
+        "description": "P1 quick-add and paste-many: paste a list into a lane to create multiple cards.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Add a lane-level composer with quick-add for a single card and a paste area for multi-line text. Parse lines as separate card titles. Create cards sequentially in the lane. Show feedback and allow undo for the batch.",
+        "testStrategy": "Paste a bulleted or line-separated list. Confirm one card is created per non-empty line. Verify cards appear in order in the correct lane. Undo the batch and confirm all created cards are removed.",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Add checklists inside a card",
+        "description": "P2 checklist support inside a card for finer-grained work than schedulable cards.",
+        "status": "pending",
+        "dependencies": [
+          11
+        ],
+        "priority": "low",
+        "details": "Add checklist model data inside items. Provide UI to add, check, uncheck, reorder, and delete checklist entries. Show checklist progress on the card face. Do not treat checklist items as schedulable work or WIP.",
+        "testStrategy": "Create checklist items, reorder them, check/uncheck, and verify progress summary on card. Confirm checklist items never appear in lane or WIP counts.",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Add comments and activity log per item",
+        "description": "P2 comments and activity log per item.",
+        "status": "pending",
+        "dependencies": [
+          11
+        ],
+        "priority": "low",
+        "details": "Add a chronological activity log to each item. Support adding comments and automatically record meaningful changes such as title, assignee, status, type, size, dependency changes, and rollup changes. Render markdown in comments.",
+        "testStrategy": "Add a comment and confirm it appears. Trigger several item changes and verify the activity log records them in order. Confirm activity log is scoped to the correct item.",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Implement multi-select and bulk actions",
+        "description": "P2 multi-select cards and bulk actions for move, retype, assign, and delete.",
+        "status": "pending",
+        "dependencies": [
+          11,
+          12
+        ],
+        "priority": "low",
+        "details": "Add selection mode to board and lane views. Provide a bulk action toolbar supporting move to lane/board, change type, assign, and delete/archive. Batch mutations should use the same persistence/undo path as single-item actions.",
+        "testStrategy": "Select multiple cards and apply each bulk action. Verify all selected items update correctly. Test cancel and undo across bulk operations.",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Implement lane drag reorder and resize with persistence",
+        "description": "P0 drag to reorder lanes and drag to resize lanes, persisting sizes and order.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Add drag-to-reorder and drag-to-resize interactions for lanes. Persist lane order and width per board. Respect responsive boundaries and minimum widths. Avoid triggering content edits during drag.",
+        "testStrategy": "Reorder lanes and reload the board to confirm order persists. Resize lanes and reload to confirm widths persist. Test keyboard-accessible alternative if available.",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Implement inline rename and confirm-before-delete replacing window.prompt",
+        "description": "P0 inline rename for lanes/items and confirm-before-delete modal instead of window.prompt.",
+        "status": "pending",
+        "dependencies": [
+          17
+        ],
+        "priority": "high",
+        "details": "Replace any window.prompt usage with inline editable fields and a proper confirmation modal for delete operations. Support Enter to save, Escape to cancel, and click-away behavior. Use accessible labels and focus management.",
+        "testStrategy": "Rename a lane or item inline and verify persistence. Attempt delete and confirm the modal appears. Cancel and confirm delete both behave correctly.",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Implement lane settings popover",
+        "description": "P1 lane settings popover provides name, WIP limit, stage, colour, merge, and delete actions.",
+        "status": "pending",
+        "dependencies": [
+          18
+        ],
+        "priority": "medium",
+        "details": "Add a lane header settings popover. Expose fields for name, WIP limit, stage, and colour. Include merge target selection and delete action that follows child handling rules. Persist changes through lane store.",
+        "testStrategy": "Update each lane setting and verify persistence. Merge a lane and confirm children move to the selected target. Delete a lane and confirm child handling rules apply.",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Implement collapse/expand lanes and management bands with persisted state",
+        "description": "P1 collapse/expand lanes and management bands while remembering state.",
+        "status": "pending",
+        "dependencies": [
+          19
+        ],
+        "priority": "medium",
+        "details": "Add collapse/expand controls to lane and management band headers. Persist collapsed state per board/user. Ensure collapsed lanes do not hide work from board totals unexpectedly; use visual indicators for hidden items.",
+        "testStrategy": "Collapse a lane and a management band, reload, and verify state persists. Expand them again and verify child lanes/items render. Verify board totals remain accurate.",
+        "subtasks": []
+      },
+      {
+        "id": 21,
+        "title": "Implement board settings, templates, new-team-board wizard, and duplicate board",
+        "description": "P1 board settings and templates include board level, rollup toggle, new-team-board wizard, and duplicate board.",
+        "status": "pending",
+        "dependencies": [
+          20
+        ],
+        "priority": "medium",
+        "details": "Create a board settings panel for board level and rollup toggle. Add template defaults for recurring board configurations. Build a new-team-board wizard that scaffolds lanes, levels, and rollup rules. Add duplicate board while avoiding ID collisions and preserving config.",
+        "testStrategy": "Change board settings and confirm persistence. Create a board from template/wizard and verify expected structure. Duplicate a board and confirm copied content is independent and IDs are unique.",
+        "subtasks": []
+      },
+      {
+        "id": 22,
+        "title": "Build pending dependency confirmation inbox on blocker side",
+        "description": "P0 inbox for blockers to confirm or reject dependency requests with a reason.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Create an inbox for pending dependency confirmations shown on the blocker side. Support confirm and reject actions with an optional/required reason field. Update dependency status and remove resolved items from the pending inbox.",
+        "testStrategy": "Create a dependency request from another item. Open the blocker inbox and confirm the request. Verify status updates. Reject a request with reason and verify reason is stored and request is resolved.",
+        "subtasks": []
+      },
+      {
+        "id": 23,
+        "title": "Build dependency register view split into live blockage vs planning risk",
+        "description": "P0 dependency register shows all open dependencies split into live blockage and planning risk.",
+        "status": "pending",
+        "dependencies": [
+          22
+        ],
+        "priority": "high",
+        "details": "Create a dependency register view that categorizes open dependencies. Live blockage includes dependencies currently blocking execution. Planning risk includes future or soft dependencies. Support filtering and jump-to-source/target items.",
+        "testStrategy": "Create dependencies of different types and statuses. Verify each appears in the correct register category. Ensure open blockers are live and future-dated dependencies appear as planning risk.",
+        "subtasks": []
+      },
+      {
+        "id": 24,
+        "title": "Implement raise dependency with pin picker, FS/SS/FF types, and lag editor",
+        "description": "P1 raise a dependency with a pin picker, finish-to-start/start-to-start/finish-to-finish types, and lag editor.",
+        "status": "pending",
+        "dependencies": [
+          23
+        ],
+        "priority": "medium",
+        "details": "Add a dependency creation flow with a pin picker to select the target item. Provide FS, SS, and FF dependency types. Add a lag editor for numeric lead/lag values. Validate target selection, type, and lag before creating the edge.",
+        "testStrategy": "Create dependencies for each FS/SS/FF type with different lag values. Verify the dependency graph and scheduling visualization reflect type and lag. Validate invalid lag or target selection shows errors.",
+        "subtasks": []
+      },
+      {
+        "id": 25,
+        "title": "Implement blocker badge drill-in with cross-board count",
+        "description": "P1 blocker badge showing 'blocks N across M boards'",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": [],
+        "subtasks": [],
+        "details": "",
+        "testStrategy": ""
+      },
+      {
+        "id": 26,
+        "title": "Build global search across all boards",
+        "description": "Search items by title/ref across every board with jump-to results.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Index items by title + ref; a command-style search input in the top bar returning matches grouped by board; selecting a result opens the board and item panel. Keyboard navigable.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 27,
+        "title": "Implement board filters and saved presets",
+        "description": "Filter the current board by assignee, type, blocked state, or initiative; save presets.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Add a filter bar to the board view; support combining filters; persist named presets against a board; show an active-filter indicator.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 28,
+        "title": "Add lineage breadcrumb and show-on-other-boards to the item panel",
+        "description": "Show the parent chain and the boards an item appears on, with jump links.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Breadcrumb from root to item using decomposition edges; list placements with board names; clicking a board switches to it and focuses the item.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 29,
+        "title": "Add a command palette / quick board switcher",
+        "description": "Keyboard-driven switcher for boards, items and actions.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Cmd/Ctrl-K palette listing boards, recent items, and common actions; fuzzy match; keyboard selection.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 30,
+        "title": "Add ghost lanes for cross-scope dependencies",
+        "description": "Surface inbound external dependencies as a read-only edge lane.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Collect off-board confirmed blockers for a board and render a read-only ghost lane of the binding items, alongside the existing boundary pins.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 31,
+        "title": "Implement undo/redo for mutations",
+        "description": "Undo/redo across edits, ideally by wrapping mutations in a command layer.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Introduce a single mutation/command entry point or a state history stack; expose undo/redo in the toolbar and via keyboard; covers move, add, delete, lane edits and layout save/cancel.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 32,
+        "title": "Implement workspace export and import (JSON)",
+        "description": "Back up and restore the whole workspace as JSON.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Serialize FlowState to JSON and download; import validates shape and version, then replaces state; guard against invalid files.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 33,
+        "title": "Add toasts and action feedback",
+        "description": "Give immediate feedback for moves, confirms, saves and errors.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "A lightweight toast system; announce card moves, limit warnings, dependency confirm/reject, and save/cancel; auto-dismiss with an undo affordance where relevant.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 34,
+        "title": "Add empty states and contextual hints",
+        "description": "Guide first-run and empty boards/lanes/columns.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Empty-state panels for boards, lanes, the objectives view and search with a short hint and a primary action; contextual tooltips on first use.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 35,
+        "title": "Virtualize large columns and boards",
+        "description": "Keep boards fast with hundreds of cards.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Windowed rendering for lanes/columns with many cards; keep drag-and-drop working; measure and avoid re-render storms.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 36,
+        "title": "Touch and responsive layout with touch drag",
+        "description": "Usable on tablet/mobile, including drag.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Responsive board layout; pointer/touch drag support (native DnD touch fallback); larger hit targets; test on tablet widths.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 37,
+        "title": "Keyboard navigation and accessibility pass",
+        "description": "Make the app keyboard-navigable and screen-reader friendly.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "low",
+        "details": "Focus management, tab order, ARIA roles for lanes/cards/boards, keyboard commands for common actions; audit contrast.",
+        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2026-10-11T12:27:39.769Z",
+      "updated": "2026-10-11T12:31:09.222Z",
+      "description": "Tasks for backlog context"
+    }
   }
 }
