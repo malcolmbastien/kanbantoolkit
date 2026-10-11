@@ -61,6 +61,12 @@ export interface Board {
   teamBoardIds?: string[]
   /** Type a new card gets on this board (never the reserved Initiative type). */
   defaultCardTypeId?: string
+  /**
+   * How per-lane WIP limits are enforced on this board:
+   * `visualize` (default) — yellow at the limit, red over it, moves always allowed;
+   * `block` — reject a move that would push a lane (or a limited ancestor) over its limit.
+   */
+  wipEnforcement?: 'visualize' | 'block'
 }
 
 /** A notable event in an item's history. Append-only. */

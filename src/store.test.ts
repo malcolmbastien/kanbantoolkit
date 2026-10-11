@@ -328,6 +328,23 @@ describe('store actions', () => {
     expect(decompositionChildren('init-onboarding', s().edges)).not.toContain('init-signup')
   })
 
+  it('WIP enforcement mode is a board property; block rejects a move that would exceed', () => {
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.wipEnforcement ?? 'visualize').toBe('visualize')
+    s().setBoardWipEnforcement('b-atlas', 'block')
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.wipEnforcement).toBe('block')
+
+    // Not Started has a WIP limit of 1 and already holds one card.
+    const ns = laneByName('b-atlas', 'Not Started')
+    const before = s().placements.find((p) => p.itemId === 'st-signup-form')?.laneId
+    s().moveCard('st-signup-form', 'b-atlas', ns.id)
+    expect(s().placements.find((p) => p.itemId === 'st-signup-form')?.laneId).toBe(before) // blocked
+
+    // Visualize allows the same move.
+    s().setBoardWipEnforcement('b-atlas', 'visualize')
+    s().moveCard('st-signup-form', 'b-atlas', ns.id)
+    expect(s().placements.find((p) => p.itemId === 'st-signup-form')?.laneId).toBe(ns.id)
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

@@ -16,7 +16,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
-import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds } from '@/domain/lanes'
+import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -132,6 +132,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       return lid !== undefined && ids.has(lid)
     }).length
   }
+  const wip = wipState(countInLane(lane.id), lane.wipLimit)
 
   // Confirm before removing a lane that carries cards or sub-lanes.
   const removeWithConfirm = () => {
@@ -148,7 +149,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   const header = (isLeafCell: boolean) => {
     return (
-      <div className={cn('px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
+      <div className={cn('px-2 py-1', wip === 'over' ? 'bg-rose-700 text-white' : wip === 'at' ? 'bg-amber-600 text-white' : isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
         <div className="flex items-center gap-1.5">
           {top && (
             <button
@@ -191,17 +192,15 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               <>
                 <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split col</Ctl>
                 <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split row</Ctl>
-                {!top && (
-                  <input
-                    type="number"
-                    min={0}
-                    value={lane.wipLimit ?? ''}
-                    onChange={(e) => ctx.setLaneWip(lane.id, e.target.value === '' ? undefined : Number(e.target.value))}
-                    placeholder="WIP"
-                    title="WIP limit"
-                    className="w-12 rounded bg-white/10 px-1 py-0.5 text-[10px] text-white placeholder:text-slate-400"
-                  />
-                )}
+                <input
+                  type="number"
+                  min={0}
+                  value={lane.wipLimit ?? ''}
+                  onChange={(e) => ctx.setLaneWip(lane.id, e.target.value === '' ? undefined : Number(e.target.value))}
+                  placeholder="WIP"
+                  title="WIP limit"
+                  className="w-12 rounded bg-white/10 px-1 py-0.5 text-[10px] text-white placeholder:text-slate-400"
+                />
               </>
             ) : (
               <>
@@ -318,7 +317,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   return (
     <div
-      className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col bg-slate-100"
+      className={cn('flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col', wip === 'over' ? 'bg-rose-50' : wip === 'at' ? 'bg-amber-50' : 'bg-slate-100')}
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
       {!hideHeader && header(true)}

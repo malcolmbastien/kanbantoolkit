@@ -15,7 +15,7 @@ import {
   statusOf,
   type Graph,
 } from './derive'
-import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './lanes'
+import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes, wipState } from './lanes'
 import { createSeed } from './seed'
 import type { FlowState } from './types'
 
@@ -214,8 +214,16 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
   })
 })
 
-describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () => {
-  const s = createSeed()
+describe('WIP limit state', () => {
+  it('is null below the limit, "at" at the limit, "over" past it', () => {
+    expect(wipState(0, undefined)).toBeNull()
+    expect(wipState(1, 2)).toBeNull()
+    expect(wipState(2, 2)).toBe('at')
+    expect(wipState(3, 2)).toBe('over')
+  })
+})
+
+describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () => {  const s = createSeed()
 
   it('every seeded board includes Backlog as the first typed column', () => {
     expect(s.boards.length).toBeGreaterThan(0)

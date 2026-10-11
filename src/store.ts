@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { decompositionParent, descendants, statusOf } from '@/domain/derive'
 import { createSeed } from '@/domain/seed'
 import type { Board, BoardLevel, DepStatus, Edge, FlowState, IssueType, Item, ItemLink, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
@@ -70,6 +70,7 @@ export interface Actions {
   renameBoard: (id: string, name: string) => void
   setBoardLevel: (id: string, level: BoardLevel) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
+  setBoardWipEnforcement: (id: string, mode: 'visualize' | 'block') => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
   moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => void
@@ -340,6 +341,8 @@ export const useStore = create<Store>()(
       setBoardLevel: (id, level) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, level } : b)) }),
       setBoardDefaultCardType: (id, defaultCardTypeId) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
+      setBoardWipEnforcement: (id, wipEnforcement) =>
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) }),
 
       addCard: ({ boardId, typeId, laneId, title }) => {
         const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), log: [logEntry('created')] }
@@ -351,6 +354,19 @@ export const useStore = create<Store>()(
         const state = get()
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (existing && existing.laneId === laneId) return
+        // WIP enforcement: in 'block' mode, refuse a move that would push a limited
+        // lane (the target, or any limited ancestor) over its limit.
+        const board = state.boards.find((b) => b.id === boardId)
+        if (board?.wipEnforcement === 'block') {
+          const limited = [state.lanes.find((l) => l.id === laneId), ...ancestorsOf(state.lanes, laneId)]
+          for (const l of limited) {
+            if (!l || l.wipLimit === undefined) continue
+            const subtree = new Set(subtreeIds(state.lanes, l.id))
+            const count = state.placements.filter((p) => p.boardId === boardId && subtree.has(p.laneId)).length
+            const alreadyInside = existing ? subtree.has(existing.laneId) : false
+            if (count + (alreadyInside ? 0 : 1) > l.wipLimit) return
+          }
+        }
         const placements = existing
           ? state.placements.map((p) => (p.id === existing.id ? { ...p, laneId } : p))
           : [...state.placements, { id: uid(), boardId, itemId, laneId }]

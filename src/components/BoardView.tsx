@@ -30,6 +30,7 @@ export function BoardView({ requestMove }: Props) {
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const issueTypes = useStore((s) => s.issueTypes)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
+  const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
 
   const board = boards.find((b) => b.id === boardId)
 
@@ -85,6 +86,18 @@ export function BoardView({ requestMove }: Props) {
                 {cardTypes(issueTypes).map((t) => (
                   <option key={t.id} value={t.id} className="bg-slate-800 text-slate-100">{t.name}</option>
                 ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1 text-slate-300">
+              WIP
+              <select
+                value={board?.wipEnforcement ?? 'visualize'}
+                onChange={(e) => setBoardWipEnforcement(boardId, e.target.value as 'visualize' | 'block')}
+                className="rounded border border-slate-600 bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-100 outline-none"
+                title="How WIP limits are enforced: Visualize (tint only) or Block (reject moves that would exceed)"
+              >
+                <option value="visualize">Visualize</option>
+                <option value="block">Block</option>
               </select>
             </label>
           </>

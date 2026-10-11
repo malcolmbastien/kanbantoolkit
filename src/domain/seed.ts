@@ -53,6 +53,10 @@ const p = workflow('b-portfolio', false)
 const a = workflow('b-atlas', true)
 const n = workflow('b-nova', true)
 
+// Demo WIP limits: Not Started is at its limit (yellow); Backlog is over it (red).
+a.ns.wipLimit = 1
+n.backlog.wipLimit = 2
+
 /* ------------------------------------------------------------------ *
  * Objectives & Key Results (commitment-limited; never in columns)
  * ------------------------------------------------------------------ */

@@ -103,6 +103,14 @@ export function laneLeafCards(placements: Placement[], laneId: string): Placemen
   return placements.filter((p) => p.laneId === laneId)
 }
 
+/** WIP limit state for a lane's card count: at the limit, over it, or neither. */
+export function wipState(count: number, limit?: number): 'at' | 'over' | null {
+  if (limit === undefined) return null
+  if (count > limit) return 'over'
+  if (count === limit) return 'at'
+  return null
+}
+
 /** Map a rollup bucket onto a board's typed top-level column. */
 export function bucketLaneId(lanes: Lane[], boardId: string, bucket: Stage): string | undefined {
   const top = topLevelLanes(lanes, boardId).find(
