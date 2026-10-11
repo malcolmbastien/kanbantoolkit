@@ -12,7 +12,7 @@ import {
   statusOf,
   type Graph,
 } from './derive'
-import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './lanes'
+import { bucketLaneId, childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './lanes'
 import { createSeed } from './seed'
 import type { FlowState } from './types'
 
@@ -25,9 +25,10 @@ describe('generic hierarchy — parent / child', () => {
   const g = graphOf(s)
 
   it('depth is derived from the parent chain', () => {
-    expect(depth('it-onboarding', g)).toBe(0)
-    expect(depth('it-signup', g)).toBe(1)
-    expect(depth('st-form', g)).toBe(2)
+    expect(depth('it-dt', g)).toBe(0)
+    expect(depth('it-onboarding', g)).toBe(1)
+    expect(depth('it-signup', g)).toBe(2)
+    expect(depth('st-form', g)).toBe(3)
   })
 
   it('a card has at most one parent', () => {
@@ -39,11 +40,11 @@ describe('generic hierarchy — parent / child', () => {
 describe('recursive LeanKit lanes', () => {
   const s = createSeed()
 
-  it('every board root is a column split with three typed children', () => {
+  it('every board root is a column split with the standard typed columns', () => {
     expect(rootLane(s.lanes, 'b-core')?.orientation).toBe('columns')
     expect(rootLane(s.lanes, 'b-portfolio')?.orientation).toBe('columns')
-    expect(topLevelLanes(s.lanes, 'b-core').length).toBe(3)
-    expect(topLevelLanes(s.lanes, 'b-portfolio').length).toBe(3)
+    expect(topLevelLanes(s.lanes, 'b-core').length).toBe(4)
+    expect(topLevelLanes(s.lanes, 'b-portfolio').length).toBe(4)
   })
 
   it('In Progress is refined per team (Dev/Test nested under Team Alpha)', () => {
@@ -126,16 +127,35 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     expect(bucketLaneId(s.lanes, 'b-portfolio', 'notStarted')).toBe(requested.id)
     expect(bucketLaneId(s.lanes, 'b-portfolio', 'done')).toBe(done.id)
     expect(bucketLaneId(s.lanes, 'b-portfolio', 'inProgress')).toBeDefined()
+    expect(bucketLaneId(s.lanes, 'b-portfolio', 'backlog')).toBe(
+      s.lanes.find((l) => l.boardId === 'b-portfolio' && l.name === 'Backlog')!.id,
+    )
+  })
+
+  it('Backlog is uncommitted and pulls its ancestors back to Backlog', () => {
+    const s2 = createSeed()
+    expect(rollupOf('it-data', graphOf(s2)).bucket).toBe('backlog')
+
+    // Move one of New signup flow's cards into a Backlog cell.
+    const backlogTop = s2.lanes.find((l) => l.boardId === 'b-core' && l.name === 'Backlog')!
+    const backlogLeaf = childrenOf(s2.lanes, backlogTop.id)[0]
+    s2.placements = s2.placements.map((p) =>
+      p.itemId === 'st-email' && p.boardId === 'b-core' ? { ...p, laneId: backlogLeaf.id } : p,
+    )
+    // The committed initiative can no longer be committed while it has a Backlog child…
+    expect(rollupOf('it-signup', graphOf(s2)).bucket).toBe('backlog')
+    // …and neither can its parent initiative.
+    expect(rollupOf('it-onboarding', graphOf(s2)).bucket).toBe('backlog')
   })
 })
 
-describe('typed stage columns (Not Started / In Progress / Done)', () => {
+describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () => {
   const s = createSeed()
 
-  it('a team board has exactly three typed top-level columns', () => {
+  it('a team board has the standard typed top-level columns', () => {
     const tops = topLevelLanes(s.lanes, 'b-team-alpha')
-    expect(tops.map((t) => t.name)).toEqual(['Not Started', 'In Progress', 'Done'])
-    expect(tops.map((t) => t.stage)).toEqual(['notStarted', 'inProgress', 'done'])
+    expect(tops.map((t) => t.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+    expect(tops.map((t) => t.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
   })
 
   it('split sub-columns inherit their column type', () => {

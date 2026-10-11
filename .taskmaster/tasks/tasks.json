@@ -194,7 +194,7 @@
   "backlog": {
     "tasks": [
       {
-        "id": "1",
+        "id": 1,
         "title": "Implement Objective and Key Result data model and persistence",
         "description": "Define and persist Objectives and Key Results as commitment-limited entities with period, status, score, target, current, and progress fields.",
         "status": "done",
@@ -205,7 +205,7 @@
         "subtasks": []
       },
       {
-        "id": "2",
+        "id": 2,
         "title": "Build Objectives & Key Results view with period selector and score summary",
         "description": "Create the OKR view where objectives are listed by period, with commitment limit status and score summary, and nested key results.",
         "status": "done",
@@ -218,7 +218,7 @@
         "subtasks": []
       },
       {
-        "id": "3",
+        "id": 3,
         "title": "Implement Objective create, edit, delete, and status workflow",
         "description": "Add UI and behavior to create, edit, delete, activate, score, and close Objectives.",
         "status": "done",
@@ -232,7 +232,7 @@
         "subtasks": []
       },
       {
-        "id": "4",
+        "id": 4,
         "title": "Implement Key Result add, edit, and score UI",
         "description": "Add the ability to create, edit, update current/target values, and score Key Results under Objectives.",
         "status": "done",
@@ -247,7 +247,7 @@
         "subtasks": []
       },
       {
-        "id": "5",
+        "id": 5,
         "title": "Implement objective-work attribution edges and rollup computation",
         "description": "Implement many-to-many attribution edges from initiatives and cards to objectives, and compute objective rollup without inflating WIP.",
         "status": "done",
@@ -260,7 +260,7 @@
         "subtasks": []
       },
       {
-        "id": "6",
+        "id": 6,
         "title": "Build map-work-to-objectives UI and attribution UX with coverage/impact reporting",
         "description": "Allow attaching initiatives and cards to objectives and display coverage, rollup status, and percent of attributed work.",
         "status": "done",
@@ -274,7 +274,7 @@
         "subtasks": []
       },
       {
-        "id": "7",
+        "id": 7,
         "title": "Implement cross-board initiative rollup and board-local top-level initiative semantics",
         "description": "Enable top-level initiatives from one management board to roll up to top-level initiatives on another management board, while preserving board-local top-level definitions.",
         "status": "done",
@@ -288,7 +288,7 @@
         "subtasks": []
       },
       {
-        "id": "8",
+        "id": 8,
         "title": "Implement limits editor with configurable enforcement modes",
         "description": "Build a limits editor for commitment limits and configurable enforcement with thresholds, effective dates, and soft-block reason off by default.",
         "status": "pending",
@@ -302,7 +302,7 @@
         "subtasks": []
       },
       {
-        "id": "9",
+        "id": 9,
         "title": "Implement portfolio rollup and sponsor recommendation with override reason",
         "description": "Compute initiative status across the portfolio and provide a one-click sponsor recommendation that a human can confirm or override with a reason.",
         "status": "pending",
@@ -316,7 +316,7 @@
         "subtasks": []
       },
       {
-        "id": "10",
+        "id": 10,
         "title": "Implement initiative health and at-risk flags beyond percent complete",
         "description": "Add P2 initiative health and at-risk flags based on signals beyond simple percent complete.",
         "status": "pending",
@@ -329,7 +329,7 @@
         "subtasks": []
       },
       {
-        "id": "11",
+        "id": 11,
         "title": "Build full card editor in side panel",
         "description": "P0 full card editor supports title, markdown description, assignee, size, and type in the side panel.",
         "status": "done",
@@ -341,7 +341,7 @@
         "updatedAt": "2026-10-11T13:41:40.403Z"
       },
       {
-        "id": "12",
+        "id": 12,
         "title": "Implement delete and archive items with child handling rules",
         "description": "P0 delete or archive items, with clear rules for handling children.",
         "status": "pending",
@@ -352,7 +352,7 @@
         "subtasks": []
       },
       {
-        "id": "13",
+        "id": 13,
         "title": "Implement quick-add and paste-many card creation in lanes",
         "description": "P1 quick-add and paste-many: paste a list into a lane to create multiple cards.",
         "status": "pending",
@@ -363,7 +363,7 @@
         "subtasks": []
       },
       {
-        "id": "14",
+        "id": 14,
         "title": "Add checklists inside a card",
         "description": "P2 checklist support inside a card for finer-grained work than schedulable cards.",
         "status": "pending",
@@ -376,7 +376,7 @@
         "subtasks": []
       },
       {
-        "id": "15",
+        "id": 15,
         "title": "Add comments and activity log per item",
         "description": "P2 comments and activity log per item.",
         "status": "pending",
@@ -389,7 +389,7 @@
         "subtasks": []
       },
       {
-        "id": "16",
+        "id": 16,
         "title": "Implement multi-select and bulk actions",
         "description": "P2 multi-select cards and bulk actions for move, retype, assign, and delete.",
         "status": "pending",
@@ -403,7 +403,7 @@
         "subtasks": []
       },
       {
-        "id": "17",
+        "id": 17,
         "title": "Implement lane drag reorder and resize with persistence",
         "description": "P0 drag to reorder lanes and drag to resize lanes, persisting sizes and order.",
         "status": "pending",
@@ -414,7 +414,7 @@
         "subtasks": []
       },
       {
-        "id": "18",
+        "id": 18,
         "title": "Implement inline rename and confirm-before-delete replacing window.prompt",
         "description": "P0 inline rename for lanes/items and confirm-before-delete modal instead of window.prompt.",
         "status": "pending",
@@ -427,7 +427,7 @@
         "subtasks": []
       },
       {
-        "id": "19",
+        "id": 19,
         "title": "Implement lane settings popover",
         "description": "P1 lane settings popover provides name, WIP limit, stage, colour, merge, and delete actions.",
         "status": "pending",
@@ -440,7 +440,7 @@
         "subtasks": []
       },
       {
-        "id": "20",
+        "id": 20,
         "title": "Implement collapse/expand lanes and management bands with persisted state",
         "description": "P1 collapse/expand lanes and management bands while remembering state.",
         "status": "pending",
@@ -453,7 +453,7 @@
         "subtasks": []
       },
       {
-        "id": "21",
+        "id": 21,
         "title": "Implement board settings, templates, new-team-board wizard, and duplicate board",
         "description": "P1 board settings and templates include board level, rollup toggle, new-team-board wizard, and duplicate board.",
         "status": "pending",
@@ -466,7 +466,7 @@
         "subtasks": []
       },
       {
-        "id": "22",
+        "id": 22,
         "title": "Build pending dependency confirmation inbox on blocker side",
         "description": "P0 inbox for blockers to confirm or reject dependency requests with a reason.",
         "status": "pending",
@@ -477,7 +477,7 @@
         "subtasks": []
       },
       {
-        "id": "23",
+        "id": 23,
         "title": "Build dependency register view split into live blockage vs planning risk",
         "description": "P0 dependency register shows all open dependencies split into live blockage and planning risk.",
         "status": "pending",
@@ -490,7 +490,7 @@
         "subtasks": []
       },
       {
-        "id": "24",
+        "id": 24,
         "title": "Implement raise dependency with pin picker, FS/SS/FF types, and lag editor",
         "description": "P1 raise a dependency with a pin picker, finish-to-start/start-to-start/finish-to-finish types, and lag editor.",
         "status": "pending",
@@ -503,7 +503,7 @@
         "subtasks": []
       },
       {
-        "id": "25",
+        "id": 25,
         "title": "Implement blocker badge drill-in with cross-board count",
         "description": "P1 blocker badge showing 'blocks N across M boards'",
         "status": "pending",
@@ -514,7 +514,7 @@
         "testStrategy": ""
       },
       {
-        "id": "26",
+        "id": 26,
         "title": "Build global search across all boards",
         "description": "Search items by title/ref across every board with jump-to results.",
         "status": "pending",
@@ -525,7 +525,7 @@
         "subtasks": []
       },
       {
-        "id": "27",
+        "id": 27,
         "title": "Implement board filters and saved presets",
         "description": "Filter the current board by assignee, type, blocked state, or initiative; save presets.",
         "status": "pending",
@@ -536,7 +536,7 @@
         "subtasks": []
       },
       {
-        "id": "28",
+        "id": 28,
         "title": "Add lineage breadcrumb and show-on-other-boards to the item panel",
         "description": "Show the parent chain and the boards an item appears on, with jump links.",
         "status": "pending",
@@ -547,7 +547,7 @@
         "subtasks": []
       },
       {
-        "id": "29",
+        "id": 29,
         "title": "Add a command palette / quick board switcher",
         "description": "Keyboard-driven switcher for boards, items and actions.",
         "status": "pending",
@@ -558,7 +558,7 @@
         "subtasks": []
       },
       {
-        "id": "30",
+        "id": 30,
         "title": "Add ghost lanes for cross-scope dependencies",
         "description": "Surface inbound external dependencies as a read-only edge lane.",
         "status": "pending",
@@ -569,7 +569,7 @@
         "subtasks": []
       },
       {
-        "id": "31",
+        "id": 31,
         "title": "Implement undo/redo for mutations",
         "description": "Undo/redo across edits, ideally by wrapping mutations in a command layer.",
         "status": "pending",
@@ -580,7 +580,7 @@
         "subtasks": []
       },
       {
-        "id": "32",
+        "id": 32,
         "title": "Implement workspace export and import (JSON)",
         "description": "Back up and restore the whole workspace as JSON.",
         "status": "pending",
@@ -591,7 +591,7 @@
         "subtasks": []
       },
       {
-        "id": "33",
+        "id": 33,
         "title": "Add toasts and action feedback",
         "description": "Give immediate feedback for moves, confirms, saves and errors.",
         "status": "pending",
@@ -602,7 +602,7 @@
         "subtasks": []
       },
       {
-        "id": "34",
+        "id": 34,
         "title": "Add empty states and contextual hints",
         "description": "Guide first-run and empty boards/lanes/columns.",
         "status": "pending",
@@ -613,7 +613,7 @@
         "subtasks": []
       },
       {
-        "id": "35",
+        "id": 35,
         "title": "Virtualize large columns and boards",
         "description": "Keep boards fast with hundreds of cards.",
         "status": "pending",
@@ -624,7 +624,7 @@
         "subtasks": []
       },
       {
-        "id": "36",
+        "id": 36,
         "title": "Touch and responsive layout with touch drag",
         "description": "Usable on tablet/mobile, including drag.",
         "status": "pending",
@@ -635,7 +635,7 @@
         "subtasks": []
       },
       {
-        "id": "37",
+        "id": 37,
         "title": "Keyboard navigation and accessibility pass",
         "description": "Make the app keyboard-navigable and screen-reader friendly.",
         "status": "pending",
@@ -643,6 +643,17 @@
         "priority": "low",
         "details": "Focus management, tab order, ARIA roles for lanes/cards/boards, keyboard commands for common actions; audit contrast.",
         "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "subtasks": []
+      },
+      {
+        "id": 38,
+        "title": "Add Backlog status and column to standard workflows and seeded boards",
+        "description": "Introduce a Backlog stage for initiatives and cards, add Backlog columns to all seeded boards, and enforce hierarchical stage derivation so any Backlog descendant forces its ancestors into Backlog.",
+        "details": "Extend the workflow status enum/type with BACKLOG and order it before the committed statuses (Not Started, In Progress, Done). Treat Backlog as the only uncommitted state. Update the standard workflow definitions for initiatives and cards to include Backlog as the first stage, and update the board/lane column definitions so each seeded board includes a Backlog column/lane mapped to the Backlog status.\n\nUpdate seed data and any idempotent seed/migration logic so all seeded boards receive the new Backlog column. Preserve existing column ordering by inserting Backlog before Not Started. If columns have WIP limits, Backlog should not impose a committed-work WIP limit.\n\nImplement the hierarchical stage invariant in the domain/service layer, not only in the UI. For an item, treat any childless descendant as a leaf. If the item itself has no children, its own status is its leaf status. The effective stage should be computed as follows: collect all descendant leaves; if any leaf is BACKLOG, return BACKLOG; otherwise derive the committed stage from those leaves using the existing roll-up rules (for example, any In Progress leaf makes the ancestor In Progress; otherwise any Not Started leaf makes it Not Started; otherwise Done).\n\nAdd a validation guard when changing an item's status or accepting a move/drop: reject any attempt to place a parent in a committed status while any descendant leaf remains Backlog. When a leaf changes into Backlog, recalculate ancestors so they become Backlog. When the last Backlog descendant moves out of Backlog, recalculate ancestors back to the appropriate committed stage. Ensure recalculation is transactional and covers deep initiative/card hierarchies.\n\nUpdate API DTOs, serializers, filters, board counts, and any status-transition actions to accept and expose Backlog. Ensure drag-and-drop into the Backlog column updates the card/initiative status and triggers the same roll-up/invariant logic as direct status changes.",
+        "testStrategy": "Write unit tests for the stage derivation function: a parent with one Backlog child resolves to Backlog; an ancestor with a Backlog grandchild resolves to Backlog; a parent whose children are all Done resolves to Done; a parent with mixed Not Started, In Progress, and Done leaves resolves according to the committed roll-up rules; and an item with no children returns its own status.\n\nAdd invariant tests proving that attempting to move a parent to Not Started, In Progress, or Done while a descendant leaf is Backlog is rejected. Verify that moving the last Backlog descendant out of Backlog recalculates all affected ancestors to the correct committed stage, and that moving any leaf into Backlog immediately makes all ancestors Backlog.\n\nAdd seed/board verification tests asserting that every seeded board includes a Backlog column in the first position and that the standard initiative and card workflows include Backlog before Not Started. Run seed/migration tests to confirm idempotency.\n\nManually verify that seeded boards render Backlog as the first lane, cards can be dragged into Backlog, the status updates correctly, ancestor lanes reflect Backlog, and dragging the last Backlog child out clears the parent Backlog state. Confirm that no committed parent can be shown with an uncommitted Backlog descendant after moves or direct status changes.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
         "subtasks": []
       }
     ],
@@ -653,7 +664,10 @@
       "completedCount": 8,
       "tags": [
         "backlog"
-      ]
+      ],
+      "created": "2026-10-11T13:46:18.769Z",
+      "description": "Tasks for backlog context",
+      "updated": "2026-10-11T13:48:02.007Z"
     }
   }
 }

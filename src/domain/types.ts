@@ -14,12 +14,13 @@ export interface IssueType {
 export type SplitOrientation = 'columns' | 'rows'
 
 /**
- * A stage type for a top-level column. Exactly three — Not Started / In Progress /
- * Done — and this is what lets status roll up the hierarchy: a leaf's status is the
- * stage of the top-level column it ultimately sits under. Users split these columns
- * to build finer team workflows; sub-lanes inherit the stage.
+ * A stage type for a top-level column. Backlog is *uncommitted* inventory; the
+ * other three — Not Started / In Progress / Done — are the committed stages. A
+ * leaf's status is the stage of the top-level column it sits under, which lets
+ * status roll up the hierarchy. Users split these columns to build finer team
+ * workflows; sub-lanes inherit the stage.
  */
-export type Stage = 'notStarted' | 'inProgress' | 'done'
+export type Stage = 'backlog' | 'notStarted' | 'inProgress' | 'done'
 
 /**
  * A LeanKit lane. A lane with no children is a leaf **cell** that holds cards.

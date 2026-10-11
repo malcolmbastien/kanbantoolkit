@@ -16,6 +16,7 @@ import {
 } from '@/domain/derive'
 import { buildRefs, externalBlockersOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, isTopLevel, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane } from '@/domain/types'
@@ -113,14 +114,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   const header = (isLeafCell: boolean) => {
     const top = isTopLevel(lanes, lane.id)
     const stage = lane.stage ?? effectiveStage(lanes, lane.id)
-    const stageChip =
-      stage === 'done'
-        ? 'bg-emerald-400/80 text-emerald-950'
-        : stage === 'inProgress'
-          ? 'bg-indigo-400/80 text-indigo-950'
-          : stage === 'notStarted'
-            ? 'bg-slate-400/80 text-slate-900'
-            : ''
     return (
       <div className={cn('rounded-t-md px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
         <div className="flex items-center gap-1.5">
@@ -130,7 +123,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
           </span>
           {top && stage && (
-            <span className={cn('rounded px-1 text-[9px] font-bold', stageChip)} title="Column type — drives rollup up the hierarchy">
+            <span className={cn('rounded px-1 text-[9px] font-bold', stageChip(stage))} title="Column type — drives rollup up the hierarchy">
               {STAGE_LABELS[stage]}
             </span>
           )}

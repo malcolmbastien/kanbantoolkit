@@ -1,7 +1,7 @@
 import { Ban, Clock, CornerDownRight, Crosshair, GripVertical, Layers, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { hexToRgba, readableOn } from '@/lib/colors'
-import type { IssueType, Item } from '@/domain/types'
+import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
+import type { IssueType, Item, Stage } from '@/domain/types'
 
 export interface CardSummary {
   childCount: number
@@ -21,7 +21,7 @@ export interface CardParent {
 }
 
 export interface CardSymbol {
-  bucket: 'notStarted' | 'inProgress' | 'done'
+  bucket: Stage
   title: string
 }
 
@@ -44,12 +44,6 @@ interface Props {
   locked?: boolean
   selected?: boolean
   onOpen: (id: string) => void
-}
-
-const BUCKET_DOT: Record<CardSymbol['bucket'], string> = {
-  notStarted: 'bg-slate-300',
-  inProgress: 'bg-indigo-400',
-  done: 'bg-emerald-500',
 }
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')

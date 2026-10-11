@@ -13,6 +13,7 @@ import {
 } from '@/domain/derive'
 import { buildRefs } from '@/domain/board'
 import { STAGE_LABELS, topLevelLanes } from '@/domain/lanes'
+import { stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Stage } from '@/domain/types'
@@ -84,16 +85,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
         >
           <div className={cn('flex items-center gap-1.5 rounded-t-md px-2 py-1', isInitiatives ? 'bg-violet-700 text-white' : 'bg-slate-700 text-slate-100')}>
             <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name}</span>
-            <span
-              className={cn(
-                'rounded px-1 text-[9px] font-bold',
-                stage === 'done'
-                  ? 'bg-emerald-400/80 text-emerald-950'
-                  : stage === 'inProgress'
-                    ? 'bg-indigo-400/80 text-indigo-950'
-                    : 'bg-slate-400/80 text-slate-900',
-              )}
-            >
+            <span className={cn('rounded px-1 text-[9px] font-bold', stageChip(stage))}>
               {STAGE_LABELS[stage]}
             </span>
             <span className={cn('ml-auto text-[10px] font-semibold tabular-nums', isInitiatives ? 'text-violet-200' : 'text-slate-300/80')}>{cards.length}</span>

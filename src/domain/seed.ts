@@ -39,43 +39,50 @@ const root = (boardId: string, orientation: SplitOrientation) => lane(boardId, '
 
 // Portfolio (derived): initiatives land by rollup onto the three typed columns.
 const pRoot = root('b-portfolio', 'columns')
-const pNS = lane('b-portfolio', 'Not Started', pRoot.id, 0, { stage: 'notStarted' })
-lane('b-portfolio', 'In Progress', pRoot.id, 1, { stage: 'inProgress' })
-lane('b-portfolio', 'Done', pRoot.id, 2, { stage: 'done' })
+const pBacklog = lane('b-portfolio', 'Backlog', pRoot.id, 0, { stage: 'backlog' })
+const pNS = lane('b-portfolio', 'Not Started', pRoot.id, 1, { stage: 'notStarted' })
+lane('b-portfolio', 'In Progress', pRoot.id, 2, { stage: 'inProgress' })
+lane('b-portfolio', 'Done', pRoot.id, 3, { stage: 'done' })
 
 // Executive Portfolio (a second management board): its top-level initiative rolls up
 // initiatives that live on the Digital Transformation Portfolio board.
 const eRoot = root('b-exec', 'columns')
-const eNS = lane('b-exec', 'Not Started', eRoot.id, 0, { stage: 'notStarted' })
-lane('b-exec', 'In Progress', eRoot.id, 1, { stage: 'inProgress' })
-lane('b-exec', 'Done', eRoot.id, 2, { stage: 'done' })
+lane('b-exec', 'Backlog', eRoot.id, 0, { stage: 'backlog' })
+const eNS = lane('b-exec', 'Not Started', eRoot.id, 1, { stage: 'notStarted' })
+lane('b-exec', 'In Progress', eRoot.id, 2, { stage: 'inProgress' })
+lane('b-exec', 'Done', eRoot.id, 3, { stage: 'done' })
 
-// Core Experience: three typed columns, each split into team rows. In Progress refines
-// Team Alpha into Dev / Test.
+// Core Experience: Backlog (uncommitted) + three committed columns, each split into team
+// rows. In Progress refines Team Alpha into Dev / Test.
 const cRoot = root('b-core', 'columns')
-const cNS = lane('b-core', 'Not Started', cRoot.id, 0, { stage: 'notStarted', orientation: 'rows' })
+const cBacklog = lane('b-core', 'Backlog', cRoot.id, 0, { stage: 'backlog', orientation: 'rows' })
+const cBacklogAlpha = lane('b-core', 'Team Alpha', cBacklog.id, 0)
+lane('b-core', 'Team Bravo', cBacklog.id, 1)
+const cNS = lane('b-core', 'Not Started', cRoot.id, 1, { stage: 'notStarted', orientation: 'rows' })
 const cNSAlpha = lane('b-core', 'Team Alpha', cNS.id, 0)
 const cNSBravo = lane('b-core', 'Team Bravo', cNS.id, 1)
-const cIP = lane('b-core', 'In Progress', cRoot.id, 1, { stage: 'inProgress', orientation: 'rows' })
+const cIP = lane('b-core', 'In Progress', cRoot.id, 2, { stage: 'inProgress', orientation: 'rows' })
 const cIPAlpha = lane('b-core', 'Team Alpha', cIP.id, 0, { orientation: 'columns' })
 const cIPDev = lane('b-core', 'Dev', cIPAlpha.id, 0)
 const cIPTest = lane('b-core', 'Test', cIPAlpha.id, 1)
 const cIPBravo = lane('b-core', 'Team Bravo', cIP.id, 1)
-const cDone = lane('b-core', 'Done', cRoot.id, 2, { stage: 'done', orientation: 'rows' })
+const cDone = lane('b-core', 'Done', cRoot.id, 3, { stage: 'done', orientation: 'rows' })
 const cDoneAlpha = lane('b-core', 'Team Alpha', cDone.id, 0)
 lane('b-core', 'Team Bravo', cDone.id, 1)
 
-// Platform Services: three typed columns.
+// Platform Services: Backlog + three committed columns.
 const plRoot = root('b-platform', 'columns')
-const plNS = lane('b-platform', 'Not Started', plRoot.id, 0, { stage: 'notStarted' })
-const plIP = lane('b-platform', 'In Progress', plRoot.id, 1, { stage: 'inProgress' })
-lane('b-platform', 'Done', plRoot.id, 2, { stage: 'done' })
+lane('b-platform', 'Backlog', plRoot.id, 0, { stage: 'backlog' })
+const plNS = lane('b-platform', 'Not Started', plRoot.id, 1, { stage: 'notStarted' })
+const plIP = lane('b-platform', 'In Progress', plRoot.id, 2, { stage: 'inProgress' })
+lane('b-platform', 'Done', plRoot.id, 3, { stage: 'done' })
 
-// Design board (sketch): To Do | Doing | Done, where Doing is row-split into a
+// Design board (sketch): Backlog | To Do | Doing | Done, where Doing is row-split into a
 // (Build/Test/Deploy) row and a Projects row (Research/Validate).
 const dRoot = root('b-design', 'columns')
-lane('b-design', 'To Do', dRoot.id, 0, { stage: 'notStarted' })
-const dDoing = lane('b-design', 'Doing', dRoot.id, 1, { orientation: 'rows', stage: 'inProgress' })
+lane('b-design', 'Backlog', dRoot.id, 0, { stage: 'backlog' })
+lane('b-design', 'To Do', dRoot.id, 1, { stage: 'notStarted' })
+const dDoing = lane('b-design', 'Doing', dRoot.id, 2, { orientation: 'rows', stage: 'inProgress' })
 const dBuildRow = lane('b-design', '', dDoing.id, 0, { orientation: 'columns' })
 const dBuild = lane('b-design', 'Build', dBuildRow.id, 0)
 lane('b-design', 'Test', dBuildRow.id, 1)
@@ -83,15 +90,16 @@ const dDeploy = lane('b-design', 'Deploy', dBuildRow.id, 2)
 const dProjects = lane('b-design', 'Projects', dDoing.id, 1, { orientation: 'columns', wipLimit: 4 })
 const dResearch = lane('b-design', 'Research', dProjects.id, 0)
 lane('b-design', 'Validate', dProjects.id, 1)
-const dDone = lane('b-design', 'Done', dRoot.id, 2, { stage: 'done' })
+const dDone = lane('b-design', 'Done', dRoot.id, 3, { stage: 'done' })
 
-// Team Alpha: the canonical team board — three typed columns, In Progress split into Dev/Test.
+// Team Alpha: Backlog + three committed columns, In Progress split into Dev/Test.
 const tRoot = root('b-team-alpha', 'columns')
-const tNotStarted = lane('b-team-alpha', 'Not Started', tRoot.id, 0, { stage: 'notStarted' })
-const tProgress = lane('b-team-alpha', 'In Progress', tRoot.id, 1, { stage: 'inProgress', orientation: 'columns' })
+lane('b-team-alpha', 'Backlog', tRoot.id, 0, { stage: 'backlog' })
+const tNotStarted = lane('b-team-alpha', 'Not Started', tRoot.id, 1, { stage: 'notStarted' })
+const tProgress = lane('b-team-alpha', 'In Progress', tRoot.id, 2, { stage: 'inProgress', orientation: 'columns' })
 const tDev = lane('b-team-alpha', 'Dev', tProgress.id, 0)
 const tTest = lane('b-team-alpha', 'Test', tProgress.id, 1)
-const tDone = lane('b-team-alpha', 'Done', tRoot.id, 2, { stage: 'done' })
+const tDone = lane('b-team-alpha', 'Done', tRoot.id, 3, { stage: 'done' })
 
 /* ------------------------------------------------------------------ *
  * Items
@@ -102,6 +110,8 @@ const item = (id: string, title: string, typeId: string, extra: Partial<Item> = 
 
 item('it-onboarding', 'Onboarding Redesign', 't-initiative', { size: 40, assignee: 'MB' })
 item('it-dt', 'Digital Transformation', 't-initiative', { size: 60, assignee: 'CEO' })
+item('it-data', 'Data Platform Refresh', 't-initiative', { size: 30, assignee: 'DS' })
+item('st-explore', 'Explore SSO providers', 't-story', { size: 3 })
 item('it-signup', 'New signup flow', 't-initiative', { size: 13, assignee: 'RK' })
 item('it-tour', 'Guided onboarding tour', 't-initiative', { size: 8, assignee: 'LM' })
 item('it-profile', 'Profile completeness', 't-initiative', { size: 5, assignee: 'SP' })
@@ -155,6 +165,11 @@ place('it-research', 'b-portfolio', pNS.id)
 // Executive Portfolio — a top-level initiative that rolls up the onboarding initiative
 // from the Digital Transformation Portfolio board.
 place('it-dt', 'b-exec', eNS.id)
+
+// Uncommitted inventory (Backlog): an initiative not yet committed, and a card a team is
+// holding before committing.
+place('it-data', 'b-portfolio', pBacklog.id)
+place('st-explore', 'b-core', cBacklogAlpha.id)
 
 // Core Experience — cells live under the typed columns, within team rows.
 place('it-signup', 'b-core', cIPDev.id)

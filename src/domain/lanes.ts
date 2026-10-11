@@ -1,7 +1,10 @@
 import type { Lane, Placement, Stage } from './types'
 
-export const STAGES: Stage[] = ['notStarted', 'inProgress', 'done']
+export const STAGES: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
+/** The committed stages — everything except Backlog (uncommitted inventory). */
+export const COMMITTED_STAGES: Stage[] = ['notStarted', 'inProgress', 'done']
 export const STAGE_LABELS: Record<Stage, string> = {
+  backlog: 'Backlog',
   notStarted: 'Not Started',
   inProgress: 'In Progress',
   done: 'Done',

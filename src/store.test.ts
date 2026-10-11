@@ -68,38 +68,38 @@ describe('store actions (recursive lanes)', () => {
     expect(s().issueTypes.find((t) => t.id === added.id)?.name).toBe('Threat')
   })
 
-  it('can build the sketch design from the fixed three typed columns', () => {
+  it('can build the sketch design from the standard typed columns', () => {
     s().addBoard('Sketch')
     const boardId = s().boardId
     const root = rootLane(s().lanes, boardId)!
     const cols = () => childrenOf(s().lanes, root.id)
 
-    // A new board starts as the canonical three typed columns.
-    expect(cols().map((c) => c.name)).toEqual(['Not Started', 'In Progress', 'Done'])
-    expect(cols().map((c) => c.stage)).toEqual(['notStarted', 'inProgress', 'done'])
+    // A new board starts as the standard columns: Backlog + the committed stages.
+    expect(cols().map((c) => c.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+    expect(cols().map((c) => c.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
 
-    s().renameLane(cols()[0].id, 'To Do')
-    s().renameLane(cols()[1].id, 'Doing')
-    s().renameLane(cols()[2].id, 'Done')
+    s().renameLane(cols()[1].id, 'To Do')
+    s().renameLane(cols()[2].id, 'Doing')
+    s().renameLane(cols()[3].id, 'Done')
 
-    // Refine "Doing" into rows: (Build/Test/Deploy) and (Projects -> Research/Validate).
-    s().splitLane(cols()[1].id, 'rows', 2)
-    const rows = childrenOf(s().lanes, cols()[1].id)
+    // Refine "Doing" (In Progress) into rows: (Build/Test/Deploy) and (Projects -> Research/Validate).
+    s().splitLane(cols()[2].id, 'rows', 2)
+    const rows = childrenOf(s().lanes, cols()[2].id)
     s().splitLane(rows[0].id, 'columns', 3)
     const built = childrenOf(s().lanes, rows[0].id)
     s().renameLane(rows[1].id, 'Projects')
     s().splitLane(rows[1].id, 'columns', 2)
     const proj = childrenOf(s().lanes, rows[1].id)
 
-    expect(s().lanes.find((l) => l.id === cols()[1].id)?.orientation).toBe('rows')
+    expect(s().lanes.find((l) => l.id === cols()[2].id)?.orientation).toBe('rows')
     expect(built.length).toBe(3)
     expect(proj.length).toBe(2)
     // The refined columns still carry the In Progress stage by inheritance.
     expect(effectiveStage(s().lanes, built[0].id)).toBe('inProgress')
-    expect(leafLanes(s().lanes, boardId).length).toBeGreaterThanOrEqual(7)
+    expect(leafLanes(s().lanes, boardId).length).toBeGreaterThanOrEqual(8)
   })
 
-  it('a nested rows container can gain a child; the top level is fixed at three', () => {
+  it('a nested rows container can gain a child; the top level is fixed', () => {
     const doing = s().lanes.find((l) => l.boardId === 'b-design' && l.name === 'Doing')!
     const before = childrenOf(s().lanes, doing.id).length
     s().addLane(doing.id)
@@ -109,7 +109,7 @@ describe('store actions (recursive lanes)', () => {
     const topBefore = childrenOf(s().lanes, root.id).length
     s().addLane(root.id) // top-level columns are fixed
     expect(childrenOf(s().lanes, root.id).length).toBe(topBefore)
-    expect(topBefore).toBe(3)
+    expect(topBefore).toBe(4)
   })
 
   it('boards carry a Kanban flight level that can be changed', () => {
@@ -140,14 +140,14 @@ describe('store actions (recursive lanes)', () => {
     expect(migrated.boards.find((b) => b.id === 'unknown')?.level).toBe('team')
   })
 
-  it('migratePersisted reseeds boards for a schema change (v<6)', () => {
+  it('migratePersisted reseeds boards for a schema change (v<8)', () => {
     const stale = { boards: [{ id: 'b-core', name: 'Core', level: 'project' }], lanes: [], placements: [] }
-    const reseeded = migratePersisted(stale, 6) as { boards: { id: string }[]; lanes: unknown[] }
+    const reseeded = migratePersisted(stale, 7) as { boards: { id: string }[]; lanes: unknown[] }
     expect(reseeded.boards.length).toBeGreaterThanOrEqual(5)
     expect(reseeded.boards.some((b) => b.id === 'b-team-alpha')).toBe(true)
     expect(reseeded.lanes.length).toBeGreaterThan(0)
-    // v7+ keeps the persisted boards (just backfills level)
-    const kept = migratePersisted(stale, 7) as { boards: { id: string }[] }
+    // v8+ keeps the persisted boards (just backfills level)
+    const kept = migratePersisted(stale, 8) as { boards: { id: string }[] }
     expect(kept.boards.length).toBe(1)
   })
 

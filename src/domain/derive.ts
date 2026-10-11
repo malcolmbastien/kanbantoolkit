@@ -1,5 +1,5 @@
 import { effectiveStage } from './lanes'
-import type { Edge, Item, KeyResult, Lane, Objective, Placement } from './types'
+import type { Edge, Item, KeyResult, Lane, Objective, Placement, Stage } from './types'
 
 export interface Graph {
   items: Item[]
@@ -67,8 +67,15 @@ export function statusOf(itemId: string, graph: Graph): Status {
   if (stage === 'done') return { resolved: true, cancelled: false, started: true }
   if (stage === 'inProgress') return { resolved: false, cancelled: false, started: true }
   if (stage === 'notStarted') return { resolved: false, cancelled: false, started: false }
+  if (stage === 'backlog') return { resolved: false, cancelled: false, started: false }
   // No stage anywhere in the chain: fall back to legacy flags.
   return { resolved: false, cancelled: false, started: !(lane?.isStart ?? false) }
+}
+
+/** The stage (commitment state) a leaf currently sits in. */
+export function stageOf(itemId: string, graph: Graph): Stage | undefined {
+  const placement = graph.placements.find((p) => p.itemId === itemId)
+  return placement ? effectiveStage(graph.lanes, placement.laneId) : undefined
 }
 
 /* ------------------------------------------------------------------ *
@@ -178,7 +185,7 @@ export function leafItems(id: string, graph: Graph): Item[] {
   return out
 }
 
-export type RollupBucket = 'notStarted' | 'inProgress' | 'done'
+export type RollupBucket = Stage
 
 export interface Rollup {
   total: number
@@ -186,26 +193,35 @@ export interface Rollup {
   inProgress: number
   notStarted: number
   cancelled: number
-  /** Done leaves as a percentage of countable leaves. */
+  /** Done leaves as a percentage of countable (committed) leaves. */
   percent: number
   bucket: RollupBucket
 }
 
 export function rollupOf(id: string, graph: Graph): Rollup {
   const leaves = leafItems(id, graph)
-  const done = leaves.filter((i) => statusOf(i.id, graph).resolved).length
-  const cancelled = leaves.filter((i) => statusOf(i.id, graph).cancelled).length
-  const started = leaves.filter((i) => statusOf(i.id, graph).started).length
-  const countable = Math.max(1, leaves.length - cancelled)
-  const percent = leaves.length === 0 ? 0 : Math.round((done / countable) * 100)
-  let bucket: RollupBucket = 'notStarted'
-  if (leaves.length > 0 && done === leaves.length) bucket = 'done'
-  else if (started > 0) bucket = 'inProgress'
+  const total = leaves.length
+  const isBacklog = (l: Item) => stageOf(l.id, graph) === 'backlog'
+  const backlog = leaves.filter(isBacklog).length
+  const committed = total - backlog
+  const done = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).resolved).length
+  const cancelled = leaves.filter((l) => statusOf(l.id, graph).cancelled).length
+  const started = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).started).length
+  const countable = Math.max(1, committed - cancelled)
+  const percent = total === 0 ? 0 : Math.round((done / countable) * 100)
+
+  // A committed parent cannot have uncommitted (Backlog) children, so any backlog
+  // leaf forces the whole item back to Backlog. Otherwise the committed stage
+  // derives from its leaves.
+  let bucket: RollupBucket = 'backlog'
+  if (total > 0 && backlog === 0) {
+    bucket = done === total ? 'done' : started > 0 ? 'inProgress' : 'notStarted'
+  }
   return {
-    total: leaves.length,
+    total,
     done,
     inProgress: Math.max(0, started - done - cancelled),
-    notStarted: Math.max(0, leaves.length - started - cancelled),
+    notStarted: Math.max(0, committed - started - cancelled),
     cancelled,
     percent: Math.min(100, percent),
     bucket,
