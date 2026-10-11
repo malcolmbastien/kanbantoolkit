@@ -16,8 +16,8 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
-import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { stageChip } from '@/lib/colors'
+import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds } from '@/domain/lanes'
+import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane } from '@/domain/types'
@@ -113,6 +113,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
   const kids = childrenOf(lanes, lane.id)
   const top = isTopLevel(lanes, lane.id)
+  const stage = lane.stage ?? effectiveStage(lanes, lane.id)
   // Only top-level columns (Backlog / Not Started / In Progress / Done) can collapse.
   const collapsed = ctx.collapsedLanes[lane.id] === true && top
   const parent = lane.parentId ? lanes.find((l) => l.id === lane.parentId) : undefined
@@ -146,7 +147,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
-    const stage = lane.stage ?? effectiveStage(lanes, lane.id)
     return (
       <div className={cn('px-2 py-1', isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
         <div className="flex items-center gap-1.5">
@@ -164,11 +164,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             {countInLane(lane.id)}
             {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
           </span>
-          {top && stage && (
-            <span className={cn('rounded px-1 text-[9px] font-bold', stageChip(stage))} title="Column type — drives rollup up the hierarchy">
-              {STAGE_LABELS[stage]}
-            </span>
-          )}
         </div>
 
         {editMode && !isRoot && (
@@ -277,7 +272,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     if (transposable && !collapsed) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} />
 
     return (
-      <div className={cn('flex h-full min-h-0 w-full flex-1 flex-col', isRoot && 'overflow-hidden rounded-md border border-slate-300/70')}>
+      <div
+        className={cn('flex h-full min-h-0 w-full flex-1 flex-col', isRoot && 'overflow-hidden rounded-md border border-slate-300/70')}
+        style={top && stage ? { borderLeft: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
+      >
         {!hideHeader && (editMode || lane.name) && header(false)}
         {collapsed ? (
           <div className="px-2 py-1 text-[10px] italic text-slate-400">{kids.length} hidden</div>
@@ -319,7 +317,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     .filter((i) => !ctx.search || i.title.toLowerCase().includes(ctx.search.toLowerCase()))
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col bg-slate-100">
+    <div
+      className="flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col bg-slate-100"
+      style={top && stage ? { borderLeft: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
+    >
       {!hideHeader && header(true)}
       <DroppableCell enabled={ctx.interactive && !ctx.editMode} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
         {cards.map((c) => {

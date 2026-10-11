@@ -52,3 +52,11 @@ export const BUCKET_DOT: Record<Stage, string> = {
   inProgress: 'bg-indigo-400',
   done: 'bg-emerald-500',
 }
+
+/** Left-edge accent colour for a top-level column, by workflow stage. */
+export const STAGE_ACCENT: Record<Stage, string> = {
+  backlog: '#fbbf24',
+  notStarted: '#cbd5e1',
+  inProgress: '#818cf8',
+  done: '#34d399',
+}

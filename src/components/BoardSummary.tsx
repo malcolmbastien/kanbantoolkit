@@ -13,8 +13,8 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { buildRefs } from '@/domain/board'
-import { STAGE_LABELS, topLevelLanes } from '@/domain/lanes'
-import { stageChip } from '@/lib/colors'
+import { topLevelLanes } from '@/domain/lanes'
+import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Stage } from '@/domain/types'
@@ -84,12 +84,10 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
             'flex min-w-[320px] flex-1 basis-0 flex-col rounded-md border',
             isInitiatives ? 'border-violet-200 bg-violet-50/70' : 'border-slate-300 bg-slate-100',
           )}
+          style={{ borderLeft: `4px solid ${STAGE_ACCENT[stage]}` }}
         >
           <div className={cn('flex items-center gap-1.5 rounded-t-md px-2 py-1', isInitiatives ? 'bg-violet-700 text-white' : 'bg-slate-700 text-slate-100')}>
             <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name}</span>
-            <span className={cn('rounded px-1 text-[9px] font-bold', stageChip(stage))}>
-              {STAGE_LABELS[stage]}
-            </span>
             <span className={cn('ml-auto text-[10px] font-semibold tabular-nums', isInitiatives ? 'text-violet-200' : 'text-slate-300/80')}>{cards.length}</span>
           </div>
           <div className="flex flex-1 flex-col gap-2 p-2">
