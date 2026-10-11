@@ -513,13 +513,13 @@
       },
       {
         "id": "27",
-        "title": "Implement board filters and saved presets",
-        "description": "Filter the current board by assignee, type, blocked state, or initiative; save presets.",
-        "status": "pending",
+        "title": "Board filters: side-panel filter set for the current board",
+        "description": "A Filters button opens a right-side panel with basic card filters: one per card type, plus blocked, overdue and unassigned.",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "details": "Add a filter bar to the board view; support combining filters; persist named presets against a board; show an active-filter indicator.",
-        "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
+        "details": "A Filters button in the top bar (with an active-filter badge) opens a right-side panel in the same slot as the item panel. Filters: one checkbox per card type (no type checked = every type), plus Blocked / Overdue / Unassigned toggles. Categories combine with AND. The cards workflow hides non-matching cards; the panel shows a live 'Showing N of M cards' summary and a Clear-all action. Pure logic lives in src/domain/filters.ts (matchesFilters / isOverdue / activeFilterCount). Deep link: ?filters=1 opens the panel, ?filters=blocked,overdue pre-applies filters. Saved presets and assignee/initiative filters are deferred (see task 41).",
+        "testStrategy": "Unit tests for matchesFilters/isOverdue/activeFilterCount and the store's panel + type-toggle behaviour; manual verification that filtering hides cards and the badge/summary update. Run npm test.",
         "subtasks": []
       },
       {
@@ -668,13 +668,26 @@
         "testStrategy": "Insert a lane after a sibling and verify position; duplicate a container and verify its subtree is cloned with new ids; toggle collapse and verify the view state flips; verify top-level columns are neither insertable nor cloneable. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-11T16:22:51.266Z"
+      },
+      {
+        "id": "41",
+        "title": "Saved filter presets + assignee and initiative filters",
+        "description": "Extend the board filters with assignee and initiative filters, and let users save named presets per board.",
+        "status": "pending",
+        "dependencies": [
+          "27"
+        ],
+        "priority": "medium",
+        "details": "Deferred from task 27. Add an assignee filter (one entry per distinct assignee on the board) and an initiative filter (narrow cards to those under a chosen initiative) to the Filters side panel. Support saving the active filter set as a named preset against the board (persisted with the board, so it needs a persist version bump + migration), listing/loading/removing presets, and an active-preset indicator. Keep filters combining with AND and reusing matchesFilters in src/domain/filters.ts.",
+        "testStrategy": "Unit-test the assignee/initiative matching and preset CRUD (add/load/remove, per-board scoping). Verify a saved preset round-trips through persistence and rehydrates. Run npm test.",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
-      "taskCount": 39,
-      "completedCount": 15,
+      "taskCount": 40,
+      "completedCount": 16,
       "tags": [
         "backlog"
       ]
