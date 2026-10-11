@@ -78,8 +78,7 @@ npm run lint         # oxlint
 /?board=b-core&item=it-signup         # open a card
 /?board=b-core&edit=1                 # start in board edit mode
 /?board=b-design                      # the seeded sketch layout (nested Doing/Projects)
-/?view=management                     # stack every board as bands
-/?board=b-portfolio                   # portfolio: initiative columns derived from leaf work
+/?board=b-team-alpha                  # a team board (its own initiatives)
 ```
 
 ## What to try
