@@ -453,12 +453,13 @@
         "id": "22",
         "title": "Build pending dependency confirmation inbox on blocker side",
         "description": "P0 inbox for blockers to confirm or reject dependency requests with a reason.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [],
         "priority": "high",
         "details": "Create an inbox for pending dependency confirmations shown on the blocker side. Support confirm and reject actions with an optional/required reason field. Update dependency status and remove resolved items from the pending inbox.",
         "testStrategy": "Create a dependency request from another item. Open the blocker inbox and confirm the request. Verify status updates. Reject a request with reason and verify reason is stored and request is resolved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-11T15:22:01.711Z"
       },
       {
         "id": "23",
@@ -644,7 +645,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-11T15:18:47.967Z",
+      "lastModified": "2026-10-11T15:22:01.711Z",
       "taskCount": 37,
       "completedCount": 9,
       "tags": [
