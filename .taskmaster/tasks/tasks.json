@@ -373,15 +373,15 @@
       {
         "id": "16",
         "title": "Implement multi-select and bulk actions",
-        "description": "P2 multi-select cards and bulk actions for move, retype, assign, and delete.",
-        "status": "pending",
+        "description": "P2 multi-select cards (shift+click) and bulk actions for move to lane, retype, assign, archive, and delete.",
+        "status": "done",
         "dependencies": [
           "11",
           "12"
         ],
         "priority": "low",
-        "details": "Add selection mode to board and lane views. Provide a bulk action toolbar supporting move to lane/board, change type, assign, and delete/archive. Batch mutations should use the same persistence/undo path as single-item actions.",
-        "testStrategy": "Select multiple cards and apply each bulk action. Verify all selected items update correctly. Test cancel and undo across bulk operations.",
+        "details": "Shift+click a card to start a multi-select group: the first shift+click seeds from the open card, later ones add/remove, and the item panel disappears. A floating bulk-action sub-menu appears while a group is selected: move to lane, change type, assign, archive, delete, clear. Selected cards get an indigo ring. Type changes refuse the reserved Initiative type; a blank assignee unassigns; moving into a Done lane starts the auto-archive clock. Opening a card or switching boards clears the group. Deep link ?select=id1,id2. Moving to another board is deferred (task 42).",
+        "testStrategy": "Store tests: shift+click seeds from the open card and toggles; bulk type/assign/move/archive/delete update every selected item; Initiative type is refused; the group clears on open. Run npm test.",
         "subtasks": []
       },
       {
@@ -681,13 +681,26 @@
         "details": "Deferred from task 27. Add an assignee filter (one entry per distinct assignee on the board) and an initiative filter (narrow cards to those under a chosen initiative) to the Filters side panel. Support saving the active filter set as a named preset against the board (persisted with the board, so it needs a persist version bump + migration), listing/loading/removing presets, and an active-preset indicator. Keep filters combining with AND and reusing matchesFilters in src/domain/filters.ts.",
         "testStrategy": "Unit-test the assignee/initiative matching and preset CRUD (add/load/remove, per-board scoping). Verify a saved preset round-trips through persistence and rehydrates. Run npm test.",
         "subtasks": []
+      },
+      {
+        "id": "42",
+        "title": "Bulk move cards to another board",
+        "description": "Deferred from task 16: extend the bulk-action bar with a move-to-another-board action.",
+        "status": "pending",
+        "dependencies": [
+          "16"
+        ],
+        "priority": "low",
+        "details": "Add a 'Move to board' control to the BulkActions bar: pick a target board (management or team) and a target lane on it, then move every selected card's placement there. Needs a cascading lane picker (lanes belong to boards) and should create a placement when a card has none on the target board. Reuse the existing placement model (one placement per board).",
+        "testStrategy": "Unit-test the batch move across boards: placements are created/updated on the target board with the chosen lane, the source board's placements are removed or kept per the model, and resolvedAt tracks the target stage. Run npm test.",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
-      "taskCount": 40,
-      "completedCount": 17,
+      "taskCount": 41,
+      "completedCount": 18,
       "tags": [
         "backlog"
       ]
