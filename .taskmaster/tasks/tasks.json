@@ -467,14 +467,15 @@
         "id": "23",
         "title": "Build dependency register view split into live blockage vs planning risk",
         "description": "P0 dependency register shows all open dependencies split into live blockage and planning risk.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [
           "22"
         ],
         "priority": "high",
         "details": "Create a dependency register view that categorizes open dependencies. Live blockage includes dependencies currently blocking execution. Planning risk includes future or soft dependencies. Support filtering and jump-to-source/target items.",
         "testStrategy": "Create dependencies of different types and statuses. Verify each appears in the correct register category. Ensure open blockers are live and future-dated dependencies appear as planning risk.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-11T18:36:19.853Z"
       },
       {
         "id": "24",
@@ -672,7 +673,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-11T18:33:39.037Z",
+      "lastModified": "2026-10-11T18:36:19.853Z",
       "taskCount": 39,
       "completedCount": 12,
       "tags": [
