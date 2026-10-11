@@ -400,13 +400,13 @@
         "id": "18",
         "title": "Implement inline rename and confirm-before-delete replacing window.prompt",
         "description": "P0 inline rename for lanes/items and confirm-before-delete modal instead of window.prompt.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "17"
         ],
         "priority": "high",
-        "details": "Replace any window.prompt usage with inline editable fields and a proper confirmation modal for delete operations. Support Enter to save, Escape to cancel, and click-away behavior. Use accessible labels and focus management.",
-        "testStrategy": "Rename a lane or item inline and verify persistence. Attempt delete and confirm the modal appears. Cancel and confirm delete both behave correctly.",
+        "details": "No window.prompt / window.confirm remains. New InlineEdit (click-to-rename in place; Enter or click-away commits, Escape reverts; autofocus + select) and a global ConfirmDialog (role=dialog, aria-modal, aria-label; askConfirm/closeConfirm in the store; Enter confirms via the focused button, Escape or click-away cancels, focus trapped and restored). Wired all seven sites: lane rename and new board name are inline; delete board, delete card, bulk delete, remove lane and archive-done use the modal, each keeping its full consequence text. Escape now closes only the topmost layer (a dialog) rather than also dismissing the item panel.",
+        "testStrategy": "Inline rename commits on Enter and reverts on Escape; the confirm modal appears for each destructive action, cancels on Escape/click-away and confirms on Enter. Verified over the DevTools protocol plus a store test for the confirm request. Run npm test.",
         "subtasks": []
       },
       {
@@ -700,7 +700,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
       "taskCount": 41,
-      "completedCount": 18,
+      "completedCount": 19,
       "tags": [
         "backlog"
       ]
