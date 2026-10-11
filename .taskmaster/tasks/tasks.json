@@ -548,12 +548,13 @@
         "id": "30",
         "title": "Add ghost lanes for cross-scope dependencies",
         "description": "Surface inbound external dependencies as a read-only edge lane.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [],
         "priority": "low",
         "details": "Collect off-board confirmed blockers for a board and render a read-only ghost lane of the binding items, alongside the existing boundary pins.",
         "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-11T18:33:39.037Z"
       },
       {
         "id": "31",
@@ -671,7 +672,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-11T16:22:51.266Z",
+      "lastModified": "2026-10-11T18:33:39.037Z",
       "taskCount": 39,
       "completedCount": 12,
       "tags": [
