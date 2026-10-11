@@ -15,7 +15,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { buildRefs, externalBlockersOnBoard } from '@/domain/board'
-import { bucketLaneId, childrenOf, effectiveStage, isTopLevel, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { childrenOf, effectiveStage, isTopLevel, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane } from '@/domain/types'
@@ -333,35 +333,25 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const graph: Graph = { items, edges, placements, lanes }
-  const board = boards.find((b) => b.id === boardId)
   const refs = buildRefs(items, issueTypes)
   const root = rootLane(lanes, boardId)
-  const derived = Boolean(board?.derived)
   const editMode = storeEdit && interactive
 
   const boardPlacements = placements.filter((p) => p.boardId === boardId)
-  const allBoardItems = boardPlacements
+  const isInitiative = (typeId: string) => issueTypes.find((t) => t.id === typeId)?.name === 'Initiative'
+
+  // The cards workflow shows the team's cards (non-initiative items) in their lanes.
+  // The board's initiatives are surfaced separately in the "Initiatives workflow" on top.
+  const boardItems = boardPlacements
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
-
-  // A board hosts team/management initiatives: show only those, placed by rollup.
-  const isInitiative = (typeId: string) => issueTypes.find((t) => t.id === typeId)?.name === 'Initiative'
-  const initiativeItems = allBoardItems.filter((i) => isInitiative(i.typeId))
-  const rollupMode = derived || initiativeItems.length > 0
-  const boardItems = initiativeItems.length > 0 ? initiativeItems : allBoardItems
+    .filter((i) => !isInitiative(i.typeId))
 
   const effectiveLane = new Map<string, string>()
-  if (rollupMode) {
-    for (const i of boardItems) {
-      const laneId = bucketLaneId(lanes, boardId, rollupOf(i.id, graph).bucket)
-      if (laneId) effectiveLane.set(i.id, laneId)
-    }
-  } else {
-    for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
-  }
+  for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
 
   const external = externalBlockersOnBoard(graph, boardId)
-  const canDrag = interactive && !rollupMode && Boolean(onMove)
+  const canDrag = interactive && Boolean(onMove)
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const onDragEnd = (e: DragEndEvent) => {

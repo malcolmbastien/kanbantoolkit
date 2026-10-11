@@ -1,5 +1,6 @@
 import { Check, Layers, X } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
+import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
 import { ManagementBoard } from './ManagementBoard'
 import { externalBlockersOnBoard } from '@/domain/board'
@@ -71,7 +72,27 @@ export function BoardView({ requestMove }: Props) {
         )}
       </div>
 
-      <BoardCanvas boardId={boardId} interactive onMove={requestMove} />
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        {/* Initiatives workflow — this team's initiatives, by rollup */}
+        <section className="rounded-lg border border-indigo-300 bg-indigo-50/60 shadow-sm">
+          <div className="flex items-center gap-2 rounded-t-lg border-b border-indigo-300 bg-indigo-800 px-3 py-1.5 text-slate-200">
+            <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
+            <span className="text-[10px] text-indigo-200">this team’s initiatives — status rolls up from the cards below</span>
+          </div>
+          <BoardSummary boardId={boardId} />
+        </section>
+
+        {/* Cards workflow — the team's customizable flow */}
+        <section className="rounded-lg border border-slate-300 bg-slate-100 shadow-sm">
+          <div className="flex items-center gap-2 rounded-t-lg border-b border-slate-300 bg-slate-800 px-3 py-1.5 text-slate-200">
+            <span className="text-[12px] font-bold uppercase tracking-wide text-white">Cards workflow</span>
+            <span className="text-[10px] text-slate-400">
+              {board?.level === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
+            </span>
+          </div>
+          <BoardCanvas boardId={boardId} interactive onMove={requestMove} />
+        </section>
+      </div>
     </div>
   )
 }
