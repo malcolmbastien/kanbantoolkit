@@ -3,7 +3,7 @@ import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
 import { ManagementBoard } from './ManagementBoard'
-import { externalBlockersOnBoard } from '@/domain/board'
+import { boardCardTypeId, cardTypes, externalBlockersOnBoard } from '@/domain/board'
 import { effectiveStage } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -28,6 +28,8 @@ export function BoardView({ requestMove }: Props) {
   const lensId = useStore((s) => s.lensId)
   const clearLens = useStore((s) => s.clearLens)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
+  const issueTypes = useStore((s) => s.issueTypes)
+  const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
 
   const board = boards.find((b) => b.id === boardId)
 
@@ -71,6 +73,20 @@ export function BoardView({ requestMove }: Props) {
             >
               rollup
             </button>
+            <label className="flex items-center gap-1 text-slate-300">
+              Card type
+              <select
+                value={board?.defaultCardTypeId ?? ''}
+                onChange={(e) => setBoardDefaultCardType(boardId, e.target.value || undefined)}
+                className="rounded border border-slate-600 bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-100 outline-none"
+                title="Type a new card gets on this board (Initiative is reserved for the Initiatives workflow)"
+              >
+                <option value="">Auto ({issueTypes.find((t) => t.id === boardCardTypeId(board, issueTypes))?.name ?? '—'})</option>
+                {cardTypes(issueTypes).map((t) => (
+                  <option key={t.id} value={t.id} className="bg-slate-800 text-slate-100">{t.name}</option>
+                ))}
+              </select>
+            </label>
           </>
         )}
         {lensId && (

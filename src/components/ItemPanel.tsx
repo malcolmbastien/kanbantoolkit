@@ -90,6 +90,8 @@ export function ItemPanel({ itemId }: Props) {
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
+  // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
+  const typeOptions = issueTypes.filter((t) => t.id !== initiativeTypeId || t.id === item.typeId)
   const teamBoards = boards.filter((b) => b.level !== 'portfolio')
   const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const boardOf = (id: string) =>
@@ -138,7 +140,7 @@ export function ItemPanel({ itemId }: Props) {
               onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
               className="rounded border border-indigo-200 bg-white px-1.5 py-1 text-[11px] font-medium"
             >
-              {issueTypes.map((t) => (
+              {typeOptions.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>

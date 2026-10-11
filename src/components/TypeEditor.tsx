@@ -12,6 +12,8 @@ export function TypeEditor() {
 
   const [name, setName] = useState('')
   const [color, setColor] = useState('#0ea5e9')
+  const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
+  const nameIsReserved = name.trim().toLowerCase() === 'initiative'
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" onClick={close}>
@@ -25,29 +27,37 @@ export function TypeEditor() {
         </div>
 
         <div className="max-h-[50vh] space-y-1.5 overflow-y-auto px-4 py-3">
-          {issueTypes.map((t) => (
-            <div key={t.id} className="flex items-center gap-2 rounded border border-slate-200 px-2 py-1.5">
-              <input
-                type="color"
-                value={t.color}
-                onChange={(e) => updateIssueType(t.id, { color: e.target.value })}
-                className="h-6 w-6 cursor-pointer rounded border border-slate-200 bg-white"
-                title="Type colour"
-              />
-              <input
-                value={t.name}
-                onChange={(e) => updateIssueType(t.id, { name: e.target.value })}
-                className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-[12px] font-medium text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
-              />
-              <button
-                onClick={() => removeIssueType(t.id)}
-                className="text-slate-300 hover:text-rose-500"
-                title="Delete type"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
+          {issueTypes.map((t) => {
+            const reserved = t.id === initiativeTypeId
+            return (
+              <div key={t.id} className="flex items-center gap-2 rounded border border-slate-200 px-2 py-1.5">
+                <input
+                  type="color"
+                  value={t.color}
+                  disabled={reserved}
+                  onChange={(e) => updateIssueType(t.id, { color: e.target.value })}
+                  className="h-6 w-6 cursor-pointer rounded border border-slate-200 bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Type colour"
+                />
+                <input
+                  value={t.name}
+                  readOnly={reserved}
+                  onChange={(e) => updateIssueType(t.id, { name: e.target.value })}
+                  className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-[12px] font-medium text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none read-only:text-slate-500"
+                  title={reserved ? 'Reserved for the Initiatives workflow' : undefined}
+                />
+                {reserved ? (
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500" title="Initiative is reserved for the Initiatives workflow">
+                    reserved
+                  </span>
+                ) : (
+                  <button onClick={() => removeIssueType(t.id)} className="text-slate-300 hover:text-rose-500" title="Delete type">
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-3">
@@ -64,7 +74,7 @@ export function TypeEditor() {
             className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
           />
           <button
-            disabled={name.trim().length < 2}
+            disabled={name.trim().length < 2 || nameIsReserved}
             onClick={() => {
               addIssueType(name.trim(), color)
               setName('')
@@ -75,7 +85,8 @@ export function TypeEditor() {
           </button>
         </div>
         <p className="px-4 pb-3 text-[10px] text-slate-400">
-          Types are labels + colour. A board defines its own columns; any type can sit in any column.
+          Types are labels + colour. A board defines its own columns; any type can sit in any column.{' '}
+          <span className="font-medium text-slate-500">Initiative is reserved for the Initiatives workflow.</span>
         </p>
       </div>
     </div>

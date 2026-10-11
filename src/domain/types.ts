@@ -59,6 +59,8 @@ export interface Board {
   derived?: boolean
   /** Management boards only: the team boards they aggregate (and show as bands). */
   teamBoardIds?: string[]
+  /** Type a new card gets on this board (never the reserved Initiative type). */
+  defaultCardTypeId?: string
 }
 
 /** A notable event in an item's history. Append-only. */

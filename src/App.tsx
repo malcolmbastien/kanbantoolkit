@@ -6,7 +6,7 @@ import { ManagementDashboard } from './components/ManagementDashboard'
 import { ObjectivesView } from './components/ObjectivesView'
 import { TopBar } from './components/TopBar'
 import { TypeEditor } from './components/TypeEditor'
-import { defaultCardTypeId } from './domain/board'
+import { boardCardTypeId } from './domain/board'
 import { leafLanes } from './domain/lanes'
 import { useStore } from './store'
 
@@ -70,7 +70,7 @@ export default function App() {
   const requestMove = (itemId: string, bId: string, laneId: string) => moveCard(itemId, bId, laneId)
 
   const onAddCard = (laneId: string) => {
-    const typeId = defaultCardTypeId(issueTypes)
+    const typeId = boardCardTypeId(boards.find((b) => b.id === boardId), issueTypes)
     if (!typeId) return
     addCard({ boardId, typeId, laneId, title: 'New card' })
   }

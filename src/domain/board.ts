@@ -1,5 +1,5 @@
 import { isArchived, openIncomingLinks, type DependencyInfo, type Graph } from './derive'
-import type { IssueType, Item, Placement } from './types'
+import type { Board, IssueType, Item, Placement } from './types'
 
 /** Items placed on a board (via explicit placement records). */
 export function itemsOnBoard(boardId: string, placements: Placement[], items: Item[]): Item[] {
@@ -42,10 +42,26 @@ export function buildRefs(items: Item[], types: IssueType[]): Map<string, string
 }
 
 /**
- * The type a freshly-created card should get. Cards live in the Cards workflow, so
- * this is never the Initiative type — otherwise a new card would surface in the
- * Initiatives workflow instead of the lane you clicked.
+ * The reserved Initiative type id (identified by name). Initiative is reserved for
+ * the Initiatives workflow and is never offered as a card type.
  */
+export function initiativeTypeId(types: IssueType[]): string | undefined {
+  return types.find((t) => t.name === 'Initiative')?.id
+}
+
+/** Types selectable for a card — everything except the reserved Initiative type. */
+export function cardTypes(types: IssueType[]): IssueType[] {
+  return types.filter((t) => t.name !== 'Initiative')
+}
+
+/** The default card type: the first non-Initiative type. */
 export function defaultCardTypeId(types: IssueType[]): string | undefined {
-  return (types.find((t) => t.name !== 'Initiative') ?? types[0])?.id
+  return cardTypes(types)[0]?.id ?? types[0]?.id
+}
+
+/** The type a new card gets on a board: its configured default, else the first card type. */
+export function boardCardTypeId(board: Board | undefined, types: IssueType[]): string | undefined {
+  const configured = board?.defaultCardTypeId
+  if (configured && cardTypes(types).some((t) => t.id === configured)) return configured
+  return defaultCardTypeId(types)
 }

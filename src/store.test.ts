@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, rollupOf, statusOf } from './domain/derive'
-import { defaultCardTypeId } from './domain/board'
+import { boardCardTypeId, cardTypes, defaultCardTypeId } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, useStore } from './store'
 
@@ -295,6 +295,19 @@ describe('store actions', () => {
     const created = s().items[s().items.length - 1]
     expect(s().issueTypes.find((t) => t.id === created.typeId)?.name).not.toBe('Initiative')
     expect(s().placements.some((p) => p.itemId === created.id && p.boardId === 'b-atlas' && p.laneId === lane.id)).toBe(true)
+  })
+
+  it('default card type is a board property; Initiative is never a card type', () => {
+    const types = s().issueTypes
+    expect(cardTypes(types).some((t) => t.name === 'Initiative')).toBe(false)
+    expect(boardCardTypeId(s().boards.find((b) => b.id === 'b-atlas'), types)).toBe('t-story')
+
+    s().setBoardDefaultCardType('b-atlas', 't-bug')
+    expect(boardCardTypeId(s().boards.find((b) => b.id === 'b-atlas'), types)).toBe('t-bug')
+
+    // Initiative is rejected as a default → falls back to the first card type
+    s().setBoardDefaultCardType('b-atlas', 't-initiative')
+    expect(boardCardTypeId(s().boards.find((b) => b.id === 'b-atlas'), types)).toBe('t-story')
   })
 
   it('migrateState backfills Board.level', () => {

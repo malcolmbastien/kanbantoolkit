@@ -69,6 +69,7 @@ export interface Actions {
   removeBoard: (id: string) => void
   renameBoard: (id: string, name: string) => void
   setBoardLevel: (id: string, level: BoardLevel) => void
+  setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
   moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => void
@@ -338,6 +339,8 @@ export const useStore = create<Store>()(
 
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
       setBoardLevel: (id, level) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, level } : b)) }),
+      setBoardDefaultCardType: (id, defaultCardTypeId) =>
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
 
       addCard: ({ boardId, typeId, laneId, title }) => {
         const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), log: [logEntry('created')] }

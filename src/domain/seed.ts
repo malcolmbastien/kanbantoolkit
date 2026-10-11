@@ -16,8 +16,8 @@ const issueTypes: IssueType[] = [
 
 const boards: Board[] = [
   { id: 'b-portfolio', name: 'Company Portfolio', level: 'portfolio', derived: true, teamBoardIds: ['b-atlas', 'b-nova'] },
-  { id: 'b-atlas', name: 'Team Atlas', level: 'team' },
-  { id: 'b-nova', name: 'Team Nova', level: 'team' },
+  { id: 'b-atlas', name: 'Team Atlas', level: 'team', defaultCardTypeId: 't-story' },
+  { id: 'b-nova', name: 'Team Nova', level: 'team', defaultCardTypeId: 't-story' },
 ]
 
 const lanes: Lane[] = []
