@@ -1,25 +1,23 @@
 import type { Board, Edge, FlowState, IssueType, Item, Lane, Placement, Objective, SplitOrientation } from './types'
 
-const T = Date.UTC(2026, 9, 1, 9, 0, 0)
+const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 
+/* ------------------------------------------------------------------ *
+ * Demo org: "Meridian". Two teams, a company portfolio, and a couple of
+ * OKRs. Small but complete enough to feel the model.
+ * ------------------------------------------------------------------ */
 const issueTypes: IssueType[] = [
   { id: 't-initiative', name: 'Initiative', color: '#6366f1' },
   { id: 't-story', name: 'User Story', color: '#0ea5e9' },
-  { id: 't-task', name: 'Task', color: '#64748b' },
   { id: 't-bug', name: 'Bug', color: '#f43f5e' },
   { id: 't-spike', name: 'Spike', color: '#f59e0b' },
+  { id: 't-task', name: 'Task', color: '#64748b' },
 ]
 
-/* ------------------------------------------------------------------ *
- * Boards. Every board's top level is the three typed columns.
- * ------------------------------------------------------------------ */
 const boards: Board[] = [
-  { id: 'b-exec', name: 'Executive Portfolio', level: 'portfolio', derived: true, teamBoardIds: [] },
-  { id: 'b-portfolio', name: 'Digital Transformation Portfolio', level: 'portfolio', derived: true, teamBoardIds: ['b-core', 'b-platform', 'b-team-alpha'] },
-  { id: 'b-core', name: 'Core Experience', level: 'project' },
-  { id: 'b-platform', name: 'Platform Services', level: 'project' },
-  { id: 'b-design', name: 'Design board (sketch)', level: 'team' },
-  { id: 'b-team-alpha', name: 'Team Alpha', level: 'team' },
+  { id: 'b-portfolio', name: 'Company Portfolio', level: 'portfolio', derived: true, teamBoardIds: ['b-atlas', 'b-nova'] },
+  { id: 'b-atlas', name: 'Team Atlas', level: 'team' },
+  { id: 'b-nova', name: 'Team Nova', level: 'team' },
 ]
 
 const lanes: Lane[] = []
@@ -37,69 +35,36 @@ function lane(
 }
 const root = (boardId: string, orientation: SplitOrientation) => lane(boardId, '', null, 0, { orientation })
 
-// Portfolio (derived): initiatives land by rollup onto the three typed columns.
-const pRoot = root('b-portfolio', 'columns')
-const pBacklog = lane('b-portfolio', 'Backlog', pRoot.id, 0, { stage: 'backlog' })
-const pNS = lane('b-portfolio', 'Not Started', pRoot.id, 1, { stage: 'notStarted' })
-lane('b-portfolio', 'In Progress', pRoot.id, 2, { stage: 'inProgress' })
-lane('b-portfolio', 'Done', pRoot.id, 3, { stage: 'done' })
+// Standard workflow: Backlog (uncommitted) + Not Started / In Progress / Done.
+function workflow(boardId: string, splitProgress: boolean) {
+  const r = root(boardId, 'columns')
+  const backlog = lane(boardId, 'Backlog', r.id, 0, { stage: 'backlog' })
+  const ns = lane(boardId, 'Not Started', r.id, 1, { stage: 'notStarted' })
+  const ip = lane(boardId, 'In Progress', r.id, 2, { stage: 'inProgress', orientation: splitProgress ? 'columns' : undefined })
+  const dev = splitProgress ? lane(boardId, 'Dev', ip.id, 0) : ip
+  const test = splitProgress ? lane(boardId, 'Test', ip.id, 1) : undefined
+  const done = lane(boardId, 'Done', r.id, 3, { stage: 'done' })
+  return { r, backlog, ns, ip, dev, test, done }
+}
 
-// Executive Portfolio (a second management board): its top-level initiative rolls up
-// initiatives that live on the Digital Transformation Portfolio board.
-const eRoot = root('b-exec', 'columns')
-lane('b-exec', 'Backlog', eRoot.id, 0, { stage: 'backlog' })
-const eNS = lane('b-exec', 'Not Started', eRoot.id, 1, { stage: 'notStarted' })
-lane('b-exec', 'In Progress', eRoot.id, 2, { stage: 'inProgress' })
-lane('b-exec', 'Done', eRoot.id, 3, { stage: 'done' })
+// Company Portfolio (management): plain columns.
+const p = workflow('b-portfolio', false)
+// Team boards: In Progress refined into Dev / Test.
+const a = workflow('b-atlas', true)
+const n = workflow('b-nova', true)
 
-// Core Experience: Backlog (uncommitted) + three committed columns, each split into team
-// rows. In Progress refines Team Alpha into Dev / Test.
-const cRoot = root('b-core', 'columns')
-const cBacklog = lane('b-core', 'Backlog', cRoot.id, 0, { stage: 'backlog', orientation: 'rows' })
-const cBacklogAlpha = lane('b-core', 'Team Alpha', cBacklog.id, 0)
-lane('b-core', 'Team Bravo', cBacklog.id, 1)
-const cNS = lane('b-core', 'Not Started', cRoot.id, 1, { stage: 'notStarted', orientation: 'rows' })
-const cNSAlpha = lane('b-core', 'Team Alpha', cNS.id, 0)
-const cNSBravo = lane('b-core', 'Team Bravo', cNS.id, 1)
-const cIP = lane('b-core', 'In Progress', cRoot.id, 2, { stage: 'inProgress', orientation: 'rows' })
-const cIPAlpha = lane('b-core', 'Team Alpha', cIP.id, 0, { orientation: 'columns' })
-const cIPDev = lane('b-core', 'Dev', cIPAlpha.id, 0)
-const cIPTest = lane('b-core', 'Test', cIPAlpha.id, 1)
-const cIPBravo = lane('b-core', 'Team Bravo', cIP.id, 1)
-const cDone = lane('b-core', 'Done', cRoot.id, 3, { stage: 'done', orientation: 'rows' })
-const cDoneAlpha = lane('b-core', 'Team Alpha', cDone.id, 0)
-lane('b-core', 'Team Bravo', cDone.id, 1)
-
-// Platform Services: Backlog + three committed columns.
-const plRoot = root('b-platform', 'columns')
-lane('b-platform', 'Backlog', plRoot.id, 0, { stage: 'backlog' })
-const plNS = lane('b-platform', 'Not Started', plRoot.id, 1, { stage: 'notStarted' })
-const plIP = lane('b-platform', 'In Progress', plRoot.id, 2, { stage: 'inProgress' })
-lane('b-platform', 'Done', plRoot.id, 3, { stage: 'done' })
-
-// Design board (sketch): Backlog | To Do | Doing | Done, where Doing is row-split into a
-// (Build/Test/Deploy) row and a Projects row (Research/Validate).
-const dRoot = root('b-design', 'columns')
-lane('b-design', 'Backlog', dRoot.id, 0, { stage: 'backlog' })
-lane('b-design', 'To Do', dRoot.id, 1, { stage: 'notStarted' })
-const dDoing = lane('b-design', 'Doing', dRoot.id, 2, { orientation: 'rows', stage: 'inProgress' })
-const dBuildRow = lane('b-design', '', dDoing.id, 0, { orientation: 'columns' })
-const dBuild = lane('b-design', 'Build', dBuildRow.id, 0)
-lane('b-design', 'Test', dBuildRow.id, 1)
-const dDeploy = lane('b-design', 'Deploy', dBuildRow.id, 2)
-const dProjects = lane('b-design', 'Projects', dDoing.id, 1, { orientation: 'columns', wipLimit: 4 })
-const dResearch = lane('b-design', 'Research', dProjects.id, 0)
-lane('b-design', 'Validate', dProjects.id, 1)
-const dDone = lane('b-design', 'Done', dRoot.id, 3, { stage: 'done' })
-
-// Team Alpha: Backlog + three committed columns, In Progress split into Dev/Test.
-const tRoot = root('b-team-alpha', 'columns')
-lane('b-team-alpha', 'Backlog', tRoot.id, 0, { stage: 'backlog' })
-const tNotStarted = lane('b-team-alpha', 'Not Started', tRoot.id, 1, { stage: 'notStarted' })
-const tProgress = lane('b-team-alpha', 'In Progress', tRoot.id, 2, { stage: 'inProgress', orientation: 'columns' })
-const tDev = lane('b-team-alpha', 'Dev', tProgress.id, 0)
-const tTest = lane('b-team-alpha', 'Test', tProgress.id, 1)
-const tDone = lane('b-team-alpha', 'Done', tRoot.id, 3, { stage: 'done' })
+/* ------------------------------------------------------------------ *
+ * Objectives & Key Results (commitment-limited; never in columns)
+ * ------------------------------------------------------------------ */
+const objectives: Objective[] = [
+  { id: 'obj-activation', title: 'Grow activation', period: 'FY26 Q1', status: 'active', score: 45 },
+  { id: 'obj-efficiency', title: 'Reduce cost-to-serve', period: 'FY26 Q1', status: 'active' },
+]
+const keyResults = [
+  { id: 'kr-activation', objectiveId: 'obj-activation', title: 'Activation rate +10pp', progress: 30 },
+  { id: 'kr-completion', objectiveId: 'obj-activation', title: 'Signup completion 90%', progress: 60 },
+  { id: 'kr-tickets', objectiveId: 'obj-efficiency', title: 'Support tickets −30%', progress: 10 },
+]
 
 /* ------------------------------------------------------------------ *
  * Items
@@ -108,108 +73,57 @@ const items: Item[] = []
 const item = (id: string, title: string, typeId: string, extra: Partial<Item> = {}) =>
   items.push({ id, title, typeId, createdAt: T, ...extra })
 
-item('it-onboarding', 'Onboarding Redesign', 't-initiative', { size: 40, assignee: 'MB' })
-item('it-dt', 'Digital Transformation', 't-initiative', { size: 60, assignee: 'CEO' })
-item('it-data', 'Data Platform Refresh', 't-initiative', { size: 30, assignee: 'DS' })
-item('st-explore', 'Explore SSO providers', 't-story', { size: 3 })
-item('it-signup', 'New signup flow', 't-initiative', { size: 13, assignee: 'RK' })
-item('it-tour', 'Guided onboarding tour', 't-initiative', { size: 8, assignee: 'LM' })
-item('it-profile', 'Profile completeness', 't-initiative', { size: 5, assignee: 'SP' })
-item('it-invite', 'Invite & team setup', 't-initiative', { size: 8 })
-item('it-api', 'API decision', 't-initiative', { size: 21, assignee: 'JT' })
-item('it-analytics', 'Analytics pipeline', 't-initiative', { size: 13 })
+// Top-level initiatives (company portfolio).
+item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignee: 'MB' })
+item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignee: 'DS' })
 
-item('st-design', 'Design signup form', 't-story', { size: 3 })
-item('st-form', 'Build signup form', 't-story', { size: 5 })
+// Team-level initiatives.
+item('init-signup', 'New signup flow', 't-initiative', { size: 13, assignee: 'RK' })
+item('init-welcome', 'Welcome experience', 't-initiative', { size: 8, assignee: 'LM' })
+item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignee: 'JT' })
+
+// Cards — Team Atlas.
+item('st-signup-design', 'Design signup screens', 't-story', { size: 3 })
+item('st-signup-form', 'Build signup form', 't-story', { size: 5, assignee: 'RK' })
 item('st-email', 'Email verification', 't-story', { size: 3 })
 item('st-sso', 'SSO buttons', 't-story', { size: 2 })
-for (let i = 0; i < 12; i++) item(`st-gen-${i}`, `Signup task ${i + 1}`, 't-story', { size: (i % 3) + 1 })
-item('df-validation', 'Signup validation error on retry', 't-bug', { size: 2 })
-item('st-tour-framework', 'Tour step framework', 't-story', { size: 5 })
-item('st-tour-copy', 'Welcome modal copy', 't-story', { size: 1 })
-item('st-profile-schema', 'Profile fields schema', 't-story', { size: 3 })
-item('st-avatar', 'Avatar upload', 't-story', { size: 3 })
-item('st-completeness', 'Completeness meter', 't-story', { size: 2 })
-item('st-invite-flow', 'Invite flow', 't-story', { size: 3 })
-item('st-invite-roles', 'Role picker', 't-story', { size: 2 })
-item('st-spike-cache', 'Spike: cache strategy', 't-spike', { size: 2 })
-item('st-api-contract', 'Define API contract', 't-story', { size: 5 })
-item('st-sdk', 'Client SDK generation', 't-story', { size: 8 })
-item('it-beta', 'Beta Launch', 't-initiative', { size: 20 })
-item('feat-beta', 'Closed beta', 't-initiative', { size: 8 })
-item('story-beta', 'Ship beta to pilot cohort', 't-story', { size: 5 })
-item('it-research', 'Customer Research', 't-initiative', { size: 15 })
-item('feat-research', 'Discovery programme', 't-initiative', { size: 5 })
-item('story-research', 'Discovery interviews', 't-story', { size: 3 })
+item('df-signup', 'Signup validation on retry', 't-bug', { size: 2 })
 
-// A team-level initiative (hosted on a team board) linked up to the management initiative.
-item('it-alpha', 'Team Alpha Onboarding', 't-initiative', { size: 12 })
-item('st-alpha-1', 'Alpha: signup copy', 't-story', { size: 2 })
-item('st-alpha-2', 'Alpha: invite flow', 't-story', { size: 3 })
-item('st-alpha-3', 'Alpha: profile polish', 't-story', { size: 2 })
+// Cards — Team Nova.
+item('st-welcome-copy', 'Welcome copy', 't-story', { size: 1 })
+item('st-tour', 'Guided tour', 't-story', { size: 5, assignee: 'LM' })
+item('st-gateway-contract', 'Define gateway contract', 't-story', { size: 5, assignee: 'JT' })
+item('st-ratelimit', 'Rate limiting', 't-story', { size: 3 })
+item('sp-gateway', 'Spike: gateway options', 't-spike', { size: 2 })
 
 /* ------------------------------------------------------------------ *
- * Placements — membership + the stored cell. On a derived board the column
- * is computed from the lowest-level work instead.
+ * Placements
  * ------------------------------------------------------------------ */
 const placements: Placement[] = []
 let placeSeq = 0
 const place = (itemId: string, boardId: string, laneId: string) =>
   placements.push({ id: `pl-${++placeSeq}`, boardId, itemId, laneId })
 
-// Portfolio (derived) — membership only; the column is the rollup.
-place('it-onboarding', 'b-portfolio', pNS.id)
-place('it-beta', 'b-portfolio', pNS.id)
-place('it-research', 'b-portfolio', pNS.id)
+// Company Portfolio.
+place('init-onboarding', 'b-portfolio', p.ns.id)
+place('init-platform', 'b-portfolio', p.backlog.id) // uncommitted inventory
 
-// Executive Portfolio — a top-level initiative that rolls up the onboarding initiative
-// from the Digital Transformation Portfolio board.
-place('it-dt', 'b-exec', eNS.id)
+// Team Atlas — committed onboarding work.
+place('init-signup', 'b-atlas', a.ns.id)
+place('st-signup-design', 'b-atlas', a.done.id)
+place('st-signup-form', 'b-atlas', a.dev.id)
+place('st-email', 'b-atlas', a.ns.id)
+place('st-sso', 'b-atlas', a.test!.id)
+place('df-signup', 'b-atlas', a.test!.id)
 
-// Uncommitted inventory (Backlog): an initiative not yet committed, and a card a team is
-// holding before committing.
-place('it-data', 'b-portfolio', pBacklog.id)
-place('st-explore', 'b-core', cBacklogAlpha.id)
-
-// Core Experience — cells live under the typed columns, within team rows.
-place('it-signup', 'b-core', cIPDev.id)
-place('it-tour', 'b-core', cNSAlpha.id)
-place('it-profile', 'b-core', cIPBravo.id)
-place('it-invite', 'b-core', cNSBravo.id)
-place('st-design', 'b-core', cDoneAlpha.id)
-place('st-form', 'b-core', cIPDev.id)
-place('st-email', 'b-core', cNSAlpha.id)
-place('st-sso', 'b-core', cIPTest.id)
-for (let i = 0; i < 12; i++) place(`st-gen-${i}`, 'b-core', i % 5 === 0 ? cIPDev.id : cNSAlpha.id)
-place('df-validation', 'b-core', cIPTest.id)
-place('st-tour-framework', 'b-core', cIPDev.id)
-place('st-tour-copy', 'b-core', cNSAlpha.id)
-place('st-profile-schema', 'b-core', cNSBravo.id)
-place('st-avatar', 'b-core', cNSBravo.id)
-place('st-completeness', 'b-core', cIPBravo.id)
-place('st-invite-flow', 'b-core', cNSBravo.id)
-place('st-invite-roles', 'b-core', cNSBravo.id)
-place('st-spike-cache', 'b-core', cIPBravo.id)
-place('story-beta', 'b-core', cDoneAlpha.id)
-place('story-research', 'b-core', cNSAlpha.id)
-
-// Platform Services.
-place('it-api', 'b-platform', plIP.id)
-place('it-analytics', 'b-platform', plNS.id)
-place('st-api-contract', 'b-platform', plIP.id)
-place('st-sdk', 'b-platform', plNS.id)
-
-// Design board.
-place('st-gen-0', 'b-design', dBuild.id)
-place('st-gen-1', 'b-design', dDeploy.id)
-place('st-gen-2', 'b-design', dResearch.id)
-place('st-gen-3', 'b-design', dDone.id)
-
-// Team Alpha — hosts a team-level initiative (its cards are the children).
-place('it-alpha', 'b-team-alpha', tDone.id)
-place('st-alpha-1', 'b-team-alpha', tNotStarted.id)
-place('st-alpha-2', 'b-team-alpha', tDev.id)
-place('st-alpha-3', 'b-team-alpha', tTest.id)
+// Team Nova — committed welcome work + uncommitted gateway work.
+place('init-welcome', 'b-nova', n.ns.id)
+place('st-welcome-copy', 'b-nova', n.ns.id)
+place('st-tour', 'b-nova', n.dev.id)
+place('init-gateway', 'b-nova', n.ns.id)
+place('st-gateway-contract', 'b-nova', n.backlog.id)
+place('st-ratelimit', 'b-nova', n.backlog.id)
+place('sp-gateway', 'b-nova', n.backlog.id)
 
 /* ------------------------------------------------------------------ *
  * Edges
@@ -218,38 +132,29 @@ const edges: Edge[] = []
 let edgeSeq = 0
 const edge = (kind: Edge['kind'], from: string, to: string, dep?: Edge['dep']) =>
   edges.push({ id: `e-${++edgeSeq}`, kind, from, to, dep })
-const decompose = (parent: string, children: string[]) => children.forEach((c) => edge('decomposition', parent, c))
+const decompose = (parent: string, children: string[]) =>
+  children.forEach((c) => edge('decomposition', parent, c))
 
-decompose('it-onboarding', ['it-signup', 'it-tour', 'it-profile', 'it-invite', 'it-alpha'])
-decompose('it-dt', ['it-onboarding'])
-decompose('it-signup', ['st-design', 'st-form', 'st-email', 'st-sso', 'df-validation', ...items.filter((i) => i.id.startsWith('st-gen-')).map((i) => i.id)])
-decompose('it-tour', ['st-tour-framework', 'st-tour-copy'])
-decompose('it-profile', ['st-profile-schema', 'st-avatar', 'st-completeness', 'st-spike-cache'])
-decompose('it-invite', ['st-invite-flow', 'st-invite-roles'])
-decompose('it-api', ['st-api-contract'])
-decompose('it-analytics', ['st-sdk'])
-decompose('it-beta', ['feat-beta'])
-decompose('feat-beta', ['story-beta'])
-decompose('it-research', ['feat-research'])
-decompose('feat-research', ['story-research'])
-decompose('it-alpha', ['st-alpha-1', 'st-alpha-2', 'st-alpha-3'])
+decompose('init-onboarding', ['init-signup', 'init-welcome'])
+decompose('init-platform', ['init-gateway'])
+decompose('init-signup', ['st-signup-design', 'st-signup-form', 'st-email', 'st-sso', 'df-signup'])
+decompose('init-welcome', ['st-welcome-copy', 'st-tour'])
+decompose('init-gateway', ['st-gateway-contract', 'st-ratelimit', 'sp-gateway'])
 
-edge('dependency', 'it-api', 'st-profile-schema', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-api-contract', reason: 'Profile writes depend on the API contract' })
-edge('dependency', 'it-api', 'st-sdk', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-api-contract', reason: 'SDK is generated from the contract' })
-edge('dependency', 'it-signup', 'st-completeness', { fsKind: 'FS', status: 'confirmed', reason: 'Meter reads events the signup flow emits' })
-edge('dependency', 'it-analytics', 'st-invite-flow', { fsKind: 'FS', status: 'proposed', reason: 'Invite funnel needs event tracking' })
+// Dependencies: a Platform blocker of Team Atlas work (cross-team) + a proposed one.
+edge('dependency', 'init-gateway', 'st-email', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-gateway-contract', reason: 'Email verification needs the gateway contract' })
+edge('dependency', 'init-gateway', 'st-sso', { fsKind: 'FS', status: 'confirmed', pinTo: 'st-gateway-contract', reason: 'SSO goes through the gateway' })
+edge('dependency', 'st-signup-form', 'st-tour', { fsKind: 'FS', status: 'proposed', reason: 'Tour depends on the new signup flow' })
 
-edge('attribution', 'obj-activation', 'st-form')
-edge('attribution', 'obj-ttv', 'st-form')
-
-const objectives: Objective[] = [
-  { id: 'obj-activation', title: 'Increase activation', period: 'FY26 Q1', status: 'active' },
-  { id: 'obj-ttv', title: 'Reduce time-to-value', period: 'FY26 Q1', status: 'active' },
-]
-const keyResults = [
-  { id: 'kr-1', objectiveId: 'obj-activation', title: 'Activation rate +8pp' },
-  { id: 'kr-2', objectiveId: 'obj-ttv', title: 'Time-to-value < 3 days' },
-]
+// Attribution — informs, never counts as WIP.
+edge('attribution', 'obj-activation', 'init-onboarding')
+edge('attribution', 'obj-activation', 'init-signup')
+edge('attribution', 'obj-activation', 'init-welcome')
+edge('attribution', 'obj-efficiency', 'init-platform')
+edge('attribution', 'obj-efficiency', 'init-gateway')
+// One story serving two objectives — still a single unit of work.
+edge('attribution', 'obj-activation', 'st-signup-form')
+edge('attribution', 'obj-efficiency', 'st-signup-form')
 
 export function createSeed(): FlowState {
   return {

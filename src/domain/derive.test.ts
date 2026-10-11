@@ -12,7 +12,7 @@ import {
   statusOf,
   type Graph,
 } from './derive'
-import { bucketLaneId, childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './lanes'
+import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './lanes'
 import { createSeed } from './seed'
 import type { FlowState } from './types'
 
@@ -25,15 +25,14 @@ describe('generic hierarchy — parent / child', () => {
   const g = graphOf(s)
 
   it('depth is derived from the parent chain', () => {
-    expect(depth('it-dt', g)).toBe(0)
-    expect(depth('it-onboarding', g)).toBe(1)
-    expect(depth('it-signup', g)).toBe(2)
-    expect(depth('st-form', g)).toBe(3)
+    expect(depth('init-onboarding', g)).toBe(0)
+    expect(depth('init-signup', g)).toBe(1)
+    expect(depth('st-signup-form', g)).toBe(2)
   })
 
   it('a card has at most one parent', () => {
-    expect(decompositionParent('st-form', s.edges)).toBe('it-signup')
-    expect(decompositionChildren('it-signup', s.edges)).toContain('st-form')
+    expect(decompositionParent('st-signup-form', s.edges)).toBe('init-signup')
+    expect(decompositionChildren('init-signup', s.edges)).toContain('st-signup-form')
   })
 })
 
@@ -41,22 +40,22 @@ describe('recursive LeanKit lanes', () => {
   const s = createSeed()
 
   it('every board root is a column split with the standard typed columns', () => {
-    expect(rootLane(s.lanes, 'b-core')?.orientation).toBe('columns')
+    expect(rootLane(s.lanes, 'b-atlas')?.orientation).toBe('columns')
     expect(rootLane(s.lanes, 'b-portfolio')?.orientation).toBe('columns')
-    expect(topLevelLanes(s.lanes, 'b-core').length).toBe(4)
+    expect(topLevelLanes(s.lanes, 'b-atlas').length).toBe(4)
     expect(topLevelLanes(s.lanes, 'b-portfolio').length).toBe(4)
   })
 
-  it('In Progress is refined per team (Dev/Test nested under Team Alpha)', () => {
-    const inProgress = s.lanes.find((l) => l.boardId === 'b-core' && l.name === 'In Progress')!
+  it('In Progress is refined into Dev / Test on team boards', () => {
+    const inProgress = laneByName(s, 'b-atlas', 'In Progress')
     expect(isLeaf(s.lanes, inProgress.id)).toBe(false)
-    const leaves = leafLanes(s.lanes, 'b-core').map((l) => l.name)
+    const leaves = leafLanes(s.lanes, 'b-atlas').map((l) => l.name)
     expect(leaves).toContain('Dev')
     expect(leaves).toContain('Test')
   })
 
   it('wip counts walk the subtree', () => {
-    const ns = topLevelLanes(s.lanes, 'b-core')[0]
+    const ns = laneByName(s, 'b-atlas', 'Not Started')
     expect(laneCardCount(s.lanes, s.placements, ns.id)).toBeGreaterThan(0)
   })
 })
@@ -66,26 +65,30 @@ describe('dependency state is computed from cells', () => {
   const g = graphOf(s)
 
   it('unresolved blocker + not-started dependent = Open / planning risk', () => {
-    expect(statusOf('it-api', g).resolved).toBe(false)
-    expect(statusOf('st-profile-schema', g).started).toBe(false)
-    expect(dependencyState('it-api', 'st-profile-schema', g)).toBe('OpenPlanningRisk')
+    expect(statusOf('init-gateway', g).resolved).toBe(false)
+    expect(statusOf('st-email', g).started).toBe(false)
+    expect(dependencyState('init-gateway', 'st-email', g)).toBe('OpenPlanningRisk')
   })
 
-  it('flips to Satisfied once the blocker moves to a done lane — dependent untouched', () => {
+  it('unresolved blocker + in-progress dependent = Open / live blockage', () => {
+    expect(dependencyState('init-gateway', 'st-sso', g)).toBe('OpenLiveBlockage')
+  })
+
+  it('flips to Satisfied once the blocker moves to a done lane — dependents untouched', () => {
     const s2 = createSeed()
-    const done = laneByName(s2, 'b-platform', 'Done')
+    const done = laneByName(s2, 'b-nova', 'Done')
     s2.placements = s2.placements.map((p) =>
-      p.itemId === 'it-api' && p.boardId === 'b-platform' ? { ...p, laneId: done.id } : p,
+      p.itemId === 'init-gateway' && p.boardId === 'b-nova' ? { ...p, laneId: done.id } : p,
     )
-    expect(dependencyState('it-api', 'st-profile-schema', graphOf(s2))).toBe('Satisfied')
+    expect(dependencyState('init-gateway', 'st-email', graphOf(s2))).toBe('Satisfied')
   })
 
-  it('the blocker carries a cross-board badge', () => {
-    expect(blockingSummary('it-api', g).count).toBe(2)
+  it('the blocker carries a cross-team badge', () => {
+    expect(blockingSummary('init-gateway', g).count).toBe(2)
   })
 
   it('shows one blocker badge on the dependent', () => {
-    expect(blockingDeps('st-profile-schema', g).length).toBe(1)
+    expect(blockingDeps('st-email', g).length).toBe(1)
   })
 })
 
@@ -93,14 +96,15 @@ describe('composition pressure and attribution', () => {
   const s = createSeed()
   const g = graphOf(s)
 
-  it('a feature shows its open descendants', () => {
-    expect(decompositionChildren('it-signup', s.edges).length).toBe(17)
-    expect(openDescendants('it-signup', g).length).toBe(16)
+  it('a team initiative shows its open descendants', () => {
+    // 5 children, one (Design signup screens) is in Done.
+    expect(decompositionChildren('init-signup', s.edges).length).toBe(5)
+    expect(openDescendants('init-signup', g).length).toBe(4)
   })
 
   it('a story attributed to two objectives is one unit of work', () => {
-    const objs = attributedObjectives('st-form', s.edges, s.objectives)
-    expect(objs.map((o) => o.id).sort()).toEqual(['obj-activation', 'obj-ttv'])
+    const objs = attributedObjectives('st-signup-form', s.edges, s.objectives)
+    expect(objs.map((o) => o.id).sort()).toEqual(['obj-activation', 'obj-efficiency'])
   })
 })
 
@@ -108,44 +112,29 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
   const s = createSeed()
   const g = graphOf(s)
 
-  it('all leaves done → done; none started → notStarted; some started → inProgress', () => {
-    expect(rollupOf('it-beta', g).bucket).toBe('done')
-    expect(rollupOf('it-beta', g).percent).toBe(100)
-    expect(rollupOf('it-research', g).bucket).toBe('notStarted')
-    expect(rollupOf('it-onboarding', g).bucket).toBe('inProgress')
+  it('all committed, some started → inProgress; a Backlog leaf forces Backlog', () => {
+    expect(rollupOf('init-signup', g).bucket).toBe('inProgress')
+    expect(rollupOf('init-signup', g).percent).toBe(20)
+    expect(rollupOf('init-onboarding', g).bucket).toBe('inProgress')
+    // Platform work is all Backlog (uncommitted).
+    expect(rollupOf('init-gateway', g).bucket).toBe('backlog')
+    expect(rollupOf('init-platform', g).bucket).toBe('backlog')
   })
 
-  it('rollup counts walk down to the deepest leaves', () => {
-    // Beta Launch -> Closed beta -> Ship beta (one leaf, done)
-    expect(rollupOf('it-beta', g).total).toBe(1)
-    expect(rollupOf('it-beta', g).done).toBe(1)
-  })
-
-  it('a derived board maps a rollup bucket onto its start / done lanes', () => {
-    const requested = s.lanes.find((l) => l.boardId === 'b-portfolio' && l.name === 'Not Started')!
-    const done = s.lanes.find((l) => l.boardId === 'b-portfolio' && l.name === 'Done')!
-    expect(bucketLaneId(s.lanes, 'b-portfolio', 'notStarted')).toBe(requested.id)
-    expect(bucketLaneId(s.lanes, 'b-portfolio', 'done')).toBe(done.id)
-    expect(bucketLaneId(s.lanes, 'b-portfolio', 'inProgress')).toBeDefined()
-    expect(bucketLaneId(s.lanes, 'b-portfolio', 'backlog')).toBe(
-      s.lanes.find((l) => l.boardId === 'b-portfolio' && l.name === 'Backlog')!.id,
-    )
-  })
-
-  it('Backlog is uncommitted and pulls its ancestors back to Backlog', () => {
+  it('a committed parent cannot have uncommitted children — the rule is derived', () => {
     const s2 = createSeed()
-    expect(rollupOf('it-data', graphOf(s2)).bucket).toBe('backlog')
-
-    // Move one of New signup flow's cards into a Backlog cell.
-    const backlogTop = s2.lanes.find((l) => l.boardId === 'b-core' && l.name === 'Backlog')!
-    const backlogLeaf = childrenOf(s2.lanes, backlogTop.id)[0]
+    const backlog = laneByName(s2, 'b-atlas', 'Backlog')
     s2.placements = s2.placements.map((p) =>
-      p.itemId === 'st-email' && p.boardId === 'b-core' ? { ...p, laneId: backlogLeaf.id } : p,
+      p.itemId === 'st-email' && p.boardId === 'b-atlas' ? { ...p, laneId: backlog.id } : p,
     )
-    // The committed initiative can no longer be committed while it has a Backlog child…
-    expect(rollupOf('it-signup', graphOf(s2)).bucket).toBe('backlog')
-    // …and neither can its parent initiative.
-    expect(rollupOf('it-onboarding', graphOf(s2)).bucket).toBe('backlog')
+    expect(rollupOf('init-signup', graphOf(s2)).bucket).toBe('backlog')
+    expect(rollupOf('init-onboarding', graphOf(s2)).bucket).toBe('backlog')
+  })
+
+  it('a derived board maps a rollup bucket onto its typed column', () => {
+    expect(bucketLaneId(s.lanes, 'b-portfolio', 'backlog')).toBe(laneByName(s, 'b-portfolio', 'Backlog').id)
+    expect(bucketLaneId(s.lanes, 'b-portfolio', 'notStarted')).toBe(laneByName(s, 'b-portfolio', 'Not Started').id)
+    expect(bucketLaneId(s.lanes, 'b-portfolio', 'done')).toBe(laneByName(s, 'b-portfolio', 'Done').id)
   })
 })
 
@@ -153,23 +142,19 @@ describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () 
   const s = createSeed()
 
   it('a team board has the standard typed top-level columns', () => {
-    const tops = topLevelLanes(s.lanes, 'b-team-alpha')
+    const tops = topLevelLanes(s.lanes, 'b-atlas')
     expect(tops.map((t) => t.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     expect(tops.map((t) => t.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
   })
 
   it('split sub-columns inherit their column type', () => {
-    const dev = s.lanes.find((l) => l.boardId === 'b-team-alpha' && l.name === 'Dev')!
-    const test = s.lanes.find((l) => l.boardId === 'b-team-alpha' && l.name === 'Test')!
+    const dev = laneByName(s, 'b-atlas', 'Dev')
+    const test = laneByName(s, 'b-atlas', 'Test')
     expect(effectiveStage(s.lanes, dev.id)).toBe('inProgress')
     expect(effectiveStage(s.lanes, test.id)).toBe('inProgress')
-    const done = s.lanes.find((l) => l.boardId === 'b-team-alpha' && l.name === 'Done')!
-    expect(effectiveStage(s.lanes, done.id)).toBe('done')
   })
 
   it('leaf status reads from the stage (a Done-column leaf resolves)', () => {
-    // st-design is placed on Done columns; effective stage there is done.
-    const g = graphOf(s)
-    expect(statusOf('st-design', g).resolved).toBe(true)
+    expect(statusOf('st-signup-design', graphOf(s)).resolved).toBe(true)
   })
 })
