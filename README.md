@@ -20,16 +20,16 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
 - **Flight-level badge.** Every board is labelled by Kanban flight level — **Portfolio**,
   **Project**, or **Team** — shown as a badge in the toolbar and board header and editable
   inline. It's an orientation label for a board, distinct from an item's derived `depth`.
-- **Management view.** Stack several boards as bands, like Kanbanize's *Linked workflows*.
-  It starts **empty** — you add the teams you want. Each band is a **summary**, not the team
-  board: it shows only that board's **initiatives** (Initiative-typed items) in the three
-  typed columns by rollup — **Not Started / In Progress / Done** — without the detailed team
-  card flow. Toggle **Board ⇄ Management**; add teams with the chips; open any band on its own.
+- **Management boards vs team boards.** A board is one or the other, by level: a
+  **management board** (Portfolio level) shows its own top-level initiatives plus the summary
+  flows of the **team boards linked to it** (add teams with the chips); its bands are rollup
+  summaries — **Not Started / In Progress / Done** — not the detailed team flow. A **team
+  board** shows its own initiative flow. Pick a board from the **Board** menu; there's no
+  separate view toggle.
 - **Initiatives on boards; cards beneath.** A board's flow shows its **Initiative-typed
   items** (positioned by rollup); their children are the detailed cards, seen by opening an
-  initiative. A management board has its own top-level initiatives, and you can **link** one
-  down to a new team initiative: it's created on a team board as a child, so its cards roll
-  up the hierarchy.
+  initiative. From a management initiative you can **link** down to a new team initiative: it's
+  created on a team board as a child, so its cards roll up the hierarchy.
 - **Rollup boards.** Mark a board as *rollup* and each card's column is **derived from the
   status of the work at the lowest level** of its subtree — mapped onto the board's start /
   in-progress / done lanes — rather than stored. Parents also show a computed **%** done.

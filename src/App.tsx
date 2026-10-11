@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { BoardView } from './components/BoardView'
 import { ItemPanel } from './components/ItemPanel'
-import { ManagementView } from './components/ManagementView'
 import { TopBar } from './components/TopBar'
 import { TypeEditor } from './components/TypeEditor'
 import { leafLanes } from './domain/lanes'
@@ -16,8 +15,6 @@ export default function App() {
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
-  const view = useStore((s) => s.view)
-  const setView = useStore((s) => s.setView)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
 
@@ -39,7 +36,6 @@ export default function App() {
     const b = params.get('board')
     const it = params.get('item')
     if (b) selectBoard(b)
-    if (params.get('view') === 'management') setView('management')
     if (params.get('edit')) beginEdit()
     if (it) openItem(it)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,12 +68,10 @@ export default function App() {
         boards={boards}
         boardId={boardId}
         boardLevel={boardLevel}
-        view={view}
         search={search}
         editMode={editMode}
         onSelectBoard={selectBoard}
         onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
-        onSetView={setView}
         onSearch={setSearch}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -91,7 +85,7 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          {view === 'management' ? <ManagementView /> : <BoardView requestMove={requestMove} />}
+          <BoardView requestMove={requestMove} />
         </div>
         {selectedItemId && <ItemPanel itemId={selectedItemId} />}
       </div>

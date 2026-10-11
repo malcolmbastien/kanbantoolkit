@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { childrenOf, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { createSeed } from '@/domain/seed'
-import type { BoardLevel, Edge, FlowState, IssueType, Item, Lane, Placement, SplitOrientation } from '@/domain/types'
+import type { Board, BoardLevel, Edge, FlowState, IssueType, Item, Lane, Placement, SplitOrientation } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -20,12 +20,7 @@ export interface ViewState {
   editMode: boolean
   /** Snapshot taken on entering edit mode; Cancel restores it, Save drops it. */
   draft: Draft | null
-  /** 'board' shows one board; 'management' stacks several boards as bands. */
-  view: 'board' | 'management'
-  /** Boards shown as bands in the management view. */
-  managementBoards: string[]
 }
-
 export interface Actions {
   selectBoard: (id: string) => void
   openItem: (id: string | null) => void
@@ -34,9 +29,9 @@ export interface Actions {
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
-  setView: (v: 'board' | 'management') => void
-  toggleManagementBoard: (id: string) => void
   setBoardDerived: (id: string, derived: boolean) => void
+  addManagementTeam: (managementBoardId: string, teamBoardId: string) => void
+  removeManagementTeam: (managementBoardId: string, teamBoardId: string) => void
   resetDemo: () => void
 
   addIssueType: (name: string, color: string) => void
@@ -85,8 +80,6 @@ const initialView: ViewState = {
   showTypeEditor: false,
   editMode: false,
   draft: null,
-  view: 'board',
-  managementBoards: [],
 }
 
 /**
@@ -144,13 +137,25 @@ export const useStore = create<Store>()(
         })
       },
       saveEdit: () => set({ editMode: false, draft: null }),
-      setView: (view) => set({ view, editMode: false, draft: null }),
-      toggleManagementBoard: (id) => {
-        const list = get().managementBoards
-        set({ managementBoards: list.includes(id) ? list.filter((b) => b !== id) : [...list, id] })
-      },
       setBoardDerived: (id, derived) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, derived } : b)) }),
+
+      addManagementTeam: (managementBoardId, teamBoardId) =>
+        set({
+          boards: get().boards.map((b) =>
+            b.id === managementBoardId && !(b.teamBoardIds ?? []).includes(teamBoardId)
+              ? { ...b, teamBoardIds: [...(b.teamBoardIds ?? []), teamBoardId] }
+              : b,
+          ),
+        }),
+      removeManagementTeam: (managementBoardId, teamBoardId) =>
+        set({
+          boards: get().boards.map((b) =>
+            b.id === managementBoardId
+              ? { ...b, teamBoardIds: (b.teamBoardIds ?? []).filter((t) => t !== teamBoardId) }
+              : b,
+          ),
+        }),
       cancelEdit: () => {
         const d = get().draft
         if (!d) {
@@ -169,7 +174,7 @@ export const useStore = create<Store>()(
       addBoard: (name, level = 'team') => {
         const boardId = uid()
         const rootId = uid()
-        const board = { id: boardId, name, level }
+        const board: Board = { id: boardId, name, level, ...(level === 'portfolio' ? { teamBoardIds: [] } : {}) }
         const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
         // Every board starts as the fixed three typed columns; users split them to refine.
         const cols: Lane[] = STAGES.map((s, i) => ({
@@ -180,20 +185,21 @@ export const useStore = create<Store>()(
           name: STAGE_LABELS[s],
           stage: s,
         }))
-        set({ boards: [...get().boards, board], lanes: [...get().lanes, root, ...cols], boardId, editMode: true, managementBoards: [...get().managementBoards, boardId] })
+        set({ boards: [...get().boards, board], lanes: [...get().lanes, root, ...cols], boardId, editMode: true })
       },
 
       removeBoard: (id) => {
         const state = get()
         if (state.boards.length <= 1) return
         const laneIds = new Set(state.lanes.filter((l) => l.boardId === id).map((l) => l.id))
-        const boards = state.boards.filter((b) => b.id !== id)
+        const boards = state.boards
+          .filter((b) => b.id !== id)
+          .map((b) => (b.teamBoardIds ? { ...b, teamBoardIds: b.teamBoardIds.filter((t) => t !== id) } : b))
         set({
           boards,
           lanes: state.lanes.filter((l) => l.boardId !== id),
           placements: state.placements.filter((p) => p.boardId !== id && !laneIds.has(p.laneId)),
           boardId: state.boardId === id ? boards[0].id : state.boardId,
-          managementBoards: state.managementBoards.filter((b) => b !== id),
         })
       },
 

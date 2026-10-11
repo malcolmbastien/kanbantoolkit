@@ -60,6 +60,8 @@ export interface Board {
    * than stored in its placement. Used for initiative/management boards.
    */
   derived?: boolean
+  /** Management boards only: the team boards they aggregate (and show as bands). */
+  teamBoardIds?: string[]
 }
 
 /** A card, without any board/state/level field. */

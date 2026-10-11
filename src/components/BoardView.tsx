@@ -1,6 +1,7 @@
 import { Check, Layers, X } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
 import { LevelBadge } from './LevelBadge'
+import { ManagementBoard } from './ManagementBoard'
 import { externalBlockersOnBoard } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -23,6 +24,10 @@ export function BoardView({ requestMove }: Props) {
   const setBoardDerived = useStore((s) => s.setBoardDerived)
 
   const board = boards.find((b) => b.id === boardId)
+
+  // A board is either a management board (Portfolio level) or a team board.
+  if (board?.level === 'portfolio') return <ManagementBoard boardId={boardId} />
+
   const graph: Graph = { items, edges, placements, lanes }
   const external = externalBlockersOnBoard(graph, boardId)
 

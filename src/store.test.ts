@@ -151,20 +151,16 @@ describe('store actions (recursive lanes)', () => {
     expect(kept.boards.length).toBe(1)
   })
 
-  it('management view: starts empty, toggle boards, and mark a board rollup', () => {
-    expect(s().managementBoards.length).toBe(0)
-    s().setView('management')
-    expect(s().view).toBe('management')
-    s().toggleManagementBoard('b-core')
-    expect(s().managementBoards.includes('b-core')).toBe(true)
-    s().toggleManagementBoard('b-core')
-    expect(s().managementBoards.includes('b-core')).toBe(false)
+  it('management board aggregates the team boards chosen for it', () => {
+    const mgmt = () => s().boards.find((b) => b.id === 'b-portfolio')!
+    expect(mgmt().teamBoardIds ?? []).toEqual([])
+    s().addManagementTeam('b-portfolio', 'b-core')
+    expect(mgmt().teamBoardIds).toContain('b-core')
+    s().removeManagementTeam('b-portfolio', 'b-core')
+    expect(mgmt().teamBoardIds ?? []).not.toContain('b-core')
 
     s().setBoardDerived('b-core', true)
     expect(s().boards.find((b) => b.id === 'b-core')?.derived).toBe(true)
-    s().setView('board')
-    expect(s().view).toBe('board')
-    expect(s().editMode).toBe(false)
   })
 
   it('links a team initiative under a management initiative', () => {
