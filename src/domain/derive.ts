@@ -224,3 +224,21 @@ export function periodObjectives(objectives: Objective[], keyResults: KeyResult[
 export function byId<T extends { id: string }>(xs: T[]): Map<string, T> {
   return new Map(xs.map((x) => [x.id, x]))
 }
+
+/* ------------------------------------------------------------------ *
+ * Lens — focus a card and highlight its lineage
+ * ------------------------------------------------------------------ */
+
+export type LensRole = 'self' | 'in' | 'out'
+
+export function lensRole(itemId: string, lensId: string | null, graph: Graph): LensRole | undefined {
+  if (!lensId) return undefined
+  if (itemId === lensId) return 'self'
+  if (descendants(lensId, graph).includes(itemId)) return 'in'
+  let cur = decompositionParent(itemId, graph.edges)
+  while (cur) {
+    if (cur === lensId) return 'in'
+    cur = decompositionParent(cur, graph.edges)
+  }
+  return 'out'
+}

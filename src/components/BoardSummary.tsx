@@ -4,6 +4,7 @@ import {
   decompositionChildren,
   decompositionParent,
   depth as depthOf,
+  lensRole,
   openDescendants,
   outgoingDependencies,
   rollupOf,
@@ -29,6 +30,8 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
   const issueTypes = useStore((s) => s.issueTypes)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const openItem = useStore((s) => s.openItem)
+  const lensId = useStore((s) => s.lensId)
+  const toggleLens = useStore((s) => s.toggleLens)
 
   const graph: Graph = { items, edges, placements, lanes }
   const refs = buildRefs(items, issueTypes)
@@ -111,6 +114,8 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
                   wide
                   symbols={symbols}
                   selected={selectedItemId === c.id}
+                  lens={lensRole(c.id, lensId, graph)}
+                  onLens={toggleLens}
                   onOpen={openItem}
                   summary={{
                     childCount: decompositionChildren(c.id, edges).length,

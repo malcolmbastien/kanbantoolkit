@@ -8,6 +8,7 @@ import {
   decompositionChildren,
   decompositionParent,
   depth as depthOf,
+  lensRole,
   openDescendants,
   outgoingDependencies,
   rollupOf,
@@ -53,6 +54,8 @@ interface Ctx {
   selectedItemId: string | null
   boardItems: Item[]
   effectiveLane: Map<string, string>
+  lensId: string | null
+  toggleLens: (id: string) => void
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
@@ -219,6 +222,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               depth={depthOf(c.id, graph)}
               parent={parent}
               selected={ctx.selectedItemId === c.id}
+              lens={lensRole(c.id, ctx.lensId, graph)}
+              onLens={ctx.toggleLens}
               onOpen={ctx.openItem}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
@@ -330,6 +335,8 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const removeLane = useStore((s) => s.removeLane)
   const renameLane = useStore((s) => s.renameLane)
   const addCard = useStore((s) => s.addCard)
+  const lensId = useStore((s) => s.lensId)
+  const toggleLens = useStore((s) => s.toggleLens)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const graph: Graph = { items, edges, placements, lanes }
@@ -363,6 +370,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const ctx: Ctx = {
     lanes, items, issueTypes, refs, graph, editMode, search, selectedItemId, boardItems, effectiveLane,
+    lensId, toggleLens,
     openItem, splitLane, addLane, setLaneOrientation, setLaneFlags, setLaneWip, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = issueTypes[0]?.id

@@ -1,4 +1,4 @@
-import { Check, Layers, X } from 'lucide-react'
+import { Check, Crosshair, Layers, X } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
@@ -23,6 +23,8 @@ export function BoardView({ requestMove }: Props) {
   const saveEdit = useStore((s) => s.saveEdit)
   const cancelEdit = useStore((s) => s.cancelEdit)
   const setBoardDerived = useStore((s) => s.setBoardDerived)
+  const lensId = useStore((s) => s.lensId)
+  const clearLens = useStore((s) => s.clearLens)
 
   const board = boards.find((b) => b.id === boardId)
 
@@ -64,6 +66,14 @@ export function BoardView({ requestMove }: Props) {
               rollup
             </button>
           </>
+        )}
+        {lensId && (
+          <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
+            <Crosshair size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
+            <button onClick={clearLens} className="ml-0.5 text-indigo-200 hover:text-white" title="Clear focus">
+              <X size={10} />
+            </button>
+          </span>
         )}
         {external.length > 0 && (
           <span className="ml-auto flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">

@@ -30,6 +30,7 @@ export default function App() {
   const addCard = useStore((s) => s.addCard)
   const addBoard = useStore((s) => s.addBoard)
   const removeBoard = useStore((s) => s.removeBoard)
+  const setLens = useStore((s) => s.setLens)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -38,6 +39,8 @@ export default function App() {
     if (b) selectBoard(b)
     if (params.get('edit')) beginEdit()
     if (it) openItem(it)
+    const lens = params.get('lens')
+    if (lens) setLens(lens)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

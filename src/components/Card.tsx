@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Ban, Clock, CornerDownRight, GripVertical, Layers, ShieldAlert } from 'lucide-react'
+import { Ban, Clock, CornerDownRight, Crosshair, GripVertical, Layers, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { hexToRgba, readableOn } from '@/lib/colors'
 import type { IssueType, Item } from '@/domain/types'
@@ -37,6 +37,9 @@ interface Props {
   /** Wide "summary" card for management/initiative boards: progress bar + symbols. */
   wide?: boolean
   symbols?: CardSymbol[]
+  /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
+  lens?: 'self' | 'in' | 'out'
+  onLens?: (id: string) => void
   selected?: boolean
   onOpen: (id: string) => void
 }
@@ -49,11 +52,30 @@ const BUCKET_DOT: Record<CardSymbol['bucket'], string> = {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, selected, onOpen }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, lens, onLens, selected, onOpen }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
     data: { itemId: item.id },
   })
+
+  const lensCls =
+    lens === 'out' ? 'opacity-40 saturate-50' : lens === 'in' ? 'ring-2 ring-indigo-400' : lens === 'self' ? 'ring-2 ring-indigo-600' : ''
+
+  const lensButton = onLens ? (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        onLens(item.id)
+      }}
+      className={cn(
+        'shrink-0 rounded p-0.5 transition',
+        lens ? 'text-indigo-600 opacity-100' : 'text-slate-300 opacity-0 group-hover:opacity-100 hover:text-indigo-600',
+      )}
+      title="Focus lens — highlight this item's lineage"
+    >
+      <Crosshair size={11} />
+    </button>
+  ) : null
 
   if (wide) {
     const pct = summary.rollupPercent
@@ -71,6 +93,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           'hover:shadow-md hover:border-slate-400',
           selected && 'ring-2 ring-indigo-400',
           isDragging && 'opacity-40',
+          lensCls,
         )}
       >
         {/* progress bar */}
@@ -102,6 +125,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 </span>
               )}
             </span>
+            {lensButton}
           </div>
 
           <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{item.title}</div>
@@ -160,6 +184,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         'hover:shadow-md hover:border-slate-400',
         selected && 'ring-2 ring-indigo-400',
         isDragging && 'opacity-40',
+        lensCls,
       )}
     >
       <div className="flex h-full items-start gap-1 px-1.5 py-1.5">
@@ -195,6 +220,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 {summary.blocksCount}
               </span>
             )}
+            {lensButton}
           </div>
           <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-snug text-slate-900">{item.title}</div>
           {parent && (

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, ExternalLink, Layers, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, ExternalLink, Layers, Plus, X } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
 import { cn } from '@/lib/utils'
@@ -16,6 +16,9 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const addManagementTeam = useStore((s) => s.addManagementTeam)
   const removeManagementTeam = useStore((s) => s.removeManagementTeam)
   const selectBoard = useStore((s) => s.selectBoard)
+  const items = useStore((s) => s.items)
+  const lensId = useStore((s) => s.lensId)
+  const clearLens = useStore((s) => s.clearLens)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [pick, setPick] = useState('')
 
@@ -58,6 +61,14 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
         <span className="font-semibold text-white">{board.name}</span>
         <span className="text-slate-500">·</span>
         <span className="text-slate-400">management board</span>
+        {lensId && (
+          <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
+            <Crosshair size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
+            <button onClick={clearLens} className="ml-0.5 text-indigo-200 hover:text-white" title="Clear focus">
+              <X size={10} />
+            </button>
+          </span>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">

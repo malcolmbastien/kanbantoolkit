@@ -20,6 +20,8 @@ export interface ViewState {
   editMode: boolean
   /** Snapshot taken on entering edit mode; Cancel restores it, Save drops it. */
   draft: Draft | null
+  /** Focus lens: highlight this item and its ancestors/descendants; dim the rest. */
+  lensId: string | null
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -30,6 +32,9 @@ export interface Actions {
   saveEdit: () => void
   cancelEdit: () => void
   setBoardDerived: (id: string, derived: boolean) => void
+  toggleLens: (id: string) => void
+  setLens: (id: string | null) => void
+  clearLens: () => void
   addManagementTeam: (managementBoardId: string, teamBoardId: string) => void
   removeManagementTeam: (managementBoardId: string, teamBoardId: string) => void
   resetDemo: () => void
@@ -80,6 +85,7 @@ const initialView: ViewState = {
   showTypeEditor: false,
   editMode: false,
   draft: null,
+  lensId: null,
 }
 
 /**
@@ -139,6 +145,9 @@ export const useStore = create<Store>()(
       saveEdit: () => set({ editMode: false, draft: null }),
       setBoardDerived: (id, derived) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, derived } : b)) }),
+      toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
+      setLens: (id) => set({ lensId: id }),
+      clearLens: () => set({ lensId: null }),
 
       addManagementTeam: (managementBoardId, teamBoardId) =>
         set({
