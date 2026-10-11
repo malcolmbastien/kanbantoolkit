@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, ChevronsRight, Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
-import { InlineEdit } from './InlineEdit'
+import { LanePolicy, LaneSettings } from './LaneSettings'
 import {
   blockedBelow,
   checklistProgress,
@@ -95,14 +95,16 @@ interface Ctx {
   moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: 'columns' | 'rows') => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
+  setLaneDescription: (laneId: string, description: string | undefined) => void
   removeLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
   onAddCard: (laneId: string) => void
 }
 
-function Ctl({ children, onClick, title, active, danger, disabled }: { children: React.ReactNode; onClick: () => void; title: string; active?: boolean; danger?: boolean; disabled?: boolean }) {
+function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { children: React.ReactNode; onClick: () => void; title: string; active?: boolean; danger?: boolean; disabled?: boolean; btnRef?: React.Ref<HTMLButtonElement> }) {
   return (
     <button
+      ref={btnRef}
       onClick={onClick}
       disabled={disabled}
       title={title}
@@ -124,7 +126,8 @@ function Ctl({ children, onClick, title, active, danger, disabled }: { children:
 
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
-  const [renaming, setRenaming] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsBtnRef = useRef<HTMLButtonElement>(null)
   const kids = childrenOf(lanes, lane.id)
   const top = isTopLevel(lanes, lane.id)
   const stage = lane.stage ?? effectiveStage(lanes, lane.id)
@@ -179,22 +182,16 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
             </button>
           )}
-          {renaming ? (
-            <InlineEdit
-              autoEdit
-              value={lane.name}
-              ariaLabel="Lane name"
-              onSave={(name) => ctx.renameLane(lane.id, name)}
-              onDone={() => setRenaming(false)}
-              inputClassName="min-w-0 flex-1 rounded bg-white/15 px-1 py-px text-[11px] font-bold uppercase tracking-wide text-white outline-none ring-1 ring-white/40"
-            />
-          ) : (
-            <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
-          )}
+          <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
           <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
             {countInLane(lane.id)}
             {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
           </span>
+          {lane.description && (
+            <span className="ml-auto flex shrink-0 items-center">
+              <LanePolicy policy={lane.description} />
+            </span>
+          )}
         </div>
 
         {editMode && !isRoot && (
@@ -222,15 +219,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               <>
                 <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split col</Ctl>
                 <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split row</Ctl>
-                <input
-                  type="number"
-                  min={0}
-                  value={lane.wipLimit ?? ''}
-                  onChange={(e) => ctx.setLaneWip(lane.id, e.target.value === '' ? undefined : Number(e.target.value))}
-                  placeholder="WIP"
-                  title="WIP limit"
-                  className="w-12 rounded bg-white/10 px-1 py-0.5 text-[10px] text-white placeholder:text-slate-400"
-                />
               </>
             ) : (
               <>
@@ -248,12 +236,33 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               <>
                 <Ctl title="Insert a new lane after this one" onClick={() => ctx.insertLaneAfter(lane.id)}>＋ insert</Ctl>
                 <Ctl title="Duplicate this lane and its sub-lanes" onClick={() => ctx.duplicateLane(lane.id)}>duplicate</Ctl>
-                <Ctl title="Rename lane" onClick={() => setRenaming(true)}>rename</Ctl>
-                <Ctl danger title="Remove lane" onClick={removeWithConfirm}>remove</Ctl>
               </>
             )}
+            <Ctl
+              btnRef={settingsBtnRef}
+              active={settingsOpen}
+              title="Lane settings — name, WIP limit, policy"
+              onClick={() => setSettingsOpen((o) => !o)}
+            >
+              ⚙ settings
+            </Ctl>
             {top && <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">typed column — split to refine</span>}
           </div>
+        )}
+        {settingsOpen && (
+          <LaneSettings
+            lane={lane}
+            top={top}
+            anchorRef={settingsBtnRef}
+            onClose={() => setSettingsOpen(false)}
+            rename={(name) => ctx.renameLane(lane.id, name)}
+            setWip={(w) => ctx.setLaneWip(lane.id, w)}
+            setPolicy={(text) => ctx.setLaneDescription(lane.id, text)}
+            remove={() => {
+              setSettingsOpen(false)
+              removeWithConfirm()
+            }}
+          />
         )}
       </div>
     )
@@ -494,6 +503,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const moveLane = useStore((s) => s.moveLane)
   const setLaneOrientation = useStore((s) => s.setLaneOrientation)
   const setLaneWip = useStore((s) => s.setLaneWip)
+  const setLaneDescription = useStore((s) => s.setLaneDescription)
   const removeLane = useStore((s) => s.removeLane)
   const renameLane = useStore((s) => s.renameLane)
   const addCard = useStore((s) => s.addCard)
@@ -526,7 +536,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     lanes, items, issueTypes, refs, graph, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
-    openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, removeLane, renameLane,
+    openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = boardCardTypeId(boards.find((b) => b.id === boardId), issueTypes)
       if (typeId) addCard({ boardId, typeId, laneId, title: 'New card' })

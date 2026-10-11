@@ -57,6 +57,12 @@ const n = workflow('b-nova', true)
 a.ns.wipLimit = 1
 n.backlog.wipLimit = 2
 
+// Demo lane policies (shown via the lane's info icon).
+a.ns.description =
+  'Pull one card at a time. A card may only enter once it is sized and has a clear owner.'
+a.test!.description =
+  'Definition of done: reviewed, automated checks green, and deployed to staging before it can move to Done.'
+
 /* ------------------------------------------------------------------ *
  * Objectives & Key Results (commitment-limited; never in columns)
  * ------------------------------------------------------------------ */

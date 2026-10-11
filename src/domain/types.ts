@@ -41,6 +41,11 @@ export interface Lane {
   stage?: Stage
   /** Optional WIP limit (counts placements anywhere in the lane's subtree). */
   wipLimit?: number
+  /**
+   * Optional policy text — the lane's rules of play (entry/exit criteria, etc.).
+   * Shown on the lane header via an info icon when present.
+   */
+  description?: string
 }
 
 /** Kanban flight level a board represents. */

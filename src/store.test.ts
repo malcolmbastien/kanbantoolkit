@@ -509,6 +509,14 @@ describe('store actions', () => {
     expect(s().confirm).toBe(null)
   })
 
+  it('lane policy (description) is stored on the lane', () => {
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().setLaneDescription(ns.id, 'Pull one at a time.')
+    expect(s().lanes.find((l) => l.id === ns.id)?.description).toBe('Pull one at a time.')
+    s().setLaneDescription(ns.id, undefined)
+    expect(s().lanes.find((l) => l.id === ns.id)?.description).toBeUndefined()
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

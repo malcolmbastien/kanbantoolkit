@@ -147,6 +147,8 @@ export interface Actions {
   removeLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
+  /** Set a lane's policy text (entry/exit rules). */
+  setLaneDescription: (laneId: string, description: string | undefined) => void
 
   setParent: (childId: string, parentId: string | null) => void
   addChild: (parentId: string, typeId: string, title: string) => void
@@ -709,6 +711,8 @@ export const useStore = create<Store>()(
       renameLane: (laneId, name) => set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, name } : l)) }),
       setLaneWip: (laneId, wipLimit) =>
         set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, wipLimit } : l)) }),
+      setLaneDescription: (laneId, description) =>
+        set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, description } : l)) }),
 
       setParent: (childId, parentId) => {
         const state = get()

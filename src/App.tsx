@@ -126,7 +126,8 @@ export default function App() {
         target?.closest('[data-card-id]') ||
         target?.closest('[data-bulk-actions]') ||
         target?.closest('[data-item-panel]') ||
-        target?.closest('[data-confirm-dialog]')
+        target?.closest('[data-confirm-dialog]') ||
+        target?.closest('[data-lane-settings]')
       ) {
         return
       }
