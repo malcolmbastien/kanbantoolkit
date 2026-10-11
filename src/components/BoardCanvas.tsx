@@ -248,7 +248,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     if (transposable && !collapsed) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} />
 
     return (
-      <div className={cn('flex h-full min-h-0 w-full flex-1 flex-col', isRoot && 'overflow-hidden rounded-md border border-slate-300/70')}>
+      <div className={cn('flex h-full min-h-0 w-full flex-1 flex-col', isRoot && 'overflow-hidden rounded-md border border-slate-300/70 bg-slate-300/40')}>
         {!hideHeader && (editMode || lane.name) && header(false)}
         {collapsed ? (
           <div className="px-2 py-1 text-[10px] italic text-slate-400">{kids.length} hidden</div>
@@ -256,7 +256,13 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           <div
             className={cn(
               'flex w-full flex-1 min-h-0',
-              orientation === 'rows' ? 'flex-col divide-y divide-slate-400/50' : 'grid divide-x divide-slate-400/50',
+              orientation === 'rows' ? 'flex-col' : 'grid',
+              // Top-level columns keep a small gap; sub-lanes are flush (LeanKit).
+              isRoot
+                ? 'gap-1 p-1'
+                : orientation === 'rows'
+                  ? 'divide-y divide-slate-400/50'
+                  : 'divide-x divide-slate-400/50',
             )}
             style={orientation === 'columns' ? { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' } : undefined}
           >
