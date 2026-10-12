@@ -53,8 +53,8 @@ task-master list            # terminal 2
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
   placed by rollup (card children are drill-in). A board has a **flight-level band**
-  (`band: 'operational' | 'coordination' | 'strategic'`) that picks its lens: an
-  **operational** board renders work, while a **coordination** or **strategic** board
+  (`band: 'team' | 'program' | 'portfolio'`) that picks its lens: a
+  **team** board renders work, while a **program** or **portfolio** board
   aggregates other boards — its own initiatives plus a band per `linkedBoardIds`. Bands are
   lenses, not depths: the aggregation graph may be any depth and mix teams with other
   coordination boards, so long as it stays **acyclic** (`canLinkBoard`). The current

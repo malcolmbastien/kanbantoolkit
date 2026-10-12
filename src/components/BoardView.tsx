@@ -46,7 +46,7 @@ export function BoardView({ requestMove }: Props) {
         {board && <BandBadge band={board.band} />}
         <span className="font-semibold text-white">{board?.name}</span>
         <span className="text-slate-500">·</span>
-        <span className="text-slate-400">leanlane board</span>
+        <span className="text-slate-400">team board</span>
         {board?.derived && (
           <span className="rounded bg-violet-400/20 px-1.5 py-px font-semibold text-violet-200" title="Columns are derived from the lowest-level work in each card's subtree">
             rollup status
@@ -118,7 +118,7 @@ export function BoardView({ requestMove }: Props) {
           <div className="flex items-center gap-2 rounded-t-lg border-b border-slate-300 bg-slate-800 px-3 py-1.5 text-slate-200">
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Cards workflow</span>
             <span className="text-[10px] text-slate-400">
-              {board?.band === 'operational' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
+              {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
             </span>
           </div>
           <BoardCanvas boardId={boardId} interactive onMove={requestMove} />

@@ -61,13 +61,13 @@ export interface Lane {
 }
 
 /**
- * The lens a board presents. Depth is structural (a board can aggregate boards at
- * any depth); the band picks the view:
- * - `operational`  — renders work: lanes, cards, WIP.
- * - `coordination` — aggregates linked boards and shows the interfaces between them.
- * - `strategic`    — the top of an aggregation: demand vs capability.
+ * The lens a board presents, named by flight level. Depth is structural (a board
+ * can aggregate boards at any depth); the band picks the view:
+ * - `team`      — L1 operational: renders work (lanes, cards, WIP).
+ * - `program`   — L2 coordination: aggregates linked boards and shows the interfaces.
+ * - `portfolio` — L3 strategic: the top of an aggregation — demand vs capability.
  */
-export type BoardBand = 'operational' | 'coordination' | 'strategic'
+export type BoardBand = 'team' | 'program' | 'portfolio'
 
 /** A board: a container that owns a lane grid and/or aggregates other boards. */
 export interface Board {

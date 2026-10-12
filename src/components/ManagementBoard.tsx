@@ -31,7 +31,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const linked = linkedIds.map((id) => boards.find((b) => b.id === id)).filter((b): b is NonNullable<typeof b> => Boolean(b))
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linkedIds.includes(b.id))
-  const isStrategic = board.band === 'strategic'
+  const isPortfolio = board.band === 'portfolio'
 
   const section = (
     key: string,
@@ -64,7 +64,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
         <BandBadge band={board.band} />
         <span className="font-semibold text-white">{board.name}</span>
         <span className="text-slate-500">·</span>
-        <span className="text-slate-400">{isStrategic ? 'strategic board' : 'coordination board'}</span>
+        <span className="text-slate-400">{isPortfolio ? 'portfolio board' : 'program board'}</span>
         {lensId && (
           <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
             <Crosshair size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
@@ -81,7 +81,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           `${board.id}-initiatives`,
           <>
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
-            <span className="text-[10px] text-violet-200">{isStrategic ? 'strategic initiatives' : 'the outcomes this board owns'}</span>
+            <span className="text-[10px] text-violet-200">{isPortfolio ? 'strategic initiatives' : 'the outcomes this board owns'}</span>
           </>,
           <BoardSummary boardId={board.id} rootsOnly variant="initiatives" />,
           undefined,

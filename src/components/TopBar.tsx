@@ -75,7 +75,7 @@ export function TopBar(props: Props) {
         <Target size={12} /> Objectives
       </button>
 
-      {boardBand === 'strategic' && (
+      {boardBand === 'portfolio' && (
         <button
           onClick={onToggleDashboard}
           className={cn(

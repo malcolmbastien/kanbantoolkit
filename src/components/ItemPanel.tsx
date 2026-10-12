@@ -174,7 +174,7 @@ export function ItemPanel({ itemId }: Props) {
   // The board's allowed card types, plus the item's current type so it always shows.
   const boardTypes = boardCardTypes(boards.find((b) => b.id === boardId), issueTypes)
   const typeOptions = issueTypes.filter((t) => boardTypes.some((b) => b.id === t.id) || t.id === item.typeId)
-  const teamBoards = boards.filter((b) => b.band === 'operational')
+  const teamBoards = boards.filter((b) => b.band === 'team')
   const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)

@@ -2,23 +2,23 @@ import { ChevronDown, Layers, Network, Users, type LucideIcon } from 'lucide-rea
 import { cn } from '@/lib/utils'
 import type { BoardBand } from '@/domain/types'
 
-export const BOARD_BANDS: BoardBand[] = ['operational', 'coordination', 'strategic']
+export const BOARD_BANDS: BoardBand[] = ['team', 'program', 'portfolio']
 
 export const BAND_STYLES: Record<BoardBand, { label: string; hint: string; chip: string; icon: LucideIcon }> = {
-  operational: {
-    label: 'Operational',
+  team: {
+    label: 'Team',
     hint: 'L1 — a team’s flow: lanes, cards, WIP',
     chip: 'bg-emerald-500 text-white',
     icon: Users,
   },
-  coordination: {
-    label: 'Coordination',
-    hint: 'L2 — a value stream or line of business: the interface between teams',
+  program: {
+    label: 'Program',
+    hint: 'L2 — coordinates teams: a value stream, line of business or programme',
     chip: 'bg-sky-500 text-white',
     icon: Network,
   },
-  strategic: {
-    label: 'Strategic',
+  portfolio: {
+    label: 'Portfolio',
     hint: 'L3 — demand vs capability across the organisation',
     chip: 'bg-violet-500 text-white',
     icon: Layers,
@@ -27,15 +27,15 @@ export const BAND_STYLES: Record<BoardBand, { label: string; hint: string; chip:
 
 /** Flight-level band badge. Pass onChange to make it an inline selector. */
 export function BandBadge({ band, onChange }: { band: BoardBand; onChange?: (b: BoardBand) => void }) {
-  // Defensive: persisted boards from before bands existed default to Operational.
-  const style = BAND_STYLES[band] ?? BAND_STYLES.operational
+  // Defensive: persisted boards from before bands existed default to Team.
+  const style = BAND_STYLES[band] ?? BAND_STYLES.team
   const Icon = style.icon
 
   if (!onChange) {
     return (
       <span
         className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold', style.chip)}
-        title={`Flight-level band: ${style.hint}`}
+        title={`Flight level: ${style.hint}`}
       >
         <Icon size={12} /> {style.label}
       </span>
@@ -45,7 +45,7 @@ export function BandBadge({ band, onChange }: { band: BoardBand; onChange?: (b: 
   return (
     <span
       className={cn('relative inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold', style.chip)}
-      title="Flight-level band"
+      title="Flight level"
     >
       <Icon size={12} />
       <select

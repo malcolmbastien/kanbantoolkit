@@ -128,15 +128,15 @@ describe('store actions', () => {
   })
 
   it('boards carry a flight-level band that can be changed', () => {
-    expect(s().boards.find((b) => b.id === 'b-strategy')?.band).toBe('strategic')
-    expect(s().boards.find((b) => b.id === 'b-portfolio')?.band).toBe('coordination')
-    expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('operational')
-    s().setBoardBand('b-atlas', 'coordination')
-    expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('coordination')
+    expect(s().boards.find((b) => b.id === 'b-strategy')?.band).toBe('portfolio')
+    expect(s().boards.find((b) => b.id === 'b-portfolio')?.band).toBe('program')
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('team')
+    s().setBoardBand('b-atlas', 'program')
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('program')
     const before = s().boards.length
     s().addBoard('Fresh')
     expect(s().boards.length).toBe(before + 1)
-    expect(s().boards[s().boards.length - 1].band).toBe('operational')
+    expect(s().boards[s().boards.length - 1].band).toBe('team')
   })
 
   it('blocking is an explicit status recorded in the item log', () => {    expect(s().items.find((i) => i.id === 'st-email')?.blocked ?? false).toBe(false)
@@ -653,7 +653,7 @@ describe('store actions', () => {
         { id: 't', name: 'T', level: 'team' }, // → operational
       ],
     }) as { boards: { id: string; band: string; level?: string; linkedBoardIds?: string[] }[] }
-    expect(migrated.boards.map((b) => b.band)).toEqual(['operational', 'coordination', 'coordination', 'operational'])
+    expect(migrated.boards.map((b) => b.band)).toEqual(['team', 'program', 'program', 'team'])
     expect(migrated.boards[1].linkedBoardIds).toEqual(['x'])
     expect('level' in migrated.boards[1]).toBe(false)
   })

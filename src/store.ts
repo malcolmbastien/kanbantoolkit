@@ -320,26 +320,24 @@ const initialView: ViewState = {
  * - `targetDate` split into target start / end dates (v13);
  * - a single `assignee` became a list of assignees (v14);
  * - assignees became user ids backed by a `users` directory (v15);
- * - `Board.level` became `Board.band` (operational/coordination/strategic) and
+ * - `Board.level` became `Board.band` (team/program/portfolio) and
  *   `teamBoardIds` became `linkedBoardIds` (v16).
  * Exported for testing.
  */
 export function migrateState(persisted: unknown): Partial<Store> {
   const p = (persisted ?? {}) as Record<string, unknown>
   // v16: `Board.level` became `Board.band`, and `teamBoardIds` became the
-  // depth-agnostic `linkedBoardIds`. Both old values ('portfolio' and 'project')
-  // were aggregating boards, so they map onto the coordination band; the new
-  // strategic altitude starts empty.
+  // depth-agnostic `linkedBoardIds`. v17: the band values were renamed to the
+  // flight-level vocabulary (team / program / portfolio). An old 'portfolio' level
+  // (an aggregating board) becomes a *program*, while a v16 'strategic' band
+  // becomes the new *portfolio*.
   if (Array.isArray(p.boards)) {
     p.boards = (p.boards as (Record<string, unknown> & { level?: string; teamBoardIds?: string[] })[]).map((b) => {
       const { level, teamBoardIds, ...rest } = b
-      const existing = rest.band
+      const existing = typeof rest.band === 'string' ? rest.band : undefined
+      const raw = existing ?? (level === 'portfolio' || level === 'project' ? 'program' : 'team')
       const band: BoardBand =
-        existing === 'operational' || existing === 'coordination' || existing === 'strategic'
-          ? existing
-          : level === 'portfolio' || level === 'project'
-            ? 'coordination'
-            : 'operational'
+        raw === 'coordination' || raw === 'program' ? 'program' : raw === 'strategic' || raw === 'portfolio' ? 'portfolio' : 'team'
       return { ...rest, band, ...(teamBoardIds ? { linkedBoardIds: teamBoardIds } : {}) }
     })
   }
@@ -696,14 +694,14 @@ export const useStore = create<Store>()(
         set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
       removeIssueType: (id) => set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
 
-      addBoard: (name, band = 'operational') => {
+      addBoard: (name, band = 'team') => {
         const boardId = uid()
         const rootId = uid()
         const board: Board = {
           id: boardId,
           name,
           band,
-          ...(band !== 'operational' ? { linkedBoardIds: [] } : {}),
+          ...(band !== 'team' ? { linkedBoardIds: [] } : {}),
         }
         const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
         // Every board starts as the fixed three typed columns; users split them to refine.

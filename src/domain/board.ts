@@ -13,7 +13,7 @@ export function itemsOnBoard(boardId: string, placements: Placement[], items: It
 
 /** A board that aggregates other boards rather than rendering work. */
 export function isAggregating(board: Board | undefined): boolean {
-  return board?.band === 'coordination' || board?.band === 'strategic'
+  return board?.band === 'program' || board?.band === 'portfolio'
 }
 
 /** Every board beneath this one in the aggregation graph (transitive, deduped). */

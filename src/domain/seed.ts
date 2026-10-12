@@ -24,11 +24,11 @@ const users: User[] = [
 ]
 
 const boards: Board[] = [
-  { id: 'b-strategy', name: 'Company Strategy', band: 'strategic', derived: true, linkedBoardIds: ['b-lob'] },
-  { id: 'b-lob', name: 'Digital line of business', band: 'coordination', derived: true, linkedBoardIds: ['b-portfolio'] },
-  { id: 'b-portfolio', name: 'Growth value stream', band: 'coordination', derived: true, linkedBoardIds: ['b-atlas', 'b-nova'] },
-  { id: 'b-atlas', name: 'Team Atlas', band: 'operational', defaultCardTypeId: 't-story' },
-  { id: 'b-nova', name: 'Team Nova', band: 'operational', defaultCardTypeId: 't-story' },
+  { id: 'b-strategy', name: 'Company Strategy', band: 'portfolio', derived: true, linkedBoardIds: ['b-lob'] },
+  { id: 'b-lob', name: 'Digital line of business', band: 'program', derived: true, linkedBoardIds: ['b-portfolio'] },
+  { id: 'b-portfolio', name: 'Growth value stream', band: 'program', derived: true, linkedBoardIds: ['b-atlas', 'b-nova'] },
+  { id: 'b-atlas', name: 'Team Atlas', band: 'team', defaultCardTypeId: 't-story' },
+  { id: 'b-nova', name: 'Team Nova', band: 'team', defaultCardTypeId: 't-story' },
 ]
 
 const lanes: Lane[] = []
