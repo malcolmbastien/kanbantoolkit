@@ -54,6 +54,14 @@ The two do not conflict, because both read the **same** graph from opposite ends
 
 This is the payoff of derivation. Roll-up is not a report someone writes and keeps current; it is a *view of the graph*, so it stays honest for free.
 
+### 2.3 The novel move — separating a team's workflow from its representation of work
+
+Agile asks for two things that pull against each other: **self-organization**, teams deciding how they work, and **transparency**, management being able to see where things stand. Most tools resolve that by picking a side. Hold every team to a standard board and you get comparability at the cost of ownership; let every team invent its own board and you get ownership at the cost of any view above it.
+
+Flowline separates the two instead. A team's **card workflow** is theirs: its columns, its splits, its policies, reworked whenever they like. Their **initiative workflow** is the *external representation of the same work* — initiatives in the four typed stages. Neither is a copy of the other and nothing is entered twice, because the initiative view is derived from where the cards actually are. A team can reshape its board on Tuesday without asking anyone, and the portfolio is still correct on Wednesday, because it was never a transcription of the board to begin with.
+
+That separation is the point, and it is what makes the two agile virtues compatible rather than traded off: teams manage their workflow and their cards as they see fit, and management gets the information it needs, without either side telling the other how to work.
+
 ## 3. Data model
 
 Everything reduces to nodes and typed edges. There is no board membership field anywhere in the schema.
