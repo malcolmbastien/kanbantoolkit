@@ -20,7 +20,6 @@ export default function App() {
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
   const boardBand = boards.find((b) => b.id === boardId)?.band ?? 'team'
-  const setBoardBand = useStore((s) => s.setBoardBand)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
@@ -185,7 +184,6 @@ export default function App() {
         showFilters={showFilters}
         activeFilterCount={activeFilterCount(filters)}
         onSelectBoard={selectBoard}
-        onSetBoardBand={(b) => setBoardBand(boardId, b)}
         onToggleObjectives={toggleObjectives}
         onToggleDashboard={toggleDashboard}
         onToggleArchive={toggleArchive}

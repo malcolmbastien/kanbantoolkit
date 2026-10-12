@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target, Trash2, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
-import { BandBadge } from './BandBadge'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
 import type { Board, BoardBand } from '@/domain/types'
@@ -19,7 +18,6 @@ interface Props {
   /** Number of active filter categories (for the button badge). */
   activeFilterCount: number
   onSelectBoard: (id: string) => void
-  onSetBoardBand: (band: BoardBand) => void
   onToggleObjectives: () => void
   onToggleDashboard: () => void
   onToggleArchive: () => void
@@ -36,7 +34,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onSetBoardBand, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
@@ -54,8 +52,6 @@ export function TopBar(props: Props) {
       </div>
 
       <div className="h-5 w-px bg-slate-700" />
-
-      <BandBadge band={boardBand} onChange={onSetBoardBand} />
 
       <button
         onClick={onToggleObjectives}
