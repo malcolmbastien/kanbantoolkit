@@ -171,6 +171,35 @@ describe('store actions', () => {
     expect(s().boards[s().boards.length - 1].band).toBe('team')
   })
 
+  it('a new board takes an explicit band, and only opens when asked', () => {
+    const before = s().boards.length
+    s().addBoard('Value stream', 'program')
+    expect(s().boards.length).toBe(before + 1)
+    const created = s().boards[s().boards.length - 1]
+    expect(created.band).toBe('program')
+    expect(created.linkedBoardIds).toEqual([]) // a coordination board can aggregate others
+    expect(s().boardId).toBe(created.id) // the TopBar's create opens it…
+    expect(s().editMode).toBe(true) // …in edit mode
+
+    // Every board starts as the standard typed columns.
+    const root = rootLane(s().lanes, created.id)!
+    const cols = childrenOf(s().lanes, root.id)
+    expect(cols.map((c) => c.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+    expect(cols.map((c) => c.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+
+    // A team board carries no linkedBoardIds.
+    s().addBoard('Squad', 'team')
+    expect(s().boards[s().boards.length - 1].linkedBoardIds).toBeUndefined()
+
+    // The board workspace creates without leaving the board it is browsing.
+    s().cancelEdit()
+    const current = s().boardId
+    s().addBoard('Another stream', 'program', false)
+    expect(s().boards[s().boards.length - 1].band).toBe('program')
+    expect(s().boardId).toBe(current)
+    expect(s().editMode).toBe(false)
+  })
+
   it('blocking is an explicit status recorded in the item log', () => {    expect(s().items.find((i) => i.id === 'st-email')?.blocked ?? false).toBe(false)
     s().blockItem('st-email', 'Waiting on gateway')
     const b = s().items.find((i) => i.id === 'st-email')!

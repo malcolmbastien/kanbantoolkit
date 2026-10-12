@@ -167,7 +167,12 @@ export interface Actions {
   updateIssueType: (id: string, patch: Partial<IssueType>) => void
   removeIssueType: (id: string) => void
 
-  addBoard: (name: string, band?: BoardBand) => void
+  /**
+   * Create a board with the standard typed columns. `open` (the default) switches to it in
+   * edit mode, as the TopBar's create does; the board workspace passes false so a new board
+   * simply lands in the list without leaving it.
+   */
+  addBoard: (name: string, band?: BoardBand, open?: boolean) => void
   removeBoard: (id: string) => void
   renameBoard: (id: string, name: string) => void
   setBoardBand: (id: string, band: BoardBand) => void
@@ -729,7 +734,7 @@ export const useStore = create<Store>()(
         set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
       removeIssueType: (id) => set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
 
-      addBoard: (name, band = 'team') => {
+      addBoard: (name, band = 'team', open = true) => {
         const boardId = uid()
         const rootId = uid()
         const board: Board = {
@@ -739,7 +744,7 @@ export const useStore = create<Store>()(
           ...(band !== 'team' ? { linkedBoardIds: [] } : {}),
         }
         const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
-        // Every board starts as the fixed three typed columns; users split them to refine.
+        // Every board starts as the fixed typed columns; users split them to refine.
         const cols: Lane[] = STAGES.map((s, i) => ({
           id: uid(),
           boardId,
@@ -748,7 +753,11 @@ export const useStore = create<Store>()(
           name: STAGE_LABELS[s],
           stage: s,
         }))
-        set({ boards: [...get().boards, board], lanes: [...get().lanes, root, ...cols], boardId, editMode: true })
+        set({
+          boards: [...get().boards, board],
+          lanes: [...get().lanes, root, ...cols],
+          ...(open ? { boardId, editMode: true } : {}),
+        })
       },
 
       removeBoard: (id) => {

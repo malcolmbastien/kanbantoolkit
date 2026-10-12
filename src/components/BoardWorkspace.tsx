@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Columns3, ExternalLink, Search, Trash2 } from 'lucide-react'
-import { BAND_STYLES } from './BandBadge'
+import { Columns3, ExternalLink, Plus, Search, Trash2 } from 'lucide-react'
+import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { boardsByBand } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { Board } from '@/domain/types'
+import type { Board, BoardBand } from '@/domain/types'
 
 /**
  * The board workspace: every board in the organisation, grouped by flight level, with a
@@ -21,12 +21,34 @@ export function BoardWorkspace() {
   const boardId = useStore((s) => s.boardId)
   const selectBoard = useStore((s) => s.selectBoard)
   const removeBoard = useStore((s) => s.removeBoard)
+  const addBoard = useStore((s) => s.addBoard)
   const askConfirm = useStore((s) => s.askConfirm)
   const [q, setQ] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [name, setName] = useState('')
+  const [band, setBand] = useState<BoardBand>('team')
 
   const groups = boardsByBand(boards, q)
   const shown = groups.reduce((n, g) => n + g.boards.length, 0)
   const lastBoard = boards.length <= 1
+
+  const create = () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    // `open: false` — creating here is browsing, so the board lands in the list rather
+    // than switching to it in edit mode the way the TopBar's create does.
+    addBoard(trimmed, band, false)
+    setName('')
+    setBand('team')
+    setCreating(false)
+    setQ('')
+  }
+
+  const cancelCreate = () => {
+    setName('')
+    setBand('team')
+    setCreating(false)
+  }
 
   const remove = (board: Board) =>
     askConfirm({
@@ -50,16 +72,73 @@ export function BoardWorkspace() {
             </div>
             <div className="text-[11px] text-slate-500">Every board in the organisation, grouped by flight level.</div>
           </div>
-          <div className="relative ml-auto">
-            <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search boards…"
-              aria-label="Search boards"
-              className="w-56 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
-            />
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => (creating ? cancelCreate() : setCreating(true))}
+              className={cn(
+                'flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition',
+                creating
+                  ? 'border-indigo-400/60 bg-indigo-50 text-indigo-700'
+                  : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
+              )}
+              title="Create a board in this organisation"
+            >
+              <Plus size={13} /> New board
+            </button>
+            <div className="relative">
+              <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search boards…"
+                aria-label="Search boards"
+                className="w-56 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+            </div>
           </div>
+
+          {creating && (
+            <div className="flex w-full flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') create()
+                  else if (e.key === 'Escape') cancelCreate()
+                }}
+                placeholder="Board name…"
+                aria-label="New board name"
+                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+              <select
+                value={band}
+                onChange={(e) => setBand(e.target.value as BoardBand)}
+                aria-label="New board flight level"
+                className="rounded-md border border-slate-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+              >
+                {BOARD_BANDS.map((b) => (
+                  <option key={b} value={b}>
+                    {BAND_STYLES[b].label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={create}
+                disabled={!name.trim()}
+                className="rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
+              >
+                Create
+              </button>
+              <button
+                onClick={cancelCreate}
+                className="rounded-md border border-slate-300 px-2.5 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-800"
+              >
+                Cancel
+              </button>
+              <span className="text-[11px] text-slate-400">Starts as the standard Backlog → Done columns; shape it after.</span>
+            </div>
+          )}
         </div>
 
         {groups.length === 0 && (

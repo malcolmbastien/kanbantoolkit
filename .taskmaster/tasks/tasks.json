@@ -769,14 +769,15 @@
         "id": "49",
         "title": "Board workspace: create a board",
         "description": "Create a board from the workspace: a name plus a band, optionally from a template.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "48"
         ],
         "priority": "medium",
         "details": "A 'New board' control in the workspace header collecting a name and a band (team / program / portfolio). addBoard currently defaults to team, so it needs to take an explicit band and seed linkedBoardIds for non-team bands, as the store already does when a band is passed. The template choice arrives with task 51 — until then the standard four typed columns are the only starting point, which is today's behaviour. The existing TopBar edit-mode create stays: the workspace is another way in, not the only one.",
         "testStrategy": "Unit-test addBoard with an explicit band, including that a non-team board starts with an empty linkedBoardIds and that the board gets the standard typed columns. Over CDP: create a board from the workspace for each band, confirm it appears under the right group in the list and can be opened. Run npm test.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-12T20:34:24.447Z"
       },
       {
         "id": "50",
@@ -833,9 +834,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-12T20:29:32.775Z",
+      "lastModified": "2026-10-12T20:34:24.447Z",
       "taskCount": 52,
-      "completedCount": 27,
+      "completedCount": 28,
       "tags": [
         "backlog"
       ]
