@@ -111,19 +111,6 @@ export function wipState(count: number, limit?: number): 'at' | 'over' | null {
   return null
 }
 
-/** Map a rollup bucket onto a board's typed top-level column. */
-export function bucketLaneId(lanes: Lane[], boardId: string, bucket: Stage): string | undefined {
-  const top = topLevelLanes(lanes, boardId).find(
-    (l) => l.stage === bucket || effectiveStage(lanes, l.id) === bucket,
-  )
-  if (top) {
-    const leaves = leavesUnder(lanes, top.id)
-    return (leaves[0] ?? top).id
-  }
-  // Fallback for a board without typed columns: first leaf.
-  return leafLanes(lanes, boardId)[0]?.id
-}
-
 /** Ordered leaves somewhere in a subtree (not board-scoped). */
 export function leavesUnder(lanes: Lane[], laneId: string): Lane[] {
   const out: Lane[] = []

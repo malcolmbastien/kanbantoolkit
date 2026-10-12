@@ -38,17 +38,12 @@ export function BoardView({ requestMove }: Props) {
 
   // The board's level and name already live in the TopBar's board picker, so this
   // strip only appears when it has something functional to say.
-  const showBar = Boolean(board?.derived || editMode || lensId || doneCount > 0 || external.length > 0)
+  const showBar = Boolean(editMode || lensId || doneCount > 0 || external.length > 0)
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
       {showBar && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
-          {board?.derived && (
-            <span className="rounded bg-violet-400/20 px-1.5 py-px font-semibold text-violet-200" title="Columns are derived from the lowest-level work in each card's subtree">
-              rollup status
-            </span>
-          )}
           {editMode && (
             <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">edit mode · unsaved changes</span>
           )}

@@ -24,11 +24,11 @@ const users: User[] = [
 ]
 
 const boards: Board[] = [
-  { id: 'b-strategy', name: 'Company Strategy', band: 'portfolio', derived: true, linkedBoardIds: ['b-lob', 'b-delivery'] },
-  { id: 'b-lob', name: 'Digital line of business', band: 'program', derived: true, linkedBoardIds: ['b-portfolio'] },
+  { id: 'b-strategy', name: 'Company Strategy', band: 'portfolio', linkedBoardIds: ['b-lob', 'b-delivery'] },
+  { id: 'b-lob', name: 'Digital line of business', band: 'program', linkedBoardIds: ['b-portfolio'] },
   // A Program that bridges the two team boards straight to the portfolio.
-  { id: 'b-delivery', name: 'Product Delivery', band: 'program', derived: true, linkedBoardIds: ['b-atlas', 'b-nova'] },
-  { id: 'b-portfolio', name: 'Growth value stream', band: 'program', derived: true, linkedBoardIds: ['b-atlas', 'b-nova'] },
+  { id: 'b-delivery', name: 'Product Delivery', band: 'program', linkedBoardIds: ['b-atlas', 'b-nova'] },
+  { id: 'b-portfolio', name: 'Growth value stream', band: 'program', linkedBoardIds: ['b-atlas', 'b-nova'] },
   { id: 'b-atlas', name: 'Team Atlas', band: 'team', defaultCardTypeId: 't-story' },
   { id: 'b-nova', name: 'Team Nova', band: 'team', defaultCardTypeId: 't-story' },
 ]

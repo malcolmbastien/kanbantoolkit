@@ -31,10 +31,6 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   items** (positioned by rollup); their children are the detailed cards, seen by opening an
   initiative. From a management initiative you can **link** down to a new team initiative: it's
   created on a team board as a child, so its cards roll up the hierarchy.
-- **Rollup boards.** Mark a board as *rollup* and each card's column is **derived from the
-  status of the work at the lowest level** of its subtree — mapped onto the board's start /
-  in-progress / done lanes — rather than stored. Parents also show a computed **%** done.
-  Nothing is typed: status, depth and rollup are all computed.
 - **Three typed columns.** Every board's top level is exactly three columns typed
   **Not Started / In Progress / Done**. A leaf's status is the *type* of the column it
   ultimately sits under, which is what makes status roll up the hierarchy. The top-level

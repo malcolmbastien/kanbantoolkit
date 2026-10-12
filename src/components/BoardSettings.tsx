@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Layers, Plus, Settings, Target, X } from 'lucide-react'
+import { Plus, Settings, Target, X } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 
 /**
- * Board settings: title, flight-level band, rollup, which card types the board
+ * Board settings: title, flight-level band, which card types the board
  * allows (and which is the default), WIP enforcement, and — for a coordination
  * or strategic board — the boards it aggregates.
  */
@@ -16,7 +16,6 @@ export function BoardSettings() {
   const issueTypes = useStore((s) => s.issueTypes)
   const renameBoard = useStore((s) => s.renameBoard)
   const setBoardBand = useStore((s) => s.setBoardBand)
-  const setBoardDerived = useStore((s) => s.setBoardDerived)
   const setBoardCardTypes = useStore((s) => s.setBoardCardTypes)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
@@ -121,19 +120,6 @@ export function BoardSettings() {
             </div>
             <p className="mt-1 text-[10px] text-slate-400">{BAND_STYLES[board.band]?.hint}</p>
           </div>
-
-          {/* Rollup */}
-          <label className={cn(row, 'cursor-pointer')}>
-            <input type="checkbox" checked={board.derived === true} onChange={(e) => setBoardDerived(board.id, e.target.checked)} />
-            <span className="flex-1">
-              <span className="flex items-center gap-1 font-medium text-slate-700">
-                <Layers size={12} className="text-slate-400" /> Rollup board
-              </span>
-              <span className="text-[10px] text-slate-400">
-                Derive each item’s column from the status of the work at the lowest level of its subtree.
-              </span>
-            </span>
-          </label>
 
           {/* Card types */}
           <div>

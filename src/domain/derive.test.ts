@@ -21,7 +21,7 @@ import {
   waitsOn,
   type Graph,
 } from './derive'
-import { bucketLaneId, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes, wipState } from './lanes'
+import { effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes, wipState } from './lanes'
 import { createSeed } from './seed'
 import type { FlowState, Item } from './types'
 
@@ -231,12 +231,6 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     const roll = rollupOf('init-signup', graphOf(s2))
     expect(roll.bucket).toBe('done')
     expect(roll.percent).toBe(100)
-  })
-
-  it('a derived board maps a rollup bucket onto its typed column', () => {
-    expect(bucketLaneId(s.lanes, 'b-portfolio', 'backlog')).toBe(laneByName(s, 'b-portfolio', 'Backlog').id)
-    expect(bucketLaneId(s.lanes, 'b-portfolio', 'notStarted')).toBe(laneByName(s, 'b-portfolio', 'Not Started').id)
-    expect(bucketLaneId(s.lanes, 'b-portfolio', 'done')).toBe(laneByName(s, 'b-portfolio', 'Done').id)
   })
 })
 

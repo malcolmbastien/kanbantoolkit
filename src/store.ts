@@ -94,7 +94,6 @@ export interface Actions {
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
-  setBoardDerived: (id: string, derived: boolean) => void
   toggleLens: (id: string) => void
   setLens: (id: string | null) => void
   clearLens: () => void
@@ -430,6 +429,11 @@ export function migrateState(persisted: unknown): Partial<Store> {
     }
     p.edges = (p.edges as Edge[]).filter((e) => e.kind !== 'attribution' || isStrategicInitiative(e.to, ctx))
   }
+  // v19: `Board.derived` (the "rollup board" flag) is gone — a parent's status already
+  // rolls up from the work beneath it, with no per-board mode. Drop the stale flag.
+  if (Array.isArray(p.boards)) {
+    p.boards = (p.boards as (Board & { derived?: boolean })[]).map(({ derived: _derived, ...rest }) => rest)
+  }
   return p as Partial<Store>
 }
 
@@ -649,8 +653,6 @@ export const useStore = create<Store>()(
         })
       },
       saveEdit: () => set({ editMode: false, draft: null }),
-      setBoardDerived: (id, derived) =>
-        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, derived } : b)) }),
       toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
@@ -1147,7 +1149,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 18,
+      version: 19,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

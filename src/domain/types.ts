@@ -75,12 +75,6 @@ export interface Board {
   name: string
   band: BoardBand
   /**
-   * Rollup board: an item's column is *derived* from the status of the work at the
-   * lowest level of its subtree (mapped onto the board's start/done lanes) rather
-   * than stored in its placement. Used for coordination/strategic boards.
-   */
-  derived?: boolean
-  /**
    * Boards this one aggregates (coordination/strategic). Any depth and any mix —
    * teams or other coordination boards — so long as the graph stays acyclic.
    */
