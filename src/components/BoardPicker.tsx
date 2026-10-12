@@ -78,7 +78,12 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
         title="Switch board"
       >
         {current && (
-          <span className={cn('shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide', (BAND_STYLES[current.band] ?? BAND_STYLES.team).chip)}>
+          <span
+            className={cn(
+              'w-[72px] shrink-0 rounded py-px text-center text-[9px] font-bold uppercase tracking-wide',
+              (BAND_STYLES[current.band] ?? BAND_STYLES.team).chip,
+            )}
+          >
             {(BAND_STYLES[current.band] ?? BAND_STYLES.team).label}
           </span>
         )}
@@ -107,7 +112,7 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
                   i === active ? 'bg-indigo-500/30' : 'hover:bg-slate-700/60',
                 )}
               >
-                <span className={cn('shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide', style.chip)}>
+                <span className={cn('w-[72px] shrink-0 rounded py-px text-center text-[9px] font-bold uppercase tracking-wide', style.chip)}>
                   {style.label}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[12px] text-slate-100">{b.name}</span>
