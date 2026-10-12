@@ -56,7 +56,7 @@ export const BUCKET_DOT: Record<Stage, string> = {
 /** Top accent colour for a top-level column, by workflow stage. */
 export const STAGE_ACCENT: Record<Stage, string> = {
   backlog: '#fbbf24',
-  notStarted: '#22d3ee',
+  notStarted: '#94a3b8',
   inProgress: '#818cf8',
   done: '#34d399',
 }
