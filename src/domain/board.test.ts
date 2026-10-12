@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardsByBand } from './board'
+import { activeBoards, boardsByBand } from './board'
 import { createSeed } from './seed'
 
 const names = (groups: ReturnType<typeof boardsByBand>) => groups.flatMap((g) => g.boards.map((b) => b.name))
@@ -35,5 +35,18 @@ describe('board workspace — grouping, ordering and the name filter', () => {
     const archived = s.boards.map((b) => (b.id === 'b-atlas' ? { ...b, archived: true } : b))
     expect(names(boardsByBand(archived))).not.toContain('Team Atlas')
     expect(names(boardsByBand(archived))).toContain('Team Nova')
+  })
+
+  it('activeBoards is the pool every board-choosing surface filters through', () => {
+    const archived = s.boards.map((b) => (b.id === 'b-atlas' ? { ...b, archived: true } : b))
+    expect(activeBoards(archived).map((b) => b.id)).not.toContain('b-atlas')
+    expect(activeBoards(archived)).toHaveLength(s.boards.length - 1)
+  })
+
+  it('includeArchived brings retired boards back into the list', () => {
+    const archived = s.boards.map((b) => (b.id === 'b-atlas' ? { ...b, archived: true } : b))
+    const withArchived = names(boardsByBand(archived, '', true))
+    expect(withArchived).toContain('Team Atlas')
+    expect(withArchived).toHaveLength(s.boards.length)
   })
 })

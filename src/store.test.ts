@@ -200,6 +200,42 @@ describe('store actions', () => {
     expect(s().editMode).toBe(false)
   })
 
+  it('archiving a board retires it without touching anything it holds', () => {
+    const lanes = s().lanes.filter((l) => l.boardId === 'b-atlas').length
+    const placements = s().placements.filter((p) => p.boardId === 'b-atlas').length
+
+    s().archiveBoard('b-atlas')
+    const archived = s().boards.find((b) => b.id === 'b-atlas')!
+    expect(archived.archived).toBe(true)
+    expect(typeof archived.archivedAt).toBe('number')
+    // Nothing is destroyed: lanes, placements and the aggregation edges all survive, so
+    // unarchiving restores the graph with nothing to repair.
+    expect(s().lanes.filter((l) => l.boardId === 'b-atlas').length).toBe(lanes)
+    expect(s().placements.filter((p) => p.boardId === 'b-atlas').length).toBe(placements)
+    expect(s().boards.find((b) => b.id === 'b-portfolio')?.linkedBoardIds).toContain('b-atlas')
+
+    s().unarchiveBoard('b-atlas')
+    const restored = s().boards.find((b) => b.id === 'b-atlas')!
+    expect(restored.archived).toBeUndefined()
+    expect(restored.archivedAt).toBeUndefined()
+    expect('archived' in restored).toBe(false)
+  })
+
+  it('migrateState normalises the archived flags and leaves older boards working', () => {
+    const migrated = migrateState({
+      boards: [
+        { id: 'x', name: 'X', band: 'team' }, // written before boards could be archived
+        { id: 'y', name: 'Y', band: 'program', archived: false, archivedAt: 1 }, // stale falsy flags
+        { id: 'z', name: 'Z', band: 'program', archived: true, archivedAt: 5 },
+      ],
+    }) as { boards: { id: string; archived?: boolean; archivedAt?: number }[] }
+    expect('archived' in migrated.boards[0]).toBe(false)
+    expect('archived' in migrated.boards[1]).toBe(false)
+    expect('archivedAt' in migrated.boards[1]).toBe(false)
+    expect(migrated.boards[2].archived).toBe(true)
+    expect(migrated.boards[2].archivedAt).toBe(5)
+  })
+
   it('blocking is an explicit status recorded in the item log', () => {    expect(s().items.find((i) => i.id === 'st-email')?.blocked ?? false).toBe(false)
     s().blockItem('st-email', 'Waiting on gateway')
     const b = s().items.find((i) => i.id === 'st-email')!

@@ -783,14 +783,15 @@
         "id": "50",
         "title": "Archive boards (retire a board without destroying it)",
         "description": "Let a board be archived: hidden from the picker, the workspace's default list and the aggregation bands, but not destroyed. Mirrors item archiving (task 12).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "48"
         ],
         "priority": "high",
-        "details": "Add Board.archived (with archivedAt) plus archiveBoard / unarchiveBoard. An archived board is hidden from the board picker, the workspace's default list and the aggregation bands — a retired program must stop collecting rollups — and can be revealed with an 'include archived' toggle in the workspace. It stays openable by deep link (?board=…), and its lanes, items, placements and edges are untouched; nothing is deleted. Persist version bump + migrate. SETTLE FIRST, and record the answers in this task: (a) do archived boards keep their aggregation edges, or are the edges suspended while archived? Suspending reads more cleanly; keeping them means unarchiving restores the graph exactly. (b) Is an archived board read-only when opened, or fully usable?",
+        "details": "Add Board.archived (with archivedAt) plus archiveBoard / unarchiveBoard. An archived board is hidden from the board picker, the workspace's default list and the aggregation bands — a retired program must stop collecting rollups — and can be revealed with an 'include archived' toggle in the workspace. It stays openable by deep link (?board=…), and its lanes, items, placements and edges are untouched; nothing is deleted. Persist version bump + migrate. SETTLED, and built: (a) archived boards KEEP their aggregation edges. Archiving never mutates config, exactly as item archiving never removes an item from the hierarchy; the board is filtered out of the picker, the workspace's list, the aggregation bands and the link candidates (activeBoards in the domain), so the graph reads cleanly and unarchiving restores it with nothing to repair. (b) An archived board is FULLY USABLE when opened — archiving is about visibility, not immutability, and archived items behave the same way. Opening one shows an archived chip with a Restore action on both board surfaces, so it is never a surprise.",
         "testStrategy": "Unit-test archive/unarchive; that archived boards are filtered out of the picker, the workspace list and the aggregation bands; and that the migration leaves older persisted state working. Over CDP: archive a board and confirm it leaves the picker and the workspace, and disappears as a band from the board that aggregated it; open it by deep link; toggle 'include archived' and unarchive; confirm its bands return. Run npm test.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-12T20:50:34.967Z"
       },
       {
         "id": "51",
@@ -834,9 +835,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-12T20:34:24.447Z",
+      "lastModified": "2026-10-12T20:50:34.967Z",
       "taskCount": 52,
-      "completedCount": 28,
+      "completedCount": 29,
       "tags": [
         "backlog"
       ]

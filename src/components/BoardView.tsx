@@ -1,4 +1,5 @@
 import { Archive, Layers } from 'lucide-react'
+import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
@@ -39,12 +40,13 @@ export function BoardView({ requestMove }: Props) {
 
   // The board's level and name already live in the TopBar's board picker, so this
   // strip only appears when it has something functional to say.
-  const showBar = Boolean(editMode || doneCount > 0 || external.length > 0)
+  const showBar = Boolean(board?.archived || editMode || doneCount > 0 || external.length > 0)
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
       {showBar && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
+          {board?.archived && <ArchivedBoardChip />}
           {editMode && (
             <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">edit mode · unsaved changes</span>
           )}

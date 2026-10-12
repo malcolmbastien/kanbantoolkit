@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Columns3 } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
+import { activeBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Board, BoardBand } from '@/domain/types'
@@ -26,7 +27,8 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
 
   const sorted = useMemo(
     () =>
-      [...boards].sort(
+      // A retired board is not something you switch to; it stays reachable by deep link.
+      activeBoards(boards).sort(
         (a, b) => BAND_ORDER.indexOf(a.band) - BAND_ORDER.indexOf(b.band) || a.name.localeCompare(b.name),
       ),
     [boards],

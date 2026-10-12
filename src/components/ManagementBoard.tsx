@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Layers, Plus, X } from 'lucide-react'
+import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
 import { StrategyMap } from './StrategyMap'
@@ -28,7 +29,12 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   if (!board) return null
 
   const linkedIds = board.linkedBoardIds ?? []
-  const linked = linkedIds.map((id) => boards.find((b) => b.id === id)).filter((b): b is NonNullable<typeof b> => Boolean(b))
+  const linked = linkedIds
+    .map((id) => boards.find((b) => b.id === id))
+    .filter((b): b is NonNullable<typeof b> => Boolean(b))
+    // A retired board stops collecting rollups: it is filtered here rather than unlinked,
+    // so unarchiving restores the graph exactly.
+    .filter((b) => !b.archived)
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linkedIds.includes(b.id))
   const isPortfolio = board.band === 'portfolio'
@@ -64,6 +70,13 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
+      {/* A retired board says so here too — it has no other strip to carry the chip. */}
+      {board.archived && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
+          <ArchivedBoardChip />
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {/* A portfolio leads with strategy: objectives and the initiatives that serve
             them on one page. Other coordination boards show the initiatives workflow. */}

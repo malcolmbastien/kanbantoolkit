@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Columns3, ExternalLink, Plus, Search, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, Columns3, ExternalLink, Plus, Search, Trash2 } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { boardsByBand } from '@/domain/board'
 import { cn } from '@/lib/utils'
@@ -22,14 +22,18 @@ export function BoardWorkspace() {
   const selectBoard = useStore((s) => s.selectBoard)
   const removeBoard = useStore((s) => s.removeBoard)
   const addBoard = useStore((s) => s.addBoard)
+  const archiveBoard = useStore((s) => s.archiveBoard)
+  const unarchiveBoard = useStore((s) => s.unarchiveBoard)
   const askConfirm = useStore((s) => s.askConfirm)
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [band, setBand] = useState<BoardBand>('team')
+  const [showArchived, setShowArchived] = useState(false)
 
-  const groups = boardsByBand(boards, q)
+  const groups = boardsByBand(boards, q, showArchived)
   const shown = groups.reduce((n, g) => n + g.boards.length, 0)
+  const archivedCount = boards.filter((b) => b.archived).length
   const lastBoard = boards.length <= 1
 
   const create = () => {
@@ -95,6 +99,20 @@ export function BoardWorkspace() {
                 className="w-56 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
               />
             </div>
+            {archivedCount > 0 && (
+              <button
+                onClick={() => setShowArchived((v) => !v)}
+                className={cn(
+                  'flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition',
+                  showArchived
+                    ? 'border-slate-400 bg-slate-200 text-slate-700'
+                    : 'border-slate-300 bg-white text-slate-500 hover:text-slate-700',
+                )}
+                title={showArchived ? 'Hide retired boards' : 'Show retired boards'}
+              >
+                <Archive size={13} /> {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
+              </button>
+            )}
           </div>
 
           {creating && (
@@ -167,6 +185,7 @@ export function BoardWorkspace() {
                       className={cn(
                         'flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0',
                         b.id === boardId ? 'bg-indigo-50' : 'hover:bg-slate-50',
+                        b.archived && 'opacity-60',
                       )}
                     >
                       <button
@@ -174,12 +193,27 @@ export function BoardWorkspace() {
                         className="group flex min-w-0 flex-1 items-center gap-1.5 text-left"
                         title={`Open ${b.name}`}
                       >
-                        <span className="truncate text-[13px] font-semibold text-slate-800">{b.name}</span>
+                        <span className={cn('truncate text-[13px] font-semibold', b.archived ? 'text-slate-500' : 'text-slate-800')}>
+                          {b.name}
+                        </span>
+                        {b.archived && (
+                          <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                            archived
+                          </span>
+                        )}
                         {b.id === boardId && <span className="shrink-0 text-[10px] font-medium text-indigo-600">current</span>}
                         <ExternalLink
                           size={11}
                           className="shrink-0 text-slate-400 transition group-hover:text-indigo-500"
                         />
+                      </button>
+
+                      <button
+                        onClick={() => (b.archived ? unarchiveBoard(b.id) : archiveBoard(b.id))}
+                        className="shrink-0 rounded p-1 text-slate-400 transition hover:text-slate-700"
+                        title={b.archived ? `Restore ${b.name}` : `Archive ${b.name}`}
+                      >
+                        {b.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
                       </button>
 
                       <button

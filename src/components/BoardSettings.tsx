@@ -215,6 +215,11 @@ export function BoardSettings() {
                     <label key={id} className={cn(row, 'cursor-pointer')}>
                       <input type="checkbox" checked onChange={() => removeLinkedBoard(board.id, id)} />
                       <span className="flex-1 text-slate-700">{b.name}</span>
+                      {b.archived && (
+                        <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                          archived
+                        </span>
+                      )}
                       <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">{BAND_STYLES[b.band]?.label ?? '—'}</span>
                     </label>
                   )

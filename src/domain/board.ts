@@ -17,17 +17,28 @@ export function itemsOnBoard(boardId: string, placements: Placement[], items: It
 export const BOARD_BAND_ORDER: BoardBand[] = ['portfolio', 'program', 'team']
 
 /**
+ * Boards still in play. An archived board is retired from the organisation's views — the
+ * picker, the workspace's default list, the aggregation bands and the link candidates —
+ * without anything being destroyed, so every surface that lists boards for *choosing*
+ * from filters through here. An archived board can still be opened directly.
+ */
+export function activeBoards(boards: Board[]): Board[] {
+  return boards.filter((b) => !b.archived)
+}
+
+/**
  * The board workspace's list: boards grouped by band (Portfolio → Program → Team), then
  * by name, narrowed by a name filter. Each board appears **exactly once** — the
  * aggregation graph is a DAG, so nesting a board under one of its parents would either
- * duplicate it or pick a parent and lie. Archived boards are hidden.
+ * duplicate it or pick a parent and lie. Archived boards are hidden unless asked for.
  */
-export function boardsByBand(boards: Board[], query = ''): { band: BoardBand; boards: Board[] }[] {
+export function boardsByBand(boards: Board[], query = '', includeArchived = false): { band: BoardBand; boards: Board[] }[] {
   const q = query.trim().toLowerCase()
+  const pool = includeArchived ? boards : activeBoards(boards)
   return BOARD_BAND_ORDER.map((band) => ({
     band,
-    boards: boards
-      .filter((b) => b.band === band && !b.archived)
+    boards: pool
+      .filter((b) => b.band === band)
       .filter((b) => !q || b.name.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name)),
   })).filter((group) => group.boards.length > 0)
@@ -82,7 +93,8 @@ export function canLinkBoard(boards: Board[], parentId: string, childId: string)
 
 /** The boards that may be linked under `boardId` (excludes itself and its ancestors). */
 export function linkableBoards(boards: Board[], boardId: string): Board[] {
-  return boards.filter((b) => canLinkBoard(boards, boardId, b.id))
+  // A retired board is not newly linkable; an existing edge to one is kept (see `archived`).
+  return activeBoards(boards).filter((b) => canLinkBoard(boards, boardId, b.id))
 }
 
 /* ------------------------------------------------------------------ *

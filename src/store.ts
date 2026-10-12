@@ -174,6 +174,12 @@ export interface Actions {
    */
   addBoard: (name: string, band?: BoardBand, open?: boolean) => void
   removeBoard: (id: string) => void
+  /**
+   * Retire a board without destroying it: hidden from the picker, the workspace's list and
+   * the aggregation bands, while its lanes, items, placements and edges are untouched.
+   */
+  archiveBoard: (id: string) => void
+  unarchiveBoard: (id: string) => void
   renameBoard: (id: string, name: string) => void
   setBoardBand: (id: string, band: BoardBand) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
@@ -449,6 +455,16 @@ export function migrateState(persisted: unknown): Partial<Store> {
   // rolls up from the work beneath it, with no per-board mode. Drop the stale flag.
   if (Array.isArray(p.boards)) {
     p.boards = (p.boards as (Board & { derived?: boolean })[]).map(({ derived: _derived, ...rest }) => rest)
+  }
+  // v20: boards gained `archived` / `archivedAt`. Both are optional, so nothing needs
+  // backfilling — an absent flag simply means "not archived". Normalise instead: a board
+  // that is not archived should carry neither key.
+  if (Array.isArray(p.boards)) {
+    p.boards = (p.boards as Board[]).map((b) => {
+      if (b.archived) return b
+      const { archived: _a, archivedAt: _at, ...rest } = b
+      return rest
+    })
   }
   return p as Partial<Store>
 }
@@ -774,6 +790,20 @@ export const useStore = create<Store>()(
           boardId: state.boardId === id ? boards[0].id : state.boardId,
         })
       },
+
+      archiveBoard: (id) =>
+        set({
+          boards: get().boards.map((b) => (b.id === id ? { ...b, archived: true, archivedAt: Date.now() } : b)),
+        }),
+      unarchiveBoard: (id) =>
+        set({
+          // Drop the flags rather than setting false, so persisted state stays clean.
+          boards: get().boards.map((b) => {
+            if (b.id !== id) return b
+            const { archived: _a, archivedAt: _at, ...rest } = b
+            return rest
+          }),
+        }),
 
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
       setBoardBand: (id, band) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, band } : b)) }),
@@ -1185,7 +1215,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 19,
+      version: 20,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

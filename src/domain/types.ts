@@ -77,9 +77,12 @@ export interface Board {
   /**
    * Retired: hidden from the board picker, the board workspace's list and the aggregation
    * bands, but never destroyed — its lanes, items, placements and edges are untouched.
-   * The actions that set it are task 50; the workspace already honours it.
+   * Aggregation edges are deliberately kept, so unarchiving restores the graph exactly;
+   * the board is *filtered* from the surfaces instead. `archiveBoard` / `unarchiveBoard`.
    */
   archived?: boolean
+  /** When it was retired. */
+  archivedAt?: number
   /**
    * Boards this one aggregates (coordination/strategic). Any depth and any mix —
    * teams or other coordination boards — so long as the graph stays acyclic.
