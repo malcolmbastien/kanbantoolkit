@@ -60,6 +60,12 @@ interface Props {
   onLens?: (id: string) => void
   /** Native HTML5 drag (cards workflow). */
   draggable?: boolean
+  /**
+   * Notified with the item's id while a native drag is in flight, and `null` when it
+   * ends. A surface needs this to know *what* is being dragged — `dataTransfer` is not
+   * readable during `dragover` — so it can mark only the valid drop targets.
+   */
+  onDragStateChange?: (itemId: string | null) => void
   /** Locked (edit mode): no drag, no click-to-open, no lens. */
   locked?: boolean
   selected?: boolean
@@ -78,7 +84,7 @@ interface Props {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -86,7 +92,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           onDragStart: (e: React.DragEvent) => {
             e.dataTransfer.setData('text/plain', item.id)
             e.dataTransfer.effectAllowed = 'move'
+            onDragStateChange?.(item.id)
           },
+          onDragEnd: () => onDragStateChange?.(null),
         }
       : {}
 

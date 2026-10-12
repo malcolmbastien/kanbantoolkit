@@ -110,6 +110,14 @@ export function BoardSummary({
   const isInitiatives = variant === 'initiatives'
   const drop = (itemId: string, laneId: string) => moveInitiative(itemId, boardId, laneId)
 
+  /** The initiative currently in flight, if any — `dataTransfer` can't be read on hover. */
+  const [dragging, setDragging] = useState<string | null>(null)
+  // An initiative may only be rearranged within its own section, and never onto the cell
+  // it already sits in — so those are the only cells worth highlighting.
+  const dragTarget = dragging ? initiativeCellOf(dragging, boardId, graph) : undefined
+  const canDropOn = (sectionId: string, cellId: string) =>
+    Boolean(dragTarget && dragTarget.sectionId === sectionId && dragTarget.cellId !== cellId)
+
   const initiativeCard = (c: Item) => {
     const pid = decompositionParent(c.id, edges)
     const p = pid ? items.find((i) => i.id === pid) : undefined
@@ -139,6 +147,7 @@ export function BoardSummary({
         lens={lensRole(c.id, lensId, graph)}
         onLens={toggleLens}
         draggable={interactive}
+        onDragStateChange={setDragging}
         locked={editMode}
         onOpen={openItem}
         summary={{
@@ -158,7 +167,7 @@ export function BoardSummary({
   const empty = <p className="px-1 py-2 text-[10px] text-slate-400">No initiatives</p>
 
   return (
-    <div className="flex gap-2 p-2">
+    <div className="flex gap-2 p-2" data-dragging={dragging ?? undefined}>
       {sections.map(({ section, stage, cells, byCell, total }) => {
         const split = cells.length > 1
         return (
@@ -169,6 +178,7 @@ export function BoardSummary({
             primary
             count={total}
             droppable={!split}
+            canDrop={canDropOn(section.id, section.id)}
             isInitiatives={isInitiatives}
             accent={accent}
             interactive={interactive}
@@ -191,6 +201,7 @@ export function BoardSummary({
                       lane={cell}
                       count={cards.length}
                       droppable
+                      canDrop={canDropOn(section.id, cell.id)}
                       isInitiatives={isInitiatives}
                       accent={accent}
                       interactive={interactive}
@@ -228,6 +239,7 @@ function Cell({
   primary,
   count,
   droppable,
+  canDrop,
   isInitiatives,
   accent,
   interactive,
@@ -242,6 +254,8 @@ function Cell({
   primary?: boolean
   count: number
   droppable: boolean
+  /** Whether the item currently in flight may land here. */
+  canDrop?: boolean
   isInitiatives: boolean
   accent: Accent
   interactive: boolean
@@ -321,7 +335,7 @@ function Cell({
       </div>
 
       {droppable ? (
-        <DroppableCell laneId={lane.id} enabled={interactive && !editMode} onDropItem={onDrop}>
+        <DroppableCell laneId={lane.id} enabled={interactive && !editMode && Boolean(canDrop)} onDropItem={onDrop}>
           {children}
         </DroppableCell>
       ) : (
