@@ -22,7 +22,6 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
   const [active, setActive] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
 
-  const parentsOf = (id: string) => boards.filter((b) => (b.linkedBoardIds ?? []).includes(id))
   const sorted = useMemo(
     () =>
       [...boards].sort(
@@ -95,7 +94,6 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
         >
           {sorted.map((b, i) => {
             const style = BAND_STYLES[b.band] ?? BAND_STYLES.team
-            const parents = parentsOf(b.id)
             return (
               <button
                 key={b.id}
@@ -105,22 +103,15 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
                 onMouseEnter={() => setActive(i)}
                 onClick={() => choose(b.id)}
                 className={cn(
-                  'flex w-full items-start gap-2 px-2.5 py-1.5 text-left transition',
+                  'flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition',
                   i === active ? 'bg-indigo-500/30' : 'hover:bg-slate-700/60',
                 )}
               >
-                <span className={cn('mt-0.5 shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide', style.chip)}>
+                <span className={cn('shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide', style.chip)}>
                   {style.label}
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] text-slate-100">{b.name}</span>
-                  {parents.length > 0 && (
-                    <span className="block truncate text-[10px] text-slate-400">
-                      rolls up to {parents.map((p) => p.name).join(', ')}
-                    </span>
-                  )}
-                </span>
-                {b.id === boardId && <Check size={12} className="mt-0.5 shrink-0 text-indigo-300" />}
+                <span className="min-w-0 flex-1 truncate text-[12px] text-slate-100">{b.name}</span>
+                {b.id === boardId && <Check size={12} className="shrink-0 text-indigo-300" />}
               </button>
             )
           })}
