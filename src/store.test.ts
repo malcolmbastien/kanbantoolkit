@@ -221,6 +221,24 @@ describe('store actions', () => {
     expect('archived' in restored).toBe(false)
   })
 
+  it('entering the board workspace leaves the board section behind', () => {
+    s().selectBoard('b-atlas')
+    s().toggleFilters()
+    s().openItem('st-email')
+    expect(s().showFilters).toBe(false) // opening a card dismissed the panel
+
+    s().toggleBoards()
+    expect(s().showBoards).toBe(true)
+    // The workspace is organisation-level, so no board panel survives into it.
+    expect(s().showFilters).toBe(false)
+    expect(s().selectedItemId).toBe(null)
+
+    // Opening a board puts you back in the board section.
+    s().selectBoard('b-nova')
+    expect(s().showBoards).toBe(false)
+    expect(s().boardId).toBe('b-nova')
+  })
+
   it('saves a board as a template and instantiates it without the work', () => {
     const placementsBefore = s().placements.length
     expect(s().boardTemplates).toEqual([])

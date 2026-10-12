@@ -34,6 +34,7 @@ export default function App() {
   const toggleArchive = useStore((s) => s.toggleArchive)
   const showBoards = useStore((s) => s.showBoards)
   const toggleBoards = useStore((s) => s.toggleBoards)
+  const setBoards = useStore((s) => s.setBoards)
   const setArchive = useStore((s) => s.setArchive)
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
@@ -192,6 +193,7 @@ export default function App() {
         onToggleDashboard={toggleDashboard}
         onToggleArchive={toggleArchive}
         onToggleBoards={toggleBoards}
+        onGoToBoards={() => setBoards(true)}
         onToggleFilters={toggleFilters}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}

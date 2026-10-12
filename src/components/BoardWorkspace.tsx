@@ -18,7 +18,6 @@ import type { Board, BoardBand } from '@/domain/types'
  */
 export function BoardWorkspace() {
   const boards = useStore((s) => s.boards)
-  const boardId = useStore((s) => s.boardId)
   const selectBoard = useStore((s) => s.selectBoard)
   const removeBoard = useStore((s) => s.removeBoard)
   const addBoard = useStore((s) => s.addBoard)
@@ -210,8 +209,7 @@ export function BoardWorkspace() {
                     <div
                       key={b.id}
                       className={cn(
-                        'flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0',
-                        b.id === boardId ? 'bg-indigo-50' : 'hover:bg-slate-50',
+                        'flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-50',
                         b.archived && 'opacity-60',
                       )}
                     >
@@ -228,7 +226,8 @@ export function BoardWorkspace() {
                             archived
                           </span>
                         )}
-                        {b.id === boardId && <span className="shrink-0 text-[10px] font-medium text-indigo-600">current</span>}
+                        {/* No "current" marker: the workspace sits outside the board section,
+                            so no board is "the one you are on". */}
                         <ExternalLink
                           size={11}
                           className="shrink-0 text-slate-400 transition group-hover:text-indigo-500"

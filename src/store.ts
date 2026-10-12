@@ -705,8 +705,24 @@ export const useStore = create<Store>()(
       setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showArchive: false, showBoards: false } : {}) }),
       toggleArchive: () => set({ showArchive: !get().showArchive, showObjectives: false, showDashboard: false, showBoards: false }),
       setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showBoards: false } : {}) }),
-      toggleBoards: () => set({ showBoards: !get().showBoards, showObjectives: false, showDashboard: false, showArchive: false }),
-      setBoards: (v) => set({ showBoards: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false } : {}) }),
+      toggleBoards: () => {
+        const on = !get().showBoards
+        set({
+          showBoards: on,
+          showObjectives: false,
+          showDashboard: false,
+          showArchive: false,
+          // The workspace is organisation-level, so a board's side panel has no place in it.
+          ...(on ? { showFilters: false, selectedItemId: null } : {}),
+        })
+      },
+      setBoards: (v) =>
+        set({
+          showBoards: v,
+          ...(v
+            ? { showObjectives: false, showDashboard: false, showArchive: false, showFilters: false, selectedItemId: null }
+            : {}),
+        }),
 
       addObjective: (title, period) =>
         set({ objectives: [...get().objectives, { id: uid(), title, period, status: 'active' }] }),

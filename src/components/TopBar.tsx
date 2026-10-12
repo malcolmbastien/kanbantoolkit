@@ -24,6 +24,8 @@ interface Props {
   onToggleDashboard: () => void
   onToggleArchive: () => void
   onToggleBoards: () => void
+  /** The logo: leave the board section for the board workspace. */
+  onGoToBoards: () => void
   onToggleFilters: () => void
   onEditBoard: () => void
   onSaveEdit: () => void
@@ -37,136 +39,152 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
-      <div className="flex items-center gap-2">
-        <div className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
+      <button
+        onClick={onGoToBoards}
+        className={cn(
+          'flex items-center gap-2 rounded-md px-1.5 py-1 transition',
+          showBoards ? 'bg-slate-800 ring-1 ring-indigo-400/50' : 'hover:bg-slate-800',
+        )}
+        title="Boards — browse and manage every board"
+      >
+        <span className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
-        </div>
+        </span>
         <span className="text-sm font-semibold tracking-tight text-white">Flowline</span>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-        Board
-        <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
-      </div>
-
-      <div className="h-5 w-px bg-slate-700" />
-
-      <button
-        onClick={onToggleBoards}
-        className={cn(
-          'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-          showBoards ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
-        )}
-        title="Boards — browse every board in the organisation"
-      >
-        <Columns3 size={12} /> Boards
       </button>
 
-      <button
-        onClick={onToggleObjectives}
-        className={cn(
-          'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-          showObjectives ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
-        )}
-        title="Objectives & Key Results — how work maps to priorities"
-      >
-        <Target size={12} /> Objectives
-      </button>
+      {/* Everything below acts on the open board. The workspace is outside that section, so
+          it shows the organisation's controls only. */}
+      {!showBoards && (
+        <>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+            Board
+            <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
+          </div>
 
-      {boardBand === 'portfolio' && (
-        <button
-          onClick={onToggleDashboard}
-          className={cn(
-            'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-            showDashboard ? 'border-violet-400/50 bg-violet-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+          <div className="h-5 w-px bg-slate-700" />
+
+          <button
+            onClick={onToggleBoards}
+            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300 transition hover:text-white"
+            title="Boards — browse every board in the organisation"
+          >
+            <Columns3 size={12} /> Boards
+          </button>
+
+          <button
+            onClick={onToggleObjectives}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+              showObjectives ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+            )}
+            title="Objectives & Key Results — how work maps to priorities"
+          >
+            <Target size={12} /> Objectives
+          </button>
+
+          {boardBand === 'portfolio' && (
+            <button
+              onClick={onToggleDashboard}
+              className={cn(
+                'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+                showDashboard ? 'border-violet-400/50 bg-violet-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+              )}
+              title="Portfolio dashboard — a summary view of this board's initiatives"
+            >
+              <LayoutDashboard size={12} /> Dashboard
+            </button>
           )}
-          title="Portfolio dashboard — a summary view of this board's initiatives"
-        >
-          <LayoutDashboard size={12} /> Dashboard
-        </button>
+
+          <button
+            onClick={onToggleArchive}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+              showArchive ? 'border-amber-400/50 bg-amber-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+            )}
+            title="Archive — filed-away items (still searchable, still in links)"
+          >
+            <Archive size={12} /> Archive
+          </button>
+
+          <button
+            onClick={onToggleFilters}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+              showFilters ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+            )}
+            title="Filters — narrow the cards shown on this board"
+          >
+            <SlidersHorizontal size={12} /> Filters
+            {activeFilterCount > 0 && (
+              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-indigo-500 px-1 text-[9px] font-bold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          <FocusChip />
+        </>
       )}
 
-      <button
-        onClick={onToggleArchive}
-        className={cn(
-          'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-          showArchive ? 'border-amber-400/50 bg-amber-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
-        )}
-        title="Archive — filed-away items (still searchable, still in links)"
-      >
-        <Archive size={12} /> Archive
-      </button>
-
-      <button
-        onClick={onToggleFilters}
-        className={cn(
-          'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-          showFilters ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
-        )}
-        title="Filters — narrow the cards shown on this board"
-      >
-        <SlidersHorizontal size={12} /> Filters
-        {activeFilterCount > 0 && (
-          <span className="grid h-4 min-w-4 place-items-center rounded-full bg-indigo-500 px-1 text-[9px] font-bold text-white">
-            {activeFilterCount}
-          </span>
-        )}
-      </button>
-
-      <FocusChip />
-
       <div className="ml-auto flex items-center gap-2">
-        {editMode && (
+        {!showBoards && (
           <>
-            {namingBoard ? (
-              <InlineEdit
-                autoEdit
-                value=""
-                placeholder="New board name"
-                ariaLabel="New board name"
-                onSave={onNewBoard}
-                onDone={() => setNamingBoard(false)}
-                inputClassName="w-40 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-[12px] text-slate-100 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-400"
-              />
-            ) : (
-              <button
-                onClick={() => setNamingBoard(true)}
-                className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
-                title="Create a new board"
-              >
-                <Plus size={13} /> Board
-              </button>
+            {editMode && (
+              <>
+                {namingBoard ? (
+                  <InlineEdit
+                    autoEdit
+                    value=""
+                    placeholder="New board name"
+                    ariaLabel="New board name"
+                    onSave={onNewBoard}
+                    onDone={() => setNamingBoard(false)}
+                    inputClassName="w-40 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-[12px] text-slate-100 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                ) : (
+                  <button
+                    onClick={() => setNamingBoard(true)}
+                    className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+                    title="Create a new board"
+                  >
+                    <Plus size={13} /> Board
+                  </button>
+                )}
+                <button
+                  onClick={onDeleteBoard}
+                  className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-400 hover:text-rose-300"
+                  title="Delete this board"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </>
             )}
             <button
-              onClick={onDeleteBoard}
-              className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-400 hover:text-rose-300"
-              title="Delete this board"
+              onClick={onAddCard}
+              className="flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400"
             >
-              <Trash2 size={13} />
+              <Plus size={13} /> Card
             </button>
           </>
         )}
-        <button
-          onClick={onAddCard}
-          className="flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400"
-        >
-          <Plus size={13} /> Card
-        </button>
 
         <GlobalSearch />
 
-        <button
-          onClick={onOpenBoardSettings}
-          className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
-          title="Board settings — title, type, card types, WIP"
-        >
-          <Settings size={13} /> Settings
-        </button>
+        {!showBoards && (
+          <button
+            onClick={onOpenBoardSettings}
+            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+            title="Board settings — title, flight level, card types, WIP"
+          >
+            <Settings size={13} /> Settings
+          </button>
+        )}
 
         <button
           onClick={onOpenTypes}
@@ -176,32 +194,33 @@ export function TopBar(props: Props) {
           <Shapes size={13} /> Types
         </button>
 
-        {editMode ? (
-          <>
+        {!showBoards &&
+          (editMode ? (
+            <>
+              <button
+                onClick={onSaveEdit}
+                className="flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-emerald-400"
+                title="Save layout changes"
+              >
+                <Check size={13} /> Save
+              </button>
+              <button
+                onClick={onCancelEdit}
+                className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+                title="Discard layout changes"
+              >
+                <X size={13} /> Cancel
+              </button>
+            </>
+          ) : (
             <button
-              onClick={onSaveEdit}
-              className="flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-emerald-400"
-              title="Save layout changes"
-            >
-              <Check size={13} /> Save
-            </button>
-            <button
-              onClick={onCancelEdit}
+              onClick={onEditBoard}
               className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
-              title="Discard layout changes"
+              title="Edit board design (split/add/rename lanes)"
             >
-              <X size={13} /> Cancel
+              <Pencil size={13} /> Edit board
             </button>
-          </>
-        ) : (
-          <button
-            onClick={onEditBoard}
-            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
-            title="Edit board design (split/add/rename lanes)"
-          >
-            <Pencil size={13} /> Edit board
-          </button>
-        )}
+          ))}
 
         <button
           onClick={onReset}
