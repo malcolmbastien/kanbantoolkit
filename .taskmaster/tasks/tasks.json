@@ -526,7 +526,7 @@
         "id": "28",
         "title": "Add lineage breadcrumb and show-on-other-boards to the item panel",
         "description": "Show the parent chain and the boards an item appears on, with jump links.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Breadcrumb from root to item using decomposition edges; list placements with board names; clicking a board switches to it and focuses the item.",
@@ -700,7 +700,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
       "taskCount": 41,
-      "completedCount": 20,
+      "completedCount": 21,
       "tags": [
         "backlog"
       ]
