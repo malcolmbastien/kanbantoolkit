@@ -277,6 +277,26 @@ describe('store actions', () => {
     expect(s().boards[s().boards.length - 1].band).toBe('team')
   })
 
+  it('a template can be started from scratch, with a board type', () => {
+    s().newBoardTemplate('Squad flow', 'program')
+    const t = s().boardTemplates[0]
+    expect(t.name).toBe('Squad flow')
+    expect(t.band).toBe('program')
+    expect(t.lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+    expect(t.lanes.map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+    expect(t.lanes.every((l) => l.parentKey === null)).toBe(true)
+
+    // A blank name is refused.
+    const before = s().boardTemplates.length
+    s().newBoardTemplate('   ', 'team')
+    expect(s().boardTemplates.length).toBe(before)
+
+    // Ids are unique, so two templates never collide.
+    s().newBoardTemplate('Squad flow', 'team')
+    expect(s().boardTemplates).toHaveLength(2)
+    expect(new Set(s().boardTemplates.map((x) => x.id)).size).toBe(2)
+  })
+
   it('templates are managed and round-trip through persistence', () => {
     s().saveBoardAsTemplate('b-atlas', 'Team flow')
     expect(persistedSlice(s()).boardTemplates).toHaveLength(1)

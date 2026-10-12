@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, Columns3, ExternalLink, Plus, Search, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, Columns3, ExternalLink, Eye, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
+import { InlineEdit } from './InlineEdit'
+import { TemplatePreview } from './TemplatePreview'
 import { boardsByBand } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { Board, BoardBand } from '@/domain/types'
+import type { Board, BoardBand, BoardTemplate } from '@/domain/types'
 
 /**
  * The board workspace: every board in the organisation, grouped by flight level, with a
@@ -23,6 +25,9 @@ export function BoardWorkspace() {
   const addBoard = useStore((s) => s.addBoard)
   const archiveBoard = useStore((s) => s.archiveBoard)
   const unarchiveBoard = useStore((s) => s.unarchiveBoard)
+  const newBoardTemplate = useStore((s) => s.newBoardTemplate)
+  const renameBoardTemplate = useStore((s) => s.renameBoardTemplate)
+  const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
   const askConfirm = useStore((s) => s.askConfirm)
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
@@ -31,6 +36,11 @@ export function BoardWorkspace() {
   const [templateId, setTemplateId] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const boardTemplates = useStore((s) => s.boardTemplates)
+  const [creatingTemplate, setCreatingTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [templateBand, setTemplateBand] = useState<BoardBand>('team')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
 
   const groups = boardsByBand(boards, q, showArchived)
   const shown = groups.reduce((n, g) => n + g.boards.length, 0)
@@ -56,6 +66,32 @@ export function BoardWorkspace() {
     setTemplateId('')
     setCreating(false)
   }
+
+  const createTemplate = () => {
+    const trimmed = templateName.trim()
+    if (!trimmed) return
+    newBoardTemplate(trimmed, templateBand)
+    setTemplateName('')
+    setTemplateBand('team')
+    setCreatingTemplate(false)
+  }
+
+  const cancelCreateTemplate = () => {
+    setTemplateName('')
+    setTemplateBand('team')
+    setCreatingTemplate(false)
+  }
+
+  const removeTemplate = (template: BoardTemplate) =>
+    askConfirm({
+      title: `Delete template “${template.name}”?`,
+      body: 'Boards already created from it are untouched.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: () => removeBoardTemplate(template.id),
+    })
+
+  const preview = boardTemplates.find((t) => t.id === previewId)
 
   const remove = (board: Board) =>
     askConfirm({
@@ -257,7 +293,128 @@ export function BoardWorkspace() {
             )
           })}
         </div>
+
+        {/* Templates — board designs, reusable when creating boards. */}
+        <section className="mt-4">
+          <div className="mb-1 flex items-center gap-2 px-1">
+            <LayoutTemplate size={12} className="text-slate-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Templates</span>
+            <span className="text-[10px] font-semibold tabular-nums text-slate-400">{boardTemplates.length}</span>
+            <button
+              onClick={() => (creatingTemplate ? cancelCreateTemplate() : setCreatingTemplate(true))}
+              className={cn(
+                'ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition',
+                creatingTemplate
+                  ? 'border-indigo-400/60 bg-indigo-50 text-indigo-700'
+                  : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
+              )}
+              title="Create a template to start boards from"
+            >
+              <Plus size={13} /> New template
+            </button>
+          </div>
+
+          {creatingTemplate && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
+              <input
+                autoFocus
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') createTemplate()
+                  else if (e.key === 'Escape') cancelCreateTemplate()
+                }}
+                placeholder="Template name…"
+                aria-label="New template name"
+                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+              <select
+                value={templateBand}
+                onChange={(e) => setTemplateBand(e.target.value as BoardBand)}
+                aria-label="New template board type"
+                className="rounded-md border border-slate-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+              >
+                {BOARD_BANDS.map((b) => (
+                  <option key={b} value={b}>
+                    {BAND_STYLES[b].label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={createTemplate}
+                disabled={!templateName.trim()}
+                className="rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
+              >
+                Create
+              </button>
+              <button
+                onClick={cancelCreateTemplate}
+                className="rounded-md border border-slate-300 px-2.5 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-800"
+              >
+                Cancel
+              </button>
+              <span className="text-[11px] text-slate-400">The board type it will create, and its starting columns.</span>
+            </div>
+          )}
+
+          {boardTemplates.length === 0 && !creatingTemplate ? (
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-6 text-center text-[12px] text-slate-500">
+              No templates yet. Create one here, or save a board’s design from its settings.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
+              {boardTemplates.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-50"
+                >
+                  {renamingId === t.id ? (
+                    <InlineEdit
+                      autoEdit
+                      value={t.name}
+                      ariaLabel="Template name"
+                      onSave={(next) => {
+                        renameBoardTemplate(t.id, next)
+                        setRenamingId(null)
+                      }}
+                      onDone={() => setRenamingId(null)}
+                      className="min-w-0 flex-1"
+                      inputClassName="w-full rounded border border-indigo-300 px-1.5 py-0.5 text-[13px] font-semibold text-slate-800 outline-none"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setRenamingId(t.id)}
+                      className="group flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                      title={`Rename ${t.name}`}
+                    >
+                      <span className="truncate text-[13px] font-semibold text-slate-800">{t.name}</span>
+                      <Pencil size={11} className="shrink-0 text-slate-300 transition group-hover:text-indigo-500" />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setPreviewId(t.id)}
+                    className="flex shrink-0 items-center gap-1 rounded border border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                    title={`Preview ${t.name}`}
+                  >
+                    <Eye size={11} /> Preview
+                  </button>
+
+                  <button
+                    onClick={() => removeTemplate(t)}
+                    className="shrink-0 rounded p-1 text-slate-300 transition hover:text-rose-500"
+                    title={`Delete ${t.name}`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+
+      {preview && <TemplatePreview template={preview} onClose={() => setPreviewId(null)} />}
     </div>
   )
 }

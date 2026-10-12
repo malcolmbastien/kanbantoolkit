@@ -5,7 +5,7 @@ import { canLinkBoard, initiativeTypeId, isStrategicInitiative, lanesFromTemplat
 import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
-import type { Board, BoardBand, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, User } from '@/domain/types'
+import type { Board, BoardBand, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, User } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -178,6 +178,12 @@ export interface Actions {
    * policy. Its items, placements and linked boards are deliberately left behind.
    */
   saveBoardAsTemplate: (boardId: string, name?: string) => void
+  /**
+   * Start a template from scratch: a name and the flight level of the boards it will
+   * create. It begins as the standard typed columns; save a board as a template to
+   * capture a richer design.
+   */
+  newBoardTemplate: (name: string, band: BoardBand) => void
   removeBoardTemplate: (id: string) => void
   renameBoardTemplate: (id: string, name: string) => void
   removeBoard: (id: string) => void
@@ -816,6 +822,24 @@ export const useStore = create<Store>()(
         if (!board) return
         const label = (name ?? board.name).trim() || board.name
         set({ boardTemplates: [...state.boardTemplates, templateFromBoard(uid(), label, board, state.lanes)] })
+      },
+      newBoardTemplate: (name, band) => {
+        const label = name.trim()
+        if (!label) return
+        const template: BoardTemplate = {
+          id: uid(),
+          name: label,
+          band,
+          // The standard typed columns — the same starting point a plain board gets.
+          lanes: STAGES.map((s, i) => ({
+            key: `k${i}`,
+            parentKey: null,
+            order: i,
+            name: STAGE_LABELS[s],
+            stage: s,
+          })),
+        }
+        set({ boardTemplates: [...get().boardTemplates, template] })
       },
       removeBoardTemplate: (id) => set({ boardTemplates: get().boardTemplates.filter((t) => t.id !== id) }),
       renameBoardTemplate: (id, name) =>

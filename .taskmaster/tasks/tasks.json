@@ -811,14 +811,15 @@
         "id": "52",
         "title": "Board templates: manage the library",
         "description": "List, rename and remove templates from the workspace.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "51"
         ],
         "priority": "low",
-        "details": "A templates section in the workspace (or a small dialog) listing saved templates with their band and lane count, allowing rename and removal behind the confirm dialog. Removing a template must not affect boards already created from it.",
+        "details": "A templates section in the workspace (or a small dialog) listing saved templates by name only — deliberately no band and no lane count, which told you nothing you could act on. Each row offers Preview (a read-only look at the shape the template would produce and the settings it carries), rename (inline, as everywhere else) and delete behind the confirm dialog. A template can also be started from scratch here: a name and the flight level of the boards it will create, beginning as that type's standard columns. Saving a board's design from Board settings remains the way to capture a richer one. Removing a template must not affect boards already created from it.",
         "testStrategy": "Unit-test template CRUD (add/rename/remove, unique ids). Over CDP: rename a template and confirm it survives a reload; remove one and confirm boards created from it are untouched. Run npm test.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-12T21:48:02.509Z"
       },
       {
         "id": "53",
@@ -836,9 +837,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-12T21:26:37.937Z",
+      "lastModified": "2026-10-12T21:48:02.509Z",
       "taskCount": 52,
-      "completedCount": 30,
+      "completedCount": 31,
       "tags": [
         "backlog"
       ]
