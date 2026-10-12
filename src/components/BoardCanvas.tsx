@@ -57,7 +57,8 @@ interface Ctx {
   selectedItemId: string | null
   boardItems: Item[]
   effectiveLane: Map<string, string>
-  lensId: string | null
+  /** A focus is active, so every card shown is part of the focused initiative's work. */
+  focused: boolean
   interactive: boolean
   dropCard: (itemId: string, laneId: string) => void
   openItem: (id: string) => void
@@ -357,6 +358,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
+              focused={ctx.focused}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
               onOpen={ctx.openItem}
@@ -517,7 +519,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const ctx: Ctx = {
     lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
-    lensId, interactive,
+    focused: Boolean(lens), interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {

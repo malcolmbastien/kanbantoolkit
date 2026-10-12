@@ -61,6 +61,11 @@ interface Props {
   /** Native HTML5 drag (cards workflow). */
   draggable?: boolean
   /**
+   * Highlighted as part of the focused initiative's work. Softer than the selection ring,
+   * so a filtered board reads as "these are the cards in scope" rather than "selected".
+   */
+  focused?: boolean
+  /**
    * Notified with the item's id while a native drag is in flight, and `null` when it
    * ends. A surface needs this to know *what* is being dragged — `dataTransfer` is not
    * readable during `dragover` — so it can mark only the valid drop targets.
@@ -84,7 +89,7 @@ interface Props {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, focused, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -99,7 +104,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
       : {}
 
   // Highlight priority: a selected boundary dependency (amber) > multi-select
-  // (indigo-600) > item selection (indigo-400) > lens.
+  // (indigo-600) > item selection (indigo-400) > lens > focus.
   const lensCls = cn(
     lens === 'out' ? 'opacity-40 saturate-50' : '',
     boundary
@@ -112,7 +117,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
             ? 'ring-2 ring-indigo-400'
             : lens === 'self'
               ? 'ring-2 ring-indigo-600'
-              : '',
+              : focused
+                ? 'ring-2 ring-indigo-300'
+                : '',
   )
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
   // While a multi-select group is active, the cards outside it recede.
