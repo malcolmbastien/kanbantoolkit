@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, Ban, ChevronDown, ChevronUp, GitBranch, ListChecks, Plus, Sparkles, Target, Trash2, X } from 'lucide-react'
+import { Archive, ArrowDown, Ban, ChevronDown, ChevronUp, GitBranch, ListChecks, Plus, Sparkles, Target, Trash2, X } from 'lucide-react'
 import {
   attributedObjectives,
   checklistItems,
@@ -103,12 +103,62 @@ export function ItemPanel({ itemId }: Props) {
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
+  const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
+  const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
   // The chain from the root down to this item, plus the OKRs its ancestors map to.
   const lineage = lineageOf(item.id, graph)
   const lineageObjectives = [
     ...new Map(
       lineage.flatMap((n) => attributedObjectives(n.id, edges, objectives)).map((o) => [o.id, o]),
     ).values(),
+  ]
+
+  // Lineage rows — the OKRs first, then the chain top-down. Rendered with a
+  // centred arrow between rows so depth reads clearly without indentation.
+  const lineageRows = [
+    ...lineageObjectives.map((o) => ({
+      key: `okr-${o.id}`,
+      node: (
+        <button
+          onClick={() => {
+            close(null)
+            setObjectives(true)
+          }}
+          title="Open Objectives & Key Results"
+          className="flex w-full items-center gap-1.5 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-left text-[11px] font-medium text-indigo-700 transition hover:bg-indigo-100"
+        >
+          <Target size={11} className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{o.title}</span>
+          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-indigo-400">OKR</span>
+        </button>
+      ),
+    })),
+    ...lineage.map((node) => {
+      const self = node.id === item.id
+      const body = (
+        <>
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
+          <span className="min-w-0 flex-1 truncate">{node.title}</span>
+          <span className={cn('shrink-0 text-[9px] font-semibold uppercase tracking-wide', self ? 'text-slate-300' : 'text-slate-400')}>
+            {typeName(node.typeId)}
+          </span>
+        </>
+      )
+      return {
+        key: node.id,
+        node: self ? (
+          <div className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white">{body}</div>
+        ) : (
+          <button
+            onClick={() => close(node.id)}
+            title={`Open ${node.title}`}
+            className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-left text-[11px] text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
+          >
+            {body}
+          </button>
+        ),
+      }
+    }),
   ]
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   const typeOptions = issueTypes.filter((t) => t.id !== initiativeTypeId || t.id === item.typeId)
@@ -119,8 +169,6 @@ export function ItemPanel({ itemId }: Props) {
   const assignees = [...new Set(items.map((i) => i.assignee).filter((a): a is string => Boolean(a)))]
 
   const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
-  const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
-  const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
 
   return (
     <aside data-item-panel className="flex h-full w-[400px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
@@ -449,50 +497,16 @@ export function ItemPanel({ itemId }: Props) {
         <section>
           <SectionLabel>Lineage — how this rolls up</SectionLabel>
           <ol className="space-y-0.5">
-            {lineageObjectives.map((o) => (
-              <li key={o.id}>
-                <button
-                  onClick={() => {
-                    close(null)
-                    setObjectives(true)
-                  }}
-                  title="Open Objectives & Key Results"
-                  className="flex w-full items-center gap-1.5 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-left text-[11px] font-medium text-indigo-700 transition hover:bg-indigo-100"
-                >
-                  <Target size={11} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{o.title}</span>
-                  <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-indigo-400">OKR</span>
-                </button>
+            {lineageRows.map((row, i) => (
+              <li key={row.key}>
+                {row.node}
+                {i < lineageRows.length - 1 && (
+                  <div className="flex justify-center py-0.5 text-slate-300" aria-hidden>
+                    <ArrowDown size={12} />
+                  </div>
+                )}
               </li>
             ))}
-            {lineage.map((node, i) => {
-              const level = Math.min(lineageObjectives.length > 0 ? i + 1 : i, 4)
-              const self = node.id === item.id
-              const body = (
-                <>
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
-                  <span className="min-w-0 flex-1 truncate">{node.title}</span>
-                  <span className={cn('shrink-0 text-[9px] font-semibold uppercase tracking-wide', self ? 'text-slate-300' : 'text-slate-400')}>
-                    {typeName(node.typeId)}
-                  </span>
-                </>
-              )
-              return (
-                <li key={node.id} style={{ paddingLeft: level * 14 }}>
-                  {self ? (
-                    <div className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white">{body}</div>
-                  ) : (
-                    <button
-                      onClick={() => close(node.id)}
-                      title={`Open ${node.title}`}
-                      className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-left text-[11px] text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
-                    >
-                      {body}
-                    </button>
-                  )}
-                </li>
-              )
-            })}
           </ol>
           <p className="mt-1 text-[10px] text-slate-400">
             {lineageObjectives.length > 0
