@@ -743,7 +743,7 @@
         "id": "47",
         "title": "Strategic initiatives as first-class L3 items; OKRs attach at the top and inherit down",
         "description": "Strategic initiatives live on L3 portfolio boards as ordinary initiatives; OKRs attach only to them, and every other altitude connects up with the standard parent/child relationship.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "46"
         ],
