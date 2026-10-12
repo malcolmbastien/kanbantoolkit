@@ -75,6 +75,12 @@ export interface Board {
   name: string
   band: BoardBand
   /**
+   * Retired: hidden from the board picker, the board workspace's list and the aggregation
+   * bands, but never destroyed — its lanes, items, placements and edges are untouched.
+   * The actions that set it are task 50; the workspace already honours it.
+   */
+  archived?: boolean
+  /**
    * Boards this one aggregates (coordination/strategic). Any depth and any mix —
    * teams or other coordination boards — so long as the graph stays acyclic.
    */

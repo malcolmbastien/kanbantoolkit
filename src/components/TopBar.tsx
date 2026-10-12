@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target, Trash2, X } from 'lucide-react'
+import { Archive, Check, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target, Trash2, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
 import { BoardPicker } from './BoardPicker'
@@ -15,6 +15,7 @@ interface Props {
   showObjectives: boolean
   showDashboard: boolean
   showArchive: boolean
+  showBoards: boolean
   showFilters: boolean
   /** Number of active filter categories (for the button badge). */
   activeFilterCount: number
@@ -22,6 +23,7 @@ interface Props {
   onToggleObjectives: () => void
   onToggleDashboard: () => void
   onToggleArchive: () => void
+  onToggleBoards: () => void
   onToggleFilters: () => void
   onEditBoard: () => void
   onSaveEdit: () => void
@@ -35,7 +37,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
@@ -53,6 +55,17 @@ export function TopBar(props: Props) {
       </div>
 
       <div className="h-5 w-px bg-slate-700" />
+
+      <button
+        onClick={onToggleBoards}
+        className={cn(
+          'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+          showBoards ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+        )}
+        title="Boards — browse every board in the organisation"
+      >
+        <Columns3 size={12} /> Boards
+      </button>
 
       <button
         onClick={onToggleObjectives}

@@ -757,12 +757,13 @@
         "id": "48",
         "title": "Board workspace: browse, search and open boards",
         "description": "A top-level Boards workspace listing every board in the organisation, grouped by band, with search. Rows carry the name and band only; opening one switches to that board. Reachable from a TopBar toggle and from the board picker.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "A new top-level view toggled from the TopBar beside Objectives / Archive (showBoards), and reachable from a 'Manage boards…' footer entry in the board picker so the switcher is not a dead end. The list groups by band (Portfolio → Program → Team) then name, and each board appears exactly ONCE: the aggregation graph is a DAG — a team board can be linked by two programs — so nesting under a parent would either duplicate rows or pick one and lie. The board picker reached the same conclusion. A row carries only the band badge and the name for now. A search field filters by name. Selecting a row calls selectBoard(id) and leaves the workspace. Archived boards are hidden (task 50). Each row also offers Delete, routed through the existing confirm dialog and removeBoard. Board admin also stays inside each board — the workspace is another way in, not the only one.",
         "testStrategy": "Unit-test the grouping/ordering and the name filter. Over CDP: open the workspace from the TopBar and from the picker footer; confirm every board appears exactly once, grouped by band, and that search narrows the list; open a board and confirm the app switches to it; delete a board and confirm the modal appears and the board leaves both the list and the picker. Run npm test.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-12T20:29:32.775Z"
       },
       {
         "id": "49",
@@ -832,9 +833,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-12T20:10:00.000Z",
+      "lastModified": "2026-10-12T20:29:32.775Z",
       "taskCount": 52,
-      "completedCount": 26,
+      "completedCount": 27,
       "tags": [
         "backlog"
       ]

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { ArchiveView } from './components/ArchiveView'
+import { BoardWorkspace } from './components/BoardWorkspace'
 import { BoardView } from './components/BoardView'
 import { BulkActions } from './components/BulkActions'
 import { BoardSettings } from './components/BoardSettings'
@@ -31,6 +32,8 @@ export default function App() {
   const setDashboard = useStore((s) => s.setDashboard)
   const showArchive = useStore((s) => s.showArchive)
   const toggleArchive = useStore((s) => s.toggleArchive)
+  const showBoards = useStore((s) => s.showBoards)
+  const toggleBoards = useStore((s) => s.toggleBoards)
   const setArchive = useStore((s) => s.setArchive)
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
@@ -181,12 +184,14 @@ export default function App() {
         showObjectives={showObjectives}
         showDashboard={showDashboard}
         showArchive={showArchive}
+        showBoards={showBoards}
         showFilters={showFilters}
         activeFilterCount={activeFilterCount(filters)}
         onSelectBoard={selectBoard}
         onToggleObjectives={toggleObjectives}
         onToggleDashboard={toggleDashboard}
         onToggleArchive={toggleArchive}
+        onToggleBoards={toggleBoards}
         onToggleFilters={toggleFilters}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -201,7 +206,9 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          {showArchive ? (
+          {showBoards ? (
+            <BoardWorkspace />
+          ) : showArchive ? (
             <ArchiveView />
           ) : showObjectives ? (
             <ObjectivesView />

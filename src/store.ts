@@ -63,6 +63,8 @@ export interface ViewState {
   showDashboard: boolean
   /** Show the Archive view (filed-away items) instead of a board. */
   showArchive: boolean
+  /** Show the board workspace — every board in the organisation — instead of a board. */
+  showBoards: boolean
   /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
@@ -105,6 +107,8 @@ export interface Actions {
   setDashboard: (v: boolean) => void
   toggleArchive: () => void
   setArchive: (v: boolean) => void
+  toggleBoards: () => void
+  setBoards: (v: boolean) => void
   /** Toggle the filters side panel (closes the item panel when opening). */
   toggleFilters: () => void
   /** Merge a patch into the active card filters. */
@@ -306,6 +310,7 @@ const initialView: ViewState = {
   showBoardSettings: false,
   showDashboard: false,
   showArchive: false,
+  showBoards: false,
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
@@ -486,7 +491,7 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, boundaryId: null, multiSelect: [], cardMenu: null }),
+      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null }),
       openItem: (selectedItemId) => set({ selectedItemId, multiSelect: [], ...(selectedItemId ? { showFilters: false } : {}) }),
       setSearch: (search) => set({ search }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
@@ -662,13 +667,15 @@ export const useStore = create<Store>()(
       toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
-      toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false, showArchive: false }),
+      toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false, showArchive: false, showBoards: false }),
       toggleBoardSettings: () => set({ showBoardSettings: !get().showBoardSettings }),
-      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showArchive: false } : {}) }),
-      toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false, showArchive: false }),
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showArchive: false } : {}) }),
-      toggleArchive: () => set({ showArchive: !get().showArchive, showObjectives: false, showDashboard: false }),
-      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false } : {}) }),
+      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showArchive: false, showBoards: false } : {}) }),
+      toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false, showArchive: false, showBoards: false }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showArchive: false, showBoards: false } : {}) }),
+      toggleArchive: () => set({ showArchive: !get().showArchive, showObjectives: false, showDashboard: false, showBoards: false }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showBoards: false } : {}) }),
+      toggleBoards: () => set({ showBoards: !get().showBoards, showObjectives: false, showDashboard: false, showArchive: false }),
+      setBoards: (v) => set({ showBoards: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false } : {}) }),
 
       addObjective: (title, period) =>
         set({ objectives: [...get().objectives, { id: uid(), title, period, status: 'active' }] }),

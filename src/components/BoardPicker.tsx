@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Columns3 } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { cn } from '@/lib/utils'
+import { useStore } from '@/store'
 import type { Board, BoardBand } from '@/domain/types'
 
 const BAND_ORDER: BoardBand[] = ['portfolio', 'program', 'team']
@@ -21,6 +22,7 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
+  const setBoards = useStore((s) => s.setBoards)
 
   const sorted = useMemo(
     () =>
@@ -120,6 +122,18 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
               </button>
             )
           })}
+
+          {/* The switcher leads somewhere: the workspace is where you browse and manage. */}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              setBoards(true)
+            }}
+            className="mt-1 flex w-full items-center gap-2 border-t border-slate-700 px-2.5 py-2 text-left text-[11px] font-medium text-slate-300 transition hover:bg-slate-700/60 hover:text-white"
+          >
+            <Columns3 size={12} className="shrink-0 text-slate-400" /> Manage boards…
+          </button>
         </div>
       )}
     </div>

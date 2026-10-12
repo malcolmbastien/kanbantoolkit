@@ -1,11 +1,36 @@
 import { isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
 import { childrenOf, leavesUnder, rootLane } from './lanes'
-import type { Board, IssueType, Item, Placement } from './types'
+import type { Board, BoardBand, IssueType, Item, Placement } from './types'
 
 /** Items placed on a board (via explicit placement records). */
 export function itemsOnBoard(boardId: string, placements: Placement[], items: Item[]): Item[] {
   const ids = new Set(placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
   return items.filter((i) => ids.has(i.id))
+}
+
+/* ------------------------------------------------------------------ *
+ * The board workspace — every board in the organisation
+ * ------------------------------------------------------------------ */
+
+/** Flight levels top-down — how the workspace lists them. (Board settings shows them
+ *  bottom-up, which is the order you build in; this is the order you read in.) */
+export const BOARD_BAND_ORDER: BoardBand[] = ['portfolio', 'program', 'team']
+
+/**
+ * The board workspace's list: boards grouped by band (Portfolio → Program → Team), then
+ * by name, narrowed by a name filter. Each board appears **exactly once** — the
+ * aggregation graph is a DAG, so nesting a board under one of its parents would either
+ * duplicate it or pick a parent and lie. Archived boards are hidden.
+ */
+export function boardsByBand(boards: Board[], query = ''): { band: BoardBand; boards: Board[] }[] {
+  const q = query.trim().toLowerCase()
+  return BOARD_BAND_ORDER.map((band) => ({
+    band,
+    boards: boards
+      .filter((b) => b.band === band && !b.archived)
+      .filter((b) => !q || b.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  })).filter((group) => group.boards.length > 0)
 }
 
 /* ------------------------------------------------------------------ *
