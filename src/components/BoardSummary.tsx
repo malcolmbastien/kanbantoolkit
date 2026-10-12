@@ -174,11 +174,11 @@ export function BoardSummary({
             interactive={interactive}
             editMode={editMode}
             onDrop={(itemId) => drop(itemId, section.id)}
-            style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}` }}
+            // A section with more cells claims more of the width, so every *cell* gets an
+            // equal share of the board — splitting a column doesn't squeeze its own cells.
+            style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}`, flexGrow: cells.length, flexBasis: 0, flexShrink: 1 }}
             className={cn(
-              'flex flex-1 basis-0 flex-col overflow-hidden rounded-md border',
-              // An unsplit section is the column; a split one grows to fit its cells.
-              !split && 'min-w-[320px]',
+              'flex min-w-0 flex-col overflow-hidden rounded-md border',
               isInitiatives ? accent.column : 'border-slate-300 bg-slate-100',
             )}
           >
@@ -282,7 +282,7 @@ function Cell({
   }
 
   return (
-    <div className={className ?? 'flex min-w-[300px] flex-1 basis-0 flex-col'} style={style}>
+    <div className={className ?? 'flex min-w-0 flex-1 basis-0 flex-col'} style={style}>
       <div className={head}>
         <span className={cn('truncate font-bold uppercase tracking-wide', primary ? 'text-[11px]' : 'text-[10px]')}>
           {lane.name}
@@ -325,7 +325,7 @@ function Cell({
           {children}
         </DroppableCell>
       ) : (
-        <div className="flex min-w-min flex-1 gap-2 p-2">{children}</div>
+        <div className="flex min-w-0 flex-1 gap-2 p-2">{children}</div>
       )}
 
       {settingsOpen && (

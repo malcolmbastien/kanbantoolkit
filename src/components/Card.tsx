@@ -173,7 +173,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           else onOpen(item.id)
         }}
         className={cn(
-          'group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
+          // `@container` lets the card shed detail as its column narrows (see the
+          // `@[Npx]:` variants below) instead of overflowing a customised flow.
+          '@container group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
           locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
           lensCls,
           lockCls,
@@ -186,11 +188,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-          {/* header row */}
-          <div className="flex items-center gap-2">
-            <span className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
-              {type.name}
-            </span>
+          {/* header row — every card on this surface is an initiative, so the type chip
+              is redundant; the ref and the rollup % carry the identification. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-[10px] font-semibold tabular-nums text-slate-400">{ref_}</span>
             {item.size ? <span className="text-[10px] tabular-nums text-slate-400">· {item.size}</span> : null}
             <span className="ml-auto flex items-center gap-1.5">
@@ -212,7 +212,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
             {lensButton}
           </div>
 
-          <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-900">{item.title}</div>
+          <div className="line-clamp-2 break-words text-[13px] font-semibold leading-snug text-slate-900">{item.title}</div>
 
           {/* Roll-up: a team initiative linked under a top-level initiative. */}
           {parent && (
@@ -225,7 +225,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               className="flex w-fit max-w-full items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-left transition hover:border-indigo-300 hover:bg-indigo-100"
             >
               <ArrowUp size={11} className="shrink-0 text-indigo-400" />
-              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-indigo-500">rolls up to</span>
+              <span className="hidden shrink-0 text-[9px] font-bold uppercase tracking-wide text-indigo-500 @[340px]:inline">rolls up to</span>
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: parent.type.color }} aria-hidden />
               <span className="min-w-0 truncate text-[10px] font-medium text-indigo-700">
                 <span className="tabular-nums text-indigo-400">{parent.ref_}</span> {parent.title}
@@ -233,8 +233,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
             </button>
           )}
 
-          {/* meta row */}
-          <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
+          {/* meta row — secondary detail appears only once the column is wide enough to
+              hold it (container queries on the card root). Warnings never hide. */}
+          <div className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-slate-500">
             {boundary && (
               <span
                 className="flex items-center gap-0.5 font-semibold text-amber-600"
@@ -244,26 +245,26 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               </span>
             )}
             {symbols && symbols.length > 0 && (
-              <span className="flex items-center gap-1" title={`${symbols.length} linked items`}>
-                {symbols.slice(0, 16).map((s, i) => (
+              <span className="hidden items-center gap-1 @[260px]:flex" title={`${symbols.length} linked items`}>
+                {symbols.slice(0, 8).map((s, i) => (
                   <span key={i} className={cn('h-2.5 w-2.5 rounded-sm', BUCKET_DOT[s.bucket])} title={s.title} />
                 ))}
-                {symbols.length > 16 && <span className="font-semibold text-slate-400">+{symbols.length - 16}</span>}
+                {symbols.length > 8 && <span className="font-semibold text-slate-400">+{symbols.length - 8}</span>}
               </span>
             )}
             {summary.childCount > 0 && (
-              <span className="flex items-center gap-0.5" title={`${summary.childCount} linked items`}>
+              <span className="hidden items-center gap-0.5 @[320px]:flex" title={`${summary.childCount} linked items`}>
                 <Layers size={11} /> {summary.childCount}
               </span>
             )}
             {summary.linksCount > 0 && (
-              <span className="flex items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
+              <span className="hidden items-center gap-0.5 @[320px]:flex" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
                 <Link2 size={11} /> {summary.linksCount}
               </span>
             )}
             {summary.checklist && summary.checklist.total > 0 && (
               <span
-                className={cn('flex items-center gap-0.5', summary.checklist.done === summary.checklist.total && 'font-semibold text-emerald-600')}
+                className={cn('hidden items-center gap-0.5 @[300px]:flex', summary.checklist.done === summary.checklist.total && 'font-semibold text-emerald-600')}
                 title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} done`}
               >
                 <ListChecks size={11} /> {summary.checklist.done}/{summary.checklist.total}
@@ -275,24 +276,25 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 className="flex items-center gap-0.5 rounded bg-amber-100 px-1 py-px font-semibold text-amber-800 ring-1 ring-amber-300"
                 title={`${summary.uncommittedBelow} card${summary.uncommittedBelow === 1 ? '' : 's'} below are still in Backlog — this initiative is committed, so its work should be too`}
               >
-                <TriangleAlert size={11} /> {summary.uncommittedBelow} uncommitted below
+                <TriangleAlert size={11} /> {summary.uncommittedBelow}
+                <span className="hidden @[300px]:inline">uncommitted below</span>
               </span>
             )}
             {summary.openDescendants > 0 && summary.childCount > 0 && (
-              <span className="text-slate-400">{summary.openDescendants} open below</span>
+              <span className="hidden text-slate-400 @[360px]:inline">{summary.openDescendants} open below</span>
             )}
             <span className="ml-auto flex items-center gap-2">
-              <span className="flex items-center gap-0.5" title="Time since created">
+              <span className="hidden items-center gap-0.5 @[300px]:flex" title="Time since created">
                 <Clock size={11} /> {days}d
               </span>
               {assignees.length > 0 && (
                 <span className="flex items-center gap-0.5">
-                  {assignees.slice(0, 4).map((u) => (
+                  {assignees.slice(0, 3).map((u) => (
                     <Avatar key={u.id} user={u} />
                   ))}
-                  {assignees.length > 4 && (
+                  {assignees.length > 3 && (
                     <span className="text-[9px] font-semibold text-slate-400" title={assignees.map((u) => u.name).join(', ')}>
-                      +{assignees.length - 4}
+                      +{assignees.length - 3}
                     </span>
                   )}
                 </span>
