@@ -55,6 +55,27 @@ describe('board templates — a design, not its work', () => {
   const s = createSeed()
   const atlas = () => s.boards.find((b) => b.id === 'b-atlas')!
 
+  it('the seeded Scrum template keeps its five columns over four stages', () => {
+    const scrum = s.boardTemplates.find((t) => t.name === 'Scrum')!
+    const top = scrum.lanes.filter((l) => l.parentKey === null).sort((a, b) => a.order - b.order)
+    expect(top.map((l) => l.name)).toEqual([
+      'Product Backlog',
+      'Ready to Start',
+      'In Progress',
+      'Ready for Delivery',
+      'Done',
+    ])
+    expect(top.map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done', 'done'])
+    const kids = (key: string) =>
+      scrum.lanes.filter((l) => l.parentKey === key).sort((a, b) => a.order - b.order).map((l) => l.name)
+    expect(kids('k1')).toEqual(['Backlog Refinement', 'Current Sprint'])
+    expect(kids('k4')).toEqual(['Working on', 'Ready for Review', 'Review'])
+    // It is a usable design: instantiating it yields those columns and nothing else.
+    const lanes = lanesFromTemplate(scrum, 'b', 'root', (() => { let n = 0; return () => `id${++n}` })())
+    expect(lanes.filter((l) => l.parentId === 'root')).toHaveLength(5)
+    expect(lanes.filter((l) => l.stage === 'done')).toHaveLength(2)
+  })
+
   it('captures the lane tree below the root, keyed rather than ided', () => {
     const t = templateFromBoard('t1', 'Team flow', atlas(), s.lanes)
     expect(t.band).toBe('team')

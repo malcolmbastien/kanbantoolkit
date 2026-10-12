@@ -241,10 +241,11 @@ describe('store actions', () => {
 
   it('saves a board as a template and instantiates it without the work', () => {
     const placementsBefore = s().placements.length
-    expect(s().boardTemplates).toEqual([])
+    const templatesBefore = s().boardTemplates.length
 
     s().saveBoardAsTemplate('b-atlas', 'Team flow')
-    const template = s().boardTemplates[0]
+    const template = s().boardTemplates[s().boardTemplates.length - 1]
+    expect(s().boardTemplates.length).toBe(templatesBefore + 1)
     expect(template.name).toBe('Team flow')
     expect(template.lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Dev', 'Test', 'Done'])
     expect(JSON.stringify(template)).not.toMatch(/linkedBoardIds|itemId|placement/)
@@ -260,12 +261,12 @@ describe('store actions', () => {
     expect(childrenOf(s().lanes, root.id)[0].id).not.toBe(childrenOf(s().lanes, atlasRoot.id)[0].id)
     expect(s().placements.length).toBe(placementsBefore)
     // The template is unchanged and still usable.
-    expect(s().boardTemplates[0].lanes).toHaveLength(6)
+    expect(template.lanes).toHaveLength(6)
 
     // A template's band is the fallback when none is given — and a coordination board
     // still starts with an empty linkedBoardIds.
     s().saveBoardAsTemplate('b-portfolio', 'Program flow')
-    const program = s().boardTemplates[1]
+    const program = s().boardTemplates[s().boardTemplates.length - 1]
     expect(program.band).toBe('program')
     s().addBoard('Program two', undefined, false, program.id)
     const created2 = s().boards[s().boards.length - 1]
@@ -279,7 +280,7 @@ describe('store actions', () => {
 
   it('a template can be started from scratch, with a board type', () => {
     s().newBoardTemplate('Squad flow', 'program')
-    const t = s().boardTemplates[0]
+    const t = s().boardTemplates[s().boardTemplates.length - 1]
     expect(t.name).toBe('Squad flow')
     expect(t.band).toBe('program')
     expect(t.lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
@@ -292,20 +293,24 @@ describe('store actions', () => {
     expect(s().boardTemplates.length).toBe(before)
 
     // Ids are unique, so two templates never collide.
+    const count = s().boardTemplates.length
     s().newBoardTemplate('Squad flow', 'team')
-    expect(s().boardTemplates).toHaveLength(2)
-    expect(new Set(s().boardTemplates.map((x) => x.id)).size).toBe(2)
+    expect(s().boardTemplates).toHaveLength(count + 1)
+    expect(new Set(s().boardTemplates.map((x) => x.id)).size).toBe(count + 1)
   })
 
   it('templates are managed and round-trip through persistence', () => {
+    const before = s().boardTemplates.length
     s().saveBoardAsTemplate('b-atlas', 'Team flow')
-    expect(persistedSlice(s()).boardTemplates).toHaveLength(1)
+    expect(persistedSlice(s()).boardTemplates).toHaveLength(before + 1)
 
-    s().renameBoardTemplate(s().boardTemplates[0].id, 'Renamed flow')
-    expect(s().boardTemplates[0].name).toBe('Renamed flow')
+    const id = s().boardTemplates[s().boardTemplates.length - 1].id
+    s().renameBoardTemplate(id, 'Renamed flow')
+    expect(s().boardTemplates.find((t) => t.id === id)?.name).toBe('Renamed flow')
 
-    s().removeBoardTemplate(s().boardTemplates[0].id)
-    expect(s().boardTemplates).toEqual([])
+    s().removeBoardTemplate(id)
+    expect(s().boardTemplates.some((t) => t.id === id)).toBe(false)
+    expect(s().boardTemplates).toHaveLength(before)
 
     // Older state simply has no collection; the migration supplies one.
     const migrated = migrateState({ boards: [] }) as { boardTemplates: unknown[] }

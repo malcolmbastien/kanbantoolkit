@@ -39,7 +39,7 @@ export function TemplatePreview({ template, onClose }: { template: BoardTemplate
         aria-modal="true"
         aria-label={`Template preview: ${template.name}`}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl"
+        className="max-h-[85vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl"
       >
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
           <span className="text-sm font-semibold text-slate-800">Preview — “{template.name}”</span>
@@ -50,7 +50,12 @@ export function TemplatePreview({ template, onClose }: { template: BoardTemplate
         </div>
 
         <div className="space-y-4 px-4 py-3">
-          <Lanes template={template} parentKey={null} />
+          {/* A customised flow can be wider than the dialog; let it scroll rather than clip. */}
+          <div className="min-w-0 overflow-x-auto">
+            <div className="min-w-min">
+              <Lanes template={template} parentKey={null} />
+            </div>
+          </div>
 
           <dl className="grid grid-cols-[104px_1fr] gap-x-3 gap-y-1 text-[12px]">
             <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Card types</dt>
@@ -85,15 +90,30 @@ function Lanes({ template, parentKey }: { template: BoardTemplate; parentKey: st
   )
 }
 
+/**
+ * How many cells sit beneath a lane. A container claims width in proportion to that, so
+ * its own children get the same room a top-level column has — the same rule the board
+ * uses, and without it a split would be squeezed into its parent and clipped.
+ */
+function leafCount(template: BoardTemplate, key: string): number {
+  const kids = template.lanes.filter((l) => l.parentKey === key)
+  return kids.length === 0 ? 1 : kids.reduce((n, k) => n + leafCount(template, k.key), 0)
+}
+
 function Lane({ template, lane }: { template: BoardTemplate; lane: TemplateLane }) {
   const isContainer = template.lanes.some((l) => l.parentKey === lane.key)
   return (
-    <div className="flex min-w-[128px] flex-1 flex-col overflow-hidden rounded border border-slate-300 bg-slate-50">
+    <div
+      className="flex min-w-[112px] flex-col overflow-hidden rounded border border-slate-300 bg-slate-50"
+      style={{ flexGrow: leafCount(template, lane.key), flexBasis: 0 }}
+    >
       <div
         className="flex items-center gap-1.5 bg-slate-100 px-1.5 py-0.5"
         style={lane.stage ? { borderTop: `3px solid ${STAGE_ACCENT[lane.stage]}` } : undefined}
       >
-        <span className="truncate text-[10px] font-bold uppercase tracking-wide text-slate-700">{lane.name}</span>
+        <span className="truncate text-[10px] font-bold uppercase tracking-wide text-slate-700" title={lane.name}>
+          {lane.name}
+        </span>
         {lane.wipLimit !== undefined && (
           <span className="ml-auto shrink-0 text-[9px] font-semibold tabular-nums text-slate-400">WIP {lane.wipLimit}</span>
         )}

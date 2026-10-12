@@ -1,4 +1,4 @@
-import type { Board, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, SplitOrientation, User } from './types'
+import type { Board, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, SplitOrientation, User } from './types'
 
 const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 
@@ -80,6 +80,32 @@ a.ns.description =
   'Pull one card at a time. A card may only enter once it is sized and has a clear owner.'
 a.test!.description =
   'Definition of done: reviewed, automated checks green, and deployed to staging before it can move to Done.'
+
+const boardTemplates: BoardTemplate[] = [
+  /**
+   * The Scrum workflow: five columns over four stages, because a Scrum board
+   * distinguishes work that is *accepted* from work that is *released* — so both
+   * "Ready for Delivery" and "Done" carry the done stage, and an initiative lands in
+   * the first of them. Stage is what the app derives from; the names are the board's.
+   */
+  {
+    id: 'tpl-scrum',
+    name: 'Scrum',
+    band: 'team',
+    lanes: [
+      { key: 'k0', parentKey: null, order: 0, name: 'Product Backlog', stage: 'backlog' },
+      { key: 'k1', parentKey: null, order: 1, name: 'Ready to Start', stage: 'notStarted', orientation: 'columns' },
+      { key: 'k2', parentKey: 'k1', order: 0, name: 'Backlog Refinement' },
+      { key: 'k3', parentKey: 'k1', order: 1, name: 'Current Sprint' },
+      { key: 'k4', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
+      { key: 'k5', parentKey: 'k4', order: 0, name: 'Working on' },
+      { key: 'k6', parentKey: 'k4', order: 1, name: 'Ready for Review' },
+      { key: 'k7', parentKey: 'k4', order: 2, name: 'Review' },
+      { key: 'k8', parentKey: null, order: 3, name: 'Ready for Delivery', stage: 'done' },
+      { key: 'k9', parentKey: null, order: 4, name: 'Done', stage: 'done' },
+    ],
+  },
+]
 
 /* ------------------------------------------------------------------ *
  * Objectives & Key Results (commitment-limited; never in columns)
@@ -278,6 +304,6 @@ export function createSeed(): FlowState {
     links: structuredClone(links),
     objectives: structuredClone(objectives),
     keyResults: structuredClone(keyResults),
-    boardTemplates: [],
+    boardTemplates: structuredClone(boardTemplates),
   }
 }
