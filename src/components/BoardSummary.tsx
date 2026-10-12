@@ -145,7 +145,11 @@ export function BoardSummary({
         blockedTone={isInitiatives ? 'aggregate' : 'detail'}
         selected={selectedItemId === c.id}
         lens={lensRole(c.id, lensId, graph)}
-        onLens={toggleLens}
+        // Focus belongs to the board's own initiatives workflow. A Linked boards band is
+        // another board's flow shown as a rollup, so its rows are read-only here — its
+        // team-level initiatives don't set this board's focus. The lineage highlight still
+        // crosses into the bands, which is the point of it.
+        onLens={interactive ? toggleLens : undefined}
         draggable={interactive}
         onDragStateChange={setDragging}
         locked={editMode}
