@@ -532,6 +532,14 @@ describe('store actions', () => {
     expect(slice.multiSelect).toBeUndefined()
   })
 
+  it('migrateState splits the old targetDate into a target end date', () => {
+    const legacy = { items: [{ id: 'x', targetDate: '2026-05-01' }, { id: 'y' }] }
+    const migrated = migrateState(legacy) as { items: { id: string; targetEndDate?: string; targetDate?: string }[] }
+    expect(migrated.items[0].targetEndDate).toBe('2026-05-01')
+    expect('targetDate' in migrated.items[0]).toBe(false)
+    expect(migrated.items[1].targetEndDate).toBeUndefined()
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

@@ -102,8 +102,9 @@ export interface Item {
   typeId: string
   size?: number
   assignee?: string
-  /** Target completion date, ISO 'YYYY-MM-DD'. Shown on the management dashboard. */
-  targetDate?: string
+  /** Target start / end dates, ISO 'YYYY-MM-DD'. Shown on the management dashboard. */
+  targetStartDate?: string
+  targetEndDate?: string
   createdAt: number
   resolvedAt?: number | null
   /** Reason captured when a soft WIP limit was crossed. */

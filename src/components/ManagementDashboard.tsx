@@ -68,7 +68,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   const rows = initiatives.map((item) => {
     const roll = rollupOf(item.id, graph)
     const blocked = blockedBelow(item.id, graph)
-    const target = parseDate(item.targetDate)
+    const target = parseDate(item.targetEndDate)
     const overdue = Boolean(target && roll.bucket !== 'done' && target.getTime() < Date.now())
     const childInits = decompositionChildren(item.id, edges).filter(
       (id) => items.find((i) => i.id === id)?.typeId === initiativeTypeId,
@@ -159,7 +159,8 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                     <td className="px-4 py-2.5">
                       <div className={cn('flex items-center gap-1 text-[12px]', overdue ? 'font-semibold text-rose-600' : 'text-slate-600')}>
                         <CalendarClock size={12} className={overdue ? 'text-rose-500' : 'text-slate-400'} />
-                        {formatDate(item.targetDate)}
+                        {item.targetStartDate ? `${formatDate(item.targetStartDate)} → ` : ''}
+                        {formatDate(item.targetEndDate)}
                       </div>
                       {overdue && <div className="text-[10px] font-semibold text-rose-500">overdue</div>}
                     </td>

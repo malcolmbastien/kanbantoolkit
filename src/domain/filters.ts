@@ -23,10 +23,10 @@ export function parseDay(iso?: string): Date | undefined {
   return iso ? new Date(`${iso}T00:00:00`) : undefined
 }
 
-/** A card is overdue when it has a target date in the past and isn't resolved. */
+/** A card is overdue when its target end date is in the past and it isn't resolved. */
 export function isOverdue(item: Item, resolved: boolean, now = Date.now()): boolean {
   if (resolved) return false
-  const t = parseDay(item.targetDate)
+  const t = parseDay(item.targetEndDate)
   return Boolean(t && t.getTime() < now)
 }
 

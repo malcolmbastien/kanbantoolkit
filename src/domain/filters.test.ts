@@ -24,8 +24,8 @@ describe('card filters', () => {
     expect(matchesFilters(card(), with_({ unassigned: true }), false)).toBe(true)
     expect(matchesFilters(card({ assignee: 'MB' }), with_({ unassigned: true }), false)).toBe(false)
 
-    const past = card({ targetDate: '2000-01-01' })
-    const future = card({ targetDate: '2999-01-01' })
+    const past = card({ targetEndDate: '2000-01-01' })
+    const future = card({ targetEndDate: '2999-01-01' })
     expect(matchesFilters(past, with_({ overdue: true }), false)).toBe(true)
     expect(matchesFilters(future, with_({ overdue: true }), false)).toBe(false)
     // A resolved card is never overdue.
@@ -45,10 +45,10 @@ describe('card filters', () => {
   })
 
   it('isOverdue needs a past target date and an open card', () => {
-    expect(isOverdue(card({ targetDate: '2000-01-01' }), false)).toBe(true)
-    expect(isOverdue(card({ targetDate: '2000-01-01' }), true)).toBe(false)
+    expect(isOverdue(card({ targetEndDate: '2000-01-01' }), false)).toBe(true)
+    expect(isOverdue(card({ targetEndDate: '2000-01-01' }), true)).toBe(false)
     expect(isOverdue(card(), false)).toBe(false)
-    expect(isOverdue(card({ targetDate: '2999-01-01' }), false)).toBe(false)
+    expect(isOverdue(card({ targetEndDate: '2999-01-01' }), false)).toBe(false)
   })
 
   it('parses a day without a timezone shift', () => {

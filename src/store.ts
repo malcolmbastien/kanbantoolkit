@@ -234,7 +234,10 @@ const initialView: ViewState = {
 /**
  * Backfills fields added after earlier persisted versions:
  * - `Board.level` (boards saved before the flight-level badge existed);
- * - item-to-item `links` (v9 kept dependencies inside `edges`).
+ * - item-to-item `links` (v9 kept dependencies inside `edges`);
+ * - dropped link approval status + rejected links (v11);
+ * - OKR attribution limited to initiatives (v12);
+ * - `targetDate` split into target start / end dates (v13).
  * Exported for testing.
  */
 export function migrateState(persisted: unknown): Partial<Store> {
@@ -282,6 +285,15 @@ export function migrateState(persisted: unknown): Partial<Store> {
       const typeOf = new Map((p.items as { id: string; typeId: string }[]).map((i) => [i.id, i.typeId]))
       p.edges = (p.edges as { kind: string; to: string }[]).filter((e) => e.kind !== 'attribution' || typeOf.get(e.to) === initId)
     }
+  }
+  // v13: a single targetDate became a target start / end pair. Old data keeps its
+  // date as the end date.
+  if (Array.isArray(p.items)) {
+    p.items = (p.items as (Item & { targetDate?: string })[]).map((i) => {
+      if (!('targetDate' in i)) return i
+      const { targetDate, ...rest } = i
+      return { ...rest, ...(targetDate ? { targetEndDate: targetDate } : {}) }
+    })
   }
   return p as Partial<Store>
 }
@@ -904,7 +916,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 12,
+      version: 13,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
