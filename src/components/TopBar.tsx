@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target, Trash2, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
-import { LevelBadge } from './LevelBadge'
+import { BandBadge } from './BandBadge'
 import { cn } from '@/lib/utils'
-import type { Board, BoardLevel } from '@/domain/types'
+import type { Board, BoardBand } from '@/domain/types'
 
 interface Props {
   boards: Board[]
   boardId: string
-  boardLevel: BoardLevel
+  boardBand: BoardBand
   editMode: boolean
   showObjectives: boolean
   showDashboard: boolean
@@ -18,7 +18,7 @@ interface Props {
   /** Number of active filter categories (for the button badge). */
   activeFilterCount: number
   onSelectBoard: (id: string) => void
-  onSetBoardLevel: (level: BoardLevel) => void
+  onSetBoardBand: (band: BoardBand) => void
   onToggleObjectives: () => void
   onToggleDashboard: () => void
   onToggleArchive: () => void
@@ -39,7 +39,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardLevel, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onSetBoardLevel, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onSetBoardBand, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
@@ -62,7 +62,7 @@ export function TopBar(props: Props) {
 
       <div className="h-5 w-px bg-slate-700" />
 
-      <LevelBadge level={boardLevel} onChange={onSetBoardLevel} />
+      <BandBadge band={boardBand} onChange={onSetBoardBand} />
 
       <button
         onClick={onToggleObjectives}
@@ -75,7 +75,7 @@ export function TopBar(props: Props) {
         <Target size={12} /> Objectives
       </button>
 
-      {boardLevel === 'portfolio' && (
+      {boardBand === 'strategic' && (
         <button
           onClick={onToggleDashboard}
           className={cn(

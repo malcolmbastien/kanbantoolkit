@@ -1,20 +1,22 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, ExternalLink, Layers, Plus, X } from 'lucide-react'
+import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
-import { LevelBadge } from './LevelBadge'
+import { linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 
 /**
- * A management board, Kanbanize-style:
- *  - an "Initiatives workflow" of its own top-level initiatives (wide summary cards
- *    with a progress bar and linked-initiative symbols)
- *  - "Linked workflows": the summary flow of each team board it aggregates.
+ * An aggregating board (coordination or strategic), Kanbanize-style:
+ *  - an "Initiatives workflow" of its own initiatives (wide summary cards with a
+ *    progress bar and linked-initiative symbols)
+ *  - "Linked boards": the summary flow of every board it aggregates — teams or
+ *    other coordination boards, at any depth.
  */
 export function ManagementBoard({ boardId }: { boardId: string }) {
   const boards = useStore((s) => s.boards)
-  const addManagementTeam = useStore((s) => s.addManagementTeam)
-  const removeManagementTeam = useStore((s) => s.removeManagementTeam)
+  const addLinkedBoard = useStore((s) => s.addLinkedBoard)
+  const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const selectBoard = useStore((s) => s.selectBoard)
   const items = useStore((s) => s.items)
   const lensId = useStore((s) => s.lensId)
@@ -25,9 +27,11 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const board = boards.find((b) => b.id === boardId)
   if (!board) return null
 
-  const teamIds = board.teamBoardIds ?? []
-  const teams = teamIds.map((id) => boards.find((b) => b.id === id)).filter((b): b is NonNullable<typeof b> => Boolean(b))
-  const candidates = boards.filter((b) => b.level !== 'portfolio' && !teamIds.includes(b.id))
+  const linkedIds = board.linkedBoardIds ?? []
+  const linked = linkedIds.map((id) => boards.find((b) => b.id === id)).filter((b): b is NonNullable<typeof b> => Boolean(b))
+  // Any board that keeps the aggregation graph acyclic and isn't already linked.
+  const candidates = linkableBoards(boards, board.id).filter((b) => !linkedIds.includes(b.id))
+  const isStrategic = board.band === 'strategic'
 
   const section = (
     key: string,
@@ -57,10 +61,10 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
-        <LevelBadge level={board.level} />
+        <BandBadge band={board.band} />
         <span className="font-semibold text-white">{board.name}</span>
         <span className="text-slate-500">·</span>
-        <span className="text-slate-400">management board</span>
+        <span className="text-slate-400">{isStrategic ? 'strategic board' : 'coordination board'}</span>
         {lensId && (
           <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
             <Crosshair size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
@@ -77,7 +81,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           `${board.id}-initiatives`,
           <>
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
-            <span className="text-[10px] text-violet-200">top-level initiatives</span>
+            <span className="text-[10px] text-violet-200">{isStrategic ? 'strategic initiatives' : 'the outcomes this board owns'}</span>
           </>,
           <BoardSummary boardId={board.id} rootsOnly variant="initiatives" />,
           undefined,
@@ -85,41 +89,43 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           'violet',
         )}
 
-        {/* Linked workflows — the team boards */}
+        {/* Linked boards — teams or other coordination boards */}
         {section(
           `${board.id}-linked`,
           <>
-            <span className="text-[12px] font-bold uppercase tracking-wide text-white">Linked workflows</span>
-            <span className="text-[10px] text-slate-400">{teams.length} team board{teams.length === 1 ? '' : 's'}</span>
+            <span className="text-[12px] font-bold uppercase tracking-wide text-white">Linked boards</span>
+            <span className="text-[10px] text-slate-400">
+              {linked.length} board{linked.length === 1 ? '' : 's'} roll up here
+            </span>
           </>,
           <div className="space-y-3 p-2">
-            {teams.length === 0 && (
+            {linked.length === 0 && (
               <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-[12px] text-slate-500">
-                No linked workflows yet. Add a team board above to show its initiatives here.
+                Nothing linked yet. Link a team board — or another coordination board — to roll its initiatives up here.
               </div>
             )}
-            {teams.map((t) => {
-              const isCollapsed = collapsed[`team-${t.id}`]
+            {linked.map((t) => {
+              const isCollapsed = collapsed[`linked-${t.id}`]
               return (
                 <div key={t.id} className="rounded-md border border-slate-300 bg-slate-100">
                   <div className="flex items-center gap-2 rounded-t-md bg-slate-700 px-3 py-1.5 text-slate-100">
-                    <button onClick={() => setCollapsed((c) => ({ ...c, [`team-${t.id}`]: !c[`team-${t.id}`] }))} className="text-slate-300 hover:text-white">
+                    <button onClick={() => setCollapsed((c) => ({ ...c, [`linked-${t.id}`]: !c[`linked-${t.id}`] }))} className="text-slate-300 hover:text-white">
                       {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
                     </button>
-                    <LevelBadge level={t.level} />
+                    <BandBadge band={t.band} />
                     <span className="text-[11px] font-semibold text-white">{t.name}</span>
                     <span className="ml-auto flex items-center gap-1">
                       <button
                         onClick={() => selectBoard(t.id)}
                         className="flex items-center gap-1 rounded border border-slate-500 px-1.5 py-0.5 text-[10px] font-medium text-slate-200 hover:text-white"
-                        title="Open this team board"
+                        title="Open this board"
                       >
                         <ExternalLink size={10} /> open
                       </button>
                       <button
-                        onClick={() => removeManagementTeam(board.id, t.id)}
+                        onClick={() => removeLinkedBoard(board.id, t.id)}
                         className="text-slate-300 hover:text-rose-300"
-                        title="Remove this linked workflow"
+                        title="Unlink this board"
                       >
                         <X size={12} />
                       </button>
@@ -136,7 +142,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
               onChange={(e) => setPick(e.target.value)}
               className="rounded-md border border-slate-600 bg-slate-700 px-1.5 py-1 text-[11px] text-slate-100 outline-none"
             >
-              <option value="">Add linked workflow…</option>
+              <option value="">Link a board…</option>
               {candidates.map((b) => (
                 <option key={b.id} value={b.id} className="bg-slate-800 text-slate-100">{b.name}</option>
               ))}
@@ -144,19 +150,19 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             <button
               disabled={!pick}
               onClick={() => {
-                addManagementTeam(board.id, pick)
+                addLinkedBoard(board.id, pick)
                 setPick('')
               }}
               className="flex items-center gap-1 rounded-md bg-indigo-500 px-2 py-1 text-[11px] font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
             >
-              <Plus size={12} /> Add
+              <Plus size={12} /> Link
             </button>
           </>,
           false,
         )}
 
         <div className="flex items-center gap-1 px-1 text-[10px] text-slate-400">
-          <Layers size={11} /> Each band is a rollup of that board’s initiatives — Not Started / In Progress / Done. Card symbols show linked team initiatives.
+          <Layers size={11} /> Each band is a rollup of that board’s initiatives — Not Started / In Progress / Done. Card symbols show linked initiatives.
         </div>
       </div>
     </div>

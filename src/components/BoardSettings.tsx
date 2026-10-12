@@ -1,34 +1,28 @@
 import { useEffect, useState } from 'react'
 import { Layers, Plus, Settings, Target, X } from 'lucide-react'
-import { cardTypes } from '@/domain/board'
+import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
+import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { BoardLevel } from '@/domain/types'
-
-const LEVELS: { id: BoardLevel; label: string; hint: string }[] = [
-  { id: 'team', label: 'Team', hint: 'a delivery team’s flow' },
-  { id: 'project', label: 'Project', hint: 'a project-level board' },
-  { id: 'portfolio', label: 'Portfolio', hint: 'rolls up linked team boards' },
-]
 
 /**
- * Board settings: title, type, rollup, which card types the board allows (and
- * which is the default), WIP enforcement, and — for a portfolio — the team
- * boards it aggregates.
+ * Board settings: title, flight-level band, rollup, which card types the board
+ * allows (and which is the default), WIP enforcement, and — for a coordination
+ * or strategic board — the boards it aggregates.
  */
 export function BoardSettings() {
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
   const issueTypes = useStore((s) => s.issueTypes)
   const renameBoard = useStore((s) => s.renameBoard)
-  const setBoardLevel = useStore((s) => s.setBoardLevel)
+  const setBoardBand = useStore((s) => s.setBoardBand)
   const setBoardDerived = useStore((s) => s.setBoardDerived)
   const setBoardCardTypes = useStore((s) => s.setBoardCardTypes)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
   const addIssueType = useStore((s) => s.addIssueType)
-  const addManagementTeam = useStore((s) => s.addManagementTeam)
-  const removeManagementTeam = useStore((s) => s.removeManagementTeam)
+  const addLinkedBoard = useStore((s) => s.addLinkedBoard)
+  const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const close = useStore((s) => s.toggleBoardSettings)
   const [newTypeName, setNewTypeName] = useState('')
   const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
@@ -50,9 +44,10 @@ export function BoardSettings() {
   const types = cardTypes(issueTypes)
   // No restriction = every card type.
   const allowed = board.cardTypeIds ?? types.map((t) => t.id)
-  const teams = boards.filter((b) => b.level !== 'portfolio')
-  const linked = board.teamBoardIds ?? []
-  const isPortfolio = board.level === 'portfolio'
+  const linked = board.linkedBoardIds ?? []
+  const isAggregatingBoard = isAggregating(board)
+  // Any board that keeps the aggregation graph acyclic and isn't already linked.
+  const candidates = linkableBoards(boards, board.id).filter((b) => !linked.includes(b.id))
 
   const toggleType = (id: string) => {
     const next = allowed.includes(id) ? allowed.filter((x) => x !== id) : [...allowed, id]
@@ -104,27 +99,27 @@ export function BoardSettings() {
             />
           </div>
 
-          {/* Type */}
+          {/* Flight-level band */}
           <div>
-            <div className={label}>Type</div>
+            <div className={label}>Flight-level band</div>
             <div className="grid grid-cols-3 gap-1.5">
-              {LEVELS.map((l) => (
+              {BOARD_BANDS.map((b) => (
                 <button
-                  key={l.id}
-                  onClick={() => setBoardLevel(board.id, l.id)}
-                  title={l.hint}
+                  key={b}
+                  onClick={() => setBoardBand(board.id, b)}
+                  title={BAND_STYLES[b].hint}
                   className={cn(
                     'rounded border px-2 py-1.5 text-[12px] font-medium transition',
-                    board.level === l.id
+                    board.band === b
                       ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                   )}
                 >
-                  {l.label}
+                  {BAND_STYLES[b].label}
                 </button>
               ))}
             </div>
-            <p className="mt-1 text-[10px] text-slate-400">{LEVELS.find((l) => l.id === board.level)?.hint}</p>
+            <p className="mt-1 text-[10px] text-slate-400">{BAND_STYLES[board.band]?.hint}</p>
           </div>
 
           {/* Rollup */}
@@ -222,28 +217,36 @@ export function BoardSettings() {
             </select>
           </div>
 
-          {/* Linked team boards (portfolio only) */}
-          {isPortfolio && (
+          {/* Linked boards (coordination/strategic) */}
+          {isAggregatingBoard && (
             <div>
-              <div className={label}>Linked team boards</div>
+              <div className={label}>Linked boards</div>
               <div className="space-y-1">
-                {teams.map((t) => {
-                  const on = linked.includes(t.id)
+                {linked.map((id) => {
+                  const b = boards.find((x) => x.id === id)
+                  if (!b) return null
                   return (
-                    <label key={t.id} className={cn(row, 'cursor-pointer')}>
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        onChange={(e) => (e.target.checked ? addManagementTeam(board.id, t.id) : removeManagementTeam(board.id, t.id))}
-                      />
-                      <span className="flex-1 text-slate-700">{t.name}</span>
+                    <label key={id} className={cn(row, 'cursor-pointer')}>
+                      <input type="checkbox" checked onChange={() => removeLinkedBoard(board.id, id)} />
+                      <span className="flex-1 text-slate-700">{b.name}</span>
+                      <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">{BAND_STYLES[b.band]?.label ?? '—'}</span>
                     </label>
                   )
                 })}
-                {teams.length === 0 && <p className="text-[11px] text-slate-400">No team boards yet.</p>}
+                {candidates.map((b) => (
+                  <label key={b.id} className={cn(row, 'cursor-pointer opacity-70')}>
+                    <input type="checkbox" checked={false} onChange={() => addLinkedBoard(board.id, b.id)} />
+                    <span className="flex-1 text-slate-700">{b.name}</span>
+                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">{BAND_STYLES[b.band]?.label ?? '—'}</span>
+                  </label>
+                ))}
+                {linked.length === 0 && candidates.length === 0 && (
+                  <p className="text-[11px] text-slate-400">No boards can be linked here.</p>
+                )}
               </div>
               <p className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
-                <Target size={10} /> Their initiatives appear as bands on this board.
+                <Target size={10} /> Teams or other coordination boards, any depth — their initiatives appear as bands. A board
+                can’t be linked under one of its own descendants.
               </p>
             </div>
           )}

@@ -60,22 +60,31 @@ export interface Lane {
   description?: string
 }
 
-/** Kanban flight level a board represents. */
-export type BoardLevel = 'portfolio' | 'project' | 'team'
+/**
+ * The lens a board presents. Depth is structural (a board can aggregate boards at
+ * any depth); the band picks the view:
+ * - `operational`  — renders work: lanes, cards, WIP.
+ * - `coordination` — aggregates linked boards and shows the interfaces between them.
+ * - `strategic`    — the top of an aggregation: demand vs capability.
+ */
+export type BoardBand = 'operational' | 'coordination' | 'strategic'
 
-/** A board: a container that owns a lane grid. */
+/** A board: a container that owns a lane grid and/or aggregates other boards. */
 export interface Board {
   id: string
   name: string
-  level: BoardLevel
+  band: BoardBand
   /**
    * Rollup board: an item's column is *derived* from the status of the work at the
    * lowest level of its subtree (mapped onto the board's start/done lanes) rather
-   * than stored in its placement. Used for initiative/management boards.
+   * than stored in its placement. Used for coordination/strategic boards.
    */
   derived?: boolean
-  /** Management boards only: the team boards they aggregate (and show as bands). */
-  teamBoardIds?: string[]
+  /**
+   * Boards this one aggregates (coordination/strategic). Any depth and any mix —
+   * teams or other coordination boards — so long as the graph stays acyclic.
+   */
+  linkedBoardIds?: string[]
   /**
    * The card types allowed on this board (a subset of the non-Initiative types).
    * Empty/undefined means every card type is available.

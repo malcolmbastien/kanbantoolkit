@@ -52,10 +52,15 @@ task-master list            # terminal 2
   A leaf's status comes from its column's stage, which makes status roll up the hierarchy.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
-  placed by rollup (card children are drill-in). A board is either a **management board**
-  (`level: 'portfolio'`, renders its own initiatives plus bands for its `teamBoardIds`) or a
-  **team board**. `linkTeamInitiative` creates a team initiative as a decomposition child of a
-  management initiative so it rolls up.
+  placed by rollup (card children are drill-in). A board has a **flight-level band**
+  (`band: 'operational' | 'coordination' | 'strategic'`) that picks its lens: an
+  **operational** board renders work, while a **coordination** or **strategic** board
+  aggregates other boards — its own initiatives plus a band per `linkedBoardIds`. Bands are
+  lenses, not depths: the aggregation graph may be any depth and mix teams with other
+  coordination boards, so long as it stays **acyclic** (`canLinkBoard`). The current
+  "portfolio" surface is a coordination board; there is no separate portfolio entity.
+  `linkTeamInitiative` creates a team initiative as a decomposition child of a management
+  initiative so it rolls up.
 - Dependency state is derived from the two endpoints' cells; never store a dependency
   status field. Attribution never counts as WIP.
 - Limits are per-lane `wipLimit`s and are **visual only** — a lane over its limit shows red, but moves are never blocked (no prompts).

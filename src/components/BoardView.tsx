@@ -1,9 +1,9 @@
 import { Archive, Check, Crosshair, Layers, Settings, X } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
-import { LevelBadge } from './LevelBadge'
+import { BandBadge } from './BandBadge'
 import { ManagementBoard } from './ManagementBoard'
-import { externalDependenciesOnBoard } from '@/domain/board'
+import { externalDependenciesOnBoard, isAggregating } from '@/domain/board'
 import { effectiveStage } from '@/domain/lanes'
 import { useStore } from '@/store'
 import type { Graph } from '@/domain/derive'
@@ -31,8 +31,8 @@ export function BoardView({ requestMove }: Props) {
 
   const board = boards.find((b) => b.id === boardId)
 
-  // A board is either a management board (Portfolio level) or a team board.
-  if (board?.level === 'portfolio') return <ManagementBoard boardId={boardId} />
+  // Coordination/strategic boards aggregate; operational boards render the flow.
+  if (isAggregating(board)) return <ManagementBoard boardId={boardId} />
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const external = externalDependenciesOnBoard(graph, boardId)
@@ -43,7 +43,7 @@ export function BoardView({ requestMove }: Props) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
-        {board && <LevelBadge level={board.level} />}
+        {board && <BandBadge band={board.band} />}
         <span className="font-semibold text-white">{board?.name}</span>
         <span className="text-slate-500">·</span>
         <span className="text-slate-400">leanlane board</span>
@@ -118,7 +118,7 @@ export function BoardView({ requestMove }: Props) {
           <div className="flex items-center gap-2 rounded-t-lg border-b border-slate-300 bg-slate-800 px-3 py-1.5 text-slate-200">
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Cards workflow</span>
             <span className="text-[10px] text-slate-400">
-              {board?.level === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
+              {board?.band === 'operational' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
             </span>
           </div>
           <BoardCanvas boardId={boardId} interactive onMove={requestMove} />

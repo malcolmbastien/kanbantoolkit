@@ -33,9 +33,11 @@ describe('generic hierarchy — parent / child', () => {
   const g = graphOf(s)
 
   it('depth is derived from the parent chain', () => {
-    expect(depth('init-onboarding', g)).toBe(0)
-    expect(depth('init-signup', g)).toBe(1)
-    expect(depth('st-signup-form', g)).toBe(2)
+    expect(depth('init-activation', g)).toBe(0)
+    expect(depth('init-growth', g)).toBe(1)
+    expect(depth('init-onboarding', g)).toBe(2)
+    expect(depth('init-signup', g)).toBe(3)
+    expect(depth('st-signup-form', g)).toBe(4)
   })
 
   it('a card has at most one parent', () => {
@@ -279,11 +281,17 @@ describe('lineage — the chain a card rolls up through', () => {
   const g = graphOf(s)
 
   it('walks from the root down to the item', () => {
-    expect(lineageOf('st-email', g).map((i) => i.id)).toEqual(['init-onboarding', 'init-signup', 'st-email'])
+    expect(lineageOf('st-email', g).map((i) => i.id)).toEqual([
+      'init-activation',
+      'init-growth',
+      'init-onboarding',
+      'init-signup',
+      'st-email',
+    ])
   })
 
   it('an item with no parent is its own lineage', () => {
-    expect(lineageOf('init-onboarding', g).map((i) => i.id)).toEqual(['init-onboarding'])
+    expect(lineageOf('init-activation', g).map((i) => i.id)).toEqual(['init-activation'])
   })
 })
 

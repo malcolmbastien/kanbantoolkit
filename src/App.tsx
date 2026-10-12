@@ -19,8 +19,8 @@ import { useStore } from './store'
 export default function App() {
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
-  const boardLevel = boards.find((b) => b.id === boardId)?.level ?? 'team'
-  const setBoardLevel = useStore((s) => s.setBoardLevel)
+  const boardBand = boards.find((b) => b.id === boardId)?.band ?? 'operational'
+  const setBoardBand = useStore((s) => s.setBoardBand)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
@@ -177,7 +177,7 @@ export default function App() {
       <TopBar
         boards={boards}
         boardId={boardId}
-        boardLevel={boardLevel}
+        boardBand={boardBand}
         editMode={editMode}
         showObjectives={showObjectives}
         showDashboard={showDashboard}
@@ -185,7 +185,7 @@ export default function App() {
         showFilters={showFilters}
         activeFilterCount={activeFilterCount(filters)}
         onSelectBoard={selectBoard}
-        onSetBoardLevel={(l) => setBoardLevel(boardId, l)}
+        onSetBoardBand={(b) => setBoardBand(boardId, b)}
         onToggleObjectives={toggleObjectives}
         onToggleDashboard={toggleDashboard}
         onToggleArchive={toggleArchive}
@@ -207,7 +207,7 @@ export default function App() {
             <ArchiveView />
           ) : showObjectives ? (
             <ObjectivesView />
-          ) : showDashboard && boardLevel === 'portfolio' ? (
+          ) : showDashboard && boardBand === 'strategic' ? (
             <ManagementDashboard boardId={boardId} />
           ) : (
             <BoardView requestMove={requestMove} />

@@ -24,9 +24,11 @@ const users: User[] = [
 ]
 
 const boards: Board[] = [
-  { id: 'b-portfolio', name: 'Company Portfolio', level: 'portfolio', derived: true, teamBoardIds: ['b-atlas', 'b-nova'] },
-  { id: 'b-atlas', name: 'Team Atlas', level: 'team', defaultCardTypeId: 't-story' },
-  { id: 'b-nova', name: 'Team Nova', level: 'team', defaultCardTypeId: 't-story' },
+  { id: 'b-strategy', name: 'Company Strategy', band: 'strategic', derived: true, linkedBoardIds: ['b-lob'] },
+  { id: 'b-lob', name: 'Digital line of business', band: 'coordination', derived: true, linkedBoardIds: ['b-portfolio'] },
+  { id: 'b-portfolio', name: 'Growth value stream', band: 'coordination', derived: true, linkedBoardIds: ['b-atlas', 'b-nova'] },
+  { id: 'b-atlas', name: 'Team Atlas', band: 'operational', defaultCardTypeId: 't-story' },
+  { id: 'b-nova', name: 'Team Nova', band: 'operational', defaultCardTypeId: 't-story' },
 ]
 
 const lanes: Lane[] = []
@@ -56,7 +58,11 @@ function workflow(boardId: string, splitProgress: boolean) {
   return { r, backlog, ns, ip, dev, test, done }
 }
 
-// Company Portfolio (management): plain columns.
+// A four-altitude demo: teams roll up to a value stream, to a line of business,
+// to the company strategy. Coordination/strategic boards aggregate, so their
+// lanes are plain columns.
+const st = workflow('b-strategy', false)
+const lob = workflow('b-lob', false)
 const p = workflow('b-portfolio', false)
 // Team boards: In Progress refined into Dev / Test.
 const a = workflow('b-atlas', true)
@@ -92,7 +98,11 @@ const items: Item[] = []
 const item = (id: string, title: string, typeId: string, extra: Partial<Item> = {}) =>
   items.push({ id, title, typeId, createdAt: T, ...extra })
 
-// Top-level initiatives (company portfolio).
+// Strategic initiative (company strategy) — the top of the chain.
+item('init-activation', 'Activation Programme', 't-initiative', { size: 74, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
+// Line-of-business initiative.
+item('init-growth', 'Customer Growth', 't-initiative', { size: 55, assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-01-31' })
+// Value-stream initiatives.
 item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2026-12-15' })
 item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignees: ['u-ds'], targetStartDate: '2026-11-01', targetEndDate: '2027-03-31' })
 
@@ -175,7 +185,11 @@ let placeSeq = 0
 const place = (itemId: string, boardId: string, laneId: string) =>
   placements.push({ id: `pl-${++placeSeq}`, boardId, itemId, laneId })
 
-// Company Portfolio.
+// Company strategy + line of business.
+place('init-activation', 'b-strategy', st.ns.id)
+place('init-growth', 'b-lob', lob.ns.id)
+
+// Growth value stream.
 place('init-onboarding', 'b-portfolio', p.ns.id)
 place('init-platform', 'b-portfolio', p.backlog.id) // uncommitted inventory
 
@@ -210,6 +224,9 @@ const edge = (kind: Edge['kind'], from: string, to: string) =>
 const decompose = (parent: string, children: string[]) =>
   children.forEach((c) => edge('decomposition', parent, c))
 
+// The chain: strategic → line of business → value stream → team → cards.
+decompose('init-activation', ['init-growth'])
+decompose('init-growth', ['init-onboarding', 'init-platform'])
 decompose('init-onboarding', ['init-signup', 'init-welcome'])
 decompose('init-platform', ['init-gateway'])
 decompose('init-signup', ['st-signup-design', 'st-signup-form', 'st-email', 'st-sso', 'df-signup'])

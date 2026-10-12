@@ -7,6 +7,58 @@ export function itemsOnBoard(boardId: string, placements: Placement[], items: It
   return items.filter((i) => ids.has(i.id))
 }
 
+/* ------------------------------------------------------------------ *
+ * Board aggregation — coordination/strategic boards link other boards
+ * ------------------------------------------------------------------ */
+
+/** A board that aggregates other boards rather than rendering work. */
+export function isAggregating(board: Board | undefined): boolean {
+  return board?.band === 'coordination' || board?.band === 'strategic'
+}
+
+/** Every board beneath this one in the aggregation graph (transitive, deduped). */
+export function descendantBoards(boards: Board[], boardId: string): Board[] {
+  const out: Board[] = []
+  const seen = new Set<string>()
+  const stack = [...(boards.find((b) => b.id === boardId)?.linkedBoardIds ?? [])]
+  while (stack.length) {
+    const id = stack.pop()!
+    if (seen.has(id)) continue
+    seen.add(id)
+    const b = boards.find((x) => x.id === id)
+    if (b) out.push(b)
+    stack.push(...(b?.linkedBoardIds ?? []))
+  }
+  return out
+}
+
+/** Is `candidateId` already an ancestor of `boardId` (or `boardId` itself)? */
+export function isAggregationAncestor(boards: Board[], boardId: string, candidateId: string): boolean {
+  if (boardId === candidateId) return true
+  const seen = new Set<string>()
+  const stack = [boardId]
+  while (stack.length) {
+    const id = stack.pop()!
+    if (seen.has(id)) continue
+    seen.add(id)
+    const parent = boards.find((b) => (b.linkedBoardIds ?? []).includes(id))
+    if (!parent) continue
+    if (parent.id === candidateId) return true
+    stack.push(parent.id)
+  }
+  return false
+}
+
+/** A board may link another so long as the aggregation graph stays acyclic. */
+export function canLinkBoard(boards: Board[], parentId: string, childId: string): boolean {
+  return !isAggregationAncestor(boards, parentId, childId)
+}
+
+/** The boards that may be linked under `boardId` (excludes itself and its ancestors). */
+export function linkableBoards(boards: Board[], boardId: string): Board[] {
+  return boards.filter((b) => canLinkBoard(boards, boardId, b.id))
+}
+
 /** Open dependencies of on-board work that live on another board (boundary pins). */
 export function externalDependenciesOnBoard(graph: Graph, boardId: string): DependencyInfo[] {
   const onBoard = new Set(graph.placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))

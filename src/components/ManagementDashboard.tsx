@@ -43,7 +43,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const board = boards.find((b) => b.id === boardId)
-  const teamBoardNames = (board?.teamBoardIds ?? [])
+  const teamBoardNames = (board?.linkedBoardIds ?? [])
     .map((id) => boards.find((b) => b.id === id)?.name)
     .filter((n): n is string => Boolean(n))
 

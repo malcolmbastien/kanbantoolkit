@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, searchItems } from './domain/board'
+import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
 
@@ -75,13 +75,30 @@ describe('store actions', () => {
     expect(s().issueTypes.find((t) => t.id === added.id)?.name).toBe('Threat')
   })
 
-  it('management board aggregates the team boards chosen for it', () => {
-    const mgmt = () => s().boards.find((b) => b.id === 'b-portfolio')!
-    expect(mgmt().teamBoardIds).toContain('b-atlas')
-    s().removeManagementTeam('b-portfolio', 'b-atlas')
-    expect(mgmt().teamBoardIds ?? []).not.toContain('b-atlas')
-    s().addManagementTeam('b-portfolio', 'b-atlas')
-    expect(mgmt().teamBoardIds).toContain('b-atlas')
+  it('an aggregating board links the boards chosen for it, and refuses cycles', () => {
+    const vstream = () => s().boards.find((b) => b.id === 'b-portfolio')!
+    expect(vstream().linkedBoardIds).toContain('b-atlas')
+    s().removeLinkedBoard('b-portfolio', 'b-atlas')
+    expect(vstream().linkedBoardIds ?? []).not.toContain('b-atlas')
+    s().addLinkedBoard('b-portfolio', 'b-atlas')
+    expect(vstream().linkedBoardIds).toContain('b-atlas')
+
+    // A cycle is refused: the strategy board already aggregates (transitively) the
+    // value stream, so the value stream cannot link it back.
+    s().addLinkedBoard('b-portfolio', 'b-strategy')
+    expect(s().boards.find((b) => b.id === 'b-portfolio')?.linkedBoardIds ?? []).not.toContain('b-strategy')
+    // Self-links are refused too.
+    s().addLinkedBoard('b-portfolio', 'b-portfolio')
+    expect(s().boards.find((b) => b.id === 'b-portfolio')?.linkedBoardIds ?? []).not.toContain('b-portfolio')
+  })
+
+  it('descendantBoards walks the aggregation graph transitively', () => {
+    expect(descendantBoards(s().boards, 'b-strategy').map((b) => b.id).sort()).toEqual([
+      'b-atlas',
+      'b-lob',
+      'b-nova',
+      'b-portfolio',
+    ])
   })
 
   it('links a team initiative under a management initiative', () => {
@@ -110,15 +127,16 @@ describe('store actions', () => {
     expect(leafLanes(s().lanes, boardId).length).toBeGreaterThanOrEqual(7)
   })
 
-  it('boards carry a Kanban flight level that can be changed', () => {
-    expect(s().boards.find((b) => b.id === 'b-portfolio')?.level).toBe('portfolio')
-    expect(s().boards.find((b) => b.id === 'b-atlas')?.level).toBe('team')
-    s().setBoardLevel('b-atlas', 'project')
-    expect(s().boards.find((b) => b.id === 'b-atlas')?.level).toBe('project')
+  it('boards carry a flight-level band that can be changed', () => {
+    expect(s().boards.find((b) => b.id === 'b-strategy')?.band).toBe('strategic')
+    expect(s().boards.find((b) => b.id === 'b-portfolio')?.band).toBe('coordination')
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('operational')
+    s().setBoardBand('b-atlas', 'coordination')
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('coordination')
     const before = s().boards.length
     s().addBoard('Fresh')
     expect(s().boards.length).toBe(before + 1)
-    expect(s().boards[s().boards.length - 1].level).toBe('team')
+    expect(s().boards[s().boards.length - 1].band).toBe('operational')
   })
 
   it('blocking is an explicit status recorded in the item log', () => {    expect(s().items.find((i) => i.id === 'st-email')?.blocked ?? false).toBe(false)
@@ -626,9 +644,18 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === 'st-email')?.assignees).toBeUndefined()
   })
 
-  it('migrateState backfills Board.level', () => {
-    const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
-    expect(migrated.boards[0].level).toBe('team')
+  it('migrateState turns the old board level into a band', () => {
+    const migrated = migrateState({
+      boards: [
+        { id: 'x', name: 'X' }, // no level → operational
+        { id: 'y', name: 'Y', level: 'portfolio', teamBoardIds: ['x'] }, // → coordination
+        { id: 'z', name: 'Z', level: 'project' }, // → coordination (it was inert)
+        { id: 't', name: 'T', level: 'team' }, // → operational
+      ],
+    }) as { boards: { id: string; band: string; level?: string; linkedBoardIds?: string[] }[] }
+    expect(migrated.boards.map((b) => b.band)).toEqual(['operational', 'coordination', 'coordination', 'operational'])
+    expect(migrated.boards[1].linkedBoardIds).toEqual(['x'])
+    expect('level' in migrated.boards[1]).toBe(false)
   })
 
   it('migratePersisted reseeds boards for a schema change (v<9)', () => {

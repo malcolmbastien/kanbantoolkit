@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { initiativeTypeId } from '@/domain/board'
+import { canLinkBoard, initiativeTypeId } from '@/domain/board'
 import { decompositionParent, descendants, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
-import type { Board, BoardLevel, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, User } from '@/domain/types'
+import type { Board, BoardBand, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, User } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -155,18 +155,19 @@ export interface Actions {
   addKeyResult: (objectiveId: string, title: string) => void
   updateKeyResult: (id: string, patch: Partial<KeyResult>) => void
   removeKeyResult: (id: string) => void
-  addManagementTeam: (managementBoardId: string, teamBoardId: string) => void
-  removeManagementTeam: (managementBoardId: string, teamBoardId: string) => void
+  /** Link a board under another (aggregation). Refused if it would create a cycle. */
+  addLinkedBoard: (parentId: string, childId: string) => void
+  removeLinkedBoard: (parentId: string, childId: string) => void
   resetDemo: () => void
 
   addIssueType: (name: string, color: string) => string
   updateIssueType: (id: string, patch: Partial<IssueType>) => void
   removeIssueType: (id: string) => void
 
-  addBoard: (name: string, level?: BoardLevel) => void
+  addBoard: (name: string, band?: BoardBand) => void
   removeBoard: (id: string) => void
   renameBoard: (id: string, name: string) => void
-  setBoardLevel: (id: string, level: BoardLevel) => void
+  setBoardBand: (id: string, band: BoardBand) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
   /** Set which card types are allowed on a board (empty = every card type). */
   setBoardCardTypes: (id: string, cardTypeIds: string[]) => void
@@ -318,22 +319,29 @@ const initialView: ViewState = {
  * - OKR attribution limited to initiatives (v12);
  * - `targetDate` split into target start / end dates (v13);
  * - a single `assignee` became a list of assignees (v14);
- * - assignees became user ids backed by a `users` directory (v15).
+ * - assignees became user ids backed by a `users` directory (v15);
+ * - `Board.level` became `Board.band` (operational/coordination/strategic) and
+ *   `teamBoardIds` became `linkedBoardIds` (v16).
  * Exported for testing.
  */
 export function migrateState(persisted: unknown): Partial<Store> {
   const p = (persisted ?? {}) as Record<string, unknown>
-  const levelById: Record<string, BoardLevel> = {
-    'b-portfolio': 'portfolio',
-    'b-core': 'project',
-    'b-platform': 'project',
-    'b-design': 'team',
-  }
+  // v16: `Board.level` became `Board.band`, and `teamBoardIds` became the
+  // depth-agnostic `linkedBoardIds`. Both old values ('portfolio' and 'project')
+  // were aggregating boards, so they map onto the coordination band; the new
+  // strategic altitude starts empty.
   if (Array.isArray(p.boards)) {
-    p.boards = (p.boards as { id: string; level?: BoardLevel }[]).map((b) => ({
-      ...b,
-      level: b.level ?? levelById[b.id] ?? 'team',
-    }))
+    p.boards = (p.boards as (Record<string, unknown> & { level?: string; teamBoardIds?: string[] })[]).map((b) => {
+      const { level, teamBoardIds, ...rest } = b
+      const existing = rest.band
+      const band: BoardBand =
+        existing === 'operational' || existing === 'coordination' || existing === 'strategic'
+          ? existing
+          : level === 'portfolio' || level === 'project'
+            ? 'coordination'
+            : 'operational'
+      return { ...rest, band, ...(teamBoardIds ? { linkedBoardIds: teamBoardIds } : {}) }
+    })
   }
   // v9 → v10: item-to-item dependencies became first-class `links`; `edges`
   // now holds only hierarchy (decomposition) and objective (attribution).
@@ -652,20 +660,21 @@ export const useStore = create<Store>()(
         set({ keyResults: get().keyResults.map((k) => (k.id === id ? { ...k, ...patch } : k)) }),
       removeKeyResult: (id) => set({ keyResults: get().keyResults.filter((k) => k.id !== id) }),
 
-      addManagementTeam: (managementBoardId, teamBoardId) =>
+      addLinkedBoard: (parentId, childId) => {
+        const state = get()
+        if (!canLinkBoard(state.boards, parentId, childId)) return
         set({
-          boards: get().boards.map((b) =>
-            b.id === managementBoardId && !(b.teamBoardIds ?? []).includes(teamBoardId)
-              ? { ...b, teamBoardIds: [...(b.teamBoardIds ?? []), teamBoardId] }
+          boards: state.boards.map((b) =>
+            b.id === parentId && !(b.linkedBoardIds ?? []).includes(childId)
+              ? { ...b, linkedBoardIds: [...(b.linkedBoardIds ?? []), childId] }
               : b,
           ),
-        }),
-      removeManagementTeam: (managementBoardId, teamBoardId) =>
+        })
+      },
+      removeLinkedBoard: (parentId, childId) =>
         set({
           boards: get().boards.map((b) =>
-            b.id === managementBoardId
-              ? { ...b, teamBoardIds: (b.teamBoardIds ?? []).filter((t) => t !== teamBoardId) }
-              : b,
+            b.id === parentId ? { ...b, linkedBoardIds: (b.linkedBoardIds ?? []).filter((t) => t !== childId) } : b,
           ),
         }),
       cancelEdit: () => {
@@ -687,10 +696,15 @@ export const useStore = create<Store>()(
         set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
       removeIssueType: (id) => set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
 
-      addBoard: (name, level = 'team') => {
+      addBoard: (name, band = 'operational') => {
         const boardId = uid()
         const rootId = uid()
-        const board: Board = { id: boardId, name, level, ...(level === 'portfolio' ? { teamBoardIds: [] } : {}) }
+        const board: Board = {
+          id: boardId,
+          name,
+          band,
+          ...(band !== 'operational' ? { linkedBoardIds: [] } : {}),
+        }
         const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
         // Every board starts as the fixed three typed columns; users split them to refine.
         const cols: Lane[] = STAGES.map((s, i) => ({
@@ -710,7 +724,7 @@ export const useStore = create<Store>()(
         const laneIds = new Set(state.lanes.filter((l) => l.boardId === id).map((l) => l.id))
         const boards = state.boards
           .filter((b) => b.id !== id)
-          .map((b) => (b.teamBoardIds ? { ...b, teamBoardIds: b.teamBoardIds.filter((t) => t !== id) } : b))
+          .map((b) => (b.linkedBoardIds ? { ...b, linkedBoardIds: b.linkedBoardIds.filter((t) => t !== id) } : b))
         set({
           boards,
           lanes: state.lanes.filter((l) => l.boardId !== id),
@@ -720,7 +734,7 @@ export const useStore = create<Store>()(
       },
 
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
-      setBoardLevel: (id, level) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, level } : b)) }),
+      setBoardBand: (id, band) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, band } : b)) }),
       setBoardDefaultCardType: (id, defaultCardTypeId) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
       setBoardCardTypes: (id, cardTypeIds) =>
@@ -1116,7 +1130,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 15,
+      version: 16,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
