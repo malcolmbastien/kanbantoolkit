@@ -266,12 +266,16 @@ export function rollupOf(id: string, graph: Graph): Rollup {
   const countable = Math.max(1, committed)
   const percent = total === 0 ? 0 : Math.round((done / countable) * 100)
 
-  // A committed parent cannot have uncommitted (Backlog) children, so any backlog
-  // leaf forces the whole item back to Backlog. Otherwise the committed stage
-  // derives from its leaves.
+  // A parent is as advanced as the work beneath it, but never claims completion early:
+  // everything done → done; anything under way → inProgress; anything committed →
+  // notStarted; only when every leaf is still uncommitted → backlog. A single Backlog
+  // leaf does not drag the parent backwards, so an initiative with one stream under way
+  // reads as in progress even while another stream is still unplanned.
   let bucket: RollupBucket = 'backlog'
-  if (total > 0 && backlog === 0) {
-    bucket = done === total ? 'done' : started > 0 ? 'inProgress' : 'notStarted'
+  if (total > 0) {
+    if (done === total) bucket = 'done'
+    else if (started > 0) bucket = 'inProgress'
+    else if (committed > 0) bucket = 'notStarted'
   }
   return {
     total,

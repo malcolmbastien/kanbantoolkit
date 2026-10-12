@@ -185,7 +185,7 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
   const s = createSeed()
   const g = graphOf(s)
 
-  it('all committed, some started → inProgress; a Backlog leaf forces Backlog', () => {
+  it('all committed, some started → inProgress; all uncommitted → backlog', () => {
     expect(rollupOf('init-signup', g).bucket).toBe('inProgress')
     expect(rollupOf('init-signup', g).percent).toBe(20)
     expect(rollupOf('init-onboarding', g).bucket).toBe('inProgress')
@@ -194,14 +194,24 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     expect(rollupOf('init-platform', g).bucket).toBe('backlog')
   })
 
-  it('a committed parent cannot have uncommitted children — the rule is derived', () => {
+  it('a child stream under way lifts the parent out of Backlog', () => {
+    // Customer Growth decomposes into Onboarding Redesign (already under way) and
+    // Platform Consolidation (entirely uncommitted). The parent is in progress — one
+    // uncommitted stream must not drag the whole initiative back to Backlog.
+    expect(rollupOf('init-onboarding', g).bucket).toBe('inProgress')
+    expect(rollupOf('init-platform', g).bucket).toBe('backlog')
+    expect(rollupOf('init-growth', g).bucket).toBe('inProgress')
+  })
+
+  it('progress is acknowledged even while part of the work is still uncommitted', () => {
     const s2 = createSeed()
     const backlog = laneByName(s2, 'b-atlas', 'Backlog')
     s2.placements = s2.placements.map((p) =>
       p.itemId === 'st-email' && p.boardId === 'b-atlas' ? { ...p, laneId: backlog.id } : p,
     )
-    expect(rollupOf('init-signup', graphOf(s2)).bucket).toBe('backlog')
-    expect(rollupOf('init-onboarding', graphOf(s2)).bucket).toBe('backlog')
+    // st-email went back to Backlog, but its siblings are already under way.
+    expect(rollupOf('init-signup', graphOf(s2)).bucket).toBe('inProgress')
+    expect(rollupOf('init-onboarding', graphOf(s2)).bucket).toBe('inProgress')
   })
 
   it('moving the last Backlog leaf out returns the ancestors to a committed stage', () => {
