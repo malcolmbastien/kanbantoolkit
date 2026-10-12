@@ -3,6 +3,7 @@ import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, S
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
 import { BandBadge } from './BandBadge'
+import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
 import type { Board, BoardBand } from '@/domain/types'
 
@@ -34,10 +35,6 @@ interface Props {
   onReset: () => void
 }
 
-const SELECT_CLS =
-  'rounded-md border border-slate-700 bg-slate-800 px-1.5 py-1 text-[12px] font-medium text-slate-100 outline-none focus:ring-2 focus:ring-indigo-400'
-const OPT = 'bg-slate-800 text-slate-100'
-
 export function TopBar(props: Props) {
   const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onSetBoardBand, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
@@ -51,14 +48,10 @@ export function TopBar(props: Props) {
         <span className="text-sm font-semibold tracking-tight text-white">Flowline</span>
       </div>
 
-      <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
         Board
-        <select value={boardId} onChange={(e) => onSelectBoard(e.target.value)} className={SELECT_CLS}>
-          {boards.map((b) => (
-            <option key={b.id} value={b.id} className={OPT}>{b.name}</option>
-          ))}
-        </select>
-      </label>
+        <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
+      </div>
 
       <div className="h-5 w-px bg-slate-700" />
 
