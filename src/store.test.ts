@@ -221,6 +221,59 @@ describe('store actions', () => {
     expect('archived' in restored).toBe(false)
   })
 
+  it('saves a board as a template and instantiates it without the work', () => {
+    const placementsBefore = s().placements.length
+    expect(s().boardTemplates).toEqual([])
+
+    s().saveBoardAsTemplate('b-atlas', 'Team flow')
+    const template = s().boardTemplates[0]
+    expect(template.name).toBe('Team flow')
+    expect(template.lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Dev', 'Test', 'Done'])
+    expect(JSON.stringify(template)).not.toMatch(/linkedBoardIds|itemId|placement/)
+
+    s().addBoard('Squad', undefined, false, template.id)
+    const created = s().boards[s().boards.length - 1]
+    const root = rootLane(s().lanes, created.id)!
+    expect(childrenOf(s().lanes, root.id).map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+    const ip = childrenOf(s().lanes, root.id).find((l) => l.name === 'In Progress')!
+    expect(childrenOf(s().lanes, ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
+    // Its own lanes, and no work copied across.
+    const atlasRoot = rootLane(s().lanes, 'b-atlas')!
+    expect(childrenOf(s().lanes, root.id)[0].id).not.toBe(childrenOf(s().lanes, atlasRoot.id)[0].id)
+    expect(s().placements.length).toBe(placementsBefore)
+    // The template is unchanged and still usable.
+    expect(s().boardTemplates[0].lanes).toHaveLength(6)
+
+    // A template's band is the fallback when none is given — and a coordination board
+    // still starts with an empty linkedBoardIds.
+    s().saveBoardAsTemplate('b-portfolio', 'Program flow')
+    const program = s().boardTemplates[1]
+    expect(program.band).toBe('program')
+    s().addBoard('Program two', undefined, false, program.id)
+    const created2 = s().boards[s().boards.length - 1]
+    expect(created2.band).toBe('program')
+    expect(created2.linkedBoardIds).toEqual([])
+
+    // An explicit band still wins over the template's.
+    s().addBoard('Explicit', 'team', false, program.id)
+    expect(s().boards[s().boards.length - 1].band).toBe('team')
+  })
+
+  it('templates are managed and round-trip through persistence', () => {
+    s().saveBoardAsTemplate('b-atlas', 'Team flow')
+    expect(persistedSlice(s()).boardTemplates).toHaveLength(1)
+
+    s().renameBoardTemplate(s().boardTemplates[0].id, 'Renamed flow')
+    expect(s().boardTemplates[0].name).toBe('Renamed flow')
+
+    s().removeBoardTemplate(s().boardTemplates[0].id)
+    expect(s().boardTemplates).toEqual([])
+
+    // Older state simply has no collection; the migration supplies one.
+    const migrated = migrateState({ boards: [] }) as { boardTemplates: unknown[] }
+    expect(migrated.boardTemplates).toEqual([])
+  })
+
   it('migrateState normalises the archived flags and leaves older boards working', () => {
     const migrated = migrateState({
       boards: [

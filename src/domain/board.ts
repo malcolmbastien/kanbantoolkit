@@ -1,6 +1,6 @@
 import { isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
 import { childrenOf, leavesUnder, rootLane } from './lanes'
-import type { Board, BoardBand, IssueType, Item, Placement } from './types'
+import type { Board, BoardBand, BoardTemplate, IssueType, Item, Lane, Placement } from './types'
 
 /** Items placed on a board (via explicit placement records). */
 export function itemsOnBoard(boardId: string, placements: Placement[], items: Item[]): Item[] {
@@ -42,6 +42,73 @@ export function boardsByBand(boards: Board[], query = '', includeArchived = fals
       .filter((b) => !q || b.name.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name)),
   })).filter((group) => group.boards.length > 0)
+}
+
+/* ------------------------------------------------------------------ *
+ * Board templates — a design, reused across the organisation
+ * ------------------------------------------------------------------ */
+
+/**
+ * Capture a board's **design** as a template: its lane tree (everything below the root),
+ * which card types it allows, its default type and how it enforces WIP.
+ *
+ * Deliberately not captured: items, placements and linked boards. Those belong to the
+ * board, not to its shape — a template is meant to be reused, and a copy carrying one
+ * team's work or one program's links would be wrong everywhere else.
+ */
+export function templateFromBoard(id: string, name: string, board: Board, lanes: Lane[]): BoardTemplate {
+  const root = rootLane(lanes, board.id)
+  const flat: Lane[] = []
+  const walk = (lane: Lane) => {
+    flat.push(lane)
+    childrenOf(lanes, lane.id).forEach(walk)
+  }
+  if (root) childrenOf(lanes, root.id).forEach(walk)
+
+  // Keys are minted in document order and only need to be unique inside the template.
+  const keyOf = new Map(flat.map((l, i) => [l.id, `k${i}`]))
+  return {
+    id,
+    name,
+    band: board.band,
+    lanes: flat.map((l) => ({
+      key: keyOf.get(l.id)!,
+      parentKey: l.parentId && l.parentId !== root?.id ? keyOf.get(l.parentId) ?? null : null,
+      order: l.order,
+      name: l.name,
+      ...(l.orientation ? { orientation: l.orientation } : {}),
+      ...(l.stage ? { stage: l.stage } : {}),
+      ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
+      ...(l.description ? { description: l.description } : {}),
+    })),
+    ...(board.cardTypeIds ? { cardTypeIds: [...board.cardTypeIds] } : {}),
+    ...(board.defaultCardTypeId ? { defaultCardTypeId: board.defaultCardTypeId } : {}),
+    ...(board.wipEnforcement ? { wipEnforcement: board.wipEnforcement } : {}),
+  }
+}
+
+/**
+ * Mint a template's lanes for a new board: the structure comes across intact, every id is
+ * fresh (`uid` is injected so this stays pure), and nothing references the template.
+ */
+export function lanesFromTemplate(
+  template: BoardTemplate,
+  boardId: string,
+  rootId: string,
+  uid: () => string,
+): Lane[] {
+  const idOf = new Map(template.lanes.map((l) => [l.key, uid()]))
+  return template.lanes.map((l) => ({
+    id: idOf.get(l.key)!,
+    boardId,
+    parentId: l.parentKey === null ? rootId : idOf.get(l.parentKey)!,
+    order: l.order,
+    name: l.name,
+    ...(l.orientation ? { orientation: l.orientation } : {}),
+    ...(l.stage ? { stage: l.stage } : {}),
+    ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
+    ...(l.description ? { description: l.description } : {}),
+  }))
 }
 
 /* ------------------------------------------------------------------ *

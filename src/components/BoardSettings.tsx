@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Settings, Target, X } from 'lucide-react'
+import { LayoutTemplate, Plus, Settings, Target, X } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
@@ -19,12 +19,14 @@ export function BoardSettings() {
   const setBoardCardTypes = useStore((s) => s.setBoardCardTypes)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
+  const saveBoardAsTemplate = useStore((s) => s.saveBoardAsTemplate)
   const addIssueType = useStore((s) => s.addIssueType)
   const addLinkedBoard = useStore((s) => s.addLinkedBoard)
   const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const close = useStore((s) => s.toggleBoardSettings)
   const [newTypeName, setNewTypeName] = useState('')
   const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
+  const [savedTemplate, setSavedTemplate] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -201,6 +203,30 @@ export function BoardSettings() {
               <option value="justify">Justify — allow exceeding, but ask for a reason</option>
               <option value="block">Block — refuse moves that would exceed a limit</option>
             </select>
+          </div>
+
+          {/* Template — a board design, reusable when creating boards */}
+          <div>
+            <div className={label}>Template</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  saveBoardAsTemplate(board.id)
+                  setSavedTemplate(true)
+                }}
+                className="flex shrink-0 items-center gap-1 rounded border border-slate-200 px-2 py-1.5 text-[12px] font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+              >
+                <LayoutTemplate size={13} /> Save as template
+              </button>
+              <span className="text-[11px] text-slate-500">
+                Keeps this board’s columns, card types and WIP policy — not its cards or linked boards.
+              </span>
+            </div>
+            {savedTemplate && (
+              <p className="mt-1 text-[11px] font-medium text-emerald-600">
+                Saved as “{board.name}”. Rename it in the board workspace.
+              </p>
+            )}
           </div>
 
           {/* Linked boards (coordination/strategic) */}

@@ -797,14 +797,15 @@
         "id": "51",
         "title": "Board templates: define, save and instantiate",
         "description": "A template is a board design, not its work: save a board's design as a template, and create new boards from it.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "49"
         ],
         "priority": "medium",
-        "details": "Add BoardTemplate { id, name, band, lanes, cardTypeIds?, defaultCardTypeId?, wipEnforcement? } as a new persisted collection (persist version bump + migrate). lanes is the board's lane tree — names, orientation, stage and wipLimit — with fresh ids minted on instantiation. A template carries NO items, placements or linked boards: those are org-specific. 'Save as template' from a board; 'New board' then offers the built-in standard (the four typed columns) plus saved templates. SETTLE: how much of Board settings a template carries (is lanes + card types + WIP enough?), and whether 'save as template' is offered from Board settings as well as the workspace. Note: this is the templates half of task 21, which should be re-pointed at the wizard and duplicate board so the two do not drift.",
+        "details": "Add BoardTemplate { id, name, band, lanes, cardTypeIds?, defaultCardTypeId?, wipEnforcement? } as a new persisted collection (persist version bump + migrate). lanes is the board's lane tree — names, orientation, stage and wipLimit — with fresh ids minted on instantiation. A template carries NO items, placements or linked boards: those are org-specific. 'Save as template' from a board; 'New board' then offers the built-in standard (the four typed columns) plus saved templates. SETTLED, and built: a template carries the lane tree (names, orientation, stage, wipLimit and policy text), the allowed card types, the default card type and the WIP enforcement mode — the board's design, which is exactly what you configure in Board settings. 'Save as template' is offered from Board settings, where the design is being shaped; the workspace offers *use* (a template picker on New board, which prefills the flight level) and management (task 52). Note: this is the templates half of task 21, which should be re-pointed at the wizard and duplicate board so the two do not drift.",
         "testStrategy": "Unit-test instantiate: a board created from a template has the template's lane structure with fresh unique ids, the same stages and WIP limits, and no placements or linked boards, and the template itself is unchanged. Round-trip a template through persistence. Run npm test.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-12T21:26:37.937Z"
       },
       {
         "id": "52",
@@ -835,9 +836,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-12T20:50:34.967Z",
+      "lastModified": "2026-10-12T21:26:37.937Z",
       "taskCount": 52,
-      "completedCount": 29,
+      "completedCount": 30,
       "tags": [
         "backlog"
       ]

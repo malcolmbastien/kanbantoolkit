@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, initiativeTypeId, isStrategicInitiative } from '@/domain/board'
+import { canLinkBoard, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
@@ -168,11 +168,18 @@ export interface Actions {
   removeIssueType: (id: string) => void
 
   /**
-   * Create a board with the standard typed columns. `open` (the default) switches to it in
-   * edit mode, as the TopBar's create does; the board workspace passes false so a new board
-   * simply lands in the list without leaving it.
+   * Create a board. `open` (the default) switches to it in edit mode, as the TopBar's create
+   * does; the board workspace passes false so a new board simply lands in the list without
+   * leaving it. `templateId` supplies the design — otherwise the standard typed columns.
    */
-  addBoard: (name: string, band?: BoardBand, open?: boolean) => void
+  addBoard: (name: string, band?: BoardBand, open?: boolean, templateId?: string) => void
+  /**
+   * Save a board's *design* as a reusable template: its lane tree, card types and WIP
+   * policy. Its items, placements and linked boards are deliberately left behind.
+   */
+  saveBoardAsTemplate: (boardId: string, name?: string) => void
+  removeBoardTemplate: (id: string) => void
+  renameBoardTemplate: (id: string, name: string) => void
   removeBoard: (id: string) => void
   /**
    * Retire a board without destroying it: hidden from the picker, the workspace's list and
@@ -466,6 +473,8 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return rest
     })
   }
+  // v21: board templates became a persisted collection. Older state simply has none.
+  if (!Array.isArray(p.boardTemplates)) p.boardTemplates = []
   return p as Partial<Store>
 }
 
@@ -496,6 +505,7 @@ export function persistedSlice(s: Store): Partial<Store> {
     links: s.links,
     objectives: s.objectives,
     keyResults: s.keyResults,
+    boardTemplates: s.boardTemplates,
     autoArchiveDays: s.autoArchiveDays,
     // Collapsed columns are remembered across reloads.
     collapsedLanes: s.collapsedLanes,
@@ -750,31 +760,50 @@ export const useStore = create<Store>()(
         set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
       removeIssueType: (id) => set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
 
-      addBoard: (name, band = 'team', open = true) => {
+      addBoard: (name, band, open = true, templateId) => {
         const boardId = uid()
         const rootId = uid()
+        const template = templateId ? get().boardTemplates.find((t) => t.id === templateId) : undefined
+        // A template's band is the sensible default; an explicit band always wins.
+        const resolvedBand = band ?? template?.band ?? 'team'
         const board: Board = {
           id: boardId,
           name,
-          band,
-          ...(band !== 'team' ? { linkedBoardIds: [] } : {}),
+          band: resolvedBand,
+          ...(resolvedBand !== 'team' ? { linkedBoardIds: [] } : {}),
+          ...(template?.cardTypeIds ? { cardTypeIds: [...template.cardTypeIds] } : {}),
+          ...(template?.defaultCardTypeId ? { defaultCardTypeId: template.defaultCardTypeId } : {}),
+          ...(template?.wipEnforcement ? { wipEnforcement: template.wipEnforcement } : {}),
         }
         const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
-        // Every board starts as the fixed typed columns; users split them to refine.
-        const cols: Lane[] = STAGES.map((s, i) => ({
-          id: uid(),
-          boardId,
-          parentId: rootId,
-          order: i,
-          name: STAGE_LABELS[s],
-          stage: s,
-        }))
+        // A template supplies the design; otherwise the standard typed columns.
+        const cols: Lane[] = template
+          ? lanesFromTemplate(template, boardId, rootId, uid)
+          : STAGES.map((s, i) => ({
+              id: uid(),
+              boardId,
+              parentId: rootId,
+              order: i,
+              name: STAGE_LABELS[s],
+              stage: s,
+            }))
         set({
           boards: [...get().boards, board],
           lanes: [...get().lanes, root, ...cols],
           ...(open ? { boardId, editMode: true } : {}),
         })
       },
+
+      saveBoardAsTemplate: (boardId, name) => {
+        const state = get()
+        const board = state.boards.find((b) => b.id === boardId)
+        if (!board) return
+        const label = (name ?? board.name).trim() || board.name
+        set({ boardTemplates: [...state.boardTemplates, templateFromBoard(uid(), label, board, state.lanes)] })
+      },
+      removeBoardTemplate: (id) => set({ boardTemplates: get().boardTemplates.filter((t) => t.id !== id) }),
+      renameBoardTemplate: (id, name) =>
+        set({ boardTemplates: get().boardTemplates.map((t) => (t.id === id ? { ...t, name } : t)) }),
 
       removeBoard: (id) => {
         const state = get()
@@ -1215,7 +1244,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 20,
+      version: 21,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

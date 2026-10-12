@@ -29,7 +29,9 @@ export function BoardWorkspace() {
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [band, setBand] = useState<BoardBand>('team')
+  const [templateId, setTemplateId] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  const boardTemplates = useStore((s) => s.boardTemplates)
 
   const groups = boardsByBand(boards, q, showArchived)
   const shown = groups.reduce((n, g) => n + g.boards.length, 0)
@@ -41,9 +43,10 @@ export function BoardWorkspace() {
     if (!trimmed) return
     // `open: false` — creating here is browsing, so the board lands in the list rather
     // than switching to it in edit mode the way the TopBar's create does.
-    addBoard(trimmed, band, false)
+    addBoard(trimmed, band, false, templateId || undefined)
     setName('')
     setBand('team')
+    setTemplateId('')
     setCreating(false)
     setQ('')
   }
@@ -51,6 +54,7 @@ export function BoardWorkspace() {
   const cancelCreate = () => {
     setName('')
     setBand('team')
+    setTemplateId('')
     setCreating(false)
   }
 
@@ -141,6 +145,25 @@ export function BoardWorkspace() {
                   </option>
                 ))}
               </select>
+              <select
+                value={templateId}
+                onChange={(e) => {
+                  const id = e.target.value
+                  setTemplateId(id)
+                  // A template carries a flight level, so offer it as the default.
+                  const chosen = boardTemplates.find((t) => t.id === id)
+                  if (chosen) setBand(chosen.band)
+                }}
+                aria-label="New board template"
+                className="rounded-md border border-slate-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+              >
+                <option value="">Standard columns</option>
+                {boardTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={create}
                 disabled={!name.trim()}
@@ -154,7 +177,11 @@ export function BoardWorkspace() {
               >
                 Cancel
               </button>
-              <span className="text-[11px] text-slate-400">Starts as the standard Backlog → Done columns; shape it after.</span>
+              <span className="text-[11px] text-slate-400">
+                {templateId
+                  ? 'Uses that template’s columns, card types and WIP policy.'
+                  : 'Starts as the standard Backlog → Done columns; shape it after.'}
+              </span>
             </div>
           )}
         </div>

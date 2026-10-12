@@ -278,5 +278,6 @@ export function createSeed(): FlowState {
     links: structuredClone(links),
     objectives: structuredClone(objectives),
     keyResults: structuredClone(keyResults),
+    boardTemplates: [],
   }
 }

@@ -104,6 +104,37 @@ export interface Board {
   wipEnforcement?: 'visualize' | 'justify' | 'block'
 }
 
+/**
+ * A lane inside a template. `key` wires parents to children *within the template*; real
+ * lane ids are minted on instantiation, so a template can be used any number of times.
+ */
+export interface TemplateLane {
+  key: string
+  /** `null` means "a child of the board root" — the root itself is structural, not stored. */
+  parentKey: string | null
+  order: number
+  name: string
+  orientation?: SplitOrientation
+  stage?: Stage
+  wipLimit?: number
+  description?: string
+}
+
+/**
+ * A board *design*, not its work: the lane tree, which card types it allows and how it
+ * enforces WIP. It carries no items, placements or linked boards — those are
+ * org-specific, and a template is meant to be reused across the organisation.
+ */
+export interface BoardTemplate {
+  id: string
+  name: string
+  band: BoardBand
+  lanes: TemplateLane[]
+  cardTypeIds?: string[]
+  defaultCardTypeId?: string
+  wipEnforcement?: 'visualize' | 'justify' | 'block'
+}
+
 /** A notable event in an item's history. Append-only. */
 export type ItemLogKind = 'created' | 'blocked' | 'unblocked' | 'archived' | 'unarchived' | 'noted' | 'limit'
 
@@ -233,6 +264,8 @@ export interface FlowState {
   links: ItemLink[]
   objectives: Objective[]
   keyResults: KeyResult[]
+  /** Reusable board designs. Part of the workspace's data, not of any one board. */
+  boardTemplates: BoardTemplate[]
   /** Auto-archive Done items after this many days (0/undefined = off). */
   autoArchiveDays?: number
 }
