@@ -344,13 +344,18 @@ describe('store actions', () => {
     expect(boardCardTypeId(s().boards.find((b) => b.id === 'b-atlas'), types)).toBe('t-story')
   })
 
-  it('OKR attribution is initiative-only; cards map via the hierarchy', () => {
-    // A card can't be attributed to an objective…
+  it('OKRs attach to strategic initiatives only', () => {
+    // A card can't be attributed…
     s().setAttribution('st-signup-form', 'obj-efficiency', true)
     expect(s().edges.some((e) => e.kind === 'attribution' && e.to === 'st-signup-form')).toBe(false)
-    // …but an initiative can.
+    // …nor a team or value-stream initiative (they inherit through the decomposition).
     s().setAttribution('init-signup', 'obj-efficiency', true)
-    expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-signup')).toBe(true)
+    expect(s().edges.some((e) => e.kind === 'attribution' && e.to === 'init-signup')).toBe(false)
+    s().setAttribution('init-onboarding', 'obj-efficiency', true)
+    expect(s().edges.some((e) => e.kind === 'attribution' && e.to === 'init-onboarding')).toBe(false)
+    // …but a strategic initiative (an Initiative on a portfolio board) can.
+    s().setAttribution('init-explore', 'obj-efficiency', true)
+    expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-explore')).toBe(true)
   })
 
   it('deleting a card removes its placements, parent edge, links and attribution', () => {

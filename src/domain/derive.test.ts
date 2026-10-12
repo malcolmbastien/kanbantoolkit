@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   attributedObjectives,
+  okrCoverage,
   blockedBelow,
   checklistItems,
   checklistProgress,
@@ -156,10 +157,19 @@ describe('composition pressure and attribution', () => {
     expect(openDescendants('init-signup', g).length).toBe(4)
   })
 
-  it('an initiative can map to several OKRs', () => {
-    const edges = [...s.edges, { id: 'x1', kind: 'attribution' as const, from: 'obj-efficiency', to: 'init-signup' }]
-    const objs = attributedObjectives('init-signup', edges, s.objectives)
+  it('a strategic initiative can map to several OKRs', () => {
+    const edges = [...s.edges, { id: 'x1', kind: 'attribution' as const, from: 'obj-efficiency', to: 'init-activation' }]
+    const objs = attributedObjectives('init-activation', edges, s.objectives)
     expect(objs.map((o) => o.id).sort()).toEqual(['obj-activation', 'obj-efficiency'])
+  })
+
+  it('okrCoverage reports unmapped initiatives and unserved OKRs', () => {
+    const strategic = ['init-activation', 'init-efficiency', 'init-explore'].map(
+      (id) => s.items.find((i) => i.id === id)!,
+    )
+    const { unmapped, unserved } = okrCoverage(strategic, s.objectives, s.edges)
+    expect(unmapped.map((i) => i.id)).toEqual(['init-explore'])
+    expect(unserved.map((o) => o.id)).toEqual(['obj-reliability'])
   })
 
   it('initiativeOf walks up to the nearest initiative; cards have no OKRs', () => {

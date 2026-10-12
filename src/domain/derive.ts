@@ -289,6 +289,24 @@ export function attributedObjectives(itemId: string, edges: Edge[], objectives: 
 }
 
 /**
+ * OKR coverage: strategic initiatives that carry no OKR, and OKRs that no
+ * strategic initiative serves. Both are first-class gaps on the L3 lens.
+ */
+export function okrCoverage(
+  initiatives: Item[],
+  objectives: Objective[],
+  edges: Edge[],
+): { unmapped: Item[]; unserved: Objective[] } {
+  const attribution = edges.filter((e) => e.kind === 'attribution')
+  const mapped = new Set(attribution.map((e) => e.to))
+  const served = new Set(attribution.map((e) => e.from))
+  return {
+    unmapped: initiatives.filter((i) => !mapped.has(i.id)),
+    unserved: objectives.filter((o) => !served.has(o.id)),
+  }
+}
+
+/**
  * The nearest ancestor (or self) that is an Initiative — how a card maps to an
  * initiative. OKR attribution is reserved for initiatives; cards inherit it.
  */

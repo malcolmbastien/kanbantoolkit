@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, initiativeTypeId } from '@/domain/board'
+import { canLinkBoard, initiativeTypeId, isStrategicInitiative } from '@/domain/board'
 import { decompositionParent, descendants, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
@@ -321,7 +321,9 @@ const initialView: ViewState = {
  * - a single `assignee` became a list of assignees (v14);
  * - assignees became user ids backed by a `users` directory (v15);
  * - `Board.level` became `Board.band` (team/program/portfolio) and
- *   `teamBoardIds` became `linkedBoardIds` (v16).
+ *   `teamBoardIds` became `linkedBoardIds` (v16/v17);
+ * - OKRs attach only to strategic initiatives — attribution pointing lower down
+ *   is dropped (v18).
  * Exported for testing.
  */
 export function migrateState(persisted: unknown): Partial<Store> {
@@ -409,6 +411,24 @@ export function migrateState(persisted: unknown): Partial<Store> {
       Array.isArray(i.assignees) ? { ...i, assignees: i.assignees.map(resolve) } : i,
     )
     p.users = users
+  }
+  // v18: OKRs attach only to strategic initiatives (an Initiative on a portfolio
+  // board). Anything mapped lower down inherits through the decomposition instead,
+  // so those edges are dropped.
+  if (
+    Array.isArray(p.edges) &&
+    Array.isArray(p.items) &&
+    Array.isArray(p.placements) &&
+    Array.isArray(p.boards) &&
+    Array.isArray(p.issueTypes)
+  ) {
+    const ctx = {
+      items: p.items as Item[],
+      placements: p.placements as Placement[],
+      boards: p.boards as Board[],
+      issueTypes: p.issueTypes as IssueType[],
+    }
+    p.edges = (p.edges as Edge[]).filter((e) => e.kind !== 'attribution' || isStrategicInitiative(e.to, ctx))
   }
   return p as Partial<Store>
 }
@@ -1000,10 +1020,9 @@ export const useStore = create<Store>()(
 
       setAttribution: (itemId, objectiveId, on) => {
         const state = get()
-        // OKR attribution is reserved for initiatives — cards map to initiatives
-        // through the hierarchy, not to objectives.
-        const initId = initiativeTypeId(state.issueTypes)
-        if (on && initId && state.items.find((i) => i.id === itemId)?.typeId !== initId) return
+        // OKRs attach to strategic initiatives only — an Initiative placed on a
+        // portfolio-band board. Everything below inherits through the decomposition.
+        if (on && !isStrategicInitiative(itemId, state)) return
         const existing = state.edges.find((e) => e.kind === 'attribution' && e.from === objectiveId && e.to === itemId)
         if (on && !existing) set({ edges: [...state.edges, { id: uid(), kind: 'attribution', from: objectiveId, to: itemId }] })
         else if (!on && existing) set({ edges: state.edges.filter((e) => e.id !== existing.id) })
@@ -1128,7 +1147,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 16,
+      version: 18,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

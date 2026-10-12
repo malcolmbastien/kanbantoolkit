@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Crosshair, ExternalLink, Layers, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, ExternalLink, Layers, Plus, TriangleAlert, X } from 'lucide-react'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
-import { linkableBoards } from '@/domain/board'
+import { initiativeTypeId, linkableBoards } from '@/domain/board'
+import { okrCoverage } from '@/domain/derive'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 
@@ -19,6 +20,12 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const selectBoard = useStore((s) => s.selectBoard)
   const items = useStore((s) => s.items)
+  const placements = useStore((s) => s.placements)
+  const edges = useStore((s) => s.edges)
+  const objectives = useStore((s) => s.objectives)
+  const issueTypes = useStore((s) => s.issueTypes)
+  const openItem = useStore((s) => s.openItem)
+  const setObjectives = useStore((s) => s.setObjectives)
   const lensId = useStore((s) => s.lensId)
   const clearLens = useStore((s) => s.clearLens)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
@@ -88,6 +95,64 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           true,
           'violet',
         )}
+
+        {/* OKR coverage — the strategic lens. Gaps are first-class. */}
+        {isPortfolio &&
+          (() => {
+            const initId = initiativeTypeId(issueTypes)
+            const own = items.filter(
+              (i) => i.typeId === initId && placements.some((p) => p.itemId === i.id && p.boardId === board.id),
+            )
+            const { unmapped, unserved } = okrCoverage(own, objectives, edges)
+            const chip = (label: string, onClick: () => void) => (
+              <button
+                key={label}
+                onClick={onClick}
+                className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800 hover:bg-amber-100"
+              >
+                <TriangleAlert size={10} /> {label}
+              </button>
+            )
+            return section(
+              `${board.id}-coverage`,
+              <>
+                <span className="text-[12px] font-bold uppercase tracking-wide text-white">OKR coverage</span>
+                <span className="text-[10px] text-slate-400">
+                  {own.length} strategic initiative{own.length === 1 ? '' : 's'} · {objectives.length} OKR
+                  {objectives.length === 1 ? '' : 's'} · {unmapped.length + unserved.length} gap
+                  {unmapped.length + unserved.length === 1 ? '' : 's'}
+                </span>
+              </>,
+              <div className="space-y-2 p-2 text-[12px]">
+                <div>
+                  <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    Strategic initiatives with no OKR
+                  </div>
+                  {unmapped.length === 0 ? (
+                    <p className="text-[11px] text-slate-400">Every strategic initiative carries an OKR.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">{unmapped.map((i) => chip(i.title, () => openItem(i.id)))}</div>
+                  )}
+                </div>
+                <div>
+                  <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    OKRs with no strategic initiative
+                  </div>
+                  {unserved.length === 0 ? (
+                    <p className="text-[11px] text-slate-400">Every OKR is served by a strategic initiative.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">{unserved.map((o) => chip(o.title, () => setObjectives(true)))}</div>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  OKRs attach to strategic initiatives only — open one to map it. Everything below inherits through the decomposition.
+                </p>
+              </div>,
+              undefined,
+              true,
+              'slate',
+            )
+          })()}
 
         {/* Linked boards — teams or other coordination boards */}
         {section(

@@ -62,7 +62,10 @@ task-master list            # terminal 2
   `linkTeamInitiative` creates a team initiative as a decomposition child of a management
   initiative so it rolls up.
 - Dependency state is derived from the two endpoints' cells; never store a dependency
-  status field. Attribution never counts as WIP.
+  status field. Attribution never counts as WIP. OKRs attach to **strategic initiatives**
+  only — an Initiative placed on a portfolio board; everything below inherits through the
+  decomposition (`isStrategicInitiative`). `okrCoverage` surfaces the two gaps: a strategic
+  initiative with no OKR, and an OKR with no strategic initiative.
 - Limits are per-lane `wipLimit`s and are **visual only** — a lane over its limit shows red, but moves are never blocked (no prompts).
 - Before finishing any task, run the no-Google/Firebase scan above and `npm test`.
 

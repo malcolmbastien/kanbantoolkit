@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Target, Trash2, X } from 'lucide-react'
-import { buildRefs } from '@/domain/board'
+import { buildRefs, isStrategicInitiative } from '@/domain/board'
 import { rollupOf, type Graph } from '@/domain/derive'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -21,6 +21,7 @@ export function ObjectivesView() {
   const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
+  const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
   const addObjective = useStore((s) => s.addObjective)
   const updateObjective = useStore((s) => s.updateObjective)
@@ -43,16 +44,17 @@ export function ObjectivesView() {
   const [krDraft, setKrDraft] = useState<Record<string, string>>({})
   const [attrPick, setAttrPick] = useState<Record<string, string>>({})
 
-  const isInitiative = (id: string) => typeOf(items.find((i) => i.id === id)?.typeId ?? '').name === 'Initiative'
+  // OKRs attach to strategic initiatives only — an Initiative on a portfolio board.
+  const strategicCtx = { items, placements, boards, issueTypes }
   const initiatives = items
-    .filter((i) => isInitiative(i.id))
+    .filter((i) => isStrategicInitiative(i.id, strategicCtx))
     .sort((a, b) => a.title.localeCompare(b.title))
 
   const attributedItems = (objectiveId: string): Item[] =>
     edges
       .filter((e) => e.kind === 'attribution' && e.from === objectiveId)
       .map((e) => items.find((i) => i.id === e.to))
-      .filter((i): i is Item => i !== undefined && isInitiative(i.id))
+      .filter((i): i is Item => i !== undefined && isStrategicInitiative(i.id, strategicCtx))
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">

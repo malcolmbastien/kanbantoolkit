@@ -59,6 +59,35 @@ export function linkableBoards(boards: Board[], boardId: string): Board[] {
   return boards.filter((b) => canLinkBoard(boards, boardId, b.id))
 }
 
+/* ------------------------------------------------------------------ *
+ * Strategic initiatives — the only place OKRs attach
+ * ------------------------------------------------------------------ */
+
+/** What `isStrategicInitiative` needs to look at. */
+export interface StrategicCtx {
+  items: Item[]
+  placements: Placement[]
+  boards: Board[]
+  issueTypes: IssueType[]
+}
+
+/**
+ * A strategic initiative is an ordinary Initiative placed on a portfolio-band
+ * board. There is no flag or entity: "strategic" is *where it sits*.
+ */
+export function isStrategicInitiative(itemId: string, ctx: StrategicCtx): boolean {
+  const item = ctx.items.find((i) => i.id === itemId)
+  if (!item || item.typeId !== initiativeTypeId(ctx.issueTypes)) return false
+  return ctx.placements.some(
+    (p) => p.itemId === itemId && ctx.boards.find((b) => b.id === p.boardId)?.band === 'portfolio',
+  )
+}
+
+/** Every strategic initiative in the graph. */
+export function strategicInitiatives(ctx: StrategicCtx): Item[] {
+  return ctx.items.filter((i) => isStrategicInitiative(i.id, ctx))
+}
+
 /** Open dependencies of on-board work that live on another board (boundary pins). */
 export function externalDependenciesOnBoard(graph: Graph, boardId: string): DependencyInfo[] {
   const onBoard = new Set(graph.placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))

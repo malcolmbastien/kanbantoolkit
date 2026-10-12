@@ -84,6 +84,8 @@ a.test!.description =
 const objectives: Objective[] = [
   { id: 'obj-activation', title: 'Grow activation', period: 'FY26 Q1', status: 'active', score: 45 },
   { id: 'obj-efficiency', title: 'Reduce cost-to-serve', period: 'FY26 Q1', status: 'active' },
+  // Deliberately unserved — no strategic initiative carries it (an L3 coverage gap).
+  { id: 'obj-reliability', title: 'Improve reliability', period: 'FY26 Q1', status: 'active' },
 ]
 const keyResults = [
   { id: 'kr-activation', objectiveId: 'obj-activation', title: 'Activation rate +10pp', progress: 30 },
@@ -98,8 +100,12 @@ const items: Item[] = []
 const item = (id: string, title: string, typeId: string, extra: Partial<Item> = {}) =>
   items.push({ id, title, typeId, createdAt: T, ...extra })
 
-// Strategic initiative (company strategy) — the top of the chain.
+// Strategic initiatives (company strategy) — the top of the chain. OKRs attach
+// here and everything below inherits through the decomposition.
 item('init-activation', 'Activation Programme', 't-initiative', { size: 74, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
+item('init-efficiency', 'Operating Efficiency', 't-initiative', { size: 62, assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
+// Deliberately carries no OKR — an L3 coverage gap to demonstrate.
+item('init-explore', 'Exploration Portfolio', 't-initiative', { size: 12, assignees: ['u-jt'], targetEndDate: '2027-06-30' })
 // Line-of-business initiative.
 item('init-growth', 'Customer Growth', 't-initiative', { size: 55, assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-01-31' })
 // Value-stream initiatives.
@@ -187,6 +193,8 @@ const place = (itemId: string, boardId: string, laneId: string) =>
 
 // Company strategy + line of business.
 place('init-activation', 'b-strategy', st.ns.id)
+place('init-efficiency', 'b-strategy', st.ns.id)
+place('init-explore', 'b-strategy', st.backlog.id) // uncommitted inventory
 place('init-growth', 'b-lob', lob.ns.id)
 
 // Growth value stream.
@@ -248,11 +256,8 @@ link('st-signup-form', 'st-tour', { reason: 'Tour depends on the new signup flow
 
 // Attribution — informs, never counts as WIP. OKRs map to initiatives only;
 // cards map to initiatives through the hierarchy, never to objectives directly.
-edge('attribution', 'obj-activation', 'init-onboarding')
-edge('attribution', 'obj-activation', 'init-signup')
-edge('attribution', 'obj-activation', 'init-welcome')
-edge('attribution', 'obj-efficiency', 'init-platform')
-edge('attribution', 'obj-efficiency', 'init-gateway')
+edge('attribution', 'obj-activation', 'init-activation')
+edge('attribution', 'obj-efficiency', 'init-efficiency')
 
 export function createSeed(): FlowState {
   return {
