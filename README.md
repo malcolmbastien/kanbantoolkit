@@ -17,16 +17,17 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   remove lanes) live behind an **Edit board** mode.
 - **Fixed post-it cards, fluid lanes.** A card is a fixed 180×112 note; lanes **expand to
   fit every card** in them (no in-cell scrolling), so a row is as tall as its busiest cell.
-- **Flight-level badge.** Every board is labelled by Kanban flight level — **Portfolio**,
-  **Project**, or **Team** — shown as a badge in the toolbar and board header and editable
-  inline. It's an orientation label for a board, distinct from an item's derived `depth`.
-- **Management boards vs team boards.** A board is one or the other, by level: a
-  **management board** (Portfolio level) shows an **Initiatives workflow** of its own top-level
-  initiatives — wide summary cards with a **progress bar + %** and **card symbols** summarising
-  the **linked work** at a glance (team initiatives for a top-level initiative, cards for a
-  team-level one) — plus **Linked workflows**: a rollup band per team board it aggregates (add
-  them via **Add linked workflow**). A **team board** shows its own initiative flow. Pick a
-  board from the **Board** menu; there's no separate view toggle.
+- **Flight-level badge.** Every board is labelled by Kanban flight level — **Team**,
+  **Program**, or **Portfolio** — shown as a badge on the board picker in the toolbar and
+  set under **Board settings**. It's an orientation label for a board, distinct from an
+  item's derived `depth`.
+- **Coordination boards vs team boards.** The band picks a board's lens. A **team** board
+  renders work: an **Initiatives workflow** (its initiatives, positioned by rollup) over the
+  **Cards workflow**. A **program** board aggregates: the same **Initiatives workflow** plus
+  **Linked boards** — a rollup band per board it aggregates. A **portfolio** board leads with
+  a **Strategy map**: its strategic initiatives grouped under the **objective** they serve,
+  with both coverage gaps inline (an objective no initiative serves, an initiative no
+  objective carries), then **Linked boards**. Pick a board from the **Board** menu.
 - **Initiatives on boards; cards beneath.** A board's flow shows its **Initiative-typed
   items** (positioned by rollup); their children are the detailed cards, seen by opening an
   initiative. From a management initiative you can **link** down to a new team initiative: it's

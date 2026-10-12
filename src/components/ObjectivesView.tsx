@@ -2,16 +2,12 @@ import { useState } from 'react'
 import { Plus, Target, Trash2, X } from 'lucide-react'
 import { buildRefs, isStrategicInitiative } from '@/domain/board'
 import { rollupOf, type Graph } from '@/domain/derive'
+import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Objective } from '@/domain/types'
 
 const COMMITMENT_LIMIT = 5 // "3–5 objectives" is a commitment limit, not a WIP limit
-
-const STATUS_STYLES: Record<Objective['status'], string> = {
-  active: 'bg-indigo-100 text-indigo-700 ring-indigo-200',
-  scored: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
-}
 
 export function ObjectivesView() {
   const objectives = useStore((s) => s.objectives)
@@ -120,7 +116,7 @@ export function ObjectivesView() {
                   <select
                     value={o.status}
                     onChange={(e) => updateObjective(o.id, { status: e.target.value as Objective['status'] })}
-                    className={cn('rounded px-1 py-px text-[10px] font-semibold ring-1 outline-none', STATUS_STYLES[o.status])}
+                    className={cn('rounded px-1 py-px text-[10px] font-semibold ring-1 outline-none', OBJECTIVE_STATUS_STYLES[o.status])}
                   >
                     <option value="active">active</option>
                     <option value="scored">scored</option>

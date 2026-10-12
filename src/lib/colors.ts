@@ -1,4 +1,4 @@
-import type { BoardBand, Stage } from '@/domain/types'
+import type { BoardBand, Objective, Stage } from '@/domain/types'
 
 export function hexToRgba(hex: string, alpha: number): string {
   const h = hex.replace('#', '')
@@ -19,6 +19,12 @@ export const DEP_STATE_STYLES: Record<string, { label: string; className: string
     label: 'Open · live blockage',
     className: 'bg-rose-100 text-rose-800 ring-rose-300',
   },
+}
+
+/** Objective status chip. */
+export const OBJECTIVE_STATUS_STYLES: Record<Objective['status'], string> = {
+  active: 'bg-indigo-100 text-indigo-700 ring-indigo-200',
+  scored: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
 }
 
 /** A readable text/edge colour from an arbitrary type colour (dark text on light tints). */
