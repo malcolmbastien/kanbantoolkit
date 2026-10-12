@@ -1,7 +1,6 @@
-import { Archive, Check, Crosshair, Layers, Settings, X } from 'lucide-react'
+import { Archive, Crosshair, Layers, X } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
-import { BandBadge } from './BandBadge'
 import { ManagementBoard } from './ManagementBoard'
 import { externalDependenciesOnBoard, isAggregating } from '@/domain/board'
 import { effectiveStage } from '@/domain/lanes'
@@ -21,13 +20,10 @@ export function BoardView({ requestMove }: Props) {
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
   const editMode = useStore((s) => s.editMode)
-  const saveEdit = useStore((s) => s.saveEdit)
-  const cancelEdit = useStore((s) => s.cancelEdit)
   const lensId = useStore((s) => s.lensId)
   const clearLens = useStore((s) => s.clearLens)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
-  const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
 
   const board = boards.find((b) => b.id === boardId)
 
@@ -40,68 +36,55 @@ export function BoardView({ requestMove }: Props) {
     (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
   ).length
 
+  // The board's level and name already live in the TopBar's board picker, so this
+  // strip only appears when it has something functional to say.
+  const showBar = Boolean(board?.derived || editMode || lensId || doneCount > 0 || external.length > 0)
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
-        {board && <BandBadge band={board.band} />}
-        <span className="font-semibold text-white">{board?.name}</span>
-        <span className="text-slate-500">·</span>
-        <span className="text-slate-400">team board</span>
-        {board?.derived && (
-          <span className="rounded bg-violet-400/20 px-1.5 py-px font-semibold text-violet-200" title="Columns are derived from the lowest-level work in each card's subtree">
-            rollup status
-          </span>
-        )}
-        {editMode && (
-          <>
-            <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">edit mode · unsaved changes</span>
-            <button onClick={saveEdit} className="flex items-center gap-1 rounded bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-emerald-400">
-              <Check size={11} /> Save
-            </button>
-            <button onClick={cancelEdit} className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-300 hover:text-white">
-              <X size={11} /> Cancel
-            </button>
-            <button
-              onClick={toggleBoardSettings}
-              className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-300 hover:text-white"
-              title="Board settings — title, type, card types, WIP"
-            >
-              <Settings size={11} /> settings
-            </button>
-          </>
-        )}
-        {lensId && (
-          <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
-            <Crosshair size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
-            <button onClick={clearLens} className="ml-0.5 text-indigo-200 hover:text-white" title="Clear focus">
-              <X size={10} />
-            </button>
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {doneCount > 0 && !editMode && (
-            <button
-              onClick={() =>
-                askConfirm({
-                  title: `Archive ${doneCount} done item${doneCount === 1 ? '' : 's'}?`,
-                  body: 'They leave this board but stay searchable in the Archive.',
-                  confirmLabel: 'Archive',
-                  onConfirm: () => archiveDoneOnBoard(boardId),
-                })
-              }
-              className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-200 hover:text-white"
-              title="Archive all Done cards on this board so they stop cluttering it"
-            >
-              <Archive size={11} /> Archive done ({doneCount})
-            </button>
-          )}
-          {external.length > 0 && (
-            <span className="flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">
-              <Layers size={11} /> {external.length} external dependenc{external.length > 1 ? 'ies' : 'y'}
+      {showBar && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
+          {board?.derived && (
+            <span className="rounded bg-violet-400/20 px-1.5 py-px font-semibold text-violet-200" title="Columns are derived from the lowest-level work in each card's subtree">
+              rollup status
             </span>
           )}
+          {editMode && (
+            <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">edit mode · unsaved changes</span>
+          )}
+          {lensId && (
+            <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
+              <Crosshair size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
+              <button onClick={clearLens} className="ml-0.5 text-indigo-200 hover:text-white" title="Clear focus">
+                <X size={10} />
+              </button>
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            {doneCount > 0 && !editMode && (
+              <button
+                onClick={() =>
+                  askConfirm({
+                    title: `Archive ${doneCount} done item${doneCount === 1 ? '' : 's'}?`,
+                    body: 'They leave this board but stay searchable in the Archive.',
+                    confirmLabel: 'Archive',
+                    onConfirm: () => archiveDoneOnBoard(boardId),
+                  })
+                }
+                className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-200 hover:text-white"
+                title="Archive all Done cards on this board so they stop cluttering it"
+              >
+                <Archive size={11} /> Archive done ({doneCount})
+              </button>
+            )}
+            {external.length > 0 && (
+              <span className="flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">
+                <Layers size={11} /> {external.length} external dependenc{external.length > 1 ? 'ies' : 'y'}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {/* Initiatives workflow — this team's initiatives, by rollup */}
