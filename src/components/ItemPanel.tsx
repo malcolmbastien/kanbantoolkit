@@ -77,6 +77,7 @@ export function ItemPanel({ itemId }: Props) {
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
   const [newChecklist, setNewChecklist] = useState('')
+  const [assigneeDraft, setAssigneeDraft] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const item = items.find((i) => i.id === itemId)
@@ -105,6 +106,13 @@ export function ItemPanel({ itemId }: Props) {
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
   const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
+  const addAssignee = () => {
+    const a = assigneeDraft.trim()
+    if (!a) return
+    const current = item.assignees ?? []
+    if (!current.includes(a)) setItemFields(item.id, { assignees: [...current, a] })
+    setAssigneeDraft('')
+  }
   // The chain from the root down to this item, plus the OKRs its ancestors map to.
   const lineage = lineageOf(item.id, graph)
   const lineageObjectives = [
@@ -166,7 +174,7 @@ export function ItemPanel({ itemId }: Props) {
   const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
-  const assignees = [...new Set(items.map((i) => i.assignee).filter((a): a is string => Boolean(a)))]
+  const assignees = [...new Set(items.flatMap((i) => i.assignees ?? []))]
 
   const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
 
@@ -347,22 +355,51 @@ export function ItemPanel({ itemId }: Props) {
                 />
               )}
             </div>
-            <div className="flex items-end gap-2">
-              <label className="flex min-w-0 flex-1 flex-col gap-1 text-[11px] text-slate-500">
-                Assignee
+            {/* Assignees — several people can own a card or initiative */}
+            <div>
+              <div className="mb-1 text-[11px] font-medium text-slate-500">Assignees</div>
+              <div className="flex flex-wrap items-center gap-1">
+                {(item.assignees ?? []).map((a) => (
+                  <span key={a} className="flex items-center gap-1 rounded-full bg-slate-700 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {a}
+                    <button
+                      onClick={() => setItemFields(item.id, { assignees: (item.assignees ?? []).filter((x) => x !== a) })}
+                      className="text-slate-300 hover:text-white"
+                      title={`Remove ${a}`}
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
                 <input
                   list="flowline-assignees"
-                  value={item.assignee ?? ''}
-                  onChange={(e) => setItemFields(item.id, { assignee: e.target.value })}
-                  placeholder="initials…"
-                  className="w-full rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                  value={assigneeDraft}
+                  onChange={(e) => setAssigneeDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addAssignee()
+                    }
+                  }}
+                  placeholder="add initials…"
+                  className="w-28 rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
                 />
                 <datalist id="flowline-assignees">
                   {assignees.map((a) => (
                     <option key={a} value={a} />
                   ))}
                 </datalist>
-              </label>
+                <button
+                  disabled={!assigneeDraft.trim()}
+                  onClick={addAssignee}
+                  className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-end gap-2">
               <label className="flex flex-col gap-1 text-[11px] text-slate-500">
                 Size
                 <input

@@ -12,7 +12,7 @@ export interface CardFilters {
   blocked: boolean
   /** Only cards past their target date that aren't done. */
   overdue: boolean
-  /** Only cards with no assignee. */
+  /** Only cards with no assignees. */
   unassigned: boolean
 }
 
@@ -43,7 +43,7 @@ export function hasActiveFilters(f: CardFilters): boolean {
 export function matchesFilters(item: Item, f: CardFilters, resolved: boolean, now = Date.now()): boolean {
   if (f.typeIds.length > 0 && !f.typeIds.includes(item.typeId)) return false
   if (f.blocked && item.blocked !== true) return false
-  if (f.unassigned && item.assignee) return false
+  if (f.unassigned && (item.assignees?.length ?? 0) > 0) return false
   if (f.overdue && !isOverdue(item, resolved, now)) return false
   return true
 }

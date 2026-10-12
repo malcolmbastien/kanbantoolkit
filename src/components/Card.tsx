@@ -263,8 +263,19 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               <span className="flex items-center gap-0.5" title="Time since created">
                 <Clock size={11} /> {days}d
               </span>
-              {item.assignee && (
-                <span className="grid h-4 w-4 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">{item.assignee}</span>
+              {item.assignees && item.assignees.length > 0 && (
+                <span className="flex items-center gap-0.5">
+                  {item.assignees.slice(0, 4).map((a) => (
+                    <span key={a} className="grid h-4 w-4 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white" title={a}>
+                      {a}
+                    </span>
+                  ))}
+                  {item.assignees.length > 4 && (
+                    <span className="text-[9px] font-semibold text-slate-400" title={item.assignees.join(', ')}>
+                      +{item.assignees.length - 4}
+                    </span>
+                  )}
+                </span>
               )}
             </span>
           </div>
@@ -380,8 +391,19 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
             </span>
           )}
           {blockedChip}
-          {item.assignee && (
-            <span className="ml-auto grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">{item.assignee}</span>
+          {item.assignees && item.assignees.length > 0 && (
+            <span className="ml-auto flex shrink-0 items-center gap-0.5">
+              {item.assignees.slice(0, 3).map((a) => (
+                <span key={a} className="grid h-4 w-4 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white" title={a}>
+                  {a}
+                </span>
+              ))}
+              {item.assignees.length > 3 && (
+                <span className="text-[9px] font-semibold text-slate-500" title={item.assignees.join(', ')}>
+                  +{item.assignees.length - 3}
+                </span>
+              )}
+            </span>
           )}
         </div>
       </div>

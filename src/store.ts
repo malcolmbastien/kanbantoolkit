@@ -94,7 +94,10 @@ export interface Actions {
   /** Bulk actions over the multi-select group. */
   moveCardsToLane: (itemIds: string[], laneId: string) => void
   setItemsType: (itemIds: string[], typeId: string) => void
-  setItemsAssignee: (itemIds: string[], assignee: string | undefined) => void
+  /** Add an assignee to every listed item (deduped). */
+  addItemsAssignee: (itemIds: string[], assignee: string) => void
+  /** Clear every assignee on the listed items. */
+  clearItemsAssignees: (itemIds: string[]) => void
   archiveItems: (itemIds: string[]) => void
   deleteItems: (itemIds: string[]) => void
 
@@ -237,7 +240,8 @@ const initialView: ViewState = {
  * - item-to-item `links` (v9 kept dependencies inside `edges`);
  * - dropped link approval status + rejected links (v11);
  * - OKR attribution limited to initiatives (v12);
- * - `targetDate` split into target start / end dates (v13).
+ * - `targetDate` split into target start / end dates (v13);
+ * - a single `assignee` became a list of assignees (v14).
  * Exported for testing.
  */
 export function migrateState(persisted: unknown): Partial<Store> {
@@ -293,6 +297,14 @@ export function migrateState(persisted: unknown): Partial<Store> {
       if (!('targetDate' in i)) return i
       const { targetDate, ...rest } = i
       return { ...rest, ...(targetDate ? { targetEndDate: targetDate } : {}) }
+    })
+  }
+  // v14: a single assignee became a list of assignees.
+  if (Array.isArray(p.items)) {
+    p.items = (p.items as (Item & { assignee?: string })[]).map((i) => {
+      if (!('assignee' in i)) return i
+      const { assignee, ...rest } = i
+      return { ...rest, ...(assignee ? { assignees: [assignee] } : {}) }
     })
   }
   return p as Partial<Store>
@@ -395,11 +407,19 @@ export const useStore = create<Store>()(
         set({ items: state.items.map((i) => (ids.has(i.id) ? { ...i, typeId } : i)) })
       },
 
-      setItemsAssignee: (itemIds, assignee) => {
-        const state = get()
+      addItemsAssignee: (itemIds, assignee) => {
+        const a = assignee.trim()
+        if (!a) return
         const ids = new Set(itemIds)
-        const a = assignee?.trim() || undefined
-        set({ items: state.items.map((i) => (ids.has(i.id) ? { ...i, assignee: a } : i)) })
+        set({
+          items: get().items.map((i) =>
+            ids.has(i.id) && !(i.assignees ?? []).includes(a) ? { ...i, assignees: [...(i.assignees ?? []), a] } : i,
+          ),
+        })
+      },
+      clearItemsAssignees: (itemIds) => {
+        const ids = new Set(itemIds)
+        set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, assignees: undefined } : i)) })
       },
 
       archiveItems: (itemIds) => {
@@ -916,7 +936,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 13,
+      version: 14,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

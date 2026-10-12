@@ -101,7 +101,8 @@ export interface Item {
   description?: string
   typeId: string
   size?: number
-  assignee?: string
+  /** Assignees (initials). A card or initiative can be owned by several people. */
+  assignees?: string[]
   /** Target start / end dates, ISO 'YYYY-MM-DD'. Shown on the management dashboard. */
   targetStartDate?: string
   targetEndDate?: string

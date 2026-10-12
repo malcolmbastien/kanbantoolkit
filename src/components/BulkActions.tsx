@@ -20,7 +20,8 @@ export function BulkActions() {
   const issueTypes = useStore((s) => s.issueTypes)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
   const setItemsType = useStore((s) => s.setItemsType)
-  const setItemsAssignee = useStore((s) => s.setItemsAssignee)
+  const addItemsAssignee = useStore((s) => s.addItemsAssignee)
+  const clearItemsAssignees = useStore((s) => s.clearItemsAssignees)
   const archiveItems = useStore((s) => s.archiveItems)
   const deleteItems = useStore((s) => s.deleteItems)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -32,11 +33,11 @@ export function BulkActions() {
 
   const leaves = leafLanes(lanes, boardId)
   const types = cardTypes(issueTypes)
-  const assignees = [...new Set(items.map((i) => i.assignee).filter((a): a is string => Boolean(a)))]
+  const assignees = [...new Set(items.flatMap((i) => i.assignees ?? []))]
   const count = multiSelect.length
 
   const applyAssignee = () => {
-    setItemsAssignee(multiSelect, assignee)
+    addItemsAssignee(multiSelect, assignee)
     setAssignee('')
   }
 
@@ -102,8 +103,15 @@ export function BulkActions() {
             <option key={a} value={a} />
           ))}
         </datalist>
-        <button onClick={applyAssignee} className="rounded bg-slate-700 px-1.5 py-1 font-medium text-slate-100 hover:bg-slate-600" title="Set assignee (empty clears it)">
-          Set
+        <button onClick={applyAssignee} className="rounded bg-slate-700 px-1.5 py-1 font-medium text-slate-100 hover:bg-slate-600" title="Add this person to every selected card">
+          Add
+        </button>
+        <button
+          onClick={() => clearItemsAssignees(multiSelect)}
+          className="rounded px-1.5 py-1 font-medium text-slate-400 hover:bg-slate-700 hover:text-white"
+          title="Remove every assignee from the selection"
+        >
+          Clear
         </button>
       </label>
 

@@ -22,7 +22,7 @@ describe('card filters', () => {
     expect(matchesFilters(card(), with_({ blocked: true }), false)).toBe(false)
 
     expect(matchesFilters(card(), with_({ unassigned: true }), false)).toBe(true)
-    expect(matchesFilters(card({ assignee: 'MB' }), with_({ unassigned: true }), false)).toBe(false)
+    expect(matchesFilters(card({ assignees: ['MB'] }), with_({ unassigned: true }), false)).toBe(false)
 
     const past = card({ targetEndDate: '2000-01-01' })
     const future = card({ targetEndDate: '2999-01-01' })
@@ -34,7 +34,7 @@ describe('card filters', () => {
 
   it('combines categories with AND', () => {
     const f = with_({ blocked: true, unassigned: true })
-    expect(matchesFilters(card({ blocked: true, assignee: 'MB' }), f, false)).toBe(false)
+    expect(matchesFilters(card({ blocked: true, assignees: ['MB'] }), f, false)).toBe(false)
     expect(matchesFilters(card({ blocked: true }), f, false)).toBe(true)
   })
 
