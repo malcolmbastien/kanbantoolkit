@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Eye, Pencil, X } from 'lucide-react'
+import { Eye, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { InlineEdit } from './InlineEdit'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import {
@@ -33,7 +33,12 @@ import type { BoardTemplate, TemplateLane } from '@/domain/types'
 export function TemplateEditor({ template, onClose }: { template: BoardTemplate; onClose: () => void }) {
   const issueTypes = useStore((s) => s.issueTypes)
   const updateBoardTemplate = useStore((s) => s.updateBoardTemplate)
+  const addIssueType = useStore((s) => s.addIssueType)
+  const removeIssueType = useStore((s) => s.removeIssueType)
+  const askConfirm = useStore((s) => s.askConfirm)
   const [editing, setEditing] = useState(false)
+  const [newTypeName, setNewTypeName] = useState('')
+  const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -61,6 +66,34 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
         : {}),
     })
   }
+
+  /** Define a brand-new type and enable it on this template, as Board settings does. */
+  const addType = () => {
+    const name = newTypeName.trim()
+    if (!name) return
+    const id = addIssueType(name, newTypeColor)
+    patch({ cardTypeIds: [...allowed, id] })
+    setNewTypeName('')
+  }
+
+  /**
+   * Deleting a type is global — types are labels for the whole workspace, not per board —
+   * so it says so before doing it, and cleans the template's own references afterwards.
+   */
+  const deleteType = (id: string, name: string) =>
+    askConfirm({
+      title: `Delete the “${name}” type?`,
+      body: 'It goes from every board and template, not just this one. Cards using it fall back to a generic item.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: () => {
+        removeIssueType(id)
+        patch({
+          ...(template.cardTypeIds ? { cardTypeIds: template.cardTypeIds.filter((x) => x !== id) } : {}),
+          ...(template.defaultCardTypeId === id ? { defaultCardTypeId: undefined } : {}),
+        })
+      },
+    })
 
   const dt = 'text-[10px] font-bold uppercase tracking-wide text-slate-400'
   const field = 'rounded border border-slate-200 px-1.5 py-0.5 text-[11px] outline-none focus:border-indigo-300'
@@ -128,7 +161,7 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
             </div>
           </div>
 
-          <dl className="grid grid-cols-[104px_1fr] items-center gap-x-3 gap-y-2 text-[12px]">
+          <dl className="grid grid-cols-[104px_1fr] items-start gap-x-3 gap-y-2 text-[12px]">
             <dt className={dt}>Board type</dt>
             <dd>
               {editing ? (
@@ -152,15 +185,57 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
             </dd>
 
             <dt className={dt}>Card types</dt>
-            <dd className="flex flex-wrap gap-x-3 gap-y-1">
+            <dd className="max-w-md space-y-1">
               {editing ? (
-                types.map((t) => (
-                  <label key={t.id} className="flex items-center gap-1 text-[11px] text-slate-700">
-                    <input type="checkbox" checked={allowed.includes(t.id)} onChange={() => toggleType(t.id)} />
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
-                    {t.name}
-                  </label>
-                ))
+                <>
+                  {types.map((t) => (
+                    <div key={t.id} className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={allowed.includes(t.id)}
+                        onChange={() => toggleType(t.id)}
+                        aria-label={`Allow ${t.name} on this template`}
+                      />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-slate-700">{t.name}</span>
+                      <button
+                        onClick={() => deleteType(t.id, t.name)}
+                        className="shrink-0 text-slate-300 transition hover:text-rose-500"
+                        title={`Delete the ${t.name} type everywhere`}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <div className="flex items-center gap-1 pt-0.5">
+                    <input
+                      type="color"
+                      value={newTypeColor}
+                      onChange={(e) => setNewTypeColor(e.target.value)}
+                      title="New type colour"
+                      className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                    />
+                    <input
+                      value={newTypeName}
+                      onChange={(e) => setNewTypeName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') addType()
+                      }}
+                      placeholder="Define a new card type…"
+                      aria-label="New card type name"
+                      className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] outline-none focus:border-indigo-300"
+                    />
+                    <button
+                      disabled={!newTypeName.trim()}
+                      onClick={addType}
+                      className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-white disabled:opacity-40"
+                      title="Create this type and enable it on this template"
+                    >
+                      <Plus size={11} /> Add type
+                    </button>
+                  </div>
+                </>
               ) : (
                 <span className="text-slate-700">{typeNames?.length ? typeNames.join(', ') : 'every type'}</span>
               )}
