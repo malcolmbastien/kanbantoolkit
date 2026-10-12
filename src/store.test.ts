@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, buildRefs, cardTypes, defaultCardTypeId, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane } from './domain/lanes'
-import { migratePersisted, migrateState, useStore } from './store'
+import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
 
 vi.stubGlobal('localStorage', {
   getItem: () => null,
@@ -515,6 +515,21 @@ describe('store actions', () => {
     expect(s().lanes.find((l) => l.id === ns.id)?.description).toBe('Pull one at a time.')
     s().setLaneDescription(ns.id, undefined)
     expect(s().lanes.find((l) => l.id === ns.id)?.description).toBeUndefined()
+  })
+
+  it('persists collapsed columns, while selection/filters stay view-only', () => {
+    const ip = laneByName('b-atlas', 'In Progress')
+    s().toggleCollapse(ip.id)
+    expect(persistedSlice(s()).collapsedLanes).toEqual({ [ip.id]: true })
+    expect(persistedSlice(s()).lanes).toBeDefined() // the design is persisted
+
+    s().setSearch('x')
+    s().openItem('st-email')
+    s().toggleMultiSelect('st-sso')
+    const slice = persistedSlice(s())
+    expect(slice.search).toBeUndefined()
+    expect(slice.selectedItemId).toBeUndefined()
+    expect(slice.multiSelect).toBeUndefined()
   })
 
   it('migrateState backfills Board.level', () => {

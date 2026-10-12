@@ -41,7 +41,7 @@ export interface ViewState {
   showDashboard: boolean
   /** Show the Archive view (filed-away items) instead of a board. */
   showArchive: boolean
-  /** Collapsed containers (view-only; not persisted to localStorage). */
+  /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
   showFilters: boolean
@@ -293,6 +293,33 @@ export function migrateState(persisted: unknown): Partial<Store> {
 export function migratePersisted(persisted: unknown, version: number): Partial<Store> {
   if (version < 9) return createSeed() as unknown as Partial<Store>
   return migrateState(persisted)
+}
+
+/**
+ * The slice of state written to localStorage. View-only state (selection, filters,
+ * multi-select, boundary focus, a pending confirm) is excluded. While editing, the
+ * pre-edit (draft) design substitutes the live one so a reload reverts unsaved
+ * layout changes.
+ *
+ * Exported for testing.
+ */
+export function persistedSlice(s: Store): Partial<Store> {
+  const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
+  return {
+    issueTypes: s.issueTypes,
+    items: s.items,
+    edges: s.edges,
+    links: s.links,
+    objectives: s.objectives,
+    keyResults: s.keyResults,
+    autoArchiveDays: s.autoArchiveDays,
+    // Collapsed columns are remembered across reloads.
+    collapsedLanes: s.collapsedLanes,
+    boardId: design.boardId,
+    boards: design.boards,
+    lanes: design.lanes,
+    placements: design.placements,
+  }
 }
 
 export const useStore = create<Store>()(
@@ -881,22 +908,7 @@ export const useStore = create<Store>()(
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
-      partialize: (s): Partial<Store> => {
-        const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
-        return {
-          issueTypes: s.issueTypes,
-          items: s.items,
-          edges: s.edges,
-          links: s.links,
-          objectives: s.objectives,
-          keyResults: s.keyResults,
-          autoArchiveDays: s.autoArchiveDays,
-          boardId: design.boardId,
-          boards: design.boards,
-          lanes: design.lanes,
-          placements: design.placements,
-        }
-      },
+      partialize: persistedSlice,
     },
   ),
 )
