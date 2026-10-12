@@ -465,12 +465,14 @@ describe('store actions', () => {
     // Bulk: type, assign (additive), move.
     s().setItemsType(['st-sso'], 't-bug')
     expect(s().items.find((i) => i.id === 'st-sso')?.typeId).toBe('t-bug')
-    s().addItemsAssignee(['st-sso'], 'ZZ')
-    s().addItemsAssignee(['st-sso'], 'ZZ') // deduped
-    s().addItemsAssignee(['st-sso'], 'RK')
-    expect(s().items.find((i) => i.id === 'st-sso')?.assignees).toEqual(['ZZ', 'RK'])
+    s().addItemsAssignee(['st-sso'], 'Zoe Zimmer')
+    s().addItemsAssignee(['st-sso'], 'Zoe Zimmer') // deduped, same person
+    s().addItemsAssignee(['st-sso'], 'Riley Kim') // an existing user, reused
+    const st = () => s().items.find((i) => i.id === 'st-sso')!
+    const names = (st().assignees ?? []).map((id) => s().users.find((u) => u.id === id)?.name)
+    expect(names).toEqual(['Zoe Zimmer', 'Riley Kim'])
     s().clearItemsAssignees(['st-sso'])
-    expect(s().items.find((i) => i.id === 'st-sso')?.assignees).toBeUndefined()
+    expect(st().assignees).toBeUndefined()
 
     const done = laneByName('b-atlas', 'Done')
     s().moveCardsToLane(['st-sso'], done.id)
@@ -542,10 +544,14 @@ describe('store actions', () => {
     expect(migrated.items[1].targetEndDate).toBeUndefined()
   })
 
-  it('migrateState turns a single assignee into a list', () => {
-    const legacy = { items: [{ id: 'x', assignee: 'MB' }, { id: 'y' }] }
-    const migrated = migrateState(legacy) as { items: { id: string; assignees?: string[]; assignee?: string }[] }
-    expect(migrated.items[0].assignees).toEqual(['MB'])
+  it('migrateState turns a single assignee into a user-backed list', () => {
+    const legacy = { items: [{ id: 'x', assignee: 'Maya Blake' }, { id: 'y' }] }
+    const migrated = migrateState(legacy) as {
+      items: { id: string; assignees?: string[]; assignee?: string }[]
+      users: { id: string; name: string }[]
+    }
+    expect(migrated.users).toEqual([{ id: 'u-maya-blake', name: 'Maya Blake' }])
+    expect(migrated.items[0].assignees).toEqual(['u-maya-blake'])
     expect('assignee' in migrated.items[0]).toBe(false)
     expect(migrated.items[1].assignees).toBeUndefined()
   })

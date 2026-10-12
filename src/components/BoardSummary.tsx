@@ -31,6 +31,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
+  const users = useStore((s) => s.users)
   const links = useStore((s) => s.links)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const openItem = useStore((s) => s.openItem)
@@ -114,6 +115,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
                   depth={depthOf(c.id, graph)}
                   parent={parent}
                   wide
+                  users={users}
                   symbols={symbols}
                   blockedTone={isInitiatives ? 'aggregate' : 'detail'}
                   selected={selectedItemId === c.id}

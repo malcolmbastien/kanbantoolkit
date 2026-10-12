@@ -11,6 +11,18 @@ export interface IssueType {
   color: string
 }
 
+/**
+ * A person. Items reference users by id; surfaces show the full name (dropdowns)
+ * or the initials / photo (cards).
+ */
+export interface User {
+  id: string
+  /** Full name, e.g. 'Riley Kim'. */
+  name: string
+  /** Optional profile photo (data URL or path). Falls back to initials. */
+  avatarUrl?: string
+}
+
 export type SplitOrientation = 'columns' | 'rows'
 
 /**
@@ -101,7 +113,7 @@ export interface Item {
   description?: string
   typeId: string
   size?: number
-  /** Assignees (initials). A card or initiative can be owned by several people. */
+  /** Assignee user ids (see `User`). A card or initiative can have several. */
   assignees?: string[]
   /** Target start / end dates, ISO 'YYYY-MM-DD'. Shown on the management dashboard. */
   targetStartDate?: string
@@ -191,6 +203,7 @@ export interface KeyResult {
 }
 
 export interface FlowState {
+  users: User[]
   issueTypes: IssueType[]
   boards: Board[]
   lanes: Lane[]

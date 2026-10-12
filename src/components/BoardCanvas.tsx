@@ -25,7 +25,7 @@ import { matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { IssueType, Item, Lane } from '@/domain/types'
+import type { IssueType, Item, Lane, User } from '@/domain/types'
 import type { ConfirmRequest } from '@/store'
 
 export interface BoardCanvasProps {
@@ -69,6 +69,8 @@ interface Ctx {
   issueTypes: IssueType[]
   refs: Map<string, string>
   graph: Graph
+  /** The people directory (to resolve card assignees). */
+  users: User[]
   editMode: boolean
   search: string
   filters: CardFilters
@@ -377,6 +379,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}
               multi={ctx.multiSelect.includes(c.id)}
               dimmed={ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)}
+              users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               lens={lensRole(c.id, ctx.lensId, graph)}
               onLens={ctx.toggleLens}
@@ -484,6 +487,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const lanes = useStore((s) => s.lanes)
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
+  const users = useStore((s) => s.users)
   const search = useStore((s) => s.search)
   const filters = useStore((s) => s.filters)
   const boundaryId = useStore((s) => s.boundaryId)
@@ -533,7 +537,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
     lensId, toggleLens, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,

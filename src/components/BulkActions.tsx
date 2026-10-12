@@ -16,7 +16,7 @@ export function BulkActions() {
   const multiSelect = useStore((s) => s.multiSelect)
   const boardId = useStore((s) => s.boardId)
   const lanes = useStore((s) => s.lanes)
-  const items = useStore((s) => s.items)
+  const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
   const setItemsType = useStore((s) => s.setItemsType)
@@ -33,11 +33,12 @@ export function BulkActions() {
 
   const leaves = leafLanes(lanes, boardId)
   const types = cardTypes(issueTypes)
-  const assignees = [...new Set(items.flatMap((i) => i.assignees ?? []))]
   const count = multiSelect.length
 
   const applyAssignee = () => {
-    addItemsAssignee(multiSelect, assignee)
+    const name = assignee.trim()
+    if (!name) return
+    addItemsAssignee(multiSelect, name)
     setAssignee('')
   }
 
@@ -95,12 +96,12 @@ export function BulkActions() {
           onKeyDown={(e) => {
             if (e.key === 'Enter') applyAssignee()
           }}
-          placeholder="initials…"
+          placeholder="full name…"
           className="w-24 rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-[11px] text-slate-100 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-400"
         />
         <datalist id="bulk-assignees">
-          {assignees.map((a) => (
-            <option key={a} value={a} />
+          {users.map((u) => (
+            <option key={u.id} value={u.name} />
           ))}
         </datalist>
         <button onClick={applyAssignee} className="rounded bg-slate-700 px-1.5 py-1 font-medium text-slate-100 hover:bg-slate-600" title="Add this person to every selected card">

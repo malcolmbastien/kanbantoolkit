@@ -1,7 +1,8 @@
 import { ArrowUp, Ban, Check, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
-import type { IssueType, Item, Stage } from '@/domain/types'
+import { initialsOf } from '@/domain/users'
+import type { IssueType, Item, Stage, User } from '@/domain/types'
 
 export interface CardSummary {
   childCount: number
@@ -37,6 +38,8 @@ interface Props {
   ref_: string
   depth: number
   summary: CardSummary
+  /** The people directory, to resolve `item.assignees` ids to names / initials. */
+  users?: User[]
   parent?: CardParent
   /** Wide "summary" card for management/initiative boards: progress bar + symbols. */
   wide?: boolean
@@ -68,7 +71,7 @@ interface Props {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, multi, dimmed, onOpen, onMultiSelect }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -99,6 +102,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
   // While a multi-select group is active, the cards outside it recede.
   const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
+  const assignees = (item.assignees ?? [])
+    .map((id) => users?.find((u) => u.id === id))
+    .filter((u): u is User => Boolean(u))
 
   // Blocked rolls up: the item's own status is precise; a count of blocked
   // descendants is what lets a team blockage surface on its initiative.
@@ -263,16 +269,14 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               <span className="flex items-center gap-0.5" title="Time since created">
                 <Clock size={11} /> {days}d
               </span>
-              {item.assignees && item.assignees.length > 0 && (
+              {assignees.length > 0 && (
                 <span className="flex items-center gap-0.5">
-                  {item.assignees.slice(0, 4).map((a) => (
-                    <span key={a} className="grid h-4 w-4 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white" title={a}>
-                      {a}
-                    </span>
+                  {assignees.slice(0, 4).map((u) => (
+                    <Avatar key={u.id} user={u} />
                   ))}
-                  {item.assignees.length > 4 && (
-                    <span className="text-[9px] font-semibold text-slate-400" title={item.assignees.join(', ')}>
-                      +{item.assignees.length - 4}
+                  {assignees.length > 4 && (
+                    <span className="text-[9px] font-semibold text-slate-400" title={assignees.map((u) => u.name).join(', ')}>
+                      +{assignees.length - 4}
                     </span>
                   )}
                 </span>
@@ -391,16 +395,14 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
             </span>
           )}
           {blockedChip}
-          {item.assignees && item.assignees.length > 0 && (
+          {assignees.length > 0 && (
             <span className="ml-auto flex shrink-0 items-center gap-0.5">
-              {item.assignees.slice(0, 3).map((a) => (
-                <span key={a} className="grid h-4 w-4 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white" title={a}>
-                  {a}
-                </span>
+              {assignees.slice(0, 3).map((u) => (
+                <Avatar key={u.id} user={u} />
               ))}
-              {item.assignees.length > 3 && (
-                <span className="text-[9px] font-semibold text-slate-500" title={item.assignees.join(', ')}>
-                  +{item.assignees.length - 3}
+              {assignees.length > 3 && (
+                <span className="text-[9px] font-semibold text-slate-500" title={assignees.map((u) => u.name).join(', ')}>
+                  +{assignees.length - 3}
                 </span>
               )}
             </span>
@@ -417,5 +419,20 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         </div>
       )}
     </div>
+  )
+}
+
+/** A user's avatar: their profile photo, or their initials when there is none. */
+function Avatar({ user }: { user: User }) {
+  if (user.avatarUrl) {
+    return <img src={user.avatarUrl} alt={user.name} title={user.name} className="h-4 w-4 shrink-0 rounded-full object-cover" />
+  }
+  return (
+    <span
+      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white"
+      title={user.name}
+    >
+      {initialsOf(user.name)}
+    </span>
   )
 }

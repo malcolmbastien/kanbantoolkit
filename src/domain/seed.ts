@@ -1,4 +1,4 @@
-import type { Board, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, SplitOrientation } from './types'
+import type { Board, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, SplitOrientation, User } from './types'
 
 const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 
@@ -12,6 +12,15 @@ const issueTypes: IssueType[] = [
   { id: 't-bug', name: 'Bug', color: '#f43f5e' },
   { id: 't-spike', name: 'Spike', color: '#f59e0b' },
   { id: 't-task', name: 'Task', color: '#64748b' },
+]
+
+/** Demo people. Items reference these by id; cards show initials (or a photo). */
+const users: User[] = [
+  { id: 'u-mb', name: 'Maya Blake' },
+  { id: 'u-ds', name: 'Diego Santos' },
+  { id: 'u-rk', name: 'Riley Kim' },
+  { id: 'u-lm', name: 'Lena Moreau' },
+  { id: 'u-jt', name: 'Jonah Tran' },
 ]
 
 const boards: Board[] = [
@@ -84,19 +93,19 @@ const item = (id: string, title: string, typeId: string, extra: Partial<Item> = 
   items.push({ id, title, typeId, createdAt: T, ...extra })
 
 // Top-level initiatives (company portfolio).
-item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignees: ['MB'], targetStartDate: '2026-10-01', targetEndDate: '2026-12-15' })
-item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignees: ['DS'], targetStartDate: '2026-11-01', targetEndDate: '2027-03-31' })
+item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2026-12-15' })
+item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignees: ['u-ds'], targetStartDate: '2026-11-01', targetEndDate: '2027-03-31' })
 
 // Team-level initiatives.
-item('init-signup', 'New signup flow', 't-initiative', { size: 13, assignees: ['RK'], targetEndDate: '2026-11-30' })
-item('init-welcome', 'Welcome experience', 't-initiative', { size: 8, assignees: ['LM'], targetEndDate: '2026-11-15' })
-item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignees: ['JT'], targetEndDate: '2027-02-28' })
+item('init-signup', 'New signup flow', 't-initiative', { size: 13, assignees: ['u-rk'], targetEndDate: '2026-11-30' })
+item('init-welcome', 'Welcome experience', 't-initiative', { size: 8, assignees: ['u-lm'], targetEndDate: '2026-11-15' })
+item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignees: ['u-jt'], targetEndDate: '2027-02-28' })
 
 // Cards — Team Atlas.
 item('st-signup-design', 'Design signup screens', 't-story', { size: 3 })
 item('st-signup-form', 'Build signup form', 't-story', {
   size: 5,
-  assignees: ['RK', 'MB'],
+  assignees: ['u-rk', 'u-mb'],
   checklist: [
     { id: 'cl-form-1', text: 'Form markup + validation', done: true },
     { id: 'cl-form-2', text: 'Wire up the API call', done: true },
@@ -124,8 +133,8 @@ item('df-signup', 'Signup validation on retry', 't-bug', { size: 2 })
 
 // Cards — Team Nova.
 item('st-welcome-copy', 'Welcome copy', 't-story', { size: 1 })
-item('st-tour', 'Guided tour', 't-story', { size: 5, assignees: ['LM'] })
-item('st-gateway-contract', 'Define gateway contract', 't-story', { size: 5, assignees: ['JT'] })
+item('st-tour', 'Guided tour', 't-story', { size: 5, assignees: ['u-lm'] })
+item('st-gateway-contract', 'Define gateway contract', 't-story', { size: 5, assignees: ['u-jt'] })
 item('st-ratelimit', 'Rate limiting', 't-story', {
   size: 3,
   blocked: true,
@@ -140,7 +149,7 @@ item('sp-gateway', 'Spike: gateway options', 't-spike', { size: 2 })
 // A filed-away initiative: off the boards, but still linked and searchable.
 item('init-legacy', 'Legacy SSO migration', 't-initiative', {
   size: 13,
-  assignees: ['JT'],
+  assignees: ['u-jt'],
   archived: true,
   archivedAt: T + 86_400_000,
   log: [
@@ -230,6 +239,7 @@ edge('attribution', 'obj-efficiency', 'init-gateway')
 
 export function createSeed(): FlowState {
   return {
+    users: structuredClone(users),
     issueTypes: structuredClone(issueTypes),
     boards: structuredClone(boards),
     lanes: structuredClone(lanes),

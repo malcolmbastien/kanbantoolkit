@@ -20,6 +20,7 @@ import {
 import { buildRefs } from '@/domain/board'
 import { lanePath } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
+import { initialsOf } from '@/domain/users'
 import { DEP_STATE_STYLES, readableOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -64,6 +65,7 @@ export function ItemPanel({ itemId }: Props) {
   const unarchiveItem = useStore((s) => s.unarchiveItem)
   const deleteItem = useStore((s) => s.deleteItem)
   const askConfirm = useStore((s) => s.askConfirm)
+  const addAssignee = useStore((s) => s.addAssignee)
   const boardId = useStore((s) => s.boardId)
   const selectBoard = useStore((s) => s.selectBoard)
   const setObjectives = useStore((s) => s.setObjectives)
@@ -106,11 +108,10 @@ export function ItemPanel({ itemId }: Props) {
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
   const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
-  const addAssignee = () => {
-    const a = assigneeDraft.trim()
-    if (!a) return
-    const current = item.assignees ?? []
-    if (!current.includes(a)) setItemFields(item.id, { assignees: [...current, a] })
+  const applyAssignee = () => {
+    const name = assigneeDraft.trim()
+    if (!name) return
+    addAssignee(item.id, name)
     setAssigneeDraft('')
   }
   // The chain from the root down to this item, plus the OKRs its ancestors map to.
@@ -174,7 +175,8 @@ export function ItemPanel({ itemId }: Props) {
   const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
-  const assignees = [...new Set(items.flatMap((i) => i.assignees ?? []))]
+  const users = useStore((s) => s.users)
+  const userById = (id: string) => users.find((u) => u.id === id)
 
   const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
 
@@ -359,18 +361,24 @@ export function ItemPanel({ itemId }: Props) {
             <div>
               <div className="mb-1 text-[11px] font-medium text-slate-500">Assignees</div>
               <div className="flex flex-wrap items-center gap-1">
-                {(item.assignees ?? []).map((a) => (
-                  <span key={a} className="flex items-center gap-1 rounded-full bg-slate-700 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    {a}
-                    <button
-                      onClick={() => setItemFields(item.id, { assignees: (item.assignees ?? []).filter((x) => x !== a) })}
-                      className="text-slate-300 hover:text-white"
-                      title={`Remove ${a}`}
-                    >
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
+                {(item.assignees ?? []).map((id) => {
+                  const u = userById(id)
+                  return (
+                    <span key={id} className="flex items-center gap-1 rounded-full bg-slate-700 py-0.5 pl-0.5 pr-1.5 text-[11px] font-medium text-white">
+                      <span className="grid h-4 w-4 place-items-center rounded-full bg-white/20 text-[8px] font-bold">
+                        {initialsOf(u?.name ?? id)}
+                      </span>
+                      {u?.name ?? id}
+                      <button
+                        onClick={() => setItemFields(item.id, { assignees: (item.assignees ?? []).filter((x) => x !== id) })}
+                        className="text-slate-300 hover:text-white"
+                        title={`Remove ${u?.name ?? id}`}
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  )
+                })}
                 <input
                   list="flowline-assignees"
                   value={assigneeDraft}
@@ -378,20 +386,20 @@ export function ItemPanel({ itemId }: Props) {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      addAssignee()
+                      applyAssignee()
                     }
                   }}
-                  placeholder="add initials…"
-                  className="w-28 rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                  placeholder="add a name…"
+                  className="min-w-[6rem] flex-1 rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
                 />
                 <datalist id="flowline-assignees">
-                  {assignees.map((a) => (
-                    <option key={a} value={a} />
+                  {users.map((u) => (
+                    <option key={u.id} value={u.name} />
                   ))}
                 </datalist>
                 <button
                   disabled={!assigneeDraft.trim()}
-                  onClick={addAssignee}
+                  onClick={applyAssignee}
                   className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
                 >
                   Add

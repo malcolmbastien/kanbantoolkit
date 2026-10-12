@@ -5,7 +5,7 @@ import { initiativeTypeId } from '@/domain/board'
 import { decompositionParent, descendants, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
-import type { Board, BoardLevel, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation } from '@/domain/types'
+import type { Board, BoardLevel, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, User } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -94,8 +94,10 @@ export interface Actions {
   /** Bulk actions over the multi-select group. */
   moveCardsToLane: (itemIds: string[], laneId: string) => void
   setItemsType: (itemIds: string[], typeId: string) => void
-  /** Add an assignee to every listed item (deduped). */
-  addItemsAssignee: (itemIds: string[], assignee: string) => void
+  /** Add an assignee by full name to an item (creating the user if new). */
+  addAssignee: (itemId: string, name: string) => void
+  /** Add an assignee by full name to every listed item (creating the user if new). */
+  addItemsAssignee: (itemIds: string[], name: string) => void
   /** Clear every assignee on the listed items. */
   clearItemsAssignees: (itemIds: string[]) => void
   archiveItems: (itemIds: string[]) => void
@@ -186,6 +188,15 @@ const uid = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2) + Date.now().toString(36)
 
+/** Find a user by full name (case-insensitive), or create one. */
+function ensureUser(users: User[], name: string): { id: string; users: User[] } {
+  const trimmed = name.trim()
+  const existing = users.find((u) => u.name.toLowerCase() === trimmed.toLowerCase())
+  if (existing) return { id: existing.id, users }
+  const id = uid()
+  return { id, users: [...users, { id, name: trimmed }] }
+}
+
 const logEntry = (kind: ItemLogEntry['kind'], note?: string): ItemLogEntry => ({
   id: uid(),
   at: Date.now(),
@@ -241,7 +252,8 @@ const initialView: ViewState = {
  * - dropped link approval status + rejected links (v11);
  * - OKR attribution limited to initiatives (v12);
  * - `targetDate` split into target start / end dates (v13);
- * - a single `assignee` became a list of assignees (v14).
+ * - a single `assignee` became a list of assignees (v14);
+ * - assignees became user ids backed by a `users` directory (v15).
  * Exported for testing.
  */
 export function migrateState(persisted: unknown): Partial<Store> {
@@ -307,6 +319,26 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return { ...rest, ...(assignee ? { assignees: [assignee] } : {}) }
     })
   }
+  // v15: assignees became user ids backed by a `users` directory. Build users from
+  // the old name strings and map each item's assignees to the new ids.
+  if (Array.isArray(p.items)) {
+    const users: User[] = Array.isArray(p.users) ? (p.users as User[]) : []
+    const byName = new Map(users.map((u) => [u.name.toLowerCase(), u.id]))
+    const resolve = (value: string): string => {
+      if (users.some((u) => u.id === value)) return value // already an id
+      const key = value.trim().toLowerCase()
+      const existing = byName.get(key)
+      if (existing) return existing
+      const id = `u-${key.replace(/[^a-z0-9]+/g, '-')}`
+      users.push({ id, name: value.trim() })
+      byName.set(key, id)
+      return id
+    }
+    p.items = (p.items as (Item & { assignees?: string[] })[]).map((i) =>
+      Array.isArray(i.assignees) ? { ...i, assignees: i.assignees.map(resolve) } : i,
+    )
+    p.users = users
+  }
   return p as Partial<Store>
 }
 
@@ -330,6 +362,7 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
 export function persistedSlice(s: Store): Partial<Store> {
   const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
   return {
+    users: s.users,
     issueTypes: s.issueTypes,
     items: s.items,
     edges: s.edges,
@@ -407,13 +440,24 @@ export const useStore = create<Store>()(
         set({ items: state.items.map((i) => (ids.has(i.id) ? { ...i, typeId } : i)) })
       },
 
-      addItemsAssignee: (itemIds, assignee) => {
-        const a = assignee.trim()
-        if (!a) return
+      addAssignee: (itemId, name) => {
+        const state = get()
+        const { id, users } = ensureUser(state.users, name)
+        set({
+          users,
+          items: state.items.map((i) =>
+            i.id === itemId && !(i.assignees ?? []).includes(id) ? { ...i, assignees: [...(i.assignees ?? []), id] } : i,
+          ),
+        })
+      },
+      addItemsAssignee: (itemIds, name) => {
+        const state = get()
+        const { id, users } = ensureUser(state.users, name)
         const ids = new Set(itemIds)
         set({
-          items: get().items.map((i) =>
-            ids.has(i.id) && !(i.assignees ?? []).includes(a) ? { ...i, assignees: [...(i.assignees ?? []), a] } : i,
+          users,
+          items: state.items.map((i) =>
+            ids.has(i.id) && !(i.assignees ?? []).includes(id) ? { ...i, assignees: [...(i.assignees ?? []), id] } : i,
           ),
         })
       },
@@ -936,7 +980,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 14,
+      version: 15,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
