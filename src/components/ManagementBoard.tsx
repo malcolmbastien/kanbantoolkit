@@ -40,7 +40,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linkedIds.includes(b.id))
   const isPortfolio = board.band === 'portfolio'
-  // The initiatives surface wears the board's band colour (Program = blue, Portfolio = violet).
+  // The initiatives surface wears the board's band colour (Team = green, Program = blue, Portfolio = violet).
   const accent = BAND_ACCENT[board.band]
   const slateSkin = { section: 'border-slate-300 bg-slate-100', header: 'border-slate-300 bg-slate-800' }
 

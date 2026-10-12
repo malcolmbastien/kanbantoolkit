@@ -62,22 +62,21 @@ export const STAGE_ACCENT: Record<Stage, string> = {
 }
 
 /**
- * The accent a board's initiative surfaces wear. A coordination board takes its
- * band's colour — a Program's initiatives are blue, a Portfolio's violet — so the
- * flight level reads from the work itself, not just the header badge. A team board
- * keeps the app's indigo: it renders work, not a management summary.
+ * The accent a board's initiative surfaces wear. It follows the band badge so the
+ * flight level reads from the work itself: Team = green, Program = blue,
+ * Portfolio = violet.
  */
 export const BAND_ACCENT: Record<
   BoardBand,
   { section: string; header: string; subtitle: string; column: string; columnHeader: string; columnCount: string }
 > = {
   team: {
-    section: 'border-indigo-300 bg-indigo-50/60',
-    header: 'border-indigo-300 bg-indigo-800',
-    subtitle: 'text-indigo-200',
-    column: 'border-indigo-200 bg-indigo-50/70',
-    columnHeader: 'bg-indigo-700 text-white',
-    columnCount: 'text-indigo-200',
+    section: 'border-emerald-300 bg-emerald-50/60',
+    header: 'border-emerald-300 bg-emerald-800',
+    subtitle: 'text-emerald-200',
+    column: 'border-emerald-200 bg-emerald-50/70',
+    columnHeader: 'bg-emerald-700 text-white',
+    columnCount: 'text-emerald-200',
   },
   program: {
     section: 'border-sky-300 bg-sky-50/60',
