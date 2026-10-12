@@ -752,12 +752,88 @@
         "details": "THE DECISION. A 'strategic initiative' is just an Item of the Initiative type placed on a strategic-band board - no strategic flag, no Strategy entity. This makes L3 the top of the same pattern every other altitude already follows: a board owns its initiatives and the decomposition connects them. It reuses the three primitives already in the model: Placement (it lives on the L3 board), decomposition (it connects down), attribution (it carries the OKRs). ONE RELATION, TWO HOMES. OKRs attach ONLY to strategic initiatives. The L3 board is the initiative-first lens ('which OKRs does this strategic initiative serve?') and the Objectives view is the OKR-first lens ('which strategic initiatives serve this OKR?'); both edit the same attribution edges, so the OKR definition itself is not duplicated. Lower levels never learn a new mechanism: a value-stream initiative just sets its parent to a strategic initiative, and the lineage breadcrumb already renders the walk OKR -> strategic initiative -> ... -> card. Rollup is free (status stays derived from leaf work). GAPS ARE FIRST-CLASS. The L3 lens must surface a strategic initiative with no OKR and an OKR with no strategic initiative - that is the 'what is unowned / what not to do' signal, not a silent allowance. DECISIONS TO SETTLE. (1) One parent only: decomposition gives a value-stream initiative exactly one strategic parent, so 'serves two strategic initiatives' is not expressible - split the work, or later extend attribution to point at strategic initiatives. Keep one parent for now; the constraint does the disciplining. (2) OKRs at the top ONLY, or you lose the plan-vs-work distinction and coverage. (3) Does the L3 board also cap strategic initiatives per period, like the 3-5 OKR commitment limit? (4) OKRs carry the period and strategic initiatives inherit it; decide whether a strategic initiative may span quarters (allowed is probably right - the OKR period is the planning anchor, not a hard boundary). GUARD RAILS. No strategic/level field on items ('strategic' is where it sits, derived from its board and place in the tree); no new entity; status stays derived at every altitude. CROSS-REFS. Needs task 46 for the strategic band to exist at all; this is the model that makes task 45 (quarterly planning) precise: a quarter's plan is that period's OKRs -> their strategic initiatives -> the value-stream and team initiatives rolling up beneath them.",
         "testStrategy": "Unit-test that OKR attribution is refused below the strategic band (or that the L3 gap derivation reports unmapped strategic initiatives and unserved OKRs). Over CDP: create a strategic initiative on the L3 board, attach an OKR from the L3 lens, then attach a value-stream initiative as its child and confirm the lineage breadcrumb on a leaf card walks up to the OKR. Confirm an initiative with no OKR and an OKR with no initiative are both surfaced. Run npm test.",
         "subtasks": []
+      },
+      {
+        "id": "48",
+        "title": "Board workspace: browse, search and open boards",
+        "description": "A top-level Boards workspace listing every board in the organisation, grouped by band, with search. Rows carry the name and band only; opening one switches to that board. Reachable from a TopBar toggle and from the board picker.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "A new top-level view toggled from the TopBar beside Objectives / Archive (showBoards), and reachable from a 'Manage boards…' footer entry in the board picker so the switcher is not a dead end. The list groups by band (Portfolio → Program → Team) then name, and each board appears exactly ONCE: the aggregation graph is a DAG — a team board can be linked by two programs — so nesting under a parent would either duplicate rows or pick one and lie. The board picker reached the same conclusion. A row carries only the band badge and the name for now. A search field filters by name. Selecting a row calls selectBoard(id) and leaves the workspace. Archived boards are hidden (task 50). Each row also offers Delete, routed through the existing confirm dialog and removeBoard. Board admin also stays inside each board — the workspace is another way in, not the only one.",
+        "testStrategy": "Unit-test the grouping/ordering and the name filter. Over CDP: open the workspace from the TopBar and from the picker footer; confirm every board appears exactly once, grouped by band, and that search narrows the list; open a board and confirm the app switches to it; delete a board and confirm the modal appears and the board leaves both the list and the picker. Run npm test.",
+        "subtasks": []
+      },
+      {
+        "id": "49",
+        "title": "Board workspace: create a board",
+        "description": "Create a board from the workspace: a name plus a band, optionally from a template.",
+        "status": "pending",
+        "dependencies": [
+          "48"
+        ],
+        "priority": "medium",
+        "details": "A 'New board' control in the workspace header collecting a name and a band (team / program / portfolio). addBoard currently defaults to team, so it needs to take an explicit band and seed linkedBoardIds for non-team bands, as the store already does when a band is passed. The template choice arrives with task 51 — until then the standard four typed columns are the only starting point, which is today's behaviour. The existing TopBar edit-mode create stays: the workspace is another way in, not the only one.",
+        "testStrategy": "Unit-test addBoard with an explicit band, including that a non-team board starts with an empty linkedBoardIds and that the board gets the standard typed columns. Over CDP: create a board from the workspace for each band, confirm it appears under the right group in the list and can be opened. Run npm test.",
+        "subtasks": []
+      },
+      {
+        "id": "50",
+        "title": "Archive boards (retire a board without destroying it)",
+        "description": "Let a board be archived: hidden from the picker, the workspace's default list and the aggregation bands, but not destroyed. Mirrors item archiving (task 12).",
+        "status": "pending",
+        "dependencies": [
+          "48"
+        ],
+        "priority": "high",
+        "details": "Add Board.archived (with archivedAt) plus archiveBoard / unarchiveBoard. An archived board is hidden from the board picker, the workspace's default list and the aggregation bands — a retired program must stop collecting rollups — and can be revealed with an 'include archived' toggle in the workspace. It stays openable by deep link (?board=…), and its lanes, items, placements and edges are untouched; nothing is deleted. Persist version bump + migrate. SETTLE FIRST, and record the answers in this task: (a) do archived boards keep their aggregation edges, or are the edges suspended while archived? Suspending reads more cleanly; keeping them means unarchiving restores the graph exactly. (b) Is an archived board read-only when opened, or fully usable?",
+        "testStrategy": "Unit-test archive/unarchive; that archived boards are filtered out of the picker, the workspace list and the aggregation bands; and that the migration leaves older persisted state working. Over CDP: archive a board and confirm it leaves the picker and the workspace, and disappears as a band from the board that aggregated it; open it by deep link; toggle 'include archived' and unarchive; confirm its bands return. Run npm test.",
+        "subtasks": []
+      },
+      {
+        "id": "51",
+        "title": "Board templates: define, save and instantiate",
+        "description": "A template is a board design, not its work: save a board's design as a template, and create new boards from it.",
+        "status": "pending",
+        "dependencies": [
+          "49"
+        ],
+        "priority": "medium",
+        "details": "Add BoardTemplate { id, name, band, lanes, cardTypeIds?, defaultCardTypeId?, wipEnforcement? } as a new persisted collection (persist version bump + migrate). lanes is the board's lane tree — names, orientation, stage and wipLimit — with fresh ids minted on instantiation. A template carries NO items, placements or linked boards: those are org-specific. 'Save as template' from a board; 'New board' then offers the built-in standard (the four typed columns) plus saved templates. SETTLE: how much of Board settings a template carries (is lanes + card types + WIP enough?), and whether 'save as template' is offered from Board settings as well as the workspace. Note: this is the templates half of task 21, which should be re-pointed at the wizard and duplicate board so the two do not drift.",
+        "testStrategy": "Unit-test instantiate: a board created from a template has the template's lane structure with fresh unique ids, the same stages and WIP limits, and no placements or linked boards, and the template itself is unchanged. Round-trip a template through persistence. Run npm test.",
+        "subtasks": []
+      },
+      {
+        "id": "52",
+        "title": "Board templates: manage the library",
+        "description": "List, rename and remove templates from the workspace.",
+        "status": "pending",
+        "dependencies": [
+          "51"
+        ],
+        "priority": "low",
+        "details": "A templates section in the workspace (or a small dialog) listing saved templates with their band and lane count, allowing rename and removal behind the confirm dialog. Removing a template must not affect boards already created from it.",
+        "testStrategy": "Unit-test template CRUD (add/rename/remove, unique ids). Over CDP: rename a template and confirm it survives a reload; remove one and confirm boards created from it are untouched. Run npm test.",
+        "subtasks": []
+      },
+      {
+        "id": "53",
+        "title": "Board workspace: per-board headline, graph gaps, and board admin",
+        "description": "Deferred from the workspace's first slice: a richer per-board summary, inline graph gaps, and board admin from the workspace.",
+        "status": "deferred",
+        "dependencies": [
+          "48"
+        ],
+        "priority": "low",
+        "details": "(a) A per-board headline beyond name + band — the initiative count, or a stage spread from rollupOf().bucket (cheap), or a single rolled-up percentage, which needs defining (across the board's own initiatives, or across all work beneath it) and means computing rollups for every board at once — settle the cost first. (b) Inline graph gaps, matching the app's habit of surfacing gaps (okrCoverage, uncommittedBelow): a board with no initiatives; a program or portfolio with nothing linked; a team board no coordination board links. (c) Rename / change band, and link / unlink aggregation edges, from the workspace. Board admin still stays inside each board — this adds a second way in, it does not move it.",
+        "testStrategy": "Manual verification per item, plus unit tests for any new derivation (the board headline and the gap detection). Run npm test.",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-12T19:54:55.815Z",
-      "taskCount": 46,
+      "lastModified": "2026-10-12T20:10:00.000Z",
+      "taskCount": 52,
       "completedCount": 26,
       "tags": [
         "backlog"
