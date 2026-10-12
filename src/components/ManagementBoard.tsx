@@ -106,7 +106,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
                 <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
                 <span className={cn('text-[10px]', accent.subtitle)}>the outcomes this board owns</span>
               </>,
-              <BoardSummary boardId={board.id} rootsOnly variant="initiatives" />,
+              <BoardSummary boardId={board.id} rootsOnly variant="initiatives" interactive />,
               undefined,
               true,
               'band',

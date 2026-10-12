@@ -91,7 +91,7 @@ export function BoardView({ requestMove }: Props) {
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
             <span className={cn('text-[10px]', accent.subtitle)}>this team’s initiatives — status rolls up from the cards below</span>
           </div>
-          <BoardSummary boardId={boardId} />
+          <BoardSummary boardId={boardId} interactive />
         </section>
 
         {/* Cards workflow — the team's customizable flow */}

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { canLinkBoard, initiativeTypeId, isStrategicInitiative } from '@/domain/board'
-import { decompositionParent, descendants, statusOf } from '@/domain/derive'
+import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed } from '@/domain/seed'
 import type { Board, BoardBand, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, User } from '@/domain/types'
@@ -174,6 +174,12 @@ export interface Actions {
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
   moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => void
+  /**
+   * Move an initiative between the cells of its section. The section itself is
+   * derived from the work below, so a move that would cross it is refused — only
+   * the arrangement within a section is the user's to set.
+   */
+  moveInitiative: (itemId: string, boardId: string, laneId: string) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
 
   /** Checklist inside a card — sub-tasks (never schedulable, never WIP). */
@@ -813,6 +819,20 @@ export const useStore = create<Store>()(
           return next
         })
         set({ placements, items })
+      },
+
+      moveInitiative: (itemId, boardId, laneId) => {
+        const state = get()
+        // The section is derived from the work below — a move may rearrange a cell
+        // within it, never cross into another one.
+        const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
+        if (effectiveStage(state.lanes, laneId) !== rollupOf(itemId, graph).bucket) return
+        const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
+        if (existing && existing.laneId === laneId) return
+        const placements = existing
+          ? state.placements.map((p) => (p.id === existing.id ? { ...p, laneId } : p))
+          : [...state.placements, { id: uid(), boardId, itemId, laneId }]
+        set({ placements })
       },
 
       setItemFields: (id, patch) =>

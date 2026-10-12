@@ -4,6 +4,7 @@ import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
 import { CardMenu } from './CardMenu'
+import { DroppableCell } from './DroppableCell'
 import { LanePolicy, LaneSettings } from './LaneSettings'
 import {
   blockedBelow,
@@ -34,35 +35,6 @@ export interface BoardCanvasProps {
   /** Read-only bands (management view) set this false. */
   interactive: boolean
   onMove?: (itemId: string, boardId: string, laneId: string) => void
-}
-
-function DroppableCell({ laneId, enabled, onDropItem, children }: { laneId: string; enabled: boolean; onDropItem: (itemId: string) => void; children: React.ReactNode }) {
-  const [over, setOver] = useState(false)
-  return (
-    <div
-      data-lane-id={laneId}
-      onDragOver={(e) => {
-        if (!enabled) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'move'
-        if (!over) setOver(true)
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        if (!enabled) return
-        e.preventDefault()
-        setOver(false)
-        const id = e.dataTransfer.getData('text/plain')
-        if (id) onDropItem(id)
-      }}
-      className={cn(
-        'flex min-h-[96px] flex-1 flex-col gap-1 p-1 transition',
-        enabled && over ? 'bg-indigo-300/50 ring-1 ring-inset ring-indigo-500' : 'bg-transparent',
-      )}
-    >
-      {children}
-    </div>
-  )
 }
 
 interface Ctx {

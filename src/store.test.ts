@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, searchItems } from './domain/board'
+import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
 
@@ -36,6 +36,37 @@ describe('store actions', () => {
     expect(kids.length).toBe(2)
     expect(isLeaf(s().lanes, ns.id)).toBe(false)
     expect(s().placements.filter((p) => p.laneId === kids[0].id).length).toBe(before)
+  })
+
+  it('an initiative\'s section is derived from its work; its cell is the user\'s arrangement', () => {
+    const g = () => graph()
+    // Seeded in b-nova's Not Started, but its work has started — the rollup wins, so
+    // the placement is stale and the initiative falls back to the section's first cell.
+    expect(rollupOf('init-welcome', g()).bucket).toBe('inProgress')
+    const ip = childrenOf(s().lanes, rootLane(s().lanes, 'b-nova')!.id).find((l) => l.stage === 'inProgress')!
+    const seeded = s().placements.find((p) => p.itemId === 'init-welcome' && p.boardId === 'b-nova')!.laneId
+    expect(effectiveStage(s().lanes, seeded)).toBe('notStarted') // stale, and ignored
+
+    const cell = initiativeCellOf('init-welcome', 'b-nova', g())!
+    expect(cell.sectionId).toBe(ip.id)
+    expect(cell.cellId).toBe(childrenOf(s().lanes, ip.id)[0].id)
+  })
+
+  it('an initiative is rearranged within its section, never across one', () => {
+    const g = () => graph()
+    const ip = childrenOf(s().lanes, rootLane(s().lanes, 'b-nova')!.id).find((l) => l.stage === 'inProgress')!
+    const cells = childrenOf(s().lanes, ip.id) // Dev, Test
+    expect(cells.length).toBe(2)
+
+    s().moveInitiative('init-welcome', 'b-nova', cells[1].id)
+    expect(initiativeCellOf('init-welcome', 'b-nova', g())?.cellId).toBe(cells[1].id)
+    expect(initiativeCellOf('init-welcome', 'b-nova', g())?.sectionId).toBe(ip.id)
+
+    // Crossing into another section is refused: the section is derived, not chosen.
+    const done = childrenOf(s().lanes, rootLane(s().lanes, 'b-nova')!.id).find((l) => l.stage === 'done')!
+    s().moveInitiative('init-welcome', 'b-nova', done.id)
+    expect(initiativeCellOf('init-welcome', 'b-nova', g())?.cellId).toBe(cells[1].id)
+    expect(initiativeCellOf('init-welcome', 'b-nova', g())?.sectionId).toBe(ip.id)
   })
 
   it('a nested container can gain a child; the top level is fixed', () => {

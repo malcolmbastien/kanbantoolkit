@@ -45,11 +45,20 @@ task-master list            # terminal 2
 - **Boards are a recursive lane tree.** A leaf lane is a cell; a container arranges children
   in columns or rows; any cell can be split. Board-design actions (`splitLane`, `addLane`,
   `removeLane`) mutate the tree and are surfaced only in **edit mode**.
-- **Three typed top-level columns.** Every board's root has exactly three children typed
-  `stage: 'notStarted' | 'inProgress' | 'done'` (Not Started / In Progress / Done). These are
-  fixed — `addLane`/`removeLane` on the root and `setLaneOrientation` on the root are no-ops;
-  refinement happens by **splitting**, and descendants inherit the stage via `effectiveStage`.
-  A leaf's status comes from its column's stage, which makes status roll up the hierarchy.
+- **Three typed top-level columns.** Every board's root has exactly four children typed
+  `stage: 'backlog' | 'notStarted' | 'inProgress' | 'done'` (Backlog / Not Started / In
+  Progress / Done). These are fixed — `addLane`/`removeLane` on the root and
+  `setLaneOrientation` on the root are no-ops; refinement happens by **splitting**, and
+  descendants inherit the stage via `effectiveStage`. A leaf's status comes from its column's
+  stage, which makes status roll up the hierarchy.
+- **The initiatives flow.** A typed column is a **section** of a board's initiatives flow and
+  its leaves are its **cells**. An initiative's section is *derived* — `rollupOf` picks the
+  column whose stage matches its bucket — while its cell is *arranged*: `Placement.laneId`,
+  falling back to the section's first cell when that placement is stale (`initiativeCellOf`).
+  So splitting a column gives initiatives cells to arrange within, but a move can never cross
+  a section (`moveInitiative` refuses it). Sections and cells are the same lanes the cards
+  workflow uses, so a split serves both — and lane editing is surfaced in the initiatives flow
+  too, because a program board has no cards workflow to edit from.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
   placed by rollup (card children are drill-in). A board has a **flight-level band**

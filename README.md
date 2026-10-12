@@ -28,6 +28,11 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   a **Strategy map**: its strategic initiatives grouped under the **objective** they serve,
   with both coverage gaps inline (an objective no initiative serves, an initiative no
   objective carries), then **Linked boards**. Pick a board from the **Board** menu.
+- **Custom initiative flows.** A typed column can be **split** into cells, and an initiative
+  can be moved between the cells of its own column — so a board can define its own flow. The
+  *column* stays derived from the work (that's the rollup), the *cell* is the user's
+  arrangement, and the same split is visible in every place that board's flow appears — its own
+  initiatives workflow, and any program's Linked boards band.
 - **Initiatives on boards; cards beneath.** A board's flow shows its **Initiative-typed
   items** (positioned by rollup); their children are the detailed cards, seen by opening an
   initiative. From a management initiative you can **link** down to a new team initiative: it's

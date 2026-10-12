@@ -160,6 +160,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
     return (
       <div
         {...dragProps}
+        data-card-id={item.id}
         onClick={(e) => {
           e.stopPropagation()
           if (locked) return

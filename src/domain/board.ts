@@ -1,4 +1,5 @@
-import { isArchived, openDependenciesOf, type DependencyInfo, type Graph } from './derive'
+import { isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
+import { childrenOf, leavesUnder, rootLane } from './lanes'
 import type { Board, IssueType, Item, Placement } from './types'
 
 /** Items placed on a board (via explicit placement records). */
@@ -86,6 +87,29 @@ export function isStrategicInitiative(itemId: string, ctx: StrategicCtx): boolea
 /** Every strategic initiative in the graph. */
 export function strategicInitiatives(ctx: StrategicCtx): Item[] {
   return ctx.items.filter((i) => isStrategicInitiative(i.id, ctx))
+}
+
+/**
+ * Where an initiative sits in a board's initiatives flow. The **section** is derived —
+ * the typed column whose stage matches the initiative's rollup bucket — so an
+ * initiative can never claim a stage its work doesn't have. The **cell** within that
+ * section is the user's arrangement: the one its placement names, falling back to the
+ * section's first cell when that placement is stale (the work below moved the rollup
+ * on) or missing. Arrangement self-heals; it never overrides the truth.
+ */
+export function initiativeCellOf(
+  itemId: string,
+  boardId: string,
+  graph: Graph,
+): { sectionId: string; cellId: string } | undefined {
+  const root = rootLane(graph.lanes, boardId)
+  if (!root) return undefined
+  const section = childrenOf(graph.lanes, root.id).find((l) => l.stage === rollupOf(itemId, graph).bucket)
+  if (!section) return undefined
+  const cells = leavesUnder(graph.lanes, section.id)
+  const placement = graph.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
+  const cellId = placement && cells.some((c) => c.id === placement.laneId) ? placement.laneId : cells[0]?.id
+  return cellId ? { sectionId: section.id, cellId } : undefined
 }
 
 /** Open dependencies of on-board work that live on another board (boundary pins). */
