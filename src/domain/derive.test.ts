@@ -12,6 +12,7 @@ import {
   isArchived,
   isBlocked,
   initiativeOf,
+  lineageOf,
   openDescendants,
   openDependenciesOf,
   rollupOf,
@@ -270,6 +271,19 @@ describe('boundary waiting — local cards waiting on an external item', () => {
     // Not the other direction, and not for an unrelated item.
     expect(waitsOn('init-gateway', 'st-email', g)).toBe(false)
     expect(waitsOn('st-email', 'init-onboarding', g)).toBe(false)
+  })
+})
+
+describe('lineage — the chain a card rolls up through', () => {
+  const s = createSeed()
+  const g = graphOf(s)
+
+  it('walks from the root down to the item', () => {
+    expect(lineageOf('st-email', g).map((i) => i.id)).toEqual(['init-onboarding', 'init-signup', 'st-email'])
+  })
+
+  it('an item with no parent is its own lineage', () => {
+    expect(lineageOf('init-onboarding', g).map((i) => i.id)).toEqual(['init-onboarding'])
   })
 })
 

@@ -33,8 +33,7 @@ export function descendants(id: string, graph: Graph): string[] {
 }
 
 /** Distance from a root via decomposition — the derived structural fact. */
-export function depth(id: string, graph: Graph): number {
-  let d = 0
+export function depth(id: string, graph: Graph): number {  let d = 0
   let cur = decompositionParent(id, graph.edges)
   const seen = new Set<string>([id])
   while (cur && !seen.has(cur)) {
@@ -43,6 +42,24 @@ export function depth(id: string, graph: Graph): number {
     cur = decompositionParent(cur, graph.edges)
   }
   return d
+}
+
+/**
+ * The decomposition chain from the root down to this item: `[root, …, item]`.
+ * This is the "how this work rolls up" lineage.
+ */
+export function lineageOf(itemId: string, graph: Graph): Item[] {
+  const chain: Item[] = []
+  let cur: string | undefined = itemId
+  const seen = new Set<string>()
+  while (cur && !seen.has(cur)) {
+    seen.add(cur)
+    const item = graph.items.find((i) => i.id === cur)
+    if (!item) break
+    chain.unshift(item)
+    cur = decompositionParent(cur, graph.edges)
+  }
+  return chain
 }
 
 export function roots(graph: Graph): Item[] {

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Archive, Ban, ChevronDown, ChevronUp, GitBranch, ListChecks, Plus, Sparkles, Trash2, X } from 'lucide-react'
+import { Fragment, useState } from 'react'
+import { Archive, Ban, ChevronDown, ChevronRight, ChevronUp, GitBranch, ListChecks, Plus, Sparkles, Target, Trash2, X } from 'lucide-react'
 import {
   attributedObjectives,
   checklistItems,
@@ -13,6 +13,7 @@ import {
   dependencyState,
   dependentSummary,
   initiativeOf,
+  lineageOf,
   openDescendants,
   statusOf,
   type Graph,
@@ -64,6 +65,9 @@ export function ItemPanel({ itemId }: Props) {
   const unarchiveItem = useStore((s) => s.unarchiveItem)
   const deleteItem = useStore((s) => s.deleteItem)
   const askConfirm = useStore((s) => s.askConfirm)
+  const boardId = useStore((s) => s.boardId)
+  const selectBoard = useStore((s) => s.selectBoard)
+  const setObjectives = useStore((s) => s.setObjectives)
 
   const [dependencyId, setDependencyId] = useState('')
   const [childType, setChildType] = useState('')
@@ -102,6 +106,13 @@ export function ItemPanel({ itemId }: Props) {
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
   // A card's initiative: the nearest ancestor of the Initiative type.
   const initiative = initiativeOf(item.id, graph, initiativeTypeId)
+  // The chain from the root down to this item, plus the OKRs its ancestors map to.
+  const lineage = lineageOf(item.id, graph)
+  const lineageObjectives = [
+    ...new Map(
+      lineage.flatMap((n) => attributedObjectives(n.id, edges, objectives)).map((o) => [o.id, o]),
+    ).values(),
+  ]
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   const typeOptions = issueTypes.filter((t) => t.id !== initiativeTypeId || t.id === item.typeId)
   const teamBoards = boards.filter((b) => b.level !== 'portfolio')
@@ -112,6 +123,7 @@ export function ItemPanel({ itemId }: Props) {
 
   const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
+  const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
 
   return (
     <aside data-item-panel className="flex h-full w-[400px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
@@ -163,6 +175,54 @@ export function ItemPanel({ itemId }: Props) {
           <div className="mt-1 text-[11px] text-indigo-700/80">
             depth {d} — derived from the parent/child chain, not a field.
           </div>
+        </section>
+
+        {/* Lineage — the chain this work rolls up through, ending at its OKRs */}
+        <section>
+          <SectionLabel>Lineage — how this rolls up</SectionLabel>
+          <div className="flex flex-wrap items-center gap-1">
+            {lineage.map((node, i) => (
+              <Fragment key={node.id}>
+                {i > 0 && <ChevronRight size={11} className="shrink-0 text-slate-300" />}
+                {node.id === item.id ? (
+                  <span className="flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
+                    <span className="max-w-[180px] truncate">{node.title}</span>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => close(node.id)}
+                    title={`${typeName(node.typeId)} — open`}
+                    className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
+                  >
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
+                    <span className="max-w-[180px] truncate">{node.title}</span>
+                  </button>
+                )}
+              </Fragment>
+            ))}
+            {lineageObjectives.map((o) => (
+              <Fragment key={o.id}>
+                <ChevronRight size={11} className="shrink-0 text-slate-300" />
+                <button
+                  onClick={() => {
+                    close(null)
+                    setObjectives(true)
+                  }}
+                  title="Open Objectives & Key Results"
+                  className="flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-700 transition hover:bg-indigo-100"
+                >
+                  <Target size={10} className="shrink-0" />
+                  <span className="max-w-[180px] truncate">{o.title}</span>
+                </button>
+              </Fragment>
+            ))}
+          </div>
+          <p className="mt-1 text-[10px] text-slate-400">
+            {lineageObjectives.length > 0
+              ? 'Rolls up to the OKRs above — click any step to jump.'
+              : 'Click any step to jump. No OKR mapping above this item.'}
+          </p>
         </section>
 
         {/* Blocked — an explicit status, independent of the cell and of links */}
@@ -405,18 +465,35 @@ export function ItemPanel({ itemId }: Props) {
           </p>
         </section>
 
-        {/* Placements — board + cell */}
+        {/* Placements — board + cell (click to jump there) */}
         <section>
           <SectionLabel>On these boards ({itemPlacements.length})</SectionLabel>
           <div className="space-y-1">
             {itemPlacements.length === 0 && <p className="text-[11px] text-slate-400">Not placed on any board.</p>}
-            {itemPlacements.map((p) => (
-              <div key={p.id} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
-                <span className="min-w-0 flex-1 truncate text-slate-700">{boards.find((b) => b.id === p.boardId)?.name}</span>
-                <span className="min-w-0 max-w-[55%] truncate text-[10px] text-slate-400">{lanePath(lanes, p.laneId).join(' / ')}</span>
-              </div>
-            ))}
+            {itemPlacements.map((p) => {
+              const b = boards.find((bb) => bb.id === p.boardId)
+              const here = p.boardId === boardId
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    selectBoard(p.boardId)
+                    close(item.id)
+                  }}
+                  title={here ? 'This board' : `Go to ${b?.name ?? 'board'}`}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded border px-2 py-1 text-left transition',
+                    here ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50',
+                  )}
+                >
+                  <span className="min-w-0 flex-1 truncate text-slate-700">{b?.name ?? '—'}</span>
+                  <span className="min-w-0 max-w-[55%] truncate text-[10px] text-slate-400">{lanePath(lanes, p.laneId).join(' / ')}</span>
+                  {!here && <span className="shrink-0 text-[10px] text-indigo-500">↗</span>}
+                </button>
+              )
+            })}
           </div>
+          <p className="mt-1 text-[10px] text-slate-400">Click a board to jump there with this card open.</p>
         </section>
 
         {/* Parent + children */}
