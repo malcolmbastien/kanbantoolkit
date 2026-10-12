@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { activeBoards, boardsByBand, lanesFromTemplate, templateFromBoard } from './board'
+import {
+  activeBoards,
+  boardsByBand,
+  lanesFromTemplate,
+  templateAddLane,
+  templateChildren,
+  templateFromBoard,
+  templateMoveLane,
+  templateRemoveLane,
+  templateRenameLane,
+  templateSetLanePolicy,
+  templateSetLaneWip,
+  templateSetOrientation,
+  templateSplitLane,
+} from './board'
 import { createSeed } from './seed'
+import type { TemplateLane } from './types'
 
 const names = (groups: ReturnType<typeof boardsByBand>) => groups.flatMap((g) => g.boards.map((b) => b.name))
 
@@ -125,5 +140,76 @@ describe('board templates — a design, not its work', () => {
     expect(lanes.filter((l) => l.parentId === ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
     // The template is untouched, so it can be used again.
     expect(JSON.stringify(t)).toBe(before)
+  })
+})
+
+describe('editing a template’s design', () => {
+  const scrum = () => createSeed().boardTemplates.find((t) => t.id === 'tpl-scrum')!
+  /** Fresh keys, as the editor mints them. */
+  const keys = () => {
+    let n = 0
+    return () => `new${++n}`
+  }
+  const childNames = (lanes: TemplateLane[], parentKey: string) =>
+    templateChildren({ ...scrum(), lanes }, parentKey).map((l) => l.name)
+
+  it('splits a leaf into columns or rows, and adds to an existing split', () => {
+    const t = scrum()
+    const split = templateSplitLane(t, 'k0', 'columns', keys())
+    expect(childNames(split, 'k0')).toEqual(['Column 1', 'Column 2'])
+    expect(split.find((l) => l.key === 'k0')?.orientation).toBe('columns')
+
+    const rows = templateSplitLane(t, 'k0', 'rows', keys())
+    expect(childNames(rows, 'k0')).toEqual(['Row 1', 'Row 2'])
+
+    // A container gains a lane…
+    expect(childNames(templateAddLane(t, 'k1', keys()), 'k1')).toEqual([
+      'Backlog Refinement',
+      'Current Sprint',
+      'Column 3',
+    ])
+    // …and only a leaf splits.
+    expect(templateSplitLane(t, 'k1', 'columns', keys())).toEqual(t.lanes)
+  })
+
+  it('renames, sets WIP and policy, and flips orientation', () => {
+    const t = scrum()
+    expect(templateRenameLane(t, 'k5', 'Doing').find((l) => l.key === 'k5')?.name).toBe('Doing')
+    expect(templateSetLaneWip(t, 'k5', 2).find((l) => l.key === 'k5')?.wipLimit).toBe(2)
+    expect(templateSetLaneWip(t, 'k5', undefined).find((l) => l.key === 'k5')?.wipLimit).toBeUndefined()
+    expect(templateSetLanePolicy(t, 'k5', 'One at a time.').find((l) => l.key === 'k5')?.description).toBe(
+      'One at a time.',
+    )
+    expect(templateSetOrientation(t, 'k4', 'rows').find((l) => l.key === 'k4')?.orientation).toBe('rows')
+  })
+
+  it('reorders sub-lanes within their parent, and leaves the columns fixed', () => {
+    const t = scrum()
+    expect(childNames(templateMoveLane(t, 'k5', 1), 'k4')).toEqual(['Ready for Review', 'Working on', 'Review'])
+    // Already first, and already last: no-ops.
+    expect(childNames(templateMoveLane(t, 'k5', -1), 'k4')).toEqual(['Working on', 'Ready for Review', 'Review'])
+    expect(childNames(templateMoveLane(t, 'k7', 1), 'k4')).toEqual(['Working on', 'Ready for Review', 'Review'])
+    // Top-level columns are fixed in place, as on a board.
+    expect(templateMoveLane(t, 'k0', 1)).toEqual(t.lanes)
+  })
+
+  it('removes a sub-lane and its subtree, renumbering the rest', () => {
+    const t = scrum()
+    const next = templateRemoveLane(t, 'k6')
+    expect(childNames(next, 'k4')).toEqual(['Working on', 'Review'])
+    expect(templateChildren({ ...t, lanes: next }, 'k4').map((l) => l.order)).toEqual([0, 1])
+
+    // A container takes its whole subtree with it — via a sub-lane that has one.
+    const nested = templateSplitLane(t, 'k5', 'rows', keys())
+    const withoutWorkingOn = templateRemoveLane({ ...t, lanes: nested }, 'k5')
+    expect(withoutWorkingOn.some((l) => l.key === 'k5' || l.key === 'new1' || l.key === 'new2')).toBe(false)
+    // A top-level column stays, split or not.
+    expect(templateRemoveLane(t, 'k0')).toEqual(t.lanes)
+    expect(templateRemoveLane(t, 'k4')).toEqual(t.lanes)
+  })
+
+  it('keeps every key unique through the edits', () => {
+    const next = templateSplitLane(scrum(), 'k0', 'rows', keys())
+    expect(new Set(next.map((l) => l.key)).size).toBe(next.length)
   })
 })

@@ -5,7 +5,8 @@ import { canLinkBoard, initiativeTypeId, isStrategicInitiative, lanesFromTemplat
 import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
-import type { Board, BoardBand, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, User } from '@/domain/types'
+import { uid as makeUid } from '@/lib/utils'
+import type { Board, BoardBand, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, TemplateLane, User } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -186,6 +187,13 @@ export interface Actions {
   newBoardTemplate: (name: string, band: BoardBand) => void
   removeBoardTemplate: (id: string) => void
   renameBoardTemplate: (id: string, name: string) => void
+  /**
+   * Write a template's lanes back after an edit. The lane logic itself is pure and lives
+   * in the domain (`templateSplitLane`, `templateAddLane`, …); this stores the result.
+   */
+  setTemplateLanes: (templateId: string, lanes: TemplateLane[]) => void
+  /** Change a template's settings — its board type, card types, default type, WIP policy. */
+  updateBoardTemplate: (id: string, patch: Partial<Omit<BoardTemplate, 'id' | 'lanes'>>) => void
   removeBoard: (id: string) => void
   /**
    * Retire a board without destroying it: hidden from the picker, the workspace's list and
@@ -261,10 +269,7 @@ export interface Actions {
 
 export type Store = FlowState & ViewState & Actions
 
-const uid = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2) + Date.now().toString(36)
+const uid = makeUid
 
 /** The first lane (target or ancestor) whose WIP limit a move would exceed. */
 function exceededLane(
@@ -852,6 +857,10 @@ export const useStore = create<Store>()(
       removeBoardTemplate: (id) => set({ boardTemplates: get().boardTemplates.filter((t) => t.id !== id) }),
       renameBoardTemplate: (id, name) =>
         set({ boardTemplates: get().boardTemplates.map((t) => (t.id === id ? { ...t, name } : t)) }),
+      setTemplateLanes: (templateId, lanes) =>
+        set({ boardTemplates: get().boardTemplates.map((t) => (t.id === templateId ? { ...t, lanes } : t)) }),
+      updateBoardTemplate: (id, patch) =>
+        set({ boardTemplates: get().boardTemplates.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
 
       removeBoard: (id) => {
         const state = get()

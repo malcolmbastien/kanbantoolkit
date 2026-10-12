@@ -1,6 +1,6 @@
 import { isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
 import { childrenOf, leavesUnder, rootLane } from './lanes'
-import type { Board, BoardBand, BoardTemplate, IssueType, Item, Lane, Placement } from './types'
+import type { Board, BoardBand, BoardTemplate, IssueType, Item, Lane, Placement, SplitOrientation, TemplateLane } from './types'
 
 /** Items placed on a board (via explicit placement records). */
 export function itemsOnBoard(boardId: string, placements: Placement[], items: Item[]): Item[] {
@@ -109,6 +109,116 @@ export function lanesFromTemplate(
     ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
     ...(l.description ? { description: l.description } : {}),
   }))
+}
+
+/* ---- Editing a template's design ------------------------------------------------
+ * These mirror the board's lane actions (`splitLane`, `addLane`, `removeLane`, …) over a
+ * template's flat, keyed lanes. They are pure: each returns the new lane list, so the
+ * editor's behaviour is unit tested rather than inferred from the UI.
+ *
+ * One rule carries over from boards: the **top-level columns stay put**. They carry the
+ * stages, and a board's status derivation reads them, so a template's columns can be
+ * renamed but not removed or reordered — refine them by splitting, as on a board.
+ * ------------------------------------------------------------------------------- */
+
+/** A template's lanes under a parent, in order. `null` is the root's children. */
+export function templateChildren(template: BoardTemplate, parentKey: string | null): TemplateLane[] {
+  return template.lanes.filter((l) => l.parentKey === parentKey).sort((a, b) => a.order - b.order)
+}
+
+function templateDescendants(template: BoardTemplate, key: string): string[] {
+  const out: string[] = []
+  const walk = (k: string) => {
+    for (const child of template.lanes.filter((l) => l.parentKey === k)) {
+      out.push(child.key)
+      walk(child.key)
+    }
+  }
+  walk(key)
+  return out
+}
+
+const withLane = (template: BoardTemplate, key: string, patch: Partial<TemplateLane>): TemplateLane[] =>
+  template.lanes.map((l) => (l.key === key ? { ...l, ...patch } : l))
+
+export function templateRenameLane(template: BoardTemplate, key: string, name: string): TemplateLane[] {
+  return withLane(template, key, { name })
+}
+
+export function templateSetLaneWip(template: BoardTemplate, key: string, wipLimit: number | undefined): TemplateLane[] {
+  return withLane(template, key, { wipLimit })
+}
+
+export function templateSetLanePolicy(template: BoardTemplate, key: string, description: string | undefined): TemplateLane[] {
+  return withLane(template, key, { description })
+}
+
+export function templateSetOrientation(
+  template: BoardTemplate,
+  key: string,
+  orientation: SplitOrientation,
+): TemplateLane[] {
+  return withLane(template, key, { orientation })
+}
+
+/** Split a leaf lane into a container of the given orientation. */
+export function templateSplitLane(
+  template: BoardTemplate,
+  key: string,
+  orientation: SplitOrientation,
+  uid: () => string,
+  count = 2,
+): TemplateLane[] {
+  if (templateChildren(template, key).length > 0) return template.lanes // only a leaf splits
+  const kids: TemplateLane[] = Array.from({ length: count }, (_, i) => ({
+    key: uid(),
+    parentKey: key,
+    order: i,
+    name: orientation === 'rows' ? `Row ${i + 1}` : `Column ${i + 1}`,
+  }))
+  return [...withLane(template, key, { orientation }), ...kids]
+}
+
+/** Add a lane to an existing split — never a new top-level column. */
+export function templateAddLane(template: BoardTemplate, parentKey: string, uid: () => string): TemplateLane[] {
+  const parent = template.lanes.find((l) => l.key === parentKey)
+  if (!parent) return template.lanes
+  const order = templateChildren(template, parentKey).length
+  const orientation = parent.orientation ?? 'columns'
+  const child: TemplateLane = {
+    key: uid(),
+    parentKey,
+    order,
+    name: orientation === 'rows' ? `Row ${order + 1}` : `Column ${order + 1}`,
+  }
+  return [...withLane(template, parentKey, { orientation }), child]
+}
+
+/** Remove a sub-lane and its subtree; the remaining siblings are renumbered. */
+export function templateRemoveLane(template: BoardTemplate, key: string): TemplateLane[] {
+  const lane = template.lanes.find((l) => l.key === key)
+  if (!lane || lane.parentKey === null) return template.lanes // a top-level column stays
+  const doomed = new Set([key, ...templateDescendants(template, key)])
+  const kept = templateChildren(template, lane.parentKey).filter((l) => !doomed.has(l.key))
+  const orderOf = new Map(kept.map((l, i) => [l.key, i]))
+  return template.lanes
+    .filter((l) => !doomed.has(l.key))
+    .map((l) => (orderOf.has(l.key) ? { ...l, order: orderOf.get(l.key)! } : l))
+}
+
+/** Reorder a sub-lane within its parent. Top-level columns are fixed in place. */
+export function templateMoveLane(template: BoardTemplate, key: string, delta: number): TemplateLane[] {
+  const lane = template.lanes.find((l) => l.key === key)
+  if (!lane || lane.parentKey === null) return template.lanes
+  const siblings = templateChildren(template, lane.parentKey)
+  const idx = siblings.findIndex((s) => s.key === key)
+  const to = idx + delta
+  if (idx < 0 || to < 0 || to >= siblings.length) return template.lanes
+  const reordered = [...siblings]
+  const [moved] = reordered.splice(idx, 1)
+  reordered.splice(to, 0, moved)
+  const orderOf = new Map(reordered.map((s, i) => [s.key, i]))
+  return template.lanes.map((l) => (orderOf.has(l.key) ? { ...l, order: orderOf.get(l.key)! } : l))
 }
 
 /* ------------------------------------------------------------------ *

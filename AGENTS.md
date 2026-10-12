@@ -45,12 +45,15 @@ task-master list            # terminal 2
 - **Boards are a recursive lane tree.** A leaf lane is a cell; a container arranges children
   in columns or rows; any cell can be split. Board-design actions (`splitLane`, `addLane`,
   `removeLane`) mutate the tree and are surfaced only in **edit mode**.
-- **Three typed top-level columns.** Every board's root has exactly four children typed
+- **Three typed top-level columns.** Every board's root has the typed columns
   `stage: 'backlog' | 'notStarted' | 'inProgress' | 'done'` (Backlog / Not Started / In
-  Progress / Done). These are fixed — `addLane`/`removeLane` on the root and
-  `setLaneOrientation` on the root are no-ops; refinement happens by **splitting**, and
-  descendants inherit the stage via `effectiveStage`. A leaf's status comes from its column's
-  stage, which makes status roll up the hierarchy.
+  Progress / Done) — four on a standard board, and more if a template added them (the
+  seeded Scrum template carries two `done` columns, *Ready for Delivery* and *Done*, to
+  separate accepted work from released). These are fixed — `addLane`/`removeLane` on the
+  root and `setLaneOrientation` on the root are no-ops; refinement happens by
+  **splitting**, and descendants inherit the stage via `effectiveStage`. A leaf's status
+  comes from its column's stage, which makes status roll up the hierarchy. Where two
+  columns share a stage, `initiativeCellOf` takes the first.
 - **The initiatives flow.** A typed column is a **section** of a board's initiatives flow and
   its leaves are its **cells**. An initiative's section is *derived* — `rollupOf` picks the
   column whose stage matches its bucket — while its cell is *arranged*: `Placement.laneId`,

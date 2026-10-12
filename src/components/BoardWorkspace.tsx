@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Archive, ArchiveRestore, Columns3, ExternalLink, Eye, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
-import { TemplatePreview } from './TemplatePreview'
+import { TemplateEditor } from './TemplateEditor'
 import { boardsByBand } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -414,7 +414,7 @@ export function BoardWorkspace() {
         </section>
       </div>
 
-      {preview && <TemplatePreview template={preview} onClose={() => setPreviewId(null)} />}
+      {preview && <TemplateEditor template={preview} onClose={() => setPreviewId(null)} />}
     </div>
   )
 }
