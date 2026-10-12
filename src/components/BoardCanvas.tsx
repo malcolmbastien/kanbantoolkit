@@ -14,7 +14,7 @@ import {
   dependenciesOf,
   dependentsOf,
   depth as depthOf,
-  lensScope,
+  lensRole,
   openDescendants,
   rollupOf,
   statusOf,
@@ -55,16 +55,11 @@ interface Ctx {
   toggleMultiSelect: (id: string) => void
   askConfirm: (request: ConfirmRequest) => void
   selectedItemId: string | null
-  /** Cards to render — already narrowed by any focus. */
+  /** Cards to render. */
   boardItems: Item[]
-  /**
-   * Every card on the board. Counts — and so WIP limits — read from this, never from
-   * `boardItems`: a focus changes what you see, not how much work a column holds.
-   */
-  allBoardItems: Item[]
+  /** The focused item, for the lineage highlight. */
+  lensId: string | null
   effectiveLane: Map<string, string>
-  /** A focus is active, so every card shown is part of the focused initiative's work. */
-  focused: boolean
   interactive: boolean
   dropCard: (itemId: string, laneId: string) => void
   openItem: (id: string) => void
@@ -109,7 +104,7 @@ function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { c
 }
 
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
-  const { lanes, items, issueTypes, refs, graph, editMode, boardItems, allBoardItems, effectiveLane } = ctx
+  const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBtnRef = useRef<HTMLButtonElement>(null)
   const kids = childrenOf(lanes, lane.id)
@@ -128,7 +123,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   const countInLane = (laneId: string) => {
     const ids = new Set(subtreeIds(lanes, laneId))
-    return allBoardItems.filter((i) => {
+    return boardItems.filter((i) => {
       const lid = effectiveLane.get(i.id)
       return lid !== undefined && ids.has(lid)
     }).length
@@ -154,7 +149,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
-    const cardCount = countInLane(lane.id)
     return (
       <div className={cn('px-2 py-1', wip === 'over' ? 'bg-rose-700 text-white' : wip === 'at' ? 'bg-amber-600 text-white' : isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
         <div className="flex items-center gap-1.5">
@@ -168,15 +162,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             </button>
           )}
           <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
-          <span
-            className="text-[10px] font-semibold tabular-nums text-slate-300/80"
-            title={
-              ctx.focused
-                ? `${cardCount} card${cardCount === 1 ? '' : 's'} in this column — every card counts, including any the focus is hiding`
-                : undefined
-            }
-          >
-            {cardCount}
+          <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
+            {countInLane(lane.id)}
             {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
           </span>
           {lane.description && (
@@ -372,7 +359,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
-              focused={ctx.focused}
+              lens={lensRole(c.id, ctx.lensId, graph)}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
               onOpen={ctx.openItem}
@@ -403,7 +390,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
 function countInLane(laneId: string, ctx: Ctx): number {
   const ids = new Set(subtreeIds(ctx.lanes, laneId))
-  return ctx.allBoardItems.filter((i) => {
+  return ctx.boardItems.filter((i) => {
     const lid = ctx.effectiveLane.get(i.id)
     return lid !== undefined && ids.has(lid)
   }).length
@@ -518,14 +505,12 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   // The cards workflow shows the team's cards (non-initiative items) in their lanes.
   // The board's initiatives are surfaced separately in the "Initiatives workflow" on top.
   // A focus narrows this to one initiative's work — the lens is a filter here, not a tint.
-  const lens = lensScope(lensId, graph)
-  // Every card on the board — the counts read from this, so a focus never changes them.
-  const allBoardItems = boardPlacements
+  // The cards workflow shows the team's cards (non-initiative items) in their lanes.
+  // The board's initiatives are surfaced separately in the "Initiatives workflow" on top.
+  const boardItems = boardPlacements
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
     .filter((i) => !isInitiative(i.typeId) && !i.archived)
-  // What to render: the focus narrows this, and only this.
-  const boardItems = allBoardItems.filter((i) => !lens || lens.has(i.id))
 
   const effectiveLane = new Map<string, string>()
   for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
@@ -534,8 +519,8 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, allBoardItems, effectiveLane,
-    focused: Boolean(lens), interactive,
+    lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
+    interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {
@@ -563,7 +548,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
                 dependencyType={typeOf(d.dependency.typeId)}
                 boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.dependency.id)?.boardId)?.name ?? '—'}
                 selected={boundaryId === d.dependency.id}
-                dependentCount={allBoardItems.filter((i) => waitsOn(i.id, d.dependency.id, graph)).length}
+                dependentCount={boardItems.filter((i) => waitsOn(i.id, d.dependency.id, graph)).length}
                 onSelect={toggleBoundary}
                 onOpen={openItem}
               />

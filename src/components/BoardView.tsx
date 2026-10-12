@@ -95,15 +95,11 @@ export function BoardView({ requestMove }: Props) {
         </section>
 
         {/* Cards workflow — the team's customizable flow */}
-        <section className={cn('rounded-lg border shadow-sm', lensId ? 'border-indigo-300 bg-indigo-50/50' : 'border-slate-300 bg-slate-100')}>
-          <div className={cn('flex items-center gap-2 rounded-t-lg border-b px-3 py-1.5 text-slate-200', lensId ? 'border-indigo-300 bg-slate-800' : 'border-slate-300 bg-slate-800')}>
+        <section className="rounded-lg border border-slate-300 bg-slate-100 shadow-sm">
+          <div className="flex items-center gap-2 rounded-t-lg border-b border-slate-300 bg-slate-800 px-3 py-1.5 text-slate-200">
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Cards workflow</span>
-            <span className={cn('text-[10px]', lensId ? 'font-medium text-indigo-200' : 'text-slate-400')}>
-              {lensId
-                ? `showing only “${items.find((i) => i.id === lensId)?.title ?? '—'}” — column counts still cover every card`
-                : board?.band === 'team'
-                  ? 'the team’s flow — drag cards between lanes'
-                  : 'the flow — drag cards between lanes'}
+            <span className="text-[10px] text-slate-400">
+              {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
             </span>
           </div>
           <BoardCanvas boardId={boardId} interactive onMove={requestMove} />

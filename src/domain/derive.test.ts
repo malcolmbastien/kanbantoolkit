@@ -13,7 +13,6 @@ import {
   isArchived,
   isBlocked,
   initiativeOf,
-  lensScope,
   lineageOf,
   openDescendants,
   openDependenciesOf,
@@ -270,26 +269,6 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     const roll = rollupOf('init-signup', graphOf(s2))
     expect(roll.bucket).toBe('done')
     expect(roll.percent).toBe(100)
-  })
-})
-
-describe('lens — focusing an initiative narrows the board to its work', () => {
-  const s = createSeed()
-  const g = graphOf(s)
-
-  it('keeps the focused item and everything beneath it, and nothing else', () => {
-    const scope = lensScope('init-onboarding', g)!
-    expect(scope.has('init-onboarding')).toBe(true)
-    expect(scope.has('init-signup')).toBe(true)
-    expect(scope.has('st-signup-form')).toBe(true)
-    // A sibling stream is not part of this initiative's work.
-    expect(scope.has('init-gateway')).toBe(false)
-    expect(scope.has('st-ratelimit')).toBe(false)
-  })
-
-  it('is null with no focus — and for an id that no longer exists', () => {
-    expect(lensScope(null, g)).toBe(null)
-    expect(lensScope('deleted-item', g)).toBe(null)
   })
 })
 

@@ -353,7 +353,7 @@ export function byId<T extends { id: string }>(xs: T[]): Map<string, T> {
 }
 
 /* ------------------------------------------------------------------ *
- * Lens — focus an initiative and narrow the board to its work
+ * Lens — focus an initiative and highlight its lineage
  * ------------------------------------------------------------------ */
 
 export type LensRole = 'self' | 'in' | 'out'
@@ -368,15 +368,4 @@ export function lensRole(itemId: string, lensId: string | null, graph: Graph): L
     cur = decompositionParent(cur, graph.edges)
   }
   return 'out'
-}
-
-/**
- * The ids a focus keeps: the focused item and everything beneath it. The cards workflow
- * filters to this set, so focusing an initiative leaves only that initiative's cards.
- * `null` means "no focus, keep everything" — which is also what an unknown id gives, so a
- * focus left pointing at a deleted item shows the board rather than blanking it.
- */
-export function lensScope(lensId: string | null, graph: Graph): Set<string> | null {
-  if (!lensId || !graph.items.some((i) => i.id === lensId)) return null
-  return new Set([lensId, ...descendants(lensId, graph)])
 }
