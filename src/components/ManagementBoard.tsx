@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, ExternalLink, Focus, Layers, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, Layers, Plus, X } from 'lucide-react'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
 import { StrategyMap } from './StrategyMap'
@@ -20,10 +20,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const addLinkedBoard = useStore((s) => s.addLinkedBoard)
   const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const selectBoard = useStore((s) => s.selectBoard)
-  const items = useStore((s) => s.items)
   const setObjectives = useStore((s) => s.setObjectives)
-  const lensId = useStore((s) => s.lensId)
-  const clearLens = useStore((s) => s.clearLens)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [pick, setPick] = useState('')
 
@@ -67,18 +64,6 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
-      {/* The board's level and name are in the TopBar picker; this strip only carries the focus chip. */}
-      {lensId && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
-          <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
-            <Focus size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
-            <button onClick={clearLens} className="ml-0.5 text-indigo-200 hover:text-white" title="Clear focus">
-              <X size={10} />
-            </button>
-          </span>
-        </div>
-      )}
-
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {/* A portfolio leads with strategy: objectives and the initiatives that serve
             them on one page. Other coordination boards show the initiatives workflow. */}

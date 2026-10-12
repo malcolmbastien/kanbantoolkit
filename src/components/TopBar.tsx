@@ -3,6 +3,7 @@ import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, S
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
 import { BoardPicker } from './BoardPicker'
+import { FocusChip } from './FocusChip'
 import { cn } from '@/lib/utils'
 import type { Board, BoardBand } from '@/domain/types'
 
@@ -103,6 +104,8 @@ export function TopBar(props: Props) {
           </span>
         )}
       </button>
+
+      <FocusChip />
 
       <div className="ml-auto flex items-center gap-2">
         {editMode && (

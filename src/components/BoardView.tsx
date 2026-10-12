@@ -1,4 +1,4 @@
-import { Archive, Focus, Layers, X } from 'lucide-react'
+import { Archive, Layers } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
@@ -22,8 +22,6 @@ export function BoardView({ requestMove }: Props) {
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
   const editMode = useStore((s) => s.editMode)
-  const lensId = useStore((s) => s.lensId)
-  const clearLens = useStore((s) => s.clearLens)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
 
@@ -41,7 +39,7 @@ export function BoardView({ requestMove }: Props) {
 
   // The board's level and name already live in the TopBar's board picker, so this
   // strip only appears when it has something functional to say.
-  const showBar = Boolean(editMode || lensId || doneCount > 0 || external.length > 0)
+  const showBar = Boolean(editMode || doneCount > 0 || external.length > 0)
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
@@ -49,14 +47,6 @@ export function BoardView({ requestMove }: Props) {
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
           {editMode && (
             <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">edit mode · unsaved changes</span>
-          )}
-          {lensId && (
-            <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
-              <Focus size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
-              <button onClick={clearLens} className="ml-0.5 text-indigo-200 hover:text-white" title="Clear focus">
-                <X size={10} />
-              </button>
-            </span>
           )}
           <div className="ml-auto flex items-center gap-2">
             {doneCount > 0 && !editMode && (
