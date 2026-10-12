@@ -1,132 +1,141 @@
 # Flowline — board workspace (plan)
 
-> A place to see the organisation's boards. Today the only way to reach a board is the
-> TopBar picker, and board-level admin is scattered between the TopBar (create / delete, in
-> edit mode) and Board settings (band, card types, WIP, linked boards). With bands and a
-> multi-parent aggregation graph, *"what boards do we have, and how do they relate?"* has
-> no answer anywhere in the UI.
+> A place to search, browse, create, archive and delete the organisation's boards, and to
+> manage the templates they are created from. Board admin also stays inside each board —
+> this is **another way in, not the only one**. Today the only way to reach a board is the
+> TopBar picker, which is a switcher with nothing to browse.
 
-Status: **plan — not built.** Open questions at the end.
+Status: **plan — not built.** Decisions taken so far and open questions at the end.
 
 ## Why
 
-- **There is no index.** The picker is a switcher: it lists boards but tells you nothing
-  about them, and you can only see it by opening it.
-- **Admin is scattered.** Creating and deleting boards lives in the TopBar's edit mode;
-  band, card types, WIP enforcement and aggregation edges live in Board settings. Both are
-  reached from a board you already had to find.
-- **The graph is invisible.** Bands are lenses over an acyclic aggregation DAG. Nothing
-  shows which team boards feed which programs, or which boards are unlinked.
-- **Orphans go unnoticed.** A team board no coordination board links, or a program with
-  nothing linked to it, is a real configuration gap with no surface.
+- **There is no index.** The picker lists boards but tells you nothing, and you can only see
+  it by opening it. There is nowhere to look at the org's boards.
+- **Creating a board is buried.** `New board` lives in the TopBar behind edit mode, and
+  every new board starts as the same four typed columns — there is no way to reuse a board
+  design you have already settled on.
+- **Boards cannot be retired.** Deleting is permanent and is the only way to get a board out
+  of the picker. Items learned this lesson already: task 12 added archiving so Done work
+  leaves the board without being destroyed. Boards have no equivalent.
 
 ## What it is
 
-A top-level view — the **Boards** workspace — listing every board in the organisation.
-**Browsing first, management second**: the point is to see the shape of the org, and only
-then to act on it.
+A top-level **Boards** workspace:
+
+| | |
+|---|---|
+| **Search** | by board name |
+| **Browse** | every board, grouped by band |
+| **Create** | name + band, optionally from a template |
+| **Archive** | retire a board without destroying it |
+| **Delete** | permanent, behind the confirm dialog |
+| **Templates** | save a board's design as a template; rename and remove templates |
+
+Board admin **also remains inside each board** (the TopBar's create/delete, Board settings'
+band and linked boards). The workspace duplicates the entry points rather than moving them.
 
 ## Where it lives
 
-- A TopBar toggle beside **Objectives** / **Archive**, so it is reachable from anywhere.
-- The board picker's footer gets a **Manage boards…** entry, so the switcher leads to the
-  index rather than being a dead end.
+- A TopBar toggle beside **Objectives** / **Archive**.
+- The board picker's footer gets a **Manage boards…** entry, so the switcher is not a dead
+  end.
 
-## The shape of the list
+## Browsing
 
-**Grouped by band (Portfolio → Program → Team), then by name. Each board appears once.**
-
-The aggregation graph is a **DAG**, not a tree: a team board can be linked by two programs
-(`Team Atlas` is linked by both `Growth value stream` and `Product Delivery`). A tree would
-have to either duplicate the row or pick one parent and quietly lie. So a row **names its
-parents** instead of nesting under one — the same conclusion the board picker reached.
+Rows **grouped by band** (Portfolio → Program → Team), then by name. Each board appears
+**once**, and for now a row carries only:
 
 ```
-[PORTFOLIO]  Company Strategy            3 initiatives
-             rolls up to  —                        aggregates  Digital line of business · Product Delivery
-
-[PROGRAM]    Growth value stream         2 initiatives
-             rolls up to  Digital line of business  aggregates  Team Atlas · Team Nova
-
-[TEAM]       Team Atlas                  1 initiative
-             rolls up to  Growth value stream · Product Delivery
+[PORTFOLIO]  Company Strategy
+[PROGRAM]    Growth value stream
+[PROGRAM]    Product Delivery
+[TEAM]       Team Atlas
+[TEAM]       Team Nova
 ```
 
-(Figures above are the seeded org, to show the shape.)
+- **Name + band badge only**, for now — no counts, no progress.
+- A **search** field filters by name.
+- A toggle to **include archived boards** (hidden by default).
+- Opening a row switches to that board.
 
-## What each row carries
+*Not a tree:* the aggregation graph is a **DAG** — a team board can be linked by two
+programs — so nesting would either duplicate rows or pick one parent and lie. The same
+conclusion the board picker reached. If the graph is shown here later, rows should name
+their parents.
 
-- **band badge** and name — the same visual language as everywhere else.
-- **its own initiatives**, counted the way the board itself counts them.
-- **rolls up to** (parent boards) and **aggregates** (linked boards) — as text, because the
-  graph is not a tree.
-- **what the headline actually is** is an open question (see below): a rolled-up percentage
-  is the obvious choice but needs defining for a board that holds initiatives at several
-  levels, and it is the expensive part to compute for every board at once.
-- a marker when a lane is **at or over its WIP limit** — a board-level "needs attention".
+## Creating
 
-## Gaps the workspace should surface
+- **New board**: name + band, and optionally a **template** to start from.
+- The built-in standard (the four typed columns, Backlog → Done) is the default, so the
+  current behaviour is what you get when you pick nothing.
 
-Gaps are first-class elsewhere in the app (`okrCoverage`, `uncommittedBelow`); the board
-graph deserves the same treatment. Worth flagging inline:
+## Archiving boards — new model work
 
-- a board with **no initiatives** — nothing is being tracked on it;
-- a **program or portfolio with nothing linked** — it aggregates nothing;
-- a **team board no coordination board links** — it is an orphan in the graph.
+Mirrors item archiving (task 12), because the reasoning is identical: retiring something
+should not destroy it.
 
-## Actions
+- Add `Board.archived` (with `archivedAt`), plus `archived` / `unarchived` board events if
+  we want the log.
+- An archived board is **hidden from the board picker, the workspace's default list, and
+  the aggregation bands** — a retired program stops collecting rollups.
+- It stays **openable by deep link** and its **items and placements are untouched**.
+- Persist version bump + migration (the project's convention whenever the persisted shape
+  changes).
+- **Open:** do archived boards keep their aggregation edges, or are the edges suspended
+  while archived? Suspending is tidier; keeping them means unarchiving restores the graph
+  exactly.
 
-| Action | Notes |
-|---|---|
-| **Open** | switches to the board (the row's primary action) |
-| **New board** | name + band, from the workspace header |
-| **Rename / change band** | band is currently Board settings only |
-| **Link / unlink** | the aggregation edges — currently Board settings only |
-| **Board settings** | opens the existing per-board dialog |
-| **Delete** | routed through the confirm dialog |
+## Templates — new model work
 
-## Where today's controls would move
+A template is a **board design, not its work**:
 
-- The TopBar's edit-mode **Board +** and **delete** are board admin reached from inside a
-  board. Moving them here gives board admin one home.
-- **Board settings stays per-board** — it is board-scoped config, and the workspace links
-  to it rather than absorbing it.
+```
+BoardTemplate { id, name, band, lanes, cardTypeIds?, defaultCardTypeId?, wipEnforcement? }
+```
 
-## Relation to the existing surfaces
+- `lanes` is the board's lane tree — names, orientation, `stage`, `wipLimit` — with fresh
+  ids minted on instantiation. **No items, no placements, no linked boards** (those are
+  org-specific).
+- Managed in the workspace: **save an existing board as a template**, rename, remove.
+- Used when creating a board.
+- Persist version bump + migration (a new persisted collection).
 
-| Surface | Scope |
-|---|---|
-| Board picker (TopBar) | *switch to* a board — a shortcut |
-| **Board workspace** (new) | *the organisation's* boards — browse + admin |
-| Board settings (per board) | one board's configuration |
-| Strategy map (portfolio board) | one portfolio's OKRs ↔ strategic initiatives |
+## Deleting
 
-## First slice
+Reuse `removeBoard` + the confirm dialog. Unchanged, just reachable from here too.
 
-Enough to be useful and to prove the shape:
+## Later — not in the first slice
 
-1. TopBar **Boards** toggle opening the workspace.
-2. The grouped list: band badge, name, initiatives count + rolled-up %, and the
-   rolls-up-to / aggregates text.
-3. **Open** a board from a row.
-4. **New board** (name + band) in the workspace header.
-
-Rename, band changes, linking and delete follow once the list itself feels right.
+- A per-board **headline** beyond name + band: initiative count, stage spread, or a
+  rolled-up percentage (which needs defining, and is the expensive part to compute for
+  every board at once).
+- **Graph gaps inline**: a board with no initiatives, a program/portfolio with nothing
+  linked, a team board no coordination board links.
+- **Rename / change band** and **link / unlink** from the workspace.
 
 ## Out of scope
 
-- Templates, the new-team-board wizard, and duplicate board — **task 21**.
-- Moving work between boards — **task 42**.
+- The new-team-board **wizard** and **duplicate board** — still **task 21**. The *templates*
+  half of that task now lives here.
+
+## First slice
+
+1. TopBar **Boards** toggle opening the workspace.
+2. The grouped list: **name + band badge**, with search.
+3. **Open** a board from a row.
+4. **New board**: name + band.
+
+Then, in order: archiving (model + migration), then templates.
 
 ## Open questions
 
-1. **Replace or sit alongside?** Does the workspace take over the TopBar's edit-mode board
-   controls, or do both stay? (One home is cleaner; a quick-create in the nav is handy.)
-2. **What is a board's headline?** Initiative count is cheap and honest. A rolled-up
-   percentage needs defining (across its own initiatives? across all its work?) and means
-   `rollupOf` per initiative per board on one page — is that acceptable at org scale, or
-   should rows show counts and compute progress lazily?
-3. **Text or picture?** Rows naming their parents (recommended) versus a small DAG diagram.
-   A tree is out — the graph is not one.
-4. **Search / filter?** Worth it only past a certain board count; not in the first slice.
-5. **Does duplicate board belong here** (task 21), or stay a board-settings action?
+1. **Archived boards and the graph** — suspend the aggregation edges while archived, or keep
+   them and rely on the archived board being filtered out of every band?
+2. **Can you open an archived board?** Read-only, or fully usable? (Items stay archived-able
+   either way.)
+3. **Template fidelity** — is `lanes` + card types + WIP enough, or do templates need to
+   carry more of Board settings?
+4. **Where does the template library live** — inside the workspace only, or also reachable
+   from Board settings ("save as template" while you are configuring a board)?
+5. **Does the workspace need filters** beyond search (band, has-initiatives, unlinked)? Not
+   in the first slice.
