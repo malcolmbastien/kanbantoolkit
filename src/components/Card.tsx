@@ -370,9 +370,11 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           <button
             onClick={(e) => {
               e.stopPropagation()
-              onOpen(parent.id)
+              // Shift+click still selects the card — the chip is part of it.
+              if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
+              else onOpen(parent.id)
             }}
-            title={`Parent ${parent.type.name}: ${parent.title}`}
+            title={`Parent ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
             className="mt-1 flex w-full items-center gap-1 rounded border border-slate-300/70 bg-white/60 px-1 py-0.5 text-left transition hover:border-slate-400 hover:bg-white"
           >
             <CornerDownRight size={10} className="shrink-0 text-slate-400" />
