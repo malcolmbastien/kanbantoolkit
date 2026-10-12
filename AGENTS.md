@@ -84,7 +84,7 @@ task-master list            # terminal 2
   only — an Initiative placed on a portfolio board; everything below inherits through the
   decomposition (`isStrategicInitiative`). `okrCoverage` surfaces the two gaps: a strategic
   initiative with no OKR, and an OKR with no strategic initiative.
-- Limits are per-lane `wipLimit`s and are **visual only** — a lane over its limit shows red, but moves are never blocked (no prompts).
+- Limits are per-lane `wipLimit`s and are **visual only** — a lane over its limit shows red, but moves are never blocked (no prompts). Counts read the **whole** column, never the filtered view: a focus narrows what you *see*, not the load a column carries.
 - Before finishing any task, run the no-Google/Firebase scan above and `npm test`.
 
 ## Persisted state (localStorage)

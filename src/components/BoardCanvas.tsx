@@ -55,7 +55,13 @@ interface Ctx {
   toggleMultiSelect: (id: string) => void
   askConfirm: (request: ConfirmRequest) => void
   selectedItemId: string | null
+  /** Cards to render — already narrowed by any focus. */
   boardItems: Item[]
+  /**
+   * Every card on the board. Counts — and so WIP limits — read from this, never from
+   * `boardItems`: a focus changes what you see, not how much work a column holds.
+   */
+  allBoardItems: Item[]
   effectiveLane: Map<string, string>
   /** A focus is active, so every card shown is part of the focused initiative's work. */
   focused: boolean
@@ -103,7 +109,7 @@ function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { c
 }
 
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
-  const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
+  const { lanes, items, issueTypes, refs, graph, editMode, boardItems, allBoardItems, effectiveLane } = ctx
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBtnRef = useRef<HTMLButtonElement>(null)
   const kids = childrenOf(lanes, lane.id)
@@ -122,7 +128,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   const countInLane = (laneId: string) => {
     const ids = new Set(subtreeIds(lanes, laneId))
-    return boardItems.filter((i) => {
+    return allBoardItems.filter((i) => {
       const lid = effectiveLane.get(i.id)
       return lid !== undefined && ids.has(lid)
     }).length
@@ -148,6 +154,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
+    const cardCount = countInLane(lane.id)
     return (
       <div className={cn('px-2 py-1', wip === 'over' ? 'bg-rose-700 text-white' : wip === 'at' ? 'bg-amber-600 text-white' : isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
         <div className="flex items-center gap-1.5">
@@ -161,8 +168,15 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             </button>
           )}
           <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
-          <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
-            {countInLane(lane.id)}
+          <span
+            className="text-[10px] font-semibold tabular-nums text-slate-300/80"
+            title={
+              ctx.focused
+                ? `${cardCount} card${cardCount === 1 ? '' : 's'} in this column — every card counts, including any the focus is hiding`
+                : undefined
+            }
+          >
+            {cardCount}
             {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
           </span>
           {lane.description && (
@@ -389,7 +403,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
 function countInLane(laneId: string, ctx: Ctx): number {
   const ids = new Set(subtreeIds(ctx.lanes, laneId))
-  return ctx.boardItems.filter((i) => {
+  return ctx.allBoardItems.filter((i) => {
     const lid = ctx.effectiveLane.get(i.id)
     return lid !== undefined && ids.has(lid)
   }).length
@@ -505,11 +519,13 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   // The board's initiatives are surfaced separately in the "Initiatives workflow" on top.
   // A focus narrows this to one initiative's work — the lens is a filter here, not a tint.
   const lens = lensScope(lensId, graph)
-  const boardItems = boardPlacements
+  // Every card on the board — the counts read from this, so a focus never changes them.
+  const allBoardItems = boardPlacements
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
     .filter((i) => !isInitiative(i.typeId) && !i.archived)
-    .filter((i) => !lens || lens.has(i.id))
+  // What to render: the focus narrows this, and only this.
+  const boardItems = allBoardItems.filter((i) => !lens || lens.has(i.id))
 
   const effectiveLane = new Map<string, string>()
   for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
@@ -518,7 +534,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, allBoardItems, effectiveLane,
     focused: Boolean(lens), interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
@@ -547,7 +563,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
                 dependencyType={typeOf(d.dependency.typeId)}
                 boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.dependency.id)?.boardId)?.name ?? '—'}
                 selected={boundaryId === d.dependency.id}
-                dependentCount={boardItems.filter((i) => waitsOn(i.id, d.dependency.id, graph)).length}
+                dependentCount={allBoardItems.filter((i) => waitsOn(i.id, d.dependency.id, graph)).length}
                 onSelect={toggleBoundary}
                 onOpen={openItem}
               />

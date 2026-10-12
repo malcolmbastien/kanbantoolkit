@@ -100,7 +100,7 @@ export function BoardView({ requestMove }: Props) {
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Cards workflow</span>
             <span className={cn('text-[10px]', lensId ? 'font-medium text-indigo-200' : 'text-slate-400')}>
               {lensId
-                ? `showing only “${items.find((i) => i.id === lensId)?.title ?? '—'}” — clear the focus to see all cards`
+                ? `showing only “${items.find((i) => i.id === lensId)?.title ?? '—'}” — column counts still cover every card`
                 : board?.band === 'team'
                   ? 'the team’s flow — drag cards between lanes'
                   : 'the flow — drag cards between lanes'}
