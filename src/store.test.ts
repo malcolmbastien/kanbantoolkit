@@ -600,6 +600,32 @@ describe('store actions', () => {
     expect(s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId).toBe(before)
   })
 
+  it('bulk size, target dates, block/unblock and assignee removal', () => {
+    s().setItemsSize(['st-email', 'st-sso'], 8)
+    expect(s().items.find((i) => i.id === 'st-email')?.size).toBe(8)
+    expect(s().items.find((i) => i.id === 'st-sso')?.size).toBe(8)
+
+    s().setItemsTargetStart(['st-email'], '2026-01-05')
+    s().setItemsTargetEnd(['st-email'], '2026-02-05')
+    expect(s().items.find((i) => i.id === 'st-email')?.targetStartDate).toBe('2026-01-05')
+    expect(s().items.find((i) => i.id === 'st-email')?.targetEndDate).toBe('2026-02-05')
+    s().setItemsTargetEnd(['st-email'], undefined)
+    expect(s().items.find((i) => i.id === 'st-email')?.targetEndDate).toBeUndefined()
+
+    s().blockItems(['st-email', 'st-sso'], 'Waiting on legal')
+    expect(s().items.find((i) => i.id === 'st-email')?.blocked).toBe(true)
+    expect(s().items.find((i) => i.id === 'st-email')?.blockedReason).toBe('Waiting on legal')
+    expect(s().items.find((i) => i.id === 'st-email')?.log?.some((e) => e.kind === 'blocked')).toBe(true)
+    s().unblockItems(['st-email', 'st-sso'])
+    expect(s().items.find((i) => i.id === 'st-sso')?.blocked).toBe(false)
+
+    s().addItemsAssignee(['st-email'], 'Maya Blake')
+    const uid = s().users.find((u) => u.name === 'Maya Blake')!.id
+    expect(s().items.find((i) => i.id === 'st-email')?.assignees).toEqual([uid])
+    s().removeItemsAssignee(['st-email'], uid)
+    expect(s().items.find((i) => i.id === 'st-email')?.assignees).toBeUndefined()
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

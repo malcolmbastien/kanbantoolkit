@@ -37,6 +37,13 @@ export interface WipPrompt {
   limit: number
 }
 
+/** The open card context menu, anchored at a viewport position. */
+export interface CardMenuState {
+  itemId: string
+  x: number
+  y: number
+}
+
 export interface ViewState {
   boardId: string
   selectedItemId: string | null
@@ -76,6 +83,8 @@ export interface ViewState {
   confirm: ConfirmRequest | null
   /** A move held back by a `justify` WIP limit — rendered by ReasonDialog. */
   wipPrompt: WipPrompt | null
+  /** The open card context menu (a topmost layer for Escape/click-away). */
+  cardMenu: CardMenuState | null
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -119,6 +128,14 @@ export interface Actions {
   addItemsAssignee: (itemIds: string[], name: string) => void
   /** Clear every assignee on the listed items. */
   clearItemsAssignees: (itemIds: string[]) => void
+  /** Remove one assignee (by user id) from every listed item. */
+  removeItemsAssignee: (itemIds: string[], userId: string) => void
+  setItemsSize: (itemIds: string[], size: number | undefined) => void
+  setItemsTargetStart: (itemIds: string[], date: string | undefined) => void
+  setItemsTargetEnd: (itemIds: string[], date: string | undefined) => void
+  /** Block every listed item (an optional reason, recorded in each item's log). */
+  blockItems: (itemIds: string[], reason?: string) => void
+  unblockItems: (itemIds: string[], note?: string) => void
   archiveItems: (itemIds: string[]) => void
   deleteItems: (itemIds: string[]) => void
 
@@ -128,6 +145,9 @@ export interface Actions {
   /** Supply a reason for a held-back WIP move, or drop it. */
   confirmWipPrompt: (reason: string) => void
   cancelWipPrompt: () => void
+  /** Open/close the card context menu. */
+  openCardMenu: (itemId: string, x: number, y: number) => void
+  closeCardMenu: () => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -287,6 +307,7 @@ const initialView: ViewState = {
   multiSelect: [],
   confirm: null,
   wipPrompt: null,
+  cardMenu: null,
 }
 
 /**
@@ -429,7 +450,7 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, boundaryId: null, multiSelect: [] }),
+      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, boundaryId: null, multiSelect: [], cardMenu: null }),
       openItem: (selectedItemId) => set({ selectedItemId, multiSelect: [], ...(selectedItemId ? { showFilters: false } : {}) }),
       setSearch: (search) => set({ search }),
       toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
@@ -463,6 +484,8 @@ export const useStore = create<Store>()(
         if (prompt) get().moveCard(prompt.itemId, prompt.boardId, prompt.laneId, reason.trim())
       },
       cancelWipPrompt: () => set({ wipPrompt: null }),
+      openCardMenu: (itemId, x, y) => set({ cardMenu: { itemId, x, y } }),
+      closeCardMenu: () => set({ cardMenu: null }),
 
       moveCardsToLane: (itemIds, laneId) => {
         const state = get()
@@ -514,6 +537,46 @@ export const useStore = create<Store>()(
       clearItemsAssignees: (itemIds) => {
         const ids = new Set(itemIds)
         set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, assignees: undefined } : i)) })
+      },
+      removeItemsAssignee: (itemIds, userId) => {
+        const ids = new Set(itemIds)
+        set({
+          items: get().items.map((i) => {
+            if (!ids.has(i.id)) return i
+            const next = (i.assignees ?? []).filter((a) => a !== userId)
+            return { ...i, assignees: next.length > 0 ? next : undefined }
+          }),
+        })
+      },
+      setItemsSize: (itemIds, size) => {
+        const ids = new Set(itemIds)
+        set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, size } : i)) })
+      },
+      setItemsTargetStart: (itemIds, targetStartDate) => {
+        const ids = new Set(itemIds)
+        set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, targetStartDate } : i)) })
+      },
+      setItemsTargetEnd: (itemIds, targetEndDate) => {
+        const ids = new Set(itemIds)
+        set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, targetEndDate } : i)) })
+      },
+      blockItems: (itemIds, reason) => {
+        const note = reason?.trim() || undefined
+        const ids = new Set(itemIds)
+        set({
+          items: get().items.map((i) =>
+            ids.has(i.id) ? { ...i, blocked: true, blockedReason: note, log: [...(i.log ?? []), logEntry('blocked', note)] } : i,
+          ),
+        })
+      },
+      unblockItems: (itemIds, note) => {
+        const text = note?.trim() || undefined
+        const ids = new Set(itemIds)
+        set({
+          items: get().items.map((i) =>
+            ids.has(i.id) ? { ...i, blocked: false, blockedReason: undefined, log: [...(i.log ?? []), logEntry('unblocked', text)] } : i,
+          ),
+        })
       },
 
       archiveItems: (itemIds) => {

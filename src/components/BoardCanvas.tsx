@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ChevronsRight, Plus } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
+import { CardMenu } from './CardMenu'
 import { LanePolicy, LaneSettings } from './LaneSettings'
 import {
   blockedBelow,
@@ -102,6 +103,8 @@ interface Ctx {
   removeLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
   onAddCard: (laneId: string) => void
+  /** Open the card context menu at a viewport position. */
+  openCardMenu: (itemId: string, x: number, y: number) => void
 }
 
 function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { children: React.ReactNode; onClick: () => void; title: string; active?: boolean; danger?: boolean; disabled?: boolean; btnRef?: React.Ref<HTMLButtonElement> }) {
@@ -382,6 +385,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               dimmed={ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)}
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
+              onContextMenu={ctx.openCardMenu}
               lens={lensRole(c.id, ctx.lensId, graph)}
               onLens={ctx.toggleLens}
               draggable={ctx.interactive && !ctx.editMode}
@@ -520,6 +524,9 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const root = rootLane(lanes, boardId)
   const editMode = storeEdit && interactive
   const rowRef = useRef<HTMLDivElement>(null)
+  const cardMenu = useStore((s) => s.cardMenu)
+  const openCardMenu = useStore((s) => s.openCardMenu)
+  const closeCardMenu = useStore((s) => s.closeCardMenu)
 
   const boardPlacements = placements.filter((p) => p.boardId === boardId)
   const isInitiative = (typeId: string) => issueTypes.find((t) => t.id === typeId)?.name === 'Initiative'
@@ -546,6 +553,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       const typeId = boardCardTypeId(boards.find((b) => b.id === boardId), issueTypes)
       if (typeId) addCard({ boardId, typeId, laneId, title: 'New card' })
     },
+    openCardMenu,
   }
 
   const canvas = (
@@ -582,5 +590,18 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     </div>
   )
 
-  return canvas
+  return (
+    <>
+      {canvas}
+      {cardMenu && (
+        <CardMenu
+          itemIds={multiSelect.includes(cardMenu.itemId) ? multiSelect : [cardMenu.itemId]}
+          anchorId={cardMenu.itemId}
+          x={cardMenu.x}
+          y={cardMenu.y}
+          onClose={closeCardMenu}
+        />
+      )}
+    </>
+  )
 }

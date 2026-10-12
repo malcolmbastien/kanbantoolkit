@@ -1,4 +1,4 @@
-import { ArrowUp, Ban, Check, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
+import { ArrowUp, Ban, Check, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
@@ -67,11 +67,13 @@ interface Props {
   onOpen: (id: string) => void
   /** Shift+click — start/extend the multi-select group. */
   onMultiSelect?: (id: string) => void
+  /** Right-click (or the ⋯ button) — open the card context menu at (x, y). */
+  onContextMenu?: (id: string, x: number, y: number) => void
 }
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect }: Props) {
+export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -299,6 +301,12 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
         else onOpen(item.id)
       }}
+      onContextMenu={(e) => {
+        if (locked || !onContextMenu) return
+        e.preventDefault()
+        e.stopPropagation()
+        onContextMenu(item.id, e.clientX, e.clientY)
+      }}
       className={cn(
         'group relative flex h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
@@ -341,6 +349,20 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               </span>
             )}
             {lensButton}
+            {onContextMenu && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const r = e.currentTarget.getBoundingClientRect()
+                  onContextMenu(item.id, r.right - 4, r.bottom + 4)
+                }}
+                className="shrink-0 rounded text-slate-400 opacity-0 transition group-hover:opacity-100 hover:text-slate-700"
+                title="More actions"
+                aria-label="Card actions"
+              >
+                <MoreHorizontal size={13} />
+              </button>
+            )}
           </span>
         </div>
         <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-snug text-slate-900">{item.title}</div>

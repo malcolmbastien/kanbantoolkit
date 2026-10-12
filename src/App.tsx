@@ -36,8 +36,6 @@ export default function App() {
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
   const toggleFilters = useStore((s) => s.toggleFilters)
-  const multiSelect = useStore((s) => s.multiSelect)
-  const clearMultiSelect = useStore((s) => s.clearMultiSelect)
   const askConfirm = useStore((s) => s.askConfirm)
   const showBoardSettings = useStore((s) => s.showBoardSettings)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
@@ -108,23 +106,25 @@ export default function App() {
     runAutoArchive()
   }, [autoArchiveDays, runAutoArchive])
 
-  // Escape, or a click on any empty part of the screen, dismisses the current
+  // Escape, or a click on any empty part of the screen, dismisses the topmost
+  // layer: a confirm dialog or card menu handles its own; otherwise the current
   // selection — a multi-select group, or a single card open in the panel.
-  // Clicks on a card (to toggle/open it), the bulk bar, or the item panel are
-  // left alone.
+  // Clicks on a card (to toggle/open it), the bulk bar, or a panel are left alone.
   useEffect(() => {
-    if (multiSelect.length === 0 && !selectedItemId) return
-    const dismiss = () => {
-      if (multiSelect.length > 0) clearMultiSelect()
-      else openItem(null)
-    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      // A confirm dialog is the topmost layer — let it handle Escape.
-      if (useStore.getState().confirm) return
-      dismiss()
+      const s = useStore.getState()
+      if (s.confirm) return // the confirm dialog handles Escape
+      if (s.cardMenu) {
+        s.closeCardMenu()
+        return
+      }
+      if (s.multiSelect.length > 0) s.clearMultiSelect()
+      else if (s.selectedItemId) s.openItem(null)
     }
     const onDown = (e: MouseEvent) => {
+      const s = useStore.getState()
+      if (s.multiSelect.length === 0 && !s.selectedItemId) return
       const target = e.target as HTMLElement | null
       if (
         target?.closest('[data-card-id]') ||
@@ -133,11 +133,13 @@ export default function App() {
         target?.closest('[data-confirm-dialog]') ||
         target?.closest('[data-lane-settings]') ||
         target?.closest('[data-board-settings]') ||
-        target?.closest('[data-reason-dialog]')
+        target?.closest('[data-reason-dialog]') ||
+        target?.closest('[data-card-menu]')
       ) {
         return
       }
-      dismiss()
+      if (s.multiSelect.length > 0) s.clearMultiSelect()
+      else s.openItem(null)
     }
     window.addEventListener('keydown', onKey)
     document.addEventListener('mousedown', onDown)
@@ -145,7 +147,7 @@ export default function App() {
       window.removeEventListener('keydown', onKey)
       document.removeEventListener('mousedown', onDown)
     }
-  }, [multiSelect.length, selectedItemId, clearMultiSelect, openItem])
+  }, [])
 
   const requestMove = (itemId: string, bId: string, laneId: string) => moveCard(itemId, bId, laneId)
 
