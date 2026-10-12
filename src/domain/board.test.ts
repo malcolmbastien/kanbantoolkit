@@ -70,25 +70,29 @@ describe('board templates — a design, not its work', () => {
   const s = createSeed()
   const atlas = () => s.boards.find((b) => b.id === 'b-atlas')!
 
-  it('the seeded Scrum template keeps its five columns over four stages', () => {
+  it('every built-in template has exactly four top-level columns, one per stage', () => {
+    // A board's root is exactly the four typed columns. A fifth would carry a stage that
+    // already exists, which is how the Scrum template first came out wrong.
+    for (const t of s.boardTemplates) {
+      const top = templateChildren(t, null)
+      expect(top.map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+    }
+  })
+
+  it('the seeded Scrum template keeps its four columns and their cells', () => {
     const scrum = s.boardTemplates.find((t) => t.name === 'Scrum')!
-    const top = scrum.lanes.filter((l) => l.parentKey === null).sort((a, b) => a.order - b.order)
-    expect(top.map((l) => l.name)).toEqual([
-      'Product Backlog',
-      'Ready to Start',
-      'In Progress',
-      'Ready for Delivery',
-      'Done',
-    ])
-    expect(top.map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done', 'done'])
-    const kids = (key: string) =>
-      scrum.lanes.filter((l) => l.parentKey === key).sort((a, b) => a.order - b.order).map((l) => l.name)
+    const top = templateChildren(scrum, null)
+    expect(top.map((l) => l.name)).toEqual(['Product Backlog', 'Ready to Start', 'In Progress', 'Done'])
+    const kids = (key: string) => templateChildren(scrum, key).map((l) => l.name)
     expect(kids('k1')).toEqual(['Backlog Refinement', 'Current Sprint'])
     expect(kids('k4')).toEqual(['Working on', 'Ready for Review', 'Review'])
+    // The reference board's two green columns are one Done column with two cells.
+    expect(kids('k8')).toEqual(['Ready for Delivery', 'Done'])
     // It is a usable design: instantiating it yields those columns and nothing else.
-    const lanes = lanesFromTemplate(scrum, 'b', 'root', (() => { let n = 0; return () => `id${++n}` })())
-    expect(lanes.filter((l) => l.parentId === 'root')).toHaveLength(5)
-    expect(lanes.filter((l) => l.stage === 'done')).toHaveLength(2)
+    let n = 0
+    const lanes = lanesFromTemplate(scrum, 'b', 'root', () => `id${++n}`)
+    expect(lanes.filter((l) => l.parentId === 'root')).toHaveLength(4)
+    expect(lanes.filter((l) => l.stage === 'done')).toHaveLength(1)
   })
 
   it('captures the lane tree below the root, keyed rather than ided', () => {

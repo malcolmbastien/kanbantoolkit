@@ -494,6 +494,12 @@ export function migrateState(persisted: unknown): Partial<Store> {
     const have = new Set(stored.map((t) => t.id))
     p.boardTemplates = [...stored, ...BUILT_IN_TEMPLATES.filter((t) => !have.has(t.id))]
   }
+  // v23: and keep a built-in in step when its definition changes — the same ownership
+  // rule, applied to updates rather than additions. Templates the user made are untouched.
+  if (Array.isArray(p.boardTemplates)) {
+    const builtIn = new Map(BUILT_IN_TEMPLATES.map((t) => [t.id, t]))
+    p.boardTemplates = (p.boardTemplates as BoardTemplate[]).map((t) => builtIn.get(t.id) ?? t)
+  }
   return p as Partial<Store>
 }
 
@@ -1301,7 +1307,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 22,
+      version: 23,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

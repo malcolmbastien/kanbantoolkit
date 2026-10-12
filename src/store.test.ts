@@ -3,6 +3,7 @@ import { decompositionChildren, decompositionParent, checklistProgress, rollupOf
 import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
+import { BUILT_IN_TEMPLATES } from './domain/seed'
 
 vi.stubGlobal('localStorage', {
   getItem: () => null,
@@ -334,6 +335,13 @@ describe('store actions', () => {
       boardTemplates: [{ id: 'mine', name: 'Mine', band: 'team', lanes: [] }],
     }) as { boardTemplates: { id: string }[] }
     expect(withOwn.boardTemplates.map((t) => t.id).sort()).toEqual(['mine', 'tpl-scrum'])
+
+    // A built-in whose definition has changed since it was stored is brought up to date.
+    const stale = migrateState({
+      boards: [],
+      boardTemplates: [{ ...BUILT_IN_TEMPLATES[0], lanes: [] }],
+    }) as { boardTemplates: { id: string; lanes: unknown[] }[] }
+    expect(stale.boardTemplates.find((t) => t.id === 'tpl-scrum')?.lanes.length).toBeGreaterThan(0)
   })
 
   it('migrateState normalises the archived flags and leaves older boards working', () => {

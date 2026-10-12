@@ -90,10 +90,13 @@ a.test!.description =
  */
 export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
   /**
-   * The Scrum workflow: five columns over four stages, because a Scrum board
-   * distinguishes work that is *accepted* from work that is *released* — so both
-   * "Ready for Delivery" and "Done" carry the done stage, and an initiative lands in
-   * the first of them. Stage is what the app derives from; the names are the board's.
+   * The Scrum workflow, from the reference board. Four top-level columns, one per stage —
+   * a board's root is always exactly that, and a fifth would be a column with a stage that
+   * already exists.
+   *
+   * The reference board draws *Ready for Delivery* and *Done* as two green columns; here
+   * they are the two cells of the Done column, which is what they are: accepted work and
+   * released work, both done, in one stage.
    */
   {
     id: 'tpl-scrum',
@@ -108,8 +111,9 @@ export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
       { key: 'k5', parentKey: 'k4', order: 0, name: 'Working on' },
       { key: 'k6', parentKey: 'k4', order: 1, name: 'Ready for Review' },
       { key: 'k7', parentKey: 'k4', order: 2, name: 'Review' },
-      { key: 'k8', parentKey: null, order: 3, name: 'Ready for Delivery', stage: 'done' },
-      { key: 'k9', parentKey: null, order: 4, name: 'Done', stage: 'done' },
+      { key: 'k8', parentKey: null, order: 3, name: 'Done', stage: 'done', orientation: 'columns' },
+      { key: 'k9', parentKey: 'k8', order: 0, name: 'Ready for Delivery' },
+      { key: 'k10', parentKey: 'k8', order: 1, name: 'Done' },
     ],
   },
 ]
