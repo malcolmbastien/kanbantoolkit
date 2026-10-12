@@ -24,8 +24,10 @@ const users: User[] = [
 ]
 
 const boards: Board[] = [
-  { id: 'b-strategy', name: 'Company Strategy', band: 'portfolio', derived: true, linkedBoardIds: ['b-lob'] },
+  { id: 'b-strategy', name: 'Company Strategy', band: 'portfolio', derived: true, linkedBoardIds: ['b-lob', 'b-delivery'] },
   { id: 'b-lob', name: 'Digital line of business', band: 'program', derived: true, linkedBoardIds: ['b-portfolio'] },
+  // A Program that bridges the two team boards straight to the portfolio.
+  { id: 'b-delivery', name: 'Product Delivery', band: 'program', derived: true, linkedBoardIds: ['b-atlas', 'b-nova'] },
   { id: 'b-portfolio', name: 'Growth value stream', band: 'program', derived: true, linkedBoardIds: ['b-atlas', 'b-nova'] },
   { id: 'b-atlas', name: 'Team Atlas', band: 'team', defaultCardTypeId: 't-story' },
   { id: 'b-nova', name: 'Team Nova', band: 'team', defaultCardTypeId: 't-story' },
@@ -63,6 +65,7 @@ function workflow(boardId: string, splitProgress: boolean) {
 // lanes are plain columns.
 const st = workflow('b-strategy', false)
 const lob = workflow('b-lob', false)
+const del = workflow('b-delivery', false)
 const p = workflow('b-portfolio', false)
 // Team boards: In Progress refined into Dev / Test.
 const a = workflow('b-atlas', true)
@@ -108,6 +111,8 @@ item('init-efficiency', 'Operating Efficiency', 't-initiative', { size: 62, assi
 item('init-explore', 'Exploration Portfolio', 't-initiative', { size: 12, assignees: ['u-jt'], targetEndDate: '2027-06-30' })
 // Line-of-business initiative.
 item('init-growth', 'Customer Growth', 't-initiative', { size: 55, assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-01-31' })
+// Program initiative (Product Delivery) — bridges the teams to the portfolio.
+item('init-delivery', 'Delivery Excellence', 't-initiative', { size: 24, assignees: ['u-lm'], targetEndDate: '2027-02-28' })
 // Value-stream initiatives.
 item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2026-12-15' })
 item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignees: ['u-ds'], targetStartDate: '2026-11-01', targetEndDate: '2027-03-31' })
@@ -196,6 +201,7 @@ place('init-activation', 'b-strategy', st.ns.id)
 place('init-efficiency', 'b-strategy', st.ns.id)
 place('init-explore', 'b-strategy', st.backlog.id) // uncommitted inventory
 place('init-growth', 'b-lob', lob.ns.id)
+place('init-delivery', 'b-delivery', del.ns.id)
 
 // Growth value stream.
 place('init-onboarding', 'b-portfolio', p.ns.id)
@@ -234,6 +240,7 @@ const decompose = (parent: string, children: string[]) =>
 
 // The chain: strategic → line of business → value stream → team → cards.
 decompose('init-activation', ['init-growth'])
+decompose('init-efficiency', ['init-delivery'])
 decompose('init-growth', ['init-onboarding', 'init-platform'])
 decompose('init-onboarding', ['init-signup', 'init-welcome'])
 decompose('init-platform', ['init-gateway'])

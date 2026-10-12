@@ -95,6 +95,7 @@ describe('store actions', () => {
   it('descendantBoards walks the aggregation graph transitively', () => {
     expect(descendantBoards(s().boards, 'b-strategy').map((b) => b.id).sort()).toEqual([
       'b-atlas',
+      'b-delivery',
       'b-lob',
       'b-nova',
       'b-portfolio',
