@@ -721,12 +721,13 @@
         "id": "45",
         "title": "Quarterly planning: plan a department's initiatives across its teams, mapped to OKRs",
         "description": "Support a department running quarterly planning with its teams: each team ends up with a list of initiatives for the quarter, all connected to OKRs.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [],
         "priority": "high",
         "details": "THE ACTIVITY. A department (a portfolio board plus its linked team boards) sits down with its teams once a quarter and decides which initiatives each team will take on. The outcome to aim for: every team has a list of initiatives for that quarter, and every initiative is connected to at least one OKR. Discovery is part of this task — the exact feature set is not settled, so start with a short design pass before building. WHAT ALREADY HELPS. Objectives carry a `period` (e.g. 'FY26 Q1') and a commitment limit; attribution is initiative-only, so an initiative maps to OKRs and its OKRs imply a period; the portfolio board already shows its own initiatives plus a band per linked team board, and each team board shows its initiatives by rollup; linkTeamInitiative creates a team initiative beneath a management one so it rolls up. OPEN QUESTIONS TO SETTLE FIRST. (1) Is 'this quarter's initiatives' derived — the initiatives attributed to that period's OKRs — or an explicit record/snapshot? The derived reading reuses existing data with no model change, so try it first. (2) Do initiatives need their own period field, or does the OKR period carry it? (3) How does a team 'take on' an initiative: create a new team initiative (linkTeamInitiative) or claim an existing one? (4) Is there a commit step (proposed vs committed for the quarter), or is the plan just the current state? (5) What must the department see at a glance: per-team lists, OKR coverage gaps (an OKR with no initiatives, an initiative serving no OKR), and capacity against the commitment limit. SUGGESTED SHAPE, reusing existing views. A period-scoped planning surface: pick the quarter, then show each team in the department with its initiatives for that quarter alongside the OKRs they serve, calling out gaps. Prefer a mode on the Objectives view or the portfolio board over a new top-level view, and reuse the board's Initiatives workflow for the per-team lists. OUT OF SCOPE until the design pass says otherwise: anything needing a new persisted entity (a plan/commitment record) — capture that as a follow-up rather than guessing now.",
         "testStrategy": "Walk the scenario end to end: pick a quarter and, for each team in the department, confirm a list of initiatives appears and each maps to at least one OKR; verify a gap (an OKR with no initiative, or an initiative serving no OKR) is surfaced; confirm a newly planned initiative shows up in that team's list and rolls up to the department. Unit-test any new derivation (e.g. 'initiatives for a period') and the gap detection. Run npm test.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-12T19:54:55.815Z"
       },
       {
         "id": "46",
@@ -755,7 +756,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-11T19:28:06.821Z",
+      "lastModified": "2026-10-12T19:54:55.815Z",
       "taskCount": 46,
       "completedCount": 26,
       "tags": [
