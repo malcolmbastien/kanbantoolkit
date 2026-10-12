@@ -560,7 +560,7 @@
         "id": "31",
         "title": "Implement undo/redo for mutations",
         "description": "Undo/redo across edits, ideally by wrapping mutations in a command layer.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [],
         "priority": "high",
         "details": "Introduce a single mutation/command entry point or a state history stack; expose undo/redo in the toolbar and via keyboard; covers move, add, delete, lane edits and layout save/cancel.",
