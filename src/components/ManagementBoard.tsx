@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Crosshair, ExternalLink, Layers, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, Focus, Layers, Plus, X } from 'lucide-react'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
 import { StrategyMap } from './StrategyMap'
@@ -71,7 +71,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
       {lensId && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
           <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
-            <Crosshair size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
+            <Focus size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
             <button onClick={clearLens} className="ml-0.5 text-indigo-200 hover:text-white" title="Clear focus">
               <X size={10} />
             </button>

@@ -14,7 +14,7 @@ import {
   dependenciesOf,
   dependentsOf,
   depth as depthOf,
-  lensRole,
+  lensScope,
   openDescendants,
   rollupOf,
   statusOf,
@@ -58,7 +58,6 @@ interface Ctx {
   boardItems: Item[]
   effectiveLane: Map<string, string>
   lensId: string | null
-  toggleLens: (id: string) => void
   interactive: boolean
   dropCard: (itemId: string, laneId: string) => void
   openItem: (id: string) => void
@@ -358,8 +357,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
-              lens={lensRole(c.id, ctx.lensId, graph)}
-              onLens={ctx.toggleLens}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
               onOpen={ctx.openItem}
@@ -489,7 +486,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const renameLane = useStore((s) => s.renameLane)
   const addCard = useStore((s) => s.addCard)
   const lensId = useStore((s) => s.lensId)
-  const toggleLens = useStore((s) => s.toggleLens)
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
@@ -505,10 +501,13 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   // The cards workflow shows the team's cards (non-initiative items) in their lanes.
   // The board's initiatives are surfaced separately in the "Initiatives workflow" on top.
+  // A focus narrows this to one initiative's work — the lens is a filter here, not a tint.
+  const lens = lensScope(lensId, graph)
   const boardItems = boardPlacements
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
     .filter((i) => !isInitiative(i.typeId) && !i.archived)
+    .filter((i) => !lens || lens.has(i.id))
 
   const effectiveLane = new Map<string, string>()
   for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
@@ -518,7 +517,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const ctx: Ctx = {
     lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
-    lensId, toggleLens, interactive,
+    lensId, interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {

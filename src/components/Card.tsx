@@ -1,4 +1,4 @@
-import { ArrowUp, Ban, Check, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
@@ -155,9 +155,9 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         'shrink-0 rounded p-0.5 transition',
         lens ? 'text-indigo-600 opacity-100' : 'text-slate-300 opacity-0 group-hover:opacity-100 hover:text-indigo-600',
       )}
-      title="Focus lens — highlight this item's lineage"
+      title="Focus — narrow the board to this initiative's cards"
     >
-      <Crosshair size={11} />
+      <Focus size={11} />
     </button>
   ) : null
 

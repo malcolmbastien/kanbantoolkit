@@ -1,4 +1,4 @@
-import { Archive, Crosshair, Layers, X } from 'lucide-react'
+import { Archive, Focus, Layers, X } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
@@ -52,7 +52,7 @@ export function BoardView({ requestMove }: Props) {
           )}
           {lensId && (
             <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-px font-medium text-indigo-200">
-              <Crosshair size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
+              <Focus size={11} /> Focused: {items.find((i) => i.id === lensId)?.title ?? '—'}
               <button onClick={clearLens} className="ml-0.5 text-indigo-200 hover:text-white" title="Clear focus">
                 <X size={10} />
               </button>
@@ -99,7 +99,11 @@ export function BoardView({ requestMove }: Props) {
           <div className="flex items-center gap-2 rounded-t-lg border-b border-slate-300 bg-slate-800 px-3 py-1.5 text-slate-200">
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Cards workflow</span>
             <span className="text-[10px] text-slate-400">
-              {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
+              {lensId
+                ? `showing only “${items.find((i) => i.id === lensId)?.title ?? '—'}” — clear the focus to see all cards`
+                : board?.band === 'team'
+                  ? 'the team’s flow — drag cards between lanes'
+                  : 'the flow — drag cards between lanes'}
             </span>
           </div>
           <BoardCanvas boardId={boardId} interactive onMove={requestMove} />
