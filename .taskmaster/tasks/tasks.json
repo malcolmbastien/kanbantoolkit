@@ -694,12 +694,23 @@
         "details": "Add a 'Move to board' control to the BulkActions bar: pick a target board (management or team) and a target lane on it, then move every selected card's placement there. Needs a cascading lane picker (lanes belong to boards) and should create a placement when a card has none on the target board. Reuse the existing placement model (one placement per board).",
         "testStrategy": "Unit-test the batch move across boards: placements are created/updated on the target board with the chosen lane, the source board's placements are removed or kept per the model, and resolvedAt tracks the target stage. Run npm test.",
         "subtasks": []
+      },
+      {
+        "id": "43",
+        "title": "Card context menu (single card and selection groups)",
+        "description": "Right-click a card for a menu of quick actions; when the card is part of a selection group the actions apply to the whole group.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "A context menu on the card face, opened by right-click (contextmenu) at the pointer, with a keyboard path (Shift+F10 / the Menu key) and a small '⋯' affordance on hover. It closes on Escape, a click away, or after an action — reusing the app's existing dismiss conventions. Scope: if the right-clicked card is in the current multi-select group, the menu acts on the whole group (header shows 'N cards') and the group's ring/badge makes the target obvious; otherwise it acts on that single card (and opens the item panel for 'Open'). Actions: Open (single card only); Move to lane (the current board's leaf lanes); Assignee (existing assignees plus Unassigned); Type (card types — never the reserved Initiative); Size (inline number); Target date (inline date, with Clear); Block… / Unblock (optional reason, recorded in each item's log); Archive (cascades to children); Delete (routed through the ConfirmDialog); Clear selection (when a group is active). The existing bulk actions already cover move/type/assign/archive/delete; new bulk variants are needed for size, target date and block. Reuse the same store actions as the BulkActions bar so the two surfaces never disagree. Accessibility: role=menu / menuitem, first item focused, arrow-key navigation, Escape closes and focus returns to the card.",
+        "testStrategy": "Unit-test the new bulk actions (setItemsSize, setItemsTargetDate, blockItems/unblock) and the target resolution (single card vs the whole selection group). Over CDP: right-click a card and apply each action; right-click inside a selection group and confirm all cards update; Escape and click-away close the menu; Delete goes through the confirm modal; blocked items get a log entry. Run npm test.",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
-      "taskCount": 41,
+      "taskCount": 42,
       "completedCount": 22,
       "tags": [
         "backlog"
