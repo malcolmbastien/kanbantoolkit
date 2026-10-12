@@ -17,7 +17,7 @@ import {
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { buildRefs } from '@/domain/board'
+import { buildRefs, boardCardTypes } from '@/domain/board'
 import { lanePath } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
 import { initialsOf } from '@/domain/users'
@@ -170,7 +170,9 @@ export function ItemPanel({ itemId }: Props) {
     }),
   ]
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
-  const typeOptions = issueTypes.filter((t) => t.id !== initiativeTypeId || t.id === item.typeId)
+  // The board's allowed card types, plus the item's current type so it always shows.
+  const boardTypes = boardCardTypes(boards.find((b) => b.id === boardId), issueTypes)
+  const typeOptions = issueTypes.filter((t) => boardTypes.some((b) => b.id === t.id) || t.id === item.typeId)
   const teamBoards = boards.filter((b) => b.level !== 'portfolio')
   const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const boardOf = (id: string) =>

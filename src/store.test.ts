@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, buildRefs, cardTypes, defaultCardTypeId, searchItems } from './domain/board'
+import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane } from './domain/lanes'
 import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
 
@@ -554,6 +554,23 @@ describe('store actions', () => {
     expect(migrated.items[0].assignees).toEqual(['u-maya-blake'])
     expect('assignee' in migrated.items[0]).toBe(false)
     expect(migrated.items[1].assignees).toBeUndefined()
+  })
+
+  it('board card types: the allowed set restricts new cards and repairs the default', () => {
+    const atlas = () => s().boards.find((b) => b.id === 'b-atlas')
+    // Unrestricted by default.
+    expect(boardCardTypes(atlas(), s().issueTypes).map((t) => t.id)).toEqual(['t-story', 't-bug', 't-spike', 't-task'])
+
+    s().setBoardCardTypes('b-atlas', ['t-bug', 't-spike'])
+    expect(atlas()?.cardTypeIds).toEqual(['t-bug', 't-spike'])
+    // t-story was the default and is no longer allowed → repaired to the first allowed.
+    expect(atlas()?.defaultCardTypeId).toBe('t-bug')
+    expect(boardCardTypeId(atlas(), s().issueTypes)).toBe('t-bug')
+
+    // An empty list clears the restriction.
+    s().setBoardCardTypes('b-atlas', [])
+    expect(atlas()?.cardTypeIds).toBeUndefined()
+    expect(boardCardTypes(atlas(), s().issueTypes)).toHaveLength(4)
   })
 
   it('migrateState backfills Board.level', () => {

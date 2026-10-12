@@ -1,11 +1,10 @@
-import { Archive, Check, Crosshair, Layers, X } from 'lucide-react'
+import { Archive, Check, Crosshair, Layers, Settings, X } from 'lucide-react'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { LevelBadge } from './LevelBadge'
 import { ManagementBoard } from './ManagementBoard'
-import { boardCardTypeId, cardTypes, externalDependenciesOnBoard } from '@/domain/board'
+import { externalDependenciesOnBoard } from '@/domain/board'
 import { effectiveStage } from '@/domain/lanes'
-import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Graph } from '@/domain/derive'
 
@@ -24,14 +23,11 @@ export function BoardView({ requestMove }: Props) {
   const editMode = useStore((s) => s.editMode)
   const saveEdit = useStore((s) => s.saveEdit)
   const cancelEdit = useStore((s) => s.cancelEdit)
-  const setBoardDerived = useStore((s) => s.setBoardDerived)
   const lensId = useStore((s) => s.lensId)
   const clearLens = useStore((s) => s.clearLens)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
-  const issueTypes = useStore((s) => s.issueTypes)
-  const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
-  const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
+  const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
 
   const board = boards.find((b) => b.id === boardId)
 
@@ -66,41 +62,12 @@ export function BoardView({ requestMove }: Props) {
               <X size={11} /> Cancel
             </button>
             <button
-              onClick={() => setBoardDerived(boardId, !board?.derived)}
-              className={cn(
-                'flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium',
-                board?.derived ? 'border-violet-400/50 bg-violet-400/20 text-violet-200' : 'border-slate-600 text-slate-300 hover:text-white',
-              )}
-              title="Make this a rollup board: each card's column is derived from its lowest-level work"
+              onClick={toggleBoardSettings}
+              className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-300 hover:text-white"
+              title="Board settings — title, type, card types, WIP"
             >
-              rollup
+              <Settings size={11} /> settings
             </button>
-            <label className="flex items-center gap-1 text-slate-300">
-              Card type
-              <select
-                value={board?.defaultCardTypeId ?? ''}
-                onChange={(e) => setBoardDefaultCardType(boardId, e.target.value || undefined)}
-                className="rounded border border-slate-600 bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-100 outline-none"
-                title="Type a new card gets on this board (Initiative is reserved for the Initiatives workflow)"
-              >
-                <option value="">Auto ({issueTypes.find((t) => t.id === boardCardTypeId(board, issueTypes))?.name ?? '—'})</option>
-                {cardTypes(issueTypes).map((t) => (
-                  <option key={t.id} value={t.id} className="bg-slate-800 text-slate-100">{t.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-1 text-slate-300">
-              WIP
-              <select
-                value={board?.wipEnforcement ?? 'visualize'}
-                onChange={(e) => setBoardWipEnforcement(boardId, e.target.value as 'visualize' | 'block')}
-                className="rounded border border-slate-600 bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-100 outline-none"
-                title="How WIP limits are enforced: Visualize (tint only) or Block (reject moves that would exceed)"
-              >
-                <option value="visualize">Visualize</option>
-                <option value="block">Block</option>
-              </select>
-            </label>
           </>
         )}
         {lensId && (

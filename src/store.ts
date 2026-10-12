@@ -35,6 +35,8 @@ export interface ViewState {
   draft: Draft | null
   /** Focus lens: highlight this item and its ancestors/descendants; dim the rest. */
   lensId: string | null
+  /** Show the board settings dialog. */
+  showBoardSettings: boolean
   /** Show the Objectives & KRs view instead of a board. */
   showObjectives: boolean
   /** Show the management dashboard for the current board (management boards only). */
@@ -74,6 +76,8 @@ export interface Actions {
   clearLens: () => void
   toggleObjectives: () => void
   setObjectives: (v: boolean) => void
+  /** Open/close the board settings dialog. */
+  toggleBoardSettings: () => void
   toggleDashboard: () => void
   setDashboard: (v: boolean) => void
   toggleArchive: () => void
@@ -126,6 +130,8 @@ export interface Actions {
   renameBoard: (id: string, name: string) => void
   setBoardLevel: (id: string, level: BoardLevel) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
+  /** Set which card types are allowed on a board (empty = every card type). */
+  setBoardCardTypes: (id: string, cardTypeIds: string[]) => void
   setBoardWipEnforcement: (id: string, mode: 'visualize' | 'block') => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
@@ -235,6 +241,7 @@ const initialView: ViewState = {
   draft: null,
   lensId: null,
   showObjectives: false,
+  showBoardSettings: false,
   showDashboard: false,
   showArchive: false,
   collapsedLanes: {},
@@ -516,6 +523,7 @@ export const useStore = create<Store>()(
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
       toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false, showArchive: false }),
+      toggleBoardSettings: () => set({ showBoardSettings: !get().showBoardSettings }),
       setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showArchive: false } : {}) }),
       toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false, showArchive: false }),
       setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showArchive: false } : {}) }),
@@ -605,6 +613,18 @@ export const useStore = create<Store>()(
       setBoardLevel: (id, level) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, level } : b)) }),
       setBoardDefaultCardType: (id, defaultCardTypeId) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
+      setBoardCardTypes: (id, cardTypeIds) =>
+        set({
+          boards: get().boards.map((b) => {
+            if (b.id !== id) return b
+            const next: Board = { ...b, cardTypeIds: cardTypeIds.length > 0 ? cardTypeIds : undefined }
+            // Keep the default type inside the allowed set.
+            if (next.defaultCardTypeId && cardTypeIds.length > 0 && !cardTypeIds.includes(next.defaultCardTypeId)) {
+              next.defaultCardTypeId = cardTypeIds[0]
+            }
+            return next
+          }),
+        }),
       setBoardWipEnforcement: (id, wipEnforcement) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) }),
 

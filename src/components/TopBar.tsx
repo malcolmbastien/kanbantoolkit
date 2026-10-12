@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Shapes, SlidersHorizontal, Target, Trash2, X } from 'lucide-react'
+import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target, Trash2, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
 import { LevelBadge } from './LevelBadge'
@@ -27,6 +27,7 @@ interface Props {
   onSaveEdit: () => void
   onCancelEdit: () => void
   onOpenTypes: () => void
+  onOpenBoardSettings: () => void
   onAddCard: () => void
   onNewBoard: (name: string) => void
   onDeleteBoard: () => void
@@ -38,7 +39,7 @@ const SELECT_CLS =
 const OPT = 'bg-slate-800 text-slate-100'
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardLevel, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onSetBoardLevel, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, boardLevel, editMode, showObjectives, showDashboard, showArchive, showFilters, activeFilterCount, onSelectBoard, onSetBoardLevel, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
@@ -153,6 +154,14 @@ export function TopBar(props: Props) {
         </button>
 
         <GlobalSearch />
+
+        <button
+          onClick={onOpenBoardSettings}
+          className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+          title="Board settings — title, type, card types, WIP"
+        >
+          <Settings size={13} /> Settings
+        </button>
 
         <button
           onClick={onOpenTypes}

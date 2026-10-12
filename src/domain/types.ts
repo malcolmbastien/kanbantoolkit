@@ -76,6 +76,11 @@ export interface Board {
   derived?: boolean
   /** Management boards only: the team boards they aggregate (and show as bands). */
   teamBoardIds?: string[]
+  /**
+   * The card types allowed on this board (a subset of the non-Initiative types).
+   * Empty/undefined means every card type is available.
+   */
+  cardTypeIds?: string[]
   /** Type a new card gets on this board (never the reserved Initiative type). */
   defaultCardTypeId?: string
   /**

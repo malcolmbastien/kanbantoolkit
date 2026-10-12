@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { ArchiveView } from './components/ArchiveView'
 import { BoardView } from './components/BoardView'
 import { BulkActions } from './components/BulkActions'
+import { BoardSettings } from './components/BoardSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { FilterPanel } from './components/FilterPanel'
 import { ItemPanel } from './components/ItemPanel'
@@ -37,6 +38,7 @@ export default function App() {
   const multiSelect = useStore((s) => s.multiSelect)
   const clearMultiSelect = useStore((s) => s.clearMultiSelect)
   const askConfirm = useStore((s) => s.askConfirm)
+  const showBoardSettings = useStore((s) => s.showBoardSettings)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
   const runAutoArchive = useStore((s) => s.runAutoArchive)
@@ -47,6 +49,7 @@ export default function App() {
   const setSearch = useStore((s) => s.setSearch)
   const resetDemo = useStore((s) => s.resetDemo)
   const toggleTypeEditor = useStore((s) => s.toggleTypeEditor)
+  const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
   const beginEdit = useStore((s) => s.beginEdit)
   const saveEdit = useStore((s) => s.saveEdit)
   const cancelEdit = useStore((s) => s.cancelEdit)
@@ -127,7 +130,8 @@ export default function App() {
         target?.closest('[data-bulk-actions]') ||
         target?.closest('[data-item-panel]') ||
         target?.closest('[data-confirm-dialog]') ||
-        target?.closest('[data-lane-settings]')
+        target?.closest('[data-lane-settings]') ||
+        target?.closest('[data-board-settings]')
       ) {
         return
       }
@@ -186,6 +190,7 @@ export default function App() {
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}
         onOpenTypes={toggleTypeEditor}
+        onOpenBoardSettings={toggleBoardSettings}
         onAddCard={quickAdd}
         onNewBoard={onNewBoard}
         onDeleteBoard={onDeleteBoard}
@@ -208,6 +213,7 @@ export default function App() {
       </div>
 
       {showTypeEditor && <TypeEditor />}
+      {showBoardSettings && <BoardSettings />}
       <ConfirmDialog />
       <BulkActions />
     </div>

@@ -59,11 +59,22 @@ export function defaultCardTypeId(types: IssueType[]): string | undefined {
   return cardTypes(types)[0]?.id ?? types[0]?.id
 }
 
-/** The type a new card gets on a board: its configured default, else the first card type. */
+/**
+ * The card types available on a board: its configured subset (`cardTypeIds`), or
+ * every card type when it has none.
+ */
+export function boardCardTypes(board: Board | undefined, types: IssueType[]): IssueType[] {
+  const all = cardTypes(types)
+  const allowed = board?.cardTypeIds
+  return allowed && allowed.length > 0 ? all.filter((t) => allowed.includes(t.id)) : all
+}
+
+/** The type a new card gets on a board: its configured default if allowed, else the first available. */
 export function boardCardTypeId(board: Board | undefined, types: IssueType[]): string | undefined {
+  const available = boardCardTypes(board, types)
   const configured = board?.defaultCardTypeId
-  if (configured && cardTypes(types).some((t) => t.id === configured)) return configured
-  return defaultCardTypeId(types)
+  if (configured && available.some((t) => t.id === configured)) return configured
+  return available[0]?.id ?? defaultCardTypeId(types)
 }
 
 /**
