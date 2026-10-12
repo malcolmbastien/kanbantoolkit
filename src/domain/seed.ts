@@ -81,7 +81,14 @@ a.ns.description =
 a.test!.description =
   'Definition of done: reviewed, automated checks green, and deployed to staging before it can move to Done.'
 
-const boardTemplates: BoardTemplate[] = [
+/**
+ * Templates the product ships with.
+ *
+ * These are part of the *app*, not of a user's data, so the persist migration adds any
+ * that a stored state is missing (v22) rather than waiting for a Reset — a built-in
+ * template should reach people who already had state before it existed.
+ */
+export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
   /**
    * The Scrum workflow: five columns over four stages, because a Scrum board
    * distinguishes work that is *accepted* from work that is *released* — so both
@@ -304,6 +311,6 @@ export function createSeed(): FlowState {
     links: structuredClone(links),
     objectives: structuredClone(objectives),
     keyResults: structuredClone(keyResults),
-    boardTemplates: structuredClone(boardTemplates),
+    boardTemplates: structuredClone(BUILT_IN_TEMPLATES),
   }
 }

@@ -312,9 +312,28 @@ describe('store actions', () => {
     expect(s().boardTemplates.some((t) => t.id === id)).toBe(false)
     expect(s().boardTemplates).toHaveLength(before)
 
-    // Older state simply has no collection; the migration supplies one.
-    const migrated = migrateState({ boards: [] }) as { boardTemplates: unknown[] }
-    expect(migrated.boardTemplates).toEqual([])
+    // Older state simply has no collection; the migration supplies the built-ins.
+    const migrated = migrateState({ boards: [] }) as { boardTemplates: { id: string }[] }
+    expect(migrated.boardTemplates.map((t) => t.id)).toEqual(['tpl-scrum'])
+  })
+
+  it('the migration adds built-in templates without duplicating them', () => {
+    // State from before templates existed gets them.
+    const fresh = migrateState({ boards: [] }) as { boardTemplates: { id: string }[] }
+    expect(fresh.boardTemplates.map((t) => t.id)).toContain('tpl-scrum')
+
+    // State that already has them is left alone — no second copy on every rehydrate.
+    const again = migrateState({ boards: [], boardTemplates: fresh.boardTemplates }) as {
+      boardTemplates: { id: string }[]
+    }
+    expect(again.boardTemplates.filter((t) => t.id === 'tpl-scrum')).toHaveLength(1)
+
+    // A user's own template survives alongside the built-in.
+    const withOwn = migrateState({
+      boards: [],
+      boardTemplates: [{ id: 'mine', name: 'Mine', band: 'team', lanes: [] }],
+    }) as { boardTemplates: { id: string }[] }
+    expect(withOwn.boardTemplates.map((t) => t.id).sort()).toEqual(['mine', 'tpl-scrum'])
   })
 
   it('migrateState normalises the archived flags and leaves older boards working', () => {

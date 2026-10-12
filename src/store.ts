@@ -4,7 +4,7 @@ import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder
 import { canLinkBoard, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
-import { createSeed } from '@/domain/seed'
+import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, User } from '@/domain/types'
 
 export interface Draft {
@@ -481,6 +481,14 @@ export function migrateState(persisted: unknown): Partial<Store> {
   }
   // v21: board templates became a persisted collection. Older state simply has none.
   if (!Array.isArray(p.boardTemplates)) p.boardTemplates = []
+  // v22: templates the product ships with. A built-in belongs to the app, not to a user's
+  // data, so add any the stored state is missing — otherwise it would take a Reset to
+  // appear for anyone who already had state.
+  {
+    const stored = p.boardTemplates as BoardTemplate[]
+    const have = new Set(stored.map((t) => t.id))
+    p.boardTemplates = [...stored, ...BUILT_IN_TEMPLATES.filter((t) => !have.has(t.id))]
+  }
   return p as Partial<Store>
 }
 
@@ -1284,7 +1292,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 21,
+      version: 22,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.
