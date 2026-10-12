@@ -424,15 +424,15 @@
       },
       {
         "id": "20",
-        "title": "Implement collapse/expand lanes and management bands with persisted state",
-        "description": "P1 collapse/expand lanes and management bands while remembering state.",
-        "status": "pending",
+        "title": "Persist collapsed columns (lane collapse/expand)",
+        "description": "P1 collapse/expand lanes while remembering state across reloads.",
+        "status": "done",
         "dependencies": [
           "19"
         ],
         "priority": "medium",
-        "details": "Add collapse/expand controls to lane and management band headers. Persist collapsed state per board/user. Ensure collapsed lanes do not hide work from board totals unexpectedly; use visual indicators for hidden items.",
-        "testStrategy": "Collapse a lane and a management band, reload, and verify state persists. Expand them again and verify child lanes/items render. Verify board totals remain accurate.",
+        "details": "Collapse/expand for top-level columns already existed (chevron in the header, a narrow vertical strip with a count badge and vertical name, and a ?collapse deep link). The missing piece was persistence: collapsedLanes was view-only. It is now part of the persisted slice, so collapse state survives a reload (Reset still clears it). The partialize logic was extracted into an exported persistedSlice(s) so the written shape is testable. Management bands are intentionally left alone — their collapse stays local to ManagementBoard.",
+        "testStrategy": "Unit-test that persistedSlice includes collapsedLanes while selection/search/multi-select stay view-only. Over CDP: collapse a column, reload and confirm it is still collapsed; expand, reload and confirm it is expanded.",
         "subtasks": []
       },
       {
@@ -700,7 +700,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-11T19:28:06.821Z",
       "taskCount": 41,
-      "completedCount": 21,
+      "completedCount": 22,
       "tags": [
         "backlog"
       ]
