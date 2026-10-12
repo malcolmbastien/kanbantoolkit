@@ -1,5 +1,5 @@
-import { Fragment, useState } from 'react'
-import { Archive, Ban, ChevronDown, ChevronRight, ChevronUp, GitBranch, ListChecks, Plus, Sparkles, Target, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
+import { Archive, Ban, ChevronDown, ChevronUp, GitBranch, ListChecks, Plus, Sparkles, Target, Trash2, X } from 'lucide-react'
 import {
   attributedObjectives,
   checklistItems,
@@ -12,7 +12,6 @@ import {
   descendants,
   dependencyState,
   dependentSummary,
-  initiativeOf,
   lineageOf,
   openDescendants,
   statusOf,
@@ -104,8 +103,6 @@ export function ItemPanel({ itemId }: Props) {
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
-  // A card's initiative: the nearest ancestor of the Initiative type.
-  const initiative = initiativeOf(item.id, graph, initiativeTypeId)
   // The chain from the root down to this item, plus the OKRs its ancestors map to.
   const lineage = lineageOf(item.id, graph)
   const lineageObjectives = [
@@ -175,54 +172,6 @@ export function ItemPanel({ itemId }: Props) {
           <div className="mt-1 text-[11px] text-indigo-700/80">
             depth {d} — derived from the parent/child chain, not a field.
           </div>
-        </section>
-
-        {/* Lineage — the chain this work rolls up through, ending at its OKRs */}
-        <section>
-          <SectionLabel>Lineage — how this rolls up</SectionLabel>
-          <div className="flex flex-wrap items-center gap-1">
-            {lineage.map((node, i) => (
-              <Fragment key={node.id}>
-                {i > 0 && <ChevronRight size={11} className="shrink-0 text-slate-300" />}
-                {node.id === item.id ? (
-                  <span className="flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
-                    <span className="max-w-[180px] truncate">{node.title}</span>
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => close(node.id)}
-                    title={`${typeName(node.typeId)} — open`}
-                    className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
-                  >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
-                    <span className="max-w-[180px] truncate">{node.title}</span>
-                  </button>
-                )}
-              </Fragment>
-            ))}
-            {lineageObjectives.map((o) => (
-              <Fragment key={o.id}>
-                <ChevronRight size={11} className="shrink-0 text-slate-300" />
-                <button
-                  onClick={() => {
-                    close(null)
-                    setObjectives(true)
-                  }}
-                  title="Open Objectives & Key Results"
-                  className="flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-700 transition hover:bg-indigo-100"
-                >
-                  <Target size={10} className="shrink-0" />
-                  <span className="max-w-[180px] truncate">{o.title}</span>
-                </button>
-              </Fragment>
-            ))}
-          </div>
-          <p className="mt-1 text-[10px] text-slate-400">
-            {lineageObjectives.length > 0
-              ? 'Rolls up to the OKRs above — click any step to jump.'
-              : 'Click any step to jump. No OKR mapping above this item.'}
-          </p>
         </section>
 
         {/* Blocked — an explicit status, independent of the cell and of links */}
@@ -496,6 +445,62 @@ export function ItemPanel({ itemId }: Props) {
           <p className="mt-1 text-[10px] text-slate-400">Click a board to jump there with this card open.</p>
         </section>
 
+        {/* Lineage — OKR → top-level initiative → … → this item */}
+        <section>
+          <SectionLabel>Lineage — how this rolls up</SectionLabel>
+          <ol className="space-y-0.5">
+            {lineageObjectives.map((o) => (
+              <li key={o.id}>
+                <button
+                  onClick={() => {
+                    close(null)
+                    setObjectives(true)
+                  }}
+                  title="Open Objectives & Key Results"
+                  className="flex w-full items-center gap-1.5 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-left text-[11px] font-medium text-indigo-700 transition hover:bg-indigo-100"
+                >
+                  <Target size={11} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{o.title}</span>
+                  <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-indigo-400">OKR</span>
+                </button>
+              </li>
+            ))}
+            {lineage.map((node, i) => {
+              const level = Math.min(lineageObjectives.length > 0 ? i + 1 : i, 4)
+              const self = node.id === item.id
+              const body = (
+                <>
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
+                  <span className="min-w-0 flex-1 truncate">{node.title}</span>
+                  <span className={cn('shrink-0 text-[9px] font-semibold uppercase tracking-wide', self ? 'text-slate-300' : 'text-slate-400')}>
+                    {typeName(node.typeId)}
+                  </span>
+                </>
+              )
+              return (
+                <li key={node.id} style={{ paddingLeft: level * 14 }}>
+                  {self ? (
+                    <div className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white">{body}</div>
+                  ) : (
+                    <button
+                      onClick={() => close(node.id)}
+                      title={`Open ${node.title}`}
+                      className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-left text-[11px] text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
+                    >
+                      {body}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+          <p className="mt-1 text-[10px] text-slate-400">
+            {lineageObjectives.length > 0
+              ? 'Top-down: OKR → initiative → this work. Click any step to jump.'
+              : 'Click any step to jump. No OKR maps above this item.'}
+          </p>
+        </section>
+
         {/* Parent + children */}
         <section>
           <SectionLabel>Hierarchy — one parent, any number of children</SectionLabel>
@@ -677,8 +682,8 @@ export function ItemPanel({ itemId }: Props) {
           </p>
         </section>
 
-        {/* Mapping — a card maps to an initiative; an initiative maps to OKRs */}
-        {isInitiative ? (
+        {/* OKRs — only initiatives map to objectives; cards inherit it via the lineage */}
+        {isInitiative && (
           <section>
             <SectionLabel>OKRs — informs, never counts</SectionLabel>
             <div className="space-y-1">
@@ -697,31 +702,7 @@ export function ItemPanel({ itemId }: Props) {
               <p className="mt-1 text-[10px] text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
             )}
             <p className="mt-1 text-[10px] text-slate-400">
-              OKRs map to initiatives. This initiative's cards inherit it through the hierarchy — no card-level traceability to maintain.
-            </p>
-          </section>
-        ) : (
-          <section>
-            <SectionLabel>Initiative — what this card serves</SectionLabel>
-            {initiative ? (
-              <button
-                onClick={() => close(initiative.id)}
-                className="flex w-full items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-left hover:bg-slate-50"
-              >
-                <span
-                  className="h-1.5 w-1.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: issueTypes.find((t) => t.id === initiative.typeId)?.color ?? '#6366f1' }}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1 truncate text-slate-700">
-                  <span className="tabular-nums text-slate-400">{refs.get(initiative.id)}</span> {initiative.title}
-                </span>
-              </button>
-            ) : (
-              <p className="text-[11px] text-slate-400">Not under an initiative — nest this card under one to show what it serves.</p>
-            )}
-            <p className="mt-1 text-[10px] text-slate-400">
-              Cards map to initiatives; initiatives map to OKRs. The OKR link is a management concern.
+              OKRs map to initiatives. Cards inherit the mapping through the lineage.
             </p>
           </section>
         )}
