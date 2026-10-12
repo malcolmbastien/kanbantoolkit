@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, ExternalLink, Layers, Plus, TriangleAlert, X } from 'lucide-react'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
+import { BAND_ACCENT } from '@/lib/colors'
 import { initiativeTypeId, linkableBoards } from '@/domain/board'
 import { okrCoverage } from '@/domain/derive'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,9 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linkedIds.includes(b.id))
   const isPortfolio = board.band === 'portfolio'
+  // The initiatives surface wears the board's band colour (Program = blue, Portfolio = violet).
+  const accent = BAND_ACCENT[board.band]
+  const slateSkin = { section: 'border-slate-300 bg-slate-100', header: 'border-slate-300 bg-slate-800' }
 
   const section = (
     key: string,
@@ -46,12 +50,13 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
     body: React.ReactNode,
     right?: React.ReactNode,
     collapsible = true,
-    accent: 'violet' | 'slate' = 'slate',
+    tone: 'band' | 'slate' = 'slate',
   ) => {
     const isCollapsed = collapsed[key]
+    const skin = tone === 'band' ? accent : slateSkin
     return (
-      <section key={key} className={cn('rounded-lg border shadow-sm', accent === 'violet' ? 'border-violet-300 bg-violet-50/60' : 'border-slate-300 bg-slate-100')}>
-        <div className={cn('flex items-center gap-2 rounded-t-lg border-b px-3 py-1.5 text-slate-200', accent === 'violet' ? 'border-violet-300 bg-violet-800' : 'border-slate-300 bg-slate-800')}>
+      <section key={key} className={cn('rounded-lg border shadow-sm', skin.section)}>
+        <div className={cn('flex items-center gap-2 rounded-t-lg border-b px-3 py-1.5 text-slate-200', skin.header)}>
           {collapsible && (
             <button onClick={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))} className="text-slate-300 hover:text-white">
               {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
@@ -85,12 +90,12 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           `${board.id}-initiatives`,
           <>
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
-            <span className="text-[10px] text-violet-200">{isPortfolio ? 'strategic initiatives' : 'the outcomes this board owns'}</span>
+            <span className={cn('text-[10px]', accent.subtitle)}>{isPortfolio ? 'strategic initiatives' : 'the outcomes this board owns'}</span>
           </>,
           <BoardSummary boardId={board.id} rootsOnly variant="initiatives" />,
           undefined,
           true,
-          'violet',
+          'band',
         )}
 
         {/* OKR coverage — the strategic lens. Gaps are first-class. */}

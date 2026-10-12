@@ -4,6 +4,8 @@ import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
 import { externalDependenciesOnBoard, isAggregating } from '@/domain/board'
 import { effectiveStage } from '@/domain/lanes'
+import { BAND_ACCENT } from '@/lib/colors'
+import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Graph } from '@/domain/derive'
 
@@ -31,6 +33,7 @@ export function BoardView({ requestMove }: Props) {
   if (isAggregating(board)) return <ManagementBoard boardId={boardId} />
 
   const graph: Graph = { items, edges, links, placements, lanes }
+  const accent = BAND_ACCENT[board?.band ?? 'team']
   const external = externalDependenciesOnBoard(graph, boardId)
   const doneCount = placements.filter(
     (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
@@ -83,10 +86,10 @@ export function BoardView({ requestMove }: Props) {
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {/* Initiatives workflow — this team's initiatives, by rollup */}
-        <section className="rounded-lg border border-indigo-300 bg-indigo-50/60 shadow-sm">
-          <div className="flex items-center gap-2 rounded-t-lg border-b border-indigo-300 bg-indigo-800 px-3 py-1.5 text-slate-200">
+        <section className={cn('rounded-lg border shadow-sm', accent.section)}>
+          <div className={cn('flex items-center gap-2 rounded-t-lg border-b px-3 py-1.5 text-slate-200', accent.header)}>
             <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
-            <span className="text-[10px] text-indigo-200">this team’s initiatives — status rolls up from the cards below</span>
+            <span className={cn('text-[10px]', accent.subtitle)}>this team’s initiatives — status rolls up from the cards below</span>
           </div>
           <BoardSummary boardId={boardId} />
         </section>

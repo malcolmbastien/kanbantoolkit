@@ -1,4 +1,4 @@
-import type { Stage } from '@/domain/types'
+import type { BoardBand, Stage } from '@/domain/types'
 
 export function hexToRgba(hex: string, alpha: number): string {
   const h = hex.replace('#', '')
@@ -59,4 +59,40 @@ export const STAGE_ACCENT: Record<Stage, string> = {
   notStarted: '#22d3ee',
   inProgress: '#818cf8',
   done: '#34d399',
+}
+
+/**
+ * The accent a board's initiative surfaces wear. A coordination board takes its
+ * band's colour — a Program's initiatives are blue, a Portfolio's violet — so the
+ * flight level reads from the work itself, not just the header badge. A team board
+ * keeps the app's indigo: it renders work, not a management summary.
+ */
+export const BAND_ACCENT: Record<
+  BoardBand,
+  { section: string; header: string; subtitle: string; column: string; columnHeader: string; columnCount: string }
+> = {
+  team: {
+    section: 'border-indigo-300 bg-indigo-50/60',
+    header: 'border-indigo-300 bg-indigo-800',
+    subtitle: 'text-indigo-200',
+    column: 'border-indigo-200 bg-indigo-50/70',
+    columnHeader: 'bg-indigo-700 text-white',
+    columnCount: 'text-indigo-200',
+  },
+  program: {
+    section: 'border-sky-300 bg-sky-50/60',
+    header: 'border-sky-300 bg-sky-800',
+    subtitle: 'text-sky-200',
+    column: 'border-sky-200 bg-sky-50/70',
+    columnHeader: 'bg-sky-700 text-white',
+    columnCount: 'text-sky-200',
+  },
+  portfolio: {
+    section: 'border-violet-300 bg-violet-50/60',
+    header: 'border-violet-300 bg-violet-800',
+    subtitle: 'text-violet-200',
+    column: 'border-violet-200 bg-violet-50/70',
+    columnHeader: 'bg-violet-700 text-white',
+    columnCount: 'text-violet-200',
+  },
 }

@@ -15,7 +15,7 @@ import {
 } from '@/domain/derive'
 import { buildRefs } from '@/domain/board'
 import { topLevelLanes } from '@/domain/lanes'
-import { STAGE_ACCENT } from '@/lib/colors'
+import { BAND_ACCENT, STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Stage } from '@/domain/types'
@@ -26,6 +26,7 @@ import type { IssueType, Item, Stage } from '@/domain/types'
  * No detailed team flow and no leaf cards.
  */
 export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId: string; rootsOnly?: boolean; variant?: 'initiatives' | 'team' }) {
+  const boards = useStore((s) => s.boards)
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
   const placements = useStore((s) => s.placements)
@@ -41,6 +42,7 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
+  const accent = BAND_ACCENT[boards.find((b) => b.id === boardId)?.band ?? 'team']
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
@@ -84,13 +86,13 @@ export function BoardSummary({ boardId, rootsOnly, variant = 'team' }: { boardId
           key={lane.id}
           className={cn(
             'flex min-w-[320px] flex-1 basis-0 flex-col overflow-hidden rounded-md border',
-            isInitiatives ? 'border-violet-200 bg-violet-50/70' : 'border-slate-300 bg-slate-100',
+            isInitiatives ? accent.column : 'border-slate-300 bg-slate-100',
           )}
           style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}` }}
         >
-          <div className={cn('flex items-center gap-1.5 px-2 py-1', isInitiatives ? 'bg-violet-700 text-white' : 'bg-slate-700 text-slate-100')}>
+          <div className={cn('flex items-center gap-1.5 px-2 py-1', isInitiatives ? accent.columnHeader : 'bg-slate-700 text-slate-100')}>
             <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name}</span>
-            <span className={cn('ml-auto text-[10px] font-semibold tabular-nums', isInitiatives ? 'text-violet-200' : 'text-slate-300/80')}>{cards.length}</span>
+            <span className={cn('ml-auto text-[10px] font-semibold tabular-nums', isInitiatives ? accent.columnCount : 'text-slate-300/80')}>{cards.length}</span>
           </div>
           <div className="flex flex-1 flex-col gap-2 p-2">
             {cards.map((c) => {
