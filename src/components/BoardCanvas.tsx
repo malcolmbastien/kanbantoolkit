@@ -35,10 +35,11 @@ export interface BoardCanvasProps {
   onMove?: (itemId: string, boardId: string, laneId: string) => void
 }
 
-function DroppableCell({ enabled, onDropItem, children }: { enabled: boolean; onDropItem: (itemId: string) => void; children: React.ReactNode }) {
+function DroppableCell({ laneId, enabled, onDropItem, children }: { laneId: string; enabled: boolean; onDropItem: (itemId: string) => void; children: React.ReactNode }) {
   const [over, setOver] = useState(false)
   return (
     <div
+      data-lane-id={laneId}
       onDragOver={(e) => {
         if (!enabled) return
         e.preventDefault()
@@ -361,7 +362,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
       {!hideHeader && header(true)}
-      <DroppableCell enabled={ctx.interactive && !ctx.editMode} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
+      <DroppableCell laneId={lane.id} enabled={ctx.interactive && !ctx.editMode} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
         {cards.map((c) => {
           const pid = decompositionParent(c.id, graph.edges)
           const p = pid ? items.find((i) => i.id === pid) : undefined

@@ -24,6 +24,19 @@ export interface ConfirmRequest {
   onConfirm: () => void
 }
 
+/**
+ * A move that would exceed a WIP limit on a `justify` board: the move is held
+ * until the user supplies a reason, rendered by ReasonDialog.
+ */
+export interface WipPrompt {
+  itemId: string
+  boardId: string
+  laneId: string
+  /** The lane whose limit would be exceeded. */
+  laneName: string
+  limit: number
+}
+
 export interface ViewState {
   boardId: string
   selectedItemId: string | null
@@ -61,6 +74,8 @@ export interface ViewState {
   multiSelect: string[]
   /** Pending confirmation (destructive actions) — rendered by ConfirmDialog. */
   confirm: ConfirmRequest | null
+  /** A move held back by a `justify` WIP limit — rendered by ReasonDialog. */
+  wipPrompt: WipPrompt | null
 }
 export interface Actions {
   selectBoard: (id: string) => void
@@ -110,6 +125,9 @@ export interface Actions {
   /** Ask the user to confirm a destructive action (a styled in-app modal). */
   askConfirm: (request: ConfirmRequest) => void
   closeConfirm: () => void
+  /** Supply a reason for a held-back WIP move, or drop it. */
+  confirmWipPrompt: (reason: string) => void
+  cancelWipPrompt: () => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -121,7 +139,7 @@ export interface Actions {
   removeManagementTeam: (managementBoardId: string, teamBoardId: string) => void
   resetDemo: () => void
 
-  addIssueType: (name: string, color: string) => void
+  addIssueType: (name: string, color: string) => string
   updateIssueType: (id: string, patch: Partial<IssueType>) => void
   removeIssueType: (id: string) => void
 
@@ -132,7 +150,7 @@ export interface Actions {
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
   /** Set which card types are allowed on a board (empty = every card type). */
   setBoardCardTypes: (id: string, cardTypeIds: string[]) => void
-  setBoardWipEnforcement: (id: string, mode: 'visualize' | 'block') => void
+  setBoardWipEnforcement: (id: string, mode: 'visualize' | 'justify' | 'block') => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
   moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => void
@@ -194,6 +212,24 @@ const uid = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2) + Date.now().toString(36)
 
+/** The first lane (target or ancestor) whose WIP limit a move would exceed. */
+function exceededLane(
+  state: Pick<FlowState, 'lanes' | 'placements'>,
+  boardId: string,
+  laneId: string,
+  existingLaneId: string | undefined,
+): Lane | undefined {
+  const limited = [state.lanes.find((l) => l.id === laneId), ...ancestorsOf(state.lanes, laneId)]
+  for (const l of limited) {
+    if (!l || l.wipLimit === undefined) continue
+    const subtree = new Set(subtreeIds(state.lanes, l.id))
+    const count = state.placements.filter((p) => p.boardId === boardId && subtree.has(p.laneId)).length
+    const alreadyInside = existingLaneId ? subtree.has(existingLaneId) : false
+    if (count + (alreadyInside ? 0 : 1) > l.wipLimit) return l
+  }
+  return undefined
+}
+
 /** Find a user by full name (case-insensitive), or create one. */
 function ensureUser(users: User[], name: string): { id: string; users: User[] } {
   const trimmed = name.trim()
@@ -250,6 +286,7 @@ const initialView: ViewState = {
   boundaryId: null,
   multiSelect: [],
   confirm: null,
+  wipPrompt: null,
 }
 
 /**
@@ -420,6 +457,12 @@ export const useStore = create<Store>()(
       clearMultiSelect: () => set({ multiSelect: [] }),
       askConfirm: (confirm) => set({ confirm }),
       closeConfirm: () => set({ confirm: null }),
+      confirmWipPrompt: (reason) => {
+        const prompt = get().wipPrompt
+        set({ wipPrompt: null })
+        if (prompt) get().moveCard(prompt.itemId, prompt.boardId, prompt.laneId, reason.trim())
+      },
+      cancelWipPrompt: () => set({ wipPrompt: null }),
 
       moveCardsToLane: (itemIds, laneId) => {
         const state = get()
@@ -572,7 +615,11 @@ export const useStore = create<Store>()(
       },
       resetDemo: () => set({ ...createSeed(), ...initialView }),
 
-      addIssueType: (name, color) => set({ issueTypes: [...get().issueTypes, { id: uid(), name, color }] }),
+      addIssueType: (name, color) => {
+        const id = uid()
+        set({ issueTypes: [...get().issueTypes, { id, name, color }] })
+        return id
+      },
       updateIssueType: (id, patch) =>
         set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
       removeIssueType: (id) => set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
@@ -634,21 +681,24 @@ export const useStore = create<Store>()(
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
       },
 
-      moveCard: (itemId, boardId, laneId) => {
+      moveCard: (itemId, boardId, laneId, reason) => {
         const state = get()
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (existing && existing.laneId === laneId) return
-        // WIP enforcement: in 'block' mode, refuse a move that would push a limited
-        // lane (the target, or any limited ancestor) over its limit.
+        // WIP enforcement on the target lane (or any limited ancestor).
         const board = state.boards.find((b) => b.id === boardId)
-        if (board?.wipEnforcement === 'block') {
-          const limited = [state.lanes.find((l) => l.id === laneId), ...ancestorsOf(state.lanes, laneId)]
-          for (const l of limited) {
-            if (!l || l.wipLimit === undefined) continue
-            const subtree = new Set(subtreeIds(state.lanes, l.id))
-            const count = state.placements.filter((p) => p.boardId === boardId && subtree.has(p.laneId)).length
-            const alreadyInside = existing ? subtree.has(existing.laneId) : false
-            if (count + (alreadyInside ? 0 : 1) > l.wipLimit) return
+        const mode = board?.wipEnforcement ?? 'visualize'
+        if (mode !== 'visualize') {
+          const breached = exceededLane(state, boardId, laneId, existing?.laneId)
+          if (breached) {
+            if (mode === 'block') return
+            // 'justify': hold the move until the user supplies a reason.
+            if (reason === undefined) {
+              set({
+                wipPrompt: { itemId, boardId, laneId, laneName: breached.name || 'lane', limit: breached.wipLimit ?? 0 },
+              })
+              return
+            }
           }
         }
         const placements = existing
@@ -658,9 +708,12 @@ export const useStore = create<Store>()(
         const stage = effectiveStage(state.lanes, laneId)
         const items = state.items.map((i) => {
           if (i.id !== itemId) return i
-          if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
-          if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
-          return i
+          let next: Item = i
+          if (stage === 'done' && !i.resolvedAt) next = { ...next, resolvedAt: Date.now() }
+          if (stage !== 'done' && i.resolvedAt) next = { ...next, resolvedAt: null }
+          // A justified WIP overrun is recorded on the card and in its log.
+          if (reason) next = { ...next, lastMoveReason: reason, log: [...(i.log ?? []), logEntry('limit', reason)] }
+          return next
         })
         set({ placements, items })
       },

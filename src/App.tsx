@@ -4,6 +4,7 @@ import { BoardView } from './components/BoardView'
 import { BulkActions } from './components/BulkActions'
 import { BoardSettings } from './components/BoardSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { ReasonDialog } from './components/ReasonDialog'
 import { FilterPanel } from './components/FilterPanel'
 import { ItemPanel } from './components/ItemPanel'
 import { ManagementDashboard } from './components/ManagementDashboard'
@@ -131,7 +132,8 @@ export default function App() {
         target?.closest('[data-item-panel]') ||
         target?.closest('[data-confirm-dialog]') ||
         target?.closest('[data-lane-settings]') ||
-        target?.closest('[data-board-settings]')
+        target?.closest('[data-board-settings]') ||
+        target?.closest('[data-reason-dialog]')
       ) {
         return
       }
@@ -215,6 +217,7 @@ export default function App() {
       {showTypeEditor && <TypeEditor />}
       {showBoardSettings && <BoardSettings />}
       <ConfirmDialog />
+      <ReasonDialog />
       <BulkActions />
     </div>
   )

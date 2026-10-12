@@ -573,6 +573,33 @@ describe('store actions', () => {
     expect(boardCardTypes(atlas(), s().issueTypes)).toHaveLength(4)
   })
 
+  it('justify mode holds a move until a reason is given, then records it', () => {
+    const ns = laneByName('b-atlas', 'Not Started') // limit 1, already holds a card
+    s().setBoardWipEnforcement('b-atlas', 'justify')
+    s().moveCard('st-signup-form', 'b-atlas', ns.id)
+    // Held: no move yet, but a prompt was raised.
+    expect(s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId).not.toBe(ns.id)
+    expect(s().wipPrompt?.laneName).toBe('Not Started')
+    expect(s().wipPrompt?.limit).toBe(1)
+
+    s().confirmWipPrompt('Signed off by the PO')
+    expect(s().wipPrompt).toBe(null)
+    expect(s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId).toBe(ns.id)
+    const item = s().items.find((i) => i.id === 'st-signup-form')!
+    expect(item.lastMoveReason).toBe('Signed off by the PO')
+    expect(item.log?.some((e) => e.kind === 'limit' && e.note === 'Signed off by the PO')).toBe(true)
+  })
+
+  it('justify mode: cancelling the prompt drops the move', () => {
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().setBoardWipEnforcement('b-atlas', 'justify')
+    const before = s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId
+    s().moveCard('st-signup-form', 'b-atlas', ns.id)
+    s().cancelWipPrompt()
+    expect(s().wipPrompt).toBe(null)
+    expect(s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId).toBe(before)
+  })
+
   it('migrateState backfills Board.level', () => {
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X' }] }) as { boards: { level?: string }[] }
     expect(migrated.boards[0].level).toBe('team')

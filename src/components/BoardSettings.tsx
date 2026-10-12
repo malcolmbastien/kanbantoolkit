@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Layers, Settings, Target, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Layers, Plus, Settings, Target, X } from 'lucide-react'
 import { cardTypes } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -26,9 +26,12 @@ export function BoardSettings() {
   const setBoardCardTypes = useStore((s) => s.setBoardCardTypes)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
+  const addIssueType = useStore((s) => s.addIssueType)
   const addManagementTeam = useStore((s) => s.addManagementTeam)
   const removeManagementTeam = useStore((s) => s.removeManagementTeam)
   const close = useStore((s) => s.toggleBoardSettings)
+  const [newTypeName, setNewTypeName] = useState('')
+  const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -55,6 +58,15 @@ export function BoardSettings() {
     const next = allowed.includes(id) ? allowed.filter((x) => x !== id) : [...allowed, id]
     if (next.length === 0) return // at least one type must stay available
     setBoardCardTypes(board.id, next)
+  }
+
+  /** Define a brand-new card type and enable it on this board. */
+  const addType = () => {
+    const name = newTypeName.trim()
+    if (!name) return
+    const id = addIssueType(name, newTypeColor)
+    setBoardCardTypes(board.id, [...allowed, id])
+    setNewTypeName('')
   }
 
   const label = 'mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400'
@@ -143,14 +155,42 @@ export function BoardSettings() {
                 </label>
               ))}
             </div>
+            <div className="mt-2 flex items-center gap-1">
+              <input
+                type="color"
+                value={newTypeColor}
+                onChange={(e) => setNewTypeColor(e.target.value)}
+                title="New type colour"
+                className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+              />
+              <input
+                value={newTypeName}
+                onChange={(e) => setNewTypeName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addType()
+                  }
+                }}
+                placeholder="Define a new card type…"
+                className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+              <button
+                disabled={!newTypeName.trim()}
+                onClick={addType}
+                className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-[11px] font-medium text-white disabled:opacity-40"
+                title="Create this type and enable it on this board"
+              >
+                <Plus size={11} /> Add type
+              </button>
+            </div>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[11px] text-slate-500">New cards default to</span>
               <select
-                value={board.defaultCardTypeId ?? ''}
+                value={board.defaultCardTypeId ?? allowed[0] ?? ''}
                 onChange={(e) => setBoardDefaultCardType(board.id, e.target.value || undefined)}
                 className="rounded border border-slate-200 px-1.5 py-1 text-[11px]"
               >
-                <option value="">First available</option>
                 {types
                   .filter((t) => allowed.includes(t.id))
                   .map((t) => (
@@ -173,10 +213,11 @@ export function BoardSettings() {
             <select
               id="board-wip"
               value={board.wipEnforcement ?? 'visualize'}
-              onChange={(e) => setBoardWipEnforcement(board.id, e.target.value as 'visualize' | 'block')}
+              onChange={(e) => setBoardWipEnforcement(board.id, e.target.value as 'visualize' | 'justify' | 'block')}
               className="rounded border border-slate-200 px-1.5 py-1 text-[11px]"
             >
               <option value="visualize">Visualize — tint at/over the limit, moves always allowed</option>
+              <option value="justify">Justify — allow exceeding, but ask for a reason</option>
               <option value="block">Block — refuse moves that would exceed a limit</option>
             </select>
           </div>

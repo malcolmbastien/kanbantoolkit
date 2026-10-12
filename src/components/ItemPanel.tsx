@@ -36,6 +36,7 @@ const LOG_STYLES: Record<string, string> = {
   blocked: 'bg-rose-500',
   unblocked: 'bg-emerald-500',
   noted: 'bg-indigo-400',
+  limit: 'bg-amber-500',
 }
 
 export function ItemPanel({ itemId }: Props) {

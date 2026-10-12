@@ -85,14 +85,15 @@ export interface Board {
   defaultCardTypeId?: string
   /**
    * How per-lane WIP limits are enforced on this board:
-   * `visualize` (default) — yellow at the limit, red over it, moves always allowed;
+   * `visualize` (default) — tint at/over the limit, moves always allowed;
+   * `justify` — allow exceeding a limit, but ask for a reason (recorded as a comment);
    * `block` — reject a move that would push a lane (or a limited ancestor) over its limit.
    */
-  wipEnforcement?: 'visualize' | 'block'
+  wipEnforcement?: 'visualize' | 'justify' | 'block'
 }
 
 /** A notable event in an item's history. Append-only. */
-export type ItemLogKind = 'created' | 'blocked' | 'unblocked' | 'archived' | 'unarchived' | 'noted'
+export type ItemLogKind = 'created' | 'blocked' | 'unblocked' | 'archived' | 'unarchived' | 'noted' | 'limit'
 
 /**
  * A checklist entry inside a card — finer-grained work than a schedulable card.
