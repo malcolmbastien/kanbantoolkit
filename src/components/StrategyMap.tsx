@@ -6,7 +6,7 @@ import { STAGE_LABELS } from '@/domain/lanes'
 import { OBJECTIVE_STATUS_STYLES, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { IssueType, Item, Objective, Stage } from '@/domain/types'
+import type { Item, Objective, Stage } from '@/domain/types'
 
 /**
  * The Strategy map — a portfolio board's L3 surface. Objectives and the strategic
@@ -16,6 +16,9 @@ import type { IssueType, Item, Objective, Stage } from '@/domain/types'
  * Both coverage gaps are first-class and inline: an objective no initiative serves,
  * and an initiative no objective carries. That replaces the separate "OKR coverage"
  * section — the gaps are visible exactly where they occur.
+ *
+ * Laid out as a card grid, like the Objectives view: a full-width row puts a metric
+ * far from its label, which reads as a table rather than a map.
  *
  * Attribution edges are the same ones the Objectives view edits ("one relation, two
  * homes"). Editing the OKR itself (title, KRs, score) stays in the Objectives view,
@@ -41,8 +44,6 @@ export function StrategyMap({ boardId }: { boardId: string }) {
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
-  const typeOf = (typeId: string): IssueType =>
-    issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
   const initId = initiativeTypeId(issueTypes)
 
   // This board's own strategic initiatives: Initiative-typed, placed here, and local
@@ -71,19 +72,15 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const serving = (objectiveId: string) =>
     mine.filter((i) => attribution.some((e) => e.from === objectiveId && e.to === i.id))
 
-  /** One strategic initiative: type, ref, title, rolled-up progress and status. */
+  /**
+   * One strategic initiative: ref, title, rolled-up progress and status. No type chip —
+   * on this surface every row is a strategic initiative, so it would be pure noise.
+   */
   const initiativeRow = (it: Item, objectiveId?: string) => {
     const roll = rollupOf(it.id, graph)
     const bucket = roll.bucket as Stage
-    const type = typeOf(it.typeId)
     return (
-      <div key={it.id} className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
-        <span
-          className="shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white"
-          style={{ backgroundColor: type.color }}
-        >
-          {type.name}
-        </span>
+      <div key={it.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-1.5 py-1">
         <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-400">{refs.get(it.id)}</span>
         <button
           onClick={() => openItem(it.id)}
@@ -119,40 +116,41 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     </button>
   )
 
+  const subLabel = 'mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400'
+
   const objectiveGroup = (o: Objective) => {
     const krs = keyResults.filter((k) => k.objectiveId === o.id)
     const rows = serving(o.id)
     const candidates = mine.filter((i) => !rows.some((r) => r.id === i.id))
     return (
-      <div key={o.id} className="rounded-md border border-slate-300 bg-slate-50">
-        <div className="flex flex-wrap items-center gap-2 rounded-t-md border-b border-slate-200 bg-white px-2.5 py-1.5">
+      <div key={o.id} className="flex flex-col rounded-md border border-slate-300 bg-white shadow-sm">
+        <div className="flex items-center gap-2 rounded-t-md border-b border-slate-200 bg-slate-50 px-2.5 py-1.5">
           <Target size={12} className="shrink-0 text-violet-500" />
           <button
             onClick={() => setObjectives(true)}
-            className="text-[13px] font-semibold text-slate-800 hover:text-violet-700"
+            className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold text-slate-800 hover:text-violet-700"
             title="Edit this objective in the Objectives view"
           >
             {o.title}
           </button>
-          <span className={cn('rounded px-1 py-px text-[9px] font-semibold uppercase ring-1', OBJECTIVE_STATUS_STYLES[o.status])}>
-            {o.status}
-          </span>
           {o.score !== undefined && (
-            <span className="text-[10px] font-semibold tabular-nums text-slate-500">score {o.score}</span>
+            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-500" title="Objective score">
+              score {o.score}
+            </span>
           )}
-          <span className="ml-auto text-[10px] text-slate-400">
-            {rows.length} initiative{rows.length === 1 ? '' : 's'}
+          <span className={cn('shrink-0 rounded px-1 py-px text-[9px] font-semibold uppercase ring-1', OBJECTIVE_STATUS_STYLES[o.status])}>
+            {o.status}
           </span>
         </div>
 
-        <div className="space-y-1.5 p-2">
+        <div className="flex flex-1 flex-col gap-2 p-2.5">
           {krs.length > 0 && (
-            <div className="space-y-0.5">
+            <div className="space-y-1">
+              <div className={subLabel}>Key results</div>
               {krs.map((k) => (
                 <div key={k.id} className="flex items-center gap-2 text-[11px] text-slate-600">
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
                   <span className="min-w-0 flex-1 truncate">{k.title}</span>
-                  <div className="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-1 w-14 shrink-0 overflow-hidden rounded-full bg-slate-200">
                     <div className="h-full bg-violet-500" style={{ width: `${k.progress ?? 0}%` }} />
                   </div>
                   <span className="w-8 shrink-0 text-right tabular-nums text-slate-400">{k.progress ?? 0}%</span>
@@ -161,33 +159,39 @@ export function StrategyMap({ boardId }: { boardId: string }) {
             </div>
           )}
 
-          {rows.length > 0 ? (
-            rows.map((it) => initiativeRow(it, o.id))
-          ) : !unservedIds.has(o.id) ? (
-            <p className="px-1 text-[11px] text-slate-400">Served by a strategic initiative on another board.</p>
-          ) : (
-            <div className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
-              <TriangleAlert size={11} className="shrink-0" /> No strategic initiative serves this OKR.
+          <div className="mt-auto">
+            <div className={subLabel}>
+              Initiatives serving this <span className="rounded bg-slate-100 px-1 text-slate-500">{rows.length}</span>
             </div>
-          )}
-
-          <div className="flex max-w-md items-center gap-1 pt-0.5">
-            <select
-              value={pick[o.id] ?? ''}
-              onChange={(e) => setPick((p) => ({ ...p, [o.id]: e.target.value }))}
-              className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
-            >
-              <option value="">Map a strategic initiative…</option>
-              {candidates.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {refs.get(i.id)} {i.title}
-                </option>
-              ))}
-            </select>
-            {mapButton('Map', !pick[o.id], () => {
-              setAttribution(pick[o.id], o.id, true)
-              setPick((p) => ({ ...p, [o.id]: '' }))
-            })}
+            <div className="space-y-1">
+              {rows.length > 0 ? (
+                rows.map((it) => initiativeRow(it, o.id))
+              ) : !unservedIds.has(o.id) ? (
+                <p className="px-1 text-[11px] text-slate-400">Served by a strategic initiative on another board.</p>
+              ) : (
+                <div className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                  <TriangleAlert size={11} className="shrink-0" /> No strategic initiative serves this OKR.
+                </div>
+              )}
+            </div>
+            <div className="mt-1 flex items-center gap-1">
+              <select
+                value={pick[o.id] ?? ''}
+                onChange={(e) => setPick((p) => ({ ...p, [o.id]: e.target.value }))}
+                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+              >
+                <option value="">Map a strategic initiative…</option>
+                {candidates.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {refs.get(i.id)} {i.title}
+                  </option>
+                ))}
+              </select>
+              {mapButton('Map', !pick[o.id], () => {
+                setAttribution(pick[o.id], o.id, true)
+                setPick((p) => ({ ...p, [o.id]: '' }))
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -201,9 +205,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-slate-500">
         <span>{count(objectives.length, 'objective')}</span>
         <span>{count(mine.length, 'strategic initiative')}</span>
-        <span className={cn(gapCount > 0 && 'font-semibold text-amber-700')}>
-          {count(gapCount, 'gap')}
-        </span>
+        <span className={cn(gapCount > 0 && 'font-semibold text-amber-700')}>{count(gapCount, 'gap')}</span>
       </div>
 
       {objectives.length === 0 && (
@@ -216,51 +218,55 @@ export function StrategyMap({ boardId }: { boardId: string }) {
         </div>
       )}
 
-      {ordered.map((o, i) => (
-        <Fragment key={o.id}>
-          {periodCount > 1 && (i === 0 || ordered[i - 1].period !== o.period) && (
-            <div className="px-1 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{o.period}</div>
-          )}
-          {objectiveGroup(o)}
-        </Fragment>
-      ))}
-
-      {unmapped.length > 0 && (
-        <div className="rounded-md border border-amber-300 bg-amber-50/70">
-          <div className="flex flex-wrap items-center gap-2 rounded-t-md border-b border-amber-200 px-2.5 py-1.5">
-            <TriangleAlert size={12} className="shrink-0 text-amber-600" />
-            <span className="text-[11px] font-bold uppercase tracking-wide text-amber-800">
-              Unmapped strategic initiatives
-            </span>
-            <span className="text-[10px] text-amber-700">no OKR carries this work</span>
-          </div>
-          <div className="space-y-1.5 p-2">
-            {unmapped.map((it) => (
-              <div key={it.id} className="space-y-1">
-                {initiativeRow(it)}
-                <div className="flex max-w-md items-center gap-1 pl-1">
-                  <select
-                    value={mapTo[it.id] ?? ''}
-                    onChange={(e) => setMapTo((m) => ({ ...m, [it.id]: e.target.value }))}
-                    className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
-                  >
-                    <option value="">Map to an objective…</option>
-                    {ordered.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.title}
-                      </option>
-                    ))}
-                  </select>
-                  {mapButton('Map', !mapTo[it.id], () => {
-                    setAttribution(it.id, mapTo[it.id], true)
-                    setMapTo((m) => ({ ...m, [it.id]: '' }))
-                  })}
-                </div>
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {ordered.map((o, i) => (
+          <Fragment key={o.id}>
+            {periodCount > 1 && (i === 0 || ordered[i - 1].period !== o.period) && (
+              <div className="col-span-full px-1 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                {o.period}
               </div>
-            ))}
+            )}
+            {objectiveGroup(o)}
+          </Fragment>
+        ))}
+
+        {unmapped.length > 0 && (
+          <div className="flex flex-col rounded-md border border-amber-300 bg-amber-50/70 shadow-sm">
+            <div className="flex items-center gap-2 rounded-t-md border-b border-amber-200 px-2.5 py-1.5">
+              <TriangleAlert size={12} className="shrink-0 text-amber-600" />
+              <span className="min-w-0 flex-1 truncate text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                Unmapped strategic initiatives
+              </span>
+              <span className="shrink-0 text-[10px] text-amber-700">no OKR carries this</span>
+            </div>
+            <div className="flex flex-1 flex-col gap-1.5 p-2.5">
+              {unmapped.map((it) => (
+                <div key={it.id} className="space-y-1">
+                  {initiativeRow(it)}
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={mapTo[it.id] ?? ''}
+                      onChange={(e) => setMapTo((m) => ({ ...m, [it.id]: e.target.value }))}
+                      className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+                    >
+                      <option value="">Map to an objective…</option>
+                      {ordered.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.title}
+                        </option>
+                      ))}
+                    </select>
+                    {mapButton('Map', !mapTo[it.id], () => {
+                      setAttribution(it.id, mapTo[it.id], true)
+                      setMapTo((m) => ({ ...m, [it.id]: '' }))
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
