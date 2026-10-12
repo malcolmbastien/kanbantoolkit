@@ -582,7 +582,7 @@
         "id": "33",
         "title": "Add toasts and action feedback",
         "description": "Give immediate feedback for moves, confirms, saves and errors.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [],
         "priority": "medium",
         "details": "A lightweight toast system; announce card moves, limit warnings, dependency confirm/reject, and save/cancel; auto-dismiss with an undo affordance where relevant.",
