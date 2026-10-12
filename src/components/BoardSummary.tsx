@@ -14,6 +14,7 @@ import {
   openDescendants,
   rollupOf,
   statusOf,
+  uncommittedBelow,
   type Graph,
 } from '@/domain/derive'
 import { buildRefs, initiativeCellOf } from '@/domain/board'
@@ -145,6 +146,7 @@ export function BoardSummary({
           dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
           linksCount: dependenciesOf(c.id, graph).length + dependentsOf(c.id, graph).length,
           blockedBelow: blockedBelow(c.id, graph),
+          uncommittedBelow: uncommittedBelow(c.id, graph),
           openDescendants: openDescendants(c.id, graph).length,
           rollupPercent: rollupOf(c.id, graph).percent,
           checklist: checklistProgress(c),

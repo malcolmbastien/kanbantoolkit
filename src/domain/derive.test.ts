@@ -18,6 +18,7 @@ import {
   openDependenciesOf,
   rollupOf,
   statusOf,
+  uncommittedBelow,
   waitsOn,
   type Graph,
 } from './derive'
@@ -229,6 +230,33 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     // The last Backlog leaf is gone — ancestors recalculate back to committed.
     expect(rollupOf('init-gateway', graphOf(s2)).bucket).toBe('notStarted')
     expect(rollupOf('init-platform', graphOf(s2)).bucket).toBe('notStarted')
+  })
+
+  it('committed work sitting over uncommitted leaves is flagged, not blocked', () => {
+    // Customer Growth is under way, but Platform Consolidation's three leaves are all
+    // still in Backlog — so part of the commitment isn't committed.
+    expect(rollupOf('init-growth', g).bucket).toBe('inProgress')
+    expect(uncommittedBelow('init-growth', g)).toBe(3)
+
+    // Nothing is claimed while the item itself is still uncommitted…
+    expect(rollupOf('init-platform', g).bucket).toBe('backlog')
+    expect(uncommittedBelow('init-platform', g)).toBe(0)
+
+    // …and nothing is flagged when every leaf is committed.
+    expect(rollupOf('init-signup', g).bucket).toBe('inProgress')
+    expect(uncommittedBelow('init-signup', g)).toBe(0)
+  })
+
+  it('flags a Not Started initiative too, once part of its work is uncommitted', () => {
+    const s2 = createSeed()
+    const ns = laneByName(s2, 'b-atlas', 'Not Started')
+    const backlog = laneByName(s2, 'b-atlas', 'Backlog')
+    s2.placements = s2.placements.map((p) => {
+      if (p.boardId !== 'b-atlas') return p
+      return { ...p, laneId: p.itemId === 'st-email' ? backlog.id : ns.id }
+    })
+    expect(rollupOf('init-signup', graphOf(s2)).bucket).toBe('notStarted')
+    expect(uncommittedBelow('init-signup', graphOf(s2))).toBe(1)
   })
 
   it('all committed leaves done → the parent rolls up to done', () => {

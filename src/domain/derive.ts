@@ -250,6 +250,8 @@ export interface Rollup {
   done: number
   inProgress: number
   notStarted: number
+  /** Leaves still in Backlog — uncommitted inventory, excluded from `percent`. */
+  uncommitted: number
   /** Done leaves as a percentage of countable (committed) leaves. */
   percent: number
   bucket: RollupBucket
@@ -282,9 +284,24 @@ export function rollupOf(id: string, graph: Graph): Rollup {
     done,
     inProgress: Math.max(0, started - done),
     notStarted: Math.max(0, committed - started),
+    uncommitted: backlog,
     percent: Math.min(100, percent),
     bucket,
   }
+}
+
+/**
+ * Committed, but part of its work is not: the item is under way (or at least committed)
+ * while some leaves below it are still in Backlog — uncommitted inventory sitting under
+ * a commitment. A warning to put in front of a person, never a block and never an
+ * auto-correction: committing is a judgement, and the app doesn't make it.
+ *
+ * Zero for anything still in Backlog itself (nothing is claimed yet) and for anything
+ * Done (every leaf is finished by definition).
+ */
+export function uncommittedBelow(id: string, graph: Graph): number {
+  const roll = rollupOf(id, graph)
+  return roll.bucket === 'notStarted' || roll.bucket === 'inProgress' ? roll.uncommitted : 0
 }
 
 export function attributedObjectives(itemId: string, edges: Edge[], objectives: Objective[]): Objective[] {

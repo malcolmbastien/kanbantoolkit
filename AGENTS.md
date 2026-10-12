@@ -59,6 +59,12 @@ task-master list            # terminal 2
   a section (`moveInitiative` refuses it). Sections and cells are the same lanes the cards
   workflow uses, so a split serves both — and lane editing is surfaced in the initiatives flow
   too, because a program board has no cards workflow to edit from.
+- **Rollup reads leaves only, and never claims completion early.** All done → `done`; anything
+  under way → `inProgress`; anything committed → `notStarted`; every leaf uncommitted →
+  `backlog`. A Backlog leaf does **not** drag its parent backwards — a partly-planned
+  initiative is still in progress. The inconsistency is surfaced, not enforced: when a
+  committed item (Not Started / In Progress) sits over Backlog leaves, `uncommittedBelow`
+  raises a **warning** on the card. Never a block, never an auto-correction.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
   placed by rollup (card children are drill-in). A board has a **flight-level band**

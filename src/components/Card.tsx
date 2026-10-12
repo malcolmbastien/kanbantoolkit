@@ -1,4 +1,4 @@
-import { ArrowUp, Ban, Check, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert } from 'lucide-react'
+import { ArrowUp, Ban, Check, Clock, CornerDownRight, Crosshair, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
@@ -12,6 +12,11 @@ export interface CardSummary {
   linksCount: number
   /** Descendants (any depth) explicitly blocked and still open — rolled up. */
   blockedBelow: number
+  /**
+   * Committed, but leaves below it are still in Backlog. A warning to raise, never a
+   * block — see `uncommittedBelow` in the domain.
+   */
+  uncommittedBelow?: number
   openDescendants: number
   /** For parents: % of leaf descendants done (derived rollup). */
   rollupPercent?: number
@@ -229,7 +234,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
           )}
 
           {/* meta row */}
-          <div className="mt-auto flex items-center gap-3 text-[10px] text-slate-500">
+          <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
             {boundary && (
               <span
                 className="flex items-center gap-0.5 font-semibold text-amber-600"
@@ -265,6 +270,14 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
               </span>
             )}
             {blockedChip}
+            {(summary.uncommittedBelow ?? 0) > 0 && (
+              <span
+                className="flex items-center gap-0.5 rounded bg-amber-100 px-1 py-px font-semibold text-amber-800 ring-1 ring-amber-300"
+                title={`${summary.uncommittedBelow} card${summary.uncommittedBelow === 1 ? '' : 's'} below are still in Backlog — this initiative is committed, so its work should be too`}
+              >
+                <TriangleAlert size={11} /> {summary.uncommittedBelow} uncommitted below
+              </span>
+            )}
             {summary.openDescendants > 0 && summary.childCount > 0 && (
               <span className="text-slate-400">{summary.openDescendants} open below</span>
             )}

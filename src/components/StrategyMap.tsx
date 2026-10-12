@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { Target, TriangleAlert, X } from 'lucide-react'
 import { buildRefs, initiativeTypeId } from '@/domain/board'
-import { decompositionParent, okrCoverage, rollupOf, type Graph } from '@/domain/derive'
+import { decompositionParent, okrCoverage, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { OBJECTIVE_STATUS_STYLES, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -79,6 +79,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const initiativeRow = (it: Item, objectiveId?: string) => {
     const roll = rollupOf(it.id, graph)
     const bucket = roll.bucket as Stage
+    const uncommitted = uncommittedBelow(it.id, graph)
     return (
       <div key={it.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-1.5 py-1">
         <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-400">{refs.get(it.id)}</span>
@@ -89,6 +90,14 @@ export function StrategyMap({ boardId }: { boardId: string }) {
         >
           {it.title}
         </button>
+        {uncommitted > 0 && (
+          <span
+            className="flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 py-px text-[9px] font-semibold text-amber-800 ring-1 ring-amber-300"
+            title={`${uncommitted} card${uncommitted === 1 ? '' : 's'} below are still in Backlog — this initiative is committed, so its work should be too`}
+          >
+            <TriangleAlert size={10} /> {uncommitted}
+          </span>
+        )}
         <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-500">{roll.percent}%</span>
         <span className={cn('shrink-0 rounded px-1 py-px text-[9px] font-bold', stageChip(bucket))}>
           {STAGE_LABELS[bucket]}
