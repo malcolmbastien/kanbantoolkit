@@ -302,8 +302,20 @@ function Cell({
   return (
     <div className={className ?? 'flex min-w-0 flex-1 basis-0 flex-col'} style={style}>
       <div className={head}>
-        <span className={cn('truncate font-bold uppercase tracking-wide', primary ? 'text-[11px]' : 'text-[10px]')}>
-          {lane.name}
+        {/* Centred header; the edit controls stay at the right, so the centring only shifts
+            while the lane is being edited. */}
+        <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+          <span className={cn('truncate font-bold uppercase tracking-wide', primary ? 'text-[11px]' : 'text-[10px]')}>
+            {lane.name}
+          </span>
+          <span
+            className={cn(
+              'shrink-0 text-[10px] font-semibold tabular-nums',
+              primary ? (isInitiatives ? accent.columnCount : 'text-slate-300/80') : 'text-slate-500',
+            )}
+          >
+            {count}
+          </span>
         </span>
         {editable && (
           <span className="flex shrink-0 items-center gap-0.5">
@@ -328,14 +340,6 @@ function Cell({
             </Ctl>
           </span>
         )}
-        <span
-          className={cn(
-            'ml-auto shrink-0 text-[10px] font-semibold tabular-nums',
-            primary ? (isInitiatives ? accent.columnCount : 'text-slate-300/80') : 'text-slate-500',
-          )}
-        >
-          {count}
-        </span>
       </div>
 
       {droppable ? (

@@ -162,26 +162,30 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           wip === 'over' ? 'bg-rose-700 text-white' : wip === 'at' ? 'bg-amber-600 text-white' : isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white',
         )}
       >
-        <div className="flex items-center gap-1.5">
-          {top && (
-            <button
-              onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
-              className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-200 hover:bg-white/15 hover:text-white"
-              title={collapsed ? 'Expand column' : 'Collapse column'}
-            >
-              {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-            </button>
-          )}
-          <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
-          <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
-            {countInLane(lane.id)}
-            {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
+        {/* Name and count are centred; the collapse control and the policy icon sit in
+            equal-width edge slots so the centring stays true whatever the lane's depth. */}
+        <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_1.25rem] items-center gap-1">
+          <span className="flex items-center">
+            {top && (
+              <button
+                onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
+                className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-200 hover:bg-white/15 hover:text-white"
+                title={collapsed ? 'Expand column' : 'Collapse column'}
+              >
+                {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+              </button>
+            )}
           </span>
-          {lane.description && (
-            <span className="ml-auto flex shrink-0 items-center">
-              <LanePolicy policy={lane.description} />
+          <span className="flex min-w-0 items-center justify-center gap-1.5">
+            <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-300/80">
+              {countInLane(lane.id)}
+              {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
             </span>
-          )}
+          </span>
+          <span className="flex items-center justify-end">
+            {lane.description && <LanePolicy policy={lane.description} />}
+          </span>
         </div>
 
         {editMode && !isRoot && (
@@ -424,7 +428,7 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
       {(editMode || lane.name) && (
-        <div className="bg-slate-800 px-2 py-1 text-white">
+        <div className="bg-slate-800 px-2 py-1 text-center text-white">
           <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
         </div>
       )}
@@ -435,9 +439,9 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
         {/* column headers */}
         <div />
         {columns.map((col) => (
-          <div key={col.id} className="flex items-center gap-1.5 rounded-md bg-slate-700 px-2 py-1 text-slate-100">
-            <span className="text-[11px] font-bold uppercase tracking-wide">{col.name}</span>
-            <span className="ml-auto text-[10px] font-semibold tabular-nums text-slate-300/80">{countInLane(col.id, ctx)}</span>
+          <div key={col.id} className="flex items-center justify-center gap-1.5 rounded-md bg-slate-700 px-2 py-1 text-slate-100">
+            <span className="truncate text-[11px] font-bold uppercase tracking-wide">{col.name}</span>
+            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-300/80">{countInLane(col.id, ctx)}</span>
           </div>
         ))}
 
@@ -449,7 +453,7 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
           }, 0)
           return (
             <Fragment key={name}>
-              <div className="flex flex-col justify-start rounded-md bg-slate-800 px-2 py-2 text-white">
+              <div className="flex flex-col items-center justify-start rounded-md bg-slate-800 px-2 py-2 text-center text-white">
                 <span className="text-[11px] font-bold">{name}</span>
                 <span className="mt-1 w-fit rounded bg-white/15 px-1 py-px text-[9px] font-bold text-slate-100">{railCount}</span>
               </div>
