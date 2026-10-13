@@ -27,6 +27,13 @@ import type { IssueType, Item, Lane, Stage } from '@/domain/types'
 type Accent = (typeof BAND_ACCENT)['team']
 
 /**
+ * A lane header row: the name truly centred, with the WIP count and any edit controls pinned
+ * right. The side columns are `1fr` each and the middle sizes to the name, so the centring
+ * holds whether or not a lane carries a count or is being edited.
+ */
+const HEAD_ROW = 'grid grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] items-center gap-1'
+
+/**
  * A summary band for the management view: only the board's initiative-level work
  * (items of the Initiative type), grouped by the typed columns of the board's flow.
  *
@@ -283,8 +290,8 @@ function Cell({
   const leaf = isLeaf(lanes, lane.id)
 
   const head = primary
-    ? cn('flex items-center gap-1.5 px-2 py-1', isInitiatives ? accent.columnHeader : 'bg-slate-700 text-slate-100')
-    : 'mb-1 flex items-center gap-1.5 rounded bg-slate-200 px-1.5 py-0.5 text-slate-600'
+    ? cn(HEAD_ROW, 'gap-1.5 px-2 py-1', isInitiatives ? accent.columnHeader : 'bg-slate-700 text-slate-100')
+    : cn(HEAD_ROW, 'mb-1 gap-1.5 rounded bg-slate-200 px-1.5 py-0.5 text-slate-600')
 
   const removeWithConfirm = () => {
     const kids = leavesUnder(lanes, lane.id).filter((l) => l.id !== lane.id)
@@ -302,44 +309,45 @@ function Cell({
   return (
     <div className={className ?? 'flex min-w-0 flex-1 basis-0 flex-col'} style={style}>
       <div className={head}>
-        {/* Centred header; the edit controls stay at the right, so the centring only shifts
-            while the lane is being edited. */}
-        <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
-          <span className={cn('truncate font-bold uppercase tracking-wide', primary ? 'text-[11px]' : 'text-[10px]')}>
-            {lane.name}
-          </span>
+        {/* Left slot is empty — the grid keeps the name truly centred — while the WIP count
+            and any edit controls are pinned right. */}
+        <span />
+        <span className={cn('truncate font-bold uppercase tracking-wide', primary ? 'text-[11px]' : 'text-[10px]')}>
+          {lane.name}
+        </span>
+        <span className="flex items-center justify-end gap-1">
           <span
             className={cn(
-              'shrink-0 text-[10px] font-semibold tabular-nums',
+              'text-[10px] font-semibold tabular-nums',
               primary ? (isInitiatives ? accent.columnCount : 'text-slate-300/80') : 'text-slate-500',
             )}
           >
             {count}
           </span>
+          {editable && (
+            <span className="flex shrink-0 items-center gap-0.5">
+              {leaf && (
+                <>
+                  <Ctl light={!primary} title="Split this cell into columns" onClick={() => splitLane(lane.id, 'columns')}>
+                    ▤
+                  </Ctl>
+                  <Ctl light={!primary} title="Split this cell into rows" onClick={() => splitLane(lane.id, 'rows')}>
+                    ▥
+                  </Ctl>
+                </>
+              )}
+              <Ctl
+                light={!primary}
+                btnRef={btnRef}
+                active={settingsOpen}
+                title="Lane settings — name, WIP limit, policy"
+                onClick={() => setSettingsOpen((o) => !o)}
+              >
+                ⚙
+              </Ctl>
+            </span>
+          )}
         </span>
-        {editable && (
-          <span className="flex shrink-0 items-center gap-0.5">
-            {leaf && (
-              <>
-                <Ctl light={!primary} title="Split this cell into columns" onClick={() => splitLane(lane.id, 'columns')}>
-                  ▤
-                </Ctl>
-                <Ctl light={!primary} title="Split this cell into rows" onClick={() => splitLane(lane.id, 'rows')}>
-                  ▥
-                </Ctl>
-              </>
-            )}
-            <Ctl
-              light={!primary}
-              btnRef={btnRef}
-              active={settingsOpen}
-              title="Lane settings — name, WIP limit, policy"
-              onClick={() => setSettingsOpen((o) => !o)}
-            >
-              ⚙
-            </Ctl>
-          </span>
-        )}
       </div>
 
       {droppable ? (

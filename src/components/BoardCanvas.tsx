@@ -103,6 +103,13 @@ function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { c
   )
 }
 
+/**
+ * A lane header row: the name truly centred, with the edge controls pinned left and right.
+ * The side columns are `1fr` each and the middle sizes to the name, so the centring holds
+ * whether or not a lane has a collapse control, a WIP count or a policy icon.
+ */
+const HEAD_ROW = 'grid grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] items-center gap-1'
+
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -162,9 +169,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           wip === 'over' ? 'bg-rose-700 text-white' : wip === 'at' ? 'bg-amber-600 text-white' : isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white',
         )}
       >
-        {/* Name and count are centred; the collapse control and the policy icon sit in
-            equal-width edge slots so the centring stays true whatever the lane's depth. */}
-        <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_1.25rem] items-center gap-1">
+        {/* Name truly centred, count and policy pinned right. The side columns are equal
+            (1fr each) and the middle sizes to the name, so the centring holds whatever
+            the lane's depth and whether the edge controls are present at all. */}
+        <div className={HEAD_ROW}>
           <span className="flex items-center">
             {top && (
               <button
@@ -176,14 +184,12 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               </button>
             )}
           </span>
-          <span className="flex min-w-0 items-center justify-center gap-1.5">
-            <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
-            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-300/80">
+          <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+          <span className="flex items-center justify-end gap-1">
+            <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
               {countInLane(lane.id)}
               {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
             </span>
-          </span>
-          <span className="flex items-center justify-end">
             {lane.description && <LanePolicy policy={lane.description} />}
           </span>
         </div>
@@ -439,9 +445,12 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
         {/* column headers */}
         <div />
         {columns.map((col) => (
-          <div key={col.id} className="flex items-center justify-center gap-1.5 rounded-md bg-slate-700 px-2 py-1 text-slate-100">
+          <div key={col.id} className={cn(HEAD_ROW, 'gap-1.5 rounded-md bg-slate-700 px-2 py-1 text-slate-100')}>
+            <span />
             <span className="truncate text-[11px] font-bold uppercase tracking-wide">{col.name}</span>
-            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-300/80">{countInLane(col.id, ctx)}</span>
+            <span className="flex justify-end text-[10px] font-semibold tabular-nums text-slate-300/80">
+              {countInLane(col.id, ctx)}
+            </span>
           </div>
         ))}
 
