@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { canLinkBoard, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
@@ -506,6 +506,48 @@ export function migrateState(persisted: unknown): Partial<Store> {
     const builtIn = new Map(BUILT_IN_TEMPLATES.map((t) => [t.id, t]))
     p.boardTemplates = (p.boardTemplates as BoardTemplate[]).map((t) => builtIn.get(t.id) ?? t)
   }
+  // v24: the two workflows became independent lane trees. Every lane that existed was the
+  // shared one, so it is the **cards** workflow now; each board gains the **initiatives**
+  // workflow it should always have started with — the four typed sections, one cell each.
+  // An initiative placed in what was a card lane moves to the section matching that lane's
+  // stage; its cell inside is arrangement, and the default tree has exactly one.
+  if (Array.isArray(p.lanes)) {
+    const stored = p.lanes as Lane[]
+    const all: Lane[] = stored.map((l) => (l.workflow ? l : { ...l, workflow: 'cards' as const }))
+    const initiatives: Lane[] = []
+    for (const board of (p.boards as Board[]) ?? []) {
+      // Idempotent: a board that already has an initiatives tree keeps it.
+      if (all.some((l) => l.boardId === board.id && l.workflow === 'initiatives')) continue
+      const root: Lane = {
+        id: uid(),
+        boardId: board.id,
+        parentId: null,
+        order: 0,
+        name: '',
+        orientation: 'columns',
+        workflow: 'initiatives',
+      }
+      initiatives.push(root, ...defaultColumns(board.id, root.id, 'initiatives', uid))
+    }
+    p.lanes = [...all, ...initiatives]
+
+    const initiativeType = initiativeTypeId((p.issueTypes as IssueType[]) ?? [])
+    if (initiativeType && Array.isArray(p.placements)) {
+      const byId = new Map(all.map((l) => [l.id, l]))
+      const itemById = new Map(((p.items as Item[]) ?? []).map((i) => [i.id, i]))
+      const lanes = p.lanes as Lane[]
+      p.placements = (p.placements as Placement[]).map((pl) => {
+        if (itemById.get(pl.itemId)?.typeId !== initiativeType) return pl
+        const lane = byId.get(pl.laneId)
+        if (!lane || lane.workflow === 'initiatives') return pl
+        const stage = effectiveStage(all, pl.laneId)
+        const section = lanes.find(
+          (l) => l.boardId === pl.boardId && l.workflow === 'initiatives' && l.parentId !== null && l.stage === stage,
+        )
+        return section ? { ...pl, laneId: section.id } : pl
+      })
+    }
+  }
   return p as Partial<Store>
 }
 
@@ -809,7 +851,6 @@ export const useStore = create<Store>()(
 
       addBoard: (name, band, open = true, templateId) => {
         const boardId = uid()
-        const rootId = uid()
         const template = templateId ? get().boardTemplates.find((t) => t.id === templateId) : undefined
         // A template's band is the sensible default; an explicit band always wins.
         const resolvedBand = band ?? template?.band ?? 'team'
@@ -822,21 +863,18 @@ export const useStore = create<Store>()(
           ...(template?.defaultCardTypeId ? { defaultCardTypeId: template.defaultCardTypeId } : {}),
           ...(template?.wipEnforcement ? { wipEnforcement: template.wipEnforcement } : {}),
         }
-        const root: Lane = { id: rootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns' }
-        // A template supplies the design; otherwise the standard typed columns.
-        const cols: Lane[] = template
-          ? lanesFromTemplate(template, boardId, rootId, uid)
-          : STAGES.map((s, i) => ({
-              id: uid(),
-              boardId,
-              parentId: rootId,
-              order: i,
-              name: STAGE_LABELS[s],
-              stage: s,
-            }))
+        // Two independent trees. A template designs the **cards** workflow — a team's own
+        // flow — while the **initiatives** workflow always starts standard: the shape the
+        // organisation reads is not the team's design, and refining one never moves the other.
+        const cardsRoot: Lane = { id: uid(), boardId, parentId: null, order: 0, name: '', orientation: 'columns', workflow: 'cards' }
+        const initRoot: Lane = { id: uid(), boardId, parentId: null, order: 0, name: '', orientation: 'columns', workflow: 'initiatives' }
+        const cards: Lane[] = template
+          ? lanesFromTemplate(template, boardId, cardsRoot.id, uid)
+          : defaultColumns(boardId, cardsRoot.id, 'cards', uid)
+        const initiatives = defaultColumns(boardId, initRoot.id, 'initiatives', uid)
         set({
           boards: [...get().boards, board],
-          lanes: [...get().lanes, root, ...cols],
+          lanes: [...get().lanes, cardsRoot, initRoot, ...cards, ...initiatives],
           ...(open ? { boardId, editMode: true } : {}),
         })
       },
@@ -938,6 +976,8 @@ export const useStore = create<Store>()(
 
       moveCard: (itemId, boardId, laneId, reason) => {
         const state = get()
+        // Cards live in the cards workflow; an initiative cell is never a destination.
+        if (state.lanes.find((l) => l.id === laneId)?.workflow !== 'cards') return
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (existing && existing.laneId === laneId) return
         // WIP enforcement on the target lane (or any limited ancestor).
@@ -975,6 +1015,9 @@ export const useStore = create<Store>()(
 
       moveInitiative: (itemId, boardId, laneId) => {
         const state = get()
+        const target = state.lanes.find((l) => l.id === laneId)
+        // Initiatives are arranged in the initiatives workflow — never in a card lane.
+        if (!target || target.workflow !== 'initiatives') return
         // The section is derived from the work below — a move may rearrange a cell
         // within it, never cross into another one.
         const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
@@ -1037,6 +1080,7 @@ export const useStore = create<Store>()(
           parentId: laneId,
           order: i,
           name: orientation === 'rows' ? `Row ${i + 1}` : `Column ${i + 1}`,
+          workflow: lane.workflow,
         }))
         const placements = state.placements.map((p) => (p.laneId === laneId ? { ...p, laneId: children[0].id } : p))
         set({
@@ -1078,7 +1122,7 @@ export const useStore = create<Store>()(
         if (parent.parentId === null) return
         const order = childrenOf(state.lanes, parentId).length
         const name = parent.orientation === 'rows' ? `Row ${order + 1}` : `Column ${order + 1}`
-        const child: Lane = { id: uid(), boardId: parent.boardId, parentId, order, name }
+        const child: Lane = { id: uid(), boardId: parent.boardId, parentId, order, name, workflow: parent.workflow }
         const lanes = state.lanes.map((l) => (l.id === parentId ? { ...l, orientation: parent.orientation ?? 'columns' } : l))
         set({ lanes: lanes.concat([child]) })
       },
@@ -1099,6 +1143,7 @@ export const useStore = create<Store>()(
           parentId: lane.parentId,
           order: idx + 1,
           name: orientation === 'rows' ? `Row ${siblings.length + 1}` : `Column ${siblings.length + 1}`,
+          workflow: lane.workflow,
         }
         const lanes = state.lanes.map((l) =>
           l.parentId === lane.parentId && l.order > idx ? { ...l, order: l.order + 1 } : l,
@@ -1174,7 +1219,7 @@ export const useStore = create<Store>()(
 
       linkTeamInitiative: (parentId, boardId, title) => {
         const state = get()
-        const lane = leafLanes(state.lanes, boardId)[0]
+        const lane = leafLanes(state.lanes, boardId, 'initiatives')[0]
         const typeId = state.issueTypes.find((t) => t.name === 'Initiative')?.id ?? state.issueTypes[0]?.id
         if (!lane || !typeId) return
         const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
@@ -1321,7 +1366,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 23,
+      version: 24,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

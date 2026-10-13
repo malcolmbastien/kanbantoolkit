@@ -1,5 +1,5 @@
 import { isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
-import { childrenOf, leavesUnder, rootLane } from './lanes'
+import { childrenOf, leavesUnder, rootLane, WORKFLOWS } from './lanes'
 import type { Board, BoardBand, BoardTemplate, IssueType, Item, Lane, Placement, SplitOrientation, TemplateLane } from './types'
 
 /** Items placed on a board (via explicit placement records). */
@@ -57,7 +57,7 @@ export function boardsByBand(boards: Board[], query = '', includeArchived = fals
  * team's work or one program's links would be wrong everywhere else.
  */
 export function templateFromBoard(id: string, name: string, board: Board, lanes: Lane[]): BoardTemplate {
-  const root = rootLane(lanes, board.id)
+  const root = rootLane(lanes, board.id, 'cards')
   const flat: Lane[] = []
   const walk = (lane: Lane) => {
     flat.push(lane)
@@ -104,6 +104,8 @@ export function lanesFromTemplate(
     parentId: l.parentKey === null ? rootId : idOf.get(l.parentKey)!,
     order: l.order,
     name: l.name,
+    // A template is a team's design, so its lanes are always the cards workflow.
+    workflow: 'cards' as const,
     ...(l.orientation ? { orientation: l.orientation } : {}),
     ...(l.stage ? { stage: l.stage } : {}),
     ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
@@ -226,8 +228,8 @@ export function templateMoveLane(template: BoardTemplate, key: string, delta: nu
  * ------------------------------------------------------------------ */
 
 /**
- * Deep-copy a board: its lanes (with fresh ids throughout), its settings, and its
- * aggregation links.
+ * Deep-copy a board: **both** its lane trees (cards and initiatives, with fresh ids
+ * throughout), its settings, and its aggregation links.
  *
  * **Its work is not copied.** Items live in placements, so duplicating them would
  * duplicate the work itself — the same cards on two boards, with two lives. A copy is a
@@ -242,10 +244,12 @@ export function duplicateBoard(
   uid: () => string,
   name?: string,
 ): { board: Board; lanes: Lane[] } {
-  const root = rootLane(lanes, board.id)
   const idOf = new Map<string, string>()
   const subtree: Lane[] = []
-  if (root) {
+  // Both workflows come across, each from its own root.
+  for (const workflow of WORKFLOWS) {
+    const root = rootLane(lanes, board.id, workflow)
+    if (!root) continue
     const walk = (lane: Lane) => {
       idOf.set(lane.id, uid())
       subtree.push(lane)
@@ -255,7 +259,7 @@ export function duplicateBoard(
   }
 
   const { archived: _archived, archivedAt: _archivedAt, ...rest } = board
-  const id = root ? idOf.get(root.id)! : uid()
+  const id = uid()
   return {
     board: {
       ...rest,
@@ -367,7 +371,7 @@ export function initiativeCellOf(
   boardId: string,
   graph: Graph,
 ): { sectionId: string; cellId: string } | undefined {
-  const root = rootLane(graph.lanes, boardId)
+  const root = rootLane(graph.lanes, boardId, 'initiatives')
   if (!root) return undefined
   const section = childrenOf(graph.lanes, root.id).find((l) => l.stage === rollupOf(itemId, graph).bucket)
   if (!section) return undefined

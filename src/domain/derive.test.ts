@@ -52,16 +52,16 @@ describe('recursive LeanKit lanes', () => {
   const s = createSeed()
 
   it('every board root is a column split with the standard typed columns', () => {
-    expect(rootLane(s.lanes, 'b-atlas')?.orientation).toBe('columns')
-    expect(rootLane(s.lanes, 'b-portfolio')?.orientation).toBe('columns')
-    expect(topLevelLanes(s.lanes, 'b-atlas').length).toBe(4)
-    expect(topLevelLanes(s.lanes, 'b-portfolio').length).toBe(4)
+    expect(rootLane(s.lanes, 'b-atlas', 'cards')?.orientation).toBe('columns')
+    expect(rootLane(s.lanes, 'b-portfolio', 'cards')?.orientation).toBe('columns')
+    expect(topLevelLanes(s.lanes, 'b-atlas', 'cards').length).toBe(4)
+    expect(topLevelLanes(s.lanes, 'b-portfolio', 'cards').length).toBe(4)
   })
 
   it('In Progress is refined into Dev / Test on team boards', () => {
     const inProgress = laneByName(s, 'b-atlas', 'In Progress')
     expect(isLeaf(s.lanes, inProgress.id)).toBe(false)
-    const leaves = leafLanes(s.lanes, 'b-atlas').map((l) => l.name)
+    const leaves = leafLanes(s.lanes, 'b-atlas', 'cards').map((l) => l.name)
     expect(leaves).toContain('Dev')
     expect(leaves).toContain('Test')
   })
@@ -286,7 +286,7 @@ describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () 
   it('every seeded board includes Backlog as the first typed column', () => {
     expect(s.boards.length).toBeGreaterThan(0)
     for (const board of s.boards) {
-      const tops = topLevelLanes(s.lanes, board.id)
+      const tops = topLevelLanes(s.lanes, board.id, 'cards')
       expect(tops.map((t) => t.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
       expect(tops.map((t) => t.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
     }

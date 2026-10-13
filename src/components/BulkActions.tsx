@@ -32,7 +32,7 @@ export function BulkActions() {
 
   if (multiSelect.length === 0) return null
 
-  const leaves = leafLanes(lanes, boardId)
+  const leaves = leafLanes(lanes, boardId, 'cards')
   const types = boardCardTypes(boards.find((b) => b.id === boardId), issueTypes)
   const count = multiSelect.length
 

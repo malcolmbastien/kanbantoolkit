@@ -1,6 +1,8 @@
-import type { Lane, Placement, Stage } from './types'
+import type { Lane, Placement, Stage, Workflow } from './types'
 
 export const STAGES: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
+/** The two workflows a board carries — each an independent lane tree. */
+export const WORKFLOWS: Workflow[] = ['cards', 'initiatives']
 /** The committed stages — everything except Backlog (uncommitted inventory). */
 export const COMMITTED_STAGES: Stage[] = ['notStarted', 'inProgress', 'done']
 export const STAGE_LABELS: Record<Stage, string> = {
@@ -10,9 +12,9 @@ export const STAGE_LABELS: Record<Stage, string> = {
   done: 'Done',
 }
 
-/** The three top-level columns of a board. */
-export function topLevelLanes(lanes: Lane[], boardId: string): Lane[] {
-  const root = rootLane(lanes, boardId)
+/** The top-level columns of one of a board's workflows. */
+export function topLevelLanes(lanes: Lane[], boardId: string, workflow: Workflow): Lane[] {
+  const root = rootLane(lanes, boardId, workflow)
   return root ? childrenOf(lanes, root.id) : []
 }
 
@@ -37,8 +39,17 @@ export function childrenOf(lanes: Lane[], parentId: string): Lane[] {
   return lanes.filter((l) => l.parentId === parentId).sort((a, b) => a.order - b.order)
 }
 
-export function rootLane(lanes: Lane[], boardId: string): Lane | undefined {
-  return lanes.find((l) => l.boardId === boardId && l.parentId === null)
+/**
+ * A workflow's root. Each board has one per workflow, so `workflow` is required: a tree
+ * walk that forgot it would silently mix the two.
+ */
+export function rootLane(lanes: Lane[], boardId: string, workflow: Workflow): Lane | undefined {
+  return lanes.find((l) => l.boardId === boardId && l.parentId === null && l.workflow === workflow)
+}
+
+/** Every lane of one workflow on a board. */
+export function workflowLanes(lanes: Lane[], boardId: string, workflow: Workflow): Lane[] {
+  return lanes.filter((l) => l.boardId === boardId && l.workflow === workflow)
 }
 
 export function isLeaf(lanes: Lane[], laneId: string): boolean {
@@ -55,9 +66,9 @@ export function subtreeIds(lanes: Lane[], laneId: string): string[] {
   return out
 }
 
-/** Ordered depth-first leaves (cells) under a board. */
-export function leafLanes(lanes: Lane[], boardId: string): Lane[] {
-  const root = rootLane(lanes, boardId)
+/** Ordered depth-first leaves (cells) of one workflow. */
+export function leafLanes(lanes: Lane[], boardId: string, workflow: Workflow): Lane[] {
+  const root = rootLane(lanes, boardId, workflow)
   if (!root) return []
   const out: Lane[] = []
   const walk = (node: Lane) => {
@@ -67,6 +78,27 @@ export function leafLanes(lanes: Lane[], boardId: string): Lane[] {
   }
   walk(root)
   return out
+}
+
+/**
+ * A workflow's starting tree: the four typed columns, one per stage, each a single cell.
+ * Both workflows begin here — the initiatives one stays here unless someone refines it.
+ */
+export function defaultColumns(
+  boardId: string,
+  rootId: string,
+  workflow: Workflow,
+  uid: () => string,
+): Lane[] {
+  return STAGES.map((s, i) => ({
+    id: uid(),
+    boardId,
+    parentId: rootId,
+    order: i,
+    name: STAGE_LABELS[s],
+    stage: s,
+    workflow,
+  }))
 }
 
 export function ancestorsOf(lanes: Lane[], laneId: string): Lane[] {

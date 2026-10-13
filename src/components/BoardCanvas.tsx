@@ -492,7 +492,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
-  const root = rootLane(lanes, boardId)
+  const root = rootLane(lanes, boardId, 'cards')
   const editMode = storeEdit && interactive
   const rowRef = useRef<HTMLDivElement>(null)
   const cardMenu = useStore((s) => s.cardMenu)

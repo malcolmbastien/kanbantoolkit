@@ -161,7 +161,7 @@ export default function App() {
   }
 
   const quickAdd = () => {
-    const firstLeaf = leafLanes(lanes, boardId)[0]
+    const firstLeaf = leafLanes(lanes, boardId, 'cards')[0]
     if (firstLeaf) onAddCard(firstLeaf.id)
   }
 

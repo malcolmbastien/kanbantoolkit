@@ -1,4 +1,4 @@
-import type { Board, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, SplitOrientation, User } from './types'
+import type { Board, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, User, Workflow } from './types'
 
 const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 
@@ -40,24 +40,36 @@ function lane(
   name: string,
   parentId: string | null,
   order: number,
+  workflow: Workflow,
   opts: Partial<Pick<Lane, 'orientation' | 'wipLimit' | 'stage'>> = {},
 ): Lane {
-  const l: Lane = { id: `lane-${++seq}`, boardId, name, parentId, order, ...opts }
+  const l: Lane = { id: `lane-${++seq}`, boardId, name, parentId, order, workflow, ...opts }
   lanes.push(l)
   return l
 }
-const root = (boardId: string, orientation: SplitOrientation) => lane(boardId, '', null, 0, { orientation })
+const root = (boardId: string, workflow: Workflow) => lane(boardId, '', null, 0, workflow, { orientation: 'columns' })
 
-// Standard workflow: Backlog (uncommitted) + Not Started / In Progress / Done.
+/** The standard four typed columns, one cell each — where either workflow starts. */
+function columns(boardId: string, workflow: Workflow) {
+  const r = root(boardId, workflow)
+  const backlog = lane(boardId, 'Backlog', r.id, 0, workflow, { stage: 'backlog' })
+  const ns = lane(boardId, 'Not Started', r.id, 1, workflow, { stage: 'notStarted' })
+  const ip = lane(boardId, 'In Progress', r.id, 2, workflow, { stage: 'inProgress' })
+  const done = lane(boardId, 'Done', r.id, 3, workflow, { stage: 'done' })
+  return { r, backlog, ns, ip, done }
+}
+
+// The team's own flow, plus the initiatives workflow the board starts with. The two are
+// independent: In Progress splits into Dev / Test for the cards, while the initiatives
+// workflow keeps its four standard sections — a team refines its board, the organisation
+// still reads the same shape.
 function workflow(boardId: string, splitProgress: boolean) {
-  const r = root(boardId, 'columns')
-  const backlog = lane(boardId, 'Backlog', r.id, 0, { stage: 'backlog' })
-  const ns = lane(boardId, 'Not Started', r.id, 1, { stage: 'notStarted' })
-  const ip = lane(boardId, 'In Progress', r.id, 2, { stage: 'inProgress', orientation: splitProgress ? 'columns' : undefined })
-  const dev = splitProgress ? lane(boardId, 'Dev', ip.id, 0) : ip
-  const test = splitProgress ? lane(boardId, 'Test', ip.id, 1) : undefined
-  const done = lane(boardId, 'Done', r.id, 3, { stage: 'done' })
-  return { r, backlog, ns, ip, dev, test, done }
+  const c = columns(boardId, 'cards')
+  if (splitProgress) c.ip.orientation = 'columns'
+  const dev = splitProgress ? lane(boardId, 'Dev', c.ip.id, 0, 'cards') : c.ip
+  const test = splitProgress ? lane(boardId, 'Test', c.ip.id, 1, 'cards') : undefined
+  const init = columns(boardId, 'initiatives')
+  return { ...c, dev, test, init }
 }
 
 // A four-altitude demo: teams roll up to a value stream, to a line of business,
@@ -233,19 +245,20 @@ let placeSeq = 0
 const place = (itemId: string, boardId: string, laneId: string) =>
   placements.push({ id: `pl-${++placeSeq}`, boardId, itemId, laneId })
 
-// Company strategy + line of business.
-place('init-activation', 'b-strategy', st.ns.id)
-place('init-efficiency', 'b-strategy', st.ns.id)
-place('init-explore', 'b-strategy', st.backlog.id) // uncommitted inventory
-place('init-growth', 'b-lob', lob.ns.id)
-place('init-delivery', 'b-delivery', del.ns.id)
+// Company strategy + line of business. Initiatives are placed in the board's *initiatives*
+// workflow — the team's card lanes are a different tree.
+place('init-activation', 'b-strategy', st.init.ns.id)
+place('init-efficiency', 'b-strategy', st.init.ns.id)
+place('init-explore', 'b-strategy', st.init.backlog.id) // uncommitted inventory
+place('init-growth', 'b-lob', lob.init.ns.id)
+place('init-delivery', 'b-delivery', del.init.ns.id)
 
 // Growth value stream.
-place('init-onboarding', 'b-portfolio', p.ns.id)
-place('init-platform', 'b-portfolio', p.backlog.id) // uncommitted inventory
+place('init-onboarding', 'b-portfolio', p.init.ns.id)
+place('init-platform', 'b-portfolio', p.init.backlog.id) // uncommitted inventory
 
 // Team Atlas — committed onboarding work.
-place('init-signup', 'b-atlas', a.ns.id)
+place('init-signup', 'b-atlas', a.init.ns.id)
 place('st-signup-design', 'b-atlas', a.done.id)
 place('st-signup-form', 'b-atlas', a.dev.id)
 place('st-email', 'b-atlas', a.ns.id)
@@ -253,16 +266,16 @@ place('st-sso', 'b-atlas', a.test!.id)
 place('df-signup', 'b-atlas', a.test!.id)
 
 // Team Nova — committed welcome work + uncommitted gateway work.
-place('init-welcome', 'b-nova', n.ns.id)
+place('init-welcome', 'b-nova', n.init.ns.id)
 place('st-welcome-copy', 'b-nova', n.ns.id)
 place('st-tour', 'b-nova', n.dev.id)
-place('init-gateway', 'b-nova', n.ns.id)
+place('init-gateway', 'b-nova', n.init.ns.id)
 place('st-gateway-contract', 'b-nova', n.backlog.id)
 place('st-ratelimit', 'b-nova', n.backlog.id)
 place('sp-gateway', 'b-nova', n.backlog.id)
 
 // Archived work keeps its placement record (its last board/lane) but is hidden.
-place('init-legacy', 'b-nova', n.done.id)
+place('init-legacy', 'b-nova', n.init.done.id)
 place('st-legacy-a', 'b-nova', n.done.id)
 
 /* ------------------------------------------------------------------ *

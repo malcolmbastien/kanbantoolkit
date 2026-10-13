@@ -71,7 +71,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
   const only = targets[0]
   const board = boards.find((b) => b.id === boardId)
   const types = boardCardTypes(board, issueTypes)
-  const lanesLeaf = leafLanes(lanes, boardId)
+  const lanesLeaf = leafLanes(lanes, boardId, 'cards')
   const anyBlocked = targets.some((t) => t.blocked)
   const allBlocked = count > 0 && targets.every((t) => t.blocked)
 

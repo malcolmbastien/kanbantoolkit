@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
-import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane } from './domain/lanes'
+import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './domain/lanes'
+import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
 import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 
@@ -16,8 +17,8 @@ const graph = () => {
   const st = s()
   return { items: st.items, edges: st.edges, links: st.links, placements: st.placements, lanes: st.lanes }
 }
-const laneByName = (boardId: string, name: string) =>
-  s().lanes.find((l) => l.boardId === boardId && l.name === name)!
+const laneByName = (boardId: string, name: string, workflow: Workflow = 'cards') =>
+  s().lanes.find((l) => l.boardId === boardId && l.name === name && l.workflow === workflow)!
 
 describe('store actions', () => {
   beforeEach(() => s().resetDemo())
@@ -44,19 +45,24 @@ describe('store actions', () => {
     // Seeded in b-nova's Not Started, but its work has started — the rollup wins, so
     // the placement is stale and the initiative falls back to the section's first cell.
     expect(rollupOf('init-welcome', g()).bucket).toBe('inProgress')
-    const ip = childrenOf(s().lanes, rootLane(s().lanes, 'b-nova')!.id).find((l) => l.stage === 'inProgress')!
+    const ip = topLevelLanes(s().lanes, 'b-nova', 'initiatives').find((l) => l.stage === 'inProgress')!
     const seeded = s().placements.find((p) => p.itemId === 'init-welcome' && p.boardId === 'b-nova')!.laneId
     expect(effectiveStage(s().lanes, seeded)).toBe('notStarted') // stale, and ignored
 
     const cell = initiativeCellOf('init-welcome', 'b-nova', g())!
     expect(cell.sectionId).toBe(ip.id)
-    expect(cell.cellId).toBe(childrenOf(s().lanes, ip.id)[0].id)
+    expect(cell.cellId).toBe(childrenOf(s().lanes, ip.id)[0]?.id ?? ip.id)
   })
 
   it('an initiative is rearranged within its section, never across one', () => {
     const g = () => graph()
-    const ip = childrenOf(s().lanes, rootLane(s().lanes, 'b-nova')!.id).find((l) => l.stage === 'inProgress')!
-    const cells = childrenOf(s().lanes, ip.id) // Dev, Test
+    const section = (stage: Stage) =>
+      topLevelLanes(s().lanes, 'b-nova', 'initiatives').find((l) => l.stage === stage)!
+    const ip = section('inProgress')
+    // The initiatives flow starts standard; refining it is the initiatives flow's own
+    // business — splitting a section here gives initiatives cells to arrange within.
+    s().splitLane(ip.id, 'columns')
+    const cells = childrenOf(s().lanes, ip.id)
     expect(cells.length).toBe(2)
 
     s().moveInitiative('init-welcome', 'b-nova', cells[1].id)
@@ -64,8 +70,7 @@ describe('store actions', () => {
     expect(initiativeCellOf('init-welcome', 'b-nova', g())?.sectionId).toBe(ip.id)
 
     // Crossing into another section is refused: the section is derived, not chosen.
-    const done = childrenOf(s().lanes, rootLane(s().lanes, 'b-nova')!.id).find((l) => l.stage === 'done')!
-    s().moveInitiative('init-welcome', 'b-nova', done.id)
+    s().moveInitiative('init-welcome', 'b-nova', section('done').id)
     expect(initiativeCellOf('init-welcome', 'b-nova', g())?.cellId).toBe(cells[1].id)
     expect(initiativeCellOf('init-welcome', 'b-nova', g())?.sectionId).toBe(ip.id)
   })
@@ -76,7 +81,7 @@ describe('store actions', () => {
     s().addLane(ip.id)
     expect(childrenOf(s().lanes, ip.id).length).toBe(before + 1)
 
-    const root = rootLane(s().lanes, 'b-atlas')!
+    const root = rootLane(s().lanes, 'b-atlas', 'cards')!
     const topBefore = childrenOf(s().lanes, root.id).length
     s().addLane(root.id) // top-level columns are fixed
     expect(childrenOf(s().lanes, root.id).length).toBe(topBefore)
@@ -146,7 +151,7 @@ describe('store actions', () => {
   it('can build a custom layout from the standard typed columns', () => {
     s().addBoard('Sketch')
     const boardId = s().boardId
-    const root = rootLane(s().lanes, boardId)!
+    const root = rootLane(s().lanes, boardId, 'cards')!
     const cols = () => childrenOf(s().lanes, root.id)
     expect(cols().map((c) => c.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     expect(cols().map((c) => c.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
@@ -157,7 +162,7 @@ describe('store actions', () => {
     s().splitLane(rows[0].id, 'columns', 3)
     expect(childrenOf(s().lanes, rows[0].id).length).toBe(3)
     expect(effectiveStage(s().lanes, childrenOf(s().lanes, rows[0].id)[0].id)).toBe('inProgress')
-    expect(leafLanes(s().lanes, boardId).length).toBeGreaterThanOrEqual(7)
+    expect(leafLanes(s().lanes, boardId, 'cards').length).toBeGreaterThanOrEqual(7)
   })
 
   it('boards carry a flight-level band that can be changed', () => {
@@ -183,7 +188,7 @@ describe('store actions', () => {
     expect(s().editMode).toBe(true) // …in edit mode
 
     // Every board starts as the standard typed columns.
-    const root = rootLane(s().lanes, created.id)!
+    const root = rootLane(s().lanes, created.id, 'cards')!
     const cols = childrenOf(s().lanes, root.id)
     expect(cols.map((c) => c.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     expect(cols.map((c) => c.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
@@ -253,12 +258,12 @@ describe('store actions', () => {
 
     s().addBoard('Squad', undefined, false, template.id)
     const created = s().boards[s().boards.length - 1]
-    const root = rootLane(s().lanes, created.id)!
+    const root = rootLane(s().lanes, created.id, 'cards')!
     expect(childrenOf(s().lanes, root.id).map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     const ip = childrenOf(s().lanes, root.id).find((l) => l.name === 'In Progress')!
     expect(childrenOf(s().lanes, ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
     // Its own lanes, and no work copied across.
-    const atlasRoot = rootLane(s().lanes, 'b-atlas')!
+    const atlasRoot = rootLane(s().lanes, 'b-atlas', 'cards')!
     expect(childrenOf(s().lanes, root.id)[0].id).not.toBe(childrenOf(s().lanes, atlasRoot.id)[0].id)
     expect(s().placements.length).toBe(placementsBefore)
     // The template is unchanged and still usable.
@@ -310,7 +315,7 @@ describe('store actions', () => {
     expect(copy.name).toBe('Team Atlas copy')
 
     // The design came across…
-    const root = rootLane(s().lanes, copy.id)!
+    const root = rootLane(s().lanes, copy.id, 'cards')!
     expect(childrenOf(s().lanes, root.id).map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     const ip = childrenOf(s().lanes, root.id).find((l) => l.name === 'In Progress')!
     expect(childrenOf(s().lanes, ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
@@ -320,13 +325,58 @@ describe('store actions', () => {
 
     // Editing the copy cannot disturb the original.
     s().renameLane(childrenOf(s().lanes, root.id)[0].id, 'Icebox')
-    expect(childrenOf(s().lanes, rootLane(s().lanes, 'b-atlas')!.id)[0].name).toBe('Backlog')
+    expect(childrenOf(s().lanes, rootLane(s().lanes, 'b-atlas', 'cards')!.id)[0].name).toBe('Backlog')
 
     // A coordination board brings its links with it.
     s().duplicateBoard('b-portfolio')
     const program = s().boards[s().boards.length - 1]
     expect(program.band).toBe('program')
     expect(program.linkedBoardIds).toEqual(['b-atlas', 'b-nova'])
+  })
+
+  it('keeps the two workflows independent', () => {
+    const boardId = 'b-atlas'
+    const section = (workflow: Workflow, stage: Stage) =>
+      topLevelLanes(s().lanes, boardId, workflow).find((l) => l.stage === stage)!
+    const cardsNs = section('cards', 'notStarted')
+    const initNs = section('initiatives', 'notStarted')
+
+    // Splitting a cards column gives the initiatives flow nothing…
+    expect(childrenOf(s().lanes, cardsNs.id)).toEqual([])
+    s().splitLane(cardsNs.id, 'columns')
+    expect(childrenOf(s().lanes, cardsNs.id).length).toBe(2)
+    expect(childrenOf(s().lanes, initNs.id)).toEqual([])
+
+    // …and splitting an initiatives section leaves the cards flow alone.
+    s().splitLane(initNs.id, 'columns', 3)
+    expect(childrenOf(s().lanes, initNs.id).length).toBe(3)
+    expect(childrenOf(s().lanes, cardsNs.id).length).toBe(2)
+
+    // Renaming one side never renames the other.
+    s().renameLane(cardsNs.id, 'Ready')
+    expect(section('initiatives', 'notStarted').name).toBe('Not Started')
+
+    // And the two trees never share a lane.
+    const cardsIds = new Set(s().lanes.filter((l) => l.workflow === 'cards').map((l) => l.id))
+    expect(s().lanes.filter((l) => l.workflow === 'initiatives').some((l) => cardsIds.has(l.id))).toBe(false)
+  })
+
+  it('a template designs the cards flow only — the initiatives flow starts standard', () => {
+    const before = s().boards.length
+    s().addBoard('Sprint board', 'team', false, 'tpl-scrum')
+    const board = s().boards[before]
+
+    // The template's design is the cards workflow…
+    expect(topLevelLanes(s().lanes, board.id, 'cards').map((l) => l.name)).toEqual([
+      'Product Backlog',
+      'Ready to Start',
+      'In Progress',
+      'Done',
+    ])
+    // …and the initiatives workflow is the standard four, one cell each.
+    const init = topLevelLanes(s().lanes, board.id, 'initiatives')
+    expect(init.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+    expect(init.every((l) => childrenOf(s().lanes, l.id).length === 0)).toBe(true)
   })
 
   it('templates are managed and round-trip through persistence', () => {
@@ -450,6 +500,52 @@ describe('store actions', () => {
     expect('status' in migrated.links[0]).toBe(false)
   })
 
+  it('migrateState splits the old shared tree into two independent workflows', () => {
+    // A pre-v24 board: one lane tree with no `workflow`, initiatives placed inside it.
+    const cardsOnly = s()
+      .lanes.filter((l) => l.workflow === 'cards')
+      .map(({ workflow: _w, ...rest }) => rest)
+    const ns = laneByName('b-nova', 'Not Started', 'cards')
+    const legacy = {
+      boards: s().boards,
+      issueTypes: s().issueTypes,
+      items: s().items,
+      edges: s().edges,
+      links: s().links,
+      lanes: cardsOnly,
+      placements: s().placements.map((p) => (p.itemId === 'init-welcome' ? { ...p, laneId: ns.id } : p)),
+    }
+
+    const migrated = migrateState(structuredClone(legacy) as never) as {
+      boards: Board[]
+      lanes: Lane[]
+      placements: Placement[]
+    }
+
+    // Every lane that existed is the cards workflow now…
+    expect(migrated.lanes.filter((l) => l.workflow === 'cards')).toHaveLength(cardsOnly.length)
+    // …and each board gained the standard initiatives workflow: a root and four sections.
+    for (const b of migrated.boards) {
+      const init = migrated.lanes.filter((l) => l.boardId === b.id && l.workflow === 'initiatives')
+      expect(init).toHaveLength(5)
+      expect(init.filter((l) => l.parentId !== null).map((l) => l.stage)).toEqual([
+        'backlog',
+        'notStarted',
+        'inProgress',
+        'done',
+      ])
+      // One cell each — the default, not a copy of whatever the team did to its cards.
+      expect(init.every((l) => l.parentId !== null || init.some((c) => c.parentId === l.id))).toBe(true)
+    }
+    // An initiative that named a card lane now names a section of its own workflow.
+    const placed = migrated.placements.find((p) => p.itemId === 'init-welcome')!
+    expect(migrated.lanes.find((l) => l.id === placed.laneId)?.workflow).toBe('initiatives')
+
+    // Idempotent — a second pass adds nothing.
+    const again = migrateState(structuredClone(migrated) as never) as { lanes: Lane[] }
+    expect(again.lanes).toHaveLength(migrated.lanes.length)
+  })
+
   it('archiving a parent cascades to its subtree and keeps the data linked', () => {
     const before = rollupOf('init-signup', graph()).percent
     s().archiveItem('init-signup')
@@ -495,7 +591,7 @@ describe('store actions', () => {
   })
 
   it('moves sub-lanes within their top-level parent; top-level columns are fixed', () => {
-    const root = rootLane(s().lanes, 'b-atlas')!
+    const root = rootLane(s().lanes, 'b-atlas', 'cards')!
     const topNames = () => childrenOf(s().lanes, root.id).map((l) => l.name)
     // Top-level columns cannot move.
     expect(topNames()).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
@@ -539,7 +635,7 @@ describe('store actions', () => {
     expect(colNames()).toEqual(['Dev', 'Dev copy', 'Column 3', 'Test'])
 
     // top-level columns are neither insertable nor cloneable
-    const root = rootLane(s().lanes, 'b-atlas')!
+    const root = rootLane(s().lanes, 'b-atlas', 'cards')!
     const topBefore = childrenOf(s().lanes, root.id).map((l) => l.name)
     s().insertLaneAfter(laneByName('b-atlas', 'Not Started').id)
     s().duplicateLane(laneByName('b-atlas', 'Not Started').id)

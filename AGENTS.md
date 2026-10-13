@@ -42,10 +42,21 @@ task-master list            # terminal 2
   enforces it). `depth` is derived — never add a `level` field.
 - **Issue types are labels + colour.** Columns come from a board's lane tree, never from
   the type. Never add a lifecycle to `IssueType`.
-- **Boards are a recursive lane tree.** A leaf lane is a cell; a container arranges children
+- **Boards are two recursive lane trees.** A lane carries `workflow: 'cards' | 'initiatives'`,
+  and a board has one root per workflow. A leaf lane is a cell; a container arranges children
   in columns or rows; any cell can be split. Board-design actions (`splitLane`, `addLane`,
-  `removeLane`) mutate the tree and are surfaced only in **edit mode**.
-- **Three typed top-level columns.** Every board's root has exactly the four typed columns
+  `removeLane`) mutate one tree and are surfaced only in **edit mode**. The two trees are
+  independent and a subtree never mixes them, so every walk stays inside its own workflow —
+  which is why `rootLane`, `topLevelLanes` and `leafLanes` take the workflow as a **required**
+  argument (the compiler finds the sites that would otherwise silently mix the two).
+- **Two workflows, two trees.** The **cards** workflow is the team's own flow — its column
+  names, its splits, its WIP limits, reworked whenever they like. The **initiatives** workflow
+  is the external representation management reads: typed sections and the cells initiatives are
+  arranged in. Neither is a copy of the other and nothing is entered twice — an initiative's
+  *section* is derived from the work below — so a team can reshape its board on Tuesday and the
+  portfolio is still correct on Wednesday. A template designs the **cards** workflow only; every
+  board starts with the **standard** initiatives workflow (four sections, one cell each).
+- **Four typed top-level columns, per workflow.** Each root has exactly the four typed columns
   `stage: 'backlog' | 'notStarted' | 'inProgress' | 'done'` (Backlog / Not Started / In
   Progress / Done) — one per stage, never more. These are fixed — `addLane`/`removeLane`
   on the root and `setLaneOrientation` on the root are no-ops; refinement happens by
@@ -53,14 +64,15 @@ task-master list            # terminal 2
   comes from its column's stage, which makes status roll up the hierarchy. A board that
   needs two *done* states (accepted vs released) splits Done into cells; it does not add a
   column.
-- **The initiatives flow.** A typed column is a **section** of a board's initiatives flow and
-  its leaves are its **cells**. An initiative's section is *derived* — `rollupOf` picks the
-  column whose stage matches its bucket — while its cell is *arranged*: `Placement.laneId`,
-  falling back to the section's first cell when that placement is stale (`initiativeCellOf`).
-  So splitting a column gives initiatives cells to arrange within, but a move can never cross
-  a section (`moveInitiative` refuses it). Sections and cells are the same lanes the cards
-  workflow uses, so a split serves both — and lane editing is surfaced in the initiatives flow
-  too, because a program board has no cards workflow to edit from.
+- **The initiatives flow.** A typed column of the **initiatives** tree is a **section** of a
+  board's initiatives flow and its leaves are its **cells**. An initiative's section is
+  *derived* — `rollupOf` picks the section whose stage matches its bucket — while its cell is
+  *arranged*: `Placement.laneId`, falling back to the section's first cell when that placement
+  is stale (`initiativeCellOf`). So splitting a **section** gives initiatives cells to arrange
+  within, but a move can never cross a section (`moveInitiative` refuses it). Splitting a cards
+  column does none of this — the workflows are independent — and `moveInitiative`/`moveCard`
+  each refuse the other's lanes. Lane editing is surfaced in the initiatives flow too, because a
+  program board has no cards workflow to edit from.
 - **Rollup reads leaves only, and never claims completion early.** All done → `done`; anything
   under way → `inProgress`; anything committed → `notStarted`; every leaf uncommitted →
   `backlog`. A Backlog leaf does **not** drag its parent backwards — a partly-planned

@@ -90,7 +90,7 @@ export function BoardSummary({
   })
 
   // A section is a typed column; its cells are its leaves — itself, until it's split.
-  const sections = topLevelLanes(lanes, boardId)
+  const sections = topLevelLanes(lanes, boardId, 'initiatives')
     .slice()
     .sort((a, b) => a.order - b.order)
     .map((section) => {

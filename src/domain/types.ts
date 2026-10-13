@@ -47,6 +47,19 @@ export interface Lane {
   parentId: string | null
   order: number
   name: string
+  /**
+   * Which workflow this lane belongs to.
+   *
+   * A board carries **two independent lane trees**: the **cards** workflow — where the
+   * team's cards live, with its own column names, splits and WIP limits — and the
+   * **initiatives** workflow, the external representation management reads: typed
+   * sections and the cells initiatives are arranged in. They share a shape, not a fate:
+   * renaming or splitting one never touches the other, which is what lets a team rework
+   * its board without changing what the organisation sees.
+   *
+   * A subtree never mixes the two, so any walk from a lane stays inside its own workflow.
+   */
+  workflow: Workflow
   /** Present on containers: how children are arranged. */
   orientation?: SplitOrientation
   /** Stage type (top-level columns); inherited by descendants. */
@@ -105,8 +118,22 @@ export interface Board {
 }
 
 /**
+ * A board's two workflows. Each is its own lane tree, rooted separately; a lane belongs to
+ * exactly one of them.
+ *
+ * - `cards`       — the team's own flow. Cards live in its leaves.
+ * - `initiatives` — the external representation: typed sections, and the cells initiatives
+ *                   are arranged in. It starts as the standard four sections and is refined
+ *                   on its own, never by the cards workflow's splits.
+ */
+export type Workflow = 'cards' | 'initiatives'
+
+/**
  * A lane inside a template. `key` wires parents to children *within the template*; real
  * lane ids are minted on instantiation, so a template can be used any number of times.
+ *
+ * Templates describe the **cards** workflow — a team's design. The initiatives workflow a
+ * board starts with is the standard one, not the template's.
  */
 export interface TemplateLane {
   key: string

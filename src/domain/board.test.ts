@@ -17,7 +17,7 @@ import {
 } from './board'
 import { childrenOf, rootLane } from './lanes'
 import { createSeed } from './seed'
-import type { Lane, TemplateLane } from './types'
+import type { Lane, TemplateLane, Workflow } from './types'
 
 const names = (groups: ReturnType<typeof boardsByBand>) => groups.flatMap((g) => g.boards.map((b) => b.name))
 
@@ -155,9 +155,9 @@ describe('duplicating a board', () => {
     let n = 0
     return () => `new${++n}`
   }
-  /** The design, flattened: name, stage, WIP limit and orientation, in document order. */
-  const shape = (lanes: Lane[], boardId: string) => {
-    const root = rootLane(lanes, boardId)
+  /** One workflow's design, flattened: name, stage, WIP limit and orientation, in order. */
+  const shape = (lanes: Lane[], boardId: string, workflow: Workflow) => {
+    const root = rootLane(lanes, boardId, workflow)
     const out: string[] = []
     const walk = (id: string, depth: number) => {
       for (const child of childrenOf(lanes, id)) {
@@ -186,11 +186,14 @@ describe('duplicating a board', () => {
     expect(new Set(lanes.map((l) => l.id)).size).toBe(lanes.length)
     expect(lanes.every((l) => l.parentId === null || lanes.some((x) => x.id === l.parentId))).toBe(true)
 
-    // The design itself is identical, structure and all.
-    expect(shape(lanes, board.id)).toEqual(shape(s.lanes, atlas.id))
-    // Including a split and a WIP limit.
-    expect(shape(lanes, board.id)).toContain('1:Dev:::')
-    expect(shape(lanes, board.id)).toContain('0:Not Started:notStarted:1:')
+    // Both workflows come across intact…
+    expect(shape(lanes, board.id, 'cards')).toEqual(shape(s.lanes, atlas.id, 'cards'))
+    expect(shape(lanes, board.id, 'initiatives')).toEqual(shape(s.lanes, atlas.id, 'initiatives'))
+    // …including a split and a WIP limit.
+    expect(shape(lanes, board.id, 'cards')).toContain('1:Dev:::')
+    expect(shape(lanes, board.id, 'cards')).toContain('0:Not Started:notStarted:1:')
+    // Two trees, not one — the copy keeps the workflows independent.
+    expect(lanes.filter((l) => l.parentId === null).map((l) => l.workflow).sort()).toEqual(['cards', 'initiatives'])
   })
 
   it('carries the settings and links, and takes a name', () => {
