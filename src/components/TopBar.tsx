@@ -5,12 +5,11 @@ import { InlineEdit } from './InlineEdit'
 import { BoardPicker } from './BoardPicker'
 import { FocusChip } from './FocusChip'
 import { cn } from '@/lib/utils'
-import type { Board, BoardBand } from '@/domain/types'
+import type { Board } from '@/domain/types'
 
 interface Props {
   boards: Board[]
   boardId: string
-  boardBand: BoardBand
   editMode: boolean
   showObjectives: boolean
   showDashboard: boolean
@@ -39,7 +38,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, boardBand, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
@@ -88,18 +87,16 @@ export function TopBar(props: Props) {
             <Target size={12} /> Objectives
           </button>
 
-          {boardBand === 'portfolio' && (
-            <button
-              onClick={onToggleDashboard}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-                showDashboard ? 'border-violet-400/50 bg-violet-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
-              )}
-              title="Portfolio dashboard — a summary view of this board's initiatives"
-            >
-              <LayoutDashboard size={12} /> Dashboard
-            </button>
-          )}
+          <button
+            onClick={onToggleDashboard}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+              showDashboard ? 'border-violet-400/50 bg-violet-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+            )}
+            title="Dashboard — a summary view of this board's initiatives"
+          >
+            <LayoutDashboard size={12} /> Dashboard
+          </button>
 
           <button
             onClick={onToggleArchive}

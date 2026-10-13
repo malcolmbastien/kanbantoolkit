@@ -1,8 +1,9 @@
 import { Ban, CalendarClock, Layers, Target } from 'lucide-react'
+import { BAND_STYLES } from './BandBadge'
 import { blockedBelow, decompositionChildren, decompositionParent, rollupOf, type Graph } from '@/domain/derive'
 import { buildRefs } from '@/domain/board'
 import { STAGE_LABELS } from '@/domain/lanes'
-import { stageChip } from '@/lib/colors'
+import { BAND_ACCENT, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Stage } from '@/domain/types'
@@ -19,12 +20,12 @@ function formatDate(iso?: string): string {
 }
 
 /**
- * A summary dashboard for a management board: the board's initiatives with their
- * rolled-up work progress, target date, computed status, and an indicator of any
- * blocked work down the chain.
+ * A summary dashboard for a board: its initiatives with their rolled-up work progress,
+ * target date, computed status, and an indicator of any blocked work down the chain.
  *
- * Kept deliberately as a read-only overview — projection and richer health
- * signals can be layered on later without changing this shape.
+ * Read-only by design — projection and richer health signals can be layered on later
+ * without changing this shape. It wears the board's band, because the same summary means
+ * something different to a team, a programme and a portfolio.
  */
 export function ManagementDashboard({ boardId }: { boardId: string }) {
   const items = useStore((s) => s.items)
@@ -43,6 +44,9 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   const board = boards.find((b) => b.id === boardId)
+  const band = board?.band ?? 'team'
+  const accent = BAND_ACCENT[band]
+  const bandStyle = BAND_STYLES[band] ?? BAND_STYLES.team
   const teamBoardNames = (board?.linkedBoardIds ?? [])
     .map((id) => boards.find((b) => b.id === id)?.name)
     .filter((n): n is string => Boolean(n))
@@ -83,12 +87,17 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
       <div className="mx-auto w-full max-w-5xl">
         {/* Header */}
-        <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-violet-300 bg-violet-50/70 px-4 py-3">
+        <div className={cn('mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border px-4 py-3', accent.section)}>
           <div>
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-violet-700">
-              <Target size={12} /> Portfolio dashboard
+            <div className="flex items-center gap-1.5">
+              <span className={cn('rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wide', bandStyle.chip)}>
+                {bandStyle.label}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                <Target size={12} /> Dashboard
+              </span>
             </div>
-            <div className="text-[16px] font-semibold text-slate-800">{board?.name ?? 'Management board'}</div>
+            <div className="text-[16px] font-semibold text-slate-800">{board?.name ?? 'Board'}</div>
             {teamBoardNames.length > 0 && (
               <div className="text-[11px] text-slate-500">Rolls up {teamBoardNames.join(' · ')}</div>
             )}

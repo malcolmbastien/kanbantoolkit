@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, Columns3, CopyPlus, ExternalLink, Eye, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, Columns3, CopyPlus, ExternalLink, Eye, LayoutDashboard, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { TemplateEditor } from './TemplateEditor'
@@ -26,6 +26,7 @@ export function BoardWorkspace() {
   const archiveBoard = useStore((s) => s.archiveBoard)
   const unarchiveBoard = useStore((s) => s.unarchiveBoard)
   const duplicateBoard = useStore((s) => s.duplicateBoard)
+  const setDashboard = useStore((s) => s.setDashboard)
   const newBoardTemplate = useStore((s) => s.newBoardTemplate)
   const renameBoardTemplate = useStore((s) => s.renameBoardTemplate)
   const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
@@ -270,6 +271,21 @@ export function BoardWorkspace() {
                           className="shrink-0 text-slate-400 transition group-hover:text-indigo-500"
                         />
                       </button>
+
+                      {/* A real link — the URL carries the board and the view, so it can be
+                          copied or opened in a new tab; the click itself stays in-app. */}
+                      <a
+                        href={`?board=${b.id}&view=dashboard`}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          selectBoard(b.id)
+                          setDashboard(true)
+                        }}
+                        className="shrink-0 rounded p-1 text-slate-400 transition hover:text-slate-700"
+                        title={`Open ${b.name}'s dashboard — a summary of its initiatives`}
+                      >
+                        <LayoutDashboard size={13} />
+                      </a>
 
                       <button
                         onClick={() => duplicateBoard(b.id)}

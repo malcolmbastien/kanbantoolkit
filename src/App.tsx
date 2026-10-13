@@ -20,7 +20,6 @@ import { useStore } from './store'
 export default function App() {
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
-  const boardBand = boards.find((b) => b.id === boardId)?.band ?? 'team'
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
@@ -180,7 +179,6 @@ export default function App() {
       <TopBar
         boards={boards}
         boardId={boardId}
-        boardBand={boardBand}
         editMode={editMode}
         showObjectives={showObjectives}
         showDashboard={showDashboard}
@@ -214,7 +212,7 @@ export default function App() {
             <ArchiveView />
           ) : showObjectives ? (
             <ObjectivesView />
-          ) : showDashboard && boardBand === 'portfolio' ? (
+          ) : showDashboard ? (
             <ManagementDashboard boardId={boardId} />
           ) : (
             <BoardView requestMove={requestMove} />
