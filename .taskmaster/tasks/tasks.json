@@ -834,13 +834,88 @@
         "details": "(a) A per-board headline beyond name + band — the initiative count, or a stage spread from rollupOf().bucket (cheap), or a single rolled-up percentage, which needs defining (across the board's own initiatives, or across all work beneath it) and means computing rollups for every board at once — settle the cost first. (b) Inline graph gaps, matching the app's habit of surfacing gaps (okrCoverage, uncommittedBelow): a board with no initiatives; a program or portfolio with nothing linked; a team board no coordination board links. (c) Rename / change band, and link / unlink aggregation edges, from the workspace. Board admin still stays inside each board — this adds a second way in, it does not move it.",
         "testStrategy": "Manual verification per item, plus unit tests for any new derivation (the board headline and the gap detection). Run npm test.",
         "subtasks": []
+      },
+      {
+        "id": "54",
+        "title": "Card aging — how long a card has sat in its current lane",
+        "description": "P1 flow signal: a card that has sat too long in a lane is the problem WIP limits exist to expose. LeanKit shows card aging and Businessmap shows aging WIP; Flowline records nothing about time-in-lane today.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Add `laneEnteredAt` (epoch ms) to `Placement`, stamped on every lane change: `moveCard`, `moveCardsToLane`, `addCard`, and the paths that relocate a card as a side effect (`splitLane` moves cards into the first sub-lane; `removeLane` moves them to a neighbour). Age is `now - laneEnteredAt`, derived — never a stored status — and shown as a small quiet badge on the card that appears only past a threshold (start around 7 days in a lane, and not in Backlog, which is uncommitted inventory and legitimately rests). Do not tint the whole card: this is information, not an alarm, and a red card for age would fight the blocked treatment. Scope it to the cards workflow; the initiatives flow arranges by rollup, where time-in-lane means much less. Persist bump + migration: existing placements get no timestamp, so no badge appears until the card next moves — honest rather than invented.",
+        "testStrategy": "Unit-test the derivation (threshold boundaries, missing timestamp, exactly-at-threshold) and the store stamping: a move sets it, a move to the same lane does not, and a lane removal that relocates a card re-stamps it. Migration test: old placements rehydrate without throwing and render no badge. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T12:00:00.000Z"
+      },
+      {
+        "id": "55",
+        "title": "Manual rank within a lane",
+        "description": "P1: the order cards sit in a lane is how Kanban expresses priority. `Placement` has no order field, so cards render in insertion order and a team cannot say 'this one first'.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Add a positional `rank` to `Placement`, scoped to the lane, mirroring `Lane.order` — positional, not a typed priority field. Reordering happens inside a cell: drag to reorder, plus a button and keyboard path (up/down or left/right, following the lane's orientation) so the no-drag stance is preserved where it matters. Board *design* stays button-driven; reordering *cards* is a workflow act rather than a design act, so dragging is appropriate here and must not open the door to drag-based lane editing. Renumber siblings to a clean 0..n-1 on insert and removal, as `moveLane` does. A cross-lane move appends at the end of the target lane. Bulk move preserves relative order. The initiatives flow is out of scope: initiatives are arranged in cells by placement, not ranked. Persist bump + migration (absent rank = insertion order, so nothing moves on rehydrate).",
+        "testStrategy": "Store tests: a reorder renumbers siblings contiguously; a cross-lane move appends; bulk move preserves relative order; removing a card leaves no gap and does not renumber the survivors unnecessarily. Behaviour check that rendered order follows rank rather than insertion. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T12:00:00.000Z"
+      },
+      {
+        "id": "56",
+        "title": "Priority on cards and initiatives, with card badge icons",
+        "description": "P1: an explicit priority a team sets, visible at a glance on the card face, usable as a filter, and shown on wide initiative cards too.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Add `priority` to `Item` — a small ordered scale (`urgent | high | medium | low`, undefined = none). This is deliberately a stored field: unlike level, dependency state and status, priority is a judgement the team makes and cannot be derived. It is the one typed field the model accepts, so keep it the only one — it must not touch rollup, WIP counts or status derivation, and it must not become a per-board or per-lane concept. Render as a compact badge icon in the card's existing badge row (type chip, ref, size, users), using the card's `@container` progressive disclosure so a narrow card drops it before it crowds the title. Editable in the ItemPanel and via the card menu, including the multi-select bulk editor, which already handles size the same way. Colour: one restrained accent per level rather than four loud ones; urgent is the only one that should read as an alarm. Persist bump + migration (absent priority = none, no badge).",
+        "testStrategy": "Store tests: set and clear priority singly and in bulk, round-trip through persistence, and assert it never changes status, rollup or WIP counts. Migration test: items without priority rehydrate cleanly. Visual check over CDP at narrow and wide card widths. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T12:00:00.000Z"
+      },
+      {
+        "id": "57",
+        "title": "Timeline view of a board's initiatives workflow",
+        "description": "P1: a board view, like the dashboard, laying the board's initiatives out over time by their target start and end dates.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "A new view toggled from the TopBar alongside Dashboard and Objectives, addressable as `?board=<id>&view=timeline` and linked from the board workspace the way the dashboard now is. Rows are the board's local top-level initiatives — the same set `ManagementDashboard` and `BoardSummary` compute — so the surfaces cannot disagree. Bars span `targetStartDate` to `targetEndDate`; an initiative with neither date goes to an 'unscheduled' tray rather than being placed at an invented date, and one with a single date is shown as a milestone marker. Bar colour comes from the derived status bucket (`rollupOf`), so a bar cannot claim a stage the work beneath it does not have — a bar's colour is a fact, not a setting. Include a today marker and period headers. Horizontally scrollable; no zoom and no drag-to-reschedule in this slice, since that would be a write and belongs with an explicit action. Clicking a bar opens the item panel. Initiatives only — this is the external representation, not cards. Out of scope: target-vs-actual, because no actual exists.",
+        "testStrategy": "Unit-test the layout as a pure function: date-to-x mapping, row packing, unscheduled items, single-date milestones, zero-width bars, an empty board, and a range crossing a year boundary. Route/store test that `?view=timeline` selects the view, and that the timeline shows exactly the same initiative set as the dashboard. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T12:00:00.000Z"
+      },
+      {
+        "id": "58",
+        "title": "Board filters: by assignee, by priority, by card age",
+        "description": "P1: extend the existing filter panel (blocked / overdue / unassigned) with the three dimensions the new fields make possible.",
+        "status": "pending",
+        "dependencies": [
+          "54",
+          "56"
+        ],
+        "priority": "medium",
+        "details": "Add assignee (multi-select from `users`), priority (the new scale) and age (a card that has sat longer than N days in its lane, using the same derivation card aging shows) to the `filters` slice and `matchesFilters`, composing with the existing blocked / overdue / unassigned flags and with search and focus. Filtering must stay a view concern, and this is the invariant to protect: a lane's card count, its WIP state and all rollups keep reading the whole column, so narrowing what you see never changes the load a column carries. That rule is already stated in AGENTS.md; the risk here is a new dimension quietly violating it. Filters stay addressable via `?filters=` so a narrowed board can be linked, and the active-filter count in the TopBar keeps working. Age depends on card aging and priority depends on the priority field, so this lands after both.",
+        "testStrategy": "Extend the existing `matchesFilters` unit tests for each new dimension and their combinations (including an empty result), and assert the invariant explicitly: an active filter leaves every lane's count and WIP state unchanged. URL test: the new dimensions round-trip through `?filters=`. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T12:00:00.000Z"
+      },
+      {
+        "id": "59",
+        "title": "Flow metrics — a board view derived from movement history",
+        "description": "P2, and the biggest item here: a read-only analytics view per board — cycle time, lead time, throughput and a cumulative flow diagram — built from recorded lane transitions. All three competitors have this and Flowline has none of it.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "The enabler first: `ItemLogKind` gains a `moved` event carrying the destination lane id, written on every card transition (`moveCard`, `moveCardsToLane`, and the paths that relocate a card as a side effect). Then derive, never store: lead time (created to resolved), cycle time (first committed to resolved), throughput per period, and a cumulative flow diagram of items per stage over time. Record the *stage* the card moved into, not the lane id alone, so a team renaming or splitting its columns cannot corrupt its own history — the two-workflow rule paying off again, since the cards workflow is free to change shape while the four stages stay fixed. A new view alongside Dashboard and Objectives, addressable as `?board=<id>&view=metrics`, read-only and derived: no manual reporting, no targets to maintain, no AI summary. Scope the first slice to the cards workflow; the initiatives view can come later from the same history. History starts the day this ships, so back-date a set of transitions in the demo seed, otherwise the view is empty and proves nothing. Monte Carlo forecasting is explicitly out of scope. Persist bump: additive log kind, no backfill.",
+        "testStrategy": "Pure derivation tests over synthetic histories: lead and cycle time including the never-resolved and moved-back cases, throughput buckets, and a CFD series where one card skipped a stage, one moved backwards and one was archived mid-flight. Store test that every move path writes exactly one `moved` event and that a same-lane move writes none. Regression test that renaming or splitting a lane after the fact leaves historical stage untouched. Migration test for the new log kind. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-13T00:48:21.914Z",
-      "taskCount": 52,
-      "completedCount": 31,
+      "lastModified": "2026-10-13T12:00:00.000Z",
+      "taskCount": 58,
+      "completedCount": 32,
       "tags": [
         "backlog"
       ]
