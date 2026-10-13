@@ -222,9 +222,60 @@ export function templateMoveLane(template: BoardTemplate, key: string, delta: nu
 }
 
 /* ------------------------------------------------------------------ *
- * Board aggregation — coordination/strategic boards link other boards
+ * Duplicating a board — its design, not its work
  * ------------------------------------------------------------------ */
 
+/**
+ * Deep-copy a board: its lanes (with fresh ids throughout), its settings, and its
+ * aggregation links.
+ *
+ * **Its work is not copied.** Items live in placements, so duplicating them would
+ * duplicate the work itself — the same cards on two boards, with two lives. A copy is a
+ * design to build on, which is also why it comes back unarchived whatever the original was.
+ *
+ * Every lane id is fresh and every `parentId` points *within* the copy, so the two boards
+ * share nothing and editing one cannot disturb the other.
+ */
+export function duplicateBoard(
+  board: Board,
+  lanes: Lane[],
+  uid: () => string,
+  name?: string,
+): { board: Board; lanes: Lane[] } {
+  const root = rootLane(lanes, board.id)
+  const idOf = new Map<string, string>()
+  const subtree: Lane[] = []
+  if (root) {
+    const walk = (lane: Lane) => {
+      idOf.set(lane.id, uid())
+      subtree.push(lane)
+      childrenOf(lanes, lane.id).forEach(walk)
+    }
+    walk(root)
+  }
+
+  const { archived: _archived, archivedAt: _archivedAt, ...rest } = board
+  const id = root ? idOf.get(root.id)! : uid()
+  return {
+    board: {
+      ...rest,
+      id,
+      name: name?.trim() || `${board.name} copy`,
+      ...(board.linkedBoardIds ? { linkedBoardIds: [...board.linkedBoardIds] } : {}),
+      ...(board.cardTypeIds ? { cardTypeIds: [...board.cardTypeIds] } : {}),
+    },
+    lanes: subtree.map((lane) => ({
+      ...lane,
+      id: idOf.get(lane.id)!,
+      boardId: id,
+      parentId: lane.parentId ? idOf.get(lane.parentId) ?? null : null,
+    })),
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Board aggregation — coordination/strategic boards link other boards
+ * ------------------------------------------------------------------ */
 /** A board that aggregates other boards rather than rendering work. */
 export function isAggregating(board: Board | undefined): boolean {
   return board?.band === 'program' || board?.band === 'portfolio'

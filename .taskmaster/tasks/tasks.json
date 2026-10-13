@@ -437,16 +437,17 @@
       },
       {
         "id": "21",
-        "title": "Board templates, new-team-board wizard, and duplicate board",
-        "description": "P1 board scaffolding: template defaults, a new-team-board wizard, and duplicate board.",
-        "status": "pending",
+        "title": "Duplicate a board (templates shipped in 51/52; wizard dropped)",
+        "description": "P1 board scaffolding. Narrowed by the user: templates already shipped (tasks 51/52) and the new-team-board wizard is dropped — a board starts from a template or a duplicate, not from a wizard.",
+        "status": "done",
         "dependencies": [
           "20"
         ],
         "priority": "medium",
-        "details": "Extracted from the old task 21 — the board settings panel is now its own task (44). This covers the scaffolding half: template defaults for recurring board configurations, a new-team-board wizard that scaffolds lanes, levels and rollup rules, and duplicate board (deep-copying a board's lanes and config with fresh ids and no cross-board collisions).",
-        "testStrategy": "Create a board from a template / the wizard and verify the expected lane structure, level and rollup rules. Duplicate a board and confirm the copy's lanes and config are independent and every id is unique.",
-        "subtasks": []
+        "details": "Extracted from the old task 21 — the board settings panel is now its own task (44). Delivered: `duplicateBoard(board, lanes, uid, name?)` in src/domain/board.ts deep-copies a board's *design* — the whole lane tree with fresh ids and remapped parentIds, the settings, and the aggregation links — and nothing of its work, since items live in placements and copying them would copy the work itself. The copy comes back unarchived whatever the original was, and is named '<name> copy'. Store action `duplicateBoard(boardId, name?)` appends it to the list without switching to it (as New board does). Surfaced as a Duplicate button in each BoardWorkspace row, next to archive and delete, with no confirmation (non-destructive).",
+        "testStrategy": "Covered in src/domain/board.test.ts ('duplicating a board') and src/store.test.ts ('duplicates a board without duplicating its work'). Asserts: fresh unique ids, every parentId pointing within the copy, the flattened design (name/stage/WIP/orientation, in order) identical to the original, links copied as a new array, name override, and that no placements come across and editing the copy leaves the original untouched.",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T00:48:21.913Z"
       },
       {
         "id": "22",
@@ -837,7 +838,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-12T21:48:02.509Z",
+      "lastModified": "2026-10-13T00:48:21.914Z",
       "taskCount": 52,
       "completedCount": 31,
       "tags": [

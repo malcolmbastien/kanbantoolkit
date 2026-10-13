@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   activeBoards,
   boardsByBand,
+  duplicateBoard,
   lanesFromTemplate,
   templateAddLane,
   templateChildren,
@@ -14,8 +15,9 @@ import {
   templateSetOrientation,
   templateSplitLane,
 } from './board'
+import { childrenOf, rootLane } from './lanes'
 import { createSeed } from './seed'
-import type { TemplateLane } from './types'
+import type { Lane, TemplateLane } from './types'
 
 const names = (groups: ReturnType<typeof boardsByBand>) => groups.flatMap((g) => g.boards.map((b) => b.name))
 
@@ -144,6 +146,63 @@ describe('board templates — a design, not its work', () => {
     expect(lanes.filter((l) => l.parentId === ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
     // The template is untouched, so it can be used again.
     expect(JSON.stringify(t)).toBe(before)
+  })
+})
+
+describe('duplicating a board', () => {
+  const s = createSeed()
+  const keys = () => {
+    let n = 0
+    return () => `new${++n}`
+  }
+  /** The design, flattened: name, stage, WIP limit and orientation, in document order. */
+  const shape = (lanes: Lane[], boardId: string) => {
+    const root = rootLane(lanes, boardId)
+    const out: string[] = []
+    const walk = (id: string, depth: number) => {
+      for (const child of childrenOf(lanes, id)) {
+        out.push(`${depth}:${child.name}:${child.stage ?? ''}:${child.wipLimit ?? ''}:${child.orientation ?? ''}`)
+        walk(child.id, depth + 1)
+      }
+    }
+    if (root) walk(root.id, 0)
+    return out
+  }
+
+  it('copies the design with fresh ids, sharing nothing with the original', () => {
+    const atlas = s.boards.find((b) => b.id === 'b-atlas')!
+    const { board, lanes } = duplicateBoard(atlas, s.lanes, keys())
+
+    expect(board.id).not.toBe(atlas.id)
+    expect(board.name).toBe('Team Atlas copy')
+    expect(board.band).toBe('team')
+    // A copy is a live board, whatever the original was.
+    expect('archived' in board).toBe(false)
+
+    // Every lane is fresh, unique, and points *within* the copy.
+    const originals = new Set(s.lanes.filter((l) => l.boardId === atlas.id).map((l) => l.id))
+    expect(lanes.every((l) => l.boardId === board.id)).toBe(true)
+    expect(lanes.some((l) => originals.has(l.id))).toBe(false)
+    expect(new Set(lanes.map((l) => l.id)).size).toBe(lanes.length)
+    expect(lanes.every((l) => l.parentId === null || lanes.some((x) => x.id === l.parentId))).toBe(true)
+
+    // The design itself is identical, structure and all.
+    expect(shape(lanes, board.id)).toEqual(shape(s.lanes, atlas.id))
+    // Including a split and a WIP limit.
+    expect(shape(lanes, board.id)).toContain('1:Dev:::')
+    expect(shape(lanes, board.id)).toContain('0:Not Started:notStarted:1:')
+  })
+
+  it('carries the settings and links, and takes a name', () => {
+    const portfolio = s.boards.find((b) => b.id === 'b-portfolio')!
+    const copy = duplicateBoard(portfolio, s.lanes, keys(), '  Value stream two  ')
+    expect(copy.board.name).toBe('Value stream two')
+    expect(copy.board.linkedBoardIds).toEqual(portfolio.linkedBoardIds)
+    expect(copy.board.linkedBoardIds).not.toBe(portfolio.linkedBoardIds) // a copy, not the same array
+
+    // A board with no links stays without them.
+    const atlas = s.boards.find((b) => b.id === 'b-atlas')!
+    expect('linkedBoardIds' in duplicateBoard(atlas, s.lanes, keys()).board).toBe(false)
   })
 })
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, Columns3, ExternalLink, Eye, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, Columns3, CopyPlus, ExternalLink, Eye, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { TemplateEditor } from './TemplateEditor'
@@ -25,6 +25,7 @@ export function BoardWorkspace() {
   const addBoard = useStore((s) => s.addBoard)
   const archiveBoard = useStore((s) => s.archiveBoard)
   const unarchiveBoard = useStore((s) => s.unarchiveBoard)
+  const duplicateBoard = useStore((s) => s.duplicateBoard)
   const newBoardTemplate = useStore((s) => s.newBoardTemplate)
   const renameBoardTemplate = useStore((s) => s.renameBoardTemplate)
   const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
@@ -268,6 +269,14 @@ export function BoardWorkspace() {
                           size={11}
                           className="shrink-0 text-slate-400 transition group-hover:text-indigo-500"
                         />
+                      </button>
+
+                      <button
+                        onClick={() => duplicateBoard(b.id)}
+                        className="shrink-0 rounded p-1 text-slate-400 transition hover:text-slate-700"
+                        title={`Duplicate ${b.name} — its columns and settings, not its cards`}
+                      >
+                        <CopyPlus size={13} />
                       </button>
 
                       <button

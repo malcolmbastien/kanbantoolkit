@@ -300,6 +300,35 @@ describe('store actions', () => {
     expect(new Set(s().boardTemplates.map((x) => x.id)).size).toBe(count + 1)
   })
 
+  it('duplicates a board without duplicating its work', () => {
+    const boardsBefore = s().boards.length
+    const placementsBefore = s().placements.length
+
+    s().duplicateBoard('b-atlas')
+    expect(s().boards.length).toBe(boardsBefore + 1)
+    const copy = s().boards[s().boards.length - 1]
+    expect(copy.name).toBe('Team Atlas copy')
+
+    // The design came across…
+    const root = rootLane(s().lanes, copy.id)!
+    expect(childrenOf(s().lanes, root.id).map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
+    const ip = childrenOf(s().lanes, root.id).find((l) => l.name === 'In Progress')!
+    expect(childrenOf(s().lanes, ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
+    // …and the work did not.
+    expect(s().placements.length).toBe(placementsBefore)
+    expect(s().placements.some((p) => p.boardId === copy.id)).toBe(false)
+
+    // Editing the copy cannot disturb the original.
+    s().renameLane(childrenOf(s().lanes, root.id)[0].id, 'Icebox')
+    expect(childrenOf(s().lanes, rootLane(s().lanes, 'b-atlas')!.id)[0].name).toBe('Backlog')
+
+    // A coordination board brings its links with it.
+    s().duplicateBoard('b-portfolio')
+    const program = s().boards[s().boards.length - 1]
+    expect(program.band).toBe('program')
+    expect(program.linkedBoardIds).toEqual(['b-atlas', 'b-nova'])
+  })
+
   it('templates are managed and round-trip through persistence', () => {
     const before = s().boardTemplates.length
     s().saveBoardAsTemplate('b-atlas', 'Team flow')

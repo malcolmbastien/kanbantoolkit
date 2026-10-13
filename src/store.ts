@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
+import { canLinkBoard, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
@@ -201,6 +201,12 @@ export interface Actions {
    */
   archiveBoard: (id: string) => void
   unarchiveBoard: (id: string) => void
+  /**
+   * Deep-copy a board's design — its lanes, settings and links — with fresh ids. Its work
+   * is deliberately left behind: items live in placements, and copying them would copy the
+   * work itself. The copy lands in the list without switching to it, as a new board does.
+   */
+  duplicateBoard: (boardId: string, name?: string) => void
   renameBoard: (id: string, name: string) => void
   setBoardBand: (id: string, band: BoardBand) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
@@ -896,6 +902,14 @@ export const useStore = create<Store>()(
             return rest
           }),
         }),
+
+      duplicateBoard: (boardId, name) => {
+        const state = get()
+        const board = state.boards.find((b) => b.id === boardId)
+        if (!board) return
+        const copy = copyBoardDesign(board, state.lanes, uid, name)
+        set({ boards: [...state.boards, copy.board], lanes: [...state.lanes, ...copy.lanes] })
+      },
 
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
       setBoardBand: (id, band) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, band } : b)) }),
