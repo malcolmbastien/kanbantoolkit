@@ -149,8 +149,19 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
+    // A nested container's header sits directly under its parent's and is the same tone, so
+    // it needs a visible edge or the two read as one block. A child of a *rows* split has its
+    // own outlined box, which already draws that edge; this is for a columns split, where the
+    // grid is flush.
+    const needsEdge = !isRoot && !isLeafCell && !top && parentOrientation !== 'rows'
     return (
-      <div className={cn('px-2 py-1', wip === 'over' ? 'bg-rose-700 text-white' : wip === 'at' ? 'bg-amber-600 text-white' : isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white')}>
+      <div
+        className={cn(
+          'px-2 py-1',
+          needsEdge && 'border-t border-slate-300/60',
+          wip === 'over' ? 'bg-rose-700 text-white' : wip === 'at' ? 'bg-amber-600 text-white' : isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white',
+        )}
+      >
         <div className="flex items-center gap-1.5">
           {top && (
             <button
@@ -277,6 +288,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   if (kids.length > 0) {
     const orientation = lane.orientation ?? 'columns'
+    const stacked = orientation === 'rows'
 
     // Columns-of-rows (leanKit swimlanes): render one shared grid so lanes span the
     // columns and every cell in a lane stretches to the lane's height.
@@ -298,7 +310,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           <div
             className={cn(
               'flex w-full flex-1 min-h-0',
-              orientation === 'rows' ? 'flex-col divide-y divide-slate-400/50' : 'grid divide-x divide-slate-400/50',
+              // Stacked rows get a gap and their own outline; a nested columns split gets a
+              // top gap. Without them, three levels of nested headers — a container header
+              // and a row/child header are the same colour — read as one merged block.
+              stacked ? 'flex-col gap-1 p-1' : cn('grid divide-x divide-slate-400/50', !isRoot && 'pt-1'),
             )}
             style={
               orientation === 'columns'
@@ -315,7 +330,9 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                   'flex min-h-0 min-w-0 flex-col',
                   // Rows size to their content (+ buffer); only the last row stretches
                   // to fill the column's remaining height.
-                  orientation === 'rows' ? (i === kids.length - 1 ? 'w-full grow' : 'w-full') : 'flex-1',
+                  stacked
+                    ? cn('w-full overflow-hidden rounded border border-slate-300/70 bg-white/50', i === kids.length - 1 && 'grow')
+                    : 'flex-1',
                 )}
               >
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />
