@@ -51,7 +51,6 @@ export default function App() {
   const selectBoard = useStore((s) => s.selectBoard)
   const setSearch = useStore((s) => s.setSearch)
   const resetDemo = useStore((s) => s.resetDemo)
-  const toggleTypeEditor = useStore((s) => s.toggleTypeEditor)
   const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
   const beginEdit = useStore((s) => s.beginEdit)
   const openItem = useStore((s) => s.openItem)
@@ -185,7 +184,6 @@ export default function App() {
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}
-        onOpenTypes={toggleTypeEditor}
         onOpenBoardSettings={toggleBoardSettings}
         onAddCard={quickAdd}
         onReset={resetDemo}

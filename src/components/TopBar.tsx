@@ -1,4 +1,4 @@
-import { Archive, Check, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target, X } from 'lucide-react'
+import { Archive, Check, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, SlidersHorizontal, Target, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -26,14 +26,13 @@ interface Props {
   onEditBoard: () => void
   onSaveEdit: () => void
   onCancelEdit: () => void
-  onOpenTypes: () => void
   onOpenBoardSettings: () => void
   onAddCard: () => void
   onReset: () => void
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onReset } = props
+  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
@@ -158,15 +157,6 @@ export function TopBar(props: Props) {
           </button>
         )}
 
-        {!editMode && (
-        <button
-          onClick={onOpenTypes}
-          className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
-          title="Manage issue types"
-        >
-          <Shapes size={13} /> Types
-        </button>
-        )}
 
         {!showBoards &&
           (editMode ? (
