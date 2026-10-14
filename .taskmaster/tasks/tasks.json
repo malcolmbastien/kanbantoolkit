@@ -909,12 +909,26 @@
         "testStrategy": "Pure derivation tests over synthetic histories: lead and cycle time including the never-resolved and moved-back cases, throughput buckets, and a CFD series where one card skipped a stage, one moved backwards and one was archived mid-flight. Store test that every move path writes exactly one `moved` event and that a same-lane move writes none. Regression test that renaming or splitting a lane after the fact leaves historical stage untouched. Migration test for the new log kind. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-13T12:00:00.000Z"
+      },
+      {
+        "id": "60",
+        "title": "Item panel: two-column modal for cards and initiatives",
+        "description": "P1 UI: replace the 400px right-hand drawer with a centred two-column modal — content on the left, properties on the right — following the reference layout. One panel serves both cards and initiatives, so the layout has to work for a card with three fields and an initiative with lineage, OKRs and descendants.",
+        "status": "pending",
+        "dependencies": [
+          "56"
+        ],
+        "priority": "high",
+        "details": "Today `ItemPanel` is a 400px `<aside data-item-panel>` that is a flex sibling of the board in App.tsx — a narrow single column with thirteen stacked sections (Details, checklist, On these boards, Lineage, Hierarchy, Team initiatives, Links, OKRs, Log, Blocked, Archive, Delete). Replace it with a centred modal using the app's existing overlay pattern (fixed inset-0 z-50, grid place-items-center, translucent slate backdrop, backdrop click closes) — the same shape as BoardSettings, TypeEditor and TemplateEditor — sized wide (roughly max-w-5xl and 90vh) and split into two columns. LEFT, the wider column, carries content: a header strip with the type chip, the lineage breadcrumb and the ref, with the actions on the right (Mark Blocked, add link, focus/lens, the card menu, close); then the ref plus a context label, the title as a large editable heading, the description with a rendered-markdown body (renderMarkdown already exists — an editing toolbar is a later slice, not this one), optional callout panels for hypothesis/non-goals style notes, Open Descendants as a row list (status glyph, ref, title, status chip, avatars) with an inline add, the checklist as Acceptance Criteria with a completed count and a progress bar, and Cross-team dependencies and links, which already has the domain behind it (dependenciesOf/dependentsOf, boundary pins). RIGHT, the narrower column, carries properties as grouped cards: Workflow and assignment (status, priority, lead/assignees, estimate, target date), Lineage (parent, composition count), OKRs, and a metadata footer (created, derived depth, last modified). ADAPT TO THE MODEL — the reference is a generic issue tracker and several of its controls either do not exist here or must not: Status is DERIVED from the lane and the rollup, so it renders as a read-only chip and never as a select (an editable status would contradict the whole thesis); Estimate is the existing `size`; Target Date is `targetStartDate`/`targetEndDate`; Lead is `assignees`; Priority is the new field from task 56, which this depends on; Hierarchy Depth must use the derived `depth`, never a stored level; there is no author, so Created shows the date alone; Last Modified comes from the newest log entry rather than a new field; and there is no sprint concept, so the reference's 'active sprint' slot becomes something real — the board and lane path, or the target period. KEEP the behaviours the panel already has: blocking stays a card-level status with a reason and a log entry; OKRs attach to strategic initiatives only, so a card shows the inherited mapping and never gains a direct one; focus highlights lineage rather than filtering; and the Log survives, in the right column or a collapsed footer. Note the one real regression risk: the modal covers the board, which the drawer did not, so keep Escape and backdrop-click to dismiss and consider a max-width that lets the board peek at the edges.",
+        "testStrategy": "Behavioural check over CDP using the existing `data-item-panel` hook: open a card and an initiative and confirm both render two columns; confirm Escape and a backdrop click each close the modal and clear `selectedItemId`; and confirm the title and description round-trip through an edit. Assert Status is not editable and that no control in the panel writes a derived value. Re-verify every surface that deep-links into the panel (`?item=`, dashboard rows, timeline bars) still opens it, and that the board behind is left in a clean state after close. Run npm test and npm run build.",
+        "subtasks": [],
+        "updatedAt": "2026-10-13T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-13T12:00:00.000Z",
-      "taskCount": 58,
+      "taskCount": 59,
       "completedCount": 32,
       "tags": [
         "backlog"
