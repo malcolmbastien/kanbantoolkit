@@ -158,16 +158,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
-    // A nested container's header sits directly under its parent's and is the same tone, so
-    // it needs a visible edge or the two read as one block. A child of a *rows* split has its
-    // own outlined box, which already draws that edge; this is for a columns split, where the
-    // grid is flush.
-    const needsEdge = !isRoot && !isLeafCell && !top && parentOrientation !== 'rows'
     return (
       <div
         className={cn(
           'border-b px-2.5 py-1.5',
-          needsEdge && 'border-t border-slate-300/60',
           wip === 'over' ? WIP_HEADER.over : wip === 'at' ? WIP_HEADER.at : 'border-slate-300 bg-slate-100 text-slate-800',
         )}
       >
@@ -339,7 +333,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               // Stacked rows get a gap and their own outline; a nested columns split gets a
               // top gap. Without them, three levels of nested headers — a container header
               // and a row/child header are the same colour — read as one merged block.
-              stacked ? 'flex-col gap-1 p-1' : cn('grid', isRoot ? 'gap-3' : 'divide-x divide-slate-400/50 pt-1'),
+              stacked ? 'flex-col' : cn('grid', isRoot ? 'gap-3' : 'divide-x divide-slate-400/50'),
             )}
             style={
               orientation === 'columns'
@@ -357,7 +351,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                   // Rows size to their content (+ buffer); only the last row stretches
                   // to fill the column's remaining height.
                   stacked
-                    ? cn('w-full overflow-hidden rounded border border-slate-300/70 bg-white/50', i === kids.length - 1 && 'grow')
+                    ? cn('w-full', i === kids.length - 1 && 'grow')
                     : cn('flex-1', isRoot && 'overflow-hidden rounded-lg border border-slate-300'),
                 )}
               >
