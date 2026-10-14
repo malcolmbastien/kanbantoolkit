@@ -3,7 +3,6 @@ import { Archive, Check, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, Ro
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
 import { BoardPicker } from './BoardPicker'
-import { FocusChip } from './FocusChip'
 import { cn } from '@/lib/utils'
 import type { Board } from '@/domain/types'
 
@@ -131,7 +130,6 @@ export function TopBar(props: Props) {
 
           </div>
 
-          <FocusChip />
         </>
       )}
 

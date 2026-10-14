@@ -8,6 +8,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { ReasonDialog } from './components/ReasonDialog'
 import { FilterPanel } from './components/FilterPanel'
 import { ItemPanel } from './components/ItemPanel'
+import { FocusChip } from './components/FocusChip'
 import { ManagementDashboard } from './components/ManagementDashboard'
 import { ObjectivesView } from './components/ObjectivesView'
 import { TopBar } from './components/TopBar'
@@ -223,6 +224,7 @@ export default function App() {
 
       {showTypeEditor && <TypeEditor />}
       {showBoardSettings && <BoardSettings />}
+      <FocusChip />
       <ConfirmDialog />
       <ReasonDialog />
       <BulkActions />
