@@ -4,7 +4,7 @@ import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
 import { CardMenu } from './CardMenu'
-import { DroppableCell } from './DroppableCell'
+import { DropColumn } from './DropColumn'
 import { LanePolicy, LaneSettings } from './LaneSettings'
 import {
   blockedBelow,
@@ -63,11 +63,20 @@ interface Ctx {
   /** How long a card has sat in its lane, when the placement knows. See `ageDays`. */
   ageOf: (itemId: string) => number | undefined
   interactive: boolean
-  dropCard: (itemId: string, laneId: string) => void
-  /** Drop a card at a position within a lane, before another card. */
-  dropBefore: (itemId: string, beforeItemId: string) => void
-  /** Drop a card on one side of another: 'before' its top half, 'after' its bottom. */
-  dropAt: (itemId: string, targetId: string, place: 'before' | 'after') => void
+  /**
+   * The card in the air and the one gap it would land in. A lane has a single insertion
+   * point rather than a target per card, so the lane never lights up as a second target.
+   */
+  drag: {
+    itemId: string | null
+    laneId: string | null
+    index: number | null
+    setItem: (itemId: string | null) => void
+    setIndex: (laneId: string, index: number) => void
+    clearIndex: (laneId: string) => void
+  }
+  /** Land a card at a position in a lane, counting the cards already there. */
+  dropCardAt: (itemId: string, laneId: string, index: number) => void
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
@@ -395,13 +404,22 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
       {!hideHeader && header(true)}
-      <DroppableCell laneId={lane.id} enabled={ctx.interactive && !ctx.editMode} onDropItem={(itemId) => ctx.dropCard(itemId, lane.id)}>
-        {cards.map((c) => {
+      <DropColumn
+        laneId={lane.id}
+        enabled={ctx.interactive && !ctx.editMode}
+        draggingId={ctx.drag.itemId}
+        at={ctx.drag.laneId === lane.id ? ctx.drag.index : null}
+        onIndex={ctx.drag.setIndex}
+        onLeave={ctx.drag.clearIndex}
+        onDrop={ctx.dropCardAt}
+        items={cards.map((c) => {
           const pid = decompositionParent(c.id, graph.edges)
           const p = pid ? items.find((i) => i.id === pid) : undefined
           const parent: CardParent | undefined = p ? { id: p.id, ref_: refs.get(p.id) ?? '', title: p.title, type: typeOf(p.typeId) } : undefined
           const roll = rollupOf(c.id, graph)
-          return (
+          return {
+            id: c.id,
+            node: (
             <Card
               key={c.id}
               item={c}
@@ -415,7 +433,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
-              onDropAt={(draggedId, place) => ctx.dropAt(draggedId, c.id, place)}
+              onDragStateChange={ctx.drag.setItem}
               lens={lensRole(c.id, ctx.lensId, graph)}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
@@ -432,17 +450,20 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 checklist: checklistProgress(c),
               }}
             />
-          )
+            ),
+          }
         })}
-        {ctx.interactive && !ctx.editMode && (
-          <button
-            onClick={() => ctx.onAddCard(lane.id)}
-            className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-0.5 text-[10px] text-slate-400 hover:border-indigo-400 hover:text-indigo-600"
-          >
-            <Plus size={10} /> card
-          </button>
-        )}
-      </DroppableCell>
+        footer={
+          ctx.interactive && !ctx.editMode ? (
+            <button
+              onClick={() => ctx.onAddCard(lane.id)}
+              className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-0.5 text-[10px] text-slate-400 hover:border-indigo-400 hover:text-indigo-600"
+            >
+              <Plus size={10} /> card
+            </button>
+          ) : null
+        }
+      />
     </div>
   )
 }
@@ -552,8 +573,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const removeLane = useStore((s) => s.removeLane)
   const renameLane = useStore((s) => s.renameLane)
   const addCard = useStore((s) => s.addCard)
-  const moveCardBefore = useStore((s) => s.moveCardBefore)
-  const moveCardAfter = useStore((s) => s.moveCardAfter)
+  const moveCardToIndex = useStore((s) => s.moveCardToIndex)
   const lensId = useStore((s) => s.lensId)
 
   const graph: Graph = { items, edges, links, placements, lanes }
@@ -566,6 +586,22 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const cardMenu = useStore((s) => s.cardMenu)
   const openCardMenu = useStore((s) => s.openCardMenu)
   const closeCardMenu = useStore((s) => s.closeCardMenu)
+
+  // The card in the air, and the single gap it would land in. Letting go anywhere ends the
+  // drag, so nothing stays lifted or previewed. See DropColumn.
+  const [dragItemId, setDragItemId] = useState<string | null>(null)
+  const [dropAt, setDropAt] = useState<{ laneId: string; index: number } | null>(null)
+  const drag = {
+    itemId: dragItemId,
+    laneId: dropAt?.laneId ?? null,
+    index: dropAt?.index ?? null,
+    setItem: (itemId: string | null) => {
+      setDragItemId(itemId)
+      if (!itemId) setDropAt(null)
+    },
+    setIndex: (laneId: string, index: number) => setDropAt({ laneId, index }),
+    clearIndex: (laneId: string) => setDropAt((d) => (d?.laneId === laneId ? null : d)),
+  }
 
   const boardPlacements = placements
     .filter((p) => p.boardId === boardId)
@@ -592,10 +628,13 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     interactive,
-    dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
-    dropBefore: (itemId, beforeItemId) => moveCardBefore(itemId, boardId, beforeItemId),
-    dropAt: (itemId, targetId, place) =>
-      place === 'before' ? moveCardBefore(itemId, boardId, targetId) : moveCardAfter(itemId, boardId, targetId),
+    drag,
+    dropCardAt: (itemId, laneId, index) => {
+      // Changing lane goes through the move seam first — that is the path a board can
+      // intercept. Landing at a position is then a plain reorder inside the target lane.
+      if (effectiveLane.get(itemId) !== laneId) onMove?.(itemId, boardId, laneId)
+      moveCardToIndex(itemId, boardId, laneId, index)
+    },
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = boardCardTypeId(boards.find((b) => b.id === boardId), issueTypes)

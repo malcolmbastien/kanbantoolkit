@@ -222,10 +222,8 @@ export interface Actions {
   moveInitiative: (itemId: string, boardId: string, laneId: string) => void
   /** Move a card one place up or down within its lane (delta -1 = up). */
   moveCardRank: (itemId: string, boardId: string, delta: number) => void
-  /** Drop a card immediately before another (or at the end when `beforeItemId` is null). */
-  moveCardBefore: (itemId: string, boardId: string, beforeItemId?: string) => void
-  /** Drop a card immediately after another. */
-  moveCardAfter: (itemId: string, boardId: string, afterItemId: string) => void
+  /** Land a card at a position in a lane, counting the cards already there. */
+  moveCardToIndex: (itemId: string, boardId: string, laneId: string, index: number) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
 
   /** Checklist inside a card — sub-tasks (never schedulable, never WIP). */
@@ -291,17 +289,13 @@ function placeCard(
   state: Store,
   moving: Placement,
   laneId: string,
-  where: 'before' | 'after' | 'end',
-  target?: Placement,
+  atOf: (ordered: Placement[]) => number,
 ) {
-  // Dropping a card on itself is not a move — the target has to be a different card.
-  if (target && target.id === moving.id) return
+  // The cards already in the lane, without the one in the air: the position is in *that*
+  // list, because that is the list the card lands in.
   const rest = state.placements.filter((p) => p.laneId === laneId && p.id !== moving.id)
   const ordered = placementsInOrder(rest, laneId)
-  const at =
-    where === 'end' || !target
-      ? ordered.length
-      : Math.max(0, ordered.findIndex((p) => p.id === target.id) + (where === 'after' ? 1 : 0))
+  const at = Math.max(0, Math.min(atOf(ordered), ordered.length))
   ordered.splice(at, 0, moving)
   const rankById = new Map(ordered.map((p, i) => [p.id, i]))
   const stage = effectiveStage(state.lanes, laneId)
@@ -1122,27 +1116,18 @@ export const useStore = create<Store>()(
       },
 
       /**
-       * Drop a card immediately before another one — within its lane, or across lanes when
-       * the card it lands on is somewhere else. `at` is worked out from the target, and the
-       * lane is renumbered to a clean 0..n-1 as the card is placed.
+       * Land a card at a position in a lane. The lane is renumbered to a clean 0..n-1 as it
+       * is placed, so a lane that predates rank ends up ordered rather than keeping whatever
+       * numbers happened to be there.
+       *
+       * `index` counts the cards that are already there, without the one being placed — the
+       * list the card lands in.
        */
-      moveCardBefore: (itemId, boardId, beforeItemId) => {
+      moveCardToIndex: (itemId, boardId, laneId, index) => {
         const state = get()
         const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (!moving) return
-        const before = beforeItemId
-          ? state.placements.find((p) => p.itemId === beforeItemId && p.boardId === boardId)
-          : undefined
-        placeCard(set, state, moving, before?.laneId ?? moving.laneId, before ? 'before' : 'end', before)
-      },
-
-      /** Drop a card immediately after another — the bottom half of a card. */
-      moveCardAfter: (itemId, boardId, afterItemId) => {
-        const state = get()
-        const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
-        const after = state.placements.find((p) => p.itemId === afterItemId && p.boardId === boardId)
-        if (!moving || !after) return
-        placeCard(set, state, moving, after.laneId, 'after', after)
+        placeCard(set, state, moving, laneId, () => index)
       },
 
       moveInitiative: (itemId, boardId, laneId) => {

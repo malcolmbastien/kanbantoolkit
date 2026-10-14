@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * A drop target for one cell. Extracted so the cards workflow (BoardCanvas) and the
- * initiatives workflow (BoardSummary) share the same drag gesture — an initiative is
- * dragged between the cells of its section exactly like a card is between lanes.
+ * A drop target for one cell of the initiatives workflow.
+ *
+ * The cards workflow uses `DropColumn` instead. Its lanes are ordered, so they need a single
+ * insertion point and a preview of where the card lands; a cell of a section is not ordered,
+ * so a plain target is the honest gesture there — and it never has to compete with a second,
+ * card-level target.
  */
 export function DroppableCell({
   laneId,

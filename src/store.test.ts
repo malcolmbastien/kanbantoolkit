@@ -887,7 +887,7 @@ describe('store actions', () => {
 
   })
 
-  it('a card can be dropped at a position, not just into a lane', () => {
+  it('a card lands at the position it was dropped in', () => {
     s().selectBoard('b-atlas')
     const dev = laneByName('b-atlas', 'Dev')
     const done = laneByName('b-atlas', 'Done')
@@ -897,29 +897,29 @@ describe('store actions', () => {
     s().moveCard('st-sso', 'b-atlas', dev.id)
     expect(devOrder()).toEqual(['st-signup-form', 'st-email', 'st-sso'])
 
-    // Dropping a card on another places it in front of that one.
-    s().moveCardBefore('st-sso', 'b-atlas', 'st-signup-form')
+    // The index counts the cards already there, without the one being placed.
+    s().moveCardToIndex('st-sso', 'b-atlas', dev.id, 0)
     expect(devOrder()).toEqual(['st-sso', 'st-signup-form', 'st-email'])
 
-    // Dropping it on a card in another lane moves it there, at that position.
-    s().moveCardBefore('st-sso', 'b-atlas', 'st-signup-design')
-    expect(devOrder()).toEqual(['st-signup-form', 'st-email'])
-    expect(placementsInOrder(s().placements, done.id).map((p) => p.itemId)[0]).toBe('st-sso')
-
-    // Dropping on the lower half of a middle card lands it *after* that card, not at the end.
-    s().moveCard('st-sso', 'b-atlas', dev.id)
+    // The gaps either side of a card are one place, so they are one index — not a drop
+    // 'below A' that renders differently from a drop 'above B'.
+    s().moveCardToIndex('st-sso', 'b-atlas', dev.id, 1)
+    expect(devOrder()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
+    s().moveCardToIndex('st-sso', 'b-atlas', dev.id, 2)
     expect(devOrder()).toEqual(['st-signup-form', 'st-email', 'st-sso'])
-    s().moveCardAfter('st-signup-form', 'b-atlas', 'st-email')
-    expect(devOrder()).toEqual(['st-email', 'st-signup-form', 'st-sso'])
 
-    // ...and on the last card it reaches the bottom of the stack, which was the unreachable
-    // position when a drop could only ever insert before.
-    s().moveCardAfter('st-email', 'b-atlas', 'st-sso')
-    expect(devOrder()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
+    // The end of the lane is reachable, which it was not when a drop could only ever insert
+    // before a card.
+    s().moveCardToIndex('st-signup-form', 'b-atlas', dev.id, 2)
+    expect(devOrder()).toEqual(['st-email', 'st-sso', 'st-signup-form'])
+    // Past the end is the end, not an error.
+    s().moveCardToIndex('st-signup-form', 'b-atlas', dev.id, 99)
+    expect(devOrder()).toEqual(['st-email', 'st-sso', 'st-signup-form'])
 
-    // A card dropped on itself is not a move.
-    s().moveCardBefore('st-email', 'b-atlas', 'st-email')
-    expect(devOrder()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
+    // A card dropped into another lane lands there, at that position.
+    s().moveCardToIndex('st-email', 'b-atlas', done.id, 0)
+    expect(devOrder()).toEqual(['st-sso', 'st-signup-form'])
+    expect(placementsInOrder(s().placements, done.id).map((p) => p.itemId)[0]).toBe('st-email')
   })
 
   it('a bulk move keeps the selection in its relative order', () => {
