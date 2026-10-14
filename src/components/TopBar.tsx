@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, Check, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target, Trash2, X } from 'lucide-react'
+import { Archive, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
 import { BoardPicker } from './BoardPicker'
@@ -26,18 +26,15 @@ interface Props {
   onGoToBoards: () => void
   onToggleFilters: () => void
   onEditBoard: () => void
-  onSaveEdit: () => void
-  onCancelEdit: () => void
   onOpenTypes: () => void
   onOpenBoardSettings: () => void
   onAddCard: () => void
   onNewBoard: (name: string) => void
-  onDeleteBoard: () => void
   onReset: () => void
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onDeleteBoard, onReset } = props
+  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
@@ -157,13 +154,6 @@ export function TopBar(props: Props) {
                     <Plus size={13} /> Board
                   </button>
                 )}
-                <button
-                  onClick={onDeleteBoard}
-                  className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-500 hover:text-rose-600"
-                  title="Delete this board"
-                >
-                  <Trash2 size={13} />
-                </button>
               </>
             )}
             <button
@@ -195,33 +185,15 @@ export function TopBar(props: Props) {
           <Shapes size={13} /> Types
         </button>
 
-        {!showBoards &&
-          (editMode ? (
-            <>
-              <button
-                onClick={onSaveEdit}
-                className="flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-emerald-400"
-                title="Save layout changes"
-              >
-                <Check size={13} /> Save
-              </button>
-              <button
-                onClick={onCancelEdit}
-                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
-                title="Discard layout changes"
-              >
-                <X size={13} /> Cancel
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={onEditBoard}
-              className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
-              title="Edit board design (split/add/rename lanes)"
-            >
-              <Pencil size={13} /> Edit board
-            </button>
-          ))}
+        {!showBoards && !editMode && (
+          <button
+            onClick={onEditBoard}
+            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
+            title="Edit board design (split/add/rename lanes)"
+          >
+            <Pencil size={13} /> Edit board
+          </button>
+        )}
 
         <button
           onClick={onReset}

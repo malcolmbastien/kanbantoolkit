@@ -1,4 +1,4 @@
-import { Archive, Layers } from 'lucide-react'
+import { Archive, Check, Layers, Trash2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
@@ -25,6 +25,9 @@ export function BoardView({ requestMove }: Props) {
   const editMode = useStore((s) => s.editMode)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
+  const saveEdit = useStore((s) => s.saveEdit)
+  const cancelEdit = useStore((s) => s.cancelEdit)
+  const removeBoard = useStore((s) => s.removeBoard)
 
   const board = boards.find((b) => b.id === boardId)
 
@@ -48,9 +51,47 @@ export function BoardView({ requestMove }: Props) {
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
           {board?.archived && <ArchivedBoardChip />}
           {editMode && (
-            <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">edit mode · unsaved changes</span>
+            <span className="rounded bg-amber-100 px-1.5 py-px font-semibold text-amber-800 ring-1 ring-amber-300">
+              edit mode · unsaved changes
+            </span>
           )}
           <div className="ml-auto flex items-center gap-2">
+            {/* Editing a board's design is its own mode, so its actions live in the mode
+                strip rather than the top bar — where they used to push the row over and
+                wrap it. */}
+            {editMode && (
+              <>
+                <button
+                  onClick={saveEdit}
+                  className="flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                  title="Save layout changes"
+                >
+                  <Check size={11} /> Save
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                  title="Discard layout changes"
+                >
+                  <X size={11} /> Cancel
+                </button>
+                <button
+                  onClick={() =>
+                    askConfirm({
+                      title: `Delete "${board?.name ?? 'this board'}"?`,
+                      body: 'Its lanes, cards and placements are removed. Use Archive to file it away instead.',
+                      confirmLabel: 'Delete board',
+                      danger: true,
+                      onConfirm: () => removeBoard(boardId),
+                    })
+                  }
+                  className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:border-rose-300 hover:text-rose-600"
+                  title="Delete this board"
+                >
+                  <Trash2 size={11} /> Delete board
+                </button>
+              </>
+            )}
             {doneCount > 0 && !editMode && (
               <button
                 onClick={() =>

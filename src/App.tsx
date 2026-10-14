@@ -39,7 +39,6 @@ export default function App() {
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
   const toggleFilters = useStore((s) => s.toggleFilters)
-  const askConfirm = useStore((s) => s.askConfirm)
   const showBoardSettings = useStore((s) => s.showBoardSettings)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
@@ -53,13 +52,10 @@ export default function App() {
   const toggleTypeEditor = useStore((s) => s.toggleTypeEditor)
   const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
   const beginEdit = useStore((s) => s.beginEdit)
-  const saveEdit = useStore((s) => s.saveEdit)
-  const cancelEdit = useStore((s) => s.cancelEdit)
   const openItem = useStore((s) => s.openItem)
   const moveCard = useStore((s) => s.moveCard)
   const addCard = useStore((s) => s.addCard)
   const addBoard = useStore((s) => s.addBoard)
-  const removeBoard = useStore((s) => s.removeBoard)
   const setLens = useStore((s) => s.setLens)
 
   useEffect(() => {
@@ -166,14 +162,6 @@ export default function App() {
   }
 
   const onNewBoard = (name: string) => addBoard(name)
-  const onDeleteBoard = () =>
-    askConfirm({
-      title: 'Delete this board?',
-      body: 'The board and its cards are removed. Cards that also live on another board survive there.',
-      confirmLabel: 'Delete board',
-      danger: true,
-      onConfirm: () => removeBoard(boardId),
-    })
 
   return (
     <div className="flex h-full flex-col">
@@ -195,13 +183,10 @@ export default function App() {
         onGoToBoards={() => setBoards(true)}
         onToggleFilters={toggleFilters}
         onEditBoard={beginEdit}
-        onSaveEdit={saveEdit}
-        onCancelEdit={cancelEdit}
         onOpenTypes={toggleTypeEditor}
         onOpenBoardSettings={toggleBoardSettings}
         onAddCard={quickAdd}
         onNewBoard={onNewBoard}
-        onDeleteBoard={onDeleteBoard}
         onReset={resetDemo}
       />
 
