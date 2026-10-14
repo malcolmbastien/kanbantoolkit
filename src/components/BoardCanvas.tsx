@@ -116,14 +116,17 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   const kids = childrenOf(lanes, lane.id)
   const top = isTopLevel(lanes, lane.id)
   const stage = lane.stage ?? effectiveStage(lanes, lane.id)
-  // Only top-level columns (Backlog / Not Started / In Progress / Done) can collapse.
-  const collapsed = ctx.collapsedLanes[lane.id] === true && top
   const parent = lane.parentId ? lanes.find((l) => l.id === lane.parentId) : undefined
   const siblings = lane.parentId ? childrenOf(lanes, lane.parentId) : []
   const sibIdx = siblings.findIndex((s) => s.id === lane.id)
   const canMovePrev = sibIdx > 0
   const canMoveNext = sibIdx >= 0 && sibIdx < siblings.length - 1
   const parentOrientation = parent?.orientation ?? 'columns'
+  // Two things can collapse: a top-level column (into a vertical strip, LeanKit style),
+  // and a row of a column split into rows — the shape where one lane spans the whole
+  // width, so folding it away gives the other rows their space back.
+  const canCollapse = kids.length > 0 && (top || parent?.orientation === 'rows')
+  const collapsed = ctx.collapsedLanes[lane.id] === true && canCollapse
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
@@ -173,11 +176,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             the lane's depth and whether the edge controls are present at all. */}
         <div className={HEAD_ROW}>
           <span className="flex items-center">
-            {top ? (
+            {canCollapse ? (
               <button
                 onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
                 className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
-                title={collapsed ? 'Expand column' : 'Collapse column'}
+                title={collapsed ? 'Expand' : `Collapse ${top ? 'column' : 'row'}`}
               >
                 {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
               </button>
@@ -326,7 +329,9 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       >
         {!hideHeader && (editMode || lane.name) && header(false)}
         {collapsed ? (
-          <div className="px-2 py-1 text-[10px] italic text-slate-400">{kids.length} hidden</div>
+          <div className="px-2.5 py-1 text-[10px] italic text-slate-400">
+            {kids.length} lane{kids.length === 1 ? '' : 's'} hidden
+          </div>
         ) : (
           <div
             className={cn(
