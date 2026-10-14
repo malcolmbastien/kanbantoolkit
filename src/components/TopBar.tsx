@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target } from 'lucide-react'
+import { Archive, Check, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Shapes, SlidersHorizontal, Target, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InlineEdit } from './InlineEdit'
 import { BoardPicker } from './BoardPicker'
@@ -26,6 +26,8 @@ interface Props {
   onGoToBoards: () => void
   onToggleFilters: () => void
   onEditBoard: () => void
+  onSaveEdit: () => void
+  onCancelEdit: () => void
   onOpenTypes: () => void
   onOpenBoardSettings: () => void
   onAddCard: () => void
@@ -34,7 +36,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onReset } = props
+  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenTypes, onOpenBoardSettings, onAddCard, onNewBoard, onReset } = props
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
@@ -70,7 +72,8 @@ export function TopBar(props: Props) {
 
           <button
             onClick={onToggleBoards}
-            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            disabled={editMode}
+            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
             title="Boards — browse every board in the organisation"
           >
             <Columns3 size={12} /> Boards
@@ -78,8 +81,9 @@ export function TopBar(props: Props) {
 
           <button
             onClick={onToggleObjectives}
+            disabled={editMode}
             className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition disabled:pointer-events-none disabled:opacity-40',
               showObjectives ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
             title="Objectives & Key Results — how work maps to priorities"
@@ -89,8 +93,9 @@ export function TopBar(props: Props) {
 
           <button
             onClick={onToggleDashboard}
+            disabled={editMode}
             className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition disabled:pointer-events-none disabled:opacity-40',
               showDashboard ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
             title="Dashboard — a summary view of this board's initiatives"
@@ -100,8 +105,9 @@ export function TopBar(props: Props) {
 
           <button
             onClick={onToggleArchive}
+            disabled={editMode}
             className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition disabled:pointer-events-none disabled:opacity-40',
               showArchive ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
             title="Archive — filed-away items (still searchable, still in links)"
@@ -111,8 +117,9 @@ export function TopBar(props: Props) {
 
           <button
             onClick={onToggleFilters}
+            disabled={editMode}
             className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition disabled:pointer-events-none disabled:opacity-40',
               showFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
             title="Filters — narrow the cards shown on this board"
@@ -158,7 +165,8 @@ export function TopBar(props: Props) {
             )}
             <button
               onClick={onAddCard}
-              className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-500"
+            disabled={editMode}
+              className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
             >
               <Plus size={13} /> Card
             </button>
@@ -167,7 +175,7 @@ export function TopBar(props: Props) {
 
         <GlobalSearch />
 
-        {!showBoards && (
+        {!showBoards && !editMode && (
           <button
             onClick={onOpenBoardSettings}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
@@ -177,6 +185,7 @@ export function TopBar(props: Props) {
           </button>
         )}
 
+        {!editMode && (
         <button
           onClick={onOpenTypes}
           className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
@@ -184,8 +193,27 @@ export function TopBar(props: Props) {
         >
           <Shapes size={13} /> Types
         </button>
+        )}
 
-        {!showBoards && !editMode && (
+        {!showBoards &&
+          (editMode ? (
+            <>
+              <button
+                onClick={onSaveEdit}
+                className="flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-emerald-500"
+                title="Save layout changes"
+              >
+                <Check size={13} /> Save
+              </button>
+              <button
+                onClick={onCancelEdit}
+                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                title="Discard layout changes"
+              >
+                <X size={13} /> Cancel
+              </button>
+            </>
+          ) : (
           <button
             onClick={onEditBoard}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
@@ -193,7 +221,7 @@ export function TopBar(props: Props) {
           >
             <Pencil size={13} /> Edit board
           </button>
-        )}
+          ))}
 
         <button
           onClick={onReset}

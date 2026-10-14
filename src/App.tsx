@@ -21,6 +21,8 @@ import { useStore } from './store'
 export default function App() {
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
+  const saveEdit = useStore((s) => s.saveEdit)
+  const cancelEdit = useStore((s) => s.cancelEdit)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
@@ -183,6 +185,8 @@ export default function App() {
         onGoToBoards={() => setBoards(true)}
         onToggleFilters={toggleFilters}
         onEditBoard={beginEdit}
+        onSaveEdit={saveEdit}
+        onCancelEdit={cancelEdit}
         onOpenTypes={toggleTypeEditor}
         onOpenBoardSettings={toggleBoardSettings}
         onAddCard={quickAdd}

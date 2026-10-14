@@ -1,4 +1,4 @@
-import { Archive, Check, Trash2, X } from 'lucide-react'
+import { Archive, Trash2 } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
@@ -22,8 +22,6 @@ export function BoardView({ requestMove }: Props) {
   const editMode = useStore((s) => s.editMode)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
-  const saveEdit = useStore((s) => s.saveEdit)
-  const cancelEdit = useStore((s) => s.cancelEdit)
   const removeBoard = useStore((s) => s.removeBoard)
 
   const board = boards.find((b) => b.id === boardId)
@@ -56,20 +54,6 @@ export function BoardView({ requestMove }: Props) {
                 wrap it. */}
             {editMode && (
               <>
-                <button
-                  onClick={saveEdit}
-                  className="flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
-                  title="Save layout changes"
-                >
-                  <Check size={11} /> Save
-                </button>
-                <button
-                  onClick={cancelEdit}
-                  className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                  title="Discard layout changes"
-                >
-                  <X size={11} /> Cancel
-                </button>
                 <button
                   onClick={() =>
                     askConfirm({
