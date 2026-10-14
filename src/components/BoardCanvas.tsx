@@ -107,7 +107,7 @@ function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { c
  * The side columns are `1fr` each and the middle sizes to the name, so the centring holds
  * whether or not a lane has a collapse control, a WIP count or a policy icon.
  */
-const HEAD_ROW = 'grid grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] items-center gap-1'
+const HEAD_ROW = 'grid grid-cols-[minmax(1.25rem,1fr)_minmax(0,auto)_minmax(4.5rem,1fr)] items-center gap-1'
 
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx

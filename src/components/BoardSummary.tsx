@@ -28,7 +28,7 @@ import type { IssueType, Item, Lane, Stage } from '@/domain/types'
  * right. The side columns are `1fr` each and the middle sizes to the name, so the centring
  * holds whether or not a lane carries a count or is being edited.
  */
-const HEAD_ROW = 'grid grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] items-center gap-1'
+const HEAD_ROW = 'grid grid-cols-[minmax(1.25rem,1fr)_minmax(0,auto)_minmax(4.5rem,1fr)] items-center gap-1'
 
 /**
  * A summary band for the management view: only the board's initiative-level work
