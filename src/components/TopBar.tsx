@@ -1,4 +1,4 @@
-import { Archive, Check, Columns3, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, SlidersHorizontal, Target, X } from 'lucide-react'
+import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, SlidersHorizontal, Target, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -19,7 +19,6 @@ interface Props {
   onToggleObjectives: () => void
   onToggleDashboard: () => void
   onToggleArchive: () => void
-  onToggleBoards: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
   onToggleFilters: () => void
@@ -32,7 +31,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onToggleBoards, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onReset } = props
+  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
@@ -65,14 +64,6 @@ export function TopBar(props: Props) {
 
             <div className="h-5 w-px bg-slate-200" />
 
-          <button
-            onClick={onToggleBoards}
-            disabled={editMode}
-            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
-            title="Boards — browse every board in the organisation"
-          >
-            <Columns3 size={12} /> Boards
-          </button>
 
           <button
             onClick={onToggleObjectives}
