@@ -887,6 +887,30 @@ describe('store actions', () => {
 
   })
 
+  it('a card can be dropped at a position, not just into a lane', () => {
+    s().selectBoard('b-atlas')
+    const dev = laneByName('b-atlas', 'Dev')
+    const done = laneByName('b-atlas', 'Done')
+    const devOrder = () => placementsInOrder(s().placements, dev.id).map((p) => p.itemId)
+
+    s().moveCard('st-email', 'b-atlas', dev.id)
+    s().moveCard('st-sso', 'b-atlas', dev.id)
+    expect(devOrder()).toEqual(['st-signup-form', 'st-email', 'st-sso'])
+
+    // Dropping a card on another places it in front of that one.
+    s().moveCardBefore('st-sso', 'b-atlas', 'st-signup-form')
+    expect(devOrder()).toEqual(['st-sso', 'st-signup-form', 'st-email'])
+
+    // Dropping it on a card in another lane moves it there, at that position.
+    s().moveCardBefore('st-sso', 'b-atlas', 'st-signup-design')
+    expect(devOrder()).toEqual(['st-signup-form', 'st-email'])
+    expect(placementsInOrder(s().placements, done.id).map((p) => p.itemId)[0]).toBe('st-sso')
+
+    // A card dropped on itself is not a move.
+    s().moveCardBefore('st-email', 'b-atlas', 'st-email')
+    expect(devOrder()).toEqual(['st-signup-form', 'st-email'])
+  })
+
   it('a bulk move keeps the selection in its relative order', () => {
     // Bulk move acts on the current board, so the test has to be on it.
     s().selectBoard('b-atlas')

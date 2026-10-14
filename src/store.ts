@@ -222,6 +222,8 @@ export interface Actions {
   moveInitiative: (itemId: string, boardId: string, laneId: string) => void
   /** Move a card one place up or down within its lane (delta -1 = up). */
   moveCardRank: (itemId: string, boardId: string, delta: number) => void
+  /** Drop a card immediately before another (or at the end when `beforeItemId` is null). */
+  moveCardBefore: (itemId: string, boardId: string, beforeItemId?: string) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
 
   /** Checklist inside a card — sub-tasks (never schedulable, never WIP). */
@@ -1076,6 +1078,39 @@ export const useStore = create<Store>()(
         const rankById = new Map(ordered.map((p, i) => [p.id, i]))
         set({
           placements: state.placements.map((p) => (rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p)),
+        })
+      },
+
+      /**
+       * Drop a card immediately before another one — within its lane, or across lanes when
+       * the card it lands on is somewhere else. The lane is renumbered to a clean 0..n-1 as
+       * it is placed, so a lane that predates rank still ends up ordered.
+       */
+      moveCardBefore: (itemId, boardId, beforeItemId) => {
+        const state = get()
+        const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
+        if (!moving) return
+        const before = beforeItemId
+          ? state.placements.find((p) => p.itemId === beforeItemId && p.boardId === boardId)
+          : undefined
+        const laneId = before?.laneId ?? moving.laneId
+        const rest = state.placements.filter((p) => p.laneId === laneId && p.id !== moving.id)
+        const ordered = placementsInOrder(rest, laneId)
+        const at = before ? ordered.findIndex((p) => p.id === before.id) : ordered.length
+        ordered.splice(at < 0 ? ordered.length : at, 0, moving)
+        const rankById = new Map(ordered.map((p, i) => [p.id, i]))
+        const stage = effectiveStage(state.lanes, laneId)
+        set({
+          placements: state.placements.map((p) => {
+            if (p.id === moving.id) return { ...p, laneId, laneEnteredAt: Date.now(), rank: rankById.get(p.id) ?? 0 }
+            return rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p
+          }),
+          items: state.items.map((i) => {
+            if (i.id !== itemId) return i
+            if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
+            if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
+            return i
+          }),
         })
       },
 

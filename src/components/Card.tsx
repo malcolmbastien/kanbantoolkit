@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
@@ -63,6 +64,11 @@ interface Props {
   /** Native HTML5 drag (cards workflow). */
   draggable?: boolean
   /**
+   * Drop another card immediately before this one. The card becomes its own drop target so
+   * a card can be placed at a *position*, not just in a lane.
+   */
+  onDropBefore?: (draggedItemId: string) => void
+  /**
    * Notified with the item's id while a native drag is in flight, and `null` when it
    * ends. A surface needs this to know *what* is being dragged — `dataTransfer` is not
    * readable during `dragover` — so it can mark only the valid drop targets.
@@ -86,7 +92,7 @@ interface Props {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
+export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onDropBefore }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -99,6 +105,30 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
           onDragEnd: () => onDragStateChange?.(null),
         }
       : {}
+
+  /**
+   * The card is its own drop target, so another card can be placed at a *position* rather
+   * than just in a lane. Propagation is stopped so the cell underneath does not also light
+   * up as a target.
+   */
+  const dropProps = onDropBefore
+    ? {
+        onDragOver: (e: React.DragEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          e.dataTransfer.dropEffect = 'move'
+          if (!dropOver) setDropOver(true)
+        },
+        onDragLeave: () => setDropOver(false),
+        onDrop: (e: React.DragEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDropOver(false)
+          const id = e.dataTransfer.getData('text/plain')
+          if (id && id !== item.id) onDropBefore(id)
+        },
+      }
+    : {}
 
   // Highlight priority: a selected boundary dependency (amber) > multi-select
   // (indigo-600) > item selection (indigo-400) > lens.
@@ -167,6 +197,8 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       <Ban size={11} /> {summary.blockedBelow} blocked
     </span>
   ) : null
+
+  const [dropOver, setDropOver] = useState(false)
 
   const lensButton = onLens && !locked ? (
     <button
@@ -337,6 +369,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
   return (
     <div
       {...dragProps}
+      {...dropProps}
       data-card-id={item.id}
       style={{ backgroundColor: hexToRgba(type.color, 0.1), borderLeftColor: type.color }}
       onClick={(e) => {
@@ -353,6 +386,8 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       }}
       className={cn(
         'group relative flex min-h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
+        // A line above the card is where the dragged one will land.
+        dropOver && 'ring-2 ring-inset ring-indigo-500',
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
         lensCls,
         lockCls,

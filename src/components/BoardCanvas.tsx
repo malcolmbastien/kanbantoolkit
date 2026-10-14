@@ -64,6 +64,8 @@ interface Ctx {
   ageOf: (itemId: string) => number | undefined
   interactive: boolean
   dropCard: (itemId: string, laneId: string) => void
+  /** Drop a card at a position within a lane, before another card. */
+  dropBefore: (itemId: string, beforeItemId: string) => void
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
@@ -411,6 +413,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
+              onDropBefore={(draggedId) => ctx.dropBefore(draggedId, c.id)}
               lens={lensRole(c.id, ctx.lensId, graph)}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
@@ -547,6 +550,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const removeLane = useStore((s) => s.removeLane)
   const renameLane = useStore((s) => s.renameLane)
   const addCard = useStore((s) => s.addCard)
+  const moveCardBefore = useStore((s) => s.moveCardBefore)
   const lensId = useStore((s) => s.lensId)
 
   const graph: Graph = { items, edges, links, placements, lanes }
@@ -586,6 +590,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
+    dropBefore: (itemId, beforeItemId) => moveCardBefore(itemId, boardId, beforeItemId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = boardCardTypeId(boards.find((b) => b.id === boardId), issueTypes)
