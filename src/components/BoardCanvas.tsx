@@ -158,11 +158,14 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
+    // A header is its own bar rather than a strip flush to the column: it carries a margin
+    // so stacked headers read as separate things, and a white ground so it is not the same
+    // colour as the canvas behind it.
     return (
       <div
         className={cn(
-          'border-b px-2.5 py-1.5',
-          wip === 'over' ? WIP_HEADER.over : wip === 'at' ? WIP_HEADER.at : 'border-slate-300 bg-slate-100 text-slate-800',
+          'mx-1 mt-1 mb-0.5 rounded-md border px-2.5 py-1.5 shadow-sm',
+          wip === 'over' ? WIP_HEADER.over : wip === 'at' ? WIP_HEADER.at : 'border-slate-300 bg-white text-slate-800',
         )}
       >
         {/* Name truly centred, count and policy pinned right. The side columns are equal
