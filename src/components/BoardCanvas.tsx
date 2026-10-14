@@ -165,7 +165,15 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       <div
         className={cn(
           'mx-1 mt-1 mb-0.5 rounded-md border px-2.5 py-1.5 shadow-sm',
-          wip === 'over' ? WIP_HEADER.over : wip === 'at' ? WIP_HEADER.at : 'border-slate-300 bg-white text-slate-800',
+          // A collapsed row says so in its own right: a dashed edge and a muted ground, so
+          // it reads as folded away rather than as a row that happens to be short.
+          collapsed
+            ? 'border-dashed border-slate-400 bg-slate-100 text-slate-500 shadow-none'
+            : wip === 'over'
+              ? WIP_HEADER.over
+              : wip === 'at'
+                ? WIP_HEADER.at
+                : 'border-slate-300 bg-white text-slate-800',
         )}
       >
         {/* Name truly centred, count and policy pinned right. The side columns are equal
@@ -326,8 +334,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       >
         {!hideHeader && (editMode || lane.name) && header(false)}
         {collapsed ? (
-          <div className="px-2.5 py-1 text-[10px] italic text-slate-400">
-            {kids.length} lane{kids.length === 1 ? '' : 's'} hidden
+          <div className="px-1.5 pb-1">
+            <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-400 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+              <ChevronsRight size={10} /> {kids.length} lane{kids.length === 1 ? '' : 's'} hidden
+            </span>
           </div>
         ) : (
           <div
