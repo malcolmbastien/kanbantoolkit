@@ -169,7 +169,6 @@ export function BoardSummary({
     )
   }
 
-  const empty = <p className="px-1 py-2 text-[10px] text-slate-400">No initiatives</p>
 
   return (
     <div className="flex gap-2 p-2" data-dragging={dragging ?? undefined}>
@@ -210,7 +209,6 @@ export function BoardSummary({
                       onDrop={(itemId) => drop(itemId, cell.id)}
                     >
                       {cards.map(initiativeCard)}
-                      {cards.length === 0 && empty}
                     </Cell>
                   )
                 })
@@ -219,7 +217,6 @@ export function BoardSummary({
                   return (
                     <>
                       {cards.map(initiativeCard)}
-                      {cards.length === 0 && empty}
                     </>
                   )
                 })()}

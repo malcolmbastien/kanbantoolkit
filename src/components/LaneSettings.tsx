@@ -25,7 +25,7 @@ export function LanePolicy({ policy }: { policy: string }) {
         onMouseLeave={() => setPos(null)}
         onBlur={() => setPos(null)}
         onClick={(e) => e.stopPropagation()}
-        className="shrink-0 rounded p-0.5 text-slate-300/90 hover:bg-white/15 hover:text-white"
+        className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
         title="Lane policy"
         aria-label="Lane policy"
       >
