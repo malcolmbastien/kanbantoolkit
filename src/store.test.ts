@@ -394,7 +394,7 @@ describe('store actions', () => {
 
     // Older state simply has no collection; the migration supplies the built-ins.
     const migrated = migrateState({ boards: [] }) as { boardTemplates: { id: string }[] }
-    expect(migrated.boardTemplates.map((t) => t.id)).toEqual(['tpl-scrum'])
+    expect(migrated.boardTemplates.map((t) => t.id)).toEqual(['tpl-feature-flow', 'tpl-scrum'])
   })
 
   it('the migration adds built-in templates without duplicating them', () => {
@@ -413,7 +413,7 @@ describe('store actions', () => {
       boards: [],
       boardTemplates: [{ id: 'mine', name: 'Mine', band: 'team', lanes: [] }],
     }) as { boardTemplates: { id: string }[] }
-    expect(withOwn.boardTemplates.map((t) => t.id).sort()).toEqual(['mine', 'tpl-scrum'])
+    expect(withOwn.boardTemplates.map((t) => t.id).sort()).toEqual(['mine', 'tpl-feature-flow', 'tpl-scrum'])
 
     // A built-in whose definition has changed since it was stored is brought up to date.
     const stale = migrateState({
@@ -957,7 +957,7 @@ describe('store actions', () => {
   it('board card types: the allowed set restricts new cards and repairs the default', () => {
     const atlas = () => s().boards.find((b) => b.id === 'b-atlas')
     // Unrestricted by default.
-    expect(boardCardTypes(atlas(), s().issueTypes).map((t) => t.id)).toEqual(['t-story', 't-bug', 't-spike', 't-task'])
+    expect(boardCardTypes(atlas(), s().issueTypes).map((t) => t.id)).toEqual(['t-story', 't-epic', 't-bug', 't-spike', 't-task'])
 
     s().setBoardCardTypes('b-atlas', ['t-bug', 't-spike'])
     expect(atlas()?.cardTypeIds).toEqual(['t-bug', 't-spike'])
@@ -968,7 +968,7 @@ describe('store actions', () => {
     // An empty list clears the restriction.
     s().setBoardCardTypes('b-atlas', [])
     expect(atlas()?.cardTypeIds).toBeUndefined()
-    expect(boardCardTypes(atlas(), s().issueTypes)).toHaveLength(4)
+    expect(boardCardTypes(atlas(), s().issueTypes)).toHaveLength(5)
   })
 
   it('justify mode holds a move until a reason is given, then records it', () => {

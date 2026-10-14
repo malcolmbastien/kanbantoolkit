@@ -554,6 +554,11 @@ export function migrateState(persisted: unknown): Partial<Store> {
   if (Array.isArray(p.issueTypes) && !(p.issueTypes as IssueType[]).some((t) => t.name === 'Sub-task')) {
     p.issueTypes = [...(p.issueTypes as IssueType[]), { id: 't-subtask', name: 'Sub-task', color: '#94a3b8' }]
   }
+  // The Feature Flow template offers Epic and Story, so the Epic type has to exist for
+  // states that predate it.
+  if (Array.isArray(p.issueTypes) && !(p.issueTypes as IssueType[]).some((t) => t.name === 'Epic')) {
+    p.issueTypes = [...(p.issueTypes as IssueType[]), { id: 't-epic', name: 'Epic', color: '#8b5cf6' }]
+  }
   return p as Partial<Store>
 }
 
