@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, Columns3, CopyPlus, Eye, LayoutDashboard, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRight, Columns3, CopyPlus, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { TemplateEditor } from './TemplateEditor'
@@ -40,6 +40,9 @@ export function BoardWorkspace() {
   // The browser's primary cut is the flight level, so it is a filter rather than a
   // section header you scroll past.
   const [bandFilter, setBandFilter] = useState<BoardBand | 'all'>('all')
+  // Which card's kebab menu is open. Board admin lives behind it, so the card face is
+  // about the board rather than about what you can do to it.
+  const [menuFor, setMenuFor] = useState<string | null>(null)
   const boardTemplates = useStore((s) => s.boardTemplates)
   const [creatingTemplate, setCreatingTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
@@ -320,28 +323,51 @@ export function BoardWorkspace() {
                         >
                           <LayoutDashboard size={13} />
                         </a>
-                        <button
-                          onClick={() => duplicateBoard(b.id)}
-                          className="rounded p-1 text-slate-400 transition hover:text-slate-700"
-                          title={`Duplicate ${b.name} — its columns and settings, not its cards`}
-                        >
-                          <CopyPlus size={13} />
-                        </button>
-                        <button
-                          onClick={() => (b.archived ? unarchiveBoard(b.id) : archiveBoard(b.id))}
-                          className="rounded p-1 text-slate-400 transition hover:text-slate-700"
-                          title={b.archived ? `Restore ${b.name}` : `Archive ${b.name}`}
-                        >
-                          {b.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-                        </button>
-                        <button
-                          onClick={() => remove(b)}
-                          disabled={lastBoard}
-                          className="rounded p-1 text-slate-300 transition hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-30"
-                          title={lastBoard ? 'The last board cannot be deleted' : `Delete ${b.name}`}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+
+                        <div className="relative">
+                          <button
+                            onClick={() => setMenuFor(menuFor === b.id ? null : b.id)}
+                            className={cn(
+                              'grid h-6 w-6 place-items-center rounded transition',
+                              menuFor === b.id ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700',
+                            )}
+                            title={`More — ${b.name}`}
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+
+                          {menuFor === b.id && (
+                            <>
+                              <div className="fixed inset-0 z-20" onClick={() => setMenuFor(null)} />
+                              <div className="absolute right-0 z-30 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-xl">
+                                <MenuRow
+                                  icon={<CopyPlus size={13} />}
+                                  label="Duplicate"
+                                  hint="columns and settings, not its cards"
+                                  onClick={() => { duplicateBoard(b.id); setMenuFor(null) }}
+                                />
+                                <MenuRow
+                                  icon={b.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                                  label={b.archived ? 'Restore' : 'Archive'}
+                                  hint={b.archived ? 'put it back in play' : 'file it away, keep its links'}
+                                  onClick={() => {
+                                    if (b.archived) unarchiveBoard(b.id)
+                                    else archiveBoard(b.id)
+                                    setMenuFor(null)
+                                  }}
+                                />
+                                <MenuRow
+                                  icon={<Trash2 size={13} />}
+                                  label="Delete"
+                                  hint={lastBoard ? 'the last board cannot be deleted' : 'permanent'}
+                                  danger
+                                  disabled={lastBoard}
+                                  onClick={() => { setMenuFor(null); remove(b) }}
+                                />
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </span>
                     </div>
                   </div>
@@ -473,5 +499,36 @@ export function BoardWorkspace() {
 
       {preview && <TemplateEditor template={preview} onClose={() => setPreviewId(null)} />}
     </div>
+  )
+}
+
+function MenuRow({
+  icon,
+  label,
+  hint,
+  onClick,
+  danger,
+  disabled,
+}: {
+  icon: React.ReactNode
+  label: string
+  hint: string
+  onClick: () => void
+  danger?: boolean
+  disabled?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={hint}
+      className={cn(
+        'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition disabled:cursor-not-allowed disabled:opacity-40',
+        danger ? 'text-rose-600 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-50',
+      )}
+    >
+      <span className={cn('shrink-0', danger ? 'text-rose-500' : 'text-slate-400')}>{icon}</span>
+      <span className="flex-1">{label}</span>
+    </button>
   )
 }
