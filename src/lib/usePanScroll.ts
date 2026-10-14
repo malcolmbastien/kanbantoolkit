@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
 /**
@@ -21,6 +21,11 @@ const THRESHOLD = 4
  * so cards, initiatives, lanes and edit-mode controls keep their behaviour. And it waits
  * for the pointer to travel a few pixels, so a press that does not move is still a click —
  * deselecting a card, closing the panel or clearing a focus all keep working.
+ *
+ * The press is heard on the container, but the move and the release are heard on the
+ * window. Cards and the drag machinery between them stop propagation of pointermove, so a
+ * listener in the tree goes deaf the moment the pointer crosses one — which is exactly when
+ * a pan is under way.
  */
 export function usePanScroll<T extends HTMLElement>() {
   const ref = useRef<T>(null)
@@ -32,42 +37,37 @@ export function usePanScroll<T extends HTMLElement>() {
     const el = ref.current
     if (!el) return
     if ((e.target as HTMLElement).closest(INTERACTIVE)) return
-    // Capture the pointer, so a fast drag that leaves the container keeps panning instead
-    // of being cancelled by pointerleave.
-    el.setPointerCapture(e.pointerId)
     drag.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, active: false }
   }, [])
 
-  const onPointerMove = useCallback((e: ReactPointerEvent) => {
-    const d = drag.current
-    const el = ref.current
-    if (!d || !el) return
-    const dx = e.clientX - d.x
-    const dy = e.clientY - d.y
-    if (!d.active) {
-      if (Math.abs(dx) < THRESHOLD && Math.abs(dy) < THRESHOLD) return
-      d.active = true
-      setPanning(true)
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = drag.current
+      const el = ref.current
+      if (!d || !el) return
+      const dx = e.clientX - d.x
+      const dy = e.clientY - d.y
+      if (!d.active) {
+        if (Math.abs(dx) < THRESHOLD && Math.abs(dy) < THRESHOLD) return
+        d.active = true
+        setPanning(true)
+      }
+      el.scrollLeft = d.left - dx
+      el.scrollTop = d.top - dy
     }
-    el.scrollLeft = d.left - dx
-    el.scrollTop = d.top - dy
+    const end = () => {
+      drag.current = null
+      setPanning(false)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+    }
   }, [])
 
-  const end = useCallback((e: ReactPointerEvent) => {
-    if (ref.current?.hasPointerCapture(e.pointerId)) ref.current.releasePointerCapture(e.pointerId)
-    drag.current = null
-    setPanning(false)
-  }, [])
-
-  return {
-    ref,
-    panning,
-    handlers: {
-      onPointerDown,
-      onPointerMove,
-      onPointerUp: end,
-      onPointerCancel: end,
-      onPointerLeave: end,
-    },
-  }
+  return { ref, panning, handlers: { onPointerDown } }
 }
