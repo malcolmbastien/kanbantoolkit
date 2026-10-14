@@ -2,6 +2,7 @@ import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, List
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
+import { PriorityBadge } from './PriorityBadge'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
 
 export interface CardSummary {
@@ -222,6 +223,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
             <span className="text-[10px] font-semibold tabular-nums text-slate-400">{ref_}</span>
             {item.size ? <span className="text-[10px] tabular-nums text-slate-400">· {item.size}</span> : null}
             <span className="ml-auto flex items-center gap-1.5">
+              <PriorityBadge priority={item.priority} />
               {summary.dependentsCount > 0 && (
                 <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white" title={`${summary.dependentsCount} depend on this`}>
                   <ShieldAlert size={9} /> {summary.dependentsCount}
@@ -369,6 +371,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
             {item.size ? ` · ${item.size}` : ''}
           </span>
           <span className="ml-auto flex shrink-0 items-center gap-1">
+            <PriorityBadge priority={item.priority} />
             {summary.rollupPercent !== undefined && (
               <span className="rounded bg-slate-700 px-1 py-px text-[9px] font-bold text-white" title="Rollup — share of leaf work done">
                 {summary.rollupPercent}%

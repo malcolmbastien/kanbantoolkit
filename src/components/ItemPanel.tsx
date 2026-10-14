@@ -4,6 +4,7 @@ import {
   ArrowDown,
   Ban,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronUp,
   CircleDot,
@@ -13,6 +14,7 @@ import {
   LayoutGrid,
   ListChecks,
   MessageSquare,
+  Minus,
   MoreHorizontal,
   Network,
   Pencil,
@@ -43,6 +45,7 @@ import {
 import { buildRefs, boardCardTypes } from '@/domain/board'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
+import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
 import { DEP_STATE_STYLES, readableOn, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -62,13 +65,6 @@ const LOG_STYLES: Record<string, string> = {
   limit: 'bg-amber-500',
 }
 
-/** Priority is a judgement, not a derivation — so it is one of the few stored fields. */
-const PRIORITIES: { value: NonNullable<Item['priority']>; label: string; className: string }[] = [
-  { value: 'urgent', label: 'Urgent', className: 'text-rose-600' },
-  { value: 'high', label: 'High', className: 'text-amber-600' },
-  { value: 'medium', label: 'Medium', className: 'text-sky-600' },
-  { value: 'low', label: 'Low', className: 'text-slate-500' },
-]
 
 type Tab = 'details' | 'hierarchy' | 'activity'
 
@@ -110,6 +106,7 @@ export function ItemPanel({ itemId }: Props) {
 
   const [tab, setTab] = useState<Tab>('details')
   const [moreOpen, setMoreOpen] = useState(false)
+  const [priorityOpen, setPriorityOpen] = useState(false)
   const [blockOpen, setBlockOpen] = useState(false)
   const [dependencyId, setDependencyId] = useState('')
   const [childType, setChildType] = useState('')
@@ -454,16 +451,50 @@ export function ItemPanel({ itemId }: Props) {
               </Field>
 
               <Field label="Priority">
-                <select
-                  value={item.priority ?? ''}
-                  onChange={(e) => setItemFields(item.id, { priority: (e.target.value || undefined) as Item['priority'] })}
-                  className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-[12px] font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                >
-                  <option value="">None</option>
-                  {PRIORITIES.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    onClick={() => setPriorityOpen((o) => !o)}
+                    className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1.5 text-[12px] font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                    title="Priority — a judgement, stored rather than derived"
+                  >
+                    {item.priority ? (
+                      <>
+                        {(() => {
+                          const Icon = PRIORITY_META[item.priority].icon
+                          return <Icon size={12} className={PRIORITY_META[item.priority].dot} />
+                        })()}
+                        <span>{PRIORITY_META[item.priority].label}</span>
+                      </>
+                    ) : (
+                      <span className="text-slate-400">None</span>
+                    )}
+                    <ChevronDown size={12} className="ml-auto shrink-0 text-slate-400" />
+                  </button>
+                  {priorityOpen && (
+                    <div className="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg">
+                      <button
+                        onClick={() => { setItemFields(item.id, { priority: undefined }); setPriorityOpen(false) }}
+                        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px] text-slate-500 hover:bg-slate-50"
+                      >
+                        <Minus size={12} /> None
+                        {!item.priority && <Check size={11} className="ml-auto text-indigo-600" />}
+                      </button>
+                      {PRIORITY_ORDER.map((p) => {
+                        const { label, icon: Icon, dot } = PRIORITY_META[p]
+                        return (
+                          <button
+                            key={p}
+                            onClick={() => { setItemFields(item.id, { priority: p }); setPriorityOpen(false) }}
+                            className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px] text-slate-700 hover:bg-slate-50"
+                          >
+                            <Icon size={12} className={dot} /> {label}
+                            {item.priority === p && <Check size={11} className="ml-auto text-indigo-600" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </Field>
 
               <Field label="Lead">
