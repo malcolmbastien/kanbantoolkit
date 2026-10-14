@@ -61,12 +61,16 @@ export function TopBar(props: Props) {
           it shows the organisation's controls only. */}
       {!showBoards && (
         <>
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-            Board
-            <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
-          </div>
+          {/* The board's own controls never shrink, so the only thing that gives when the
+              bar is tight is the focus chip — which is why focusing no longer wraps the
+              bar and shoves the whole screen down. */}
+          <div className="flex min-w-0 shrink-0 items-center gap-x-3">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              Board
+              <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
+            </div>
 
-          <div className="h-5 w-px bg-slate-700" />
+            <div className="h-5 w-px bg-slate-700" />
 
           <button
             onClick={onToggleBoards}
@@ -125,11 +129,13 @@ export function TopBar(props: Props) {
             )}
           </button>
 
+          </div>
+
           <FocusChip />
         </>
       )}
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         {!showBoards && (
           <>
             {editMode && (
