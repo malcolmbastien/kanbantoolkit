@@ -346,7 +346,7 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
       style={{ flexGrow: leafCount(template, lane.key), flexBasis: 0 }}
     >
       <div
-        className="flex items-center gap-1.5 bg-slate-100 px-1.5 py-0.5"
+        className="mx-0.5 mt-0.5 flex items-center gap-1.5 rounded border border-slate-300 bg-white px-1.5 py-0.5"
         style={lane.stage ? { borderTop: `3px solid ${STAGE_ACCENT[lane.stage]}` } : undefined}
       >
         {editing ? (

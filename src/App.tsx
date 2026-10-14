@@ -12,7 +12,6 @@ import { FocusChip } from './components/FocusChip'
 import { ManagementDashboard } from './components/ManagementDashboard'
 import { ObjectivesView } from './components/ObjectivesView'
 import { TopBar } from './components/TopBar'
-import { TypeEditor } from './components/TypeEditor'
 import { boardCardTypeId } from './domain/board'
 import { activeFilterCount } from './domain/filters'
 import { leafLanes } from './domain/lanes'
@@ -25,7 +24,6 @@ export default function App() {
   const saveEdit = useStore((s) => s.saveEdit)
   const cancelEdit = useStore((s) => s.cancelEdit)
   const selectedItemId = useStore((s) => s.selectedItemId)
-  const showTypeEditor = useStore((s) => s.showTypeEditor)
   const editMode = useStore((s) => s.editMode)
   const showObjectives = useStore((s) => s.showObjectives)
   const toggleObjectives = useStore((s) => s.toggleObjectives)
@@ -201,7 +199,6 @@ export default function App() {
         {showFilters ? <FilterPanel /> : selectedItemId ? <ItemPanel itemId={selectedItemId} /> : null}
       </div>
 
-      {showTypeEditor && <TypeEditor />}
       {showBoardSettings && <BoardSettings />}
       <FocusChip />
       <ConfirmDialog />

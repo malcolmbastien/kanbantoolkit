@@ -49,7 +49,6 @@ export interface ViewState {
   boardId: string
   selectedItemId: string | null
   search: string
-  showTypeEditor: boolean
   /** Board design controls (split / add / rename / delete lanes) only show in edit mode. */
   editMode: boolean
   /** Snapshot taken on entering edit mode; Cancel restores it, Save drops it. */
@@ -93,7 +92,6 @@ export interface Actions {
   selectBoard: (id: string) => void
   openItem: (id: string | null) => void
   setSearch: (q: string) => void
-  toggleTypeEditor: () => void
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
@@ -340,7 +338,6 @@ const initialView: ViewState = {
   boardId: 'b-portfolio',
   selectedItemId: null,
   search: '',
-  showTypeEditor: false,
   editMode: false,
   draft: null,
   lensId: null,
@@ -612,7 +609,6 @@ export const useStore = create<Store>()(
       selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null }),
       openItem: (selectedItemId) => set({ selectedItemId, multiSelect: [], ...(selectedItemId ? { showFilters: false } : {}) }),
       setSearch: (search) => set({ search }),
-      toggleTypeEditor: () => set({ showTypeEditor: !get().showTypeEditor }),
       toggleFilters: () => {
         const show = !get().showFilters
         // One side panel at a time: opening filters dismisses an open card.
