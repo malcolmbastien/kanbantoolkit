@@ -127,25 +127,42 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
   // that can be true of a card, and a chip the size of the link count reads as metadata.
   // The rolled-up counts stay chips, because they are metadata.
   const blockedChip = item.blocked ? (
-    <span
-      className="flex w-full items-center justify-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
-      title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
-    >
-      <Ban size={11} /> blocked{item.blockedReason ? ` · ${item.blockedReason}` : ''}
-    </span>
-  ) : summary.blockedBelow > 0 ? (
-    blockedTone === 'aggregate' ? (
+    // A narrow card has no room for anything but the loudest possible statement, so it is
+    // a bar across the card. A wide card has the room for a badge, and the initiative's
+    // blocked state is what a reader scans for — so it is a solid pill, the same weight of
+    // red either way.
+    wide ? (
       <span
-        className="flex items-center gap-0.5 font-semibold text-amber-600"
-        title={`${summary.blockedBelow} blocked below — rolled up from team cards`}
+        className="flex shrink-0 items-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+        title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
       >
-        <Ban size={11} /> {summary.blockedBelow} blocked below
+        <Ban size={11} /> blocked
       </span>
     ) : (
-      <span className="flex items-center gap-0.5 font-bold text-rose-600" title={`${summary.blockedBelow} blocked below`}>
-        <Ban size={11} /> {summary.blockedBelow} blocked
+      <span
+        className="flex w-full items-center justify-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+        title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
+      >
+        <Ban size={11} /> blocked{item.blockedReason ? ` · ${item.blockedReason}` : ''}
       </span>
     )
+  ) : summary.blockedBelow > 0 ? (
+    // Rolled up: a solid pill on the initiative, so a blockage anywhere beneath it reads
+    // at a glance rather than as another piece of metadata. The aggregate tone stays
+    // softer in colour for a top-level initiative, but keeps the same weight of shape.
+    <span
+      className={cn(
+        'flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold text-white',
+        blockedTone === 'aggregate' ? 'bg-amber-500' : 'bg-rose-600',
+      )}
+      title={
+        blockedTone === 'aggregate'
+          ? `${summary.blockedBelow} blocked below — rolled up from team cards`
+          : `${summary.blockedBelow} blocked below`
+      }
+    >
+      <Ban size={11} /> {summary.blockedBelow} blocked
+    </span>
   ) : null
 
   const lensButton = onLens && !locked ? (
