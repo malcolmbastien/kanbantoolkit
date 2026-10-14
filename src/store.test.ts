@@ -857,6 +857,36 @@ describe('store actions', () => {
     expect(s().multiSelect).toEqual([])
   })
 
+  it('every path that moves a card stamps when it arrived', () => {
+    const stamp = (id: string) => s().placements.find((p) => p.itemId === id && p.boardId === 'b-atlas')?.laneEnteredAt
+    const dev = laneByName('b-atlas', 'Dev')
+    const done = laneByName('b-atlas', 'Done')
+
+    // Seeded placements predate the clock, so they carry no age — which is the honest
+    // 'unknown', not zero.
+    expect(stamp('st-email')).toBeUndefined()
+
+    // A move stamps.
+    s().moveCard('st-email', 'b-atlas', dev.id)
+    const moved = stamp('st-email')
+    expect(moved).toBeTruthy()
+
+    // And a later move re-stamps rather than keeping the old arrival.
+    s().moveCard('st-email', 'b-atlas', done.id)
+    expect(stamp('st-email')).toBeTruthy()
+    expect(stamp('st-email')).not.toBe(moved)
+
+    // Removing a lane relocates its cards, and they are stamped on arrival too.
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().splitLane(ns.id, 'rows')
+    expect(stamp('st-email')).toBeTruthy()
+
+    // A new card is stamped at birth.
+    s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: done.id, title: 'Fresh' })
+    const fresh = s().items[s().items.length - 1]
+    expect(stamp(fresh.id)).toBeTruthy()
+  })
+
   it('a filter narrows what you see, never the load a column carries', () => {
     const ns = laneByName('b-atlas', 'Not Started')
     const before = laneCardCount(s().lanes, s().placements, ns.id)

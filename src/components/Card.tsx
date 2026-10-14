@@ -315,16 +315,6 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
               <span className="hidden text-slate-400 @[360px]:inline">{summary.openDescendants} open below</span>
             )}
             <span className="ml-auto flex items-center gap-2">
-              {summary.ageDays !== undefined && summary.ageDays >= 7 && (
-                <span
-                  // No container gate: an icon and a number, and the whole point is that a
-                  // stale card says so on a normal-width card.
-                  className="flex items-center gap-0.5 font-semibold text-amber-600"
-                  title={`${summary.ageDays} days in this lane`}
-                >
-                  <Clock size={11} /> {summary.ageDays}d
-                </span>
-              )}
               {assignees.length > 0 && (
                 <span className="flex items-center gap-0.5">
                   {assignees.slice(0, 3).map((u) => (
@@ -379,6 +369,14 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
             {item.size ? ` · ${item.size}` : ''}
           </span>
           <span className="ml-auto flex shrink-0 items-center gap-1">
+            {summary.ageDays !== undefined && summary.ageDays >= 7 && (
+              <span
+                className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"
+                title={`${summary.ageDays} days in this lane`}
+              >
+                <Clock size={11} /> {summary.ageDays}d
+              </span>
+            )}
             <PriorityBadge priority={item.priority} />
             {summary.rollupPercent !== undefined && (
               <span className="rounded bg-slate-700 px-1 py-px text-[9px] font-bold text-white" title="Rollup — share of leaf work done">
