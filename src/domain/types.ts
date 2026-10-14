@@ -191,6 +191,11 @@ export interface Item {
   size?: number
   /** Assignee user ids (see `User`). A card or initiative can have several. */
   assignees?: string[]
+  /**
+   * Priority — a judgement the team makes, so unlike level, dependency state and status
+   * it is stored rather than derived. It never affects rollup, WIP or status.
+   */
+  priority?: 'urgent' | 'high' | 'medium' | 'low'
   /** Target start / end dates, ISO 'YYYY-MM-DD'. Shown on the management dashboard. */
   targetStartDate?: string
   targetEndDate?: string
