@@ -887,7 +887,7 @@
         "id": "58",
         "title": "Board filters: by assignee, by priority, by card age",
         "description": "P1: extend the existing filter panel (blocked / overdue / unassigned) with the three dimensions the new fields make possible.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "54",
           "56"
@@ -941,7 +941,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-14T12:00:00.000Z",
       "taskCount": 60,
-      "completedCount": 36,
+      "completedCount": 37,
       "tags": [
         "backlog"
       ]
