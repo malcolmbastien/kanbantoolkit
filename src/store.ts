@@ -224,6 +224,8 @@ export interface Actions {
   moveCardRank: (itemId: string, boardId: string, delta: number) => void
   /** Drop a card immediately before another (or at the end when `beforeItemId` is null). */
   moveCardBefore: (itemId: string, boardId: string, beforeItemId?: string) => void
+  /** Drop a card immediately after another. */
+  moveCardAfter: (itemId: string, boardId: string, afterItemId: string) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
 
   /** Checklist inside a card — sub-tasks (never schedulable, never WIP). */
@@ -278,6 +280,44 @@ export interface Actions {
 export type Store = FlowState & ViewState & Actions
 
 const uid = makeUid
+
+/**
+ * Put a card at a position in a lane: before a card, after a card, or at the end. The lane
+ * is renumbered to a clean 0..n-1 as it lands, so a lane that predates rank ends up ordered
+ * rather than keeping whatever numbers happened to be there.
+ */
+function placeCard(
+  set: (partial: Partial<Store>) => void,
+  state: Store,
+  moving: Placement,
+  laneId: string,
+  where: 'before' | 'after' | 'end',
+  target?: Placement,
+) {
+  // Dropping a card on itself is not a move — the target has to be a different card.
+  if (target && target.id === moving.id) return
+  const rest = state.placements.filter((p) => p.laneId === laneId && p.id !== moving.id)
+  const ordered = placementsInOrder(rest, laneId)
+  const at =
+    where === 'end' || !target
+      ? ordered.length
+      : Math.max(0, ordered.findIndex((p) => p.id === target.id) + (where === 'after' ? 1 : 0))
+  ordered.splice(at, 0, moving)
+  const rankById = new Map(ordered.map((p, i) => [p.id, i]))
+  const stage = effectiveStage(state.lanes, laneId)
+  set({
+    placements: state.placements.map((p) => {
+      if (p.id === moving.id) return { ...p, laneId, laneEnteredAt: Date.now(), rank: rankById.get(p.id) ?? 0 }
+      return rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p
+    }),
+    items: state.items.map((i) => {
+      if (i.id !== moving.itemId) return i
+      if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
+      if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
+      return i
+    }),
+  })
+}
 
 /**
  * Move a placement into a lane: stamp when it arrived — the clock card age reads — and rank
@@ -1083,8 +1123,8 @@ export const useStore = create<Store>()(
 
       /**
        * Drop a card immediately before another one — within its lane, or across lanes when
-       * the card it lands on is somewhere else. The lane is renumbered to a clean 0..n-1 as
-       * it is placed, so a lane that predates rank still ends up ordered.
+       * the card it lands on is somewhere else. `at` is worked out from the target, and the
+       * lane is renumbered to a clean 0..n-1 as the card is placed.
        */
       moveCardBefore: (itemId, boardId, beforeItemId) => {
         const state = get()
@@ -1093,25 +1133,16 @@ export const useStore = create<Store>()(
         const before = beforeItemId
           ? state.placements.find((p) => p.itemId === beforeItemId && p.boardId === boardId)
           : undefined
-        const laneId = before?.laneId ?? moving.laneId
-        const rest = state.placements.filter((p) => p.laneId === laneId && p.id !== moving.id)
-        const ordered = placementsInOrder(rest, laneId)
-        const at = before ? ordered.findIndex((p) => p.id === before.id) : ordered.length
-        ordered.splice(at < 0 ? ordered.length : at, 0, moving)
-        const rankById = new Map(ordered.map((p, i) => [p.id, i]))
-        const stage = effectiveStage(state.lanes, laneId)
-        set({
-          placements: state.placements.map((p) => {
-            if (p.id === moving.id) return { ...p, laneId, laneEnteredAt: Date.now(), rank: rankById.get(p.id) ?? 0 }
-            return rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p
-          }),
-          items: state.items.map((i) => {
-            if (i.id !== itemId) return i
-            if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
-            if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
-            return i
-          }),
-        })
+        placeCard(set, state, moving, before?.laneId ?? moving.laneId, before ? 'before' : 'end', before)
+      },
+
+      /** Drop a card immediately after another — the bottom half of a card. */
+      moveCardAfter: (itemId, boardId, afterItemId) => {
+        const state = get()
+        const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
+        const after = state.placements.find((p) => p.itemId === afterItemId && p.boardId === boardId)
+        if (!moving || !after) return
+        placeCard(set, state, moving, after.laneId, 'after', after)
       },
 
       moveInitiative: (itemId, boardId, laneId) => {

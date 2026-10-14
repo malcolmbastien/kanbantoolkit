@@ -906,9 +906,20 @@ describe('store actions', () => {
     expect(devOrder()).toEqual(['st-signup-form', 'st-email'])
     expect(placementsInOrder(s().placements, done.id).map((p) => p.itemId)[0]).toBe('st-sso')
 
+    // Dropping on the lower half of a middle card lands it *after* that card, not at the end.
+    s().moveCard('st-sso', 'b-atlas', dev.id)
+    expect(devOrder()).toEqual(['st-signup-form', 'st-email', 'st-sso'])
+    s().moveCardAfter('st-signup-form', 'b-atlas', 'st-email')
+    expect(devOrder()).toEqual(['st-email', 'st-signup-form', 'st-sso'])
+
+    // ...and on the last card it reaches the bottom of the stack, which was the unreachable
+    // position when a drop could only ever insert before.
+    s().moveCardAfter('st-email', 'b-atlas', 'st-sso')
+    expect(devOrder()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
+
     // A card dropped on itself is not a move.
     s().moveCardBefore('st-email', 'b-atlas', 'st-email')
-    expect(devOrder()).toEqual(['st-signup-form', 'st-email'])
+    expect(devOrder()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
   })
 
   it('a bulk move keeps the selection in its relative order', () => {

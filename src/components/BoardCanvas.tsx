@@ -66,6 +66,8 @@ interface Ctx {
   dropCard: (itemId: string, laneId: string) => void
   /** Drop a card at a position within a lane, before another card. */
   dropBefore: (itemId: string, beforeItemId: string) => void
+  /** Drop a card on one side of another: 'before' its top half, 'after' its bottom. */
+  dropAt: (itemId: string, targetId: string, place: 'before' | 'after') => void
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
@@ -413,7 +415,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
-              onDropBefore={(draggedId) => ctx.dropBefore(draggedId, c.id)}
+              onDropAt={(draggedId, place) => ctx.dropAt(draggedId, c.id, place)}
               lens={lensRole(c.id, ctx.lensId, graph)}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
@@ -551,6 +553,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const renameLane = useStore((s) => s.renameLane)
   const addCard = useStore((s) => s.addCard)
   const moveCardBefore = useStore((s) => s.moveCardBefore)
+  const moveCardAfter = useStore((s) => s.moveCardAfter)
   const lensId = useStore((s) => s.lensId)
 
   const graph: Graph = { items, edges, links, placements, lanes }
@@ -591,6 +594,8 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     dropBefore: (itemId, beforeItemId) => moveCardBefore(itemId, boardId, beforeItemId),
+    dropAt: (itemId, targetId, place) =>
+      place === 'before' ? moveCardBefore(itemId, boardId, targetId) : moveCardAfter(itemId, boardId, targetId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {
       const typeId = boardCardTypeId(boards.find((b) => b.id === boardId), issueTypes)

@@ -67,7 +67,7 @@ interface Props {
    * Drop another card immediately before this one. The card becomes its own drop target so
    * a card can be placed at a *position*, not just in a lane.
    */
-  onDropBefore?: (draggedItemId: string) => void
+  onDropAt?: (draggedItemId: string, place: 'before' | 'after') => void
   /**
    * Notified with the item's id while a native drag is in flight, and `null` when it
    * ends. A surface needs this to know *what* is being dragged — `dataTransfer` is not
@@ -92,7 +92,7 @@ interface Props {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onDropBefore }: Props) {
+export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onDropAt }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -111,21 +111,39 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
    * than just in a lane. Propagation is stopped so the cell underneath does not also light
    * up as a target.
    */
-  const dropProps = onDropBefore
+  /**
+   * Which half of the card the pointer is over. That decides the side the dragged card
+   * lands on — so the bottom of a stack is reachable, by dropping *after* the last card.
+   */
+  const sideOf = (e: React.DragEvent): 'before' | 'after' => {
+    const box = e.currentTarget.getBoundingClientRect()
+    return e.clientY < box.top + box.height / 2 ? 'before' : 'after'
+  }
+
+  const dropProps = onDropAt
     ? {
         onDragOver: (e: React.DragEvent) => {
           e.preventDefault()
           e.stopPropagation()
           e.dataTransfer.dropEffect = 'move'
-          if (!dropOver) setDropOver(true)
+          const place = sideOf(e)
+          if (dropAt !== place) setDropAt(place)
         },
-        onDragLeave: () => setDropOver(false),
+        onDragLeave: (e: React.DragEvent) => {
+          // dragleave fires when the pointer crosses a child, which is what made the
+          // indicator flicker. Only a real exit clears it.
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return
+          setDropAt(null)
+        },
         onDrop: (e: React.DragEvent) => {
           e.preventDefault()
           e.stopPropagation()
-          setDropOver(false)
+          // Read the side from the drop itself. The indicator's state may not have
+          // committed yet, and a drop must never depend on a re-render having happened.
+          const place = sideOf(e)
+          setDropAt(null)
           const id = e.dataTransfer.getData('text/plain')
-          if (id && id !== item.id) onDropBefore(id)
+          if (id && id !== item.id) onDropAt(id, place)
         },
       }
     : {}
@@ -198,7 +216,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
     </span>
   ) : null
 
-  const [dropOver, setDropOver] = useState(false)
+  const [dropAt, setDropAt] = useState<'before' | 'after' | null>(null)
 
   const lensButton = onLens && !locked ? (
     <button
@@ -386,8 +404,10 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       }}
       className={cn(
         'group relative flex min-h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
-        // A line above the card is where the dragged one will land.
-        dropOver && 'ring-2 ring-inset ring-indigo-500',
+        // A line on the edge the dragged card will land against — not a box around the
+        // card, which reads as 'replace' rather than 'insert here'.
+        dropAt === 'before' && 'shadow-[inset_0_3px_0_0_#6366f1]',
+        dropAt === 'after' && 'shadow-[inset_0_-3px_0_0_#6366f1]',
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
         lensCls,
         lockCls,
