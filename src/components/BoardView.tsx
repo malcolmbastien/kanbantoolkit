@@ -1,14 +1,13 @@
-import { Archive, Check, Layers, Trash2, X } from 'lucide-react'
+import { Archive, Check, Trash2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
-import { externalDependenciesOnBoard, isAggregating } from '@/domain/board'
+import { isAggregating } from '@/domain/board'
 import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { Graph } from '@/domain/derive'
 
 interface Props {
   requestMove: (itemId: string, boardId: string, laneId: string) => void
@@ -16,8 +15,6 @@ interface Props {
 
 export function BoardView({ requestMove }: Props) {
   const items = useStore((s) => s.items)
-  const edges = useStore((s) => s.edges)
-  const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const boards = useStore((s) => s.boards)
@@ -34,16 +31,14 @@ export function BoardView({ requestMove }: Props) {
   // Coordination/strategic boards aggregate; operational boards render the flow.
   if (isAggregating(board)) return <ManagementBoard boardId={boardId} />
 
-  const graph: Graph = { items, edges, links, placements, lanes }
   const accent = BAND_ACCENT[board?.band ?? 'team']
-  const external = externalDependenciesOnBoard(graph, boardId)
   const doneCount = placements.filter(
     (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
   ).length
 
   // The board's level and name already live in the TopBar's board picker, so this
   // strip only appears when it has something functional to say.
-  const showBar = Boolean(board?.archived || editMode || doneCount > 0 || external.length > 0)
+  const showBar = Boolean(board?.archived || editMode || doneCount > 0)
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-100">
@@ -108,11 +103,6 @@ export function BoardView({ requestMove }: Props) {
                 <Archive size={11} /> Archive done ({doneCount})
               </button>
             )}
-            {external.length > 0 && (
-              <span className="flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-px font-medium text-slate-600">
-                <Layers size={11} /> {external.length} external dependenc{external.length > 1 ? 'ies' : 'y'}
-              </span>
-            )}
           </div>
         </div>
       )}
@@ -126,9 +116,6 @@ export function BoardView({ requestMove }: Props) {
               <h2 className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
               <span className="truncate text-[11px] text-slate-500">this team’s initiatives — status rolls up from the cards below</span>
             </div>
-            <span className="shrink-0 rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm">
-              Rollup active
-            </span>
           </div>
           <BoardSummary boardId={boardId} interactive />
         </section>
