@@ -13,7 +13,6 @@ import {
   decompositionParent,
   dependenciesOf,
   dependentsOf,
-  depth as depthOf,
   lensRole,
   openDescendants,
   rollupOf,
@@ -391,7 +390,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               item={c}
               type={typeOf(c.typeId)}
               ref_={refs.get(c.id) ?? ''}
-              depth={depthOf(c.id, graph)}
               parent={parent}
               selected={ctx.selectedItemId === c.id}
               boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}

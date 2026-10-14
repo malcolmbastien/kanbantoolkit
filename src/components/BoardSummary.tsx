@@ -9,7 +9,6 @@ import {
   decompositionParent,
   dependenciesOf,
   dependentsOf,
-  depth as depthOf,
   lensRole,
   openDescendants,
   rollupOf,
@@ -140,7 +139,6 @@ export function BoardSummary({
         item={c}
         type={typeOf(c.typeId)}
         ref_={refs.get(c.id) ?? ''}
-        depth={depthOf(c.id, graph)}
         parent={parent}
         wide
         users={users}

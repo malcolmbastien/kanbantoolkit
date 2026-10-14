@@ -41,7 +41,6 @@ interface Props {
   item: Item
   type: IssueType
   ref_: string
-  depth: number
   summary: CardSummary
   /** The people directory, to resolve `item.assignees` ids to names / initials. */
   users?: User[]
@@ -84,7 +83,7 @@ interface Props {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
+export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -364,16 +363,12 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
                 {summary.dependentsCount}
               </span>
             )}
-            {multi ? (
+            {multi && (
               <span
                 className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-indigo-600 text-white shadow-sm"
                 title="Selected"
               >
                 <Check size={10} strokeWidth={3} />
-              </span>
-            ) : (
-              <span className="text-[9px] font-bold text-slate-400" title={`Structural depth ${depth} (derived from parent/child)`}>
-                d{depth}
               </span>
             )}
             {lensButton}
