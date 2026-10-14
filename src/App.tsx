@@ -57,7 +57,6 @@ export default function App() {
   const openItem = useStore((s) => s.openItem)
   const moveCard = useStore((s) => s.moveCard)
   const addCard = useStore((s) => s.addCard)
-  const addBoard = useStore((s) => s.addBoard)
   const setLens = useStore((s) => s.setLens)
 
   useEffect(() => {
@@ -163,7 +162,6 @@ export default function App() {
     if (firstLeaf) onAddCard(firstLeaf.id)
   }
 
-  const onNewBoard = (name: string) => addBoard(name)
 
   return (
     <div className="flex h-full flex-col">
@@ -190,7 +188,6 @@ export default function App() {
         onOpenTypes={toggleTypeEditor}
         onOpenBoardSettings={toggleBoardSettings}
         onAddCard={quickAdd}
-        onNewBoard={onNewBoard}
         onReset={resetDemo}
       />
 

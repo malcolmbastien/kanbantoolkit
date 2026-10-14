@@ -1,4 +1,4 @@
-import { Archive, Trash2 } from 'lucide-react'
+import { Archive } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
@@ -22,7 +22,6 @@ export function BoardView({ requestMove }: Props) {
   const editMode = useStore((s) => s.editMode)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
-  const removeBoard = useStore((s) => s.removeBoard)
 
   const board = boards.find((b) => b.id === boardId)
 
@@ -54,21 +53,6 @@ export function BoardView({ requestMove }: Props) {
                 wrap it. */}
             {editMode && (
               <>
-                <button
-                  onClick={() =>
-                    askConfirm({
-                      title: `Delete "${board?.name ?? 'this board'}"?`,
-                      body: 'Its lanes, cards and placements are removed. Use Archive to file it away instead.',
-                      confirmLabel: 'Delete board',
-                      danger: true,
-                      onConfirm: () => removeBoard(boardId),
-                    })
-                  }
-                  className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:border-rose-300 hover:text-rose-600"
-                  title="Delete this board"
-                >
-                  <Trash2 size={11} /> Delete board
-                </button>
               </>
             )}
             {doneCount > 0 && !editMode && (
