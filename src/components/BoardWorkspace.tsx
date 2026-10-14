@@ -37,6 +37,9 @@ export function BoardWorkspace() {
   const [band, setBand] = useState<BoardBand>('team')
   const [templateId, setTemplateId] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  // The browser's primary cut is the flight level, so it is a filter rather than a
+  // section header you scroll past.
+  const [bandFilter, setBandFilter] = useState<BoardBand | 'all'>('all')
   const boardTemplates = useStore((s) => s.boardTemplates)
   const [creatingTemplate, setCreatingTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
@@ -44,7 +47,9 @@ export function BoardWorkspace() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
 
-  const groups = boardsByBand(boards, q, showArchived)
+  const allGroups = boardsByBand(boards, q, showArchived)
+  const groups = bandFilter === 'all' ? allGroups : allGroups.filter((g) => g.band === bandFilter)
+  const bandCount = (b: BoardBand) => allGroups.find((g) => g.band === b)?.boards.length ?? 0
   const shown = groups.reduce((n, g) => n + g.boards.length, 0)
   const archivedCount = boards.filter((b) => b.archived).length
   const lastBoard = boards.length <= 1
@@ -111,11 +116,32 @@ export function BoardWorkspace() {
           <div>
             <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-indigo-600">
               <Columns3 size={12} /> Boards
+              <span className="rounded-full bg-indigo-50 px-1.5 py-px text-[10px] font-bold tabular-nums text-indigo-700 ring-1 ring-indigo-200">
+                {shown}
+              </span>
             </div>
-            <div className="text-[16px] font-semibold text-slate-800">
-              {shown} board{shown === 1 ? '' : 's'}
+            <div className="text-[16px] font-semibold text-slate-800">Every board in the organisation</div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              {(['all', ...BOARD_BANDS] as (BoardBand | 'all')[]).map((b) => {
+                const on = bandFilter === b
+                const count = b === 'all' ? shown : bandCount(b)
+                const style = b === 'all' ? undefined : BAND_STYLES[b] ?? BAND_STYLES.team
+                return (
+                  <button
+                    key={b}
+                    onClick={() => setBandFilter(b)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-medium transition',
+                      on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
+                    )}
+                  >
+                    {style && <span className={cn('h-2 w-2 rounded-full', style.chip.split(' ')[0])} />}
+                    {b === 'all' ? 'All' : style?.label}
+                    <span className={cn('tabular-nums', on ? 'text-indigo-500' : 'text-slate-400')}>{count}</span>
+                  </button>
+                )
+              })}
             </div>
-            <div className="text-[11px] text-slate-500">Every board in the organisation, grouped by flight level.</div>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
