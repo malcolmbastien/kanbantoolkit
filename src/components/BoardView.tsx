@@ -8,6 +8,7 @@ import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { usePanScroll } from '@/lib/usePanScroll'
 
 interface Props {
   requestMove: (itemId: string, boardId: string, laneId: string) => void
@@ -24,6 +25,8 @@ export function BoardView({ requestMove }: Props) {
   const askConfirm = useStore((s) => s.askConfirm)
 
   const board = boards.find((b) => b.id === boardId)
+  // Drag empty workflow space to move the board. See usePanScroll.
+  const pan = usePanScroll<HTMLDivElement>()
 
   // Coordination/strategic boards aggregate; operational boards render the flow.
   if (isAggregating(board)) return <ManagementBoard boardId={boardId} />
@@ -75,7 +78,7 @@ export function BoardView({ requestMove }: Props) {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+      <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 space-y-4 overflow-y-auto p-3', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
         {/* Initiatives workflow — this team's initiatives, by rollup */}
         <section className="space-y-2">
           <div className={cn('flex items-center justify-between gap-2 border-b pb-1.5', accent.rule)}>

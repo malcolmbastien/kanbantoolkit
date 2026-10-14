@@ -928,10 +928,10 @@
         "id": "61",
         "title": "Pan the board by dragging empty workflow space",
         "description": "P1: drag any empty part of a workflow to pan the board — for navigating flows wider than the screen, and to stop a drag on the board from becoming a text selection.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "details": "Both workflows scroll — BoardCanvas and BoardSummary sit inside an overflow container — but the only way to move sideways is the scrollbar, and a drag on empty board surface starts a text selection instead, which is the opposite of what it looks like it should do. Make a press on empty workflow space start a pan: the cursor becomes a grabbing hand, the container scrolls with the pointer, and text selection is suppressed for the duration. It must not disturb anything already draggable — cards, initiatives, lanes and the edit-mode controls — so a pan only begins when the press lands on the workflow surface itself and not on a card, a cell's interactive content, or a control. Clicks must keep working: a press that does not move is still a click (deselect, close the panel, clear focus), so the pan needs a small movement threshold before it engages. Touch and trackpad pan natively, so scope this to pointer devices and leave the scrollbar as it is. Worth doing for the cards workflow and the initiatives flow in one go — they share the scroll container shape — and for the boundary panel if it scrolls independently.",
+        "details": "Both workflows scroll — BoardCanvas and BoardSummary sit inside an overflow container — but the only way to move sideways is the scrollbar, and a drag on empty board surface starts a text selection instead, which is the opposite of what it looks like it should do. Make a press on empty workflow space start a pan: the cursor becomes a grabbing hand, the container scrolls with the pointer, and text selection is suppressed for the duration. It must not disturb anything already draggable — cards, initiatives, lanes and the edit-mode controls — so a pan only begins when the press lands on the workflow surface itself and not on a card, a cell's interactive content, or a control. Clicks must keep working: a press that does not move is still a click (deselect, close the panel, clear focus), so the pan needs a small movement threshold before it engages. Touch and trackpad pan natively, so scope this to pointer devices and leave the scrollbar as it is. Worth doing for the cards workflow and the initiatives flow in one go — they share the scroll container shape — and for the boundary panel if it scrolls independently. DELIVERED: usePanScroll in src/lib, wired to the cards canvas, the board view and the coordination view. Pointer capture on press so a fast drag keeps panning; a four-pixel threshold so a motionless press is still a click; select-none while panning; grab/grabbing cursor. Verified with synthetic pointer events: empty-space drag scrolls and stays, motionless press still opens a card, a drag from a card moves neither.",
         "testStrategy": "Behavioural check over CDP: a drag on empty workflow space scrolls the container and leaves no text selected; a drag that starts on a card still moves the card and never pans; a press with no movement still behaves as a click; the edit-mode lane controls still work. Verify both workflows. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-14T12:00:00.000Z"
@@ -941,7 +941,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-14T12:00:00.000Z",
       "taskCount": 60,
-      "completedCount": 33,
+      "completedCount": 34,
       "tags": [
         "backlog"
       ]

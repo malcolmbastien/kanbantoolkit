@@ -26,6 +26,7 @@ import { matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { usePanScroll } from '@/lib/usePanScroll'
 import type { IssueType, Item, Lane, User } from '@/domain/types'
 import type { ConfirmRequest } from '@/store'
 
@@ -549,6 +550,8 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const root = rootLane(lanes, boardId, 'cards')
   const editMode = storeEdit && interactive
   const rowRef = useRef<HTMLDivElement>(null)
+  // Drag empty workflow space to move the board. See usePanScroll.
+  const pan = usePanScroll<HTMLDivElement>()
   const cardMenu = useStore((s) => s.cardMenu)
   const openCardMenu = useStore((s) => s.openCardMenu)
   const closeCardMenu = useStore((s) => s.closeCardMenu)
@@ -586,7 +589,16 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const canvas = (
     <div ref={rowRef} className="relative flex min-h-0 flex-1">
-      <div className="min-h-0 flex-1 overflow-auto p-3">
+      <div
+        ref={pan.ref}
+        {...pan.handlers}
+        className={cn(
+          'min-h-0 flex-1 overflow-auto p-3',
+          // The surface is draggable, so it says so — and holds the selection still while
+          // it is being dragged.
+          pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab',
+        )}
+      >
         <div className="min-h-[120px] w-full min-w-min">
           {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-[12px] text-slate-500">This board has no lanes.</p>}
         </div>

@@ -8,6 +8,7 @@ import { BAND_ACCENT } from '@/lib/colors'
 import { linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { usePanScroll } from '@/lib/usePanScroll'
 
 /**
  * An aggregating board (coordination or strategic), Kanbanize-style:
@@ -40,6 +41,8 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const isPortfolio = board.band === 'portfolio'
   // The initiatives surface wears the board's band colour (Team = green, Program = blue, Portfolio = violet).
   const accent = BAND_ACCENT[board.band]
+  // Drag empty workflow space to move the board. See usePanScroll.
+  const pan = usePanScroll<HTMLDivElement>()
   /**
    * A section is the same slim bar a team board uses — a dot in the band's colour, a title,
    * a subtitle and a rule — so a program or portfolio reads like a team board. Only the
@@ -85,7 +88,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 space-y-3 overflow-y-auto p-3', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
         {/* A portfolio leads with strategy: objectives and the initiatives that serve
             them on one page. Other coordination boards show the initiatives workflow. */}
         {isPortfolio
