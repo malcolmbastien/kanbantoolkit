@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, Columns3, CopyPlus, ExternalLink, Eye, LayoutDashboard, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRight, Columns3, CopyPlus, Eye, LayoutDashboard, LayoutTemplate, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { TemplateEditor } from './TemplateEditor'
@@ -111,7 +111,7 @@ export function BoardWorkspace() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-6xl">
         <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-slate-300 bg-white px-4 py-3">
           <div>
             <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-indigo-600">
@@ -256,93 +256,99 @@ export function BoardWorkspace() {
         )}
 
         <div className="space-y-3">
-          {groups.map(({ band, boards: inBand }) => {
-            const style = BAND_STYLES[band] ?? BAND_STYLES.team
-            return (
-              <section key={band}>
-                {/* The level is stated once per group rather than on every row inside it. */}
-                <div className="mb-1 flex items-center gap-2 px-1">
-                  <span className={cn('rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wide', style.chip)}>
-                    {style.label}
-                  </span>
-                  <span className="text-[10px] font-semibold tabular-nums text-slate-400">{inBand.length}</span>
-                </div>
+          {/* A card per board. The flight level is a chip on the card and a filter above,
+              so the list is flat — grouping by band as well would say it twice. */}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {groups.flatMap(({ band, boards: inBand }) =>
+              inBand.map((b) => {
+                const style = BAND_STYLES[band] ?? BAND_STYLES.team
+                const BandIcon = style.icon
+                return (
+                  <div
+                    key={b.id}
+                    className={cn(
+                      'flex flex-col gap-2.5 rounded-xl border border-slate-300 bg-white p-3 shadow-sm transition',
+                      b.archived ? 'opacity-60' : 'hover:border-indigo-300 hover:shadow-md',
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', style.chip)}>
+                        <BandIcon size={17} />
+                      </span>
+                      <span
+                        className={cn('flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', style.chip)}
+                      >
+                        {style.label}
+                      </span>
+                    </div>
 
-                <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
-                  {inBand.map((b) => (
-                    <div
-                      key={b.id}
-                      className={cn(
-                        'flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-50',
-                        b.archived && 'opacity-60',
-                      )}
-                    >
+                    <div className="flex min-w-0 items-center gap-1.5">
                       <button
                         onClick={() => selectBoard(b.id)}
-                        className="group flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                        className="min-w-0 truncate text-left text-[14px] font-semibold text-slate-800 transition hover:text-indigo-600"
                         title={`Open ${b.name}`}
                       >
-                        <span className={cn('truncate text-[13px] font-semibold', b.archived ? 'text-slate-500' : 'text-slate-800')}>
-                          {b.name}
+                        {b.name}
+                      </button>
+                      {b.archived && (
+                        <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                          archived
                         </span>
-                        {b.archived && (
-                          <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                            archived
-                          </span>
-                        )}
-                        {/* No "current" marker: the workspace sits outside the board section,
-                            so no board is "the one you are on". */}
-                        <ExternalLink
-                          size={11}
-                          className="shrink-0 text-slate-400 transition group-hover:text-indigo-500"
-                        />
-                      </button>
-
-                      {/* A real link — the URL carries the board and the view, so it can be
-                          copied or opened in a new tab; the click itself stays in-app. */}
-                      <a
-                        href={`?board=${b.id}&view=dashboard`}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          selectBoard(b.id)
-                          setDashboard(true)
-                        }}
-                        className="shrink-0 rounded p-1 text-slate-400 transition hover:text-slate-700"
-                        title={`Open ${b.name}'s dashboard — a summary of its initiatives`}
-                      >
-                        <LayoutDashboard size={13} />
-                      </a>
-
-                      <button
-                        onClick={() => duplicateBoard(b.id)}
-                        className="shrink-0 rounded p-1 text-slate-400 transition hover:text-slate-700"
-                        title={`Duplicate ${b.name} — its columns and settings, not its cards`}
-                      >
-                        <CopyPlus size={13} />
-                      </button>
-
-                      <button
-                        onClick={() => (b.archived ? unarchiveBoard(b.id) : archiveBoard(b.id))}
-                        className="shrink-0 rounded p-1 text-slate-400 transition hover:text-slate-700"
-                        title={b.archived ? `Restore ${b.name}` : `Archive ${b.name}`}
-                      >
-                        {b.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-                      </button>
-
-                      <button
-                        onClick={() => remove(b)}
-                        disabled={lastBoard}
-                        className="shrink-0 rounded p-1 text-slate-300 transition hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-30"
-                        title={lastBoard ? 'The last board cannot be deleted' : `Delete ${b.name}`}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </section>
-            )
-          })}
+
+                    <div className="mt-auto flex items-center gap-1 border-t border-slate-100 pt-2">
+                      <button
+                        onClick={() => selectBoard(b.id)}
+                        className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                      >
+                        Open board <ArrowRight size={12} />
+                      </button>
+
+                      <span className="ml-auto flex shrink-0 items-center gap-0.5">
+                        {/* A real link — the URL carries the board and the view, so it can be
+                            copied or opened in a new tab; the click itself stays in-app. */}
+                        <a
+                          href={`?board=${b.id}&view=dashboard`}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            selectBoard(b.id)
+                            setDashboard(true)
+                          }}
+                          className="rounded p-1 text-slate-400 transition hover:text-slate-700"
+                          title={`Open ${b.name}'s dashboard — a summary of its initiatives`}
+                        >
+                          <LayoutDashboard size={13} />
+                        </a>
+                        <button
+                          onClick={() => duplicateBoard(b.id)}
+                          className="rounded p-1 text-slate-400 transition hover:text-slate-700"
+                          title={`Duplicate ${b.name} — its columns and settings, not its cards`}
+                        >
+                          <CopyPlus size={13} />
+                        </button>
+                        <button
+                          onClick={() => (b.archived ? unarchiveBoard(b.id) : archiveBoard(b.id))}
+                          className="rounded p-1 text-slate-400 transition hover:text-slate-700"
+                          title={b.archived ? `Restore ${b.name}` : `Archive ${b.name}`}
+                        >
+                          {b.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                        </button>
+                        <button
+                          onClick={() => remove(b)}
+                          disabled={lastBoard}
+                          className="rounded p-1 text-slate-300 transition hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-30"
+                          title={lastBoard ? 'The last board cannot be deleted' : `Delete ${b.name}`}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+                )
+              }),
+            )}
+          </div>
         </div>
 
         {/* Templates — board designs, reusable when creating boards. */}
