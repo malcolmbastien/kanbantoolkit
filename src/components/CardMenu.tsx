@@ -12,7 +12,7 @@ import {
   Trash2,
   UserPlus,
 } from 'lucide-react'
-import { boardCardTypes } from '@/domain/board'
+import { boardCardTypes, isInitiativeItem } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { cn } from '@/lib/utils'
@@ -71,6 +71,9 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
   const only = targets[0]
   const board = boards.find((b) => b.id === boardId)
   const types = boardCardTypes(board, issueTypes)
+  // The Initiative type is reserved: an initiative is never retyped, so the menu does not
+  // offer it — not even as a mixed selection where it would apply to some of the group.
+  const selectionHasInitiative = itemIds.some((id) => isInitiativeItem(items.find((i) => i.id === id), issueTypes))
   const lanesLeaf = leafLanes(lanes, boardId, 'cards')
   const anyBlocked = targets.some((t) => t.blocked)
   const allBlocked = count > 0 && targets.every((t) => t.blocked)
@@ -324,7 +327,9 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
 
         {header('move', <FolderInput size={13} />, 'Move to lane')}
         {header('assignee', <UserPlus size={13} />, 'Assignees')}
-        {header('type', <Tag size={13} />, 'Type')}
+        {/* An initiative is not retyped: the type is what makes it one, and the
+            initiatives workflow reads it. */}
+        {!selectionHasInitiative && header('type', <Tag size={13} />, 'Type')}
         {header('size', <Ruler size={13} />, 'Size', single ? String(only?.size ?? '') : '')}
         {header('start', <CalendarClock size={13} />, 'Target start', single ? only?.targetStartDate ?? '' : '')}
         {header('end', <CalendarClock size={13} />, 'Target end', single ? only?.targetEndDate ?? '' : '')}

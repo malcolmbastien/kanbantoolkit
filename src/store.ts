@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
+import { canLinkBoard, canRetype, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
@@ -653,9 +653,14 @@ export const useStore = create<Store>()(
 
       setItemsType: (itemIds, typeId) => {
         const state = get()
-        if (initiativeTypeId(state.issueTypes) === typeId) return // Initiative is reserved
         const ids = new Set(itemIds)
-        set({ items: state.items.map((i) => (ids.has(i.id) ? { ...i, typeId } : i)) })
+        // An initiative cannot be retyped into a card type, and nothing becomes an
+        // initiative — see `canRetype`. Refused rather than corrected.
+        set({
+          items: state.items.map((i) =>
+            ids.has(i.id) && canRetype(i, typeId, state.issueTypes) ? { ...i, typeId } : i,
+          ),
+        })
       },
 
       addAssignee: (itemId, name) => {
@@ -1031,7 +1036,16 @@ export const useStore = create<Store>()(
       },
 
       setItemFields: (id, patch) =>
-        set({ items: get().items.map((i) => (i.id === id ? { ...i, ...patch } : i)) }),
+        set({
+          items: get().items.map((i) => {
+            if (i.id !== id) return i
+            // The panel's type control is hidden for an initiative, but the guard lives
+            // here too: the rule is the model's, not the UI's.
+            if (!patch.typeId || canRetype(i, patch.typeId, get().issueTypes)) return { ...i, ...patch }
+            const { typeId: _reserved, ...rest } = patch
+            return { ...i, ...rest }
+          }),
+        }),
 
       addChecklistItem: (itemId, text) => {
         const t = text.trim()

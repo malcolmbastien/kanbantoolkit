@@ -285,18 +285,25 @@ export function ItemPanel({ itemId }: Props) {
 
         {moreOpen && (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-            <label className="flex items-center gap-2">
-              <span className="w-14 shrink-0 text-[10px] uppercase tracking-wide text-slate-400">Type</span>
-              <select
-                value={item.typeId}
-                onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
-                className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-medium"
-              >
-                {typeOptions.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            </label>
+            {isInitiative ? (
+              <p className="text-[10px] text-slate-400">
+                Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it —
+                so it is never retyped into a card type.
+              </p>
+            ) : (
+              <label className="flex items-center gap-2">
+                <span className="w-14 shrink-0 text-[10px] uppercase tracking-wide text-slate-400">Type</span>
+                <select
+                  value={item.typeId}
+                  onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
+                  className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-medium"
+                >
+                  {typeOptions.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div className="flex items-center gap-1.5">
               {item.archived ? (
                 <button

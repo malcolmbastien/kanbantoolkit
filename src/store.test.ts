@@ -856,6 +856,36 @@ describe('store actions', () => {
     expect(s().multiSelect).toEqual([])
   })
 
+  it('an initiative is never retyped, and nothing becomes an initiative', () => {
+    const typeOf = (id: string) => s().items.find((i) => i.id === id)?.typeId
+
+    // An initiative cannot become a card type — by bulk or through the panel.
+    s().setItemsType(['init-signup'], 't-bug')
+    expect(typeOf('init-signup')).toBe('t-initiative')
+    s().setItemFields('init-signup', { typeId: 't-story' })
+    expect(typeOf('init-signup')).toBe('t-initiative')
+
+    // And a card cannot become one.
+    s().setItemsType(['st-sso'], 't-initiative')
+    expect(typeOf('st-sso')).toBe('t-story')
+    s().setItemFields('st-sso', { typeId: 't-initiative' })
+    expect(typeOf('st-sso')).toBe('t-story')
+
+    // A card's type still changes normally…
+    s().setItemFields('st-sso', { typeId: 't-bug' })
+    expect(typeOf('st-sso')).toBe('t-bug')
+
+    // …a mixed selection retypes the cards and leaves the initiative alone…
+    s().setItemsType(['st-sso', 'init-signup'], 't-task')
+    expect(typeOf('st-sso')).toBe('t-task')
+    expect(typeOf('init-signup')).toBe('t-initiative')
+
+    // …and the rest of a patch still applies to an initiative.
+    s().setItemFields('init-signup', { typeId: 't-bug', title: 'Renamed' })
+    expect(s().items.find((i) => i.id === 'init-signup')?.title).toBe('Renamed')
+    expect(typeOf('init-signup')).toBe('t-initiative')
+  })
+
   it('bulk delete and archive act on the whole selection', () => {
     s().toggleMultiSelect('st-email')
     s().toggleMultiSelect('st-sso')

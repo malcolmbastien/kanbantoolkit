@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   activeBoards,
   boardsByBand,
+  canRetype,
   duplicateBoard,
   lanesFromTemplate,
   templateAddLane,
@@ -206,6 +207,23 @@ describe('duplicating a board', () => {
     // A board with no links stays without them.
     const atlas = s.boards.find((b) => b.id === 'b-atlas')!
     expect('linkedBoardIds' in duplicateBoard(atlas, s.lanes, keys()).board).toBe(false)
+  })
+})
+
+describe('retyping an item', () => {
+  const s = createSeed()
+  const types = s.issueTypes
+  const initiative = s.items.find((i) => i.id === 'init-signup')!
+  const card = s.items.find((i) => i.id === 'st-sso')!
+
+  it('refuses to move an item into or out of the reserved Initiative type', () => {
+    // An initiative is defined by its type, and the initiatives workflow reads it.
+    expect(canRetype(initiative, 't-bug', types)).toBe(false)
+    expect(canRetype(initiative, 't-initiative', types)).toBe(false)
+    // And the type is not a card type, so nothing becomes one.
+    expect(canRetype(card, 't-initiative', types)).toBe(false)
+    // Everything else retypes as before.
+    expect(canRetype(card, 't-bug', types)).toBe(true)
   })
 })
 

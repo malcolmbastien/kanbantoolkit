@@ -423,6 +423,26 @@ export function initiativeTypeId(types: IssueType[]): string | undefined {
   return types.find((t) => t.name === 'Initiative')?.id
 }
 
+/** Is this item the reserved Initiative type? */
+export function isInitiativeItem(item: Item | undefined, types: IssueType[]): boolean {
+  const id = initiativeTypeId(types)
+  return Boolean(id && item?.typeId === id)
+}
+
+/**
+ * Whether an item's type may be changed at all.
+ *
+ * The Initiative type is **reserved**: it is not a card type, it is what makes an item an
+ * initiative, and the initiatives workflow reads it. So an initiative cannot be retyped
+ * into a card type, and no card can be retyped into an initiative. Refused, never
+ * corrected — an item silently changing kind would be worse than the action failing.
+ */
+export function canRetype(item: Item, nextTypeId: string, types: IssueType[]): boolean {
+  const initiative = initiativeTypeId(types)
+  if (!initiative) return true
+  return item.typeId !== initiative && nextTypeId !== initiative
+}
+
 /** Types selectable for a card — everything except the reserved Initiative type. */
 export function cardTypes(types: IssueType[]): IssueType[] {
   return types.filter((t) => t.name !== 'Initiative')

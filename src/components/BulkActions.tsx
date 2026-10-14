@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Archive, CheckSquare, Trash2, X } from 'lucide-react'
-import { boardCardTypes } from '@/domain/board'
+import { boardCardTypes, isInitiativeItem } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { useStore } from '@/store'
 
@@ -21,6 +21,10 @@ export function BulkActions() {
   const boards = useStore((s) => s.boards)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
   const setItemsType = useStore((s) => s.setItemsType)
+  const items = useStore((s) => s.items)
+  // An initiative is never retyped, so the control is not offered for a selection that
+  // contains one.
+  const selectionHasInitiative = multiSelect.some((id) => isInitiativeItem(items.find((i) => i.id === id), issueTypes))
   const addItemsAssignee = useStore((s) => s.addItemsAssignee)
   const clearItemsAssignees = useStore((s) => s.clearItemsAssignees)
   const archiveItems = useStore((s) => s.archiveItems)
@@ -71,22 +75,24 @@ export function BulkActions() {
         </select>
       </label>
 
-      <label className="flex items-center gap-1 text-slate-300">
-        Type
-        <select
-          value=""
-          onChange={(e) => e.target.value && setItemsType(multiSelect, e.target.value)}
-          className={SELECT_CLS}
-          title="Change the type of every selected card"
-        >
-          <option value="">type…</option>
-          {types.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!selectionHasInitiative && (
+        <label className="flex items-center gap-1 text-slate-300">
+          Type
+          <select
+            value=""
+            onChange={(e) => e.target.value && setItemsType(multiSelect, e.target.value)}
+            className={SELECT_CLS}
+            title="Change the type of every selected card"
+          >
+            <option value="">type…</option>
+            {types.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <label className="flex items-center gap-1 text-slate-300">
         Assign
