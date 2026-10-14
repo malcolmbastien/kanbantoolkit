@@ -24,7 +24,7 @@ import {
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { matchesFilters, type CardFilters } from '@/domain/filters'
-import { STAGE_ACCENT } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_DOT, STAGE_PILL, STAGE_SURFACE, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane, User } from '@/domain/types'
@@ -90,12 +90,12 @@ function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { c
       className={cn(
         'rounded px-1.5 py-0.5 text-[10px] font-semibold transition',
         disabled
-          ? 'cursor-not-allowed bg-white/5 text-slate-500'
+          ? 'cursor-not-allowed bg-slate-100 text-slate-400'
           : active
-            ? 'bg-indigo-400 text-white'
+            ? 'bg-indigo-600 text-white'
             : danger
-              ? 'bg-white/10 text-slate-200 hover:bg-rose-400/70 hover:text-white'
-              : 'bg-white/10 text-slate-200 hover:bg-white/25',
+              ? 'bg-slate-200 text-slate-600 hover:bg-rose-100 hover:text-rose-700'
+              : 'bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-900',
       )}
     >
       {children}
@@ -164,9 +164,9 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     return (
       <div
         className={cn(
-          'px-2 py-1',
+          'border-b px-2.5 py-1.5',
           needsEdge && 'border-t border-slate-300/60',
-          wip === 'over' ? 'bg-rose-700 text-white' : wip === 'at' ? 'bg-amber-600 text-white' : isLeafCell ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white',
+          wip === 'over' ? WIP_HEADER.over : wip === 'at' ? WIP_HEADER.at : 'border-slate-300 bg-slate-100 text-slate-800',
         )}
       >
         {/* Name truly centred, count and policy pinned right. The side columns are equal
@@ -174,19 +174,28 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             the lane's depth and whether the edge controls are present at all. */}
         <div className={HEAD_ROW}>
           <span className="flex items-center">
-            {top && (
+            {top ? (
               <button
                 onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
-                className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-200 hover:bg-white/15 hover:text-white"
+                className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
                 title={collapsed ? 'Expand column' : 'Collapse column'}
               >
                 {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
               </button>
+            ) : (
+              // Sub-lanes carry a stage dot instead: the stage is inherited, and the dot
+              // says so without repeating the column's name.
+              <span className={cn('ml-0.5 h-2 w-2 rounded-full', stage ? STAGE_DOT[stage] : 'bg-slate-300')} />
             )}
           </span>
           <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
           <span className="flex items-center justify-end gap-1">
-            <span className="text-[10px] font-semibold tabular-nums text-slate-300/80">
+            <span
+              className={cn(
+                'shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums',
+                wip === 'over' ? 'bg-rose-800 text-white' : wip === 'at' ? 'bg-amber-700 text-white' : stage ? STAGE_PILL[stage] : 'bg-slate-700 text-white',
+              )}
+            >
               {countInLane(lane.id)}
               {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
             </span>
@@ -211,7 +220,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                     <Ctl title="Move right" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▶</Ctl>
                   </>
                 )}
-                <span className="mx-0.5 h-4 w-px bg-white/20" />
+                <span className="mx-0.5 h-4 w-px bg-slate-300" />
               </>
             )}
 
@@ -273,22 +282,22 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   if (collapsed && top) {
     const count = countInLane(lane.id)
     return (
-      <div className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden bg-slate-700 py-2 text-slate-100">
+      <div className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 bg-slate-100 py-2 text-slate-600">
         <button
           onClick={() => ctx.toggleCollapse(lane.id)}
-          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 hover:bg-white/15 hover:text-white"
+          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
           title="Expand column"
         >
           <ChevronsRight size={13} />
         </button>
         <span
-          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-white/20 px-1 text-[10px] font-bold tabular-nums"
+          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-700 px-1 text-[10px] font-bold tabular-nums text-white"
           title={`${count} card${count === 1 ? '' : 's'}`}
         >
           {count}
         </span>
         <button onClick={() => ctx.toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand column">
-          <span className="rotate-180 whitespace-nowrap text-[11px] font-bold uppercase tracking-wide [writing-mode:vertical-rl]">
+          <span className="rotate-180 whitespace-nowrap text-[11px] font-bold uppercase tracking-wide [writing-mode:vertical-rl] text-slate-600">
             {lane.name}
           </span>
         </button>
@@ -310,7 +319,12 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
     return (
       <div
-        className={cn('flex h-full min-h-0 w-full flex-1 flex-col', isRoot && 'overflow-hidden rounded-md border border-slate-300/70')}
+        className={cn(
+          'flex h-full min-h-0 w-full flex-1 flex-col',
+          isRoot && 'overflow-hidden rounded-lg border border-slate-300/70',
+          // The stage tints the whole column, so it reads at a glance without a label.
+          top && stage && STAGE_SURFACE[stage],
+        )}
         style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
       >
         {!hideHeader && (editMode || lane.name) && header(false)}
@@ -361,7 +375,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   return (
     <div
-      className={cn('flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col', wip === 'over' ? 'bg-rose-50' : wip === 'at' ? 'bg-amber-50' : 'bg-slate-100')}
+      className={cn('flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col', wip === 'over' ? 'bg-rose-50' : wip === 'at' ? 'bg-amber-50' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100')}
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
       {!hideHeader && header(true)}
@@ -434,7 +448,7 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
       {(editMode || lane.name) && (
-        <div className="bg-slate-800 px-2 py-1 text-center text-white">
+        <div className="border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-center text-slate-800">
           <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
         </div>
       )}
@@ -445,11 +459,13 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
         {/* column headers */}
         <div />
         {columns.map((col) => (
-          <div key={col.id} className={cn(HEAD_ROW, 'gap-1.5 rounded-md bg-slate-700 px-2 py-1 text-slate-100')}>
+          <div key={col.id} className={cn(HEAD_ROW, 'gap-1.5 border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-slate-800')}>
             <span />
             <span className="truncate text-[11px] font-bold uppercase tracking-wide">{col.name}</span>
-            <span className="flex justify-end text-[10px] font-semibold tabular-nums text-slate-300/80">
-              {countInLane(col.id, ctx)}
+            <span className="flex justify-end">
+              <span className="rounded bg-slate-700 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums text-white">
+                {countInLane(col.id, ctx)}
+              </span>
             </span>
           </div>
         ))}
@@ -462,9 +478,9 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
           }, 0)
           return (
             <Fragment key={name}>
-              <div className="flex flex-col items-center justify-start rounded-md bg-slate-800 px-2 py-2 text-center text-white">
+              <div className="flex flex-col items-center justify-start rounded-lg border border-slate-300 bg-slate-100 px-2 py-2 text-center text-slate-700">
                 <span className="text-[11px] font-bold">{name}</span>
-                <span className="mt-1 w-fit rounded bg-white/15 px-1 py-px text-[9px] font-bold text-slate-100">{railCount}</span>
+                <span className="mt-1 w-fit rounded bg-slate-700 px-1.5 py-px text-[9px] font-bold text-white">{railCount}</span>
               </div>
               {columns.map((col) => {
                 const cell = childrenOf(lanes, col.id).find((r) => r.name === name)

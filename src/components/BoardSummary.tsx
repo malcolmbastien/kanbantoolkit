@@ -19,12 +19,10 @@ import {
 } from '@/domain/derive'
 import { buildRefs, initiativeCellOf } from '@/domain/board'
 import { isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
-import { BAND_ACCENT, STAGE_ACCENT } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_SURFACE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
-
-type Accent = (typeof BAND_ACCENT)['team']
 
 /**
  * A lane header row: the name truly centred, with the WIP count and any edit controls pinned
@@ -55,7 +53,6 @@ export function BoardSummary({
   /** Own surface: drag initiatives between cells and edit the flow. Linked bands set this false. */
   interactive?: boolean
 }) {
-  const boards = useStore((s) => s.boards)
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
   const placements = useStore((s) => s.placements)
@@ -72,7 +69,6 @@ export function BoardSummary({
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
-  const accent = BAND_ACCENT[boards.find((b) => b.id === boardId)?.band ?? 'team']
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
@@ -190,8 +186,6 @@ export function BoardSummary({
             count={total}
             droppable={!split}
             canDrop={canDropOn(section.id, section.id)}
-            isInitiatives={isInitiatives}
-            accent={accent}
             interactive={interactive}
             editMode={editMode}
             onDrop={(itemId) => drop(itemId, section.id)}
@@ -199,8 +193,8 @@ export function BoardSummary({
             // equal share of the board — splitting a column doesn't squeeze its own cells.
             style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}`, flexGrow: cells.length, flexBasis: 0, flexShrink: 1 }}
             className={cn(
-              'flex min-w-0 flex-col overflow-hidden rounded-md border',
-              isInitiatives ? accent.column : 'border-slate-300 bg-slate-100',
+              'flex min-w-0 flex-col overflow-hidden rounded-lg border border-slate-300',
+              STAGE_SURFACE[stage],
             )}
           >
             {split
@@ -213,8 +207,6 @@ export function BoardSummary({
                       count={cards.length}
                       droppable
                       canDrop={canDropOn(section.id, cell.id)}
-                      isInitiatives={isInitiatives}
-                      accent={accent}
                       interactive={interactive}
                       editMode={editMode}
                       onDrop={(itemId) => drop(itemId, cell.id)}
@@ -251,8 +243,6 @@ function Cell({
   count,
   droppable,
   canDrop,
-  isInitiatives,
-  accent,
   interactive,
   editMode,
   onDrop,
@@ -267,8 +257,6 @@ function Cell({
   droppable: boolean
   /** Whether the item currently in flight may land here. */
   canDrop?: boolean
-  isInitiatives: boolean
-  accent: Accent
   interactive: boolean
   editMode: boolean
   onDrop: (itemId: string) => void
@@ -290,8 +278,8 @@ function Cell({
   const leaf = isLeaf(lanes, lane.id)
 
   const head = primary
-    ? cn(HEAD_ROW, 'gap-1.5 px-2 py-1', isInitiatives ? accent.columnHeader : 'bg-slate-700 text-slate-100')
-    : cn(HEAD_ROW, 'mb-1 gap-1.5 rounded bg-slate-200 px-1.5 py-0.5 text-slate-600')
+    ? cn(HEAD_ROW, 'gap-1.5 border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-slate-800')
+    : cn(HEAD_ROW, 'mb-1 gap-1.5 rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-slate-600')
 
   const removeWithConfirm = () => {
     const kids = leavesUnder(lanes, lane.id).filter((l) => l.id !== lane.id)
@@ -316,12 +304,7 @@ function Cell({
           {lane.name}
         </span>
         <span className="flex items-center justify-end gap-1">
-          <span
-            className={cn(
-              'text-[10px] font-semibold tabular-nums',
-              primary ? (isInitiatives ? accent.columnCount : 'text-slate-300/80') : 'text-slate-500',
-            )}
-          >
+          <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums text-white">
             {count}
           </span>
           {editable && (

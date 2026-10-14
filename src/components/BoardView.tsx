@@ -76,23 +76,32 @@ export function BoardView({ requestMove }: Props) {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
         {/* Initiatives workflow — this team's initiatives, by rollup */}
-        <section className={cn('rounded-lg border shadow-sm', accent.section)}>
-          <div className={cn('flex items-center gap-2 rounded-t-lg border-b px-3 py-1.5 text-slate-200', accent.header)}>
-            <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
-            <span className={cn('text-[10px]', accent.subtitle)}>this team’s initiatives — status rolls up from the cards below</span>
+        <section className="space-y-2">
+          <div className={cn('flex items-center justify-between gap-2 border-b pb-1.5', accent.rule)}>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
+              <h2 className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
+              <span className="truncate text-[11px] text-slate-500">this team’s initiatives — status rolls up from the cards below</span>
+            </div>
+            <span className="shrink-0 rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm">
+              Rollup active
+            </span>
           </div>
           <BoardSummary boardId={boardId} interactive />
         </section>
 
         {/* Cards workflow — the team's customizable flow */}
-        <section className="rounded-lg border border-slate-300 bg-slate-100 shadow-sm">
-          <div className="flex items-center gap-2 rounded-t-lg border-b border-slate-300 bg-slate-800 px-3 py-1.5 text-slate-200">
-            <span className="text-[12px] font-bold uppercase tracking-wide text-white">Cards workflow</span>
-            <span className="text-[10px] text-slate-400">
-              {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
-            </span>
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-1.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
+              <h2 className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-slate-900">Cards workflow</h2>
+              <span className="truncate text-[11px] text-slate-500">
+                {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
+              </span>
+            </div>
           </div>
           <BoardCanvas boardId={boardId} interactive onMove={requestMove} />
         </section>
