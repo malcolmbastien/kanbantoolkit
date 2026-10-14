@@ -1,5 +1,5 @@
 import { Fragment, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronsRight, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsRight, CopyPlus, Plus, Settings } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
@@ -87,7 +87,7 @@ function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { c
       disabled={disabled}
       title={title}
       className={cn(
-        'rounded px-1.5 py-0.5 text-[10px] font-semibold transition',
+        'grid h-5 w-5 place-items-center rounded text-[11px] transition',
         disabled
           ? 'cursor-not-allowed bg-slate-100 text-slate-400'
           : active
@@ -225,25 +225,27 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
             {isLeafCell ? (
               <>
-                <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤ split col</Ctl>
-                <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥ split row</Ctl>
+                <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤</Ctl>
+                <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥</Ctl>
               </>
             ) : (
               <>
                 <Ctl title={`Add a ${(lane.orientation ?? 'columns') === 'rows' ? 'row' : 'column'} to this split`} onClick={() => ctx.addLane(lane.id)}>
-                  ＋ add {(lane.orientation ?? 'columns') === 'rows' ? 'row' : 'column'}
+                  ＋
                 </Ctl>
                 {!top && (
                   <Ctl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, (lane.orientation ?? 'columns') === 'rows' ? 'columns' : 'rows')}>
-                    ⟷ flip
+                    ⟷
                   </Ctl>
                 )}
               </>
             )}
             {!top && (
               <>
-                <Ctl title="Insert a new lane after this one" onClick={() => ctx.insertLaneAfter(lane.id)}>＋ insert</Ctl>
-                <Ctl title="Duplicate this lane and its sub-lanes" onClick={() => ctx.duplicateLane(lane.id)}>duplicate</Ctl>
+                <Ctl title="Insert a new lane after this one" onClick={() => ctx.insertLaneAfter(lane.id)}>⊞</Ctl>
+                <Ctl title="Duplicate this lane and its sub-lanes" onClick={() => ctx.duplicateLane(lane.id)}>
+                  <CopyPlus size={11} />
+                </Ctl>
               </>
             )}
             <Ctl
@@ -252,7 +254,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               title="Lane settings — name, WIP limit, policy"
               onClick={() => setSettingsOpen((o) => !o)}
             >
-              ⚙ settings
+              <Settings size={11} />
             </Ctl>
             {top && <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">typed column — split to refine</span>}
           </div>
