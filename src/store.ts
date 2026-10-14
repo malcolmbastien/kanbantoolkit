@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, nextRank, placementsInOrder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { canLinkBoard, canRetype, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
@@ -220,6 +220,8 @@ export interface Actions {
    * the arrangement within a section is the user's to set.
    */
   moveInitiative: (itemId: string, boardId: string, laneId: string) => void
+  /** Move a card one place up or down within its lane (delta -1 = up). */
+  moveCardRank: (itemId: string, boardId: string, delta: number) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
 
   /** Checklist inside a card — sub-tasks (never schedulable, never WIP). */
@@ -275,8 +277,16 @@ export type Store = FlowState & ViewState & Actions
 
 const uid = makeUid
 
-/** Move a placement into a lane, stamping when it arrived — the clock card age reads. */
-const toLane = (p: Placement, laneId: string): Placement => ({ ...p, laneId, laneEnteredAt: Date.now() })
+/**
+ * Move a placement into a lane: stamp when it arrived — the clock card age reads — and rank
+ * it last, because arriving in a lane means arriving at the bottom of it.
+ */
+const toLane = (placements: Placement[], p: Placement, laneId: string): Placement => ({
+  ...p,
+  laneId,
+  laneEnteredAt: Date.now(),
+  rank: nextRank(placements, laneId),
+})
 
 /** The first lane (target or ancestor) whose WIP limit a move would exceed. */
 function exceededLane(
@@ -648,9 +658,19 @@ export const useStore = create<Store>()(
         const stage = effectiveStage(state.lanes, laneId)
         set({
           // Only this board's placements move.
-          placements: state.placements.map((p) =>
-            p.boardId === state.boardId && ids.has(p.itemId) ? toLane(p, laneId) : p,
-          ),
+          placements: (() => {
+            // The selection keeps its relative order and lands as a block at the end.
+            const moving = placementsInOrder(state.placements.filter((p) => p.boardId === state.boardId), laneId)
+            const ordered = state.placements
+              .filter((p) => p.boardId === state.boardId && ids.has(p.itemId))
+              .sort((a, b) => moving.indexOf(a) - moving.indexOf(b))
+            const base = nextRank(state.placements, laneId)
+            const rankOf = new Map(ordered.map((p, i) => [p.id, base + i]))
+            return state.placements.map((p) => {
+              if (p.boardId !== state.boardId || !ids.has(p.itemId)) return p
+              return { ...p, laneId, laneEnteredAt: Date.now(), rank: rankOf.get(p.id) ?? base }
+            })
+          })(),
           // Keep the auto-archive clock in step with the target stage.
           items: state.items.map((i) => {
             if (!ids.has(i.id)) return i
@@ -985,7 +1005,14 @@ export const useStore = create<Store>()(
 
       addCard: ({ boardId, typeId, laneId, title }) => {
         const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), log: [logEntry('created')] }
-        const placement: Placement = { id: uid(), boardId, itemId: item.id, laneId, laneEnteredAt: Date.now() }
+        const placement: Placement = {
+          id: uid(),
+          boardId,
+          itemId: item.id,
+          laneId,
+          laneEnteredAt: Date.now(),
+          rank: nextRank(get().placements, laneId),
+        }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
       },
 
@@ -1012,8 +1039,11 @@ export const useStore = create<Store>()(
           }
         }
         const placements = existing
-          ? state.placements.map((p) => (p.id === existing.id ? toLane(p, laneId) : p))
-          : [...state.placements, { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now() }]
+          ? state.placements.map((p) => (p.id === existing.id ? toLane(state.placements, p, laneId) : p))
+          : [
+              ...state.placements,
+              { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now(), rank: nextRank(state.placements, laneId) },
+            ]
         // Track when work enters/leaves Done — the clock auto-archive reads.
         const stage = effectiveStage(state.lanes, laneId)
         const items = state.items.map((i) => {
@@ -1028,6 +1058,27 @@ export const useStore = create<Store>()(
         set({ placements, items })
       },
 
+      /**
+       * Move a card within its lane. The whole lane is renumbered to a clean 0..n-1 first,
+       * so a lane that predates rank — or was left half-ranked by a bulk move — reorders
+       * predictably rather than by whatever numbers happened to be there.
+       */
+      moveCardRank: (itemId, boardId, delta) => {
+        const state = get()
+        const placement = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
+        if (!placement) return
+        const ordered = placementsInOrder(state.placements, placement.laneId).map((p, i) => ({ ...p, rank: i }))
+        const idx = ordered.findIndex((p) => p.id === placement.id)
+        const to = idx + delta
+        if (idx < 0 || to < 0 || to >= ordered.length) return
+        const [moved] = ordered.splice(idx, 1)
+        ordered.splice(to, 0, moved)
+        const rankById = new Map(ordered.map((p, i) => [p.id, i]))
+        set({
+          placements: state.placements.map((p) => (rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p)),
+        })
+      },
+
       moveInitiative: (itemId, boardId, laneId) => {
         const state = get()
         const target = state.lanes.find((l) => l.id === laneId)
@@ -1040,8 +1091,11 @@ export const useStore = create<Store>()(
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (existing && existing.laneId === laneId) return
         const placements = existing
-          ? state.placements.map((p) => (p.id === existing.id ? toLane(p, laneId) : p))
-          : [...state.placements, { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now() }]
+          ? state.placements.map((p) => (p.id === existing.id ? toLane(state.placements, p, laneId) : p))
+          : [
+              ...state.placements,
+              { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now(), rank: nextRank(state.placements, laneId) },
+            ]
         set({ placements })
       },
 
@@ -1106,7 +1160,7 @@ export const useStore = create<Store>()(
           name: orientation === 'rows' ? `Row ${i + 1}` : `Column ${i + 1}`,
           workflow: lane.workflow,
         }))
-        const placements = state.placements.map((p) => (p.laneId === laneId ? toLane(p, children[0].id) : p))
+        const placements = state.placements.map((p) => (p.laneId === laneId ? toLane(state.placements, p, children[0].id) : p))
         set({
           lanes: state.lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)).concat(children),
           placements,
@@ -1217,7 +1271,7 @@ export const useStore = create<Store>()(
         const siblings = childrenOf(state.lanes, lane.parentId).filter((l) => l.id !== laneId)
         const target = siblings.flatMap((s) => leavesUnder(state.lanes, s.id))[0]
         const placements = state.placements
-          .map((p) => (ids.has(p.laneId) ? (target ? toLane(p, target.id) : null) : p))
+          .map((p) => (ids.has(p.laneId) ? (target ? toLane(state.placements, p, target.id) : null) : p))
           .filter((p): p is Placement => p !== null)
         set({ lanes: state.lanes.filter((l) => !ids.has(l.id)), placements })
       },

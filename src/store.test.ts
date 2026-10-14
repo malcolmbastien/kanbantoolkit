@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
-import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './domain/lanes'
+import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
 import { NO_FILTERS } from './domain/filters'
 import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
@@ -855,6 +855,47 @@ describe('store actions', () => {
     // Opening a card clears the group.
     s().openItem('st-email')
     expect(s().multiSelect).toEqual([])
+  })
+
+  it('a lane is ordered by rank, and reordering renumbers it cleanly', () => {
+    const dev = laneByName('b-atlas', 'Dev')
+    const done = laneByName('b-atlas', 'Done')
+    const order = () => placementsInOrder(s().placements, dev.id).map((p) => p.itemId)
+
+    s().moveCard('st-email', 'b-atlas', dev.id)
+    s().moveCard('st-sso', 'b-atlas', dev.id)
+    // Arriving ranks last, including past the seed card that predates rank.
+    expect(order()).toEqual(['st-signup-form', 'st-email', 'st-sso'])
+
+    // Reordering renumbers the whole lane to a clean sequence.
+    s().moveCardRank('st-sso', 'b-atlas', -1)
+    expect(order()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
+    const ranks = placementsInOrder(s().placements, dev.id).map((p) => p.rank)
+    expect(ranks).toEqual([0, 1, 2])
+
+    // Off the ends is a no-op, not a wrap.
+    s().moveCardRank('st-signup-form', 'b-atlas', -1)
+    expect(order()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
+    s().moveCardRank('st-email', 'b-atlas', 1)
+    expect(order()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
+
+    // A cross-lane move appends to the target lane.
+    s().moveCard('st-email', 'b-atlas', done.id)
+    expect(placementsInOrder(s().placements, dev.id).map((p) => p.itemId)).toEqual(['st-signup-form', 'st-sso'])
+    const doneOrder = placementsInOrder(s().placements, done.id).map((p) => p.itemId)
+    expect(doneOrder[doneOrder.length - 1]).toBe('st-email')
+
+  })
+
+  it('a bulk move keeps the selection in its relative order', () => {
+    // Bulk move acts on the current board, so the test has to be on it.
+    s().selectBoard('b-atlas')
+    const done = laneByName('b-atlas', 'Done')
+    s().moveCardsToLane(['st-email', 'st-sso'], done.id)
+    const order = placementsInOrder(s().placements, done.id).map((p) => p.itemId)
+    expect(order).toContain('st-email')
+    expect(order).toContain('st-sso')
+    expect(order.indexOf('st-email')).toBeLessThan(order.indexOf('st-sso'))
   })
 
   it('every path that moves a card stamps when it arrived', () => {

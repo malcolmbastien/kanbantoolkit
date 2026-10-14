@@ -560,7 +560,9 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const openCardMenu = useStore((s) => s.openCardMenu)
   const closeCardMenu = useStore((s) => s.closeCardMenu)
 
-  const boardPlacements = placements.filter((p) => p.boardId === boardId)
+  const boardPlacements = placements
+    .filter((p) => p.boardId === boardId)
+    .sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER))
   const isInitiative = (typeId: string) => issueTypes.find((t) => t.id === typeId)?.name === 'Initiative'
 
   // The cards workflow shows the team's cards (non-initiative items) in their lanes.

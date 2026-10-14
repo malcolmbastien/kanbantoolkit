@@ -154,3 +154,27 @@ export function leavesUnder(lanes: Lane[], laneId: string): Lane[] {
   walk(lanes.find((l) => l.id === laneId) ?? ({ id: '', parentId: null, order: 0, name: '', boardId: '' } as Lane))
   return out
 }
+
+/**
+ * A lane's placements in the order a person put them.
+ *
+ * A placement that predates rank falls back to where it already sits, so a lane nobody has
+ * reordered reads exactly as it always did — and a lane half-ranked is not reshuffled the
+ * moment one card is moved.
+ */
+export function placementsInOrder(placements: Placement[], laneId: string): Placement[] {
+  return placements
+    .filter((p) => p.laneId === laneId)
+    // The fallback is the card's place *within the lane*, not in the whole list.
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => (a.p.rank ?? a.i) - (b.p.rank ?? b.i))
+    .map((x) => x.p)
+}
+
+/**
+ * The rank a card appended to this lane takes: past every card in it, ranked or not, so
+ * arriving means arriving at the bottom rather than above everything that predates rank.
+ */
+export function nextRank(placements: Placement[], laneId: string): number {
+  return placements.filter((p) => p.laneId === laneId).length
+}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Archive,
+  ArrowDown,
+  ArrowUp,
   Ban,
   CalendarClock,
   Check,
@@ -46,6 +48,7 @@ const FLYOUT = 'fixed z-50 max-h-[60vh] overflow-y-auto rounded-lg border border
 export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
   const items = useStore((s) => s.items)
   const setItemFields = useStore((s) => s.setItemFields)
+  const moveCardRank = useStore((s) => s.moveCardRank)
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
   const lanes = useStore((s) => s.lanes)
@@ -353,6 +356,24 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
           </button>
         )}
 
+        {/* Rank, for the selected card only: order within a lane is how a board expresses
+            priority, and a menu item is the keyboard-reachable half of it. */}
+        {single && (
+          <>
+            <button className={ITEM} onClick={() => run(() => moveCardRank(only!.id, boardId, -1))}>
+              <span className="shrink-0 text-slate-400">
+                <ArrowUp size={13} />
+              </span>
+              <span className="flex-1">Move up</span>
+            </button>
+            <button className={ITEM} onClick={() => run(() => moveCardRank(only!.id, boardId, 1))}>
+              <span className="shrink-0 text-slate-400">
+                <ArrowDown size={13} />
+              </span>
+              <span className="flex-1">Move down</span>
+            </button>
+          </>
+        )}
         {header('move', <FolderInput size={13} />, 'Move to lane')}
         {header('priority', <Flag size={13} />, 'Priority', single && only?.priority ? PRIORITY_META[only.priority].label : '')}
         {header('assignee', <UserPlus size={13} />, 'Assignees')}

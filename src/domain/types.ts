@@ -240,6 +240,12 @@ export interface Placement {
    * placements that predate it — so age is shown only where it is known, never invented.
    */
   laneEnteredAt?: number
+  /**
+   * The card's position within its lane — the order a person put it in. Positional, like
+   * `Lane.order`, not a typed priority: the order cards sit in *is* how a board expresses
+   * priority. Absent for placements that predate it, which keep their existing order.
+   */
+  rank?: number
 }
 
 /**
