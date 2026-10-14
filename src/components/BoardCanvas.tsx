@@ -23,7 +23,7 @@ import {
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { matchesFilters, type CardFilters } from '@/domain/filters'
-import { STAGE_ACCENT, STAGE_DOT, STAGE_PILL, STAGE_SURFACE, WIP_HEADER } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane, User } from '@/domain/types'
@@ -181,11 +181,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               >
                 {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
               </button>
-            ) : (
-              // Sub-lanes carry a stage dot instead: the stage is inherited, and the dot
-              // says so without repeating the column's name.
-              <span className={cn('ml-0.5 h-2 w-2 rounded-full', stage ? STAGE_DOT[stage] : 'bg-slate-300')} />
-            )}
+            ) : null}
           </span>
           <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
           <span className="flex items-center justify-end gap-1">

@@ -3,8 +3,11 @@ import {
   Archive,
   Ban,
   CalendarClock,
+  Check,
   ChevronRight,
+  Flag,
   FolderInput,
+  Minus,
   MoreHorizontal,
   Ruler,
   ShieldCheck,
@@ -13,6 +16,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { boardCardTypes, isInitiativeItem } from '@/domain/board'
+import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { cn } from '@/lib/utils'
@@ -28,7 +32,7 @@ interface Props {
   onClose: () => void
 }
 
-type Panel = 'move' | 'assignee' | 'type' | 'size' | 'start' | 'end' | 'block'
+type Panel = 'move' | 'priority' | 'assignee' | 'type' | 'size' | 'start' | 'end' | 'block'
 
 const ITEM = 'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] text-slate-700 transition hover:bg-slate-100'
 const FIELD = 'min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400'
@@ -41,6 +45,7 @@ const FLYOUT = 'fixed z-50 max-h-[60vh] overflow-y-auto rounded-lg border border
  */
 export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
   const items = useStore((s) => s.items)
+  const setItemFields = useStore((s) => s.setItemFields)
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
   const lanes = useStore((s) => s.lanes)
@@ -186,6 +191,29 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
       )
     }
 
+    if (open === 'priority') {
+      const set = (p: Priority | undefined) => itemIds.forEach((id) => setItemFields(id, { priority: p }))
+      return wrap(
+        <>
+          <button className={cn(ITEM, 'pl-2.5')} onClick={() => run(() => set(undefined))}>
+            <Minus size={13} className="shrink-0 text-slate-400" />
+            <span className="flex-1">None</span>
+            {!only?.priority && <Check size={12} className="shrink-0 text-indigo-600" />}
+          </button>
+          {PRIORITY_ORDER.map((p) => {
+            const { label, icon: Icon, dot } = PRIORITY_META[p]
+            return (
+              <button key={p} className={cn(ITEM, 'pl-2.5')} onClick={() => run(() => set(p))}>
+                <Icon size={13} className={cn('shrink-0', dot)} />
+                <span className="flex-1">{label}</span>
+                {only?.priority === p && <Check size={12} className="shrink-0 text-indigo-600" />}
+              </button>
+            )
+          })}
+        </>,
+      )
+    }
+
     if (open === 'type') {
       return wrap(
         types.map((t) => (
@@ -326,6 +354,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
         )}
 
         {header('move', <FolderInput size={13} />, 'Move to lane')}
+        {header('priority', <Flag size={13} />, 'Priority', single && only?.priority ? PRIORITY_META[only.priority].label : '')}
         {header('assignee', <UserPlus size={13} />, 'Assignees')}
         {/* An initiative is not retyped: the type is what makes it one, and the
             initiatives workflow reads it. */}
