@@ -40,8 +40,11 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const isPortfolio = board.band === 'portfolio'
   // The initiatives surface wears the board's band colour (Team = green, Program = blue, Portfolio = violet).
   const accent = BAND_ACCENT[board.band]
-  const slateSkin = { section: 'border-slate-300 bg-slate-100', header: 'border-slate-300 bg-slate-800' }
-
+  /**
+   * A section is the same slim bar a team board uses — a dot in the band's colour, a title,
+   * a subtitle and a rule — so a program or portfolio reads like a team board. Only the
+   * colour changes with the flight level; the shape is the product's.
+   */
   const section = (
     key: string,
     title: React.ReactNode,
@@ -51,17 +54,22 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
     tone: 'band' | 'slate' = 'slate',
   ) => {
     const isCollapsed = collapsed[key]
-    const skin = tone === 'band' ? accent : slateSkin
+    const dot = tone === 'band' ? accent.dot : 'bg-slate-400'
+    const rule = tone === 'band' ? accent.rule : 'border-slate-200'
     return (
-      <section key={key} className={cn('rounded-lg border shadow-sm', skin.section)}>
-        <div className={cn('flex items-center gap-2 rounded-t-lg border-b px-3 py-1.5 text-slate-200', skin.header)}>
+      <section key={key} className="space-y-2">
+        <div className={cn('flex items-center gap-2 border-b pb-1.5', rule)}>
           {collapsible && (
-            <button onClick={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))} className="text-slate-300 hover:text-white">
+            <button
+              onClick={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))}
+              className="shrink-0 rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+            >
               {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
             </button>
           )}
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', dot)} />
           {title}
-          {right && <span className="ml-auto flex items-center gap-1">{right}</span>}
+          {right && <span className="ml-auto flex shrink-0 items-center gap-1">{right}</span>}
         </div>
         {!isCollapsed && <div>{body}</div>}
       </section>
@@ -72,7 +80,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
     <div className="flex h-full min-h-0 flex-col bg-slate-100">
       {/* A retired board says so here too — it has no other strip to carry the chip. */}
       {board.archived && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
           <ArchivedBoardChip />
         </div>
       )}
@@ -84,13 +92,13 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           ? section(
               `${board.id}-strategy`,
               <>
-                <span className="text-[12px] font-bold uppercase tracking-wide text-white">Strategy map</span>
-                <span className={cn('text-[10px]', accent.subtitle)}>objectives and the strategic initiatives that serve them</span>
+                <span className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-slate-900">Strategy map</span>
+                <span className="truncate text-[11px] text-slate-500">objectives and the strategic initiatives that serve them</span>
               </>,
               <StrategyMap boardId={board.id} />,
               <button
                 onClick={() => setObjectives(true)}
-                className="flex items-center gap-1 rounded border border-slate-500 px-1.5 py-0.5 text-[10px] font-medium text-slate-200 hover:text-white"
+                className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
                 title="Open the Objectives view — period, key results, scores"
               >
                 <ExternalLink size={10} /> Objectives
@@ -101,8 +109,8 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           : section(
               `${board.id}-initiatives`,
               <>
-                <span className="text-[12px] font-bold uppercase tracking-wide text-white">Initiatives workflow</span>
-                <span className={cn('text-[10px]', accent.subtitle)}>the outcomes this board owns</span>
+                <span className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</span>
+                <span className="truncate text-[11px] text-slate-500">the outcomes this board owns</span>
               </>,
               <BoardSummary boardId={board.id} rootsOnly variant="initiatives" interactive />,
               undefined,
@@ -114,7 +122,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
         {section(
           `${board.id}-linked`,
           <>
-            <span className="text-[12px] font-bold uppercase tracking-wide text-white">Linked boards</span>
+            <span className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-slate-900">Linked boards</span>
             <span className="text-[10px] text-slate-400">
               {linked.length} board{linked.length === 1 ? '' : 's'} roll up here
             </span>
@@ -128,24 +136,28 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             {linked.map((t) => {
               const isCollapsed = collapsed[`linked-${t.id}`]
               return (
-                <div key={t.id} className="rounded-md border border-slate-300 bg-slate-100">
-                  <div className="flex items-center gap-2 rounded-t-md bg-slate-700 px-3 py-1.5 text-slate-100">
-                    <button onClick={() => setCollapsed((c) => ({ ...c, [`linked-${t.id}`]: !c[`linked-${t.id}`] }))} className="text-slate-300 hover:text-white">
+                <div key={t.id} className="space-y-2">
+                  <div className={cn('flex items-center gap-2 border-b pb-1.5', BAND_ACCENT[t.band].rule)}>
+                    <button
+                      onClick={() => setCollapsed((c) => ({ ...c, [`linked-${t.id}`]: !c[`linked-${t.id}`] }))}
+                      className="shrink-0 rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                    >
                       {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
                     </button>
+                    <span className={cn('h-2 w-2 shrink-0 rounded-full', BAND_ACCENT[t.band].dot)} />
                     <BandBadge band={t.band} />
-                    <span className="text-[11px] font-semibold text-white">{t.name}</span>
-                    <span className="ml-auto flex items-center gap-1">
+                    <span className="min-w-0 truncate text-[12px] font-semibold text-slate-800">{t.name}</span>
+                    <span className="ml-auto flex shrink-0 items-center gap-1">
                       <button
                         onClick={() => selectBoard(t.id)}
-                        className="flex items-center gap-1 rounded border border-slate-500 px-1.5 py-0.5 text-[10px] font-medium text-slate-200 hover:text-white"
+                        className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
                         title="Open this board"
                       >
                         <ExternalLink size={10} /> open
                       </button>
                       <button
                         onClick={() => removeLinkedBoard(board.id, t.id)}
-                        className="text-slate-300 hover:text-rose-300"
+                        className="rounded p-0.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                         title="Unlink this board"
                       >
                         <X size={12} />
@@ -161,11 +173,11 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             <select
               value={pick}
               onChange={(e) => setPick(e.target.value)}
-              className="rounded-md border border-slate-600 bg-slate-700 px-1.5 py-1 text-[11px] text-slate-100 outline-none"
+              className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
             >
               <option value="">Link a board…</option>
               {candidates.map((b) => (
-                <option key={b.id} value={b.id} className="bg-slate-800 text-slate-100">{b.name}</option>
+                <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
             <button
