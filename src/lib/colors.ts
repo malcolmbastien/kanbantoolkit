@@ -73,10 +73,10 @@ export const STAGE_ACCENT: Record<Stage, string> = {
  * splitting a column into cells does not lose it.
  */
 export const STAGE_SURFACE: Record<Stage, string> = {
-  backlog: 'bg-slate-200/60',
-  notStarted: 'bg-slate-200/60',
-  inProgress: 'bg-indigo-50/70',
-  done: 'bg-emerald-50/60',
+  backlog: 'bg-slate-200',
+  notStarted: 'bg-slate-200',
+  inProgress: 'bg-indigo-50',
+  done: 'bg-emerald-50',
 }
 
 /** The lane's count, as a pill at the header's right edge. */
