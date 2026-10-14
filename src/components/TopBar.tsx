@@ -41,19 +41,19 @@ export function TopBar(props: Props) {
   const [namingBoard, setNamingBoard] = useState(false)
 
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-950/50 bg-slate-900 px-3 py-2 text-slate-200 shadow-md">
+    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
       <button
         onClick={onGoToBoards}
         className={cn(
           'flex items-center gap-2 rounded-md px-1.5 py-1 transition',
-          showBoards ? 'bg-slate-800 ring-1 ring-indigo-400/50' : 'hover:bg-slate-800',
+          showBoards ? 'bg-slate-100 ring-1 ring-indigo-300' : 'hover:bg-slate-100',
         )}
         title="Boards — browse and manage every board"
       >
         <span className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
         </span>
-        <span className="text-sm font-semibold tracking-tight text-white">Flowline</span>
+        <span className="text-sm font-semibold tracking-tight text-slate-900">Flowline</span>
       </button>
 
       {/* Everything below acts on the open board. The workspace is outside that section, so
@@ -69,11 +69,11 @@ export function TopBar(props: Props) {
               <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
             </div>
 
-            <div className="h-5 w-px bg-slate-700" />
+            <div className="h-5 w-px bg-slate-200" />
 
           <button
             onClick={onToggleBoards}
-            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300 transition hover:text-white"
+            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
             title="Boards — browse every board in the organisation"
           >
             <Columns3 size={12} /> Boards
@@ -83,7 +83,7 @@ export function TopBar(props: Props) {
             onClick={onToggleObjectives}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-              showObjectives ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+              showObjectives ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
             title="Objectives & Key Results — how work maps to priorities"
           >
@@ -94,7 +94,7 @@ export function TopBar(props: Props) {
             onClick={onToggleDashboard}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-              showDashboard ? 'border-violet-400/50 bg-violet-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+              showDashboard ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
             title="Dashboard — a summary view of this board's initiatives"
           >
@@ -105,7 +105,7 @@ export function TopBar(props: Props) {
             onClick={onToggleArchive}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-              showArchive ? 'border-amber-400/50 bg-amber-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+              showArchive ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
             title="Archive — filed-away items (still searchable, still in links)"
           >
@@ -116,7 +116,7 @@ export function TopBar(props: Props) {
             onClick={onToggleFilters}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition',
-              showFilters ? 'border-indigo-400/50 bg-indigo-500/30 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white',
+              showFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
             title="Filters — narrow the cards shown on this board"
           >
@@ -146,12 +146,12 @@ export function TopBar(props: Props) {
                     ariaLabel="New board name"
                     onSave={onNewBoard}
                     onDone={() => setNamingBoard(false)}
-                    inputClassName="w-40 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-[12px] text-slate-100 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-400"
+                    inputClassName="w-40 rounded-md border border-slate-300 bg-white px-2 py-1 text-[12px] text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-400"
                   />
                 ) : (
                   <button
                     onClick={() => setNamingBoard(true)}
-                    className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+                    className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
                     title="Create a new board"
                   >
                     <Plus size={13} /> Board
@@ -159,7 +159,7 @@ export function TopBar(props: Props) {
                 )}
                 <button
                   onClick={onDeleteBoard}
-                  className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-400 hover:text-rose-300"
+                  className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-500 hover:text-rose-600"
                   title="Delete this board"
                 >
                   <Trash2 size={13} />
@@ -168,7 +168,7 @@ export function TopBar(props: Props) {
             )}
             <button
               onClick={onAddCard}
-              className="flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400"
+              className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-500"
             >
               <Plus size={13} /> Card
             </button>
@@ -180,7 +180,7 @@ export function TopBar(props: Props) {
         {!showBoards && (
           <button
             onClick={onOpenBoardSettings}
-            className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
             title="Board settings — title, flight level, card types, WIP"
           >
             <Settings size={13} /> Settings
@@ -189,7 +189,7 @@ export function TopBar(props: Props) {
 
         <button
           onClick={onOpenTypes}
-          className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+          className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
           title="Manage issue types"
         >
           <Shapes size={13} /> Types
@@ -207,7 +207,7 @@ export function TopBar(props: Props) {
               </button>
               <button
                 onClick={onCancelEdit}
-                className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
                 title="Discard layout changes"
               >
                 <X size={13} /> Cancel
@@ -216,7 +216,7 @@ export function TopBar(props: Props) {
           ) : (
             <button
               onClick={onEditBoard}
-              className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-300 hover:text-white"
+              className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-900"
               title="Edit board design (split/add/rename lanes)"
             >
               <Pencil size={13} /> Edit board
@@ -225,7 +225,7 @@ export function TopBar(props: Props) {
 
         <button
           onClick={onReset}
-          className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-400 hover:text-white"
+          className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-500 hover:text-slate-900"
           title="Reset the demo data"
         >
           <RotateCcw size={13} /> Reset

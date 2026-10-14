@@ -123,12 +123,16 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
 
   // Blocked rolls up: the item's own status is precise; a count of blocked
   // descendants is what lets a team blockage surface on its initiative.
+  //
+  // A card's *own* blocked state is a full-width bar, not a chip: it is the loudest thing
+  // that can be true of a card, and a chip the size of the link count reads as metadata.
+  // The rolled-up counts stay chips, because they are metadata.
   const blockedChip = item.blocked ? (
     <span
-      className="flex items-center gap-0.5 font-bold text-rose-600"
+      className="flex w-full items-center justify-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
       title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
     >
-      <Ban size={11} /> blocked
+      <Ban size={11} /> blocked{item.blockedReason ? ` · ${item.blockedReason}` : ''}
     </span>
   ) : summary.blockedBelow > 0 ? (
     blockedTone === 'aggregate' ? (
@@ -332,7 +336,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
         onContextMenu(item.id, e.clientX, e.clientY)
       }}
       className={cn(
-        'group relative flex h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
+        'group relative flex min-h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
         lensCls,
         lockCls,
@@ -409,7 +413,7 @@ export function Card({ item, type, ref_, depth, summary, parent, wide, symbols, 
             </span>
           </button>
         )}
-        <div className="mt-auto flex items-center gap-2 pt-1 text-[10px] text-slate-500">
+        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[10px] text-slate-500">
           {boundary && (
             <span
               className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"

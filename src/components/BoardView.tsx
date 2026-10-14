@@ -45,7 +45,7 @@ export function BoardView({ requestMove }: Props) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
       {showBar && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
           {board?.archived && <ArchivedBoardChip />}
           {editMode && (
             <span className="rounded bg-amber-400/20 px-1.5 py-px font-semibold text-amber-200">edit mode · unsaved changes</span>
@@ -61,14 +61,14 @@ export function BoardView({ requestMove }: Props) {
                     onConfirm: () => archiveDoneOnBoard(boardId),
                   })
                 }
-                className="flex items-center gap-1 rounded border border-slate-600 px-2 py-0.5 text-[11px] font-medium text-slate-200 hover:text-white"
+                className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
                 title="Archive all Done cards on this board so they stop cluttering it"
               >
                 <Archive size={11} /> Archive done ({doneCount})
               </button>
             )}
             {external.length > 0 && (
-              <span className="flex items-center gap-1 rounded bg-slate-700 px-1.5 py-px font-medium text-slate-200">
+              <span className="flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-px font-medium text-slate-600">
                 <Layers size={11} /> {external.length} external dependenc{external.length > 1 ? 'ies' : 'y'}
               </span>
             )}

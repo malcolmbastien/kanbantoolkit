@@ -78,7 +78,7 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
         onKeyDown={onKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[12px] font-medium text-slate-100 outline-none transition hover:border-slate-600 focus:ring-2 focus:ring-indigo-400"
+        className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-800 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400"
         title="Switch board"
       >
         {current && (
@@ -99,7 +99,7 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
         <div
           role="listbox"
           aria-label="Boards"
-          className="absolute left-0 z-50 mt-1 max-h-[70vh] w-72 overflow-y-auto rounded-md border border-slate-700 bg-slate-800 py-1 shadow-xl"
+          className="absolute left-0 z-50 mt-1 max-h-[70vh] w-72 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-xl"
         >
           {sorted.map((b, i) => {
             const style = BAND_STYLES[b.band] ?? BAND_STYLES.team
@@ -132,7 +132,7 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
               setOpen(false)
               setBoards(true)
             }}
-            className="mt-1 flex w-full items-center gap-2 border-t border-slate-700 px-2.5 py-2 text-left text-[11px] font-medium text-slate-300 transition hover:bg-slate-700/60 hover:text-white"
+            className="mt-1 flex w-full items-center gap-2 border-t border-slate-700 px-2.5 py-2 text-left text-[11px] font-medium text-slate-300 transition hover:bg-slate-100 hover:text-slate-900"
           >
             <Columns3 size={12} className="shrink-0 text-slate-400" /> Manage boards…
           </button>

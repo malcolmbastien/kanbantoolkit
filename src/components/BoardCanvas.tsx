@@ -321,7 +321,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       <div
         className={cn(
           'flex h-full min-h-0 w-full flex-1 flex-col',
-          isRoot && 'overflow-hidden rounded-lg border border-slate-300/70',
+          // No outer box: each top-level column is its own card, with a gap between them.
           // The stage tints the whole column, so it reads at a glance without a label.
           top && stage && STAGE_SURFACE[stage],
         )}
@@ -337,7 +337,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               // Stacked rows get a gap and their own outline; a nested columns split gets a
               // top gap. Without them, three levels of nested headers — a container header
               // and a row/child header are the same colour — read as one merged block.
-              stacked ? 'flex-col gap-1 p-1' : cn('grid divide-x divide-slate-400/50', !isRoot && 'pt-1'),
+              stacked ? 'flex-col gap-1 p-1' : cn('grid', isRoot ? 'gap-3' : 'divide-x divide-slate-400/50 pt-1'),
             )}
             style={
               orientation === 'columns'
@@ -356,7 +356,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                   // to fill the column's remaining height.
                   stacked
                     ? cn('w-full overflow-hidden rounded border border-slate-300/70 bg-white/50', i === kids.length - 1 && 'grow')
-                    : 'flex-1',
+                    : cn('flex-1', isRoot && 'overflow-hidden rounded-lg border border-slate-300'),
                 )}
               >
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />
