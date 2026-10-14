@@ -548,6 +548,12 @@ export function migrateState(persisted: unknown): Partial<Store> {
       })
     }
   }
+  // v25: sub-tasks became a system type rather than a user choice — a decomposition child
+  // is a Sub-task, and the panel no longer offers a type when adding one. Add it for
+  // states that predate it, the way built-in templates arrive.
+  if (Array.isArray(p.issueTypes) && !(p.issueTypes as IssueType[]).some((t) => t.name === 'Sub-task')) {
+    p.issueTypes = [...(p.issueTypes as IssueType[]), { id: 't-subtask', name: 'Sub-task', color: '#94a3b8' }]
+  }
   return p as Partial<Store>
 }
 
@@ -1380,7 +1386,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 24,
+      version: 25,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

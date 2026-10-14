@@ -6,13 +6,11 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
-  ChevronUp,
   CircleDot,
   Eye,
   Flag,
   GitBranch,
   LayoutGrid,
-  ListChecks,
   MessageSquare,
   Minus,
   MoreHorizontal,
@@ -26,8 +24,6 @@ import {
 } from 'lucide-react'
 import {
   attributedObjectives,
-  checklistItems,
-  checklistProgress,
   decompositionChildren,
   decompositionParent,
   dependenciesOf,
@@ -81,10 +77,6 @@ export function ItemPanel({ itemId }: Props) {
   const users = useStore((s) => s.users)
   const close = useStore((s) => s.openItem)
   const setItemFields = useStore((s) => s.setItemFields)
-  const addChecklistItem = useStore((s) => s.addChecklistItem)
-  const toggleChecklistItem = useStore((s) => s.toggleChecklistItem)
-  const moveChecklistItem = useStore((s) => s.moveChecklistItem)
-  const removeChecklistItem = useStore((s) => s.removeChecklistItem)
   const setParent = useStore((s) => s.setParent)
   const addChild = useStore((s) => s.addChild)
   const linkTeamInitiative = useStore((s) => s.linkTeamInitiative)
@@ -109,14 +101,13 @@ export function ItemPanel({ itemId }: Props) {
   const [priorityOpen, setPriorityOpen] = useState(false)
   const [blockOpen, setBlockOpen] = useState(false)
   const [dependencyId, setDependencyId] = useState('')
-  const [childType, setChildType] = useState('')
   const [parentChoice, setParentChoice] = useState('')
   const [linkBoardId, setLinkBoardId] = useState('')
   const [linkTitle, setLinkTitle] = useState('')
   const [showPreview, setShowPreview] = useState(false)
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
-  const [newChecklist, setNewChecklist] = useState('')
+  const [newSubtask, setNewSubtask] = useState('')
   const [assigneeDraft, setAssigneeDraft] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
@@ -139,15 +130,25 @@ export function ItemPanel({ itemId }: Props) {
   const status = statusOf(item.id, graph)
   const stage = rollupOf(item.id, graph).bucket
   const log = item.log ?? []
-  const checklist = checklistItems(item)
-  const progress = checklistProgress(item)
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
   const isInitiative = Boolean(initiativeTypeId && item.typeId === initiativeTypeId)
+  const isSubtask = item.typeId === issueTypes.find((t) => t.name === 'Sub-task')?.id
+  // Two types belong to the system rather than the user, so the control is not offered.
+  const typeIsFixed = isInitiative || isSubtask
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
   const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
   const userById = (id: string) => users.find((u) => u.id === id)
+  // A sub-task is a decomposition child, so its type is the system's, not a choice: the
+  // panel never offers one and `Sub-task` is what gets created.
+  const subtaskTypeId = issueTypes.find((t) => t.name === 'Sub-task')?.id
+  const addSubtask = () => {
+    const title = newSubtask.trim()
+    if (!title || !subtaskTypeId) return
+    addChild(item.id, subtaskTypeId, title)
+    setNewSubtask('')
+  }
   const applyAssignee = () => {
     const name = assigneeDraft.trim()
     if (!name) return
@@ -224,14 +225,6 @@ export function ItemPanel({ itemId }: Props) {
   const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
   const relatedCount = children.length + dependencies.length + dependents.length + itemPlacements.length
 
-  const dateLabel = (iso?: string) =>
-    iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : undefined
-  const targetLabel =
-    item.targetStartDate && item.targetEndDate
-      ? `${dateLabel(item.targetStartDate)} – ${dateLabel(item.targetEndDate)}`
-      : item.targetEndDate
-        ? dateLabel(item.targetEndDate)
-        : undefined
 
   const tabs: { id: Tab; label: string; icon: typeof LayoutGrid; count?: number }[] = [
     { id: 'details', label: 'Details', icon: LayoutGrid },
@@ -282,10 +275,11 @@ export function ItemPanel({ itemId }: Props) {
 
         {moreOpen && (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-            {isInitiative ? (
+            {typeIsFixed ? (
               <p className="text-[10px] text-slate-400">
-                Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it —
-                so it is never retyped into a card type.
+                {isInitiative
+                  ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
+                  : 'Type is fixed. A sub-task is a decomposition child, so Sub-task is what it is rather than something you choose.'}
               </p>
             ) : (
               <label className="flex items-center gap-2">
@@ -552,7 +546,7 @@ export function ItemPanel({ itemId }: Props) {
                 </div>
               </Field>
 
-              <Field label="Target" className="col-span-2">
+              <Field label="Target start">
                 <div className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm">
                   <CalendarDays size={12} className="shrink-0 text-slate-400" />
                   <input
@@ -561,14 +555,18 @@ export function ItemPanel({ itemId }: Props) {
                     onChange={(e) => setItemFields(item.id, { targetStartDate: e.target.value || undefined })}
                     className="min-w-0 flex-1 bg-transparent text-[11px] text-slate-600 outline-none"
                   />
-                  <span className="text-slate-300">→</span>
+                </div>
+              </Field>
+
+              <Field label="Target end">
+                <div className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm">
+                  <CalendarDays size={12} className="shrink-0 text-slate-400" />
                   <input
                     type="date"
                     value={item.targetEndDate ?? ''}
                     onChange={(e) => setItemFields(item.id, { targetEndDate: e.target.value || undefined })}
                     className="min-w-0 flex-1 bg-transparent text-[11px] text-slate-600 outline-none"
                   />
-                  {targetLabel && <span className="shrink-0 text-[10px] text-slate-400">{targetLabel}</span>}
                 </div>
               </Field>
             </div>
@@ -718,6 +716,17 @@ export function ItemPanel({ itemId }: Props) {
                       <span className="shrink-0 font-mono text-[10px] font-medium text-indigo-600">{refs.get(c.id)}</span>
                       <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
                       {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200" title={`${rollupOf(c.id, graph).percent}% complete`}>
+                          <span
+                            className="block h-full bg-indigo-500 transition-all"
+                            style={{ width: `${rollupOf(c.id, graph).percent}%` }}
+                          />
+                        </span>
+                        <span className="w-7 text-right font-mono text-[10px] tabular-nums text-slate-500">
+                          {rollupOf(c.id, graph).percent}%
+                        </span>
+                      </span>
                       <span className={cn('shrink-0 rounded px-1.5 py-px text-[10px] font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
                         {STAGE_LABELS[rollupOf(c.id, graph).bucket]}
                       </span>
@@ -726,106 +735,25 @@ export function ItemPanel({ itemId }: Props) {
                 })}
               </div>
               <div className="mt-1.5 flex items-center gap-1">
-                <select
-                  value={childType}
-                  onChange={(e) => setChildType(e.target.value)}
-                  className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px]"
-                >
-                  <option value="">Add sub-task of type…</option>
-                  {issueTypes.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                <input
+                  value={newSubtask}
+                  onChange={(e) => setNewSubtask(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { addSubtask() }
+                  }}
+                  placeholder="Add a sub-task…"
+                  className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
+                />
                 <button
-                  disabled={!childType}
-                  onClick={() => { addChild(item.id, childType, `New ${typeName(childType)}`); setChildType('') }}
+                  disabled={newSubtask.trim().length === 0}
+                  onClick={addSubtask}
                   className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
                 >
-                  <Plus size={11} /> Add
+                  <Plus size={11} /> Add sub-task
                 </button>
               </div>
             </section>
 
-            {/* Acceptance criteria — the checklist inside the card */}
-            <section>
-              <div className="mb-1.5 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <SectionLabel>Acceptance criteria</SectionLabel>
-                  {progress.total > 0 && (
-                    <span className="text-[10px] font-semibold text-emerald-600">
-                      {progress.done} of {progress.total} done ({Math.round((progress.done / progress.total) * 100)}%)
-                    </span>
-                  )}
-                </div>
-                <span className="flex items-center gap-1 text-[10px] text-slate-400" title="Sub-tasks that live inside this card — never scheduled, never WIP, never rolled up">
-                  <ListChecks size={11} /> in-card
-                </span>
-              </div>
-              {progress.total > 0 && (
-                <div className="mb-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full bg-emerald-500 transition-all"
-                    style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
-                  />
-                </div>
-              )}
-              <div className="space-y-1">
-                {checklist.length === 0 && <p className="text-[11px] text-slate-400">No criteria yet.</p>}
-                {checklist.map((c, i) => (
-                  <div key={c.id} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1">
-                    <input type="checkbox" checked={c.done} onChange={() => toggleChecklistItem(item.id, c.id)} />
-                    <span className={cn('min-w-0 flex-1 truncate text-slate-700', c.done && 'text-slate-400 line-through')}>{c.text}</span>
-                    <button
-                      disabled={i === 0}
-                      onClick={() => moveChecklistItem(item.id, c.id, -1)}
-                      className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent"
-                      title="Move up"
-                    >
-                      <ChevronUp size={13} />
-                    </button>
-                    <button
-                      disabled={i === checklist.length - 1}
-                      onClick={() => moveChecklistItem(item.id, c.id, 1)}
-                      className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent"
-                      title="Move down"
-                    >
-                      <ChevronDown size={13} />
-                    </button>
-                    <button
-                      onClick={() => removeChecklistItem(item.id, c.id)}
-                      className="rounded p-0.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                      title="Delete"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-1.5 flex items-center gap-1">
-                <input
-                  value={newChecklist}
-                  onChange={(e) => setNewChecklist(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      addChecklistItem(item.id, newChecklist)
-                      setNewChecklist('')
-                    }
-                  }}
-                  placeholder="Add a criterion…"
-                  className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
-                />
-                <button
-                  disabled={newChecklist.trim().length === 0}
-                  onClick={() => {
-                    addChecklistItem(item.id, newChecklist)
-                    setNewChecklist('')
-                  }}
-                  className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
-                >
-                  <Plus size={11} /> Add
-                </button>
-              </div>
-            </section>
           </div>
         )}
 

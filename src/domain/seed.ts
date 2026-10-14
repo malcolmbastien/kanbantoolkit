@@ -12,6 +12,8 @@ const issueTypes: IssueType[] = [
   { id: 't-bug', name: 'Bug', color: '#f43f5e' },
   { id: 't-spike', name: 'Spike', color: '#f59e0b' },
   { id: 't-task', name: 'Task', color: '#64748b' },
+  // Not a card type: it is what a decomposition child is, and the panel never offers it.
+  { id: 't-subtask', name: 'Sub-task', color: '#94a3b8' },
 ]
 
 /** Demo people. Items reference these by id; cards show initials (or a photo). */

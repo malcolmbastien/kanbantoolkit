@@ -437,15 +437,24 @@ export function isInitiativeItem(item: Item | undefined, types: IssueType[]): bo
  * into a card type, and no card can be retyped into an initiative. Refused, never
  * corrected — an item silently changing kind would be worse than the action failing.
  */
+/** Types the system owns: never offered, never retyped into or out of. */
+export function isReservedType(typeId: string | undefined, types: IssueType[]): boolean {
+  const t = types.find((x) => x.id === typeId)
+  return t?.name === 'Initiative' || t?.name === 'Sub-task'
+}
+
 export function canRetype(item: Item, nextTypeId: string, types: IssueType[]): boolean {
-  const initiative = initiativeTypeId(types)
-  if (!initiative) return true
-  return item.typeId !== initiative && nextTypeId !== initiative
+  return !isReservedType(item.typeId, types) && !isReservedType(nextTypeId, types)
 }
 
 /** Types selectable for a card — everything except the reserved Initiative type. */
+/**
+ * The types a card can be given. Two are reserved and never offered: `Initiative` belongs
+ * to the initiatives workflow, and `Sub-task` is what a decomposition child is rather
+ * than something you choose.
+ */
 export function cardTypes(types: IssueType[]): IssueType[] {
-  return types.filter((t) => t.name !== 'Initiative')
+  return types.filter((t) => t.name !== 'Initiative' && t.name !== 'Sub-task')
 }
 
 /** The default card type: the first non-Initiative type. */
