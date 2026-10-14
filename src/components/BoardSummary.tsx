@@ -272,9 +272,11 @@ function Cell({
   const editable = interactive && editMode
   const leaf = isLeaf(lanes, lane.id)
 
+  // The same header bar the cards workflow uses: its own ground, a margin on every side,
+  // so a section and its cells are separate labels rather than a continuous band.
   const head = primary
-    ? cn(HEAD_ROW, 'gap-1.5 border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-slate-800')
-    : cn(HEAD_ROW, 'mb-1 gap-1.5 rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-slate-600')
+    ? cn(HEAD_ROW, 'mx-1 mt-1 mb-0.5 gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-slate-800 shadow-sm')
+    : cn(HEAD_ROW, 'mx-1 mt-0.5 mb-1 gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-700 shadow-sm')
 
   const removeWithConfirm = () => {
     const kids = leavesUnder(lanes, lane.id).filter((l) => l.id !== lane.id)
