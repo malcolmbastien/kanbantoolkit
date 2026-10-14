@@ -16,6 +16,7 @@ import { TypeEditor } from './components/TypeEditor'
 import { boardCardTypeId } from './domain/board'
 import { activeFilterCount } from './domain/filters'
 import { leafLanes } from './domain/lanes'
+import { filtersFromParam } from './domain/filters'
 import { useStore } from './store'
 
 export default function App() {
@@ -82,12 +83,8 @@ export default function App() {
     if (filtersParam) {
       const store = useStore.getState()
       if (!store.showFilters) store.toggleFilters()
-      const flags = filtersParam.split(',').map((f) => f.trim().toLowerCase())
-      store.setFilters({
-        ...(flags.includes('blocked') ? { blocked: true } : {}),
-        ...(flags.includes('overdue') ? { overdue: true } : {}),
-        ...(flags.includes('unassigned') ? { unassigned: true } : {}),
-      })
+      const parsed = filtersFromParam(filtersParam)
+      if (parsed) store.setFilters(parsed)
     }
     // Idempotent: StrictMode double-invokes this effect, and toggleCollapse would flip twice.
     for (const id of params.getAll('collapse')) {

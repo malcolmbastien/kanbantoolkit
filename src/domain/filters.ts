@@ -89,3 +89,36 @@ export function matchesFilters(
   if (f.minAgeDays !== undefined && (age === undefined || age < f.minAgeDays)) return false
   return true
 }
+
+/**
+ * Read a `?filters=` parameter, so a narrowed board can be linked.
+ *
+ * Tokens are comma-separated: `blocked`, `overdue`, `unassigned`, and then the dimensions
+ * that carry a value — `priority:urgent`, `assignee:<userId>`, `age:7`. An unknown token is
+ * ignored rather than guessed at, and a malformed value is dropped rather than defaulted.
+ */
+export function filtersFromParam(param: string | null): CardFilters | undefined {
+  if (!param) return undefined
+  const tokens = param.split(',').map((t) => t.trim()).filter(Boolean)
+  if (tokens.length === 0) return undefined
+  // Every array is copied: NO_FILTERS is handed out by clearFilters, so pushing into
+  // what it holds would edit the empty filter set for everyone.
+  const next: CardFilters = { ...NO_FILTERS, typeIds: [], assigneeIds: [], priorities: [] }
+  for (const token of tokens) {
+    const [rawKey, rawValue] = token.split(':')
+    const key = rawKey.toLowerCase()
+    if (key === 'blocked') next.blocked = true
+    else if (key === 'overdue') next.overdue = true
+    else if (key === 'unassigned') next.unassigned = true
+    else if (key === 'priority' && rawValue) {
+      const level = rawValue.toLowerCase()
+      if (!next.priorities.includes(level)) next.priorities.push(level)
+    } else if (key === 'assignee' && rawValue) {
+      if (!next.assigneeIds.includes(rawValue)) next.assigneeIds.push(rawValue)
+    } else if (key === 'age' && rawValue) {
+      const days = Number(rawValue)
+      if (Number.isFinite(days) && days > 0) next.minAgeDays = days
+    }
+  }
+  return next
+}

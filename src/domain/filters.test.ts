@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeFilterCount, ageDays, hasActiveFilters, isOverdue, matchesFilters, NO_FILTERS, parseDay, type CardFilters } from './filters'
+import { activeFilterCount, ageDays, filtersFromParam, hasActiveFilters, isOverdue, matchesFilters, NO_FILTERS, parseDay, type CardFilters } from './filters'
 import type { Item } from './types'
 
 const card = (patch: Partial<Item> = {}): Item => ({ id: 'x', title: 'X', typeId: 't-story', createdAt: 0, ...patch })
@@ -79,6 +79,26 @@ describe('card filters', () => {
     expect(matchesFilters(good, f, false, Date.now(), 1)).toBe(false)
     expect(matchesFilters({ ...good, blocked: false }, f, false, Date.now(), 10)).toBe(false)
     expect(matchesFilters({ ...good, priority: 'low' }, f, false, Date.now(), 10)).toBe(false)
+  })
+
+  it('reads a ?filters= parameter, so a narrowed board can be linked', () => {
+    expect(filtersFromParam(null)).toBeUndefined()
+    expect(filtersFromParam('')).toBeUndefined()
+
+    expect(filtersFromParam('blocked,overdue')).toMatchObject({ blocked: true, overdue: true, unassigned: false })
+    expect(filtersFromParam('priority:urgent,priority:high,assignee:u-1,age:7')).toMatchObject({
+      priorities: ['urgent', 'high'],
+      assigneeIds: ['u-1'],
+      minAgeDays: 7,
+    })
+    // Repeats collapse rather than duplicating.
+    expect(filtersFromParam('assignee:u-1,assignee:u-1')!.assigneeIds).toEqual(['u-1'])
+    // Unknown tokens and malformed values are ignored, not guessed at.
+    expect(filtersFromParam('nonsense,age:soon,priority:')).toMatchObject({ priorities: [] })
+    expect(filtersFromParam('nonsense,age:soon')!.minAgeDays).toBeUndefined()
+    expect(filtersFromParam('age:0')!.minAgeDays).toBeUndefined()
+    // Case is not part of the contract.
+    expect(filtersFromParam('BLOCKED,Priority:Urgent')).toMatchObject({ blocked: true, priorities: ['urgent'] })
   })
 
   it('counts active filter categories', () => {
