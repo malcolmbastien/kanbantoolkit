@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LayoutTemplate, Plus, Settings, Target, X } from 'lucide-react'
+import { LayoutTemplate, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
@@ -21,12 +21,18 @@ export function BoardSettings() {
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
   const saveBoardAsTemplate = useStore((s) => s.saveBoardAsTemplate)
   const addIssueType = useStore((s) => s.addIssueType)
+  const updateIssueType = useStore((s) => s.updateIssueType)
+  const removeIssueType = useStore((s) => s.removeIssueType)
+  const askConfirm = useStore((s) => s.askConfirm)
   const addLinkedBoard = useStore((s) => s.addLinkedBoard)
   const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const close = useStore((s) => s.toggleBoardSettings)
   const [newTypeName, setNewTypeName] = useState('')
   const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
   const [savedTemplate, setSavedTemplate] = useState(false)
+  const [editingTypeId, setEditingTypeId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editColor, setEditColor] = useState('#8b5cf6')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -57,6 +63,12 @@ export function BoardSettings() {
   }
 
   /** Define a brand-new card type and enable it on this board. */
+  const saveTypeEdit = (id: string) => {
+    const name = editName.trim()
+    if (!name) return
+    updateIssueType(id, { name, color: editColor })
+    setEditingTypeId(null)
+  }
   const addType = () => {
     const name = newTypeName.trim()
     if (!name) return
@@ -127,16 +139,82 @@ export function BoardSettings() {
           <div>
             <div className={label}>Card types on this board</div>
             <div className="space-y-1">
-              {types.map((t) => (
-                <label key={t.id} className={cn(row, 'cursor-pointer')}>
-                  <input type="checkbox" checked={allowed.includes(t.id)} onChange={() => toggleType(t.id)} />
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
-                  <span className="flex-1 text-slate-700">{t.name}</span>
-                  {board.defaultCardTypeId === t.id && (
-                    <span className="rounded bg-slate-800 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-white">default</span>
-                  )}
-                </label>
-              ))}
+              {types.map((t) =>
+                editingTypeId === t.id ? (
+                  // Editing a type is a workspace-wide act — every board that uses it sees
+                  // the new name and colour — so it happens in place, deliberately.
+                  <div key={t.id} className={cn(row, 'gap-1')}>
+                    <input
+                      type="color"
+                      value={editColor}
+                      onChange={(e) => setEditColor(e.target.value)}
+                      title="Type colour"
+                      className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                    />
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          saveTypeEdit(t.id)
+                        }
+                        if (e.key === 'Escape') setEditingTypeId(null)
+                      }}
+                      className="min-w-0 flex-1 rounded border border-indigo-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                    <button
+                      onClick={() => saveTypeEdit(t.id)}
+                      disabled={!editName.trim()}
+                      className="shrink-0 rounded bg-emerald-600 px-1.5 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+                      title="Save this type"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingTypeId(null)}
+                      className="shrink-0 rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 hover:border-slate-300"
+                      title="Cancel"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div key={t.id} className={cn(row, 'group gap-1.5')}>
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5">
+                      <input type="checkbox" checked={allowed.includes(t.id)} onChange={() => toggleType(t.id)} />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                      <span className="min-w-0 flex-1 truncate text-slate-700">{t.name}</span>
+                      {board.defaultCardTypeId === t.id && (
+                        <span className="shrink-0 rounded bg-slate-800 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-white">default</span>
+                      )}
+                    </label>
+                    <button
+                      onClick={() => { setEditingTypeId(t.id); setEditName(t.name); setEditColor(t.color) }}
+                      className="shrink-0 rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      title={`Edit ${t.name} — renames it everywhere it is used`}
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      onClick={() =>
+                        askConfirm({
+                          title: `Delete the "${t.name}" type?`,
+                          body: 'Types are labels for the whole workspace, not per board — every card using it is affected, and the type is removed from every board that offers it.',
+                          confirmLabel: 'Delete type',
+                          danger: true,
+                          onConfirm: () => removeIssueType(t.id),
+                        })
+                      }
+                      className="shrink-0 rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                      title={`Delete ${t.name}`}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
             <div className="mt-2 flex items-center gap-1">
               <input
