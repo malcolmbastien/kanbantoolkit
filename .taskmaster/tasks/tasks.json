@@ -861,12 +861,12 @@
       },
       {
         "id": "56",
-        "title": "Priority: card badge icons, bulk edit and filtering",
+        "title": "Priority: card badge, context menu and store tests",
         "description": "P1, narrowed: the priority field itself shipped with the item-panel redesign (task 60). What remains is surfacing it — a badge on the card face, the multi-select bulk editor, and the filter.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "details": "The field is in: `Item.priority` is an ordered scale (`urgent | high | medium | low`, undefined = none), stored rather than derived because priority is a judgement the team makes. It is settable from the item panel property grid. DELIVERED with task 60: the field, the type, and the panel control. REMAINING: (a) render it as a compact badge icon in the card badge row (type chip, ref, size, users), using the card container query so a narrow card drops it before it crowds the title, and the same on wide initiative cards; (b) wire it into the card menu multi-select bulk editor, which already handles size the same way; (c) expose it as a filter dimension (task 58 depends on this). Keep it the only stored judgement field — it must not touch rollup, WIP counts or status derivation, and it must not become a per-board or per-lane concept. Colour: one restrained accent per level; urgent is the only one that should read as an alarm. No migration or version bump was needed, since the field is optional.",
+        "details": "The field is in: `Item.priority` is an ordered scale (`urgent | high | medium | low`, undefined = none), stored rather than derived because priority is a judgement the team makes. It is settable from the item panel property grid. DELIVERED with task 60: the field, the type, and the panel control. REMAINING: (a) render it as a compact badge icon in the card badge row (type chip, ref, size, users), using the card container query so a narrow card drops it before it crowds the title, and the same on wide initiative cards; (b) wire it into the card menu multi-select bulk editor, which already handles size the same way; (c) expose it as a filter dimension (task 58 depends on this). Keep it the only stored judgement field — it must not touch rollup, WIP counts or status derivation, and it must not become a per-board or per-lane concept. Colour: one restrained accent per level; urgent is the only one that should read as an alarm. No migration or version bump was needed, since the field is optional. DELIVERED: the field, the type and the panel control (with task 60); a shared PriorityBadge on both card shapes — the narrow card indicator row and the wide initiative header — with the icon ramp and the picker carrying the same icons; Priority as a section of the card context menu, applying across the selection; and the store tests this task named, including the one that matters for a judgement field — setting a priority moves neither status, rollup nor the lane count. The filter dimension named as (c) is task 58 (board filters by assignee, priority and age), which depends on this and remains open.",
         "testStrategy": "Store tests: set and clear priority singly and in bulk, round-trip through persistence, and assert it never changes status, rollup or WIP counts. Migration test: items without priority rehydrate cleanly. Visual check over CDP at narrow and wide card widths. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-13T12:00:00.000Z"
@@ -941,7 +941,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-14T12:00:00.000Z",
       "taskCount": 60,
-      "completedCount": 34,
+      "completedCount": 35,
       "tags": [
         "backlog"
       ]

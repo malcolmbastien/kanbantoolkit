@@ -856,6 +856,42 @@ describe('store actions', () => {
     expect(s().multiSelect).toEqual([])
   })
 
+  it('priority is set and cleared, singly and in bulk, and moves nothing else', () => {
+    const item = (id: string) => s().items.find((i) => i.id === id)!
+    const ns = laneByName('b-atlas', 'Not Started')
+    const before = {
+      status: statusOf('st-sso', graph()),
+      rollup: rollupOf('st-sso', graph()).percent,
+      wip: laneCardCount(s().lanes, s().placements, ns.id),
+    }
+
+    s().setItemFields('st-sso', { priority: 'urgent' })
+    expect(item('st-sso').priority).toBe('urgent')
+
+    // The bulk path the card menu uses: one call per selected card.
+    s().setItemFields('st-email', { priority: 'low' })
+    expect(item('st-email').priority).toBe('low')
+
+    // Cleared, not set to a sentinel.
+    s().setItemFields('st-sso', { priority: undefined })
+    expect(item('st-sso').priority).toBeUndefined()
+
+    // Priority is a judgement, not a derivation — so nothing downstream moves.
+    expect(statusOf('st-sso', graph())).toEqual(before.status)
+    expect(rollupOf('st-sso', graph()).percent).toBe(before.rollup)
+    expect(laneCardCount(s().lanes, s().placements, ns.id)).toBe(before.wip)
+
+    // Round-trips through the persisted slice.
+    s().setItemFields('st-sso', { priority: 'high' })
+    expect(persistedSlice(s()).items?.find((i) => i.id === 'st-sso')?.priority).toBe('high')
+
+    // And an item that predates the field rehydrates cleanly.
+    const migrated = migrateState({ items: [{ id: 'x', title: 't', typeId: 't-story', createdAt: 0 }] }) as {
+      items: { priority?: string }[]
+    }
+    expect(migrated.items[0].priority).toBeUndefined()
+  })
+
   it('an initiative is never retyped, and nothing becomes an initiative', () => {
     const typeOf = (id: string) => s().items.find((i) => i.id === id)?.typeId
 
