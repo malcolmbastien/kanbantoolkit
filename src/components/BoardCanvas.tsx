@@ -107,7 +107,7 @@ function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { c
  * The side columns are `1fr` each and the middle sizes to the name, so the centring holds
  * whether or not a lane has a collapse control, a WIP count or a policy icon.
  */
-const HEAD_ROW = 'grid grid-cols-[minmax(1.25rem,1fr)_minmax(0,auto)_minmax(4.5rem,1fr)] items-center gap-1'
+const HEAD_ROW = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1'
 
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
   const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
@@ -191,7 +191,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               </button>
             ) : null}
           </span>
-          <span className="truncate text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+          <span className="text-center text-[11px] font-bold uppercase leading-tight tracking-wide">{lane.name || 'Board'}</span>
           <span className="flex items-center justify-end gap-1">
             <span
               className={cn(
@@ -469,7 +469,7 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
         {columns.map((col) => (
           <div key={col.id} className={cn(HEAD_ROW, 'gap-1.5 border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-slate-800')}>
             <span />
-            <span className="truncate text-[11px] font-bold uppercase tracking-wide">{col.name}</span>
+            <span className="text-center text-[11px] font-bold uppercase leading-tight tracking-wide">{col.name}</span>
             <span className="flex justify-end">
               <span className="rounded bg-slate-700 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums text-white">
                 {countInLane(col.id, ctx)}

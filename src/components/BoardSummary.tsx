@@ -28,7 +28,7 @@ import type { IssueType, Item, Lane, Stage } from '@/domain/types'
  * right. The side columns are `1fr` each and the middle sizes to the name, so the centring
  * holds whether or not a lane carries a count or is being edited.
  */
-const HEAD_ROW = 'grid grid-cols-[minmax(1.25rem,1fr)_minmax(0,auto)_minmax(4.5rem,1fr)] items-center gap-1'
+const HEAD_ROW = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1'
 
 /**
  * A summary band for the management view: only the board's initiative-level work
@@ -297,7 +297,7 @@ function Cell({
         {/* Left slot is empty — the grid keeps the name truly centred — while the WIP count
             and any edit controls are pinned right. */}
         <span />
-        <span className={cn('truncate font-bold uppercase tracking-wide', primary ? 'text-[11px]' : 'text-[10px]')}>
+        <span className={cn('text-center font-bold uppercase leading-tight tracking-wide', primary ? 'text-[11px]' : 'text-[10px]')}>
           {lane.name}
         </span>
         <span className="flex items-center justify-end gap-1">
