@@ -1,7 +1,8 @@
 import { X } from 'lucide-react'
 import { cardTypes, initiativeTypeId } from '@/domain/board'
 import { statusOf, type Graph } from '@/domain/derive'
-import { activeFilterCount, hasActiveFilters, matchesFilters } from '@/domain/filters'
+import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters } from '@/domain/filters'
+import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item } from '@/domain/types'
@@ -35,7 +36,13 @@ export function FilterPanel() {
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => Boolean(i))
     .filter((i) => !i.archived && i.typeId !== initiativeId)
-  const matched = boardCards.filter((i) => matchesFilters(i, filters, statusOf(i.id, graph).resolved)).length
+  const placementOf = (id: string) => placements.find((p) => p.itemId === id && p.boardId === boardId)
+  const matched = boardCards.filter((i) =>
+    matchesFilters(i, filters, statusOf(i.id, graph).resolved, Date.now(), ageDays(placementOf(i.id))),
+  ).length
+  const users = useStore((s) => s.users)
+  // Only the people who actually hold work here: a filter list of the whole org is noise.
+  const assignedHere = users.filter((u) => boardCards.some((c) => (c.assignees ?? []).includes(u.id)))
 
   return (
     <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
@@ -76,6 +83,82 @@ export function FilterPanel() {
             })}
           </div>
           <p className="mt-1 text-[10px] text-slate-400">No type checked shows every type.</p>
+        </section>
+
+        <section>
+          <SectionLabel>Assignee</SectionLabel>
+          {assignedHere.length === 0 ? (
+            <p className="text-[11px] text-slate-400">No one is assigned on this board.</p>
+          ) : (
+            <div className="space-y-1">
+              {assignedHere.map((u) => {
+                const on = filters.assigneeIds.includes(u.id)
+                return (
+                  <label key={u.id} className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() =>
+                        setFilters({
+                          assigneeIds: on ? filters.assigneeIds.filter((x) => x !== u.id) : [...filters.assigneeIds, u.id],
+                        })
+                      }
+                    />
+                    <span className="flex-1 text-slate-700">{u.name}</span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+          <p className="mt-1 text-[10px] text-slate-400">No one checked shows every card.</p>
+        </section>
+
+        <section>
+          <SectionLabel>Priority</SectionLabel>
+          <div className="space-y-1">
+            {PRIORITY_ORDER.map((p) => {
+              const on = filters.priorities.includes(p)
+              const { label, icon: Icon, dot } = PRIORITY_META[p as Priority]
+              return (
+                <label key={p} className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() =>
+                      setFilters({ priorities: on ? filters.priorities.filter((x) => x !== p) : [...filters.priorities, p] })
+                    }
+                  />
+                  <Icon size={12} className={cn('shrink-0', dot)} />
+                  <span className="flex-1 text-slate-700">{label}</span>
+                </label>
+              )
+            })}
+          </div>
+          <p className="mt-1 text-[10px] text-slate-400">Cards with no priority are shown by any selection.</p>
+        </section>
+
+        <section>
+          <SectionLabel>Time in lane</SectionLabel>
+          <div className="flex flex-wrap gap-1">
+            {[undefined, 7, 14, 30].map((d) => {
+              const on = filters.minAgeDays === d
+              return (
+                <button
+                  key={String(d)}
+                  onClick={() => setFilters({ minAgeDays: d })}
+                  className={cn(
+                    'rounded-lg border px-2 py-1 text-[11px] font-medium transition',
+                    on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
+                  )}
+                >
+                  {d === undefined ? 'Any age' : `${d}+ days`}
+                </button>
+              )
+            })}
+          </div>
+          <p className="mt-1 text-[10px] text-slate-400">
+            Age is time in the card's current lane. Cards that predate the clock have no age, so an age filter excludes them.
+          </p>
         </section>
 
         <section>

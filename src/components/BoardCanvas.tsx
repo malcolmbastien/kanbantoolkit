@@ -22,7 +22,7 @@ import {
 } from '@/domain/derive'
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
-import { matchesFilters, type CardFilters } from '@/domain/filters'
+import { ageDays, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -60,6 +60,8 @@ interface Ctx {
   /** The focused item, for the lineage highlight. */
   lensId: string | null
   effectiveLane: Map<string, string>
+  /** How long a card has sat in its lane, when the placement knows. See `ageDays`. */
+  ageOf: (itemId: string) => number | undefined
   interactive: boolean
   dropCard: (itemId: string, laneId: string) => void
   openItem: (id: string) => void
@@ -381,7 +383,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   const cards = boardItems
     .filter((i) => effectiveLane.get(i.id) === lane.id)
     .filter((i) => !ctx.search || i.title.toLowerCase().includes(ctx.search.toLowerCase()))
-    .filter((i) => matchesFilters(i, ctx.filters, statusOf(i.id, graph).resolved))
+    .filter((i) => matchesFilters(i, ctx.filters, statusOf(i.id, graph).resolved, Date.now(), ctx.ageOf(i.id)))
 
   return (
     <div
@@ -420,6 +422,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 blockedBelow: blockedBelow(c.id, graph),
                 openDescendants: openDescendants(c.id, graph).length,
                 rollupPercent: decompositionChildren(c.id, graph.edges).length > 0 ? roll.percent : undefined,
+                // Backlog is uncommitted inventory and legitimately rests, so it is not aged.
+                ageDays: ctx.effectiveLane.get(c.id) && effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) !== 'backlog' ? ctx.ageOf(c.id) : undefined,
                 checklist: checklistProgress(c),
               }}
             />
@@ -577,6 +581,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const ctx: Ctx = {
     lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
+    ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     interactive,
     dropCard: (itemId, laneId) => onMove?.(itemId, boardId, laneId),
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,

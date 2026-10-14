@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeFilterCount, hasActiveFilters, isOverdue, matchesFilters, NO_FILTERS, parseDay, type CardFilters } from './filters'
+import { activeFilterCount, ageDays, hasActiveFilters, isOverdue, matchesFilters, NO_FILTERS, parseDay, type CardFilters } from './filters'
 import type { Item } from './types'
 
 const card = (patch: Partial<Item> = {}): Item => ({ id: 'x', title: 'X', typeId: 't-story', createdAt: 0, ...patch })
@@ -38,10 +38,54 @@ describe('card filters', () => {
     expect(matchesFilters(card({ blocked: true }), f, false)).toBe(true)
   })
 
+  it('filters by assignee, as a union within the category', () => {
+    const f = with_({ assigneeIds: ['u-1', 'u-2'] })
+    expect(matchesFilters(card({ assignees: ['u-2'] }), f, false)).toBe(true)
+    expect(matchesFilters(card({ assignees: ['u-9'] }), f, false)).toBe(false)
+    expect(matchesFilters(card(), f, false)).toBe(false)
+    // Assignee and unassigned are independent switches, not opposites.
+    expect(matchesFilters(card(), with_({ unassigned: true }), false)).toBe(true)
+  })
+
+  it('filters by priority, and a card with none matches no selection', () => {
+    const f = with_({ priorities: ['urgent', 'high'] })
+    expect(matchesFilters(card({ priority: 'high' }), f, false)).toBe(true)
+    expect(matchesFilters(card({ priority: 'low' }), f, false)).toBe(false)
+    expect(matchesFilters(card(), f, false)).toBe(false)
+  })
+
+  it('filters by time in lane, and excludes cards whose age is unknown', () => {
+    const f = with_({ minAgeDays: 7 })
+    expect(matchesFilters(card(), f, false, Date.now(), 7)).toBe(true)
+    expect(matchesFilters(card(), f, false, Date.now(), 6)).toBe(false)
+    // Unknown age is not "old enough": it is unknown, so it is not claimed.
+    expect(matchesFilters(card(), f, false, Date.now(), undefined)).toBe(false)
+    // No age filter means age is irrelevant.
+    expect(matchesFilters(card(), NO_FILTERS, false, Date.now(), undefined)).toBe(true)
+  })
+
+  it('ageDays reads the placement, and says nothing when the stamp is missing', () => {
+    const day = 86_400_000
+    const now = 1_000 * day
+    expect(ageDays({ id: 'p', boardId: 'b', itemId: 'i', laneId: 'l', laneEnteredAt: now - 3 * day }, now)).toBe(3)
+    expect(ageDays({ id: 'p', boardId: 'b', itemId: 'i', laneId: 'l' }, now)).toBeUndefined()
+    expect(ageDays(undefined, now)).toBeUndefined()
+  })
+
+  it('combines dimensions with AND', () => {
+    const f = with_({ priorities: ['urgent'], assigneeIds: ['u-1'], minAgeDays: 7, blocked: true })
+    const good = card({ priority: 'urgent', assignees: ['u-1'], blocked: true })
+    expect(matchesFilters(good, f, false, Date.now(), 10)).toBe(true)
+    expect(matchesFilters(good, f, false, Date.now(), 1)).toBe(false)
+    expect(matchesFilters({ ...good, blocked: false }, f, false, Date.now(), 10)).toBe(false)
+    expect(matchesFilters({ ...good, priority: 'low' }, f, false, Date.now(), 10)).toBe(false)
+  })
+
   it('counts active filter categories', () => {
     expect(activeFilterCount(NO_FILTERS)).toBe(0)
     expect(activeFilterCount(with_({ typeIds: ['a', 'b'] }))).toBe(1)
     expect(activeFilterCount(with_({ typeIds: ['a'], blocked: true, overdue: true }))).toBe(3)
+    expect(activeFilterCount(with_({ assigneeIds: ['u-1'], priorities: ['high'], minAgeDays: 7 }))).toBe(3)
   })
 
   it('isOverdue needs a past target date and an open card', () => {

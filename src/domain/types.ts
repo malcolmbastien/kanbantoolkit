@@ -235,6 +235,11 @@ export interface Placement {
   itemId: string
   /** The leaf lane (cell) the card sits in. */
   laneId: string
+  /**
+   * When the card entered that lane. Stamped on every lane change, and absent for
+   * placements that predate it — so age is shown only where it is known, never invented.
+   */
+  laneEnteredAt?: number
 }
 
 /**

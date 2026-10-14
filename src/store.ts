@@ -277,6 +277,9 @@ export type Store = FlowState & ViewState & Actions
 
 const uid = makeUid
 
+/** Move a placement into a lane, stamping when it arrived — the clock card age reads. */
+const toLane = (p: Placement, laneId: string): Placement => ({ ...p, laneId, laneEnteredAt: Date.now() })
+
 /** The first lane (target or ancestor) whose WIP limit a move would exceed. */
 function exceededLane(
   state: Pick<FlowState, 'lanes' | 'placements'>,
@@ -650,7 +653,7 @@ export const useStore = create<Store>()(
         set({
           // Only this board's placements move.
           placements: state.placements.map((p) =>
-            p.boardId === state.boardId && ids.has(p.itemId) ? { ...p, laneId } : p,
+            p.boardId === state.boardId && ids.has(p.itemId) ? toLane(p, laneId) : p,
           ),
           // Keep the auto-archive clock in step with the target stage.
           items: state.items.map((i) => {
@@ -986,7 +989,7 @@ export const useStore = create<Store>()(
 
       addCard: ({ boardId, typeId, laneId, title }) => {
         const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), log: [logEntry('created')] }
-        const placement: Placement = { id: uid(), boardId, itemId: item.id, laneId }
+        const placement: Placement = { id: uid(), boardId, itemId: item.id, laneId, laneEnteredAt: Date.now() }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
       },
 
@@ -1013,8 +1016,8 @@ export const useStore = create<Store>()(
           }
         }
         const placements = existing
-          ? state.placements.map((p) => (p.id === existing.id ? { ...p, laneId } : p))
-          : [...state.placements, { id: uid(), boardId, itemId, laneId }]
+          ? state.placements.map((p) => (p.id === existing.id ? toLane(p, laneId) : p))
+          : [...state.placements, { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now() }]
         // Track when work enters/leaves Done — the clock auto-archive reads.
         const stage = effectiveStage(state.lanes, laneId)
         const items = state.items.map((i) => {
@@ -1041,8 +1044,8 @@ export const useStore = create<Store>()(
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (existing && existing.laneId === laneId) return
         const placements = existing
-          ? state.placements.map((p) => (p.id === existing.id ? { ...p, laneId } : p))
-          : [...state.placements, { id: uid(), boardId, itemId, laneId }]
+          ? state.placements.map((p) => (p.id === existing.id ? toLane(p, laneId) : p))
+          : [...state.placements, { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now() }]
         set({ placements })
       },
 
@@ -1107,7 +1110,7 @@ export const useStore = create<Store>()(
           name: orientation === 'rows' ? `Row ${i + 1}` : `Column ${i + 1}`,
           workflow: lane.workflow,
         }))
-        const placements = state.placements.map((p) => (p.laneId === laneId ? { ...p, laneId: children[0].id } : p))
+        const placements = state.placements.map((p) => (p.laneId === laneId ? toLane(p, children[0].id) : p))
         set({
           lanes: state.lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)).concat(children),
           placements,
@@ -1218,7 +1221,7 @@ export const useStore = create<Store>()(
         const siblings = childrenOf(state.lanes, lane.parentId).filter((l) => l.id !== laneId)
         const target = siblings.flatMap((s) => leavesUnder(state.lanes, s.id))[0]
         const placements = state.placements
-          .map((p) => (ids.has(p.laneId) ? (target ? { ...p, laneId: target.id } : null) : p))
+          .map((p) => (ids.has(p.laneId) ? (target ? toLane(p, target.id) : null) : p))
           .filter((p): p is Placement => p !== null)
         set({ lanes: state.lanes.filter((l) => !ids.has(l.id)), placements })
       },
@@ -1250,7 +1253,7 @@ export const useStore = create<Store>()(
         const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
         set({
           items: [...state.items, item],
-          placements: [...state.placements, { id: uid(), boardId, itemId: item.id, laneId: lane.id }],
+          placements: [...state.placements, { id: uid(), boardId, itemId: item.id, laneId: lane.id, laneEnteredAt: Date.now() }],
           edges: [...state.edges, { id: uid(), kind: 'decomposition', from: parentId, to: item.id }],
         })
       },

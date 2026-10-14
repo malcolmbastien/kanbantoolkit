@@ -3,6 +3,7 @@ import { decompositionChildren, decompositionParent, checklistProgress, rollupOf
 import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
+import { NO_FILTERS } from './domain/filters'
 import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 
@@ -763,14 +764,14 @@ describe('store actions', () => {
     expect(s().filters.typeIds).toEqual(['t-spike'])
 
     s().setFilters({ blocked: true, unassigned: true })
-    expect(s().filters).toEqual({ typeIds: ['t-spike'], blocked: true, overdue: false, unassigned: true })
+    expect(s().filters).toMatchObject({ typeIds: ['t-spike'], blocked: true, overdue: false, unassigned: true })
 
     s().openItem('st-email')
     expect(s().showFilters).toBe(false) // opening a card dismissed the panel
     expect(s().selectedItemId).toBe('st-email')
 
     s().clearFilters()
-    expect(s().filters).toEqual({ typeIds: [], blocked: false, overdue: false, unassigned: false })
+    expect(s().filters).toEqual(NO_FILTERS)
   })
 
   it('checklists live inside a card and never count as work', () => {
@@ -854,6 +855,23 @@ describe('store actions', () => {
     // Opening a card clears the group.
     s().openItem('st-email')
     expect(s().multiSelect).toEqual([])
+  })
+
+  it('a filter narrows what you see, never the load a column carries', () => {
+    const ns = laneByName('b-atlas', 'Not Started')
+    const before = laneCardCount(s().lanes, s().placements, ns.id)
+    const placementsBefore = JSON.stringify(s().placements)
+
+    // The most restrictive filter there is: nothing on this board qualifies.
+    s().setFilters({ priorities: ['urgent'], minAgeDays: 365, assigneeIds: ['nobody'] })
+
+    // Counts read the column, not the view — the rule the filter panel must not break.
+    expect(laneCardCount(s().lanes, s().placements, ns.id)).toBe(before)
+    expect(JSON.stringify(s().placements)).toBe(placementsBefore)
+    expect(s().filters.minAgeDays).toBe(365)
+
+    s().clearFilters()
+    expect(laneCardCount(s().lanes, s().placements, ns.id)).toBe(before)
   })
 
   it('priority is set and cleared, singly and in bulk, and moves nothing else', () => {

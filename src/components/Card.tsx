@@ -11,6 +11,8 @@ export interface CardSummary {
   dependentsCount: number
   /** Distinct item-to-item links (dependencies + dependents). */
   linksCount: number
+  /** How long the card has sat in its lane, when known. Shown only past a threshold. */
+  ageDays?: number
   /** Descendants (any depth) explicitly blocked and still open — rolled up. */
   blockedBelow: number
   /**
@@ -190,8 +192,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
 
   if (wide) {
     const pct = summary.rollupPercent
-    const days = Math.max(0, Math.floor((Date.now() - item.createdAt) / 86_400_000))
-    return (
+      return (
       <div
         {...dragProps}
         data-card-id={item.id}
@@ -314,9 +315,16 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
               <span className="hidden text-slate-400 @[360px]:inline">{summary.openDescendants} open below</span>
             )}
             <span className="ml-auto flex items-center gap-2">
-              <span className="hidden items-center gap-0.5 @[300px]:flex" title="Time since created">
-                <Clock size={11} /> {days}d
-              </span>
+              {summary.ageDays !== undefined && summary.ageDays >= 7 && (
+                <span
+                  // No container gate: an icon and a number, and the whole point is that a
+                  // stale card says so on a normal-width card.
+                  className="flex items-center gap-0.5 font-semibold text-amber-600"
+                  title={`${summary.ageDays} days in this lane`}
+                >
+                  <Clock size={11} /> {summary.ageDays}d
+                </span>
+              )}
               {assignees.length > 0 && (
                 <span className="flex items-center gap-0.5">
                   {assignees.slice(0, 3).map((u) => (
