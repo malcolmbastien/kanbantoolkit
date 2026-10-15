@@ -63,17 +63,16 @@ interface Props {
   /** Native HTML5 drag (cards workflow). */
   draggable?: boolean
   /**
-   * The card being lifted, and `null` when the drag ends. A surface needs this to know what
-   * is in the air — `dataTransfer` is not readable during `dragover` — and to draw the
-   * lifted card itself. See `CardDrag`.
+   * Notified with the item's id while a native drag is in flight, and `null` when it ends.
+   * `dataTransfer` is not readable during `dragover`, so the id has to travel out of band.
    */
-  onDragStateChange?: (drag: CardDrag | null) => void
+  onDragStateChange?: (itemId: string | null) => void
   /**
-   * The surface draws the lifted card itself (see `DragLayer`). Only then may the browser's
-   * own drag image be suppressed — there has to be exactly one card in the air, and without
-   * a layer of its own the surface has nothing else to show.
+   * Lift the card with the pointer instead of a native drag, and hand the press to the
+   * surface. A native drag is cancelled the moment its source element leaves the document,
+   * and taking the card out of its lane is the whole point of the lift.
    */
-  drawLift?: boolean
+  onLift?: (e: React.PointerEvent, itemId: string) => void
   /** Locked (edit mode): no drag, no click-to-open, no lens. */
   locked?: boolean
   selected?: boolean
@@ -90,64 +89,28 @@ interface Props {
   onContextMenu?: (id: string, x: number, y: number) => void
 }
 
-/**
- * The card in the air. Carried out of band because `dataTransfer` is not readable during
- * `dragover`, and because the board draws the lifted card itself.
- */
-export interface CardDrag {
-  itemId: string
-  /** The card's markup, captured at the moment of the lift. */
-  html: string
-  width: number
-  height: number
-  /** Where inside the card it was grabbed, so the lifted card does not jump to the cursor. */
-  grabX: number
-  grabY: number
-  /** The pointer, which the board keeps up to date as the drag moves. */
-  x: number
-  y: number
-}
-
-/**
- * Stop the browser drawing its own drag image. There must be exactly one card in the air, and
- * it has to be ours: the native image cannot be styled, ignores the lift, and is blank on
- * some platforms. An offscreen element is the documented way to ask for nothing.
- */
-function suppressNativeDragImage(e: React.DragEvent) {
-  const blank = document.createElement('div')
-  blank.style.cssText = 'position:fixed;top:-1000px;left:-1000px;width:1px;height:1px'
-  document.body.appendChild(blank)
-  e.dataTransfer.setDragImage(blank, 0, 0)
-  // It has to survive the browser's snapshot, then it can go.
-  setTimeout(() => blank.remove(), 0)
-}
-
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, drawLift }: Props) {
+export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
-      ? {
-          draggable: true,
+      ? onLift
+        ? {
+            // The lift is ours rather than the browser's. A native drag is cancelled the
+            // moment its source element leaves the document — and taking the card out of its
+            // lane is the whole point — so the press is followed with the pointer instead.
+            // See `startLift` in BoardCanvas.
+            onPointerDown: (e: React.PointerEvent) => {
+              if (e.button !== 0) return
+              onLift(e, item.id)
+            },
+          }
+        : {
+            draggable: true,
           onDragStart: (e: React.DragEvent) => {
             e.dataTransfer.setData('text/plain', item.id)
             e.dataTransfer.effectAllowed = 'move'
-            // Where the surface draws the lift, the browser must not: a native drag image
-            // cannot be styled, and it is not drawn at all once the source element leaves the
-            // DOM — which is what made the card vanish the moment the drag started.
-            if (drawLift) suppressNativeDragImage(e)
-            const r = e.currentTarget.getBoundingClientRect()
-            onDragStateChange?.({
-              itemId: item.id,
-              // A snapshot, so the lifted card is the card rather than an impression of it.
-              html: e.currentTarget.outerHTML,
-              width: r.width,
-              height: r.height,
-              grabX: e.clientX - r.left,
-              grabY: e.clientY - r.top,
-              x: e.clientX,
-              y: e.clientY,
-            })
+            onDragStateChange?.(item.id)
           },
           onDragEnd: () => onDragStateChange?.(null),
         }

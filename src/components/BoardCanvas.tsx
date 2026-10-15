@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronsRight, CopyPlus, Plus, Settings } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
-import { Card, type CardDrag, type CardParent } from './Card'
+import { Card, type CardParent } from './Card'
 import { CardMenu } from './CardMenu'
 import { DragLayer } from './DragLayer'
 import { DropColumn } from './DropColumn'
@@ -72,12 +72,11 @@ interface Ctx {
     itemId: string | null
     laneId: string | null
     index: number | null
-    lift: (drag: CardDrag | null) => void
-    setIndex: (laneId: string, index: number) => void
-    clearIndex: (laneId: string) => void
+    /** Begin a lift from a press on a card. */
+    start: (e: React.PointerEvent, itemId: string) => void
   }
-  /** Land a card at a position in a lane, counting the cards already there. */
-  dropCardAt: (itemId: string, laneId: string, index: number) => void
+  /** Open a card's panel — unless the press that led here was a drag. */
+  openCard: (itemId: string) => void
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
@@ -407,12 +406,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       {!hideHeader && header(true)}
       <DropColumn
         laneId={lane.id}
-        enabled={ctx.interactive && !ctx.editMode}
         draggingId={ctx.drag.itemId}
         at={ctx.drag.laneId === lane.id ? ctx.drag.index : null}
-        onIndex={ctx.drag.setIndex}
-        onLeave={ctx.drag.clearIndex}
-        onDrop={ctx.dropCardAt}
         items={cards.map((c) => {
           const pid = decompositionParent(c.id, graph.edges)
           const p = pid ? items.find((i) => i.id === pid) : undefined
@@ -434,12 +429,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
-              drawLift
-              onDragStateChange={ctx.drag.lift}
+              onLift={ctx.drag.start}
               lens={lensRole(c.id, ctx.lensId, graph)}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
-              onOpen={ctx.openItem}
+              onOpen={ctx.openCard}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
                 dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
@@ -543,6 +537,24 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
   )
 }
 
+/**
+ * The card in the air. Carried in state rather than in a `dataTransfer`, because the board
+ * draws the lifted card itself and a pointer drag has no `dataTransfer` to read from.
+ */
+interface CardDrag {
+  itemId: string
+  /** The card's markup, captured at the moment of the lift. */
+  html: string
+  width: number
+  height: number
+  /** Where inside the card it was grabbed, so the lifted card does not jump to the cursor. */
+  grabX: number
+  grabY: number
+  /** The pointer, kept up to date as the drag moves. */
+  x: number
+  y: number
+}
+
 export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
@@ -589,50 +601,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const openCardMenu = useStore((s) => s.openCardMenu)
   const closeCardMenu = useStore((s) => s.closeCardMenu)
 
-  // The card in the air, and the single gap it would land in. Letting go anywhere ends the
-  // drag, so nothing stays lifted or previewed. See DropColumn.
-  const [lift, setLift] = useState<CardDrag | null>(null)
-  const [dropAt, setDropAt] = useState<{ laneId: string; index: number } | null>(null)
-  const drag = {
-    itemId: lift?.itemId ?? null,
-    laneId: dropAt?.laneId ?? null,
-    index: dropAt?.index ?? null,
-    lift: (d: CardDrag | null) => {
-      setLift(d)
-      if (!d) setDropAt(null)
-    },
-    setIndex: (laneId: string, index: number) => setDropAt({ laneId, index }),
-    clearIndex: (laneId: string) => setDropAt((d) => (d?.laneId === laneId ? null : d)),
-  }
-
-  // The lifted card follows the pointer. `dragover` is the only position the browser offers
-  // during a native drag and it fires on whatever is under the cursor, so listen on the
-  // window — the card keeps following even out over the chrome, and never jumps back.
-  const lifting = lift !== null
-  useEffect(() => {
-    if (!lifting) return
-    const move = (e: DragEvent) => setLift((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d))
-    const ended = () => setLift(null)
-    // A drag holds the button down, so a mouse move with it released means the drag is over
-    // however it ended. `dragend` is the normal signal, but a drag whose source has left the
-    // document has no node for it to bubble from — and a card must never be left in the air,
-    // so this is the net under it. The button check matters: a stray move *during* a drag must
-    // not be mistaken for the end of one.
-    const released = (e: MouseEvent) => {
-      if (e.buttons === 0) ended()
-    }
-    window.addEventListener('dragover', move)
-    window.addEventListener('dragend', ended)
-    window.addEventListener('drop', ended)
-    window.addEventListener('mousemove', released)
-    return () => {
-      window.removeEventListener('dragover', move)
-      window.removeEventListener('dragend', ended)
-      window.removeEventListener('drop', ended)
-      window.removeEventListener('mousemove', released)
-    }
-  }, [lifting])
-
   const boardPlacements = placements
     .filter((p) => p.boardId === boardId)
     .sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER))
@@ -654,19 +622,123 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const external = externalDependenciesOnBoard(graph, boardId)
   const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
+  // The card in the air, and the single gap it would land in. See DragLayer and DropColumn.
+  const [lift, setLift] = useState<CardDrag | null>(null)
+  const [dropAt, setDropAt] = useState<{ laneId: string; index: number } | null>(null)
+  // A press that became a drag must not also be a click, or the card would open its panel the
+  // moment it was put down.
+  const justDragged = useRef(false)
+
+  const dropCardAt = (itemId: string, laneId: string, index: number) => {
+    // Changing lane goes through the move seam first — that is the path a board can intercept.
+    // Landing at a position is then a plain reorder inside the target lane.
+    if (effectiveLane.get(itemId) !== laneId) onMove?.(itemId, boardId, laneId)
+    moveCardToIndex(itemId, boardId, laneId, index)
+  }
+
+  /**
+   * Lift a card and follow the pointer until it is put down.
+   *
+   * With the pointer rather than the browser's drag-and-drop, because a native drag is
+   * cancelled the moment its source element leaves the document — and taking the card out of
+   * its lane is the whole point of the lift. The press does not become a drag until it has
+   * moved, so a press that stays put is still a click.
+   */
+  const startLift = (e: React.PointerEvent, itemId: string) => {
+    const el = e.currentTarget as HTMLElement
+    const rect = el.getBoundingClientRect()
+    const grabX = e.clientX - rect.left
+    const grabY = e.clientY - rect.top
+    const origin = { x: e.clientX, y: e.clientY }
+    let dragging = false
+
+    /** The lane under the pointer, and the gap in it the card would land in. */
+    const gapUnder = (x: number, y: number) => {
+      let lane = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-lane-id]') ?? null
+      if (!lane) {
+        // A release just below the last card lands past the lane's own box, and 'put it at the
+        // end' is the commonest gesture of all — so take the nearest lane in the same column.
+        let best: { el: HTMLElement; distance: number } | null = null
+        for (const el of document.querySelectorAll<HTMLElement>('[data-lane-id]')) {
+          const r = el.getBoundingClientRect()
+          if (x < r.left || x > r.right) continue
+          const distance = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0
+          if (distance <= 48 && (!best || distance < best.distance)) best = { el, distance }
+        }
+        lane = best?.el ?? null
+      }
+      const laneId = lane?.dataset.laneId
+      if (!lane || !laneId) return null
+      const cards = [...lane.querySelectorAll<HTMLElement>('[data-card-id]')]
+      let index = cards.length
+      for (let i = 0; i < cards.length; i++) {
+        const r = cards[i].getBoundingClientRect()
+        if (y < r.top + r.height / 2) {
+          index = i
+          break
+        }
+      }
+      return { laneId, index }
+    }
+
+    const move = (ev: PointerEvent) => {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - origin.x, ev.clientY - origin.y) < 5) return
+        dragging = true
+        setLift({
+          itemId,
+          // A snapshot, so the card in the air is the card rather than an impression of it.
+          html: el.outerHTML,
+          width: rect.width,
+          height: rect.height,
+          grabX,
+          grabY,
+          x: ev.clientX,
+          y: ev.clientY,
+        })
+      }
+      setLift((d) => (d ? { ...d, x: ev.clientX, y: ev.clientY } : d))
+      setDropAt(gapUnder(ev.clientX, ev.clientY))
+    }
+
+    const finish = (ev: PointerEvent, put: boolean) => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+      if (!dragging) return
+      const gap = put ? gapUnder(ev.clientX, ev.clientY) : null
+      if (gap) dropCardAt(itemId, gap.laneId, gap.index)
+      setLift(null)
+      setDropAt(null)
+      justDragged.current = true
+      // The click that follows this press arrives in the same turn.
+      setTimeout(() => {
+        justDragged.current = false
+      }, 0)
+    }
+    const up = (ev: PointerEvent) => finish(ev, true)
+    const cancel = (ev: PointerEvent) => finish(ev, false)
+
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+  }
+
+  const lifting = lift !== null
+
   const ctx: Ctx = {
     lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     interactive,
-    drag,
-    dropCardAt: (itemId, laneId, index) => {
-      // Changing lane goes through the move seam first — that is the path a board can
-      // intercept. Landing at a position is then a plain reorder inside the target lane.
-      if (effectiveLane.get(itemId) !== laneId) onMove?.(itemId, boardId, laneId)
-      moveCardToIndex(itemId, boardId, laneId, index)
-      // The drop is the end of the drag as far as the board is concerned; `dragend` follows
-      // and is a no-op. Doing it here too means the card can never be left in the air.
-      drag.lift(null)
+    drag: {
+      itemId: lift?.itemId ?? null,
+      laneId: dropAt?.laneId ?? null,
+      index: dropAt?.index ?? null,
+      start: startLift,
+    },
+    openCard: (itemId) => {
+      if (justDragged.current) return
+      openItem(itemId)
     },
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {
@@ -685,7 +757,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
           'min-h-0 flex-1 overflow-auto p-3',
           // The surface is draggable, so it says so — and holds the selection still while
           // it is being dragged.
-          pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab',
+          pan.panning || lifting ? 'cursor-grabbing select-none' : 'cursor-grab',
         )}
       >
         <div className="min-h-[120px] w-full min-w-min">
