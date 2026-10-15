@@ -935,12 +935,24 @@
         "testStrategy": "Behavioural check over CDP: a drag on empty workflow space scrolls the container and leaves no text selected; a drag that starts on a card still moves the card and never pans; a press with no movement still behaves as a click; the edit-mode lane controls still work. Verify both workflows. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-14T12:00:00.000Z"
+      },
+      {
+        "id": "62",
+        "title": "Legibility — a type scale and a contrast floor",
+        "description": "Usability, and the one felt on every screen: much of the interface is set too small and too pale to read comfortably. The item panel is the worst of it, but the top bar and the card faces have the same problem. This is not a matter of taste — 10px text and slate-400 on white are below the thresholds at which text is reliably readable.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "The offenders, counted: 37 uses of `text-[9px]`, 115 of `text-[10px]` and 129 of `text-[11px]`, and as text colour 141 uses of `slate-400` and 22 of `slate-300`. On white that is about 2.6:1 and 1.7:1 — under the 4.5:1 that normal text needs and under the 3:1 that even large text needs, so the palest labels are decoration rather than text. By file the weight sits where it is felt: ItemPanel 88 tiny-text uses, then Card 17, BoardCanvas 14, BoardWorkspace 11, TopBar 6. Two changes, and neither is a redesign. First a type scale in `@theme` — a handful of named steps replacing three hundred arbitrary `text-[Npx]` values, so a size is chosen rather than guessed and the floor can be raised once. Second a contrast floor: the lightest colour allowed for content is `slate-500` (about 4.8:1 on white), and `slate-400` and `slate-300` are reserved for what is not text — icons, dividers, disabled states. The floor itself: nothing below 11px, and 12px for anything read as a sentence. Raising the sizes reflows the card face, which is a fixed 180px wide and already sheds detail through `@container` variants as its column narrows, so those need re-checking — and the standing rule that a lane header wraps rather than truncates still holds. Contrast must be measured against what text actually sits on, which is not white: the stage-tinted column surfaces (`STAGE_SURFACE`) and the tinted card faces (`hexToRgba(type.color, 0.1)` over white). Out of scope: dark mode, a new palette, any layout change, and the keyboard and screen-reader work, which is task 37 and is about semantics rather than legibility.",
+        "testStrategy": "Make the floor enforceable rather than aspirational, or it erodes again within a month. Two automated guards, both pure and fast: a source test asserting no `text-[9px]` or `text-[10px]` remains anywhere in `src` — it fails loudly the moment someone adds one back — and a contrast test computing WCAG ratios from the hex values in `src/lib/colors.ts` for every pair that actually meets on screen: body text on each stage surface, meta text on the card-face tints, and the column headers, asserting at least 4.5:1 for body and 3:1 for the largest. Then the visual pass, which no test replaces: screenshots of the item panel, the top bar and a card face before and after at 100% zoom, plus one card at each `@container` breakpoint to confirm the reflow did not push anything out of a fixed-width card. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-14T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-14T12:00:00.000Z",
-      "taskCount": 60,
+      "taskCount": 61,
       "completedCount": 38,
       "tags": [
         "backlog"
