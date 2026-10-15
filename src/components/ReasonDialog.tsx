@@ -46,8 +46,8 @@ export function ReasonDialog() {
         <div className="flex items-start gap-2.5 px-4 py-3">
           <Gauge size={16} className="mt-0.5 shrink-0 text-amber-500" />
           <div className="min-w-0">
-            <div className="text-[14px] font-semibold text-slate-800">WIP limit exceeded</div>
-            <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
+            <div className="text-title font-semibold text-slate-800">WIP limit exceeded</div>
+            <p className="mt-1 text-meta leading-relaxed text-slate-600">
               Moving this card into “{prompt.laneName}” takes it over its limit of {prompt.limit}. Give a reason to continue — it is
               recorded on the card.
             </p>
@@ -60,20 +60,20 @@ export function ReasonDialog() {
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             placeholder="Why is this overrun OK?"
-            className="w-full resize-y rounded border border-slate-200 px-2 py-1.5 text-[12px] outline-none focus:ring-2 focus:ring-amber-400"
+            className="w-full resize-y rounded border border-slate-200 px-2 py-1.5 text-meta outline-none focus:ring-2 focus:ring-amber-400"
           />
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5">
           <button
             onClick={cancel}
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] font-medium text-slate-600 hover:bg-slate-100"
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 hover:bg-slate-100"
           >
             Cancel
           </button>
           <button
             disabled={!reason.trim()}
             onClick={submit}
-            className="rounded-md bg-amber-600 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-amber-500 disabled:opacity-40"
+            className="rounded-md bg-amber-600 px-2.5 py-1 text-meta font-semibold text-white hover:bg-amber-500 disabled:opacity-40"
           >
             Move with reason
           </button>

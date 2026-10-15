@@ -36,7 +36,7 @@ export function BandBadge({ band }: { band: BoardBand }) {
 
   return (
     <span
-      className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold', style.chip)}
+      className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-meta font-bold', style.chip)}
       title={`Flight level: ${style.hint}`}
     >
       <Icon size={12} /> {style.label}

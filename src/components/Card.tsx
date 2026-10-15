@@ -1,6 +1,6 @@
 import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BUCKET_DOT, hexToRgba, readableOn } from '@/lib/colors'
+import { BUCKET_DOT, chipColors, hexToRgba } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
 import { PriorityBadge } from './PriorityBadge'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
@@ -152,14 +152,14 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
     // red either way.
     wide ? (
       <span
-        className="flex shrink-0 items-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+        className="flex shrink-0 items-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-white"
         title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
       >
         <Ban size={11} /> blocked
       </span>
     ) : (
       <span
-        className="flex w-full items-center justify-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+        className="flex w-full items-center justify-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-white"
         title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
       >
         <Ban size={11} /> blocked{item.blockedReason ? ` · ${item.blockedReason}` : ''}
@@ -171,7 +171,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
     // softer in colour for a top-level initiative, but keeps the same weight of shape.
     <span
       className={cn(
-        'flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold text-white',
+        'flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-micro font-bold text-white',
         blockedTone === 'aggregate' ? 'bg-amber-500' : 'bg-rose-600',
       )}
       title={
@@ -192,7 +192,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       }}
       className={cn(
         'shrink-0 rounded p-0.5 transition',
-        lens ? 'text-indigo-600 opacity-100' : 'text-slate-300 opacity-0 group-hover:opacity-100 hover:text-indigo-600',
+        lens ? 'text-indigo-600 opacity-100' : 'text-slate-600 opacity-0 group-hover:opacity-100 hover:text-indigo-600',
       )}
       title="Focus — highlight this initiative's lineage"
     >
@@ -237,18 +237,18 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
           {/* header row — every card on this surface is an initiative, so the type chip
               is redundant; the ref and the rollup % carry the identification. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[10px] font-semibold tabular-nums text-slate-400">{ref_}</span>
-            {item.size ? <span className="text-[10px] tabular-nums text-slate-400">· {item.size}</span> : null}
+            <span className="text-micro font-semibold tabular-nums text-slate-600">{ref_}</span>
+            {item.size ? <span className="text-micro tabular-nums text-slate-600">· {item.size}</span> : null}
             <span className="ml-auto flex items-center gap-1.5">
               <PriorityBadge priority={item.priority} />
               {summary.dependentsCount > 0 && (
-                <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white" title={`${summary.dependentsCount} depend on this`}>
+                <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-micro font-bold text-white" title={`${summary.dependentsCount} depend on this`}>
                   <ShieldAlert size={9} /> {summary.dependentsCount}
                 </span>
               )}
               {pct !== undefined && (
                 <span
-                  className="text-[13px] font-bold tabular-nums"
+                  className="text-body font-bold tabular-nums"
                   style={{ color: pct >= 100 ? '#059669' : pct > 0 ? '#4f46e5' : '#94a3b8' }}
                   title="Rollup — share of leaf work done"
                 >
@@ -259,7 +259,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
             {lensButton}
           </div>
 
-          <div className="line-clamp-2 break-words text-[13px] font-semibold leading-snug text-slate-900">{item.title}</div>
+          <div className="line-clamp-2 break-words text-body font-semibold leading-snug text-slate-900">{item.title}</div>
 
           {/* Roll-up: a team initiative linked under a top-level initiative. */}
           {parent && (
@@ -272,14 +272,14 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
               className="flex w-fit max-w-full items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-left transition hover:border-indigo-300 hover:bg-indigo-100"
             >
               <ArrowUp size={11} className="shrink-0 text-indigo-400" />
-              <span className="hidden shrink-0 text-[9px] font-bold uppercase tracking-wide text-indigo-500 @[340px]:inline">rolls up to</span>
-              <span className="min-w-0 truncate text-[10px] font-medium text-indigo-700">{parent.title}</span>
+              <span className="hidden shrink-0 text-micro font-bold uppercase tracking-wide text-indigo-500 @[340px]:inline">rolls up to</span>
+              <span className="min-w-0 truncate text-micro font-medium text-indigo-700">{parent.title}</span>
             </button>
           )}
 
           {/* meta row — secondary detail appears only once the column is wide enough to
               hold it (container queries on the card root). Warnings never hide. */}
-          <div className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-slate-500">
+          <div className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-micro text-slate-600">
             {boundary && (
               <span
                 className="flex items-center gap-0.5 font-semibold text-amber-600"
@@ -293,7 +293,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
                 {symbols.slice(0, 8).map((s, i) => (
                   <span key={i} className={cn('h-2.5 w-2.5 rounded-sm', BUCKET_DOT[s.bucket])} title={s.title} />
                 ))}
-                {symbols.length > 8 && <span className="font-semibold text-slate-400">+{symbols.length - 8}</span>}
+                {symbols.length > 8 && <span className="font-semibold text-slate-600">+{symbols.length - 8}</span>}
               </span>
             )}
             {summary.childCount > 0 && (
@@ -325,7 +325,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
               </span>
             )}
             {summary.openDescendants > 0 && summary.childCount > 0 && (
-              <span className="hidden text-slate-400 @[360px]:inline">{summary.openDescendants} open below</span>
+              <span className="hidden text-slate-600 @[360px]:inline">{summary.openDescendants} open below</span>
             )}
             <span className="ml-auto flex items-center gap-2">
               {assignees.length > 0 && (
@@ -334,7 +334,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
                     <Avatar key={u.id} user={u} />
                   ))}
                   {assignees.length > 3 && (
-                    <span className="text-[9px] font-semibold text-slate-400" title={assignees.map((u) => u.name).join(', ')}>
+                    <span className="text-micro font-semibold text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
                       +{assignees.length - 3}
                     </span>
                   )}
@@ -386,10 +386,10 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-1.5 py-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="shrink-0 whitespace-nowrap rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide shadow-sm" style={{ backgroundColor: type.color, color: readableOn(type.color) }}>
+          <span className="shrink-0 whitespace-nowrap rounded px-1 py-px text-micro font-bold uppercase tracking-wide shadow-sm" style={{ ...(() => { const c = chipColors(type.color); return { backgroundColor: c.background, color: c.color } })() }}>
             {type.name}
           </span>
-          <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500">
+          <span className="shrink-0 whitespace-nowrap text-micro font-semibold tabular-nums text-slate-600">
             {ref_}
             {item.size ? ` · ${item.size}` : ''}
           </span>
@@ -404,12 +404,12 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
             )}
             <PriorityBadge priority={item.priority} />
             {summary.rollupPercent !== undefined && (
-              <span className="rounded bg-slate-700 px-1 py-px text-[9px] font-bold text-white" title="Rollup — share of leaf work done">
+              <span className="rounded bg-slate-700 px-1 py-px text-micro font-bold text-white" title="Rollup — share of leaf work done">
                 {summary.rollupPercent}%
               </span>
             )}
             {summary.dependentsCount > 0 && (
-              <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-[9px] font-bold text-white shadow-sm" title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}>
+              <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-micro font-bold text-white shadow-sm" title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}>
                 <ShieldAlert size={9} />
                 {summary.dependentsCount}
               </span>
@@ -430,7 +430,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
                   const r = e.currentTarget.getBoundingClientRect()
                   onContextMenu(item.id, r.right - 4, r.bottom + 4)
                 }}
-                className="shrink-0 rounded text-slate-400 opacity-0 transition group-hover:opacity-100 hover:text-slate-700"
+                className="shrink-0 rounded text-slate-600 opacity-0 transition group-hover:opacity-100 hover:text-slate-700"
                 title="More actions"
                 aria-label="Card actions"
               >
@@ -439,7 +439,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
             )}
           </span>
         </div>
-        <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-snug text-slate-900">{item.title}</div>
+        <div className="mt-1 line-clamp-2 text-meta font-semibold leading-snug text-slate-900">{item.title}</div>
         {parent && (
           <button
             onClick={(e) => {
@@ -455,10 +455,10 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
                 colour dot and the reference all used to sit here too, and between them they
                 left the title too little room to be read — so they moved into the tooltip. */}
             <CornerDownRight size={10} className="shrink-0 text-slate-400" />
-            <span className="min-w-0 truncate text-[10px] font-medium text-slate-600">{parent.title}</span>
+            <span className="min-w-0 truncate text-micro font-medium text-slate-600">{parent.title}</span>
           </button>
         )}
-        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[10px] text-slate-500">
+        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-micro text-slate-600">
           {boundary && (
             <span
               className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"
@@ -498,7 +498,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
                 <Avatar key={u.id} user={u} />
               ))}
               {assignees.length > 3 && (
-                <span className="text-[9px] font-semibold text-slate-500" title={assignees.map((u) => u.name).join(', ')}>
+                <span className="text-micro font-semibold text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
                   +{assignees.length - 3}
                 </span>
               )}
@@ -526,7 +526,7 @@ function Avatar({ user }: { user: User }) {
   }
   return (
     <span
-      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white"
+      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-micro font-bold text-white"
       title={user.name}
     >
       {initialsOf(user.name)}

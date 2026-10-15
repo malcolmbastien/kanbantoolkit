@@ -90,19 +90,19 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
         <div className={cn('mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border px-4 py-3', accent.section)}>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className={cn('rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wide', bandStyle.chip)}>
+              <span className={cn('rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide', bandStyle.chip)}>
                 {bandStyle.label}
               </span>
-              <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+              <span className="flex items-center gap-1 text-meta font-bold uppercase tracking-wide text-slate-600">
                 <Target size={12} /> Dashboard
               </span>
             </div>
-            <div className="text-[16px] font-semibold text-slate-800">{board?.name ?? 'Board'}</div>
+            <div className="text-heading font-semibold text-slate-800">{board?.name ?? 'Board'}</div>
             {teamBoardNames.length > 0 && (
-              <div className="text-[11px] text-slate-500">Rolls up {teamBoardNames.join(' · ')}</div>
+              <div className="text-meta text-slate-600">Rolls up {teamBoardNames.join(' · ')}</div>
             )}
           </div>
-          <div className="ml-auto flex items-center gap-4 text-[11px] text-slate-600">
+          <div className="ml-auto flex items-center gap-4 text-meta text-slate-600">
             <Stat label="Initiatives" value={rows.length} />
             <Stat label="Done" value={doneInitiatives} tone="emerald" />
             <Stat label="With blocked work" value={blockedInitiatives} tone={blockedInitiatives > 0 ? 'rose' : undefined} />
@@ -113,7 +113,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
         <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
           <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
                 <th className="px-4 py-2 font-semibold">Initiative</th>
                 <th className="px-4 py-2 font-semibold">Work progress</th>
                 <th className="px-4 py-2 font-semibold">Target date</th>
@@ -137,16 +137,16 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                     <td className="max-w-[280px] px-4 py-2.5">
                       <div className="flex items-center gap-1.5">
                         <span
-                          className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide"
+                          className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide"
                           style={{ backgroundColor: type.color, color: '#fff' }}
                         >
                           {type.name}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-400">{refs.get(item.id)}</span>
+                        <span className="text-micro font-semibold text-slate-600">{refs.get(item.id)}</span>
                       </div>
-                      <div className="truncate text-[13px] font-semibold text-slate-800">{item.title}</div>
+                      <div className="truncate text-body font-semibold text-slate-800">{item.title}</div>
                       {childInits > 0 && (
-                        <div className="flex items-center gap-1 text-[10px] text-slate-400" title={`${childInits} child initiatives`}>
+                        <div className="flex items-center gap-1 text-micro text-slate-600" title={`${childInits} child initiatives`}>
                           <Layers size={10} /> {childInits} child initiative{childInits === 1 ? '' : 's'}
                         </div>
                       )}
@@ -157,36 +157,36 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                         <div className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-200">
                           <div className="h-full transition-all" style={{ width: `${roll.percent}%`, backgroundColor: barColor(roll.percent) }} />
                         </div>
-                        <span className="w-9 text-right text-[12px] font-bold tabular-nums text-slate-600">{roll.percent}%</span>
+                        <span className="w-9 text-right text-meta font-bold tabular-nums text-slate-600">{roll.percent}%</span>
                       </div>
-                      <div className="mt-0.5 text-[10px] text-slate-400">
+                      <div className="mt-0.5 text-micro text-slate-600">
                         {roll.done} of {roll.total} done
                         {roll.inProgress > 0 ? ` · ${roll.inProgress} active` : ''}
                       </div>
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <div className={cn('flex items-center gap-1 text-[12px]', overdue ? 'font-semibold text-rose-600' : 'text-slate-600')}>
+                      <div className={cn('flex items-center gap-1 text-meta', overdue ? 'font-semibold text-rose-600' : 'text-slate-600')}>
                         <CalendarClock size={12} className={overdue ? 'text-rose-500' : 'text-slate-400'} />
                         {item.targetStartDate ? `${formatDate(item.targetStartDate)} → ` : ''}
                         {formatDate(item.targetEndDate)}
                       </div>
-                      {overdue && <div className="text-[10px] font-semibold text-rose-500">overdue</div>}
+                      {overdue && <div className="text-micro font-semibold text-rose-500">overdue</div>}
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', stageChip(bucket))}>
+                      <span className={cn('rounded px-1.5 py-0.5 text-micro font-bold', stageChip(bucket))}>
                         {STAGE_LABELS[bucket]}
                       </span>
                     </td>
 
                     <td className="px-4 py-2.5">
                       {blocked > 0 ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-[11px] font-bold text-rose-700 ring-1 ring-rose-200">
+                        <span className="inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-meta font-bold text-rose-700 ring-1 ring-rose-200">
                           <Ban size={11} /> {blocked} blocked
                         </span>
                       ) : (
-                        <span className="text-[12px] text-slate-300">—</span>
+                        <span className="text-meta text-slate-600">—</span>
                       )}
                     </td>
                   </tr>
@@ -194,7 +194,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-[12px] text-slate-400">
+                  <td colSpan={5} className="px-4 py-8 text-center text-meta text-slate-600">
                     No initiatives on this board yet.
                   </td>
                 </tr>
@@ -203,7 +203,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           </table>
         </div>
 
-        <p className="mt-3 text-[11px] text-slate-400">
+        <p className="mt-3 text-meta text-slate-600">
           Work progress and status are computed from the leaf work beneath each initiative. Blocked below counts explicitly
           blocked descendants anywhere in the chain.
         </p>
@@ -217,13 +217,13 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: 'em
     <div className="text-center">
       <div
         className={cn(
-          'text-[18px] font-bold tabular-nums leading-none',
+          'text-heading font-bold tabular-nums leading-none',
           tone === 'emerald' ? 'text-emerald-600' : tone === 'rose' ? 'text-rose-600' : 'text-slate-700',
         )}
       >
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="text-micro uppercase tracking-wide text-slate-600">{label}</div>
     </div>
   )
 }

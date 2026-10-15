@@ -86,14 +86,14 @@ export function GlobalSearch() {
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder="Search all boards…"
-        className="w-44 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2 text-[12px] text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-400"
+        className="w-44 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2 text-meta text-slate-800 placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-400"
       />
       {showResults && (
         <div className="absolute right-0 z-50 mt-1 max-h-[70vh] w-80 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-xl">
-          {flat.length === 0 && <div className="px-3 py-2 text-[12px] text-slate-400">No matches.</div>}
+          {flat.length === 0 && <div className="px-3 py-2 text-meta text-slate-600">No matches.</div>}
           {groups.map((g) => (
             <div key={g.boardId}>
-              <div className="sticky top-0 bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              <div className="sticky top-0 bg-white/95 px-3 py-1 text-micro font-bold uppercase tracking-wide text-slate-600">
                 {g.name}
               </div>
               {g.items.map((i) => {
@@ -108,8 +108,8 @@ export function GlobalSearch() {
                       idx === active ? 'bg-indigo-500/30' : 'hover:bg-slate-700/60',
                     )}
                   >
-                    <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-400">{refs.get(i.id)}</span>
-                    <span className="min-w-0 flex-1 truncate text-[12px] text-slate-100">{i.title}</span>
+                    <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{refs.get(i.id)}</span>
+                    <span className="min-w-0 flex-1 truncate text-meta text-slate-100">{i.title}</span>
                   </button>
                 )
               })}

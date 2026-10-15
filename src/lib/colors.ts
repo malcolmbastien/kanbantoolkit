@@ -27,14 +27,54 @@ export const OBJECTIVE_STATUS_STYLES: Record<Objective['status'], string> = {
   scored: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
 }
 
-/** A readable text/edge colour from an arbitrary type colour (dark text on light tints). */
-export function readableOn(hex: string): string {
+const channels = (hex: string) => {
   const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.6 ? '#0f172a' : '#ffffff'
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
+}
+
+const toHex = (rgb: number[]) => '#' + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')
+
+/** WCAG relative luminance. */
+const luminance = (hex: string) => {
+  const [r, g, b] = channels(hex).map((c) => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** WCAG contrast ratio, 1 (identical) to 21 (black on white). */
+export function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+const mix = (hex: string, onto: string, amount: number) =>
+  toHex(channels(hex).map((c, i) => c * (1 - amount) + channels(onto)[i] * amount))
+
+/** The contrast a person can read comfortably: WCAG AA for normal text. */
+export const CONTRAST_FLOOR = 4.5
+
+/** Near-black, for text on a light ground. */
+export const INK = '#0f172a'
+
+/**
+ * A chip's ground and the colour of the words on it.
+ *
+ * Picking between white and near-black by a brightness threshold is what put white text on
+ * sky-500 at 2.8:1: a mid colour is bright enough to be guessed light and still far too light
+ * for white. So the choice is made by contrast ratio, and the ground only gives way when
+ * neither extreme reaches the floor — the one case a mid-tone brand colour cannot solve by
+ * itself.
+ */
+export function chipColors(hex: string): { background: string; color: string } {
+  const best = contrastRatio('#ffffff', hex) >= contrastRatio(INK, hex) ? '#ffffff' : INK
+  if (contrastRatio(best, hex) >= CONTRAST_FLOOR) return { background: hex, color: best }
+  for (let amount = 0.05; amount < 0.65; amount += 0.05) {
+    const background = mix(hex, '#000000', amount)
+    if (contrastRatio('#ffffff', background) >= CONTRAST_FLOOR) return { background, color: '#ffffff' }
+  }
+  return { background: mix(hex, '#000000', 0.65), color: '#ffffff' }
 }
 
 /** Solid-ish chip styling for a stage (used on lane headers). */

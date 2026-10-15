@@ -38,28 +38,28 @@ export function BoundaryPin({ dep, dependencyType, boardName, selected, dependen
         selected && 'border-solid border-amber-400 bg-amber-50 ring-2 ring-amber-300',
       )}
     >
-      <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <div className="flex items-center gap-1 text-micro font-semibold uppercase tracking-wide text-slate-600">
         <Link2 size={10} /> waiting on
         <button
           onClick={(e) => {
             e.stopPropagation()
             onOpen(dep.dependency.id)
           }}
-          className="ml-auto rounded px-1 text-[9px] font-semibold normal-case text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
+          className="ml-auto rounded px-1 text-micro font-semibold normal-case text-slate-600 hover:bg-slate-100 hover:text-indigo-600"
           title="Open this dependency"
         >
           open ↗
         </button>
       </div>
-      <div className="mt-0.5 text-[12px] font-medium leading-snug text-slate-700">{dep.dependency.title}</div>
-      <div className="text-[10px] text-slate-400">
+      <div className="mt-0.5 text-meta font-medium leading-snug text-slate-700">{dep.dependency.title}</div>
+      <div className="text-micro text-slate-600">
         {dependencyType.name} · {boardName}
       </div>
       <div className="mt-1 flex items-center gap-1">
-        <span className={cn('rounded px-1 py-px text-[9px] font-semibold ring-1', state.className)}>
+        <span className={cn('rounded px-1 py-px text-micro font-semibold ring-1', state.className)}>
           {state.label}
         </span>
-        <span className="text-[9px] text-slate-400">
+        <span className="text-micro text-slate-600">
           for {dep.dependent.title}
           {dependentCount > 1 ? ` +${dependentCount - 1} more` : ''}
         </span>

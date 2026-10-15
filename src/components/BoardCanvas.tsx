@@ -103,9 +103,9 @@ function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { c
       disabled={disabled}
       title={title}
       className={cn(
-        'grid h-5 w-5 place-items-center rounded text-[11px] transition',
+        'grid h-5 w-5 place-items-center rounded text-meta transition',
         disabled
-          ? 'cursor-not-allowed bg-slate-100 text-slate-400'
+          ? 'cursor-not-allowed bg-slate-100 text-slate-600'
           : active
             ? 'bg-indigo-600 text-white'
             : danger
@@ -200,18 +200,18 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             {canCollapse ? (
               <button
                 onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
-                className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
                 title={collapsed ? 'Expand' : `Collapse ${top ? 'column' : 'row'}`}
               >
                 {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
               </button>
             ) : null}
           </span>
-          <span className="text-center text-[11px] font-bold uppercase leading-tight tracking-wide">{lane.name || 'Board'}</span>
+          <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{lane.name || 'Board'}</span>
           <span className="flex items-center justify-end gap-1">
             <span
               className={cn(
-                'shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums',
+                'shrink-0 rounded px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums',
                 wip === 'over' ? 'bg-rose-800 text-white' : wip === 'at' ? 'bg-amber-700 text-white' : stage ? STAGE_PILL[stage] : 'bg-slate-700 text-white',
               )}
             >
@@ -276,7 +276,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             >
               <Settings size={11} />
             </Ctl>
-            {top && <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">typed column — split to refine</span>}
+            {top && <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">typed column — split to refine</span>}
           </div>
         )}
         {settingsOpen && (
@@ -306,19 +306,19 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       <div className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 bg-slate-100 py-2 text-slate-600">
         <button
           onClick={() => ctx.toggleCollapse(lane.id)}
-          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
           title="Expand column"
         >
           <ChevronsRight size={13} />
         </button>
         <span
-          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-700 px-1 text-[10px] font-bold tabular-nums text-white"
+          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-700 px-1 text-micro font-bold tabular-nums text-white"
           title={`${count} card${count === 1 ? '' : 's'}`}
         >
           {count}
         </span>
         <button onClick={() => ctx.toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand column">
-          <span className="rotate-180 whitespace-nowrap text-[11px] font-bold uppercase tracking-wide [writing-mode:vertical-rl] text-slate-600">
+          <span className="rotate-180 whitespace-nowrap text-meta font-bold uppercase tracking-wide [writing-mode:vertical-rl] text-slate-600">
             {lane.name}
           </span>
         </button>
@@ -351,7 +351,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         {!hideHeader && (editMode || lane.name) && header(false)}
         {collapsed ? (
           <div className="px-1.5 pb-1">
-            <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-400 bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+            <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-400 bg-slate-200 px-2 py-0.5 text-micro font-semibold text-slate-600">
               <ChevronsRight size={10} /> {kids.length} lane{kids.length === 1 ? '' : 's'} hidden
             </span>
           </div>
@@ -453,7 +453,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           ctx.interactive && !ctx.editMode ? (
             <button
               onClick={() => ctx.onAddCard(lane.id)}
-              className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-0.5 text-[10px] text-slate-400 hover:border-indigo-400 hover:text-indigo-600"
+              className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-0.5 text-micro text-slate-600 hover:border-indigo-400 hover:text-indigo-600"
             >
               <Plus size={10} /> card
             </button>
@@ -484,7 +484,7 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
     <div className="flex min-h-0 w-full flex-1 flex-col">
       {(editMode || lane.name) && (
         <div className="border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-center text-slate-800">
-          <span className="text-[11px] font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+          <span className="text-meta font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
         </div>
       )}
       <div
@@ -496,9 +496,9 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
         {columns.map((col) => (
           <div key={col.id} className={cn(HEAD_ROW, 'gap-1.5 border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-slate-800')}>
             <span />
-            <span className="text-center text-[11px] font-bold uppercase leading-tight tracking-wide">{col.name}</span>
+            <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{col.name}</span>
             <span className="flex justify-end">
-              <span className="rounded bg-slate-700 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums text-white">
+              <span className="rounded bg-slate-700 px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums text-white">
                 {countInLane(col.id, ctx)}
               </span>
             </span>
@@ -514,8 +514,8 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
           return (
             <Fragment key={name}>
               <div className="flex flex-col items-center justify-start rounded-lg border border-slate-300 bg-slate-100 px-2 py-2 text-center text-slate-700">
-                <span className="text-[11px] font-bold">{name}</span>
-                <span className="mt-1 w-fit rounded bg-slate-700 px-1.5 py-px text-[9px] font-bold text-white">{railCount}</span>
+                <span className="text-meta font-bold">{name}</span>
+                <span className="mt-1 w-fit rounded bg-slate-700 px-1.5 py-px text-micro font-bold text-white">{railCount}</span>
               </div>
               {columns.map((col) => {
                 const cell = childrenOf(lanes, col.id).find((r) => r.name === name)
@@ -766,12 +766,12 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
         )}
       >
         <div className="min-h-[120px] w-full min-w-min">
-          {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-[12px] text-slate-500">This board has no lanes.</p>}
+          {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-meta text-slate-600">This board has no lanes.</p>}
         </div>
       </div>
       {external.length > 0 && (
         <div className="w-[230px] shrink-0 overflow-y-auto border-l border-slate-300 bg-slate-100 p-2">
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Boundary · waiting on</div>
+          <div className="mb-1 text-meta font-bold uppercase tracking-wide text-slate-600">Boundary · waiting on</div>
           <div className="flex flex-col gap-1">
             {external.map((d) => (
               <BoundaryPin

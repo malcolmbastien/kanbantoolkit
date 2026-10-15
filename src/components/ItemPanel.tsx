@@ -44,7 +44,7 @@ import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
-import { DEP_STATE_STYLES, readableOn, stageChip } from '@/lib/colors'
+import { chipColors, DEP_STATE_STYLES, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item } from '@/domain/types'
@@ -200,11 +200,11 @@ export function ItemPanel({ itemId }: Props) {
             setObjectives(true)
           }}
           title="Open Objectives & Key Results"
-          className="flex w-full items-center gap-1.5 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-left text-[11px] font-medium text-indigo-700 transition hover:bg-indigo-100"
+          className="flex w-full items-center gap-1.5 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-left text-meta font-medium text-indigo-700 transition hover:bg-indigo-100"
         >
           <Target size={11} className="shrink-0" />
           <span className="min-w-0 flex-1 truncate">{o.title}</span>
-          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-indigo-400">OKR</span>
+          <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-indigo-400">OKR</span>
         </button>
       ),
     })),
@@ -214,7 +214,7 @@ export function ItemPanel({ itemId }: Props) {
         <>
           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
           <span className="min-w-0 flex-1 truncate">{node.title}</span>
-          <span className={cn('shrink-0 text-[9px] font-semibold uppercase tracking-wide', self ? 'text-slate-300' : 'text-slate-400')}>
+          <span className={cn('shrink-0 text-micro font-semibold uppercase tracking-wide', self ? 'text-slate-600' : 'text-slate-600')}>
             {typeName(node.typeId)}
           </span>
         </>
@@ -222,12 +222,12 @@ export function ItemPanel({ itemId }: Props) {
       return {
         key: node.id,
         node: self ? (
-          <div className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white">{body}</div>
+          <div className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white">{body}</div>
         ) : (
           <button
             onClick={() => close(node.id)}
             title={`Open ${node.title}`}
-            className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-left text-[11px] text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
+            className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-left text-meta text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
           >
             {body}
           </button>
@@ -259,7 +259,7 @@ export function ItemPanel({ itemId }: Props) {
       {/* ---- Header: breadcrumb, actions, title, tabs ------------------------------ */}
       <div className="shrink-0 space-y-2 border-b border-slate-200 bg-white px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <nav className="flex min-w-0 items-center gap-1 text-[10px] text-slate-400">
+          <nav className="flex min-w-0 items-center gap-1 text-micro text-slate-600">
             {[...lineage].reverse().slice(0, 3).map((node) => (
               <span key={node.id} className="flex min-w-0 items-center gap-1">
                 <button
@@ -269,7 +269,7 @@ export function ItemPanel({ itemId }: Props) {
                 >
                   {node.title}
                 </button>
-                <span className="text-slate-300">/</span>
+                <span className="text-slate-600">/</span>
               </span>
             ))}
             <span className="shrink-0 font-semibold text-indigo-600">{refs.get(item.id)}</span>
@@ -298,18 +298,18 @@ export function ItemPanel({ itemId }: Props) {
         {moreOpen && (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
             {typeIsFixed ? (
-              <p className="text-[10px] text-slate-400">
+              <p className="text-micro text-slate-600">
                 {isInitiative
                   ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
                   : 'Type is fixed. Sub-task belongs to the system rather than to you — a card\'s sub-tasks are a checklist, not items.'}
               </p>
             ) : (
               <label className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-[10px] uppercase tracking-wide text-slate-400">Type</span>
+                <span className="w-14 shrink-0 text-micro uppercase tracking-wide text-slate-600">Type</span>
                 <select
                   value={item.typeId}
                   onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
-                  className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-medium"
+                  className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta font-medium"
                 >
                   {typeOptions.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
@@ -321,7 +321,7 @@ export function ItemPanel({ itemId }: Props) {
               {item.archived ? (
                 <button
                   onClick={() => unarchiveItem(item.id)}
-                  className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-100"
+                  className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-meta font-medium text-amber-700 hover:bg-amber-100"
                 >
                   <Archive size={11} /> Restore
                 </button>
@@ -329,7 +329,7 @@ export function ItemPanel({ itemId }: Props) {
                 <button
                   onClick={() => archiveItem(item.id)}
                   title="File this item (and its children) off the boards"
-                  className="flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100"
+                  className="flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-meta font-medium text-slate-600 hover:bg-slate-100"
                 >
                   <Archive size={11} /> Archive
                 </button>
@@ -344,7 +344,7 @@ export function ItemPanel({ itemId }: Props) {
                     onConfirm: () => deleteItem(item.id),
                   })
                 }
-                className="flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-50"
+                className="flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-meta font-medium text-rose-600 hover:bg-rose-50"
               >
                 <Trash2 size={11} /> Delete
               </button>
@@ -355,21 +355,21 @@ export function ItemPanel({ itemId }: Props) {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span
-              className="rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wide"
-              style={{ backgroundColor: type.color, color: readableOn(type.color) }}
+              className="rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide"
+              style={{ backgroundColor: chipColors(type.color).background, color: chipColors(type.color).color }}
             >
               {type.name}
             </span>
-            <span className="rounded bg-slate-100 px-1.5 py-px font-mono text-[10px] font-semibold text-slate-500">
+            <span className="rounded bg-slate-100 px-1.5 py-px font-mono text-micro font-semibold text-slate-600">
               {refs.get(item.id)}
             </span>
-            <span className="rounded bg-indigo-50 px-1.5 py-px text-[10px] font-medium text-indigo-600" title="Where this card sits">
+            <span className="rounded bg-indigo-50 px-1.5 py-px text-micro font-medium text-indigo-600" title="Where this card sits">
               {boards.find((b) => b.id === boardId)?.name ?? 'Board'}
             </span>
             {item.blocked ? (
               <button
                 onClick={() => unblockItem(item.id)}
-                className="ml-auto flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-700"
+                className="ml-auto flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-micro font-semibold text-white hover:bg-rose-700"
               >
                 <Ban size={11} /> Unblock
               </button>
@@ -377,7 +377,7 @@ export function ItemPanel({ itemId }: Props) {
               <button
                 onClick={() => setBlockOpen((o) => !o)}
                 className={cn(
-                  'ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition',
+                  'ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-micro font-semibold transition',
                   blockOpen ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-600',
                 )}
               >
@@ -387,7 +387,7 @@ export function ItemPanel({ itemId }: Props) {
           </div>
 
           {item.blocked && item.blockedReason && (
-            <p className="rounded bg-rose-50 px-2 py-1 text-[11px] text-rose-700">{item.blockedReason}</p>
+            <p className="rounded bg-rose-50 px-2 py-1 text-meta text-rose-700">{item.blockedReason}</p>
           )}
           {blockOpen && !item.blocked && (
             <div className="flex items-center gap-1">
@@ -403,7 +403,7 @@ export function ItemPanel({ itemId }: Props) {
                     setBlockOpen(false)
                   }
                 }}
-                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-rose-300"
+                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-rose-300"
               />
               <button
                 onClick={() => {
@@ -411,7 +411,7 @@ export function ItemPanel({ itemId }: Props) {
                   setBlockReason('')
                   setBlockOpen(false)
                 }}
-                className="flex items-center gap-1 rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-rose-700"
+                className="flex items-center gap-1 rounded bg-rose-600 px-2 py-1 text-meta font-medium text-white hover:bg-rose-700"
               >
                 <Ban size={11} /> Block
               </button>
@@ -421,7 +421,7 @@ export function ItemPanel({ itemId }: Props) {
           <input
             value={item.title}
             onChange={(e) => setItemFields(item.id, { title: e.target.value })}
-            className="w-full rounded border border-transparent bg-transparent text-[15px] font-semibold leading-snug text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
+            className="w-full rounded border border-transparent bg-transparent text-title font-semibold leading-snug text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
           />
         </div>
 
@@ -433,14 +433,14 @@ export function ItemPanel({ itemId }: Props) {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  'flex flex-1 items-center justify-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium transition',
-                  on ? 'bg-white font-semibold text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800',
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-md px-1.5 py-1 text-meta font-medium transition',
+                  on ? 'bg-white font-semibold text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-800',
                 )}
               >
                 <t.icon size={13} />
                 <span className="truncate">{t.label}</span>
                 {t.count !== undefined && t.count > 0 && (
-                  <span className={cn('rounded-full px-1.5 text-[9px] font-bold tabular-nums', on ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500')}>
+                  <span className={cn('rounded-full px-1.5 text-micro font-bold tabular-nums', on ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600')}>
                     {t.count}
                   </span>
                 )}
@@ -452,7 +452,7 @@ export function ItemPanel({ itemId }: Props) {
 
       {/* ---- Body ---------------------------------------------------------------- */}
       {/* The panel is the one place a card's own words are worth copying, so it opts back in. */}
-      <div className="min-h-0 flex-1 select-text overflow-y-auto px-3 py-3 text-[12px]">
+      <div className="min-h-0 flex-1 select-text overflow-y-auto px-3 py-3 text-meta">
         {tab === 'details' && (
           <div className="space-y-4">
             {/* Property grid — the four things you set while working */}
@@ -463,7 +463,7 @@ export function ItemPanel({ itemId }: Props) {
                   title="Derived from the board cell and the work beneath — never editable"
                 >
                   <CircleDot size={12} className={cn(status.resolved ? 'text-emerald-500' : status.started ? 'text-indigo-500' : 'text-slate-300')} />
-                  <span className="truncate text-[12px] font-medium text-slate-700">{STAGE_LABELS[stage]}</span>
+                  <span className="truncate text-meta font-medium text-slate-700">{STAGE_LABELS[stage]}</span>
                 </div>
               </Field>
 
@@ -471,7 +471,7 @@ export function ItemPanel({ itemId }: Props) {
                 <div className="relative">
                   <button
                     onClick={() => setPriorityOpen((o) => !o)}
-                    className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1.5 text-[12px] font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1.5 text-meta font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
                     title="Priority — a judgement, stored rather than derived"
                   >
                     {item.priority ? (
@@ -483,7 +483,7 @@ export function ItemPanel({ itemId }: Props) {
                         <span>{PRIORITY_META[item.priority].label}</span>
                       </>
                     ) : (
-                      <span className="text-slate-400">None</span>
+                      <span className="text-slate-600">None</span>
                     )}
                     <ChevronDown size={12} className="ml-auto shrink-0 text-slate-400" />
                   </button>
@@ -491,7 +491,7 @@ export function ItemPanel({ itemId }: Props) {
                     <div className="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg">
                       <button
                         onClick={() => { setItemFields(item.id, { priority: undefined }); setPriorityOpen(false) }}
-                        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px] text-slate-500 hover:bg-slate-50"
+                        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50"
                       >
                         <Minus size={12} /> None
                         {!item.priority && <Check size={11} className="ml-auto text-indigo-600" />}
@@ -502,7 +502,7 @@ export function ItemPanel({ itemId }: Props) {
                           <button
                             key={p}
                             onClick={() => { setItemFields(item.id, { priority: p }); setPriorityOpen(false) }}
-                            className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px] text-slate-700 hover:bg-slate-50"
+                            className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-meta text-slate-700 hover:bg-slate-50"
                           >
                             <Icon size={12} className={dot} /> {label}
                             {item.priority === p && <Check size={11} className="ml-auto text-indigo-600" />}
@@ -519,8 +519,8 @@ export function ItemPanel({ itemId }: Props) {
                   {(item.assignees ?? []).map((id) => {
                     const u = userById(id)
                     return (
-                      <span key={id} className="flex items-center gap-1 rounded-full bg-slate-700 py-0.5 pl-0.5 pr-1.5 text-[11px] font-medium text-white">
-                        <span className="grid h-4 w-4 place-items-center rounded-full bg-white/20 text-[8px] font-bold">
+                      <span key={id} className="flex items-center gap-1 rounded-full bg-slate-700 py-0.5 pl-0.5 pr-1.5 text-meta font-medium text-white">
+                        <span className="grid h-4 w-4 place-items-center rounded-full bg-white/20 text-micro font-bold">
                           {initialsOf(u?.name ?? id)}
                         </span>
                         {u?.name ?? id}
@@ -545,7 +545,7 @@ export function ItemPanel({ itemId }: Props) {
                       }
                     }}
                     placeholder="add…"
-                    className="min-w-[4rem] flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="min-w-[4rem] flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
                   />
                   <datalist id="flowline-assignees">
                     {users.map((u) => (
@@ -563,9 +563,9 @@ export function ItemPanel({ itemId }: Props) {
                     value={item.size ?? ''}
                     onChange={(e) => setItemFields(item.id, { size: e.target.value === '' ? undefined : Number(e.target.value) })}
                     placeholder="—"
-                    className="w-12 min-w-0 bg-transparent text-[12px] font-semibold tabular-nums text-slate-700 outline-none"
+                    className="w-12 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
                   />
-                  <span className="text-[10px] text-slate-400">pts</span>
+                  <span className="text-micro text-slate-600">pts</span>
                 </div>
               </Field>
 
@@ -576,7 +576,7 @@ export function ItemPanel({ itemId }: Props) {
                     type="date"
                     value={item.targetStartDate ?? ''}
                     onChange={(e) => setItemFields(item.id, { targetStartDate: e.target.value || undefined })}
-                    className="min-w-0 flex-1 bg-transparent text-[11px] text-slate-600 outline-none"
+                    className="min-w-0 flex-1 bg-transparent text-meta text-slate-600 outline-none"
                   />
                 </div>
               </Field>
@@ -588,7 +588,7 @@ export function ItemPanel({ itemId }: Props) {
                     type="date"
                     value={item.targetEndDate ?? ''}
                     onChange={(e) => setItemFields(item.id, { targetEndDate: e.target.value || undefined })}
-                    className="min-w-0 flex-1 bg-transparent text-[11px] text-slate-600 outline-none"
+                    className="min-w-0 flex-1 bg-transparent text-meta text-slate-600 outline-none"
                   />
                 </div>
               </Field>
@@ -597,18 +597,18 @@ export function ItemPanel({ itemId }: Props) {
             {/* Strategic impact — an initiative owns its OKRs; a card inherits them */}
             <section className="rounded-lg bg-indigo-50/70 p-2.5 ring-1 ring-indigo-100">
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                <span className="flex items-center gap-1 text-micro font-semibold uppercase tracking-wide text-indigo-700">
                   <TrendingUp size={12} /> Strategic impact
                 </span>
                 {!isInitiative && (
-                  <span className="text-[10px] text-indigo-500" title="OKRs attach to strategic initiatives — a card inherits the mapping">
+                  <span className="text-micro text-indigo-500" title="OKRs attach to strategic initiatives — a card inherits the mapping">
                     inherited
                   </span>
                 )}
               </div>
 
               {impactObjectives.length === 0 ? (
-                <p className="mt-1 text-[11px] text-indigo-700/70">
+                <p className="mt-1 text-meta text-indigo-700/70">
                   {isInitiative ? 'No OKR maps to this initiative yet.' : 'No OKR maps above this card.'}
                 </p>
               ) : (
@@ -618,14 +618,14 @@ export function ItemPanel({ itemId }: Props) {
                     return (
                       <div key={o.id} className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="min-w-0 truncate text-[12px] font-medium text-slate-700">{o.title}</span>
-                          <span className="shrink-0 text-[10px] text-slate-400">{o.period}</span>
+                          <span className="min-w-0 truncate text-meta font-medium text-slate-700">{o.title}</span>
+                          <span className="shrink-0 text-micro text-slate-600">{o.period}</span>
                         </div>
-                        {krs.length === 0 && <p className="text-[10px] text-slate-400">No key results yet.</p>}
+                        {krs.length === 0 && <p className="text-micro text-slate-600">No key results yet.</p>}
                         {krs.map((k) => (
                           <div key={k.id} className="space-y-0.5">
-                            <div className="flex items-center justify-between gap-2 text-[10px]">
-                              <span className="min-w-0 truncate text-slate-500">{k.title}</span>
+                            <div className="flex items-center justify-between gap-2 text-micro">
+                              <span className="min-w-0 truncate text-slate-600">{k.title}</span>
                               <span className="shrink-0 font-semibold tabular-nums text-slate-600">
                                 {k.progress !== undefined ? `${k.progress}%` : '—'}
                               </span>
@@ -634,7 +634,7 @@ export function ItemPanel({ itemId }: Props) {
                               <div className="h-full bg-indigo-500 transition-all" style={{ width: `${k.progress ?? 0}%` }} />
                             </div>
                             {(k.target || k.current) && (
-                              <div className="text-[10px] text-slate-400">
+                              <div className="text-micro text-slate-600">
                                 {k.current ? `now ${k.current}` : ''}{k.current && k.target ? ' · ' : ''}{k.target ? `target ${k.target}` : ''}
                               </div>
                             )}
@@ -643,7 +643,7 @@ export function ItemPanel({ itemId }: Props) {
                         {isInitiative && (
                           <button
                             onClick={() => setAttribution(item.id, o.id, false)}
-                            className="text-[10px] text-indigo-500 hover:text-indigo-700"
+                            className="text-micro text-indigo-500 hover:text-indigo-700"
                             title="Unlink this OKR"
                           >
                             unlink
@@ -657,21 +657,21 @@ export function ItemPanel({ itemId }: Props) {
 
               {isInitiative && (
                 <div className="mt-2 border-t border-indigo-100 pt-1.5">
-                  <span className="text-[10px] uppercase tracking-wide text-indigo-500">Map an OKR</span>
+                  <span className="text-micro uppercase tracking-wide text-indigo-500">Map an OKR</span>
                   <div className="mt-1 space-y-0.5">
                     {objectives.map((o) => {
                       const on = attributed.some((a) => a.id === o.id)
                       return (
                         <label key={o.id} className="flex items-center gap-2 rounded bg-white/70 px-2 py-1">
                           <input type="checkbox" checked={on} onChange={(e) => setAttribution(item.id, o.id, e.target.checked)} />
-                          <span className="min-w-0 flex-1 truncate text-[11px] text-slate-700">{o.title}</span>
-                          <span className="shrink-0 text-[10px] text-slate-400">{o.period}</span>
+                          <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{o.title}</span>
+                          <span className="shrink-0 text-micro text-slate-600">{o.period}</span>
                         </label>
                       )
                     })}
                   </div>
                   {attributed.length > 1 && (
-                    <p className="mt-1 text-[10px] text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
+                    <p className="mt-1 text-micro text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
                   )}
                 </div>
               )}
@@ -688,7 +688,7 @@ export function ItemPanel({ itemId }: Props) {
                       <button
                         key={m}
                         onClick={() => setShowPreview(m === 'Preview')}
-                        className={cn('rounded px-1.5 py-px text-[10px] font-medium', on ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-700')}
+                        className={cn('rounded px-1.5 py-px text-micro font-medium', on ? 'bg-slate-800 text-white' : 'text-slate-600 hover:text-slate-700')}
                       >
                         {m}
                       </button>
@@ -698,8 +698,8 @@ export function ItemPanel({ itemId }: Props) {
               </div>
               {showPreview ? (
                 <div
-                  className="min-h-[72px] rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[12px] leading-relaxed text-slate-700"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(item.description ?? '') || '<p class="text-slate-400">Nothing to preview.</p>' }}
+                  className="min-h-[72px] rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-meta leading-relaxed text-slate-700"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(item.description ?? '') || '<p class="text-slate-600">Nothing to preview.</p>' }}
                 />
               ) : (
                 <textarea
@@ -707,7 +707,7 @@ export function ItemPanel({ itemId }: Props) {
                   onChange={(e) => setItemFields(item.id, { description: e.target.value })}
                   rows={5}
                   placeholder="Add a description… (supports **bold**, lists, `code`, links)"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
                 />
               )}
             </section>
@@ -720,13 +720,13 @@ export function ItemPanel({ itemId }: Props) {
                 <div className="mb-1.5 flex items-center gap-1.5">
                   <SectionLabel>Checklist</SectionLabel>
                   {checklist.length > 0 && (
-                    <span className="rounded-full bg-slate-200 px-1.5 text-[10px] font-bold tabular-nums text-slate-500">
+                    <span className="rounded-full bg-slate-200 px-1.5 text-micro font-bold tabular-nums text-slate-600">
                       {checklist.filter((c) => c.done).length}/{checklist.length}
                     </span>
                   )}
                 </div>
                 <div className="space-y-0.5">
-                  {checklist.length === 0 && <p className="text-[11px] text-slate-400">No sub-tasks yet.</p>}
+                  {checklist.length === 0 && <p className="text-meta text-slate-600">No sub-tasks yet.</p>}
                   {checklist.map((entry) => (
                     <div key={entry.id} className="group flex items-center gap-2 rounded px-1 py-1 transition hover:bg-slate-100">
                       <button onClick={() => toggleChecklistEntry(item.id, entry.id)} title={entry.done ? 'Untick' : 'Tick'} className="shrink-0">
@@ -753,15 +753,15 @@ export function ItemPanel({ itemId }: Props) {
                             }
                           }}
                           onBlur={() => saveEntry(entry.id)}
-                          className="min-w-0 flex-1 rounded border border-indigo-300 bg-white px-1 py-px text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+                          className="min-w-0 flex-1 rounded border border-indigo-300 bg-white px-1 py-px text-meta outline-none focus:ring-2 focus:ring-indigo-300"
                         />
                       ) : (
                         <button
                           onClick={() => startEditingEntry(entry.id, entry.text)}
                           title="Click to edit — clearing it removes the line"
                           className={cn(
-                            'min-w-0 flex-1 cursor-text truncate text-left text-[12px]',
-                            entry.done ? 'text-slate-400 line-through' : 'text-slate-700',
+                            'min-w-0 flex-1 cursor-text truncate text-left text-meta',
+                            entry.done ? 'text-slate-600 line-through' : 'text-slate-700',
                           )}
                         >
                           {entry.text}
@@ -770,7 +770,7 @@ export function ItemPanel({ itemId }: Props) {
                       <button
                         onClick={() => removeChecklistEntry(item.id, entry.id)}
                         title="Remove"
-                        className="shrink-0 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-rose-500"
+                        className="shrink-0 text-slate-600 opacity-0 transition group-hover:opacity-100 hover:text-rose-500"
                       >
                         <X size={12} />
                       </button>
@@ -785,12 +785,12 @@ export function ItemPanel({ itemId }: Props) {
                       if (e.key === 'Enter') addSubtask()
                     }}
                     placeholder="Add a sub-task…"
-                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
                   />
                   <button
                     disabled={newSubtask.trim().length === 0}
                     onClick={addSubtask}
-                    className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+                    className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-meta font-medium text-white disabled:opacity-40"
                   >
                     <Plus size={11} /> Add
                   </button>
@@ -818,7 +818,7 @@ export function ItemPanel({ itemId }: Props) {
                   </li>
                 ))}
               </ol>
-              <p className="mt-1 text-[10px] text-slate-400">
+              <p className="mt-1 text-micro text-slate-600">
                 {lineageObjectives.length > 0
                   ? 'Top-down: OKR → initiative → this work. Click any step to jump.'
                   : 'Click any step to jump. No OKR maps above this item.'}{' '}
@@ -831,25 +831,25 @@ export function ItemPanel({ itemId }: Props) {
               <SectionLabel>Parent — one parent, any number of children</SectionLabel>
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1">
-                  <span className="text-[10px] uppercase tracking-wide text-slate-400">Parent</span>
+                  <span className="text-micro uppercase tracking-wide text-slate-600">Parent</span>
                   {parent ? (
                     <>
                       <button onClick={() => close(parent.id)} className="min-w-0 flex-1 truncate text-left text-slate-700 hover:text-indigo-600">
                         {typeName(parent.typeId)} · {parent.title}
                       </button>
-                      <button onClick={() => setParent(item.id, null)} className="text-slate-300 hover:text-rose-500" title="Remove parent">
+                      <button onClick={() => setParent(item.id, null)} className="text-slate-600 hover:text-rose-500" title="Remove parent">
                         <X size={12} />
                       </button>
                     </>
                   ) : (
-                    <span className="flex-1 text-[11px] text-slate-400">none (root)</span>
+                    <span className="flex-1 text-meta text-slate-600">none (root)</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
                   <select
                     value={parentChoice}
                     onChange={(e) => setParentChoice(e.target.value)}
-                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px]"
+                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta"
                   >
                     <option value="">Set parent…</option>
                     {candidates.map((c) => (
@@ -859,7 +859,7 @@ export function ItemPanel({ itemId }: Props) {
                   <button
                     disabled={!parentChoice}
                     onClick={() => { setParent(item.id, parentChoice); setParentChoice('') }}
-                    className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+                    className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white disabled:opacity-40"
                   >
                     Set
                   </button>
@@ -874,13 +874,13 @@ export function ItemPanel({ itemId }: Props) {
                 <div className="flex items-center gap-1.5">
                   <SectionLabel>Children — the items below this one</SectionLabel>
                   {children.length > 0 && (
-                    <span className="rounded-full bg-slate-200 px-1.5 text-[10px] font-bold tabular-nums text-slate-500">{children.length}</span>
+                    <span className="rounded-full bg-slate-200 px-1.5 text-micro font-bold tabular-nums text-slate-600">{children.length}</span>
                   )}
                 </div>
-                {exposure.length > 0 && <span className="text-[10px] text-amber-700">{exposure.length} open below</span>}
+                {exposure.length > 0 && <span className="text-micro text-amber-700">{exposure.length} open below</span>}
               </div>
               <div className="space-y-1">
-                {children.length === 0 && <p className="text-[11px] text-slate-400">No children.</p>}
+                {children.length === 0 && <p className="text-meta text-slate-600">No children.</p>}
                 {children.map((c) => {
                   const cStatus = statusOf(c.id, graph)
                   return (
@@ -890,18 +890,18 @@ export function ItemPanel({ itemId }: Props) {
                       className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left transition hover:bg-slate-50"
                     >
                       <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
-                      <span className="shrink-0 font-mono text-[10px] font-medium text-indigo-600">{refs.get(c.id)}</span>
+                      <span className="shrink-0 font-mono text-micro font-medium text-indigo-600">{refs.get(c.id)}</span>
                       <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                      {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
-                      <span className="shrink-0 text-[10px] text-slate-400">{boardOf(c.id)?.name ?? '—'}</span>
-                      <span className={cn('shrink-0 rounded px-1.5 py-px text-[10px] font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
+                      {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-micro font-semibold text-amber-700">archived</span>}
+                      <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
+                      <span className={cn('shrink-0 rounded px-1.5 py-px text-micro font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
                         {STAGE_LABELS[rollupOf(c.id, graph).bucket]}
                       </span>
                     </button>
                   )
                 })}
               </div>
-              <p className="mt-1 text-[10px] text-slate-400">
+              <p className="mt-1 text-micro text-slate-600">
                 A child is an item of its own — set its parent from its own panel, or link a team initiative below.
               </p>
             </section>
@@ -910,23 +910,23 @@ export function ItemPanel({ itemId }: Props) {
             <section>
               <SectionLabel>Links — dependencies</SectionLabel>
               {badge.count > 0 && (
-                <div className="mb-2 flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800 ring-1 ring-amber-100">
+                <div className="mb-2 flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-meta text-amber-800 ring-1 ring-amber-100">
                   <GitBranch size={11} /> {badge.count} card{badge.count > 1 ? 's' : ''} depend on this across {badge.boards} board{badge.boards > 1 ? 's' : ''}
                 </div>
               )}
               <div className="space-y-1">
-                {dependencies.length === 0 && dependents.length === 0 && <p className="text-[11px] text-slate-400">No links.</p>}
+                {dependencies.length === 0 && dependents.length === 0 && <p className="text-meta text-slate-600">No links.</p>}
                 {dependencies.map((dep) => {
                   const state = DEP_STATE_STYLES[dep.state]
                   return (
                     <div key={dep.link.id} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                      <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> depends on</div>
+                      <div className="flex items-center gap-1 text-micro text-slate-600"><GitBranch size={10} /> depends on</div>
                       <div className="flex items-center gap-2">
                         <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependency.title}</span>
-                        {dep.dependency.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
-                        <span className={cn('rounded px-1 text-[9px] font-semibold ring-1', state.className)}>{state.label}</span>
+                        {dep.dependency.archived && <span className="rounded bg-amber-100 px-1 text-micro font-semibold text-amber-700">archived</span>}
+                        <span className={cn('rounded px-1 text-micro font-semibold ring-1', state.className)}>{state.label}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-micro text-slate-600">
                         derived → {dependencyState(dep.dependency.id, dep.dependent.id, graph)}
                       </div>
                     </div>
@@ -934,25 +934,25 @@ export function ItemPanel({ itemId }: Props) {
                 })}
                 {dependents.map((dep) => (
                   <div key={dep.link.id} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400"><GitBranch size={10} /> depended on by</div>
+                    <div className="flex items-center gap-1 text-micro text-slate-600"><GitBranch size={10} /> depended on by</div>
                     <div className="flex items-center gap-2">
                       <div className="min-w-0 flex-1 truncate text-slate-700">{dep.dependent.title}</div>
-                      {dep.dependent.archived && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
+                      {dep.dependent.archived && <span className="rounded bg-amber-100 px-1 text-micro font-semibold text-amber-700">archived</span>}
                     </div>
-                    <div className="text-[10px] text-slate-400">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
+                    <div className="text-micro text-slate-600">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
                   </div>
                 ))}
               </div>
               <div className="mt-2 flex items-center gap-1">
-                <select value={dependencyId} onChange={(e) => setDependencyId(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px]">
+                <select value={dependencyId} onChange={(e) => setDependencyId(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta">
                   <option value="">Add link: this depends on…</option>
                   {candidates.map((c) => (
                     <option key={c.id} value={c.id}>{typeName(c.typeId)}: {c.title}</option>
                   ))}
                 </select>
-                <button disabled={!dependencyId} onClick={() => { addDependency(dependencyId, item.id); setDependencyId('') }} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40">Add link</button>
+                <button disabled={!dependencyId} onClick={() => { addDependency(dependencyId, item.id); setDependencyId('') }} className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white disabled:opacity-40">Add link</button>
               </div>
-              <p className="mt-1 text-[10px] text-slate-400">
+              <p className="mt-1 text-micro text-slate-600">
                 Links connect two items — this one depends on another. They never set the blocked status.
               </p>
             </section>
@@ -963,7 +963,7 @@ export function ItemPanel({ itemId }: Props) {
                 <SectionLabel>Team initiatives — linked</SectionLabel>
                 <div className="space-y-1">
                   {linkedInitiatives.length === 0 && (
-                    <p className="text-[11px] text-slate-400">No linked team initiatives yet.</p>
+                    <p className="text-meta text-slate-600">No linked team initiatives yet.</p>
                   )}
                   {linkedInitiatives.map((c) => (
                     <button
@@ -973,7 +973,7 @@ export function ItemPanel({ itemId }: Props) {
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
                       <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                      <span className="text-[10px] text-slate-400">{boardOf(c.id)?.name ?? '—'}</span>
+                      <span className="text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
                     </button>
                   ))}
                 </div>
@@ -981,7 +981,7 @@ export function ItemPanel({ itemId }: Props) {
                   <select
                     value={linkBoardId}
                     onChange={(e) => setLinkBoardId(e.target.value)}
-                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px]"
+                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta"
                   >
                     <option value="">Link to a team board…</option>
                     {teamBoards.map((b) => (
@@ -992,7 +992,7 @@ export function ItemPanel({ itemId }: Props) {
                     value={linkTitle}
                     onChange={(e) => setLinkTitle(e.target.value)}
                     placeholder="New initiative"
-                    className="w-28 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px]"
+                    className="w-28 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta"
                   />
                   <button
                     disabled={!linkBoardId || linkTitle.trim().length < 2}
@@ -1000,12 +1000,12 @@ export function ItemPanel({ itemId }: Props) {
                       linkTeamInitiative(item.id, linkBoardId, linkTitle.trim())
                       setLinkTitle('')
                     }}
-                    className="rounded bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+                    className="rounded bg-indigo-600 px-2 py-1 text-meta font-medium text-white disabled:opacity-40"
                   >
                     Create
                   </button>
                 </div>
-                <p className="mt-1 text-[10px] text-slate-400">
+                <p className="mt-1 text-micro text-slate-600">
                   Creates a team initiative on that board, beneath this one — its cards roll up here.
                 </p>
               </section>
@@ -1015,7 +1015,7 @@ export function ItemPanel({ itemId }: Props) {
             <section>
               <SectionLabel>On these boards ({itemPlacements.length})</SectionLabel>
               <div className="space-y-1">
-                {itemPlacements.length === 0 && <p className="text-[11px] text-slate-400">Not placed on any board.</p>}
+                {itemPlacements.length === 0 && <p className="text-meta text-slate-600">Not placed on any board.</p>}
                 {itemPlacements.map((p) => {
                   const b = boards.find((bb) => bb.id === p.boardId)
                   const here = p.boardId === boardId
@@ -1033,8 +1033,8 @@ export function ItemPanel({ itemId }: Props) {
                       )}
                     >
                       <span className="min-w-0 flex-1 truncate text-slate-700">{b?.name ?? '—'}</span>
-                      <span className="min-w-0 max-w-[55%] truncate text-[10px] text-slate-400">{lanePath(lanes, p.laneId).join(' / ')}</span>
-                      {!here && <span className="shrink-0 text-[10px] text-indigo-500">↗</span>}
+                      <span className="min-w-0 max-w-[55%] truncate text-micro text-slate-600">{lanePath(lanes, p.laneId).join(' / ')}</span>
+                      {!here && <span className="shrink-0 text-micro text-indigo-500">↗</span>}
                     </button>
                   )
                 })}
@@ -1047,19 +1047,19 @@ export function ItemPanel({ itemId }: Props) {
           <section>
             <div className="mb-1.5 flex items-center justify-between">
               <SectionLabel>Activity ({log.length})</SectionLabel>
-              <span className="text-[10px] text-slate-400">append-only</span>
+              <span className="text-micro text-slate-600">append-only</span>
             </div>
             <div className="space-y-1">
-              {log.length === 0 && <p className="text-[11px] text-slate-400">No events yet.</p>}
+              {log.length === 0 && <p className="text-meta text-slate-600">No events yet.</p>}
               {[...log].reverse().map((e) => (
                 <div key={e.id} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
                   <span className={cn('mt-1 h-1.5 w-1.5 shrink-0 rounded-full', LOG_STYLES[e.kind] ?? 'bg-slate-300')} />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[11px] text-slate-700">
+                    <div className="text-meta text-slate-700">
                       <span className="font-semibold capitalize">{e.kind}</span>
                       {e.note ? ` — ${e.note}` : ''}
                     </div>
-                    <div className="text-[10px] text-slate-400">{new Date(e.at).toLocaleString()}</div>
+                    <div className="text-micro text-slate-600">{new Date(e.at).toLocaleString()}</div>
                   </div>
                 </div>
               ))}
@@ -1081,7 +1081,7 @@ export function ItemPanel({ itemId }: Props) {
               }
             }}
             placeholder="Leave a note or mention @teammate…"
-            className="w-full rounded-lg bg-slate-100 py-2 pl-3 pr-20 text-[12px] outline-none transition focus:bg-slate-50 focus:ring-2 focus:ring-indigo-300"
+            className="w-full rounded-lg bg-slate-100 py-2 pl-3 pr-20 text-meta outline-none transition focus:bg-slate-50 focus:ring-2 focus:ring-indigo-300"
           />
           <div className="absolute right-1.5 flex items-center gap-1">
             <button
@@ -1090,13 +1090,13 @@ export function ItemPanel({ itemId }: Props) {
                 addLogNote(item.id, note.trim())
                 setNote('')
               }}
-              className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-40"
+              className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-meta font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-40"
             >
               <Pencil size={11} /> Send
             </button>
           </div>
         </div>
-        <div className="flex items-center justify-between px-1 text-[10px] text-slate-400">
+        <div className="flex items-center justify-between px-1 text-micro text-slate-600">
           <span>Enter to send</span>
           <span>Markdown supported</span>
         </div>
@@ -1128,7 +1128,7 @@ function IconButton({
           ? 'text-slate-400 hover:bg-rose-50 hover:text-rose-600'
           : active
             ? 'bg-indigo-50 text-indigo-600'
-            : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700',
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-700',
       )}
     >
       {children}
@@ -1139,12 +1139,12 @@ function IconButton({
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <label className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+      <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">{label}</span>
       {children}
     </label>
   )
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{children}</div>
+  return <div className="mb-1.5 text-meta font-semibold uppercase tracking-wide text-slate-600">{children}</div>
 }

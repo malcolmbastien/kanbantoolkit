@@ -43,16 +43,16 @@ export function ArchiveView() {
       <div className="mx-auto w-full max-w-4xl">
         <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-amber-300 bg-amber-50/70 px-4 py-3">
           <div>
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+            <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-amber-700">
               <Archive size={12} /> Archive
             </div>
-            <div className="text-[16px] font-semibold text-slate-800">
+            <div className="text-heading font-semibold text-slate-800">
               {archived.length} filed item{archived.length === 1 ? '' : 's'}
             </div>
-            <div className="text-[11px] text-slate-500">Archived items leave the boards but stay searchable and linked.</div>
+            <div className="text-meta text-slate-600">Archived items leave the boards but stay searchable and linked.</div>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-[11px] text-slate-600">
+            <label className="flex items-center gap-1.5 text-meta text-slate-600">
               Auto-archive Done after
               <input
                 type="number"
@@ -60,7 +60,7 @@ export function ArchiveView() {
                 value={autoArchiveDays ?? ''}
                 placeholder="off"
                 onChange={(e) => setAutoArchiveDays(e.target.value === '' ? undefined : Number(e.target.value))}
-                className="w-16 rounded border border-slate-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-amber-300"
+                className="w-16 rounded border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-amber-300"
               />
               days
             </label>
@@ -70,7 +70,7 @@ export function ArchiveView() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search archive…"
-                className="w-48 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-[12px] outline-none focus:ring-2 focus:ring-amber-300"
+                className="w-48 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-meta outline-none focus:ring-2 focus:ring-amber-300"
               />
             </div>
           </div>
@@ -79,7 +79,7 @@ export function ArchiveView() {
         <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
           <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
                 <th className="px-4 py-2 font-semibold">Item</th>
                 <th className="px-4 py-2 font-semibold">Board</th>
                 <th className="px-4 py-2 font-semibold">Status</th>
@@ -95,29 +95,29 @@ export function ArchiveView() {
                   <tr key={item.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     <td className="max-w-[320px] px-4 py-2.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide" style={{ backgroundColor: type.color, color: '#fff' }}>
+                        <span className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide" style={{ backgroundColor: type.color, color: '#fff' }}>
                           {type.name}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-400">{refs.get(item.id)}</span>
+                        <span className="text-micro font-semibold text-slate-600">{refs.get(item.id)}</span>
                       </div>
                       <button
                         onClick={() => openItem(item.id)}
-                        className="block max-w-full truncate text-left text-[13px] font-semibold text-slate-800 hover:text-indigo-600"
+                        className="block max-w-full truncate text-left text-body font-semibold text-slate-800 hover:text-indigo-600"
                       >
                         {item.title}
                       </button>
                     </td>
-                    <td className="px-4 py-2.5 text-[12px] text-slate-600">{boardOf(item.id)?.name ?? '—'}</td>
+                    <td className="px-4 py-2.5 text-meta text-slate-600">{boardOf(item.id)?.name ?? '—'}</td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', stageChip(bucket))}>{STAGE_LABELS[bucket]}</span>
+                      <span className={cn('rounded px-1.5 py-0.5 text-micro font-bold', stageChip(bucket))}>{STAGE_LABELS[bucket]}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-[12px] text-slate-500">
+                    <td className="px-4 py-2.5 text-meta text-slate-600">
                       {item.archivedAt ? new Date(item.archivedAt).toLocaleDateString() : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <button
                         onClick={() => unarchiveItem(item.id)}
-                        className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                        className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-meta font-medium text-slate-600 hover:bg-slate-50"
                       >
                         <RotateCcw size={11} /> Restore
                       </button>
@@ -127,7 +127,7 @@ export function ArchiveView() {
               })}
               {archived.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-[12px] text-slate-400">
+                  <td colSpan={5} className="px-4 py-8 text-center text-meta text-slate-600">
                     Nothing archived{q ? ' matches your search' : ' yet'}.
                   </td>
                 </tr>

@@ -107,7 +107,7 @@ export function BoardSummary({
       return { section, stage, cells, byCell, total: inSection.length }
     })
 
-  if (sections.length === 0) return <p className="p-3 text-[12px] text-slate-500">This board has no typed columns.</p>
+  if (sections.length === 0) return <p className="p-3 text-meta text-slate-600">This board has no typed columns.</p>
 
   const isInitiatives = variant === 'initiatives'
   const drop = (itemId: string, laneId: string) => moveInitiative(itemId, boardId, laneId)
@@ -297,11 +297,11 @@ function Cell({
         {/* Left slot is empty — the grid keeps the name truly centred — while the WIP count
             and any edit controls are pinned right. */}
         <span />
-        <span className={cn('text-center font-bold uppercase leading-tight tracking-wide', primary ? 'text-[11px]' : 'text-[10px]')}>
+        <span className={cn('text-center font-bold uppercase leading-tight tracking-wide', primary ? 'text-meta' : 'text-micro')}>
           {lane.name}
         </span>
         <span className="flex items-center justify-end gap-1">
-          <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums text-white">
+          <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums text-white">
             {count}
           </span>
           {editable && (
@@ -379,7 +379,7 @@ function Ctl({
       onClick={onClick}
       title={title}
       className={cn(
-        'rounded px-1.5 py-0.5 text-[10px] font-semibold transition',
+        'rounded px-1.5 py-0.5 text-micro font-semibold transition',
         active
           ? 'bg-indigo-400 text-white'
           : light

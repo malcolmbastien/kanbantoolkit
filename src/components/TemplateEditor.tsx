@@ -95,8 +95,8 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
       },
     })
 
-  const dt = 'text-[10px] font-bold uppercase tracking-wide text-slate-400'
-  const field = 'rounded border border-slate-200 px-1.5 py-0.5 text-[11px] outline-none focus:border-indigo-300'
+  const dt = 'text-micro font-bold uppercase tracking-wide text-slate-600'
+  const field = 'rounded border border-slate-200 px-1.5 py-0.5 text-meta outline-none focus:border-indigo-300'
   const typeNames = template.cardTypeIds
     ?.map((id) => issueTypes.find((t) => t.id === id)?.name)
     .filter((n): n is string => Boolean(n))
@@ -124,14 +124,14 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
           ) : (
             <span className="text-sm font-semibold text-slate-800">{template.name}</span>
           )}
-          <span className="text-[11px] text-slate-500">
+          <span className="text-meta text-slate-600">
             {editing ? 'editing this design' : 'a board design, not its work'}
           </span>
 
           <button
             onClick={() => setEditing((v) => !v)}
             className={cn(
-              'ml-auto flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium transition',
+              'ml-auto flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition',
               editing
                 ? 'border-emerald-400/60 bg-emerald-50 text-emerald-700'
                 : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
@@ -148,7 +148,7 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
               </>
             )}
           </button>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600" title="Close">
+          <button onClick={onClose} className="text-slate-600 hover:text-slate-600" title="Close">
             <X size={16} />
           </button>
         </div>
@@ -161,7 +161,7 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
             </div>
           </div>
 
-          <dl className="grid grid-cols-[104px_1fr] items-start gap-x-3 gap-y-2 text-[12px]">
+          <dl className="grid grid-cols-[104px_1fr] items-start gap-x-3 gap-y-2 text-meta">
             <dt className={dt}>Board type</dt>
             <dd>
               {editing ? (
@@ -178,7 +178,7 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
                   ))}
                 </select>
               ) : (
-                <span className={cn('rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wide', BAND_STYLES[template.band].chip)}>
+                <span className={cn('rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide', BAND_STYLES[template.band].chip)}>
                   {BAND_STYLES[template.band].label}
                 </span>
               )}
@@ -197,10 +197,10 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
                         aria-label={`Allow ${t.name} on this template`}
                       />
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
-                      <span className="min-w-0 flex-1 truncate text-[11px] text-slate-700">{t.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{t.name}</span>
                       <button
                         onClick={() => deleteType(t.id, t.name)}
-                        className="shrink-0 text-slate-300 transition hover:text-rose-500"
+                        className="shrink-0 text-slate-600 transition hover:text-rose-500"
                         title={`Delete the ${t.name} type everywhere`}
                       >
                         <Trash2 size={12} />
@@ -224,12 +224,12 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
                       }}
                       placeholder="Define a new card type…"
                       aria-label="New card type name"
-                      className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] outline-none focus:border-indigo-300"
+                      className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta outline-none focus:border-indigo-300"
                     />
                     <button
                       disabled={!newTypeName.trim()}
                       onClick={addType}
-                      className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-white disabled:opacity-40"
+                      className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-0.5 text-meta font-medium text-white disabled:opacity-40"
                       title="Create this type and enable it on this template"
                     >
                       <Plus size={11} /> Add type
@@ -287,7 +287,7 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
             </dd>
           </dl>
 
-          <p className="text-[10px] text-slate-400">
+          <p className="text-micro text-slate-600">
             Cards, placements and linked boards are never part of a template — they belong to a board.
           </p>
         </div>
@@ -356,15 +356,15 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
             value={lane.name}
             onChange={(e) => apply(templateRenameLane(template, lane.key, e.target.value))}
             aria-label={`Lane name: ${lane.name}`}
-            className="w-full min-w-0 rounded border border-indigo-300 px-1 py-px text-[10px] font-bold uppercase tracking-wide text-slate-800 outline-none"
+            className="w-full min-w-0 rounded border border-indigo-300 px-1 py-px text-micro font-bold uppercase tracking-wide text-slate-800 outline-none"
           />
         ) : (
           <>
-            <span className="truncate text-[10px] font-bold uppercase tracking-wide text-slate-700" title={lane.name}>
+            <span className="truncate text-micro font-bold uppercase tracking-wide text-slate-700" title={lane.name}>
               {lane.name}
             </span>
             {lane.wipLimit !== undefined && (
-              <span className="ml-auto shrink-0 text-[9px] font-semibold tabular-nums text-slate-400">
+              <span className="ml-auto shrink-0 text-micro font-semibold tabular-nums text-slate-600">
                 WIP {lane.wipLimit}
               </span>
             )}
@@ -436,7 +436,7 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
           </div>
 
           <div className="flex items-center gap-1 border-b border-slate-200 bg-white px-1 py-0.5">
-            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-400">WIP</span>
+            <span className="text-micro font-bold uppercase tracking-wide text-slate-600">WIP</span>
             <input
               type="number"
               min={1}
@@ -446,7 +446,7 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
               }
               placeholder="—"
               aria-label={`WIP limit: ${lane.name}`}
-              className="w-10 rounded border border-slate-200 px-1 py-px text-[10px] outline-none focus:border-indigo-300"
+              className="w-10 rounded border border-slate-200 px-1 py-px text-micro outline-none focus:border-indigo-300"
             />
           </div>
 
@@ -458,14 +458,14 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
               }
               placeholder="Policy…"
               aria-label={`Lane policy: ${lane.name}`}
-              className="w-full rounded border border-slate-200 px-1 py-px text-[9px] outline-none focus:border-indigo-300"
+              className="w-full rounded border border-slate-200 px-1 py-px text-micro outline-none focus:border-indigo-300"
             />
           </div>
         </>
       )}
 
       {lane.description && !editing && (
-        <p className="px-1.5 pt-1 text-[9px] leading-snug text-slate-500">{lane.description}</p>
+        <p className="px-1.5 pt-1 text-micro leading-snug text-slate-600">{lane.description}</p>
       )}
 
       <div className="flex-1 p-1.5">
@@ -498,11 +498,11 @@ function Ctl({
       disabled={disabled}
       title={title}
       className={cn(
-        'rounded px-1 py-px text-[10px] font-semibold transition',
+        'rounded px-1 py-px text-micro font-semibold transition',
         disabled
-          ? 'cursor-not-allowed bg-slate-100 text-slate-300'
+          ? 'cursor-not-allowed bg-slate-100 text-slate-600'
           : danger
-            ? 'bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600'
+            ? 'bg-slate-100 text-slate-600 hover:bg-rose-100 hover:text-rose-600'
             : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
       )}
     >

@@ -117,13 +117,13 @@ export function BoardWorkspace() {
       <div className="mx-auto w-full max-w-6xl">
         <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-slate-300 bg-white px-4 py-3">
           <div>
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-indigo-600">
+            <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-indigo-600">
               <Columns3 size={12} /> Boards
-              <span className="rounded-full bg-indigo-50 px-1.5 py-px text-[10px] font-bold tabular-nums text-indigo-700 ring-1 ring-indigo-200">
+              <span className="rounded-full bg-indigo-50 px-1.5 py-px text-micro font-bold tabular-nums text-indigo-700 ring-1 ring-indigo-200">
                 {shown}
               </span>
             </div>
-            <div className="text-[16px] font-semibold text-slate-800">Every board in the organisation</div>
+            <div className="text-heading font-semibold text-slate-800">Every board in the organisation</div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
               {(['all', ...BOARD_BANDS] as (BoardBand | 'all')[]).map((b) => {
                 const on = bandFilter === b
@@ -134,13 +134,13 @@ export function BoardWorkspace() {
                     key={b}
                     onClick={() => setBandFilter(b)}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-medium transition',
+                      'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-meta font-medium transition',
                       on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
                     )}
                   >
                     {style && <span className={cn('h-2 w-2 rounded-full', style.chip.split(' ')[0])} />}
                     {b === 'all' ? 'All' : style?.label}
-                    <span className={cn('tabular-nums', on ? 'text-indigo-500' : 'text-slate-400')}>{count}</span>
+                    <span className={cn('tabular-nums', on ? 'text-indigo-500' : 'text-slate-600')}>{count}</span>
                   </button>
                 )
               })}
@@ -150,7 +150,7 @@ export function BoardWorkspace() {
             <button
               onClick={() => (creating ? cancelCreate() : setCreating(true))}
               className={cn(
-                'flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition',
+                'flex items-center gap-1 rounded-md border px-2.5 py-1 text-meta font-medium transition',
                 creating
                   ? 'border-indigo-400/60 bg-indigo-50 text-indigo-700'
                   : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
@@ -166,17 +166,17 @@ export function BoardWorkspace() {
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search boards…"
                 aria-label="Search boards"
-                className="w-56 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+                className="w-56 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
               />
             </div>
             {archivedCount > 0 && (
               <button
                 onClick={() => setShowArchived((v) => !v)}
                 className={cn(
-                  'flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition',
+                  'flex items-center gap-1 rounded-md border px-2.5 py-1 text-meta font-medium transition',
                   showArchived
                     ? 'border-slate-400 bg-slate-200 text-slate-700'
-                    : 'border-slate-300 bg-white text-slate-500 hover:text-slate-700',
+                    : 'border-slate-300 bg-white text-slate-600 hover:text-slate-700',
                 )}
                 title={showArchived ? 'Hide retired boards' : 'Show retired boards'}
               >
@@ -197,13 +197,13 @@ export function BoardWorkspace() {
                 }}
                 placeholder="Board name…"
                 aria-label="New board name"
-                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
               />
               <select
                 value={band}
                 onChange={(e) => setBand(e.target.value as BoardBand)}
                 aria-label="New board flight level"
-                className="rounded-md border border-slate-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+                className="rounded-md border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
               >
                 {BOARD_BANDS.map((b) => (
                   <option key={b} value={b}>
@@ -221,7 +221,7 @@ export function BoardWorkspace() {
                   if (chosen) setBand(chosen.band)
                 }}
                 aria-label="New board template"
-                className="rounded-md border border-slate-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+                className="rounded-md border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
               >
                 <option value="">Standard columns</option>
                 {boardTemplates.map((t) => (
@@ -233,17 +233,17 @@ export function BoardWorkspace() {
               <button
                 onClick={create}
                 disabled={!name.trim()}
-                className="rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
+                className="rounded-md bg-indigo-500 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
               >
                 Create
               </button>
               <button
                 onClick={cancelCreate}
-                className="rounded-md border border-slate-300 px-2.5 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-800"
+                className="rounded-md border border-slate-300 px-2.5 py-1 text-meta font-medium text-slate-600 hover:text-slate-800"
               >
                 Cancel
               </button>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-meta text-slate-600">
                 {templateId
                   ? 'Uses that template’s columns, card types and WIP policy.'
                   : 'Starts as the standard Backlog → Done columns; shape it after.'}
@@ -253,7 +253,7 @@ export function BoardWorkspace() {
         </div>
 
         {groups.length === 0 && (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-[12px] text-slate-500">
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
             {boards.length === 0 ? 'No boards yet.' : `No board matches “${q.trim()}”.`}
           </div>
         )}
@@ -279,7 +279,7 @@ export function BoardWorkspace() {
                         <BandIcon size={17} />
                       </span>
                       <span
-                        className={cn('flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', style.chip)}
+                        className={cn('flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-micro font-bold uppercase tracking-wide', style.chip)}
                       >
                         {style.label}
                       </span>
@@ -288,13 +288,13 @@ export function BoardWorkspace() {
                     <div className="flex min-w-0 items-center gap-1.5">
                       <button
                         onClick={() => selectBoard(b.id)}
-                        className="min-w-0 truncate text-left text-[14px] font-semibold text-slate-800 transition hover:text-indigo-600"
+                        className="min-w-0 truncate text-left text-title font-semibold text-slate-800 transition hover:text-indigo-600"
                         title={`Open ${b.name}`}
                       >
                         {b.name}
                       </button>
                       {b.archived && (
-                        <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">
                           archived
                         </span>
                       )}
@@ -303,7 +303,7 @@ export function BoardWorkspace() {
                     <div className="mt-auto flex items-center gap-1 border-t border-slate-100 pt-2">
                       <button
                         onClick={() => selectBoard(b.id)}
-                        className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                        className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                       >
                         Open board <ArrowRight size={12} />
                       </button>
@@ -318,7 +318,7 @@ export function BoardWorkspace() {
                             selectBoard(b.id)
                             setDashboard(true)
                           }}
-                          className="rounded p-1 text-slate-400 transition hover:text-slate-700"
+                          className="rounded p-1 text-slate-600 transition hover:text-slate-700"
                           title={`Open ${b.name}'s dashboard — a summary of its initiatives`}
                         >
                           <LayoutDashboard size={13} />
@@ -329,7 +329,7 @@ export function BoardWorkspace() {
                             onClick={() => setMenuFor(menuFor === b.id ? null : b.id)}
                             className={cn(
                               'grid h-6 w-6 place-items-center rounded transition',
-                              menuFor === b.id ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700',
+                              menuFor === b.id ? 'bg-slate-100 text-slate-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-700',
                             )}
                             title={`More — ${b.name}`}
                           >
@@ -381,12 +381,12 @@ export function BoardWorkspace() {
         <section className="mt-4">
           <div className="mb-1 flex items-center gap-2 px-1">
             <LayoutTemplate size={12} className="text-slate-400" />
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Templates</span>
-            <span className="text-[10px] font-semibold tabular-nums text-slate-400">{boardTemplates.length}</span>
+            <span className="text-micro font-bold uppercase tracking-wide text-slate-600">Templates</span>
+            <span className="text-micro font-semibold tabular-nums text-slate-600">{boardTemplates.length}</span>
             <button
               onClick={() => (creatingTemplate ? cancelCreateTemplate() : setCreatingTemplate(true))}
               className={cn(
-                'ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition',
+                'ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1 text-meta font-medium transition',
                 creatingTemplate
                   ? 'border-indigo-400/60 bg-indigo-50 text-indigo-700'
                   : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
@@ -409,13 +409,13 @@ export function BoardWorkspace() {
                 }}
                 placeholder="Template name…"
                 aria-label="New template name"
-                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
               />
               <select
                 value={templateBand}
                 onChange={(e) => setTemplateBand(e.target.value as BoardBand)}
                 aria-label="New template board type"
-                className="rounded-md border border-slate-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+                className="rounded-md border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
               >
                 {BOARD_BANDS.map((b) => (
                   <option key={b} value={b}>
@@ -426,22 +426,22 @@ export function BoardWorkspace() {
               <button
                 onClick={createTemplate}
                 disabled={!templateName.trim()}
-                className="rounded-md bg-indigo-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
+                className="rounded-md bg-indigo-500 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
               >
                 Create
               </button>
               <button
                 onClick={cancelCreateTemplate}
-                className="rounded-md border border-slate-300 px-2.5 py-1 text-[12px] font-medium text-slate-600 hover:text-slate-800"
+                className="rounded-md border border-slate-300 px-2.5 py-1 text-meta font-medium text-slate-600 hover:text-slate-800"
               >
                 Cancel
               </button>
-              <span className="text-[11px] text-slate-400">The board type it will create, and its starting columns.</span>
+              <span className="text-meta text-slate-600">The board type it will create, and its starting columns.</span>
             </div>
           )}
 
           {boardTemplates.length === 0 && !creatingTemplate ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-6 text-center text-[12px] text-slate-500">
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-6 text-center text-meta text-slate-600">
               No templates yet. Create one here, or save a board’s design from its settings.
             </div>
           ) : (
@@ -462,7 +462,7 @@ export function BoardWorkspace() {
                       }}
                       onDone={() => setRenamingId(null)}
                       className="min-w-0 flex-1"
-                      inputClassName="w-full rounded border border-indigo-300 px-1.5 py-0.5 text-[13px] font-semibold text-slate-800 outline-none"
+                      inputClassName="w-full rounded border border-indigo-300 px-1.5 py-0.5 text-body font-semibold text-slate-800 outline-none"
                     />
                   ) : (
                     <button
@@ -470,14 +470,14 @@ export function BoardWorkspace() {
                       className="group flex min-w-0 flex-1 items-center gap-1.5 text-left"
                       title={`Rename ${t.name}`}
                     >
-                      <span className="truncate text-[13px] font-semibold text-slate-800">{t.name}</span>
+                      <span className="truncate text-body font-semibold text-slate-800">{t.name}</span>
                       <Pencil size={11} className="shrink-0 text-slate-300 transition group-hover:text-indigo-500" />
                     </button>
                   )}
 
                   <button
                     onClick={() => setPreviewId(t.id)}
-                    className="flex shrink-0 items-center gap-1 rounded border border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                    className="flex shrink-0 items-center gap-1 rounded border border-slate-300 px-2 py-0.5 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
                     title={`Preview ${t.name}`}
                   >
                     <Eye size={11} /> Preview
@@ -485,7 +485,7 @@ export function BoardWorkspace() {
 
                   <button
                     onClick={() => removeTemplate(t)}
-                    className="shrink-0 rounded p-1 text-slate-300 transition hover:text-rose-500"
+                    className="shrink-0 rounded p-1 text-slate-600 transition hover:text-rose-500"
                     title={`Delete ${t.name}`}
                   >
                     <Trash2 size={13} />
@@ -523,11 +523,11 @@ function MenuRow({
       disabled={disabled}
       title={hint}
       className={cn(
-        'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition disabled:cursor-not-allowed disabled:opacity-40',
+        'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta transition disabled:cursor-not-allowed disabled:opacity-40',
         danger ? 'text-rose-600 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-50',
       )}
     >
-      <span className={cn('shrink-0', danger ? 'text-rose-500' : 'text-slate-400')}>{icon}</span>
+      <span className={cn('shrink-0', danger ? 'text-rose-500' : 'text-slate-600')}>{icon}</span>
       <span className="flex-1">{label}</span>
     </button>
   )

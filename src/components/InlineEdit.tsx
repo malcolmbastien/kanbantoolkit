@@ -69,7 +69,7 @@ export function InlineEdit({
         title={title ?? 'Click to rename'}
         aria-label={ariaLabel}
       >
-        {value || <span className="text-slate-400">{placeholder}</span>}
+        {value || <span className="text-slate-600">{placeholder}</span>}
       </button>
     )
   }

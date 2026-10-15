@@ -78,13 +78,13 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
         onKeyDown={onKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] font-medium text-slate-800 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400"
+        className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400"
         title="Switch board"
       >
         {current && (
           <span
             className={cn(
-              'w-[72px] shrink-0 rounded py-px text-center text-[9px] font-bold uppercase tracking-wide',
+              'w-[72px] shrink-0 rounded py-px text-center text-micro font-bold uppercase tracking-wide',
               (BAND_STYLES[current.band] ?? BAND_STYLES.team).chip,
             )}
           >
@@ -116,10 +116,10 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
                   i === active ? 'bg-indigo-50' : 'hover:bg-slate-100',
                 )}
               >
-                <span className={cn('w-[72px] shrink-0 rounded py-px text-center text-[9px] font-bold uppercase tracking-wide', style.chip)}>
+                <span className={cn('w-[72px] shrink-0 rounded py-px text-center text-micro font-bold uppercase tracking-wide', style.chip)}>
                   {style.label}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[12px] text-slate-800">{b.name}</span>
+                <span className="min-w-0 flex-1 truncate text-meta text-slate-800">{b.name}</span>
                 {b.id === boardId && <Check size={12} className="shrink-0 text-indigo-600" />}
               </button>
             )
@@ -132,7 +132,7 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
               setOpen(false)
               setBoards(true)
             }}
-            className="mt-1 flex w-full items-center gap-2 border-t border-slate-200 px-2.5 py-2 text-left text-[11px] font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+            className="mt-1 flex w-full items-center gap-2 border-t border-slate-200 px-2.5 py-2 text-left text-meta font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
           >
             <Columns3 size={12} className="shrink-0 text-slate-400" /> Manage boards…
           </button>

@@ -5,7 +5,7 @@ import { lanePath, leafLanes } from '@/domain/lanes'
 import { useStore } from '@/store'
 
 const SELECT_CLS =
-  'rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-[11px] text-slate-100 outline-none focus:ring-2 focus:ring-indigo-400'
+  'rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-meta text-slate-100 outline-none focus:ring-2 focus:ring-indigo-400'
 
 /**
  * The multi-select sub-menu: a floating bulk-action bar shown while cards are
@@ -50,7 +50,7 @@ export function BulkActions() {
   return (
     <div
       data-bulk-actions
-      className="fixed bottom-4 left-1/2 z-40 flex w-max max-w-[95vw] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-[11px] text-slate-200 shadow-2xl"
+      className="fixed bottom-4 left-1/2 z-40 flex w-max max-w-[95vw] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-meta text-slate-200 shadow-2xl"
     >
       <span className="flex items-center gap-1 font-semibold text-white">
         <CheckSquare size={13} className="text-indigo-300" /> {count} selected
@@ -58,7 +58,7 @@ export function BulkActions() {
 
       <span className="h-5 w-px bg-slate-600" />
 
-      <label className="flex items-center gap-1 text-slate-300">
+      <label className="flex items-center gap-1 text-slate-600">
         Move to
         <select
           value=""
@@ -76,7 +76,7 @@ export function BulkActions() {
       </label>
 
       {!selectionHasInitiative && (
-        <label className="flex items-center gap-1 text-slate-300">
+        <label className="flex items-center gap-1 text-slate-600">
           Type
           <select
             value=""
@@ -94,7 +94,7 @@ export function BulkActions() {
         </label>
       )}
 
-      <label className="flex items-center gap-1 text-slate-300">
+      <label className="flex items-center gap-1 text-slate-600">
         Assign
         <input
           list="bulk-assignees"
@@ -104,7 +104,7 @@ export function BulkActions() {
             if (e.key === 'Enter') applyAssignee()
           }}
           placeholder="full name…"
-          className="w-24 rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-[11px] text-slate-100 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-24 rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-meta text-slate-100 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-400"
         />
         <datalist id="bulk-assignees">
           {users.map((u) => (

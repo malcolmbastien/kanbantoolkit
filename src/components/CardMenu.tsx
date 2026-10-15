@@ -36,8 +36,8 @@ interface Props {
 
 type Panel = 'move' | 'priority' | 'assignee' | 'type' | 'size' | 'start' | 'end' | 'block'
 
-const ITEM = 'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] text-slate-700 transition hover:bg-slate-100'
-const FIELD = 'min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400'
+const ITEM = 'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta text-slate-700 transition hover:bg-slate-100'
+const FIELD = 'min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-400'
 const FLYOUT = 'fixed z-50 max-h-[60vh] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-2xl'
 
 /**
@@ -160,7 +160,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
       onFocus={(e) => openSub(key, e.currentTarget, initial)}
       onClick={(e) => (open === key ? setOpen(null) : openSub(key, e.currentTarget, initial))}
     >
-      <span className="shrink-0 text-slate-400">{icon}</span>
+      <span className="shrink-0 text-slate-600">{icon}</span>
       <span className="flex-1">{label}</span>
       <ChevronRight size={12} className="shrink-0 text-slate-300" />
     </button>
@@ -238,7 +238,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
                 checked={assigneeAllHave(u.id)}
                 onChange={(e) => (e.target.checked ? addItemsAssignee(itemIds, u.name) : removeItemsAssignee(itemIds, u.id))}
               />
-              <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-[8px] font-bold text-white">
+              <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-micro font-bold text-white">
                 {initialsOf(u.name)}
               </span>
               <span className="flex-1">{u.name}</span>
@@ -257,7 +257,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
             <button
               disabled={!draft.trim()}
               onClick={() => run(() => addItemsAssignee(itemIds, draft))}
-              className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+              className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white disabled:opacity-40"
             >
               Add
             </button>
@@ -281,7 +281,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
             placeholder="points"
             className={FIELD}
           />
-          <button onClick={() => run(apply)} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white">
+          <button onClick={() => run(apply)} className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white">
             Set
           </button>
         </div>,
@@ -295,12 +295,12 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
       return wrap(
         <div className="flex items-center gap-1 px-2.5 py-1.5">
           <input type="date" value={draft} onChange={(e) => setDraft(e.target.value)} className={FIELD} />
-          <button onClick={() => run(() => apply(draft || undefined))} className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white">
+          <button onClick={() => run(() => apply(draft || undefined))} className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white">
             Set
           </button>
           <button
             onClick={() => run(() => apply(undefined))}
-            className="rounded px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-200"
+            className="rounded px-1.5 py-1 text-meta font-medium text-slate-600 hover:bg-slate-200"
           >
             Clear
           </button>
@@ -323,7 +323,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
         />
         <button
           onClick={() => run(() => blockItems(itemIds, draft))}
-          className="rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-rose-700"
+          className="rounded bg-rose-600 px-2 py-1 text-meta font-medium text-white hover:bg-rose-700"
         >
           Block
         </button>
@@ -342,14 +342,14 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
         style={{ top: Math.min(y, window.innerHeight - 340), left: Math.min(x, window.innerWidth - 264) }}
         className="fixed z-50 max-h-[70vh] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-2xl"
       >
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-micro font-bold uppercase tracking-wide text-slate-600">
           <MoreHorizontal size={12} />
           {single ? (only?.title ?? 'Card') : `${count} cards`}
         </div>
 
         {single && (
           <button className={ITEM} onClick={() => run(() => openItem(anchorId))}>
-            <span className="shrink-0 text-slate-400">
+            <span className="shrink-0 text-slate-600">
               <FolderInput size={13} />
             </span>
             <span className="flex-1">Open</span>
@@ -361,13 +361,13 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
         {single && (
           <>
             <button className={ITEM} onClick={() => run(() => moveCardRank(only!.id, boardId, -1))}>
-              <span className="shrink-0 text-slate-400">
+              <span className="shrink-0 text-slate-600">
                 <ArrowUp size={13} />
               </span>
               <span className="flex-1">Move up</span>
             </button>
             <button className={ITEM} onClick={() => run(() => moveCardRank(only!.id, boardId, 1))}>
-              <span className="shrink-0 text-slate-400">
+              <span className="shrink-0 text-slate-600">
                 <ArrowDown size={13} />
               </span>
               <span className="flex-1">Move down</span>
@@ -386,7 +386,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
         {!allBlocked && header('block', <Ban size={13} />, 'Block…')}
         {anyBlocked && (
           <button className={ITEM} onClick={() => run(() => unblockItems(itemIds))}>
-            <span className="shrink-0 text-slate-400">
+            <span className="shrink-0 text-slate-600">
               <ShieldCheck size={13} />
             </span>
             <span className="flex-1">Unblock</span>
@@ -396,7 +396,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
         <div className="my-1 border-t border-slate-100" />
 
         <button className={ITEM} onClick={() => run(() => archiveItems(itemIds))}>
-          <span className="shrink-0 text-slate-400">
+          <span className="shrink-0 text-slate-600">
             <Archive size={13} />
           </span>
           <span className="flex-1">Archive</span>

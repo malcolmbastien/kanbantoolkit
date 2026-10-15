@@ -73,14 +73,14 @@ export function ConfirmDialog() {
         <div className="flex items-start gap-2.5 px-4 py-3">
           {request.danger && <AlertTriangle size={16} className="mt-0.5 shrink-0 text-rose-500" />}
           <div className="min-w-0">
-            <div className="text-[14px] font-semibold text-slate-800">{request.title}</div>
-            {request.body && <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{request.body}</p>}
+            <div className="text-title font-semibold text-slate-800">{request.title}</div>
+            {request.body && <p className="mt-1 text-meta leading-relaxed text-slate-600">{request.body}</p>}
           </div>
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5">
           <button
             onClick={closeConfirm}
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[12px] font-medium text-slate-600 hover:bg-slate-100"
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 hover:bg-slate-100"
           >
             Cancel
           </button>
@@ -88,7 +88,7 @@ export function ConfirmDialog() {
             ref={confirmRef}
             onClick={confirm}
             className={cn(
-              'rounded-md px-2.5 py-1 text-[12px] font-semibold text-white',
+              'rounded-md px-2.5 py-1 text-meta font-semibold text-white',
               request.danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-500',
             )}
           >

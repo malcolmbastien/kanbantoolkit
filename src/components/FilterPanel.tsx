@@ -48,19 +48,19 @@ export function FilterPanel() {
     <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
       <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold text-slate-800">Filters</div>
-          <div className="text-[11px] text-slate-400">Narrow the cards shown on this board</div>
+          <div className="text-title font-semibold text-slate-800">Filters</div>
+          <div className="text-meta text-slate-600">Narrow the cards shown on this board</div>
         </div>
-        <button onClick={toggleFilters} className="text-slate-400 hover:text-slate-600" title="Close filters">
+        <button onClick={toggleFilters} className="text-slate-600 hover:text-slate-600" title="Close filters">
           <X size={16} />
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 text-[12px]">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 text-meta">
         <div
           className={cn(
-            'rounded-md px-2.5 py-1.5 text-[11px]',
-            hasActiveFilters(filters) ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500',
+            'rounded-md px-2.5 py-1.5 text-meta',
+            hasActiveFilters(filters) ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600',
           )}
         >
           {hasActiveFilters(filters)
@@ -82,13 +82,13 @@ export function FilterPanel() {
               )
             })}
           </div>
-          <p className="mt-1 text-[10px] text-slate-400">No type checked shows every type.</p>
+          <p className="mt-1 text-micro text-slate-600">No type checked shows every type.</p>
         </section>
 
         <section>
           <SectionLabel>Assignee</SectionLabel>
           {assignedHere.length === 0 ? (
-            <p className="text-[11px] text-slate-400">No one is assigned on this board.</p>
+            <p className="text-meta text-slate-600">No one is assigned on this board.</p>
           ) : (
             <div className="space-y-1">
               {assignedHere.map((u) => {
@@ -110,7 +110,7 @@ export function FilterPanel() {
               })}
             </div>
           )}
-          <p className="mt-1 text-[10px] text-slate-400">No one checked shows every card.</p>
+          <p className="mt-1 text-micro text-slate-600">No one checked shows every card.</p>
         </section>
 
         <section>
@@ -134,7 +134,7 @@ export function FilterPanel() {
               )
             })}
           </div>
-          <p className="mt-1 text-[10px] text-slate-400">Cards with no priority are shown by any selection.</p>
+          <p className="mt-1 text-micro text-slate-600">Cards with no priority are shown by any selection.</p>
         </section>
 
         <section>
@@ -147,7 +147,7 @@ export function FilterPanel() {
                   key={String(d)}
                   onClick={() => setFilters({ minAgeDays: d })}
                   className={cn(
-                    'rounded-lg border px-2 py-1 text-[11px] font-medium transition',
+                    'rounded-lg border px-2 py-1 text-meta font-medium transition',
                     on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
                   )}
                 >
@@ -156,7 +156,7 @@ export function FilterPanel() {
               )
             })}
           </div>
-          <p className="mt-1 text-[10px] text-slate-400">
+          <p className="mt-1 text-micro text-slate-600">
             Age is time in the card's current lane. Cards that predate the clock have no age, so an age filter excludes them.
           </p>
         </section>
@@ -188,7 +188,7 @@ export function FilterPanel() {
         {hasActiveFilters(filters) && (
           <button
             onClick={clearFilters}
-            className="w-full rounded border border-slate-300 px-2 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100"
+            className="w-full rounded border border-slate-300 px-2 py-1.5 text-meta font-medium text-slate-600 hover:bg-slate-100"
           >
             Clear all filters
           </button>
@@ -214,12 +214,12 @@ function ToggleRow({
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span className="flex-1 text-slate-700">
         {label}
-        <span className="ml-1 text-[10px] text-slate-400">{hint}</span>
+        <span className="ml-1 text-micro text-slate-600">{hint}</span>
       </span>
     </label>
   )
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{children}</div>
+  return <div className="mb-1.5 text-meta font-semibold uppercase tracking-wide text-slate-600">{children}</div>
 }

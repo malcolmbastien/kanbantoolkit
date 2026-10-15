@@ -43,7 +43,7 @@ export function BoardView({ requestMove }: Props) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-100">
       {showBar && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
           {board?.archived && <ArchivedBoardChip />}
           {editMode && (
             <span className="rounded bg-amber-100 px-1.5 py-px font-semibold text-amber-800 ring-1 ring-amber-300">
@@ -68,7 +68,7 @@ export function BoardView({ requestMove }: Props) {
                     onConfirm: () => archiveDoneOnBoard(boardId),
                   })
                 }
-                className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-meta font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
                 title="Archive all Done cards on this board so they stop cluttering it"
               >
                 <Archive size={11} /> Archive done ({doneCount})
@@ -84,8 +84,8 @@ export function BoardView({ requestMove }: Props) {
           <div className={cn('flex items-center justify-between gap-2 border-b pb-1.5', accent.rule)}>
             <div className="flex min-w-0 items-center gap-2">
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
-              <h2 className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
-              <span className="truncate text-[11px] text-slate-500">this team’s initiatives — status rolls up from the cards below</span>
+              <h2 className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
+              <span className="truncate text-meta text-slate-600">this team’s initiatives — status rolls up from the cards below</span>
             </div>
           </div>
           <BoardSummary boardId={boardId} interactive />
@@ -96,8 +96,8 @@ export function BoardView({ requestMove }: Props) {
           <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-1.5">
             <div className="flex min-w-0 items-center gap-2">
               <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-              <h2 className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-slate-900">Cards workflow</h2>
-              <span className="truncate text-[11px] text-slate-500">
+              <h2 className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Cards workflow</h2>
+              <span className="truncate text-meta text-slate-600">
                 {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
               </span>
             </div>

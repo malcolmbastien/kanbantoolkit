@@ -54,13 +54,13 @@ export function ObjectivesView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-meta text-slate-300">
         <Target size={14} className="text-indigo-300" />
-        <span className="text-[13px] font-bold text-white">Objectives &amp; Key Results</span>
-        <span className="text-slate-400">— how work maps to organizational priorities</span>
-        <label className="ml-2 flex items-center gap-1 text-slate-400">
+        <span className="text-body font-bold text-white">Objectives &amp; Key Results</span>
+        <span className="text-slate-600">— how work maps to organizational priorities</span>
+        <label className="ml-2 flex items-center gap-1 text-slate-600">
           Period
-          <select value={period} onChange={(e) => setPeriod(e.target.value)} className="rounded-md border border-slate-600 bg-slate-700 px-1.5 py-1 text-[11px] text-slate-100 outline-none">
+          <select value={period} onChange={(e) => setPeriod(e.target.value)} className="rounded-md border border-slate-600 bg-slate-700 px-1.5 py-1 text-meta text-slate-100 outline-none">
             {periods.length === 0 && <option value={period}>{period}</option>}
             {periods.map((p) => (
               <option key={p} value={p}>{p}</option>
@@ -79,7 +79,7 @@ export function ObjectivesView() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="New objective…"
-            className="w-44 rounded-md border border-slate-600 bg-slate-700 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-400 outline-none"
+            className="w-44 rounded-md border border-slate-600 bg-slate-700 px-2 py-1 text-meta text-slate-100 placeholder:text-slate-400 outline-none"
           />
           <button
             disabled={newTitle.trim().length < 2}
@@ -87,7 +87,7 @@ export function ObjectivesView() {
               addObjective(newTitle.trim(), period)
               setNewTitle('')
             }}
-            className="flex items-center gap-1 rounded-md bg-indigo-500 px-2 py-1 text-[11px] font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-md bg-indigo-500 px-2 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
           >
             <Plus size={12} /> Objective
           </button>
@@ -96,7 +96,7 @@ export function ObjectivesView() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {shown.length === 0 && (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-[12px] text-slate-500">
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
             No objectives for {period}. Add one above.
           </div>
         )}
@@ -111,37 +111,37 @@ export function ObjectivesView() {
                   <input
                     value={o.title}
                     onChange={(e) => updateObjective(o.id, { title: e.target.value })}
-                    className="min-w-0 flex-1 rounded border border-transparent bg-transparent text-[13px] font-semibold text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
+                    className="min-w-0 flex-1 rounded border border-transparent bg-transparent text-body font-semibold text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
                   />
                   <select
                     value={o.status}
                     onChange={(e) => updateObjective(o.id, { status: e.target.value as Objective['status'] })}
-                    className={cn('rounded px-1 py-px text-[10px] font-semibold ring-1 outline-none', OBJECTIVE_STATUS_STYLES[o.status])}
+                    className={cn('rounded px-1 py-px text-micro font-semibold ring-1 outline-none', OBJECTIVE_STATUS_STYLES[o.status])}
                   >
                     <option value="active">active</option>
                     <option value="scored">scored</option>
                   </select>
-                  <button onClick={() => removeObjective(o.id)} className="text-slate-300 hover:text-rose-500" title="Delete objective">
+                  <button onClick={() => removeObjective(o.id)} className="text-slate-600 hover:text-rose-500" title="Delete objective">
                     <Trash2 size={13} />
                   </button>
                 </div>
 
-                <div className="flex flex-1 flex-col gap-3 p-2.5 text-[12px]">
+                <div className="flex flex-1 flex-col gap-3 p-2.5 text-meta">
                   {/* score */}
-                  <label className="flex items-center gap-2 text-slate-500">
+                  <label className="flex items-center gap-2 text-slate-600">
                     Score
                     <input
                       type="number" min={0} max={100}
                       value={o.score ?? ''}
                       onChange={(e) => updateObjective(o.id, { score: e.target.value === '' ? undefined : Number(e.target.value) })}
-                      className="w-16 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+                      className="w-16 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
                     />
-                    <span className="text-slate-400">/ 100</span>
+                    <span className="text-slate-600">/ 100</span>
                   </label>
 
                   {/* key results */}
                   <div>
-                    <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Key results</div>
+                    <div className="mb-1 text-micro font-bold uppercase tracking-wide text-slate-600">Key results</div>
                     <div className="space-y-1">
                       {krs.map((k) => (
                         <div key={k.id} className="flex items-center gap-2">
@@ -154,14 +154,14 @@ export function ObjectivesView() {
                           <input
                             value={k.title}
                             onChange={(e) => updateKeyResult(k.id, { title: e.target.value })}
-                            className="min-w-0 flex-1 rounded border border-transparent px-1 py-px text-[12px] text-slate-700 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
+                            className="min-w-0 flex-1 rounded border border-transparent px-1 py-px text-meta text-slate-700 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
                           />
                           <input
                             type="number" min={0} max={100}
                             value={k.progress ?? ''}
                             onChange={(e) => updateKeyResult(k.id, { progress: e.target.value === '' ? undefined : Number(e.target.value) })}
                             placeholder="%"
-                            className="w-12 rounded border border-slate-200 px-1 py-px text-[11px]"
+                            className="w-12 rounded border border-slate-200 px-1 py-px text-meta"
                           />
                           <button onClick={() => removeKeyResult(k.id)} className="text-slate-300 hover:text-rose-500"><X size={12} /></button>
                         </div>
@@ -172,7 +172,7 @@ export function ObjectivesView() {
                         value={krDraft[o.id] ?? ''}
                         onChange={(e) => setKrDraft((d) => ({ ...d, [o.id]: e.target.value }))}
                         placeholder="Add a key result…"
-                        className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+                        className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
                       />
                       <button
                         disabled={(krDraft[o.id] ?? '').trim().length < 2}
@@ -180,7 +180,7 @@ export function ObjectivesView() {
                           addKeyResult(o.id, (krDraft[o.id] ?? '').trim())
                           setKrDraft((d) => ({ ...d, [o.id]: '' }))
                         }}
-                        className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-white disabled:opacity-40"
+                        className="rounded bg-slate-800 px-2 py-0.5 text-meta font-medium text-white disabled:opacity-40"
                       >
                         Add
                       </button>
@@ -189,23 +189,23 @@ export function ObjectivesView() {
 
                   {/* attributed work */}
                   <div className="mt-auto">
-                    <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                      Initiatives mapping here <span className="rounded bg-slate-100 px-1 text-slate-500">{work.length}</span>
-                      <span className="ml-1 font-normal normal-case text-slate-400">(never counts as WIP)</span>
+                    <div className="mb-1 flex items-center gap-1 text-micro font-bold uppercase tracking-wide text-slate-600">
+                      Initiatives mapping here <span className="rounded bg-slate-100 px-1 text-slate-600">{work.length}</span>
+                      <span className="ml-1 font-normal normal-case text-slate-600">(never counts as WIP)</span>
                     </div>
                     <div className="space-y-1">
                       {work.map((it) => {
                         const r = rollupOf(it.id, graph)
                         return (
                           <div key={it.id} className="flex items-center gap-2 rounded border border-slate-200 px-1.5 py-1">
-                            <span className="rounded px-1 py-px text-[9px] font-bold uppercase text-white" style={{ backgroundColor: typeOf(it.typeId).color }}>
+                            <span className="rounded px-1 py-px text-micro font-bold uppercase text-white" style={{ backgroundColor: typeOf(it.typeId).color }}>
                               {typeOf(it.typeId).name}
                             </span>
-                            <button onClick={() => openItem(it.id)} className="min-w-0 flex-1 truncate text-left text-[11px] text-slate-700 hover:text-indigo-600">
-                              <span className="tabular-nums text-slate-400">{refs.get(it.id)}</span> {it.title}
+                            <button onClick={() => openItem(it.id)} className="min-w-0 flex-1 truncate text-left text-meta text-slate-700 hover:text-indigo-600">
+                              <span className="tabular-nums text-slate-600">{refs.get(it.id)}</span> {it.title}
                             </button>
-                            <span className="text-[10px] font-semibold tabular-nums text-slate-500">{r.percent}%</span>
-                            <button onClick={() => setAttribution(it.id, o.id, false)} className="text-slate-300 hover:text-rose-500" title="Remove from this objective">
+                            <span className="text-micro font-semibold tabular-nums text-slate-600">{r.percent}%</span>
+                            <button onClick={() => setAttribution(it.id, o.id, false)} className="text-slate-600 hover:text-rose-500" title="Remove from this objective">
                               <X size={12} />
                             </button>
                           </div>
@@ -216,7 +216,7 @@ export function ObjectivesView() {
                       <select
                         value={attrPick[o.id] ?? ''}
                         onChange={(e) => setAttrPick((p) => ({ ...p, [o.id]: e.target.value }))}
-                        className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+                        className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
                       >
                         <option value="">Map an initiative…</option>
                         {initiatives.map((i) => (
@@ -229,7 +229,7 @@ export function ObjectivesView() {
                           setAttribution(attrPick[o.id], o.id, true)
                           setAttrPick((p) => ({ ...p, [o.id]: '' }))
                         }}
-                        className="rounded bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white disabled:opacity-40"
+                        className="rounded bg-indigo-600 px-2 py-0.5 text-meta font-medium text-white disabled:opacity-40"
                       >
                         Map
                       </button>

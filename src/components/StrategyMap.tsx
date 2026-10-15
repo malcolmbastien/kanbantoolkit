@@ -82,30 +82,30 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     const uncommitted = uncommittedBelow(it.id, graph)
     return (
       <div key={it.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-1.5 py-1">
-        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-400">{refs.get(it.id)}</span>
+        <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{refs.get(it.id)}</span>
         <button
           onClick={() => openItem(it.id)}
-          className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-slate-700 hover:text-violet-700"
+          className="min-w-0 flex-1 truncate text-left text-meta font-medium text-slate-700 hover:text-violet-700"
           title="Open this initiative"
         >
           {it.title}
         </button>
         {uncommitted > 0 && (
           <span
-            className="flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 py-px text-[9px] font-semibold text-amber-800 ring-1 ring-amber-300"
+            className="flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 py-px text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
             title={`${uncommitted} card${uncommitted === 1 ? '' : 's'} below are still in Backlog — this initiative is committed, so its work should be too`}
           >
             <TriangleAlert size={10} /> {uncommitted}
           </span>
         )}
-        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-500">{roll.percent}%</span>
-        <span className={cn('shrink-0 rounded px-1 py-px text-[9px] font-bold', stageChip(bucket))}>
+        <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{roll.percent}%</span>
+        <span className={cn('shrink-0 rounded px-1 py-px text-micro font-bold', stageChip(bucket))}>
           {STAGE_LABELS[bucket]}
         </span>
         {objectiveId && (
           <button
             onClick={() => setAttribution(it.id, objectiveId, false)}
-            className="shrink-0 text-slate-300 hover:text-rose-500"
+            className="shrink-0 text-slate-600 hover:text-rose-500"
             title="Unmap from this objective"
           >
             <X size={12} />
@@ -119,13 +119,13 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     <button
       disabled={disabled}
       onClick={onMap}
-      className="shrink-0 rounded bg-violet-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-violet-500 disabled:opacity-40"
+      className="shrink-0 rounded bg-violet-600 px-2 py-0.5 text-meta font-medium text-white hover:bg-violet-500 disabled:opacity-40"
     >
       {label}
     </button>
   )
 
-  const subLabel = 'mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400'
+  const subLabel = 'mb-1 text-micro font-bold uppercase tracking-wide text-slate-600'
 
   const objectiveGroup = (o: Objective) => {
     const krs = keyResults.filter((k) => k.objectiveId === o.id)
@@ -137,17 +137,17 @@ export function StrategyMap({ boardId }: { boardId: string }) {
           <Target size={12} className="shrink-0 text-violet-500" />
           <button
             onClick={() => setObjectives(true)}
-            className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold text-slate-800 hover:text-violet-700"
+            className="min-w-0 flex-1 truncate text-left text-body font-semibold text-slate-800 hover:text-violet-700"
             title="Edit this objective in the Objectives view"
           >
             {o.title}
           </button>
           {o.score !== undefined && (
-            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-500" title="Objective score">
+            <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600" title="Objective score">
               score {o.score}
             </span>
           )}
-          <span className={cn('shrink-0 rounded px-1 py-px text-[9px] font-semibold uppercase ring-1', OBJECTIVE_STATUS_STYLES[o.status])}>
+          <span className={cn('shrink-0 rounded px-1 py-px text-micro font-semibold uppercase ring-1', OBJECTIVE_STATUS_STYLES[o.status])}>
             {o.status}
           </span>
         </div>
@@ -157,12 +157,12 @@ export function StrategyMap({ boardId }: { boardId: string }) {
             <div className="space-y-1">
               <div className={subLabel}>Key results</div>
               {krs.map((k) => (
-                <div key={k.id} className="flex items-center gap-2 text-[11px] text-slate-600">
+                <div key={k.id} className="flex items-center gap-2 text-meta text-slate-600">
                   <span className="min-w-0 flex-1 truncate">{k.title}</span>
                   <div className="h-1 w-14 shrink-0 overflow-hidden rounded-full bg-slate-200">
                     <div className="h-full bg-violet-500" style={{ width: `${k.progress ?? 0}%` }} />
                   </div>
-                  <span className="w-8 shrink-0 text-right tabular-nums text-slate-400">{k.progress ?? 0}%</span>
+                  <span className="w-8 shrink-0 text-right tabular-nums text-slate-600">{k.progress ?? 0}%</span>
                 </div>
               ))}
             </div>
@@ -170,15 +170,15 @@ export function StrategyMap({ boardId }: { boardId: string }) {
 
           <div className="mt-auto">
             <div className={subLabel}>
-              Initiatives serving this <span className="rounded bg-slate-100 px-1 text-slate-500">{rows.length}</span>
+              Initiatives serving this <span className="rounded bg-slate-100 px-1 text-slate-600">{rows.length}</span>
             </div>
             <div className="space-y-1">
               {rows.length > 0 ? (
                 rows.map((it) => initiativeRow(it, o.id))
               ) : !unservedIds.has(o.id) ? (
-                <p className="px-1 text-[11px] text-slate-400">Served by a strategic initiative on another board.</p>
+                <p className="px-1 text-meta text-slate-600">Served by a strategic initiative on another board.</p>
               ) : (
-                <div className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                <div className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-meta text-amber-800">
                   <TriangleAlert size={11} className="shrink-0" /> No strategic initiative serves this OKR.
                 </div>
               )}
@@ -187,7 +187,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
               <select
                 value={pick[o.id] ?? ''}
                 onChange={(e) => setPick((p) => ({ ...p, [o.id]: e.target.value }))}
-                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
               >
                 <option value="">Map a strategic initiative…</option>
                 {candidates.map((i) => (
@@ -211,14 +211,14 @@ export function StrategyMap({ boardId }: { boardId: string }) {
 
   return (
     <div className="space-y-2 p-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-slate-500">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-meta text-slate-600">
         <span>{count(objectives.length, 'objective')}</span>
         <span>{count(mine.length, 'strategic initiative')}</span>
         <span className={cn(gapCount > 0 && 'font-semibold text-amber-700')}>{count(gapCount, 'gap')}</span>
       </div>
 
       {objectives.length === 0 && (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-[12px] text-slate-500">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-meta text-slate-600">
           No objectives yet.{' '}
           <button onClick={() => setObjectives(true)} className="font-medium text-violet-700 hover:underline">
             Add one in Objectives
@@ -231,7 +231,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
         {ordered.map((o, i) => (
           <Fragment key={o.id}>
             {periodCount > 1 && (i === 0 || ordered[i - 1].period !== o.period) && (
-              <div className="col-span-full px-1 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              <div className="col-span-full px-1 pt-1 text-micro font-bold uppercase tracking-wide text-slate-600">
                 {o.period}
               </div>
             )}
@@ -243,10 +243,10 @@ export function StrategyMap({ boardId }: { boardId: string }) {
           <div className="flex flex-col rounded-md border border-amber-300 bg-amber-50/70 shadow-sm">
             <div className="flex items-center gap-2 rounded-t-md border-b border-amber-200 px-2.5 py-1.5">
               <TriangleAlert size={12} className="shrink-0 text-amber-600" />
-              <span className="min-w-0 flex-1 truncate text-[11px] font-bold uppercase tracking-wide text-amber-800">
+              <span className="min-w-0 flex-1 truncate text-meta font-bold uppercase tracking-wide text-amber-800">
                 Unmapped strategic initiatives
               </span>
-              <span className="shrink-0 text-[10px] text-amber-700">no OKR carries this</span>
+              <span className="shrink-0 text-micro text-amber-700">no OKR carries this</span>
             </div>
             <div className="flex flex-1 flex-col gap-1.5 p-2.5">
               {unmapped.map((it) => (
@@ -256,7 +256,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
                     <select
                       value={mapTo[it.id] ?? ''}
                       onChange={(e) => setMapTo((m) => ({ ...m, [it.id]: e.target.value }))}
-                      className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+                      className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
                     >
                       <option value="">Map to an objective…</option>
                       {ordered.map((o) => (

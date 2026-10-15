@@ -25,7 +25,7 @@ export function LanePolicy({ policy }: { policy: string }) {
         onMouseLeave={() => setPos(null)}
         onBlur={() => setPos(null)}
         onClick={(e) => e.stopPropagation()}
-        className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+        className="shrink-0 rounded p-0.5 text-slate-600 hover:bg-slate-200 hover:text-slate-700"
         title="Lane policy"
         aria-label="Lane policy"
       >
@@ -35,9 +35,9 @@ export function LanePolicy({ policy }: { policy: string }) {
         <div
           role="tooltip"
           style={{ top: pos.top, right: pos.right }}
-          className="fixed z-50 w-60 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-100 shadow-xl"
+          className="fixed z-50 w-60 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-2 text-meta leading-relaxed text-slate-100 shadow-xl"
         >
-          <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">Policy</div>
+          <div className="mb-0.5 text-micro font-bold uppercase tracking-wide text-slate-600">Policy</div>
           <p className="whitespace-pre-wrap">{policy}</p>
         </div>
       )}
@@ -108,14 +108,14 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
   if (!pos) return null
 
   const field = 'w-full rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-slate-100 outline-none focus:ring-2 focus:ring-indigo-400'
-  const label = 'mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400'
+  const label = 'mb-1 block text-micro font-bold uppercase tracking-wide text-slate-600'
 
   return (
     <div
       ref={panelRef}
       data-lane-settings
       style={{ top: pos.top, left: pos.left }}
-      className="fixed z-50 w-64 space-y-3 rounded-lg border border-slate-600 bg-slate-800 p-3 text-[11px] text-slate-100 shadow-2xl"
+      className="fixed z-50 w-64 space-y-3 rounded-lg border border-slate-600 bg-slate-800 p-3 text-meta text-slate-100 shadow-2xl"
     >
       <div>
         <label className={label} htmlFor="lane-name">
@@ -133,9 +133,9 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
           onBlur={() => {
             if (!name.trim()) setNameDraft(lane.name)
           }}
-          className={`${field} text-[12px] disabled:opacity-60`}
+          className={`${field} text-meta disabled:opacity-60`}
         />
-        {top && <p className="mt-1 text-[10px] text-slate-400">Typed columns are fixed — split to refine.</p>}
+        {top && <p className="mt-1 text-micro text-slate-600">Typed columns are fixed — split to refine.</p>}
       </div>
 
       <div>
@@ -153,7 +153,7 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
             setWip(v === '' ? undefined : Math.max(0, Math.floor(Number(v) || 0)))
           }}
           placeholder="none"
-          className={`${field} w-20 text-[12px]`}
+          className={`${field} w-20 text-meta`}
         />
       </div>
 
@@ -171,9 +171,9 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
           }}
           rows={3}
           placeholder="Rules of play — entry / exit criteria…"
-          className={`${field} resize-y text-[11px] leading-relaxed placeholder:text-slate-400`}
+          className={`${field} resize-y text-meta leading-relaxed placeholder:text-slate-600`}
         />
-        <p className="mt-1 text-[10px] text-slate-400">Shown to the board via the lane's info icon.</p>
+        <p className="mt-1 text-micro text-slate-600">Shown to the board via the lane's info icon.</p>
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-slate-700 pt-2">

@@ -77,7 +77,7 @@ export function BoardSettings() {
     setNewTypeName('')
   }
 
-  const label = 'mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400'
+  const label = 'mb-1 block text-micro font-bold uppercase tracking-wide text-slate-600'
   const row = 'flex items-center gap-2 rounded border border-slate-200 px-2 py-1.5'
 
   return (
@@ -93,12 +93,12 @@ export function BoardSettings() {
         <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
           <Settings size={16} className="text-indigo-600" />
           <span className="text-sm font-semibold text-slate-800">Board settings</span>
-          <button onClick={close} className="ml-auto text-slate-400 hover:text-slate-600" title="Close">
+          <button onClick={close} className="ml-auto text-slate-600 hover:text-slate-600" title="Close">
             <X size={16} />
           </button>
         </div>
 
-        <div className="space-y-4 px-4 py-3 text-[12px]">
+        <div className="space-y-4 px-4 py-3 text-meta">
           {/* Title */}
           <div>
             <label className={label} htmlFor="board-title">
@@ -108,7 +108,7 @@ export function BoardSettings() {
               id="board-title"
               value={board.name}
               onChange={(e) => renameBoard(board.id, e.target.value)}
-              className="w-full rounded border border-slate-200 px-2 py-1.5 text-[13px] font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full rounded border border-slate-200 px-2 py-1.5 text-body font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400"
             />
           </div>
 
@@ -122,7 +122,7 @@ export function BoardSettings() {
                   onClick={() => setBoardBand(board.id, b)}
                   title={BAND_STYLES[b].hint}
                   className={cn(
-                    'rounded border px-2 py-1.5 text-[12px] font-medium transition',
+                    'rounded border px-2 py-1.5 text-meta font-medium transition',
                     board.band === b
                       ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
@@ -132,7 +132,7 @@ export function BoardSettings() {
                 </button>
               ))}
             </div>
-            <p className="mt-1 text-[10px] text-slate-400">{BAND_STYLES[board.band]?.hint}</p>
+            <p className="mt-1 text-micro text-slate-600">{BAND_STYLES[board.band]?.hint}</p>
           </div>
 
           {/* Card types */}
@@ -162,19 +162,19 @@ export function BoardSettings() {
                         }
                         if (e.key === 'Escape') setEditingTypeId(null)
                       }}
-                      className="min-w-0 flex-1 rounded border border-indigo-300 px-1.5 py-1 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="min-w-0 flex-1 rounded border border-indigo-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
                     />
                     <button
                       onClick={() => saveTypeEdit(t.id)}
                       disabled={!editName.trim()}
-                      className="shrink-0 rounded bg-emerald-600 px-1.5 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+                      className="shrink-0 rounded bg-emerald-600 px-1.5 py-1 text-meta font-medium text-white disabled:opacity-40"
                       title="Save this type"
                     >
                       Save
                     </button>
                     <button
                       onClick={() => setEditingTypeId(null)}
-                      className="shrink-0 rounded border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 hover:border-slate-300"
+                      className="shrink-0 rounded border border-slate-200 px-1.5 py-1 text-meta font-medium text-slate-600 hover:border-slate-300"
                       title="Cancel"
                     >
                       Cancel
@@ -187,12 +187,12 @@ export function BoardSettings() {
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
                       <span className="min-w-0 flex-1 truncate text-slate-700">{t.name}</span>
                       {board.defaultCardTypeId === t.id && (
-                        <span className="shrink-0 rounded bg-slate-800 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-white">default</span>
+                        <span className="shrink-0 rounded bg-slate-800 px-1 py-px text-micro font-semibold uppercase tracking-wide text-white">default</span>
                       )}
                     </label>
                     <button
                       onClick={() => { setEditingTypeId(t.id); setEditName(t.name); setEditColor(t.color) }}
-                      className="shrink-0 rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-100 hover:text-slate-700"
                       title={`Edit ${t.name} — renames it everywhere it is used`}
                     >
                       <Pencil size={12} />
@@ -234,23 +234,23 @@ export function BoardSettings() {
                   }
                 }}
                 placeholder="Define a new card type…"
-                className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-[12px] outline-none focus:ring-2 focus:ring-indigo-400"
+                className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
               />
               <button
                 disabled={!newTypeName.trim()}
                 onClick={addType}
-                className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-[11px] font-medium text-white disabled:opacity-40"
+                className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-meta font-medium text-white disabled:opacity-40"
                 title="Create this type and enable it on this board"
               >
                 <Plus size={11} /> Add type
               </button>
             </div>
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">New cards default to</span>
+              <span className="text-meta text-slate-600">New cards default to</span>
               <select
                 value={board.defaultCardTypeId ?? allowed[0] ?? ''}
                 onChange={(e) => setBoardDefaultCardType(board.id, e.target.value || undefined)}
-                className="rounded border border-slate-200 px-1.5 py-1 text-[11px]"
+                className="rounded border border-slate-200 px-1.5 py-1 text-meta"
               >
                 {types
                   .filter((t) => allowed.includes(t.id))
@@ -261,7 +261,7 @@ export function BoardSettings() {
                   ))}
               </select>
             </div>
-            <p className="mt-1 text-[10px] text-slate-400">
+            <p className="mt-1 text-micro text-slate-600">
               The Initiative type is reserved for the Initiatives workflow and is never a card type.
             </p>
           </div>
@@ -275,7 +275,7 @@ export function BoardSettings() {
               id="board-wip"
               value={board.wipEnforcement ?? 'visualize'}
               onChange={(e) => setBoardWipEnforcement(board.id, e.target.value as 'visualize' | 'justify' | 'block')}
-              className="rounded border border-slate-200 px-1.5 py-1 text-[11px]"
+              className="rounded border border-slate-200 px-1.5 py-1 text-meta"
             >
               <option value="visualize">Visualize — tint at/over the limit, moves always allowed</option>
               <option value="justify">Justify — allow exceeding, but ask for a reason</option>
@@ -292,16 +292,16 @@ export function BoardSettings() {
                   saveBoardAsTemplate(board.id)
                   setSavedTemplate(true)
                 }}
-                className="flex shrink-0 items-center gap-1 rounded border border-slate-200 px-2 py-1.5 text-[12px] font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                className="flex shrink-0 items-center gap-1 rounded border border-slate-200 px-2 py-1.5 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
               >
                 <LayoutTemplate size={13} /> Save as template
               </button>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-meta text-slate-600">
                 Keeps this board’s columns, card types and WIP policy — not its cards or linked boards.
               </span>
             </div>
             {savedTemplate && (
-              <p className="mt-1 text-[11px] font-medium text-emerald-600">
+              <p className="mt-1 text-meta font-medium text-emerald-600">
                 Saved as “{board.name}”. Rename it in the board workspace.
               </p>
             )}
@@ -320,11 +320,11 @@ export function BoardSettings() {
                       <input type="checkbox" checked onChange={() => removeLinkedBoard(board.id, id)} />
                       <span className="flex-1 text-slate-700">{b.name}</span>
                       {b.archived && (
-                        <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">
                           archived
                         </span>
                       )}
-                      <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">{BAND_STYLES[b.band]?.label ?? '—'}</span>
+                      <span className="shrink-0 text-micro uppercase tracking-wide text-slate-600">{BAND_STYLES[b.band]?.label ?? '—'}</span>
                     </label>
                   )
                 })}
@@ -332,14 +332,14 @@ export function BoardSettings() {
                   <label key={b.id} className={cn(row, 'cursor-pointer opacity-70')}>
                     <input type="checkbox" checked={false} onChange={() => addLinkedBoard(board.id, b.id)} />
                     <span className="flex-1 text-slate-700">{b.name}</span>
-                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">{BAND_STYLES[b.band]?.label ?? '—'}</span>
+                    <span className="shrink-0 text-micro uppercase tracking-wide text-slate-600">{BAND_STYLES[b.band]?.label ?? '—'}</span>
                   </label>
                 ))}
                 {linked.length === 0 && candidates.length === 0 && (
-                  <p className="text-[11px] text-slate-400">No boards can be linked here.</p>
+                  <p className="text-meta text-slate-600">No boards can be linked here.</p>
                 )}
               </div>
-              <p className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
+              <p className="mt-1 flex items-center gap-1 text-micro text-slate-600">
                 <Target size={10} /> Teams or other coordination boards, any depth — their initiatives appear as bands. A board
                 can’t be linked under one of its own descendants.
               </p>

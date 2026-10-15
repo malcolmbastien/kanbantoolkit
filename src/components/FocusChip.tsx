@@ -23,7 +23,7 @@ export function FocusChip() {
   return (
     <div
       data-focus-chip
-      className="fixed bottom-4 left-4 z-40 flex max-w-[min(24rem,80vw)] items-center gap-2 rounded-lg border border-indigo-400/60 bg-indigo-600 px-3 py-2 text-[11px] font-medium text-white shadow-2xl"
+      className="fixed bottom-4 left-4 z-40 flex max-w-[min(24rem,80vw)] items-center gap-2 rounded-lg border border-indigo-400/60 bg-indigo-600 px-3 py-2 text-meta font-medium text-white shadow-2xl"
       title="Focus — the board highlights this item's lineage"
     >
       <Focus size={13} className="shrink-0" />
