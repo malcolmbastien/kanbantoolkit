@@ -41,7 +41,7 @@ export function BoardView({ requestMove }: Props) {
   const showBar = Boolean(board?.archived || editMode || doneCount > 0)
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-100">
+    <div className="flex h-full min-h-0 flex-col bg-slate-200">
       {showBar && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
           {board?.archived && <ArchivedBoardChip />}

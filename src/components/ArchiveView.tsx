@@ -92,7 +92,7 @@ export function ArchiveView() {
                 const type = typeOf(item.typeId)
                 const bucket = rollupOf(item.id, graph).bucket as Stage
                 return (
-                  <tr key={item.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                  <tr key={item.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-200">
                     <td className="max-w-[320px] px-4 py-2.5">
                       <div className="flex items-center gap-1.5">
                         <span className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide" style={{ backgroundColor: type.color, color: '#fff' }}>

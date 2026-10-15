@@ -253,7 +253,10 @@ export function ItemPanel({ itemId }: Props) {
   ]
 
   return (
-    <aside data-item-panel className="flex h-full w-[460px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
+    <aside
+      data-item-panel
+      className="flex h-full w-[460px] shrink-0 flex-col border-l border-slate-300 bg-slate-50 shadow-[-10px_0_24px_-14px_rgba(15,23,42,0.25)]"
+    >
       {/* ---- Header: breadcrumb, actions, title, tabs ------------------------------ */}
       <div className="shrink-0 space-y-2 border-b border-slate-200 bg-white px-3 py-2.5">
         <div className="flex items-center gap-2">

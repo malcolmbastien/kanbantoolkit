@@ -80,7 +80,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-100">
+    <div className="flex h-full min-h-0 flex-col bg-slate-200">
       {/* A retired board says so here too — it has no other strip to carry the chip. */}
       {board.archived && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">

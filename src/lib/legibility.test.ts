@@ -49,8 +49,8 @@ describe('legibility', () => {
     const grounds = {
       white: '#ffffff',
       'slate-50 — the item panel': '#f8fafc',
-      'slate-100': '#f1f5f9',
-      'slate-200 — the backlog and not-started columns': '#e2e8f0',
+      'slate-100 — the backlog and not-started columns': '#f1f5f9',
+      'slate-200 — the workspace ground, behind the section labels': '#e2e8f0',
       'indigo-50 — the in-progress column': '#eef2ff',
       'emerald-50 — the done column': '#ecfdf5',
     }

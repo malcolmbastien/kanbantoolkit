@@ -124,8 +124,8 @@ export const STAGE_ACCENT: Record<Stage, string> = {
  * splitting a column into cells does not lose it.
  */
 export const STAGE_SURFACE: Record<Stage, string> = {
-  backlog: 'bg-slate-200',
-  notStarted: 'bg-slate-200',
+  backlog: 'bg-slate-100',
+  notStarted: 'bg-slate-100',
   inProgress: 'bg-indigo-50',
   done: 'bg-emerald-50',
 }

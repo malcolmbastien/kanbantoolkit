@@ -449,7 +449,7 @@ export function BoardWorkspace() {
               {boardTemplates.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-50"
+                  className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-200"
                 >
                   {renamingId === t.id ? (
                     <InlineEdit
