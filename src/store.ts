@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, nextRank, placementsInOrder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { canLinkBoard, canRetype, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
-import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
+import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { uid as makeUid } from '@/lib/utils'
@@ -255,6 +255,8 @@ export interface Actions {
    * no status beyond ticked. An initiative has children instead, and they are items.
    */
   addChecklistEntry: (itemId: string, text: string) => void
+  /** Rename an entry. Clearing the text removes it. */
+  setChecklistEntryText: (itemId: string, entryId: string, text: string) => void
   toggleChecklistEntry: (itemId: string, entryId: string) => void
   removeChecklistEntry: (itemId: string, entryId: string) => void
   /** Create a team-level initiative on a team board, linked (as a child) to a management initiative. */
@@ -1350,6 +1352,10 @@ export const useStore = create<Store>()(
         const value = text.trim()
         if (!value) return
         set({ items: get().items.map((i) => (i.id === itemId ? withChecklistEntry(i, { id: uid(), text: value, done: false }) : i)) })
+      },
+
+      setChecklistEntryText: (itemId, entryId, text) => {
+        set({ items: get().items.map((i) => (i.id === itemId ? withChecklistEntryText(i, entryId, text) : i)) })
       },
 
       toggleChecklistEntry: (itemId, entryId) => {

@@ -246,6 +246,19 @@ export function withoutChecklistEntry(item: Item, entryId: string): Item {
   return { ...item, checklist: checklistItems(item).filter((e) => e.id !== entryId) }
 }
 
+/**
+ * Rename one entry. Clearing the text removes it — a checklist line with no words on it is
+ * not a line, and it is the same gesture as the remove button.
+ */
+export function withChecklistEntryText(item: Item, entryId: string, text: string): Item {
+  const value = text.trim()
+  if (!value) return withoutChecklistEntry(item, entryId)
+  return {
+    ...item,
+    checklist: checklistItems(item).map((e) => (e.id === entryId ? { ...e, text: value } : e)),
+  }
+}
+
 /* ------------------------------------------------------------------ *
  * Rollup — an item's status is determined by the status of the work at
  * the lowest level of its subtree. Nothing is typed; it is computed.

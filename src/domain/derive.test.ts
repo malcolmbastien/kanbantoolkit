@@ -19,6 +19,7 @@ import {
   rollupOf,
   statusOf,
   withChecklistEntry,
+  withChecklistEntryText,
   withToggledChecklistEntry,
   withoutChecklistEntry,
   uncommittedBelow,
@@ -377,5 +378,24 @@ describe('checklist — sub-tasks inside a card', () => {
 
     // ...and none of them mutates what it was given.
     expect(start.checklist).toEqual([{ id: 'a', text: 'One', done: true }])
+  })
+
+  it('renames an entry, and clearing its text removes it', () => {
+    const c = card([
+      { id: 'a', text: 'One', done: false },
+      { id: 'b', text: 'Two', done: true },
+    ])
+    expect(withChecklistEntryText(c, 'a', '  Renamed  ').checklist).toEqual([
+      { id: 'a', text: 'Renamed', done: false },
+      { id: 'b', text: 'Two', done: true },
+    ])
+    // Renaming keeps the tick: the words changed, not the state.
+    expect(withChecklistEntryText(c, 'b', 'Still two').checklist?.[1]).toEqual({ id: 'b', text: 'Still two', done: true })
+
+    // Clearing the line is how you delete it — the same gesture as the remove button.
+    expect(withChecklistEntryText(c, 'a', '   ').checklist).toEqual([{ id: 'b', text: 'Two', done: true }])
+    // An entry that is not there is left alone, and the original is untouched.
+    expect(withChecklistEntryText(c, 'nope', 'X').checklist).toEqual(c.checklist)
+    expect(c.checklist?.[0].text).toBe('One')
   })
 })

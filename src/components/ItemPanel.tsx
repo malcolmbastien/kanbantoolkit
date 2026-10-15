@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Archive,
   ArrowDown,
@@ -81,6 +81,7 @@ export function ItemPanel({ itemId }: Props) {
   const setParent = useStore((s) => s.setParent)
   const addChecklistEntry = useStore((s) => s.addChecklistEntry)
   const toggleChecklistEntry = useStore((s) => s.toggleChecklistEntry)
+  const setChecklistEntryText = useStore((s) => s.setChecklistEntryText)
   const removeChecklistEntry = useStore((s) => s.removeChecklistEntry)
   const linkTeamInitiative = useStore((s) => s.linkTeamInitiative)
   const addDependency = useStore((s) => s.addDependency)
@@ -111,6 +112,11 @@ export function ItemPanel({ itemId }: Props) {
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
   const [newSubtask, setNewSubtask] = useState('')
+  const [editingEntry, setEditingEntry] = useState<string | null>(null)
+  const [entryDraft, setEntryDraft] = useState('')
+  // Escape closes the editor without saving, and the blur that follows must not put the text
+  // back. A ref rather than state, because the blur can arrive before a render.
+  const abandoned = useRef(false)
   const [assigneeDraft, setAssigneeDraft] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
@@ -151,6 +157,19 @@ export function ItemPanel({ itemId }: Props) {
     if (!text) return
     addChecklistEntry(item.id, text)
     setNewSubtask('')
+  }
+  const startEditingEntry = (entryId: string, text: string) => {
+    abandoned.current = false
+    setEntryDraft(text)
+    setEditingEntry(entryId)
+  }
+  const saveEntry = (entryId: string) => {
+    if (abandoned.current) {
+      abandoned.current = false
+      return
+    }
+    setChecklistEntryText(item.id, entryId, entryDraft)
+    setEditingEntry(null)
   }
   const applyAssignee = () => {
     const name = assigneeDraft.trim()
@@ -720,9 +739,34 @@ export function ItemPanel({ itemId }: Props) {
                           {entry.done && <Check size={10} />}
                         </span>
                       </button>
-                      <span className={cn('min-w-0 flex-1 text-[12px]', entry.done ? 'text-slate-400 line-through' : 'text-slate-700')}>
-                        {entry.text}
-                      </span>
+                      {editingEntry === entry.id ? (
+                        <input
+                          data-checklist-editor
+                          autoFocus
+                          value={entryDraft}
+                          onChange={(e) => setEntryDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEntry(entry.id)
+                            if (e.key === 'Escape') {
+                              abandoned.current = true
+                              setEditingEntry(null)
+                            }
+                          }}
+                          onBlur={() => saveEntry(entry.id)}
+                          className="min-w-0 flex-1 rounded border border-indigo-300 bg-white px-1 py-px text-[12px] outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => startEditingEntry(entry.id, entry.text)}
+                          title="Click to edit — clearing it removes the line"
+                          className={cn(
+                            'min-w-0 flex-1 cursor-text truncate text-left text-[12px]',
+                            entry.done ? 'text-slate-400 line-through' : 'text-slate-700',
+                          )}
+                        >
+                          {entry.text}
+                        </button>
+                      )}
                       <button
                         onClick={() => removeChecklistEntry(item.id, entry.id)}
                         title="Remove"
