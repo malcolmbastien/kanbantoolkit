@@ -152,7 +152,7 @@ export function BoardSummary({
         // crosses into the bands, which is the point of it.
         onLens={interactive ? toggleLens : undefined}
         draggable={interactive}
-        onDragStateChange={setDragging}
+        onDragStateChange={(drag) => setDragging(drag?.itemId ?? null)}
         locked={editMode}
         onOpen={openItem}
         summary={{

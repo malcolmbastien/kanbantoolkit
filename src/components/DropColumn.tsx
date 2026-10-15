@@ -40,14 +40,17 @@ export function DropColumn({
   onDrop: (itemId: string, laneId: string, index: number) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  // The lifted card is still rendered — it is only out of the flow — so the gap is counted
+  // among the cards that are left, which is the list a drop lands in.
   const remaining = draggingId ? items.filter((i) => i.id !== draggingId) : items
+  const positionOf = new Map(remaining.map((item, i) => [item.id, i]))
 
   /**
    * Which gap the pointer is nearest, among the cards that would remain. The placeholder is
    * deliberately not one of them: it is the answer, not an input.
    */
   const indexAt = (clientY: number) => {
-    const els = [...(ref.current?.querySelectorAll<HTMLElement>('[data-card-id]') ?? [])]
+    const els = [...(ref.current?.querySelectorAll<HTMLElement>('[data-card-id]:not([data-lifted])') ?? [])]
     for (let i = 0; i < els.length; i++) {
       const r = els[i].getBoundingClientRect()
       if (clientY < r.top + r.height / 2) return i
@@ -55,10 +58,12 @@ export function DropColumn({
     return els.length
   }
 
+  // A shadow, not a box: the lifted card is the thing you are holding, so what it leaves
+  // behind is the shape it will occupy — recessed, the way a shadow is.
   const placeholder = (
     <div
       data-drop-placeholder
-      className="min-h-[112px] w-[180px] shrink-0 rounded-md border-2 border-dashed border-indigo-400 bg-indigo-50/70"
+      className="min-h-[112px] w-[180px] shrink-0 rounded-md bg-slate-900/[0.08] shadow-[inset_0_2px_6px_rgba(15,23,42,0.12)] ring-1 ring-inset ring-slate-900/10"
     />
   )
 
@@ -90,12 +95,15 @@ export function DropColumn({
       }}
       className={cn('flex min-h-[96px] flex-1 flex-col gap-1 p-1 transition')}
     >
-      {remaining.map((item, i) => (
-        <Fragment key={item.id}>
-          {at === i ? placeholder : null}
-          {item.node}
-        </Fragment>
-      ))}
+      {items.map((item) => {
+        const pos = positionOf.get(item.id)
+        return (
+          <Fragment key={item.id}>
+            {at === pos ? placeholder : null}
+            {item.node}
+          </Fragment>
+        )
+      })}
       {typeof at === 'number' && at >= remaining.length ? placeholder : null}
       {footer}
     </div>

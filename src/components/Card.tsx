@@ -63,11 +63,19 @@ interface Props {
   /** Native HTML5 drag (cards workflow). */
   draggable?: boolean
   /**
-   * Notified with the item's id while a native drag is in flight, and `null` when it
-   * ends. A surface needs this to know *what* is being dragged — `dataTransfer` is not
-   * readable during `dragover` — so it can mark only the valid drop targets.
+   * The card being lifted, and `null` when the drag ends. A surface needs this to know what
+   * is in the air — `dataTransfer` is not readable during `dragover` — and to draw the
+   * lifted card itself. See `CardDrag`.
    */
-  onDragStateChange?: (itemId: string | null) => void
+  onDragStateChange?: (drag: CardDrag | null) => void
+  /** In the air: taken out of the lane's flow, but left mounted. See DropColumn. */
+  lifted?: boolean
+  /**
+   * The surface draws the lifted card itself (see `DragLayer`). Only then may the browser's
+   * own drag image be suppressed — there has to be exactly one card in the air, and without
+   * a layer of its own the surface has nothing else to show.
+   */
+  drawLift?: boolean
   /** Locked (edit mode): no drag, no click-to-open, no lens. */
   locked?: boolean
   selected?: boolean
@@ -84,9 +92,41 @@ interface Props {
   onContextMenu?: (id: string, x: number, y: number) => void
 }
 
+/**
+ * The card in the air. Carried out of band because `dataTransfer` is not readable during
+ * `dragover`, and because the board draws the lifted card itself.
+ */
+export interface CardDrag {
+  itemId: string
+  /** The card's markup, captured at the moment of the lift. */
+  html: string
+  width: number
+  height: number
+  /** Where inside the card it was grabbed, so the lifted card does not jump to the cursor. */
+  grabX: number
+  grabY: number
+  /** The pointer, which the board keeps up to date as the drag moves. */
+  x: number
+  y: number
+}
+
+/**
+ * Stop the browser drawing its own drag image. There must be exactly one card in the air, and
+ * it has to be ours: the native image cannot be styled, ignores the lift, and is blank on
+ * some platforms. An offscreen element is the documented way to ask for nothing.
+ */
+function suppressNativeDragImage(e: React.DragEvent) {
+  const blank = document.createElement('div')
+  blank.style.cssText = 'position:fixed;top:-1000px;left:-1000px;width:1px;height:1px'
+  document.body.appendChild(blank)
+  e.dataTransfer.setDragImage(blank, 0, 0)
+  // It has to survive the browser's snapshot, then it can go.
+  setTimeout(() => blank.remove(), 0)
+}
+
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu }: Props) {
+export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, lifted, drawLift }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -94,7 +134,22 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
           onDragStart: (e: React.DragEvent) => {
             e.dataTransfer.setData('text/plain', item.id)
             e.dataTransfer.effectAllowed = 'move'
-            onDragStateChange?.(item.id)
+            // Where the surface draws the lift, the browser must not: a native drag image
+            // cannot be styled, and it is not drawn at all once the source element leaves the
+            // DOM — which is what made the card vanish the moment the drag started.
+            if (drawLift) suppressNativeDragImage(e)
+            const r = e.currentTarget.getBoundingClientRect()
+            onDragStateChange?.({
+              itemId: item.id,
+              // A snapshot, so the lifted card is the card rather than an impression of it.
+              html: e.currentTarget.outerHTML,
+              width: r.width,
+              height: r.height,
+              grabX: e.clientX - r.left,
+              grabY: e.clientY - r.top,
+              x: e.clientX,
+              y: e.clientY,
+            })
           },
           onDragEnd: () => onDragStateChange?.(null),
         }
@@ -338,7 +393,14 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
     <div
       {...dragProps}
       data-card-id={item.id}
-      style={{ backgroundColor: hexToRgba(type.color, 0.1), borderLeftColor: type.color }}
+      {...(lifted ? { 'data-lifted': '' } : {})}
+      style={{
+        backgroundColor: hexToRgba(type.color, 0.1),
+        borderLeftColor: type.color,
+        // Lifted: out of the lane's flow, so the cards below close up behind it — but still
+        // mounted, because `dragend` has to reach a card that is in the document.
+        ...(lifted ? { position: 'absolute' as const, visibility: 'hidden' as const } : {}),
+      }}
       onClick={(e) => {
         e.stopPropagation()
         if (locked) return

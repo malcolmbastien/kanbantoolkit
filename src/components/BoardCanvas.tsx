@@ -1,9 +1,10 @@
-import { Fragment, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronsRight, CopyPlus, Plus, Settings } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
-import { Card, type CardParent } from './Card'
+import { Card, type CardDrag, type CardParent } from './Card'
 import { CardMenu } from './CardMenu'
+import { DragLayer } from './DragLayer'
 import { DropColumn } from './DropColumn'
 import { LanePolicy, LaneSettings } from './LaneSettings'
 import {
@@ -71,7 +72,7 @@ interface Ctx {
     itemId: string | null
     laneId: string | null
     index: number | null
-    setItem: (itemId: string | null) => void
+    lift: (drag: CardDrag | null) => void
     setIndex: (laneId: string, index: number) => void
     clearIndex: (laneId: string) => void
   }
@@ -433,7 +434,9 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
-              onDragStateChange={ctx.drag.setItem}
+              lifted={c.id === ctx.drag.itemId}
+              drawLift
+              onDragStateChange={ctx.drag.lift}
               lens={lensRole(c.id, ctx.lensId, graph)}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
@@ -589,19 +592,30 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   // The card in the air, and the single gap it would land in. Letting go anywhere ends the
   // drag, so nothing stays lifted or previewed. See DropColumn.
-  const [dragItemId, setDragItemId] = useState<string | null>(null)
+  const [lift, setLift] = useState<CardDrag | null>(null)
   const [dropAt, setDropAt] = useState<{ laneId: string; index: number } | null>(null)
   const drag = {
-    itemId: dragItemId,
+    itemId: lift?.itemId ?? null,
     laneId: dropAt?.laneId ?? null,
     index: dropAt?.index ?? null,
-    setItem: (itemId: string | null) => {
-      setDragItemId(itemId)
-      if (!itemId) setDropAt(null)
+    lift: (d: CardDrag | null) => {
+      setLift(d)
+      if (!d) setDropAt(null)
     },
     setIndex: (laneId: string, index: number) => setDropAt({ laneId, index }),
     clearIndex: (laneId: string) => setDropAt((d) => (d?.laneId === laneId ? null : d)),
   }
+
+  // The lifted card follows the pointer. `dragover` is the only position the browser offers
+  // during a native drag and it fires on whatever is under the cursor, so listen on the
+  // window — the card keeps following even out over the chrome, and never jumps back.
+  const lifting = lift !== null
+  useEffect(() => {
+    if (!lifting) return
+    const move = (e: DragEvent) => setLift((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d))
+    window.addEventListener('dragover', move)
+    return () => window.removeEventListener('dragover', move)
+  }, [lifting])
 
   const boardPlacements = placements
     .filter((p) => p.boardId === boardId)
@@ -689,6 +703,9 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   return (
     <>
       {canvas}
+      {lift && (
+        <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
+      )}
       {cardMenu && (
         <CardMenu
           itemIds={multiSelect.includes(cardMenu.itemId) ? multiSelect : [cardMenu.itemId]}
