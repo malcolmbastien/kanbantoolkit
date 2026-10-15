@@ -268,15 +268,12 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
                 e.stopPropagation()
                 onOpen(parent.id)
               }}
-              title={`Rolls up to ${parent.type.name}: ${parent.title}`}
+              title={`Rolls up to ${parent.type.name} ${parent.ref_}: ${parent.title} — click to open`}
               className="flex w-fit max-w-full items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-left transition hover:border-indigo-300 hover:bg-indigo-100"
             >
               <ArrowUp size={11} className="shrink-0 text-indigo-400" />
               <span className="hidden shrink-0 text-[9px] font-bold uppercase tracking-wide text-indigo-500 @[340px]:inline">rolls up to</span>
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: parent.type.color }} aria-hidden />
-              <span className="min-w-0 truncate text-[10px] font-medium text-indigo-700">
-                <span className="tabular-nums text-indigo-400">{parent.ref_}</span> {parent.title}
-              </span>
+              <span className="min-w-0 truncate text-[10px] font-medium text-indigo-700">{parent.title}</span>
             </button>
           )}
 
@@ -451,15 +448,14 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
               if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
               else onOpen(parent.id)
             }}
-            title={`Parent ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
+            title={`Rolls up to ${parent.type.name} ${parent.ref_}: ${parent.title} — click to open, shift+click to select`}
             className="mt-1 flex w-full items-center gap-1 rounded border border-slate-300/70 bg-white/60 px-1 py-0.5 text-left transition hover:border-slate-400 hover:bg-white"
           >
+            {/* The arrow says what the chip is; the title says which initiative. The type, its
+                colour dot and the reference all used to sit here too, and between them they
+                left the title too little room to be read — so they moved into the tooltip. */}
             <CornerDownRight size={10} className="shrink-0 text-slate-400" />
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: parent.type.color }} aria-hidden />
-            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-slate-500">{parent.type.name}</span>
-            <span className="min-w-0 truncate text-[10px] font-medium text-slate-600">
-              <span className="tabular-nums text-slate-400">{parent.ref_}</span> {parent.title}
-            </span>
+            <span className="min-w-0 truncate text-[10px] font-medium text-slate-600">{parent.title}</span>
           </button>
         )}
         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[10px] text-slate-500">
