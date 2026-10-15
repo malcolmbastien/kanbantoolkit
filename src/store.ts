@@ -209,7 +209,6 @@ export interface Actions {
   setBoardBand: (id: string, band: BoardBand) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
   /** Set which card types are allowed on a board (empty = every card type). */
-  setBoardCardTypes: (id: string, cardTypeIds: string[]) => void
   setBoardWipEnforcement: (id: string, mode: 'visualize' | 'justify' | 'block') => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
@@ -442,6 +441,17 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return { ...rest, band, ...(teamBoardIds ? { linkedBoardIds: teamBoardIds } : {}) }
     })
   }
+  // v27: card types belong to the workspace, not to a board. Every board offers all of them,
+  // so the per-board subset is gone — a board either has a type, which is to say everyone does,
+  // or the type does not exist. Same for a template: it designs a flow, not a shortlist.
+  const withoutCardTypeIds = (rows: unknown) =>
+    (Array.isArray(rows) ? (rows as Record<string, unknown>[]) : []).map((row) => {
+      const next = { ...row }
+      delete next.cardTypeIds
+      return next
+    })
+  if (Array.isArray(p.boards)) p.boards = withoutCardTypeIds(p.boards)
+  if (Array.isArray(p.boardTemplates)) p.boardTemplates = withoutCardTypeIds(p.boardTemplates)
   // v9 → v10: item-to-item dependencies became first-class `links`; `edges`
   // now holds only hierarchy (decomposition) and objective (attribution).
   // v11: links no longer carry an approval status.
@@ -938,7 +948,6 @@ export const useStore = create<Store>()(
           name,
           band: resolvedBand,
           ...(resolvedBand !== 'team' ? { linkedBoardIds: [] } : {}),
-          ...(template?.cardTypeIds ? { cardTypeIds: [...template.cardTypeIds] } : {}),
           ...(template?.defaultCardTypeId ? { defaultCardTypeId: template.defaultCardTypeId } : {}),
           ...(template?.wipEnforcement ? { wipEnforcement: template.wipEnforcement } : {}),
         }
@@ -1032,18 +1041,7 @@ export const useStore = create<Store>()(
       setBoardBand: (id, band) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, band } : b)) }),
       setBoardDefaultCardType: (id, defaultCardTypeId) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
-      setBoardCardTypes: (id, cardTypeIds) =>
-        set({
-          boards: get().boards.map((b) => {
-            if (b.id !== id) return b
-            const next: Board = { ...b, cardTypeIds: cardTypeIds.length > 0 ? cardTypeIds : undefined }
-            // Keep the default type inside the allowed set.
-            if (next.defaultCardTypeId && cardTypeIds.length > 0 && !cardTypeIds.includes(next.defaultCardTypeId)) {
-              next.defaultCardTypeId = cardTypeIds[0]
-            }
-            return next
-          }),
-        }),
+
       setBoardWipEnforcement: (id, wipEnforcement) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) }),
 
@@ -1515,7 +1513,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 26,
+      version: 27,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

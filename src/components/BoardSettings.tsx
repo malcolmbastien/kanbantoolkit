@@ -16,7 +16,6 @@ export function BoardSettings() {
   const issueTypes = useStore((s) => s.issueTypes)
   const renameBoard = useStore((s) => s.renameBoard)
   const setBoardBand = useStore((s) => s.setBoardBand)
-  const setBoardCardTypes = useStore((s) => s.setBoardCardTypes)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
   const saveBoardAsTemplate = useStore((s) => s.saveBoardAsTemplate)
@@ -49,18 +48,10 @@ export function BoardSettings() {
   if (!board) return null
 
   const types = cardTypes(issueTypes)
-  // No restriction = every card type.
-  const allowed = board.cardTypeIds ?? types.map((t) => t.id)
   const linked = board.linkedBoardIds ?? []
   const isAggregatingBoard = isAggregating(board)
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linked.includes(b.id))
-
-  const toggleType = (id: string) => {
-    const next = allowed.includes(id) ? allowed.filter((x) => x !== id) : [...allowed, id]
-    if (next.length === 0) return // at least one type must stay available
-    setBoardCardTypes(board.id, next)
-  }
 
   /** Define a brand-new card type and enable it on this board. */
   const saveTypeEdit = (id: string) => {
@@ -72,8 +63,7 @@ export function BoardSettings() {
   const addType = () => {
     const name = newTypeName.trim()
     if (!name) return
-    const id = addIssueType(name, newTypeColor)
-    setBoardCardTypes(board.id, [...allowed, id])
+    addIssueType(name, newTypeColor)
     setNewTypeName('')
   }
 
@@ -182,14 +172,13 @@ export function BoardSettings() {
                   </div>
                 ) : (
                   <div key={t.id} className={cn(row, 'group gap-1.5')}>
-                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5">
-                      <input type="checkbox" checked={allowed.includes(t.id)} onChange={() => toggleType(t.id)} />
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
                       <span className="min-w-0 flex-1 truncate text-slate-700">{t.name}</span>
                       {board.defaultCardTypeId === t.id && (
                         <span className="shrink-0 rounded bg-slate-800 px-1 py-px text-micro font-semibold uppercase tracking-wide text-white">default</span>
                       )}
-                    </label>
+                    </span>
                     <button
                       onClick={() => { setEditingTypeId(t.id); setEditName(t.name); setEditColor(t.color) }}
                       className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-100 hover:text-slate-700"
@@ -240,7 +229,7 @@ export function BoardSettings() {
                 disabled={!newTypeName.trim()}
                 onClick={addType}
                 className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-meta font-medium text-white disabled:opacity-40"
-                title="Create this type and enable it on this board"
+                title="Create this type for the whole workspace"
               >
                 <Plus size={11} /> Add type
               </button>
@@ -248,12 +237,11 @@ export function BoardSettings() {
             <div className="mt-2 flex items-center gap-2">
               <span className="text-meta text-slate-600">New cards default to</span>
               <select
-                value={board.defaultCardTypeId ?? allowed[0] ?? ''}
+                value={board.defaultCardTypeId ?? types[0]?.id ?? ''}
                 onChange={(e) => setBoardDefaultCardType(board.id, e.target.value || undefined)}
                 className="rounded border border-slate-200 px-1.5 py-1 text-meta"
               >
                 {types
-                  .filter((t) => allowed.includes(t.id))
                   .map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -297,7 +285,7 @@ export function BoardSettings() {
                 <LayoutTemplate size={13} /> Save as template
               </button>
               <span className="text-meta text-slate-600">
-                Keeps this board’s columns, card types and WIP policy — not its cards or linked boards.
+                Keeps this board’s columns, its default card type and its WIP policy — not its cards or linked boards.
               </span>
             </div>
             {savedTemplate && (

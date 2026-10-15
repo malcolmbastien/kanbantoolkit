@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, boardCardTypes, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
+import { boardCardTypeId, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
 import { NO_FILTERS } from './domain/filters'
@@ -1114,21 +1114,19 @@ describe('store actions', () => {
     expect(migrated.items[1].assignees).toBeUndefined()
   })
 
-  it('board card types: the allowed set restricts new cards and repairs the default', () => {
+  it('a new card gets the board default, or a sane one if that is not a card type', () => {
     const atlas = () => s().boards.find((b) => b.id === 'b-atlas')
-    // Unrestricted by default.
-    expect(boardCardTypes(atlas(), s().issueTypes).map((t) => t.id)).toEqual(['t-story', 't-epic', 't-bug', 't-spike', 't-task'])
+    // Every card type is on every board — a type is a workspace-wide label, so there is no
+    // per-board subset to restrict it with, only a choice of which one a new card starts as.
+    expect(cardTypes(s().issueTypes).map((t) => t.id)).toEqual(['t-story', 't-epic', 't-bug', 't-spike', 't-task'])
+    expect(boardCardTypeId(atlas(), s().issueTypes)).toBe('t-story')
 
-    s().setBoardCardTypes('b-atlas', ['t-bug', 't-spike'])
-    expect(atlas()?.cardTypeIds).toEqual(['t-bug', 't-spike'])
-    // t-story was the default and is no longer allowed → repaired to the first allowed.
-    expect(atlas()?.defaultCardTypeId).toBe('t-bug')
+    s().setBoardDefaultCardType('b-atlas', 't-bug')
     expect(boardCardTypeId(atlas(), s().issueTypes)).toBe('t-bug')
 
-    // An empty list clears the restriction.
-    s().setBoardCardTypes('b-atlas', [])
-    expect(atlas()?.cardTypeIds).toBeUndefined()
-    expect(boardCardTypes(atlas(), s().issueTypes)).toHaveLength(5)
+    // A default that is not a card type — the reserved Initiative — falls back to the first.
+    s().setBoardDefaultCardType('b-atlas', 't-initiative')
+    expect(boardCardTypeId(atlas(), s().issueTypes)).toBe('t-story')
   })
 
   it('justify mode holds a move until a reason is given, then records it', () => {
@@ -1196,6 +1194,16 @@ describe('store actions', () => {
     expect(migrated.boards.map((b) => b.band)).toEqual(['team', 'program', 'program', 'team'])
     expect(migrated.boards[1].linkedBoardIds).toEqual(['x'])
     expect('level' in migrated.boards[1]).toBe(false)
+  })
+
+  it('migrateState drops the per-board card type subset (v27)', () => {
+    const stale = {
+      boards: [{ id: 'b', name: 'B', cardTypeIds: ['t-bug'] }],
+      boardTemplates: [{ id: 't', name: 'T', lanes: [], cardTypeIds: ['t-bug'] }],
+    }
+    const migrated = migrateState(stale) as unknown as { boards: Record<string, unknown>[]; boardTemplates: Record<string, unknown>[] }
+    expect('cardTypeIds' in migrated.boards[0]).toBe(false)
+    expect('cardTypeIds' in migrated.boardTemplates[0]).toBe(false)
   })
 
   it('migratePersisted reseeds boards for a schema change (v<9)', () => {

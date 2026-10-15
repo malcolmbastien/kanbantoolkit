@@ -118,7 +118,6 @@ export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
     name: 'Feature Flow',
     band: 'team',
     // Two card types, as the board it came from uses.
-    cardTypeIds: ['t-epic', 't-story'],
     defaultCardTypeId: 't-story',
     lanes: [
       { key: 'k0', parentKey: null, order: 0, name: 'Pool of Ideas', stage: 'backlog' },

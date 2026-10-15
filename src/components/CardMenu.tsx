@@ -17,7 +17,7 @@ import {
   Trash2,
   UserPlus,
 } from 'lucide-react'
-import { boardCardTypes, isInitiativeItem } from '@/domain/board'
+import { cardTypes, isInitiativeItem } from '@/domain/board'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
@@ -49,7 +49,6 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
   const items = useStore((s) => s.items)
   const setItemFields = useStore((s) => s.setItemFields)
   const moveCardRank = useStore((s) => s.moveCardRank)
-  const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
   const lanes = useStore((s) => s.lanes)
   const users = useStore((s) => s.users)
@@ -77,8 +76,7 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
   const count = targets.length
   const single = count === 1
   const only = targets[0]
-  const board = boards.find((b) => b.id === boardId)
-  const types = boardCardTypes(board, issueTypes)
+  const types = cardTypes(issueTypes)
   // The Initiative type is reserved: an initiative is never retyped, so the menu does not
   // offer it — not even as a mixed selection where it would apply to some of the group.
   const selectionHasInitiative = itemIds.some((id) => isInitiativeItem(items.find((i) => i.id === id), issueTypes))

@@ -54,25 +54,12 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
   const patch = (p: Partial<Omit<BoardTemplate, 'id' | 'lanes'>>) => updateBoardTemplate(template.id, p)
 
   const types = cardTypes(issueTypes)
-  const allowed = template.cardTypeIds ?? types.map((t) => t.id)
-  const toggleType = (id: string) => {
-    const next = allowed.includes(id) ? allowed.filter((x) => x !== id) : [...allowed, id]
-    if (next.length === 0) return // at least one type must stay available
-    patch({
-      cardTypeIds: next,
-      // Keep the default inside the allowed set.
-      ...(template.defaultCardTypeId && !next.includes(template.defaultCardTypeId)
-        ? { defaultCardTypeId: next[0] }
-        : {}),
-    })
-  }
 
-  /** Define a brand-new type and enable it on this template, as Board settings does. */
+  /** Define a brand-new type for the workspace, as Board settings does. */
   const addType = () => {
     const name = newTypeName.trim()
     if (!name) return
-    const id = addIssueType(name, newTypeColor)
-    patch({ cardTypeIds: [...allowed, id] })
+    addIssueType(name, newTypeColor)
     setNewTypeName('')
   }
 
@@ -88,19 +75,12 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
       danger: true,
       onConfirm: () => {
         removeIssueType(id)
-        patch({
-          ...(template.cardTypeIds ? { cardTypeIds: template.cardTypeIds.filter((x) => x !== id) } : {}),
-          ...(template.defaultCardTypeId === id ? { defaultCardTypeId: undefined } : {}),
-        })
+        if (template.defaultCardTypeId === id) patch({ defaultCardTypeId: undefined })
       },
     })
 
   const dt = 'text-micro font-bold uppercase tracking-wide text-slate-600'
   const field = 'rounded border border-slate-200 px-1.5 py-0.5 text-meta outline-none focus:border-indigo-300'
-  const typeNames = template.cardTypeIds
-    ?.map((id) => issueTypes.find((t) => t.id === id)?.name)
-    .filter((n): n is string => Boolean(n))
-
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" onClick={onClose}>
       <div
@@ -190,12 +170,6 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
                 <>
                   {types.map((t) => (
                     <div key={t.id} className="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={allowed.includes(t.id)}
-                        onChange={() => toggleType(t.id)}
-                        aria-label={`Allow ${t.name} on this template`}
-                      />
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
                       <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{t.name}</span>
                       <button
@@ -237,7 +211,7 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
                   </div>
                 </>
               ) : (
-                <span className="text-slate-700">{typeNames?.length ? typeNames.join(', ') : 'every type'}</span>
+                <span className="text-slate-700">every type</span>
               )}
             </dd>
 
@@ -252,7 +226,6 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
                 >
                   <option value="">—</option>
                   {types
-                    .filter((t) => allowed.includes(t.id))
                     .map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.name}

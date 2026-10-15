@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Archive, CheckSquare, Trash2, X } from 'lucide-react'
-import { boardCardTypes, isInitiativeItem } from '@/domain/board'
+import { cardTypes, isInitiativeItem } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { useStore } from '@/store'
 
@@ -18,7 +18,6 @@ export function BulkActions() {
   const lanes = useStore((s) => s.lanes)
   const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
-  const boards = useStore((s) => s.boards)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
   const setItemsType = useStore((s) => s.setItemsType)
   const items = useStore((s) => s.items)
@@ -37,7 +36,7 @@ export function BulkActions() {
   if (multiSelect.length === 0) return null
 
   const leaves = leafLanes(lanes, boardId, 'cards')
-  const types = boardCardTypes(boards.find((b) => b.id === boardId), issueTypes)
+  const types = cardTypes(issueTypes)
   const count = multiSelect.length
 
   const applyAssignee = () => {

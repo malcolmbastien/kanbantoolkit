@@ -102,11 +102,10 @@ export interface Board {
    */
   linkedBoardIds?: string[]
   /**
-   * The card types allowed on this board (a subset of the non-Initiative types).
-   * Empty/undefined means every card type is available.
+   * Type a new card gets on this board (never the reserved Initiative type). Every card type
+   * is available on every board: a type is a workspace-wide label, so a board either has it —
+   * which is to say everyone does — or the type does not exist.
    */
-  cardTypeIds?: string[]
-  /** Type a new card gets on this board (never the reserved Initiative type). */
   defaultCardTypeId?: string
   /**
    * How per-lane WIP limits are enforced on this board:
@@ -157,7 +156,6 @@ export interface BoardTemplate {
   name: string
   band: BoardBand
   lanes: TemplateLane[]
-  cardTypeIds?: string[]
   defaultCardTypeId?: string
   wipEnforcement?: 'visualize' | 'justify' | 'block'
 }

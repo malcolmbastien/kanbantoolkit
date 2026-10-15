@@ -81,7 +81,6 @@ export function templateFromBoard(id: string, name: string, board: Board, lanes:
       ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
       ...(l.description ? { description: l.description } : {}),
     })),
-    ...(board.cardTypeIds ? { cardTypeIds: [...board.cardTypeIds] } : {}),
     ...(board.defaultCardTypeId ? { defaultCardTypeId: board.defaultCardTypeId } : {}),
     ...(board.wipEnforcement ? { wipEnforcement: board.wipEnforcement } : {}),
   }
@@ -266,8 +265,7 @@ export function duplicateBoard(
       id,
       name: name?.trim() || `${board.name} copy`,
       ...(board.linkedBoardIds ? { linkedBoardIds: [...board.linkedBoardIds] } : {}),
-      ...(board.cardTypeIds ? { cardTypeIds: [...board.cardTypeIds] } : {}),
-    },
+      },
     lanes: subtree.map((lane) => ({
       ...lane,
       id: idOf.get(lane.id)!,
@@ -463,21 +461,16 @@ export function defaultCardTypeId(types: IssueType[]): string | undefined {
 }
 
 /**
- * The card types available on a board: its configured subset (`cardTypeIds`), or
- * every card type when it has none.
+ * The type a new card gets on a board: the board's own choice, or the first card type.
+ *
+ * There is no per-board subset of types to check against any more. A card type is a
+ * workspace-wide label, so every board offers all of them, and the only choice left is which
+ * one a new card starts as.
  */
-export function boardCardTypes(board: Board | undefined, types: IssueType[]): IssueType[] {
-  const all = cardTypes(types)
-  const allowed = board?.cardTypeIds
-  return allowed && allowed.length > 0 ? all.filter((t) => allowed.includes(t.id)) : all
-}
-
-/** The type a new card gets on a board: its configured default if allowed, else the first available. */
 export function boardCardTypeId(board: Board | undefined, types: IssueType[]): string | undefined {
-  const available = boardCardTypes(board, types)
   const configured = board?.defaultCardTypeId
-  if (configured && available.some((t) => t.id === configured)) return configured
-  return available[0]?.id ?? defaultCardTypeId(types)
+  if (configured && cardTypes(types).some((t) => t.id === configured)) return configured
+  return defaultCardTypeId(types)
 }
 
 /**
