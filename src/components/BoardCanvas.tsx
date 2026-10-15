@@ -758,6 +758,11 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
           // The surface is draggable, so it says so — and holds the selection still while
           // it is being dragged.
           pan.panning || lifting ? 'cursor-grabbing select-none' : 'cursor-grab',
+          // While a card is in the air the cards underneath are scenery, not targets: they
+          // must not light up, offer their menu, or show a pointer cursor as the card passes
+          // over them. Taking away their pointer events does all three at once, and it leaves
+          // the lane as the thing under the pointer — which is what the drop is looking for.
+          lifting && '[&_[data-card-id]]:pointer-events-none',
         )}
       >
         <div className="min-h-[120px] w-full min-w-min">
