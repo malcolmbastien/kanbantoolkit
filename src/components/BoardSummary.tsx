@@ -9,6 +9,7 @@ import {
   decompositionParent,
   dependenciesOf,
   dependentsOf,
+  isComplete,
   lensRole,
   openDescendants,
   rollupOf,
@@ -163,6 +164,7 @@ export function BoardSummary({
           uncommittedBelow: uncommittedBelow(c.id, graph),
           openDescendants: openDescendants(c.id, graph).length,
           rollupPercent: rollupOf(c.id, graph).percent,
+          done: isComplete(c.id, graph),
           checklist: checklistProgress(c),
         }}
       />

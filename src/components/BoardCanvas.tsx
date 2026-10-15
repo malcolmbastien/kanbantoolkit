@@ -14,6 +14,7 @@ import {
   decompositionParent,
   dependenciesOf,
   dependentsOf,
+  isComplete,
   lensRole,
   openDescendants,
   rollupOf,
@@ -441,6 +442,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 blockedBelow: blockedBelow(c.id, graph),
                 openDescendants: openDescendants(c.id, graph).length,
                 rollupPercent: decompositionChildren(c.id, graph.edges).length > 0 ? roll.percent : undefined,
+                done: isComplete(c.id, graph),
                 // Backlog is uncommitted inventory and legitimately rests, so it is not aged.
                 ageDays: ctx.effectiveLane.get(c.id) && effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) !== 'backlog' ? ctx.ageOf(c.id) : undefined,
                 checklist: checklistProgress(c),

@@ -85,6 +85,18 @@ export function statusOf(itemId: string, graph: Graph): Status {
   return { resolved: false, started: false } // notStarted, backlog, or unknown
 }
 
+/**
+ * Is this finished? True for a leaf in a Done column, and for a parent once every leaf below it
+ * is done — the rule behind the Done stamp on a card.
+ *
+ * It is the same bucket the initiatives workflow arranges its sections by, so the stamp can
+ * never disagree with the column it sits in. Note it is not the percentage: an initiative with
+ * every committed leaf finished and one leaf still unplanned reads 100% and is not done.
+ */
+export function isComplete(id: string, graph: Graph): boolean {
+  return rollupOf(id, graph).bucket === 'done'
+}
+
 /** The stage (commitment state) a leaf currently sits in. */
 export function stageOf(itemId: string, graph: Graph): Stage | undefined {
   const placement = graph.placements.find((p) => p.itemId === itemId)

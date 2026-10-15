@@ -25,6 +25,8 @@ export interface CardSummary {
   rollupPercent?: number
   /** Checklist progress inside the card (sub-tasks). */
   checklist?: { done: number; total: number }
+  /** Every leaf below is done — the card, or the initiative, is finished. See `DoneStamp`. */
+  done?: boolean
 }
 
 /** The decomposition parent of a card, for the on-card lineage label. */
@@ -87,6 +89,29 @@ interface Props {
   onMultiSelect?: (id: string) => void
   /** Right-click (or the ⋯ button) — open the card context menu at (x, y). */
   onContextMenu?: (id: string, x: number, y: number) => void
+}
+
+/**
+ * A finished thing, stamped.
+ *
+ * The rule behind it is `rollupOf(...).bucket === 'done'`, which is the same one the board
+ * arranges its sections by — so the stamp can never disagree with the column it sits in, and it
+ * never claims completion early: a parent with one leaf still open is not done, however much of
+ * the rest of it is.
+ *
+ * One mark, and the card's own surface is left alone. A Done column is already tinted, and
+ * re-tinting every card in it would make the most finished part of the board the loudest; a
+ * watermark would eat into the legibility the type scale bought.
+ */
+function DoneStamp() {
+  return (
+    <span
+      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-600/30"
+      title="Done — every leaf below this is finished"
+    >
+      <Check size={11} strokeWidth={3} />
+    </span>
+  )
 }
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
@@ -240,6 +265,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
             <span className="text-micro font-semibold tabular-nums text-slate-600">{ref_}</span>
             {item.size ? <span className="text-micro tabular-nums text-slate-600">· {item.size}</span> : null}
             <span className="ml-auto flex items-center gap-1.5">
+              {summary.done && <DoneStamp />}
               <PriorityBadge priority={item.priority} />
               {summary.dependentsCount > 0 && (
                 <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-micro font-bold text-white" title={`${summary.dependentsCount} depend on this`}>
@@ -394,6 +420,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
             {item.size ? ` · ${item.size}` : ''}
           </span>
           <span className="ml-auto flex shrink-0 items-center gap-1">
+            {summary.done && <DoneStamp />}
             {summary.ageDays !== undefined && summary.ageDays >= 7 && (
               <span
                 className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"

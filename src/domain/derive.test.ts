@@ -274,6 +274,25 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     expect(roll.bucket).toBe('done')
     expect(roll.percent).toBe(100)
   })
+
+  it('reads 100% without being done when one leaf is still unplanned', () => {
+    // The Done stamp is `bucket === 'done'`, so this is the case that would make it lie:
+    // every committed leaf finished, so the percentage reads 100, while one leaf sits in
+    // Backlog. Completion is counted against every leaf, not against the committed ones.
+    const s2 = createSeed()
+    const done = laneByName(s2, 'b-atlas', 'Done')
+    const backlog = laneByName(s2, 'b-atlas', 'Backlog')
+    const finished = ['st-signup-design', 'st-signup-form', 'st-email', 'st-sso']
+    s2.placements = s2.placements.map((p) => {
+      if (p.boardId !== 'b-atlas') return p
+      if (finished.includes(p.itemId)) return { ...p, laneId: done.id }
+      if (p.itemId === 'df-signup') return { ...p, laneId: backlog.id }
+      return p
+    })
+    const roll = rollupOf('init-signup', graphOf(s2))
+    expect(roll.percent).toBe(100)
+    expect(roll.bucket).not.toBe('done')
+  })
 })
 
 describe('WIP limit state', () => {

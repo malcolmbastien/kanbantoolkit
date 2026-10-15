@@ -947,12 +947,24 @@
         "testStrategy": "Make the floor enforceable rather than aspirational, or it erodes again within a month. Two automated guards, both pure and fast: a source test asserting no `text-[9px]` or `text-[10px]` remains anywhere in `src` — it fails loudly the moment someone adds one back — and a contrast test computing WCAG ratios from the hex values in `src/lib/colors.ts` for every pair that actually meets on screen: body text on each stage surface, meta text on the card-face tints, and the column headers, asserting at least 4.5:1 for body and 3:1 for the largest. Then the visual pass, which no test replaces: screenshots of the item panel, the top bar and a card face before and after at 100% zoom, plus one card at each `@container` breakpoint to confirm the reflow did not push anything out of a fixed-width card. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-14T12:00:00.000Z"
+      },
+      {
+        "id": "63",
+        "title": "A completed card and initiative are stamped Done",
+        "description": "A visual indicator on the board: a green check that stamps a card or an initiative as Done, so a finished thing reads as finished at a glance rather than having to be inferred from the column it sits in.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "The derivation already knows, and it knows for both shapes at once: `rollupOf(id, graph).bucket === 'done'` is true for a leaf sitting in a Done column and for a parent whose every leaf is done — the same rule the initiatives workflow arranges its sections by, so the stamp can never disagree with the column it is in. That matters more than it sounds: a stamp that contradicted the board would be worse than no stamp, and the one thing this must not do is claim completion early, which is the rule `rollupOf` already refuses to break. Show it on both card faces — the narrow card in a lane and the wide summary card in the initiatives workflow — as a filled emerald circle with a white check, in the header beside the priority badge. One mark, and the card surface itself is left alone: a Done column is already tinted, and re-tinting every card in it would turn the most finished part of the board into the loudest. A large watermark was considered and rejected for the same reason — it would eat into the legibility the last task bought. Out of scope: changing what Done means, and any new stored field.",
+        "testStrategy": "The risk is a false positive, not a false negative, so test the negatives hardest: a card in a Done column is stamped; a card in Backlog, Not Started or In Progress is not; an initiative whose leaves are all done is stamped; an initiative with one leaf still open is not, even when every other leaf is done and its percentage reads 100 — which is exactly the case `rollupOf` exists to get right. Then a browser check that the mark renders on both card shapes and on nothing else, and a screenshot of a board with a Done column and a mixed initiatives flow to confirm it reads as an affirmation rather than as another badge.",
+        "subtasks": [],
+        "updatedAt": "2026-10-14T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-14T12:00:00.000Z",
-      "taskCount": 61,
+      "taskCount": 62,
       "completedCount": 39,
       "tags": [
         "backlog"
