@@ -223,6 +223,29 @@ export function checklistProgress(item: Item | undefined): { done: number; total
   return { done: list.filter((c) => c.done).length, total: list.length }
 }
 
+/*
+ * The edits. Pure, and given the entry id rather than making one, so they are testable and
+ * the store stays a thin wrapper.
+ */
+
+/** Add an entry to a card's checklist. */
+export function withChecklistEntry(item: Item, entry: ChecklistEntry): Item {
+  return { ...item, checklist: [...checklistItems(item), entry] }
+}
+
+/** Tick or untick one entry. */
+export function withToggledChecklistEntry(item: Item, entryId: string): Item {
+  return {
+    ...item,
+    checklist: checklistItems(item).map((e) => (e.id === entryId ? { ...e, done: !e.done } : e)),
+  }
+}
+
+/** Remove one entry. */
+export function withoutChecklistEntry(item: Item, entryId: string): Item {
+  return { ...item, checklist: checklistItems(item).filter((e) => e.id !== entryId) }
+}
+
 /* ------------------------------------------------------------------ *
  * Rollup — an item's status is determined by the status of the work at
  * the lowest level of its subtree. Nothing is typed; it is computed.

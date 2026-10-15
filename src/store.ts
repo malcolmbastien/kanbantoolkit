@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, nextRank, placementsInOrder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { canLinkBoard, canRetype, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
-import { decompositionParent, descendants, rollupOf, statusOf } from '@/domain/derive'
+import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { uid as makeUid } from '@/lib/utils'
@@ -250,7 +250,13 @@ export interface Actions {
   setLaneDescription: (laneId: string, description: string | undefined) => void
 
   setParent: (childId: string, parentId: string | null) => void
-  addChild: (parentId: string, typeId: string, title: string) => void
+  /**
+   * A card's checklist — its sub-tasks. They are not work of their own: no placement, no WIP,
+   * no status beyond ticked. An initiative has children instead, and they are items.
+   */
+  addChecklistEntry: (itemId: string, text: string) => void
+  toggleChecklistEntry: (itemId: string, entryId: string) => void
+  removeChecklistEntry: (itemId: string, entryId: string) => void
   /** Create a team-level initiative on a team board, linked (as a child) to a management initiative. */
   linkTeamInitiative: (parentId: string, boardId: string, title: string) => void
 
@@ -1340,10 +1346,18 @@ export const useStore = create<Store>()(
         set({ edges })
       },
 
-      addChild: (parentId, typeId, title) => {
-        const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
-        const edge: Edge = { id: uid(), kind: 'decomposition', from: parentId, to: item.id }
-        set({ items: [...get().items, item], edges: [...get().edges, edge] })
+      addChecklistEntry: (itemId, text) => {
+        const value = text.trim()
+        if (!value) return
+        set({ items: get().items.map((i) => (i.id === itemId ? withChecklistEntry(i, { id: uid(), text: value, done: false }) : i)) })
+      },
+
+      toggleChecklistEntry: (itemId, entryId) => {
+        set({ items: get().items.map((i) => (i.id === itemId ? withToggledChecklistEntry(i, entryId) : i)) })
+      },
+
+      removeChecklistEntry: (itemId, entryId) => {
+        set({ items: get().items.map((i) => (i.id === itemId ? withoutChecklistEntry(i, entryId) : i)) })
       },
 
       linkTeamInitiative: (parentId, boardId, title) => {

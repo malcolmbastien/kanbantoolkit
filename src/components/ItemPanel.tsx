@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import {
   attributedObjectives,
+  checklistItems,
   decompositionChildren,
   decompositionParent,
   dependenciesOf,
@@ -78,7 +79,9 @@ export function ItemPanel({ itemId }: Props) {
   const close = useStore((s) => s.openItem)
   const setItemFields = useStore((s) => s.setItemFields)
   const setParent = useStore((s) => s.setParent)
-  const addChild = useStore((s) => s.addChild)
+  const addChecklistEntry = useStore((s) => s.addChecklistEntry)
+  const toggleChecklistEntry = useStore((s) => s.toggleChecklistEntry)
+  const removeChecklistEntry = useStore((s) => s.removeChecklistEntry)
   const linkTeamInitiative = useStore((s) => s.linkTeamInitiative)
   const addDependency = useStore((s) => s.addDependency)
   const setAttribution = useStore((s) => s.setAttribution)
@@ -140,13 +143,13 @@ export function ItemPanel({ itemId }: Props) {
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
   const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
   const userById = (id: string) => users.find((u) => u.id === id)
-  // A sub-task is a decomposition child, so its type is the system's, not a choice: the
-  // panel never offers one and `Sub-task` is what gets created.
-  const subtaskTypeId = issueTypes.find((t) => t.name === 'Sub-task')?.id
+  // A card's sub-tasks are a checklist rather than items: they have no placement, no WIP and
+  // no status beyond ticked, so there is nothing for a type or a board to say about them.
+  const checklist = checklistItems(item)
   const addSubtask = () => {
-    const title = newSubtask.trim()
-    if (!title || !subtaskTypeId) return
-    addChild(item.id, subtaskTypeId, title)
+    const text = newSubtask.trim()
+    if (!text) return
+    addChecklistEntry(item.id, text)
     setNewSubtask('')
   }
   const applyAssignee = () => {
@@ -279,7 +282,7 @@ export function ItemPanel({ itemId }: Props) {
               <p className="text-[10px] text-slate-400">
                 {isInitiative
                   ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
-                  : 'Type is fixed. A sub-task is a decomposition child, so Sub-task is what it is rather than something you choose.'}
+                  : 'Type is fixed. Sub-task belongs to the system rather than to you — a card\'s sub-tasks are a checklist, not items.'}
               </p>
             ) : (
               <label className="flex items-center gap-2">
@@ -690,70 +693,66 @@ export function ItemPanel({ itemId }: Props) {
               )}
             </section>
 
-            {/* Sub-tasks — the decomposition children */}
-            <section>
-              <div className="mb-1.5 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <SectionLabel>Sub-tasks</SectionLabel>
-                  {children.length > 0 && (
-                    <span className="rounded-full bg-slate-200 px-1.5 text-[10px] font-bold tabular-nums text-slate-500">{children.length}</span>
+            {/* Checklist — a card's sub-tasks. They are not work of their own: no
+                placement, no WIP, no status beyond ticked. An initiative has children
+                instead, and they are listed under Hierarchy & Links. */}
+            {!isInitiative && (
+              <section>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <SectionLabel>Checklist</SectionLabel>
+                  {checklist.length > 0 && (
+                    <span className="rounded-full bg-slate-200 px-1.5 text-[10px] font-bold tabular-nums text-slate-500">
+                      {checklist.filter((c) => c.done).length}/{checklist.length}
+                    </span>
                   )}
                 </div>
-                {exposure.length > 0 && (
-                  <span className="text-[10px] text-amber-700">{exposure.length} open below</span>
-                )}
-              </div>
-              <div className="space-y-1">
-                {children.length === 0 && <p className="text-[11px] text-slate-400">No sub-tasks yet.</p>}
-                {children.map((c) => {
-                  const cStatus = statusOf(c.id, graph)
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => close(c.id)}
-                      className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left transition hover:bg-slate-50"
-                    >
-                      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
-                      <span className="shrink-0 font-mono text-[10px] font-medium text-indigo-600">{refs.get(c.id)}</span>
-                      <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                      {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
-                      <span className="flex shrink-0 items-center gap-1.5">
-                        <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200" title={`${rollupOf(c.id, graph).percent}% complete`}>
-                          <span
-                            className="block h-full bg-indigo-500 transition-all"
-                            style={{ width: `${rollupOf(c.id, graph).percent}%` }}
-                          />
+                <div className="space-y-0.5">
+                  {checklist.length === 0 && <p className="text-[11px] text-slate-400">No sub-tasks yet.</p>}
+                  {checklist.map((entry) => (
+                    <div key={entry.id} className="group flex items-center gap-2 rounded px-1 py-1 transition hover:bg-slate-100">
+                      <button onClick={() => toggleChecklistEntry(item.id, entry.id)} title={entry.done ? 'Untick' : 'Tick'} className="shrink-0">
+                        <span
+                          className={cn(
+                            'flex h-3.5 w-3.5 items-center justify-center rounded border transition',
+                            entry.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white',
+                          )}
+                        >
+                          {entry.done && <Check size={10} />}
                         </span>
-                        <span className="w-7 text-right font-mono text-[10px] tabular-nums text-slate-500">
-                          {rollupOf(c.id, graph).percent}%
-                        </span>
+                      </button>
+                      <span className={cn('min-w-0 flex-1 text-[12px]', entry.done ? 'text-slate-400 line-through' : 'text-slate-700')}>
+                        {entry.text}
                       </span>
-                      <span className={cn('shrink-0 rounded px-1.5 py-px text-[10px] font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
-                        {STAGE_LABELS[rollupOf(c.id, graph).bucket]}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="mt-1.5 flex items-center gap-1">
-                <input
-                  value={newSubtask}
-                  onChange={(e) => setNewSubtask(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { addSubtask() }
-                  }}
-                  placeholder="Add a sub-task…"
-                  className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
-                />
-                <button
-                  disabled={newSubtask.trim().length === 0}
-                  onClick={addSubtask}
-                  className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
-                >
-                  <Plus size={11} /> Add sub-task
-                </button>
-              </div>
-            </section>
+                      <button
+                        onClick={() => removeChecklistEntry(item.id, entry.id)}
+                        title="Remove"
+                        className="shrink-0 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-rose-500"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-1.5 flex items-center gap-1">
+                  <input
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addSubtask()
+                    }}
+                    placeholder="Add a sub-task…"
+                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  <button
+                    disabled={newSubtask.trim().length === 0}
+                    onClick={addSubtask}
+                    className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+                  >
+                    <Plus size={11} /> Add
+                  </button>
+                </div>
+              </section>
+            )}
 
           </div>
         )}
@@ -822,6 +821,45 @@ export function ItemPanel({ itemId }: Props) {
                   </button>
                 </div>
               </div>
+            </section>
+
+            {/* Children — the items below this one. Real work, with its own status and its
+                own home on a board; a card's own sub-tasks are a checklist, not children. */}
+            <section>
+              <div className="mb-1.5 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <SectionLabel>Children — the items below this one</SectionLabel>
+                  {children.length > 0 && (
+                    <span className="rounded-full bg-slate-200 px-1.5 text-[10px] font-bold tabular-nums text-slate-500">{children.length}</span>
+                  )}
+                </div>
+                {exposure.length > 0 && <span className="text-[10px] text-amber-700">{exposure.length} open below</span>}
+              </div>
+              <div className="space-y-1">
+                {children.length === 0 && <p className="text-[11px] text-slate-400">No children.</p>}
+                {children.map((c) => {
+                  const cStatus = statusOf(c.id, graph)
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => close(c.id)}
+                      className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left transition hover:bg-slate-50"
+                    >
+                      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
+                      <span className="shrink-0 font-mono text-[10px] font-medium text-indigo-600">{refs.get(c.id)}</span>
+                      <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
+                      {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">archived</span>}
+                      <span className="shrink-0 text-[10px] text-slate-400">{boardOf(c.id)?.name ?? '—'}</span>
+                      <span className={cn('shrink-0 rounded px-1.5 py-px text-[10px] font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
+                        {STAGE_LABELS[rollupOf(c.id, graph).bucket]}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-1 text-[10px] text-slate-400">
+                A child is an item of its own — set its parent from its own panel, or link a team initiative below.
+              </p>
             </section>
 
             {/* Links — dependencies between two items */}

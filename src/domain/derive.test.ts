@@ -18,6 +18,9 @@ import {
   openDependenciesOf,
   rollupOf,
   statusOf,
+  withChecklistEntry,
+  withToggledChecklistEntry,
+  withoutChecklistEntry,
   uncommittedBelow,
   waitsOn,
   type Graph,
@@ -349,5 +352,30 @@ describe('checklist — sub-tasks inside a card', () => {
       { id: 'c', text: 'Three', done: true },
     ])
     expect(checklistProgress(c)).toEqual({ done: 2, total: 3 })
+  })
+
+  it('adds, ticks and removes an entry without touching the others', () => {
+    const start = card([{ id: 'a', text: 'One', done: true }])
+    const added = withChecklistEntry(start, { id: 'b', text: 'Two', done: false })
+    expect(added.checklist).toEqual([
+      { id: 'a', text: 'One', done: true },
+      { id: 'b', text: 'Two', done: false },
+    ])
+
+    // Ticking is a toggle, and it leaves the entries it was not asked about alone.
+    const ticked = withToggledChecklistEntry(added, 'b')
+    expect(ticked.checklist?.[1].done).toBe(true)
+    expect(ticked.checklist?.[0]).toEqual({ id: 'a', text: 'One', done: true })
+    expect(withToggledChecklistEntry(ticked, 'b').checklist?.[1].done).toBe(false)
+
+    expect(withoutChecklistEntry(ticked, 'a').checklist).toEqual([{ id: 'b', text: 'Two', done: true }])
+
+    // Every edit tolerates a card that has no checklist yet, and an entry that is not there.
+    expect(withChecklistEntry(card(), { id: 'x', text: 'X', done: false }).checklist).toHaveLength(1)
+    expect(withoutChecklistEntry(card(), 'nope').checklist).toEqual([])
+    expect(withToggledChecklistEntry(card(), 'nope').checklist).toEqual([])
+
+    // ...and none of them mutates what it was given.
+    expect(start.checklist).toEqual([{ id: 'a', text: 'One', done: true }])
   })
 })
