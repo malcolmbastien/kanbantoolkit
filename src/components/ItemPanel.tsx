@@ -184,8 +184,6 @@ export function ItemPanel({ itemId }: Props) {
       lineage.flatMap((n) => attributedObjectives(n.id, edges, objectives)).map((o) => [o.id, o]),
     ).values(),
   ]
-  // An initiative owns its OKRs; a card only inherits them through the lineage.
-  const impactObjectives = isInitiative ? attributed : lineageObjectives
   const focusOn = lensId === item.id
 
   // Lineage rows — the OKRs first, then the chain top-down. Rendered with a
@@ -594,53 +592,49 @@ export function ItemPanel({ itemId }: Props) {
               </Field>
             </div>
 
-            {/* Strategic impact — an initiative owns its OKRs; a card inherits them */}
-            <section className="rounded-lg bg-indigo-50/70 p-2.5 ring-1 ring-indigo-100">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1 text-micro font-semibold uppercase tracking-wide text-indigo-700">
-                  <TrendingUp size={12} /> Strategic impact
-                </span>
-                {!isInitiative && (
-                  <span className="text-meta text-indigo-500" title="OKRs attach to strategic initiatives — a card inherits the mapping">
-                    inherited
+            {/* Strategic impact — OKRs attach to initiatives, and to nothing else. A card is
+                not shown its initiative's OKRs either: relating work to strategy is the
+                initiative's job, and asking a team to do it card by card is the thing
+                initiatives exist to save them from. */}
+            {isInitiative && (
+                <section className="rounded-lg bg-indigo-50/70 p-2.5 ring-1 ring-indigo-100">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-micro font-semibold uppercase tracking-wide text-indigo-700">
+                    <TrendingUp size={12} /> Strategic impact
                   </span>
-                )}
-              </div>
+                </div>
 
-              {impactObjectives.length === 0 ? (
-                <p className="mt-1 text-meta text-indigo-700/70">
-                  {isInitiative ? 'No OKR maps to this initiative yet.' : 'No OKR maps above this card.'}
-                </p>
-              ) : (
-                <div className="mt-1.5 space-y-2">
-                  {impactObjectives.map((o) => {
-                    const krs = keyResults.filter((k) => k.objectiveId === o.id)
-                    return (
-                      <div key={o.id} className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="min-w-0 truncate text-meta font-medium text-slate-700">{o.title}</span>
-                          <span className="shrink-0 text-meta text-slate-600">{o.period}</span>
-                        </div>
-                        {krs.length === 0 && <p className="text-meta text-slate-600">No key results yet.</p>}
-                        {krs.map((k) => (
-                          <div key={k.id} className="space-y-0.5">
-                            <div className="flex items-center justify-between gap-2 text-meta">
-                              <span className="min-w-0 truncate text-slate-600">{k.title}</span>
-                              <span className="shrink-0 font-semibold tabular-nums text-slate-600">
-                                {k.progress !== undefined ? `${k.progress}%` : '—'}
-                              </span>
-                            </div>
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
-                              <div className="h-full bg-indigo-500 transition-all" style={{ width: `${k.progress ?? 0}%` }} />
-                            </div>
-                            {(k.target || k.current) && (
-                              <div className="text-meta text-slate-600">
-                                {k.current ? `now ${k.current}` : ''}{k.current && k.target ? ' · ' : ''}{k.target ? `target ${k.target}` : ''}
-                              </div>
-                            )}
+                {attributed.length === 0 ? (
+                  <p className="mt-1 text-meta text-indigo-700/70">No OKR maps to this initiative yet.</p>
+                ) : (
+                  <div className="mt-1.5 space-y-2">
+                    {attributed.map((o) => {
+                      const krs = keyResults.filter((k) => k.objectiveId === o.id)
+                      return (
+                        <div key={o.id} className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate text-meta font-medium text-slate-700">{o.title}</span>
+                            <span className="shrink-0 text-meta text-slate-600">{o.period}</span>
                           </div>
-                        ))}
-                        {isInitiative && (
+                          {krs.length === 0 && <p className="text-meta text-slate-600">No key results yet.</p>}
+                          {krs.map((k) => (
+                            <div key={k.id} className="space-y-0.5">
+                              <div className="flex items-center justify-between gap-2 text-meta">
+                                <span className="min-w-0 truncate text-slate-600">{k.title}</span>
+                                <span className="shrink-0 font-semibold tabular-nums text-slate-600">
+                                  {k.progress !== undefined ? `${k.progress}%` : '—'}
+                                </span>
+                              </div>
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
+                                <div className="h-full bg-indigo-500 transition-all" style={{ width: `${k.progress ?? 0}%` }} />
+                              </div>
+                              {(k.target || k.current) && (
+                                <div className="text-meta text-slate-600">
+                                  {k.current ? `now ${k.current}` : ''}{k.current && k.target ? ' · ' : ''}{k.target ? `target ${k.target}` : ''}
+                                </div>
+                              )}
+                            </div>
+                          ))}
                           <button
                             onClick={() => setAttribution(item.id, o.id, false)}
                             className="text-meta text-indigo-500 hover:text-indigo-700"
@@ -648,34 +642,32 @@ export function ItemPanel({ itemId }: Props) {
                           >
                             unlink
                           </button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {isInitiative && (
-                <div className="mt-2 border-t border-indigo-100 pt-1.5">
-                  <span className="text-micro uppercase tracking-wide text-indigo-500">Map an OKR</span>
-                  <div className="mt-1 space-y-0.5">
-                    {objectives.map((o) => {
-                      const on = attributed.some((a) => a.id === o.id)
-                      return (
-                        <label key={o.id} className="flex items-center gap-2 rounded bg-white/70 px-2 py-1">
-                          <input type="checkbox" checked={on} onChange={(e) => setAttribution(item.id, o.id, e.target.checked)} />
-                          <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{o.title}</span>
-                          <span className="shrink-0 text-meta text-slate-600">{o.period}</span>
-                        </label>
+                        </div>
                       )
                     })}
                   </div>
-                  {attributed.length > 1 && (
-                    <p className="mt-1 text-meta text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
-                  )}
+                )}
+
+                <div className="mt-2 border-t border-indigo-100 pt-1.5">
+                    <span className="text-micro uppercase tracking-wide text-indigo-500">Map an OKR</span>
+                    <div className="mt-1 space-y-0.5">
+                      {objectives.map((o) => {
+                        const on = attributed.some((a) => a.id === o.id)
+                        return (
+                          <label key={o.id} className="flex items-center gap-2 rounded bg-white/70 px-2 py-1">
+                            <input type="checkbox" checked={on} onChange={(e) => setAttribution(item.id, o.id, e.target.checked)} />
+                            <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{o.title}</span>
+                            <span className="shrink-0 text-meta text-slate-600">{o.period}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {attributed.length > 1 && (
+                      <p className="mt-1 text-meta text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
+                    )}
                 </div>
-              )}
-            </section>
+                </section>
+            )}
 
             {/* Product specification — the description, rendered as markdown */}
             <section>
