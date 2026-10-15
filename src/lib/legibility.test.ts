@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CONTRAST_FLOOR, chipColors, contrastRatio } from './colors'
+import { CONTRAST_FLOOR, chipColors, contrastRatio, tintOn } from './colors'
 import { cn } from './utils'
 import { createSeed } from '../domain/seed'
 
@@ -22,6 +22,15 @@ describe('legibility', () => {
         .map(({ n }) => `${file}:${n}`),
     )
     expect(offenders).toEqual([])
+  })
+
+  it('composites a card tint to a colour, not a filter', () => {
+    // The card face was the type colour at 10% alpha, so it took the colour of whatever column
+    // it sat in — the same card read slate in Backlog, indigo in In Progress and emerald in
+    // Done. A tint has to be a colour.
+    const tint = tintOn('#0ea5e9', 0.1)
+    expect(tint).toBe('#e7f6fd')
+    expect(tint).not.toMatch(/rgba?\(/)
   })
 
   it('keeps a scale size when a colour is merged alongside it', () => {

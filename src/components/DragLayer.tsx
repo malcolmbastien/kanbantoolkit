@@ -30,9 +30,7 @@ export function DragLayer({
   return createPortal(
     <div
       data-drag-layer
-      // The card's face is a 10% tint, which reads as a tint only over the white it usually
-      // sits on. On its own it would be see-through, so the lift carries that white with it.
-      className="pointer-events-none fixed z-[100] origin-top-left rotate-2 rounded-md bg-white drop-shadow-2xl"
+      className="pointer-events-none fixed z-[100] origin-top-left rotate-2 rounded-md drop-shadow-2xl"
       style={{ left: x - grabX, top: y - grabY, width, height }}
       dangerouslySetInnerHTML={{ __html: html }}
     />,

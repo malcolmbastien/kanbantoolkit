@@ -1,6 +1,6 @@
 import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BUCKET_DOT, chipColors, hexToRgba } from '@/lib/colors'
+import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
 import { PriorityBadge } from './PriorityBadge'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
@@ -378,7 +378,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       {...dragProps}
       data-card-id={item.id}
       style={{
-        backgroundColor: hexToRgba(type.color, 0.1),
+        backgroundColor: tintOn(type.color, 0.1),
         borderLeftColor: type.color,
         // Lifted: out of the lane's flow, so the cards below close up behind it — but still
         // mounted, because `dragend` has to reach a card that is in the document.

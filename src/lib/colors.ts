@@ -1,11 +1,32 @@
 import type { BoardBand, Objective, Stage } from '@/domain/types'
 
-export function hexToRgba(hex: string, alpha: number): string {
+/*
+ * Colour primitives. `mix` and `tintOn` turn a colour into another colour; nothing here leaves
+ * an alpha channel behind, because a translucent surface is a filter over whatever is behind it
+ * rather than a colour of its own.
+ */
+
+const channels = (hex: string) => {
   const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
+}
+
+const toHex = (rgb: number[]) => '#' + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')
+
+const mix = (hex: string, onto: string, amount: number) =>
+  toHex(channels(hex).map((c, i) => c * (1 - amount) + channels(onto)[i] * amount))
+
+/**
+ * A colour as a solid tint over white.
+ *
+ * The card face used to be the type colour at 10% alpha, which is not a colour at all — it is
+ * a filter over whatever happens to be behind it. The same card therefore came out slate-tinted
+ * in Backlog, indigo-tinted in In Progress and emerald-tinted in Done: a team reading its own
+ * board was reading the column, not the card. Compositing it here means a card is the colour it
+ * says it is, wherever it sits.
+ */
+export function tintOn(hex: string, alpha: number, base = '#ffffff'): string {
+  return mix(hex, base, 1 - alpha)
 }
 
 export const DEP_STATE_STYLES: Record<string, { label: string; className: string }> = {
@@ -27,13 +48,6 @@ export const OBJECTIVE_STATUS_STYLES: Record<Objective['status'], string> = {
   scored: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
 }
 
-const channels = (hex: string) => {
-  const h = hex.replace('#', '')
-  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
-}
-
-const toHex = (rgb: number[]) => '#' + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')
-
 /** WCAG relative luminance. */
 const luminance = (hex: string) => {
   const [r, g, b] = channels(hex).map((c) => {
@@ -48,9 +62,6 @@ export function contrastRatio(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi + 0.05) / (lo + 0.05)
 }
-
-const mix = (hex: string, onto: string, amount: number) =>
-  toHex(channels(hex).map((c, i) => c * (1 - amount) + channels(onto)[i] * amount))
 
 /** The contrast a person can read comfortably: WCAG AA for normal text. */
 export const CONTRAST_FLOOR = 4.5
