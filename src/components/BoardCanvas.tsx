@@ -434,7 +434,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
-              lifted={c.id === ctx.drag.itemId}
               drawLift
               onDragStateChange={ctx.drag.lift}
               lens={lensRole(c.id, ctx.lensId, graph)}
@@ -613,8 +612,25 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   useEffect(() => {
     if (!lifting) return
     const move = (e: DragEvent) => setLift((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d))
+    const ended = () => setLift(null)
+    // A drag holds the button down, so a mouse move with it released means the drag is over
+    // however it ended. `dragend` is the normal signal, but a drag whose source has left the
+    // document has no node for it to bubble from — and a card must never be left in the air,
+    // so this is the net under it. The button check matters: a stray move *during* a drag must
+    // not be mistaken for the end of one.
+    const released = (e: MouseEvent) => {
+      if (e.buttons === 0) ended()
+    }
     window.addEventListener('dragover', move)
-    return () => window.removeEventListener('dragover', move)
+    window.addEventListener('dragend', ended)
+    window.addEventListener('drop', ended)
+    window.addEventListener('mousemove', released)
+    return () => {
+      window.removeEventListener('dragover', move)
+      window.removeEventListener('dragend', ended)
+      window.removeEventListener('drop', ended)
+      window.removeEventListener('mousemove', released)
+    }
   }, [lifting])
 
   const boardPlacements = placements
@@ -648,6 +664,9 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       // intercept. Landing at a position is then a plain reorder inside the target lane.
       if (effectiveLane.get(itemId) !== laneId) onMove?.(itemId, boardId, laneId)
       moveCardToIndex(itemId, boardId, laneId, index)
+      // The drop is the end of the drag as far as the board is concerned; `dragend` follows
+      // and is a no-op. Doing it here too means the card can never be left in the air.
+      drag.lift(null)
     },
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
     onAddCard: (laneId) => {

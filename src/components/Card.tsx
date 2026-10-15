@@ -68,8 +68,6 @@ interface Props {
    * lifted card itself. See `CardDrag`.
    */
   onDragStateChange?: (drag: CardDrag | null) => void
-  /** In the air: taken out of the lane's flow, but left mounted. See DropColumn. */
-  lifted?: boolean
   /**
    * The surface draws the lifted card itself (see `DragLayer`). Only then may the browser's
    * own drag image be suppressed — there has to be exactly one card in the air, and without
@@ -126,7 +124,7 @@ function suppressNativeDragImage(e: React.DragEvent) {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, lifted, drawLift }: Props) {
+export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, drawLift }: Props) {
   const dragProps =
     draggable && !locked
       ? {
@@ -393,13 +391,18 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
     <div
       {...dragProps}
       data-card-id={item.id}
-      {...(lifted ? { 'data-lifted': '' } : {})}
       style={{
         backgroundColor: hexToRgba(type.color, 0.1),
         borderLeftColor: type.color,
         // Lifted: out of the lane's flow, so the cards below close up behind it — but still
         // mounted, because `dragend` has to reach a card that is in the document.
-        ...(lifted ? { position: 'absolute' as const, visibility: 'hidden' as const } : {}),
+        //
+        // These two properties and nothing more. A drag source that the browser can no longer
+        // hit-test cancels the drag on the spot — `dragstart` is followed immediately by
+        // `dragend` and no drop is ever offered. `visibility: hidden`, `pointer-events: none`,
+        // a negative `z-index` and a collapsed box all do exactly that; `opacity: 0` does not,
+        // because it changes only what is painted. Transparent is not the same as gone.
+
       }}
       onClick={(e) => {
         e.stopPropagation()

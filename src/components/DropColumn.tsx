@@ -40,17 +40,16 @@ export function DropColumn({
   onDrop: (itemId: string, laneId: string, index: number) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  // The lifted card is still rendered — it is only out of the flow — so the gap is counted
-  // among the cards that are left, which is the list a drop lands in.
+  // The lifted card has left the lane — it is drawn in the air by DragLayer — so the gap is
+  // counted among the cards that are left, which is the list a drop lands in.
   const remaining = draggingId ? items.filter((i) => i.id !== draggingId) : items
-  const positionOf = new Map(remaining.map((item, i) => [item.id, i]))
 
   /**
    * Which gap the pointer is nearest, among the cards that would remain. The placeholder is
    * deliberately not one of them: it is the answer, not an input.
    */
   const indexAt = (clientY: number) => {
-    const els = [...(ref.current?.querySelectorAll<HTMLElement>('[data-card-id]:not([data-lifted])') ?? [])]
+    const els = [...(ref.current?.querySelectorAll<HTMLElement>('[data-card-id]') ?? [])]
     for (let i = 0; i < els.length; i++) {
       const r = els[i].getBoundingClientRect()
       if (clientY < r.top + r.height / 2) return i
@@ -95,15 +94,12 @@ export function DropColumn({
       }}
       className={cn('flex min-h-[96px] flex-1 flex-col gap-1 p-1 transition')}
     >
-      {items.map((item) => {
-        const pos = positionOf.get(item.id)
-        return (
-          <Fragment key={item.id}>
-            {at === pos ? placeholder : null}
-            {item.node}
-          </Fragment>
-        )
-      })}
+      {remaining.map((item, i) => (
+        <Fragment key={item.id}>
+          {at === i ? placeholder : null}
+          {item.node}
+        </Fragment>
+      ))}
       {typeof at === 'number' && at >= remaining.length ? placeholder : null}
       {footer}
     </div>
