@@ -429,7 +429,8 @@ export function ItemPanel({ itemId }: Props) {
       </div>
 
       {/* ---- Body ---------------------------------------------------------------- */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-[12px]">
+      {/* The panel is the one place a card's own words are worth copying, so it opts back in. */}
+      <div className="min-h-0 flex-1 select-text overflow-y-auto px-3 py-3 text-[12px]">
         {tab === 'details' && (
           <div className="space-y-4">
             {/* Property grid — the four things you set while working */}

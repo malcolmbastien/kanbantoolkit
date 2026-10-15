@@ -16,6 +16,24 @@ body {
   @apply bg-slate-200 text-slate-800 antialiased;
 }
 
+/*
+ * The board is an application, not a document. Selecting a lane header, a WIP limit, or the
+ * words on a card face is never wanted, and a drag that leaves a trail of highlighted text
+ * behind looks broken. Anything genuinely worth copying opts back in: form fields always, and
+ * the item panel's body, which is where a card's own words live.
+ */
+@layer base {
+  body {
+    @apply select-none;
+  }
+
+  input,
+  textarea,
+  [contenteditable] {
+    @apply select-text;
+  }
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: rgb(203 213 225) transparent;
