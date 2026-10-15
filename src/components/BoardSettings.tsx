@@ -92,7 +92,7 @@ export function BoardSettings() {
       >
         <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
           <Settings size={16} className="text-indigo-600" />
-          <span className="text-sm font-semibold text-slate-800">Board settings</span>
+          <span className="text-title font-semibold text-slate-800">Board settings</span>
           <button onClick={close} className="ml-auto text-slate-600 hover:text-slate-600" title="Close">
             <X size={16} />
           </button>

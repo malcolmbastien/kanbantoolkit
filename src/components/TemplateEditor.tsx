@@ -119,10 +119,10 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
               ariaLabel="Template name"
               onSave={(name) => name.trim() && patch({ name: name.trim() })}
               className="min-w-0"
-              inputClassName="w-56 rounded border border-indigo-300 px-1.5 py-0.5 text-sm font-semibold text-slate-800 outline-none"
+              inputClassName="w-56 rounded border border-indigo-300 px-1.5 py-0.5 text-title font-semibold text-slate-800 outline-none"
             />
           ) : (
-            <span className="text-sm font-semibold text-slate-800">{template.name}</span>
+            <span className="text-title font-semibold text-slate-800">{template.name}</span>
           )}
           <span className="text-meta text-slate-600">
             {editing ? 'editing this design' : 'a board design, not its work'}

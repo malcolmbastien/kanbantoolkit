@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CONTRAST_FLOOR, chipColors, contrastRatio } from './colors'
+import { cn } from './utils'
 import { createSeed } from '../domain/seed'
 
 /**
@@ -21,6 +22,15 @@ describe('legibility', () => {
         .map(({ n }) => `${file}:${n}`),
     )
     expect(offenders).toEqual([])
+  })
+
+  it('keeps a scale size when a colour is merged alongside it', () => {
+    // `cn` is tailwind-merge, which keeps the last class of each group. A size it does not
+    // know is taken for a text colour and dropped as soon as a colour follows — a silent
+    // 12px to 16px, and the reason two counters of the same thing came out different sizes.
+    for (const size of ['text-micro', 'text-meta', 'text-body', 'text-title', 'text-heading']) {
+      expect(cn(size, 'text-slate-600'), size).toBe(`${size} text-slate-600`)
+    }
   })
 
   it('keeps secondary text above the floor on every ground it sits on', () => {

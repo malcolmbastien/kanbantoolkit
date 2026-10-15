@@ -46,7 +46,7 @@ export function TopBar(props: Props) {
         <span className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
         </span>
-        <span className="text-sm font-semibold tracking-tight text-slate-900">Flowline</span>
+        <span className="text-title font-semibold tracking-tight text-slate-900">Flowline</span>
       </button>
 
       {/* Everything below acts on the open board. The workspace is outside that section, so
@@ -57,7 +57,7 @@ export function TopBar(props: Props) {
               bar is tight is the focus chip — which is why focusing no longer wraps the
               bar and shoves the whole screen down. */}
           <div className="flex min-w-0 shrink-0 items-center gap-x-3">
-            <div className="flex items-center gap-1.5 text-meta text-slate-600">
+            <div className="flex items-center gap-1.5 text-meta font-medium text-slate-600">
               Board
               <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
             </div>

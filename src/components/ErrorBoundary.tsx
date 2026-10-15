@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="grid h-full place-items-center bg-slate-100 p-6 text-center">
           <div className="max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
-            <h2 className="text-sm font-semibold text-slate-800">Something went wrong</h2>
+            <h2 className="text-title font-semibold text-slate-800">Something went wrong</h2>
             <p className="mt-1 break-words text-meta text-slate-600">
               {String(this.state.error.message || this.state.error)}
             </p>

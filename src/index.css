@@ -28,6 +28,13 @@ body,
 
 body {
   @apply bg-slate-200 text-slate-800 antialiased;
+
+  /*
+   * The fallback for anything that sets no size of its own. Without it a control that forgot
+   * its size inherits the browser's 16px and comes out *larger* than everything around it —
+   * which is how the panel's tabs ended up the biggest text in the panel.
+   */
+  font-size: var(--text-meta);
 }
 
 /*

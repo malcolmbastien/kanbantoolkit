@@ -259,7 +259,7 @@ export function ItemPanel({ itemId }: Props) {
       {/* ---- Header: breadcrumb, actions, title, tabs ------------------------------ */}
       <div className="shrink-0 space-y-2 border-b border-slate-200 bg-white px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <nav className="flex min-w-0 items-center gap-1 text-micro text-slate-600">
+          <nav className="flex min-w-0 items-center gap-1 text-meta text-slate-600">
             {[...lineage].reverse().slice(0, 3).map((node) => (
               <span key={node.id} className="flex min-w-0 items-center gap-1">
                 <button
@@ -298,7 +298,7 @@ export function ItemPanel({ itemId }: Props) {
         {moreOpen && (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
             {typeIsFixed ? (
-              <p className="text-micro text-slate-600">
+              <p className="text-meta text-slate-600">
                 {isInitiative
                   ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
                   : 'Type is fixed. Sub-task belongs to the system rather than to you — a card\'s sub-tasks are a checklist, not items.'}
@@ -360,16 +360,16 @@ export function ItemPanel({ itemId }: Props) {
             >
               {type.name}
             </span>
-            <span className="rounded bg-slate-100 px-1.5 py-px font-mono text-micro font-semibold text-slate-600">
+            <span className="rounded bg-slate-100 px-1.5 py-px font-mono text-meta font-semibold text-slate-600">
               {refs.get(item.id)}
             </span>
-            <span className="rounded bg-indigo-50 px-1.5 py-px text-micro font-medium text-indigo-600" title="Where this card sits">
+            <span className="rounded bg-indigo-50 px-1.5 py-px text-meta font-medium text-indigo-600" title="Where this card sits">
               {boards.find((b) => b.id === boardId)?.name ?? 'Board'}
             </span>
             {item.blocked ? (
               <button
                 onClick={() => unblockItem(item.id)}
-                className="ml-auto flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-micro font-semibold text-white hover:bg-rose-700"
+                className="ml-auto flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-meta font-semibold text-white hover:bg-rose-700"
               >
                 <Ban size={11} /> Unblock
               </button>
@@ -377,7 +377,7 @@ export function ItemPanel({ itemId }: Props) {
               <button
                 onClick={() => setBlockOpen((o) => !o)}
                 className={cn(
-                  'ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-micro font-semibold transition',
+                  'ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-meta font-semibold transition',
                   blockOpen ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-600',
                 )}
               >
@@ -565,7 +565,7 @@ export function ItemPanel({ itemId }: Props) {
                     placeholder="—"
                     className="w-12 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
                   />
-                  <span className="text-micro text-slate-600">pts</span>
+                  <span className="text-meta text-slate-600">pts</span>
                 </div>
               </Field>
 
@@ -601,7 +601,7 @@ export function ItemPanel({ itemId }: Props) {
                   <TrendingUp size={12} /> Strategic impact
                 </span>
                 {!isInitiative && (
-                  <span className="text-micro text-indigo-500" title="OKRs attach to strategic initiatives — a card inherits the mapping">
+                  <span className="text-meta text-indigo-500" title="OKRs attach to strategic initiatives — a card inherits the mapping">
                     inherited
                   </span>
                 )}
@@ -619,12 +619,12 @@ export function ItemPanel({ itemId }: Props) {
                       <div key={o.id} className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="min-w-0 truncate text-meta font-medium text-slate-700">{o.title}</span>
-                          <span className="shrink-0 text-micro text-slate-600">{o.period}</span>
+                          <span className="shrink-0 text-meta text-slate-600">{o.period}</span>
                         </div>
-                        {krs.length === 0 && <p className="text-micro text-slate-600">No key results yet.</p>}
+                        {krs.length === 0 && <p className="text-meta text-slate-600">No key results yet.</p>}
                         {krs.map((k) => (
                           <div key={k.id} className="space-y-0.5">
-                            <div className="flex items-center justify-between gap-2 text-micro">
+                            <div className="flex items-center justify-between gap-2 text-meta">
                               <span className="min-w-0 truncate text-slate-600">{k.title}</span>
                               <span className="shrink-0 font-semibold tabular-nums text-slate-600">
                                 {k.progress !== undefined ? `${k.progress}%` : '—'}
@@ -634,7 +634,7 @@ export function ItemPanel({ itemId }: Props) {
                               <div className="h-full bg-indigo-500 transition-all" style={{ width: `${k.progress ?? 0}%` }} />
                             </div>
                             {(k.target || k.current) && (
-                              <div className="text-micro text-slate-600">
+                              <div className="text-meta text-slate-600">
                                 {k.current ? `now ${k.current}` : ''}{k.current && k.target ? ' · ' : ''}{k.target ? `target ${k.target}` : ''}
                               </div>
                             )}
@@ -643,7 +643,7 @@ export function ItemPanel({ itemId }: Props) {
                         {isInitiative && (
                           <button
                             onClick={() => setAttribution(item.id, o.id, false)}
-                            className="text-micro text-indigo-500 hover:text-indigo-700"
+                            className="text-meta text-indigo-500 hover:text-indigo-700"
                             title="Unlink this OKR"
                           >
                             unlink
@@ -665,13 +665,13 @@ export function ItemPanel({ itemId }: Props) {
                         <label key={o.id} className="flex items-center gap-2 rounded bg-white/70 px-2 py-1">
                           <input type="checkbox" checked={on} onChange={(e) => setAttribution(item.id, o.id, e.target.checked)} />
                           <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{o.title}</span>
-                          <span className="shrink-0 text-micro text-slate-600">{o.period}</span>
+                          <span className="shrink-0 text-meta text-slate-600">{o.period}</span>
                         </label>
                       )
                     })}
                   </div>
                   {attributed.length > 1 && (
-                    <p className="mt-1 text-micro text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
+                    <p className="mt-1 text-meta text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
                   )}
                 </div>
               )}
@@ -688,7 +688,7 @@ export function ItemPanel({ itemId }: Props) {
                       <button
                         key={m}
                         onClick={() => setShowPreview(m === 'Preview')}
-                        className={cn('rounded px-1.5 py-px text-micro font-medium', on ? 'bg-slate-800 text-white' : 'text-slate-600 hover:text-slate-700')}
+                        className={cn('rounded px-1.5 py-px text-meta font-medium', on ? 'bg-slate-800 text-white' : 'text-slate-600 hover:text-slate-700')}
                       >
                         {m}
                       </button>
@@ -818,7 +818,7 @@ export function ItemPanel({ itemId }: Props) {
                   </li>
                 ))}
               </ol>
-              <p className="mt-1 text-micro text-slate-600">
+              <p className="mt-1 text-meta text-slate-600">
                 {lineageObjectives.length > 0
                   ? 'Top-down: OKR → initiative → this work. Click any step to jump.'
                   : 'Click any step to jump. No OKR maps above this item.'}{' '}
@@ -877,7 +877,7 @@ export function ItemPanel({ itemId }: Props) {
                     <span className="rounded-full bg-slate-200 px-1.5 text-micro font-bold tabular-nums text-slate-600">{children.length}</span>
                   )}
                 </div>
-                {exposure.length > 0 && <span className="text-micro text-amber-700">{exposure.length} open below</span>}
+                {exposure.length > 0 && <span className="text-meta text-amber-700">{exposure.length} open below</span>}
               </div>
               <div className="space-y-1">
                 {children.length === 0 && <p className="text-meta text-slate-600">No children.</p>}
@@ -890,18 +890,18 @@ export function ItemPanel({ itemId }: Props) {
                       className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left transition hover:bg-slate-50"
                     >
                       <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
-                      <span className="shrink-0 font-mono text-micro font-medium text-indigo-600">{refs.get(c.id)}</span>
+                      <span className="shrink-0 font-mono text-meta font-medium text-indigo-600">{refs.get(c.id)}</span>
                       <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                      {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-micro font-semibold text-amber-700">archived</span>}
-                      <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
-                      <span className={cn('shrink-0 rounded px-1.5 py-px text-micro font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
+                      {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-meta font-semibold text-amber-700">archived</span>}
+                      <span className="shrink-0 text-meta text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
+                      <span className={cn('shrink-0 rounded px-1.5 py-px text-meta font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
                         {STAGE_LABELS[rollupOf(c.id, graph).bucket]}
                       </span>
                     </button>
                   )
                 })}
               </div>
-              <p className="mt-1 text-micro text-slate-600">
+              <p className="mt-1 text-meta text-slate-600">
                 A child is an item of its own — set its parent from its own panel, or link a team initiative below.
               </p>
             </section>
@@ -920,13 +920,13 @@ export function ItemPanel({ itemId }: Props) {
                   const state = DEP_STATE_STYLES[dep.state]
                   return (
                     <div key={dep.link.id} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                      <div className="flex items-center gap-1 text-micro text-slate-600"><GitBranch size={10} /> depends on</div>
+                      <div className="flex items-center gap-1 text-meta text-slate-600"><GitBranch size={10} /> depends on</div>
                       <div className="flex items-center gap-2">
                         <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependency.title}</span>
-                        {dep.dependency.archived && <span className="rounded bg-amber-100 px-1 text-micro font-semibold text-amber-700">archived</span>}
-                        <span className={cn('rounded px-1 text-micro font-semibold ring-1', state.className)}>{state.label}</span>
+                        {dep.dependency.archived && <span className="rounded bg-amber-100 px-1 text-meta font-semibold text-amber-700">archived</span>}
+                        <span className={cn('rounded px-1 text-meta font-semibold ring-1', state.className)}>{state.label}</span>
                       </div>
-                      <div className="text-micro text-slate-600">
+                      <div className="text-meta text-slate-600">
                         derived → {dependencyState(dep.dependency.id, dep.dependent.id, graph)}
                       </div>
                     </div>
@@ -934,12 +934,12 @@ export function ItemPanel({ itemId }: Props) {
                 })}
                 {dependents.map((dep) => (
                   <div key={dep.link.id} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                    <div className="flex items-center gap-1 text-micro text-slate-600"><GitBranch size={10} /> depended on by</div>
+                    <div className="flex items-center gap-1 text-meta text-slate-600"><GitBranch size={10} /> depended on by</div>
                     <div className="flex items-center gap-2">
                       <div className="min-w-0 flex-1 truncate text-slate-700">{dep.dependent.title}</div>
-                      {dep.dependent.archived && <span className="rounded bg-amber-100 px-1 text-micro font-semibold text-amber-700">archived</span>}
+                      {dep.dependent.archived && <span className="rounded bg-amber-100 px-1 text-meta font-semibold text-amber-700">archived</span>}
                     </div>
-                    <div className="text-micro text-slate-600">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
+                    <div className="text-meta text-slate-600">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
                   </div>
                 ))}
               </div>
@@ -952,7 +952,7 @@ export function ItemPanel({ itemId }: Props) {
                 </select>
                 <button disabled={!dependencyId} onClick={() => { addDependency(dependencyId, item.id); setDependencyId('') }} className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white disabled:opacity-40">Add link</button>
               </div>
-              <p className="mt-1 text-micro text-slate-600">
+              <p className="mt-1 text-meta text-slate-600">
                 Links connect two items — this one depends on another. They never set the blocked status.
               </p>
             </section>
@@ -973,7 +973,7 @@ export function ItemPanel({ itemId }: Props) {
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
                       <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                      <span className="text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
+                      <span className="text-meta text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
                     </button>
                   ))}
                 </div>
@@ -1005,7 +1005,7 @@ export function ItemPanel({ itemId }: Props) {
                     Create
                   </button>
                 </div>
-                <p className="mt-1 text-micro text-slate-600">
+                <p className="mt-1 text-meta text-slate-600">
                   Creates a team initiative on that board, beneath this one — its cards roll up here.
                 </p>
               </section>
@@ -1033,8 +1033,8 @@ export function ItemPanel({ itemId }: Props) {
                       )}
                     >
                       <span className="min-w-0 flex-1 truncate text-slate-700">{b?.name ?? '—'}</span>
-                      <span className="min-w-0 max-w-[55%] truncate text-micro text-slate-600">{lanePath(lanes, p.laneId).join(' / ')}</span>
-                      {!here && <span className="shrink-0 text-micro text-indigo-500">↗</span>}
+                      <span className="min-w-0 max-w-[55%] truncate text-meta text-slate-600">{lanePath(lanes, p.laneId).join(' / ')}</span>
+                      {!here && <span className="shrink-0 text-meta text-indigo-500">↗</span>}
                     </button>
                   )
                 })}
@@ -1047,7 +1047,7 @@ export function ItemPanel({ itemId }: Props) {
           <section>
             <div className="mb-1.5 flex items-center justify-between">
               <SectionLabel>Activity ({log.length})</SectionLabel>
-              <span className="text-micro text-slate-600">append-only</span>
+              <span className="text-meta text-slate-600">append-only</span>
             </div>
             <div className="space-y-1">
               {log.length === 0 && <p className="text-meta text-slate-600">No events yet.</p>}
@@ -1059,7 +1059,7 @@ export function ItemPanel({ itemId }: Props) {
                       <span className="font-semibold capitalize">{e.kind}</span>
                       {e.note ? ` — ${e.note}` : ''}
                     </div>
-                    <div className="text-micro text-slate-600">{new Date(e.at).toLocaleString()}</div>
+                    <div className="text-meta text-slate-600">{new Date(e.at).toLocaleString()}</div>
                   </div>
                 </div>
               ))}
@@ -1096,7 +1096,7 @@ export function ItemPanel({ itemId }: Props) {
             </button>
           </div>
         </div>
-        <div className="flex items-center justify-between px-1 text-micro text-slate-600">
+        <div className="flex items-center justify-between px-1 text-meta text-slate-600">
           <span>Enter to send</span>
           <span>Markdown supported</span>
         </div>
@@ -1146,5 +1146,5 @@ function Field({ label, children, className }: { label: string; children: React.
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="mb-1.5 text-meta font-semibold uppercase tracking-wide text-slate-600">{children}</div>
+  return <div className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-slate-600">{children}</div>
 }

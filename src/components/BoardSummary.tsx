@@ -297,7 +297,7 @@ function Cell({
         {/* Left slot is empty — the grid keeps the name truly centred — while the WIP count
             and any edit controls are pinned right. */}
         <span />
-        <span className={cn('text-center font-bold uppercase leading-tight tracking-wide', primary ? 'text-meta' : 'text-micro')}>
+        <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
           {lane.name}
         </span>
         <span className="flex items-center justify-end gap-1">
