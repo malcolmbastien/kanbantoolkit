@@ -875,7 +875,7 @@
         "id": 57,
         "title": "Timeline view of a board's initiatives workflow",
         "description": "P1: a board view, like the dashboard, laying the board's initiatives out over time by their target start and end dates.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "A new view toggled from the TopBar alongside Dashboard and Objectives, addressable as `?board=<id>&view=timeline` and linked from the board workspace the way the dashboard now is. Rows are the board's local top-level initiatives — the same set `ManagementDashboard` and `BoardSummary` compute — so the surfaces cannot disagree. Bars span `targetStartDate` to `targetEndDate`; an initiative with neither date goes to an 'unscheduled' tray rather than being placed at an invented date, and one with a single date is shown as a milestone marker. Bar colour comes from the derived status bucket (`rollupOf`), so a bar cannot claim a stage the work beneath it does not have — a bar's colour is a fact, not a setting. Include a today marker and period headers. Horizontally scrollable; no zoom and no drag-to-reschedule in this slice, since that would be a write and belongs with an explicit action. Clicking a bar opens the item panel. Initiatives only — this is the external representation, not cards. Out of scope: target-vs-actual, because no actual exists.",
@@ -933,8 +933,8 @@
               3,
               4
             ],
-            "details": "Execute the project's complete verification pipeline: `npm run build`, `npm run lint`, and `vitest`. Run the existing headless Chrome + CDP probe pattern against a board URL such as `?board=<id>&view=timeline`, verifying the view renders initiatives, period headers, today marker, unscheduled tray, and bar colours. Add or adjust timeline DOM hooks if the existing probes cannot target the right elements. Confirm no persisted-shape migration was introduced and that the timeline shows the same top-level initiatives as the dashboard and board summary.",
-            "status": "pending",
+            "details": "Execute the project's complete verification pipeline: `npm run build`, `npm run lint`, and `vitest`. Run the existing headless Chrome + CDP probe pattern against a board URL such as `?board=<id>&view=timeline`, verifying the view renders initiatives, period headers, today marker, unscheduled tray, and bar colours. Add or adjust timeline DOM hooks if the existing probes cannot target the right elements. Confirm no persisted-shape migration was introduced and that the timeline shows the same top-level initiatives as the dashboard and board summary. DELIVERED: the consolidated pass — build, lint, vitest and the no-Google scan all clean; one browser probe covering every board end to end. The set is checked THREE ways per board: the timeline’s header count, the dashboard’s stat, and an independent computation re-derived from the persisted placements/edges in the probe itself (deliberately not the app’s code, so agreement is a real cross-check) — all three agree on all five boards. Persisted shape untouched: version still 27, the persisted keys are exactly persistedSlice’s set, and showTimeline is absent from storage (the store test asserts it too). Tray verified once more end to end by injecting a dateless initiative and removing it. The today marker is present exactly on the boards whose domain contains today and absent on b-atlas’s November-only and b-nova’s axes. No [data-card-id] anywhere in the view. One probe-side lesson, recorded: the first pass printed MISMATCH despite agreeing numbers because the probe compared a string count to a numeric one with === — the app was right, the comparison was type-strict.",
+            "status": "done",
             "testStrategy": "Run all of build, lint, and vitest successfully; browser probe asserts the timeline route renders and exposes the expected initiative IDs, status colours, and unscheduled tray contents. Spot-check the store in the browser to confirm no new persisted fields were added."
           }
         ],
@@ -1076,9 +1076,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T12:03:28.731Z",
+      "lastModified": "2026-10-16T12:06:36.556Z",
       "taskCount": 65,
-      "completedCount": 44,
+      "completedCount": 45,
       "tags": [
         "backlog"
       ],
