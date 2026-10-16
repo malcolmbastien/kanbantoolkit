@@ -165,6 +165,16 @@ export function BoardSummary({
   // it already sits in — so those are the only cells worth highlighting.
 
   /**
+   * Is this initiative on the board being viewed?
+   *
+   * Checked against the placement rather than `initiativeCellOf`, which falls back to a
+   * section's first cell when it finds no placement — so it answers "yes" for an item that is on
+   * a completely different board, which is exactly the case this has to refuse.
+   */
+  const onViewedBoard = (id: string) =>
+    graph.placements.some((p) => p.itemId === id && p.boardId === (viewedBoardId ?? boardId))
+
+  /**
    * The card in the air has left its cell — the lift draws it, not the cell — so the lane shows
    * the result of the drop before it happens rather than after, the same as a card does.
    */
@@ -213,7 +223,7 @@ export function BoardSummary({
           childPickId !== null ||
           // Waiting for a parent, only the initiatives on this board are choices — so on a
           // Program board the bands' initiatives dim and the board's own stay lit.
-          (parentPickId !== null && !initiativeCellOf(c.id, viewedBoardId ?? boardId, graph))
+          (parentPickId !== null && !onViewedBoard(c.id))
         }
         onOpen={(id) => {
           if (justDragged.current) return
@@ -226,7 +236,7 @@ export function BoardSummary({
             // Only the initiatives on the board being viewed are choices. On a Program board
             // that is what keeps a band from parenting another band: the act is a team
             // initiative rolling up to a management one, and this is what makes it that.
-            if (!initiativeCellOf(id, viewedBoardId ?? boardId, graph)) return
+            if (!onViewedBoard(id)) return
             setParent(parentPickId, id)
             cancelParentPick()
             return
