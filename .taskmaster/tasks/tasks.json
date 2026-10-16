@@ -1107,12 +1107,13 @@
         "id": "71",
         "title": "Board legend and board information: a description field and a panel that explains this board",
         "description": "A panel that brings a newcomer from zero to reading the board: what it is, what the colours mean, where the policies live.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Competitor basis: LeanKit's board legend and lane policies; the description field is the board's own voice. Two parts. (1) A DESCRIPTION FIELD on the board \\u2014 persisted, so a persist version bump and a migrate that backfills an empty string; edited from board settings, shown in the legend and plausibly in the workspace. (2) A LEGEND PANEL that explains this board to someone who just arrived, all of it derived from the live graph so it cannot drift: the description; card types with their colours (types are workspace-wide); the four stages and what they mean on this workflow; lane policies gathered in one place (the text already exists per lane \\u2014 this surfaces it); what a WIP limit means here (visual only, never blocks); what band this board is and what that lens shows. Any other useful facts are welcome if derived \\u2014 counts per column, dependency and blocked counts \\u2014 but nothing time-stamped: last-updated was explicitly cut and stays cut. Where the panel lives (board header button, settings, or an info affordance) is a build decision.",
         "testStrategy": "migratePersisted backfills description on a pre-bump payload and preserves an existing one. The legend renders from the graph: renaming a type or editing a policy changes the legend without a second edit. Browser probe: the panel opens from a board, shows the live types/colours/policies, and the description round-trips through a reload.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-16T21:28:55.480Z"
       },
       {
         "id": "72",
@@ -1139,9 +1140,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T21:12:35.125Z",
+      "lastModified": "2026-10-16T21:28:55.480Z",
       "taskCount": 72,
-      "completedCount": 48,
+      "completedCount": 49,
       "tags": [
         "backlog"
       ]
