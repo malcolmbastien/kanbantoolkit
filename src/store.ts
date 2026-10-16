@@ -61,6 +61,8 @@ export interface ViewState {
   showObjectives: boolean
   /** Show the management dashboard for the current board (management boards only). */
   showDashboard: boolean
+  /** Show the timeline view — the board's initiatives laid out over time. */
+  showTimeline: boolean
   /** Show the Archive view (filed-away items) instead of a board. */
   showArchive: boolean
   /** Show the board workspace — every board in the organisation — instead of a board. */
@@ -115,6 +117,8 @@ export interface Actions {
   toggleBoardSettings: () => void
   toggleDashboard: () => void
   setDashboard: (v: boolean) => void
+  toggleTimeline: () => void
+  setTimeline: (v: boolean) => void
   toggleArchive: () => void
   setArchive: (v: boolean) => void
   toggleBoards: () => void
@@ -420,6 +424,7 @@ const initialView: ViewState = {
   showObjectives: false,
   showBoardSettings: false,
   showDashboard: false,
+  showTimeline: false,
   showArchive: false,
   showBoards: false,
   collapsedLanes: {},
@@ -695,7 +700,7 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null }),
+      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null }),
       openItem: (selectedItemId) => set({ selectedItemId, multiSelect: [], ...(selectedItemId ? { showFilters: false } : {}) }),
       setSearch: (search) => set({ search }),
       toggleFilters: () => {
@@ -930,19 +935,22 @@ export const useStore = create<Store>()(
       toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
-      toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false, showArchive: false, showBoards: false }),
+      toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false }),
       toggleBoardSettings: () => set({ showBoardSettings: !get().showBoardSettings }),
-      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showArchive: false, showBoards: false } : {}) }),
-      toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false, showArchive: false, showBoards: false }),
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showArchive: false, showBoards: false } : {}) }),
-      toggleArchive: () => set({ showArchive: !get().showArchive, showObjectives: false, showDashboard: false, showBoards: false }),
-      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showBoards: false } : {}) }),
+      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false } : {}) }),
+      toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false, showTimeline: false, showArchive: false, showBoards: false }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false } : {}) }),
+      toggleTimeline: () => set({ showTimeline: !get().showTimeline, showObjectives: false, showDashboard: false, showArchive: false, showBoards: false }),
+      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false } : {}) }),
+      toggleArchive: () => set({ showArchive: !get().showArchive, showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false } : {}) }),
       toggleBoards: () => {
         const on = !get().showBoards
         set({
           showBoards: on,
           showObjectives: false,
           showDashboard: false,
+          showTimeline: false,
           showArchive: false,
           // The workspace is organisation-level, so a board's side panel has no place in it.
           ...(on ? { showFilters: false, selectedItemId: null } : {}),
@@ -952,7 +960,7 @@ export const useStore = create<Store>()(
         set({
           showBoards: v,
           ...(v
-            ? { showObjectives: false, showDashboard: false, showArchive: false, showFilters: false, selectedItemId: null }
+            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showFilters: false, selectedItemId: null }
             : {}),
         }),
 

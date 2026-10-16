@@ -1314,3 +1314,42 @@ describe('store actions', () => {
     expect(kept.boards.length).toBe(1)
   })
 })
+
+describe('timeline view state', () => {
+  beforeEach(() => s().resetDemo())
+
+  it('setTimeline(true) selects the timeline and closes the other views', () => {
+    s().setDashboard(true)
+    s().setTimeline(true)
+    expect(s().showTimeline).toBe(true)
+    expect(s().showDashboard).toBe(false)
+    expect(s().showObjectives).toBe(false)
+    expect(s().showArchive).toBe(false)
+    expect(s().showBoards).toBe(false)
+  })
+
+  it('toggling is idempotent — twice lands back on the board', () => {
+    s().toggleTimeline()
+    expect(s().showTimeline).toBe(true)
+    s().toggleTimeline()
+    expect(s().showTimeline).toBe(false)
+  })
+
+  it('opening another view closes the timeline', () => {
+    s().setTimeline(true)
+    s().setObjectives(true)
+    expect(s().showTimeline).toBe(false)
+    expect(s().showObjectives).toBe(true)
+  })
+
+  it('selecting a board leaves the timeline', () => {
+    s().setTimeline(true)
+    s().selectBoard('b-atlas')
+    expect(s().showTimeline).toBe(false)
+  })
+
+  it('the timeline flag is view state — never persisted', () => {
+    s().setTimeline(true)
+    expect(persistedSlice(s())).not.toHaveProperty('showTimeline')
+  })
+})

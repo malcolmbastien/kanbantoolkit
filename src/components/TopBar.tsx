@@ -1,4 +1,4 @@
-import { Archive, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, SlidersHorizontal, Target, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, SlidersHorizontal, Target, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,7 @@ interface Props {
   editMode: boolean
   showObjectives: boolean
   showDashboard: boolean
+  showTimeline: boolean
   showArchive: boolean
   showBoards: boolean
   showFilters: boolean
@@ -18,6 +19,7 @@ interface Props {
   onSelectBoard: (id: string) => void
   onToggleObjectives: () => void
   onToggleDashboard: () => void
+  onToggleTimeline: () => void
   onToggleArchive: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
@@ -32,7 +34,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showObjectives, showDashboard, showTimeline, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleTimeline, onToggleArchive, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
@@ -88,6 +90,18 @@ export function TopBar(props: Props) {
             title="Dashboard — a summary view of this board's initiatives"
           >
             <LayoutDashboard size={12} /> Dashboard
+          </button>
+
+          <button
+            onClick={onToggleTimeline}
+            disabled={editMode}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+              showTimeline ? 'border-teal-300 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+            )}
+            title="Timeline — this board's initiatives laid out over time"
+          >
+            <ChartNoAxesGantt size={12} /> Timeline
           </button>
 
           <button

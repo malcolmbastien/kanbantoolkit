@@ -895,8 +895,8 @@
             "title": "Wire timeline view state, URL routing, and navigation entry points",
             "description": "Add timeline as a board view option in UI state, addressable by `?board=<id>&view=timeline`, with TopBar and workspace links like the dashboard.",
             "dependencies": [],
-            "details": "Extend the existing view-selection state slice next to `showArchive`, `showObjectives`, and `showDashboard` with `showTimeline`. Make `?board=<id>&view=timeline` select the timeline view, mirroring existing view routing. Add a TopBar toggle alongside Dashboard and Objectives and add a link from the board workspace equivalent to the dashboard link. Keep the state ephemeral/UI-only; do not add new persisted fields or change the persisted shape, so no version bump or migration is needed.",
-            "status": "pending",
+            "details": "Extend the existing view-selection state slice next to `showArchive`, `showObjectives`, and `showDashboard` with `showTimeline`. Make `?board=<id>&view=timeline` select the timeline view, mirroring existing view routing. Add a TopBar toggle alongside Dashboard and Objectives and add a link from the board workspace equivalent to the dashboard link. Keep the state ephemeral/UI-only; do not add new persisted fields or change the persisted shape, so no version bump or migration is needed. DELIVERED: showTimeline in the store with toggleTimeline/setTimeline mirroring the sibling views — mutually exclusive with objectives, dashboard, archive and boards in BOTH directions (the existing view actions learned to close the timeline too; the store test caught the asymmetry before it shipped). ?view=timeline handled in App alongside the other view params. TopBar toggle after Dashboard, teal accent, ChartNoAxesGantt icon. BoardWorkspace link mirroring the dashboard link (copyable href, click stays in-app). TimelineView is a stub the route resolves to — the frame is 57.3. View state only: persistedSlice excludes the flag, no version bump. 5 store tests; browser-verified route, toggle, mutual exclusion and workspace links. 168 tests.",
+            "status": "done",
             "testStrategy": "Unit-test the store/routing logic: `?view=timeline` selects timeline, toggling updates the view idempotently, and the TopBar/workspace link emits the correct target URL. Assert existing view flags remain unchanged and persisted shape is not touched."
           },
           {
@@ -1056,7 +1056,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T11:32:50.050Z",
+      "lastModified": "2026-10-16T11:41:58.703Z",
       "taskCount": 65,
       "completedCount": 44,
       "tags": [

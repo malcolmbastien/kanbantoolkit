@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, Columns3, CopyPlus, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { TemplateEditor } from './TemplateEditor'
@@ -27,6 +27,7 @@ export function BoardWorkspace() {
   const unarchiveBoard = useStore((s) => s.unarchiveBoard)
   const duplicateBoard = useStore((s) => s.duplicateBoard)
   const setDashboard = useStore((s) => s.setDashboard)
+  const setTimeline = useStore((s) => s.setTimeline)
   const newBoardTemplate = useStore((s) => s.newBoardTemplate)
   const renameBoardTemplate = useStore((s) => s.renameBoardTemplate)
   const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
@@ -322,6 +323,19 @@ export function BoardWorkspace() {
                           title={`Open ${b.name}'s dashboard — a summary of its initiatives`}
                         >
                           <LayoutDashboard size={13} />
+                        </a>
+
+                        <a
+                          href={`?board=${b.id}&view=timeline`}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            selectBoard(b.id)
+                            setTimeline(true)
+                          }}
+                          className="rounded p-1 text-slate-600 transition hover:text-slate-700"
+                          title={`Open ${b.name}'s timeline — its initiatives over time`}
+                        >
+                          <ChartNoAxesGantt size={13} />
                         </a>
 
                         <div className="relative">

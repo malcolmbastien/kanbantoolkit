@@ -10,6 +10,7 @@ import { FilterPanel } from './components/FilterPanel'
 import { ItemPanel } from './components/ItemPanel'
 import { FocusChip } from './components/FocusChip'
 import { ManagementDashboard } from './components/ManagementDashboard'
+import { TimelineView } from './components/TimelineView'
 import { ObjectivesView } from './components/ObjectivesView'
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
@@ -32,7 +33,10 @@ export default function App() {
   const showDashboard = useStore((s) => s.showDashboard)
   const toggleDashboard = useStore((s) => s.toggleDashboard)
   const setDashboard = useStore((s) => s.setDashboard)
+  const toggleTimeline = useStore((s) => s.toggleTimeline)
+  const setTimeline = useStore((s) => s.setTimeline)
   const showArchive = useStore((s) => s.showArchive)
+  const showTimeline = useStore((s) => s.showTimeline)
   const toggleArchive = useStore((s) => s.toggleArchive)
   const showBoards = useStore((s) => s.showBoards)
   const setBoards = useStore((s) => s.setBoards)
@@ -91,6 +95,7 @@ export default function App() {
     }
     if (params.get('view') === 'objectives') setObjectives(true)
     if (params.get('view') === 'dashboard') setDashboard(true)
+    if (params.get('view') === 'timeline') setTimeline(true)
     if (params.get('view') === 'archive') setArchive(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -197,6 +202,7 @@ export default function App() {
         editMode={editMode}
         showObjectives={showObjectives}
         showDashboard={showDashboard}
+        showTimeline={showTimeline}
         showArchive={showArchive}
         showBoards={showBoards}
         showFilters={showFilters}
@@ -204,6 +210,7 @@ export default function App() {
         onSelectBoard={selectBoard}
         onToggleObjectives={toggleObjectives}
         onToggleDashboard={toggleDashboard}
+        onToggleTimeline={toggleTimeline}
         onToggleArchive={toggleArchive}
         onGoToBoards={() => setBoards(true)}
         onToggleFilters={toggleFilters}
@@ -226,6 +233,8 @@ export default function App() {
             <ObjectivesView />
           ) : showDashboard ? (
             <ManagementDashboard boardId={boardId} />
+          ) : showTimeline ? (
+            <TimelineView />
           ) : (
             <BoardView requestMove={requestMove} />
           )}
