@@ -1052,11 +1052,31 @@
         "testStrategy": "The scoping rule first, because it is the whole of the new behaviour: the pick offers the initiatives on the board being viewed and not the band's, so a team initiative can be connected to a management one and two band initiatives cannot be connected to each other. Then that the act produces one decomposition edge and that the rule still holds from this surface — a parent is always an initiative. Then the interaction in the browser with real input: on a Program board a band's initiative has a context menu, the option puts the board in a pick mode with the chip visible, clicking a management initiative sets the parent and closes the mode, clicking another band's initiative does nothing and leaves it open, and Escape leaves the graph unchanged. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-15T12:00:00.000Z"
+      },
+      {
+        "id": 67,
+        "title": "Bug: a card's drop shadow outlives the drop and takes up space on the board",
+        "description": "After dropping a card, the insertion-gap placeholder stays in the lane — above the dropped card, occupying a slot — until the next drag begins.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Reported with a screenshot: after dropping Build signup form into a DONE column, the shadow placeholder sits above it and the card reads as moved below the shadow. ROOT CAUSE: BoardCanvas holds the gap in its own state (dropAt, set by onMove) and nothing ever clears it — onDrop resolves the gap and moves the card but never setDropAt(null), and there is no cleanup when the lift ends. The lane then renders at={ctx.drag.laneId === lane.id ? ctx.drag.index : null} with no guard on a lift being live, so once the gesture is over (lift null, draggingId null, the dropped card back in the list) the placeholder still renders at that index in that lane — above the card that now occupies the slot. It looks intermittent but it is every drop: it heals only when the next drag's first onMove overwrites dropAt. FIX SHAPE: gate the drag preview on the gesture being live — the  const (lift !== null) already exists in BoardCanvas, so ctx.drag's laneId/index should read null when it is not — and clear dropAt in onDrop for hygiene. BoardSummary's dropCell has the same never-cleared shape and needs the same gate, otherwise fixing cards leaves the same latent bug in the initiatives workflow.",
+        "testStrategy": "Browser probe with real input (Input.dispatchMouseEvent — synthetic DragEvents bypass the machinery): press a card, move it over a lane gap, release, then assert no [data-drop-placeholder] remains anywhere in the document, and that the landed lane's children are exactly its cards with no extra block. Repeat for a cross-lane move and a drop back into the origin lane."
+      },
+      {
+        "id": 68,
+        "title": "Bug: initiative drags never show a drop target, where cards show the gap they would land in",
+        "description": "Dragging an initiative gives no live drop feedback at all — no placeholder in the target cell — while a dragged card shows the insertion gap following the pointer.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Reported alongside the stale-card-shadow bug. ROOT CAUSE: a stale closure, not a missing render. BoardSummary's drag callback reads the dragged item as lift?.itemId — but useCardLift registers its pointermove listener once, at pointerdown, with the closure from that render, and never re-registers; lift only becomes non-null DURING the first move. So lift?.itemId is null for the entire drag, cellUnder cannot resolve the dragged initiative's own cell (here = undefined) and bails, dropCell never sets, and the placeholder in Cell never renders. The drop itself still lands correctly because onDrop receives itemId as a parameter rather than reading lift — which is exactly why this survived: the one path that works hides the one that does not. Cards were immune by accident: BoardCanvas's gapUnder reads the DOM (elementFromPoint, data-card-id), no React state, so its onMove closure going stale costs it nothing. FIX SHAPE: useCardLift already knows the itemId — pass it to onMove(itemId, x, y) so no callback ever reads lift through a stale closure; BoardCanvas's onMove ignores the extra argument. DESIGN CONSTRAINT when fixing: initiative cells have no order — a per-position gap inside a cell would be meaningless, so the intended feedback is the cell-level shadow (the placeholder at the top of the target cell, which already exists in Cell behind isTarget), not a card-style insertion gap. Dragging within an initiative's own cell deliberately shows nothing (there is no within-cell reorder to preview); decide whether that silence is right or whether the origin cell should say 'stays here'.",
+        "testStrategy": "Browser probe with real input: press an initiative, move it over another cell of its own section, and assert the target cell renders [data-drop-placeholder] BEFORE release (during pointermove); assert it is gone after release. Also assert a move over a different section's cell and over the origin cell show nothing, and that the drop still moves the initiative."
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T11:41:58.703Z",
+      "lastModified": "2026-10-16T11:47:27.291Z",
       "taskCount": 65,
       "completedCount": 44,
       "tags": [
