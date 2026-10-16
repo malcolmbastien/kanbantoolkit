@@ -22,7 +22,7 @@ import { buildRefs, initiativeCellOf } from '@/domain/board'
 import { isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
-import { ChevronsRight, Columns3, Rows3, Settings } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsRight, Columns3, Rows3, Settings } from 'lucide-react'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
 
@@ -345,9 +345,23 @@ function Cell({
   return (
     <div className={className ?? 'flex min-w-0 flex-1 basis-0 flex-col'} style={style}>
       <div className={head}>
-        {/* Left slot is empty — the grid keeps the name truly centred — while the WIP count
-            and any edit controls are pinned right. */}
-        <span />
+        {/* The same three slots the cards workflow uses: the fold control left, the name
+            centred, the count and any edit controls right. The left slot was a spacer, which is
+            what put this workflow's fold control over on the right with the editing. */}
+        <span className="flex items-center">
+          {isSection && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleCollapse(lane.id)
+              }}
+              className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
+              title={collapsedLanes[lane.id] === true ? 'Expand' : 'Collapse column'}
+            >
+              {collapsedLanes[lane.id] === true ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+            </button>
+          )}
+        </span>
         <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
           {lane.name}
         </span>
@@ -355,17 +369,8 @@ function Cell({
           <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums text-white">
             {count}
           </span>
-          <CtlGroup>
-            {/* A section is this workflow's top-level column, and folding one away is a view
-                action rather than an edit — the cards workflow offers it without edit mode, and
-                so does this. A cell of a split section is not: it shares the width it has. */}
-            {isSection && (
-              <LaneCtl title="Collapse this column" onClick={() => toggleCollapse(lane.id)}>
-                <ChevronsRight size={12} />
-              </LaneCtl>
-            )}
-            {editable && (
-              <>
+          {editable && (
+            <CtlGroup>
               {leaf && (
                 <>
                   <LaneCtl title="Split this cell into columns" onClick={() => splitLane(lane.id, 'columns')}>
@@ -385,9 +390,8 @@ function Cell({
               >
                 <Settings size={12} />
               </LaneCtl>
-              </>
-            )}
-          </CtlGroup>
+            </CtlGroup>
+          )}
         </span>
       </div>
 
