@@ -39,7 +39,7 @@ import {
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { buildRefs, cardTypes } from '@/domain/board'
+import { buildRefs, cardTypes, isInitiativeItem } from '@/domain/board'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
@@ -241,7 +241,11 @@ export function ItemPanel({ itemId }: Props) {
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
 
-  const candidates = items.filter((i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id))
+  // A parent is always an initiative — the same rule the store enforces, offered here so the
+  // select cannot propose something that would be refused.
+  const candidates = items.filter(
+    (i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id) && isInitiativeItem(i, issueTypes),
+  )
   const relatedCount = children.length + dependencies.length + dependents.length + itemPlacements.length
 
 

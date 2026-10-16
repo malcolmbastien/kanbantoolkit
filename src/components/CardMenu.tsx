@@ -14,8 +14,11 @@ import {
   Tag,
   Trash2,
   UserPlus,
+  CornerDownRight,
+  Unlink,
 } from 'lucide-react'
 import { cardTypes, isInitiativeItem } from '@/domain/board'
+import { decompositionParent } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
@@ -50,6 +53,9 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
+  const setParent = useStore((s) => s.setParent)
+  const startParentPick = useStore((s) => s.startParentPick)
+  const edges = useStore((s) => s.edges)
   const setItemsType = useStore((s) => s.setItemsType)
   const addItemsAssignee = useStore((s) => s.addItemsAssignee)
   const removeItemsAssignee = useStore((s) => s.removeItemsAssignee)
@@ -340,6 +346,24 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
           {single ? (only?.title ?? 'Card') : `${count} cards`}
         </div>
 
+        {/* Lineage, for one card: point at the initiative it rolls up to, rather than hunting
+            for it in a list of every item by name. */}
+        {single && (
+          <button className={ITEM} onClick={() => run(() => startParentPick(only!.id))}>
+            <span className="shrink-0 text-slate-600">
+              <CornerDownRight size={13} />
+            </span>
+            <span className="flex-1">Set parent…</span>
+          </button>
+        )}
+        {single && only && decompositionParent(only.id, edges) && (
+          <button className={ITEM} onClick={() => run(() => setParent(only.id, null))}>
+            <span className="shrink-0 text-slate-600">
+              <Unlink size={13} />
+            </span>
+            <span className="flex-1">Remove parent</span>
+          </button>
+        )}
         {header('move', <FolderInput size={13} />, 'Move to lane')}
         {header('priority', <Flag size={13} />, 'Priority', single && only?.priority ? PRIORITY_META[only.priority].label : '')}
         {header('assignee', <UserPlus size={13} />, 'Assignees')}

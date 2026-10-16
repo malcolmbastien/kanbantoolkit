@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, nextRank, placementsInOrder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
+import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
@@ -76,6 +76,12 @@ export interface ViewState {
    * cards that wait on it are highlighted on the board. View-only.
    */
   boundaryId: string | null
+  /**
+   * The card waiting for a parent, if one is. Set from the card's context menu, cleared by
+   * picking an initiative, by Escape, or by clicking anything that is not one. The shape
+   * `boundaryId` already has: one id in the store and the board reads it. View-only.
+   */
+  parentPickId: string | null
   /**
    * Multi-select group (shift+click on cards). Non-empty hides the item panel
    * and shows the bulk-action bar. View-only.
@@ -255,6 +261,9 @@ export interface Actions {
   setLaneDescription: (laneId: string, description: string | undefined) => void
 
   setParent: (childId: string, parentId: string | null) => void
+  /** The card waiting for a parent, if one is. See `parentPickId` in the view state. */
+  startParentPick: (itemId: string) => void
+  cancelParentPick: () => void
   /**
    * A card's checklist — its sub-tasks. They are not work of their own: no placement, no WIP,
    * no status beyond ticked. An initiative has children instead, and they are items.
@@ -409,6 +418,7 @@ const initialView: ViewState = {
   showFilters: false,
   filters: NO_FILTERS,
   boundaryId: null,
+  parentPickId: null,
   multiSelect: [],
   confirm: null,
   wipPrompt: null,
@@ -692,6 +702,9 @@ export const useStore = create<Store>()(
       },
       clearFilters: () => set({ filters: NO_FILTERS }),
       toggleBoundary: (id) => set({ boundaryId: get().boundaryId === id ? null : id }),
+
+      startParentPick: (itemId) => set({ parentPickId: itemId, cardMenu: null }),
+      cancelParentPick: () => set({ parentPickId: null }),
 
       toggleMultiSelect: (id) => {
         const s = get()
@@ -1370,6 +1383,12 @@ export const useStore = create<Store>()(
 
       setParent: (childId, parentId) => {
         const state = get()
+        // A parent is always an initiative. A card rolls up to an outcome, and an initiative's
+        // parent is another initiative, so connections run one way and the type can only fall
+        // going down the tree — which means nothing can ever be its own ancestor. That is a
+        // stronger answer than refusing a subtree, and a simpler one: a loop is not something to
+        // detect, it is something that cannot be written down.
+        if (parentId && !isInitiativeItem(state.items.find((i) => i.id === parentId), state.issueTypes)) return
         let edges = state.edges.filter((e) => !(e.kind === 'decomposition' && e.to === childId))
         if (parentId && parentId !== childId) edges = [...edges, { id: uid(), kind: 'decomposition', from: parentId, to: childId }]
         set({ edges })

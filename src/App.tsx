@@ -112,6 +112,10 @@ export default function App() {
         s.closeCardMenu()
         return
       }
+      if (s.parentPickId) {
+        s.cancelParentPick()
+        return
+      }
       if (s.multiSelect.length > 0) s.clearMultiSelect()
       else if (s.selectedItemId) s.openItem(null)
     }

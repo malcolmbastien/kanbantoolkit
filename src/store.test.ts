@@ -1108,6 +1108,32 @@ describe('store actions', () => {
     expect(migrated.items[1].assignees).toBeUndefined()
   })
 
+  it('a parent is always an initiative', () => {
+    const parentOf = (id: string) => decompositionParent(id, s().edges)
+    // A card rolls up to an initiative.
+    s().setParent('st-email', 'init-signup')
+    expect(parentOf('st-email')).toBe('init-signup')
+
+    // ...and not to another card, which is the edge that would let a loop start.
+    s().setParent('st-email', 'st-signup-form')
+    expect(parentOf('st-email')).toBe('init-signup')
+
+    // An initiative's parent is another initiative, for the same reason.
+    s().setParent('init-signup', 'init-onboarding')
+    expect(parentOf('init-signup')).toBe('init-onboarding')
+    s().setParent('init-signup', 'st-email')
+    expect(parentOf('init-signup')).toBe('init-onboarding')
+
+    // One parent, always: setting another replaces rather than adding.
+    s().setParent('st-email', 'init-onboarding')
+    expect(parentOf('st-email')).toBe('init-onboarding')
+    expect(s().edges.filter((e) => e.kind === 'decomposition' && e.to === 'st-email')).toHaveLength(1)
+
+    // And removing leaves it a root.
+    s().setParent('st-email', null)
+    expect(parentOf('st-email')).toBeUndefined()
+  })
+
   it('a selection moves to another board, into that board\u2019s own drop cell', () => {
     s().selectBoard('b-atlas')
     const nova = leafLanes(s().lanes, 'b-nova', 'cards')

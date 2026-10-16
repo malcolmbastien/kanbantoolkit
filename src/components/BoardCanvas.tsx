@@ -8,10 +8,12 @@ import {
   ChevronUp,
   ChevronsRight,
   Columns3,
+  CornerDownRight,
   CopyPlus,
   Plus,
   Rows3,
   Settings,
+  X,
 } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
@@ -75,6 +77,8 @@ interface Ctx {
   boardItems: Item[]
   /** The focused item, for the lineage highlight. */
   lensId: string | null
+  /** The card waiting for a parent, if any. See `startParentPick`. */
+  parentPickId: string | null
   effectiveLane: Map<string, string>
   /** How long a card has sat in its lane, when the placement knows. See `ageDays`. */
   ageOf: (itemId: string) => number | undefined
@@ -429,7 +433,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               selected={ctx.selectedItemId === c.id}
               boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}
               multi={ctx.multiSelect.includes(c.id)}
-              dimmed={ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)}
+              dimmed={
+                (ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)) ||
+                // Waiting for a parent, only the initiatives are choices.
+                (ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative')
+              }
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
@@ -594,6 +602,9 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const addCard = useStore((s) => s.addCard)
   const moveCardToIndex = useStore((s) => s.moveCardToIndex)
   const lensId = useStore((s) => s.lensId)
+  const parentPickId = useStore((s) => s.parentPickId)
+  const setParent = useStore((s) => s.setParent)
+  const cancelParentPick = useStore((s) => s.cancelParentPick)
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
@@ -735,6 +746,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     interactive,
+    parentPickId,
     drag: {
       itemId: lift?.itemId ?? null,
       laneId: dropAt?.laneId ?? null,
@@ -743,6 +755,17 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     },
     openCard: (itemId) => {
       if (justDragged.current) return
+      // While a card is waiting for a parent, a click names one. Anything that is not an
+      // initiative is not a choice, so the mode stays open rather than closing on a misclick —
+      // and the store would refuse it anyway, which is the rule doing its job.
+      if (parentPickId) {
+        const picked = items.find((i) => i.id === itemId)
+        if (picked && isInitiative(picked.typeId)) {
+          setParent(parentPickId, itemId)
+          cancelParentPick()
+        }
+        return
+      }
       openItem(itemId)
     },
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
@@ -806,6 +829,24 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       {canvas}
       {lift && (
         <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
+      )}
+      {parentPickId && (
+        <div
+          data-parent-pick
+          className="fixed bottom-4 left-4 z-40 flex max-w-[min(26rem,80vw)] items-center gap-2 rounded-lg border border-indigo-400/60 bg-indigo-600 px-3 py-2 text-meta font-medium text-white shadow-2xl"
+        >
+          <CornerDownRight size={13} className="shrink-0" />
+          <span className="min-w-0">
+            <span className="text-indigo-200">Set parent:</span> click the initiative this card rolls up to
+          </span>
+          <button
+            onClick={cancelParentPick}
+            className="shrink-0 rounded p-0.5 text-indigo-100 transition hover:bg-white/15 hover:text-white"
+            title="Cancel"
+          >
+            <X size={12} />
+          </button>
+        </div>
       )}
       {cardMenu && (
         <CardMenu

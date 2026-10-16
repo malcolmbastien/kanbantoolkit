@@ -118,6 +118,9 @@ export function BoardSummary({
 
   /** The initiative currently in flight, if any — `dataTransfer` can't be read on hover. */
   const [dragging, setDragging] = useState<string | null>(null)
+  const parentPickId = useStore((s) => s.parentPickId)
+  const setParent = useStore((s) => s.setParent)
+  const cancelParentPick = useStore((s) => s.cancelParentPick)
   // An initiative may only be rearranged within its own section, and never onto the cell
   // it already sits in — so those are the only cells worth highlighting.
   const dragTarget = dragging ? initiativeCellOf(dragging, boardId, graph) : undefined
@@ -158,7 +161,17 @@ export function BoardSummary({
         draggable={interactive}
         onDragStateChange={setDragging}
         locked={editMode}
-        onOpen={openItem}
+        onOpen={(id) => {
+          // While a card is waiting for a parent, an initiative click is the answer rather than
+          // an open. Every card on this surface is an initiative, which is why the pick is
+          // answered here and not on the cards workflow.
+          if (parentPickId) {
+            setParent(parentPickId, id)
+            cancelParentPick()
+            return
+          }
+          openItem(id)
+        }}
         summary={{
           childCount: decompositionChildren(c.id, edges).length,
           dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
