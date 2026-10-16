@@ -294,20 +294,20 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     )
   }
 
-  // A collapsed lane is a strip rather than a box — vertical in a row of columns, horizontal in
-  // a stack of rows. It wears the column's own accent, so a folded column is identifiable from
-  // across the board without being read, which is the point of folding it rather than deleting
-  // it: the column is still there, and still this column.
-  if (collapsed) {
+  // A folded top-level column becomes a strip, because it has to fit in a row of columns and a
+  // strip is what a column looks like when it has no width. It wears the column's own accent, so
+  // a folded column is identifiable from across the board without being read — the point of
+  // folding it rather than deleting it: it is still there, and still this column.
+  //
+  // A folded *row* is a different thing and gets a different answer: it already has a
+  // horizontal header, so folding it means hiding what is under that header. Drawing a strip
+  // instead would give one row a header that looks nothing like the rows beside it.
+  if (collapsed && top) {
     const accent = stage ? STAGE_ACCENT[stage] : undefined
-    const vertical = parentOrientation === 'columns'
     const count = countInLane(lane.id)
     return (
       <div
-        className={cn(
-          'flex h-full min-h-0 w-full overflow-hidden rounded-lg border border-slate-300',
-          vertical ? 'flex-col items-center gap-2 py-2' : 'flex-row items-center gap-2 px-2',
-        )}
+        className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2"
         style={accent ? { backgroundColor: tintOn(accent, 0.18), borderColor: accent } : undefined}
       >
         <button
@@ -315,7 +315,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-700 transition hover:bg-white/70"
           title="Expand"
         >
-          {vertical ? <ChevronsRight size={13} /> : <ChevronDown size={13} />}
+          <ChevronsRight size={13} />
         </button>
         <span
           className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-700 px-1 text-micro font-bold tabular-nums text-white"
@@ -324,12 +324,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           {count}
         </span>
         <button onClick={() => ctx.toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand">
-          <span
-            className={cn(
-              'whitespace-nowrap text-meta font-bold uppercase tracking-wide text-slate-700',
-              vertical && 'rotate-180 [writing-mode:vertical-rl]',
-            )}
-          >
+          <span className="rotate-180 whitespace-nowrap text-meta font-bold uppercase tracking-wide text-slate-700 [writing-mode:vertical-rl]">
             {lane.name}
           </span>
         </button>
@@ -360,6 +355,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
       >
         {!hideHeader && (editMode || lane.name) && header(false)}
+        {!collapsed && (
         <div
             className={cn(
               'flex w-full flex-1 min-h-0',
@@ -392,6 +388,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               </div>
             ))}
         </div>
+        )}
       </div>
     )
   }
