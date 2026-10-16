@@ -983,12 +983,24 @@
         "testStrategy": "The rule first, unchanged and already tested: a parent is always an initiative, so connecting a card to an initiative is allowed and connecting an initiative to a card is not — assert the second is refused, because that is the one this feature makes easy to attempt from the wrong end. Then that both directions produce exactly one decomposition edge: connecting from the initiative and then from the card names the same edge, not two. Then the interaction in the browser with real input: an initiative has a context menu, the connect option puts the board in a pick mode, clicking a card sets the parent and closes the mode, clicking an initiative does nothing and keeps it open, and Escape leaves the graph exactly as it was. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-15T12:00:00.000Z"
+      },
+      {
+        "id": "66",
+        "title": "Connect a team initiative to a management one, from a Program board",
+        "description": "A Program board shows each linked board as a band, and a band is read-only today — not by policy but because the context menu has nowhere to render there. Allow the one act that belongs on this surface: a team initiative in a band rolling up to a management initiative on the board itself.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Measured rather than assumed: on a Program board a right-click opens nothing at all. The reason is structural — `CardMenu` is rendered by `BoardCanvas`, and an aggregating board does not render `BoardCanvas`, so the menu has nowhere to appear. The same is true of the floating chip the pick mode shows. So the first move is to hoist the menu and the chip out of the cards canvas into something both surfaces mount, rather than rendering a second menu for aggregation. The band already passes `boardId`, and the pick already sets a parent through `setParent`, which is board-agnostic — so the connection itself needs nothing new. What it needs is a narrower set of choices: the pick must offer only the initiatives *on the board being viewed*, or a band could parent another band and the act stops being the flight-level one. `initiativeCellOf(id, boardId, graph)` already answers that — it is undefined for an item that is not on that board — so the guard is a lookup rather than a new rule. Drag stays off the bands, deliberately: a drag is a move, and moving another board's initiative from here edits a board you are not looking at. Its section restriction would be the only guard, and a lens should not move things. Out of scope: making bands editable in general, and the reverse act of linking from the management end, which the item panel already offers.",
+        "testStrategy": "The scoping rule first, because it is the whole of the new behaviour: the pick offers the initiatives on the board being viewed and not the band's, so a team initiative can be connected to a management one and two band initiatives cannot be connected to each other. Then that the act produces one decomposition edge and that the rule still holds from this surface — a parent is always an initiative. Then the interaction in the browser with real input: on a Program board a band's initiative has a context menu, the option puts the board in a pick mode with the chip visible, clicking a management initiative sets the parent and closes the mode, clicking another band's initiative does nothing and leaves it open, and Escape leaves the graph unchanged. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-15T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-15T12:00:00.000Z",
-      "taskCount": 64,
+      "taskCount": 65,
       "completedCount": 43,
       "tags": [
         "backlog"
