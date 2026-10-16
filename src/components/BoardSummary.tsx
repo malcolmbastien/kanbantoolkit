@@ -33,7 +33,6 @@ import {
   ChevronsRight,
   Columns3,
   CopyPlus,
-  Minimize2,
   Plus,
   Rows3,
   Settings,
@@ -340,7 +339,6 @@ function Cell({
   const lanes = useStore((s) => s.lanes)
   const splitLane = useStore((s) => s.splitLane)
   const addLane = useStore((s) => s.addLane)
-  const unsplitLane = useStore((s) => s.unsplitLane)
   const setLaneOrientation = useStore((s) => s.setLaneOrientation)
   const insertLaneAfter = useStore((s) => s.insertLaneAfter)
   const duplicateLane = useStore((s) => s.duplicateLane)
@@ -476,9 +474,6 @@ function Cell({
                       section is top-level: the stages are fixed, the shape they take is not. */}
                   <LaneCtl title="Flip columns ↔ rows" onClick={() => setLaneOrientation(lane.id, orientation === 'rows' ? 'columns' : 'rows')}>
                     <ArrowLeftRight size={12} />
-                  </LaneCtl>
-                  <LaneCtl title="Merge this split back into one cell" onClick={() => unsplitLane(lane.id)}>
-                    <Minimize2 size={12} />
                   </LaneCtl>
                 </>
               )}

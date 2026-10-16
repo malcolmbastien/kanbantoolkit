@@ -260,8 +260,6 @@ export interface Actions {
   moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: SplitOrientation) => void
   removeLane: (laneId: string) => void
-  /** Merge a split back into one cell: its cards move up to it, its cells go. */
-  unsplitLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
   /** Set a lane's policy text (entry/exit rules). */
@@ -1402,22 +1400,6 @@ export const useStore = create<Store>()(
         })
       },
 
-      /**
-       * Merge a split back into one cell: its cards move up to it and its cells go.
-       *
-       * The explicit version of what removing a cell does implicitly — "I want this section to be
-       * one cell again" is a thing worth being able to say directly.
-       */
-      unsplitLane: (laneId) => {
-        const state = get()
-        const kids = childrenOf(state.lanes, laneId)
-        if (kids.length === 0) return
-        const inner = new Set(kids.flatMap((k) => subtreeIds(state.lanes, k.id)))
-        set({
-          lanes: state.lanes.filter((l) => !inner.has(l.id)),
-          placements: state.placements.map((p) => (inner.has(p.laneId) ? toLane(state.placements, p, laneId) : p)),
-        })
-      },
 
       renameLane: (laneId, name) => set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, name } : l)) }),
       setLaneWip: (laneId, wipLimit) =>
