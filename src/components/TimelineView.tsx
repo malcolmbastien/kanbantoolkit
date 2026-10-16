@@ -2,7 +2,9 @@ import { ChartNoAxesGantt } from 'lucide-react'
 import { boardInitiatives } from '@/domain/board'
 import { rollupOf, type Graph } from '@/domain/derive'
 import { layoutTimeline } from '@/domain/timelineLayout'
+import { STAGE_LABELS } from '@/domain/lanes'
 import { useStore } from '@/store'
+import { chipColors, STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 
 /** The chart's width per day. Fixed for now — zoom is out of scope for this slice. */
@@ -94,7 +96,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
                   ))}
                 </div>
 
-                {/* The body: one band per packed row. The bars themselves land here next. */}
+                {/* The body: one band per packed row, the bars and milestones placed on them. */}
                 <div className="relative" style={{ height: Math.max(layout.rowCount * ROW_PX, 96) }} data-timeline-body>
                   {Array.from({ length: layout.rowCount }, (_, r) => (
                     <div
@@ -121,6 +123,53 @@ export function TimelineView({ boardId }: { boardId: string }) {
                       </span>
                     </>
                   )}
+
+                  {/* Bars and milestones — position, row and colour straight from the layout.
+                      The colour is the bucket the work beneath derived: a bar cannot claim a
+                      stage it does not have, because nothing here accepts a setting. */}
+                  {layout.bars.map((bar) => {
+                    const chip = chipColors(STAGE_ACCENT[bar.bucket])
+                    const label = `${bar.title} \u00b7 ${STAGE_LABELS[bar.bucket]}`
+                    return bar.kind === 'span' ? (
+                      <button
+                        key={bar.id}
+                        data-timeline-bar-id={bar.id}
+                        data-timeline-bucket={bar.bucket}
+                        onClick={() => openItem(bar.id)}
+                        title={label}
+                        className="absolute flex items-center overflow-hidden rounded-md px-1.5 text-left shadow-sm transition hover:brightness-95"
+                        style={{
+                          left: bar.start * DAY_PX,
+                          width: (bar.end - bar.start) * DAY_PX,
+                          top: bar.row * ROW_PX + 10,
+                          height: ROW_PX - 20,
+                          background: chip.background,
+                          color: chip.color,
+                        }}
+                      >
+                        <span className="truncate text-meta font-medium">{bar.title}</span>
+                      </button>
+                    ) : (
+                      <button
+                        key={bar.id}
+                        data-timeline-milestone-id={bar.id}
+                        data-timeline-bucket={bar.bucket}
+                        onClick={() => openItem(bar.id)}
+                        title={label}
+                        className="group absolute flex items-center transition hover:brightness-95"
+                        style={{ left: (bar.start + 0.5) * DAY_PX, top: bar.row * ROW_PX + 10, height: ROW_PX - 20 }}
+                      >
+                        {/* A diamond for a point in time, centred on the day it marks. */}
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 -translate-x-1/2 rotate-45 rounded-[2px] shadow-sm ring-1 ring-inset ring-slate-900/20"
+                          style={{ background: chip.background }}
+                        />
+                        <span className="ml-1 max-w-44 truncate text-meta text-slate-700 group-hover:text-slate-900">
+                          {bar.title}
+                        </span>
+                      </button>
+                    )
+                  })}
 
                   {layout.rowCount === 0 && (
                     <div className="flex h-full items-center justify-center px-4">

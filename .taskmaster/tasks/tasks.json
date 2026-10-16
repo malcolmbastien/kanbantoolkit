@@ -919,8 +919,8 @@
               1,
               3
             ],
-            "details": "Use the row positions produced by `layoutTimeline` to render each initiative as a bar spanning `targetStartDate` to `targetEndDate`, with single-date initiatives drawn as milestone markers. Bar colour must be derived from the `rollupOf` status bucket only, never from an initiative setting. Clicking a bar or milestone must open the existing item panel for that initiative. Add stable DOM hooks such as `data-timeline-bar-id` and `data-timeline-milestone-id` for tests. Initiatives only; do not render cards in this view.",
-            "status": "pending",
+            "details": "Use the row positions produced by `layoutTimeline` to render each initiative as a bar spanning `targetStartDate` to `targetEndDate`, with single-date initiatives drawn as milestone markers. Bar colour must be derived from the `rollupOf` status bucket only, never from an initiative setting. Clicking a bar or milestone must open the existing item panel for that initiative. Add stable DOM hooks such as `data-timeline-bar-id` and `data-timeline-milestone-id` for tests. Initiatives only; do not render cards in this view. DELIVERED: bars and milestones rendered from the layout output — spans at left/width exactly (dayOffset × 28px) on their packed row (data-timeline-bar-id), single-date initiatives as diamonds centred on their day with the title beside them (data-timeline-milestone-id), both carrying data-timeline-bucket. Colour is chipColors(STAGE_ACCENT[bucket]) — the bucket hex run through the project’s contrast machinery — so a bar’s colour is the stage the work beneath derived, never a setting. Clicking a bar, milestone or tray chip opens the item panel. Browser-verified: b-portfolio’s two bars land day-accurate (init-onboarding Oct 1–Dec 15 at width 76×28 from left 0; init-platform Nov 1–Mar 31 at 31 days in, packed to row 1 where they overlap), b-atlas shows only its end-only milestone, b-strategy mixes two spans with init-explore’s milestone, computed backgrounds equal the accent hex for each bucket, and no [data-card-id] exists anywhere in the view. 173 tests.",
+            "status": "done",
             "testStrategy": "Add component tests: bars use the correct left/width from layout, milestone markers render for single-date initiatives, colour maps from rollupOf status bucket, clicking a bar calls the item panel opener, and DOM hooks match expected initiative IDs. Assert no cards are rendered."
           },
           {
@@ -1076,7 +1076,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T11:59:34.477Z",
+      "lastModified": "2026-10-16T12:03:28.731Z",
       "taskCount": 65,
       "completedCount": 44,
       "tags": [
