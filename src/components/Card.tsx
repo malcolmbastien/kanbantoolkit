@@ -237,6 +237,14 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       <div
         {...dragProps}
         data-card-id={item.id}
+        // The wide card is the initiative, and it never had a context menu — the narrow one has
+        // had one all along.
+        onContextMenu={(e) => {
+          if (locked || !onContextMenu) return
+          e.preventDefault()
+          e.stopPropagation()
+          onContextMenu(item.id, e.clientX, e.clientY)
+        }}
         onClick={(e) => {
           e.stopPropagation()
           if (locked) return

@@ -157,6 +157,8 @@ export function BoardSummary({
   const parentPickId = useStore((s) => s.parentPickId)
   const setParent = useStore((s) => s.setParent)
   const cancelParentPick = useStore((s) => s.cancelParentPick)
+  const childPickId = useStore((s) => s.childPickId)
+  const openCardMenu = useStore((s) => s.openCardMenu)
   // An initiative may only be rearranged within its own section, and never onto the cell
   // it already sits in — so those are the only cells worth highlighting.
 
@@ -203,8 +205,13 @@ export function BoardSummary({
         draggable={interactive}
         onLift={interactive ? startLift : undefined}
         locked={editMode}
+        // The menu is new here: initiative cards never had one.
+        onContextMenu={openCardMenu}
+        dimmed={childPickId !== null}
         onOpen={(id) => {
           if (justDragged.current) return
+          // Naming a card for an initiative: an initiative is not a card, so it is not a choice.
+          if (childPickId) return
           // While a card is waiting for a parent, an initiative click is the answer rather than
           // an open. Every card on this surface is an initiative, which is why the pick is
           // answered here and not on the cards workflow.

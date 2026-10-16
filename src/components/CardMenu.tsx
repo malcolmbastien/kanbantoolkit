@@ -55,6 +55,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
   const setParent = useStore((s) => s.setParent)
   const startParentPick = useStore((s) => s.startParentPick)
+  const startChildPick = useStore((s) => s.startChildPick)
   const edges = useStore((s) => s.edges)
   const setItemsType = useStore((s) => s.setItemsType)
   const addItemsAssignee = useStore((s) => s.addItemsAssignee)
@@ -354,6 +355,16 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
               <CornerDownRight size={13} />
             </span>
             <span className="flex-1">Set parent…</span>
+          </button>
+        )}
+        {/* The same edge, named from the initiative: you are looking at an outcome and want to
+            pull work under it, which is when the connection is actually in your head. */}
+        {single && only && isInitiativeItem(only, issueTypes) && (
+          <button className={ITEM} onClick={() => run(() => startChildPick(only.id))}>
+            <span className="shrink-0 text-slate-600">
+              <CornerDownRight size={13} className="-scale-x-100" />
+            </span>
+            <span className="flex-1">Connect a card…</span>
           </button>
         )}
         {single && only && decompositionParent(only.id, edges) && (

@@ -83,6 +83,11 @@ export interface ViewState {
    */
   parentPickId: string | null
   /**
+   * The initiative waiting for a card, if one is — the same act from the other end. One edge
+   * either way, so one mode with a direction rather than two mechanisms. View-only.
+   */
+  childPickId: string | null
+  /**
    * Multi-select group (shift+click on cards). Non-empty hides the item panel
    * and shows the bulk-action bar. View-only.
    */
@@ -266,6 +271,9 @@ export interface Actions {
   /** The card waiting for a parent, if one is. See `parentPickId` in the view state. */
   startParentPick: (itemId: string) => void
   cancelParentPick: () => void
+  /** The initiative waiting for a card, if one is. See `childPickId` in the view state. */
+  startChildPick: (itemId: string) => void
+  cancelChildPick: () => void
   /**
    * A card's checklist — its sub-tasks. They are not work of their own: no placement, no WIP,
    * no status beyond ticked. An initiative has children instead, and they are items.
@@ -421,6 +429,7 @@ const initialView: ViewState = {
   filters: NO_FILTERS,
   boundaryId: null,
   parentPickId: null,
+  childPickId: null,
   multiSelect: [],
   confirm: null,
   wipPrompt: null,
@@ -707,6 +716,8 @@ export const useStore = create<Store>()(
 
       startParentPick: (itemId) => set({ parentPickId: itemId, cardMenu: null }),
       cancelParentPick: () => set({ parentPickId: null }),
+      startChildPick: (itemId) => set({ childPickId: itemId, cardMenu: null }),
+      cancelChildPick: () => set({ childPickId: null }),
 
       toggleMultiSelect: (id) => {
         const s = get()

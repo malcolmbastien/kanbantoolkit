@@ -116,6 +116,10 @@ export default function App() {
         s.cancelParentPick()
         return
       }
+      if (s.childPickId) {
+        s.cancelChildPick()
+        return
+      }
       if (s.multiSelect.length > 0) s.clearMultiSelect()
       else if (s.selectedItemId) s.openItem(null)
     }
