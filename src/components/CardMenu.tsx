@@ -375,7 +375,9 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
             <span className="flex-1">Remove parent</span>
           </button>
         )}
-        {header('move', <FolderInput size={13} />, 'Move to lane')}
+        {/* An initiative does not live in a lane — it lives in a cell of a section, and moves
+            between them. Offering a card's lanes for one would be offering the wrong tree. */}
+        {!selectionHasInitiative && header('move', <FolderInput size={13} />, 'Move to lane')}
         {header('priority', <Flag size={13} />, 'Priority', single && only?.priority ? PRIORITY_META[only.priority].label : '')}
         {header('assignee', <UserPlus size={13} />, 'Assignees')}
         {/* An initiative is not retyped: the type is what makes it one, and the
