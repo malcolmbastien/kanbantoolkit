@@ -875,7 +875,7 @@
         "id": 57,
         "title": "Timeline view of a board's initiatives workflow",
         "description": "P1: a board view, like the dashboard, laying the board's initiatives out over time by their target start and end dates.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [],
         "priority": "high",
         "details": "A new view toggled from the TopBar alongside Dashboard and Objectives, addressable as `?board=<id>&view=timeline` and linked from the board workspace the way the dashboard now is. Rows are the board's local top-level initiatives — the same set `ManagementDashboard` and `BoardSummary` compute — so the surfaces cannot disagree. Bars span `targetStartDate` to `targetEndDate`; an initiative with neither date goes to an 'unscheduled' tray rather than being placed at an invented date, and one with a single date is shown as a milestone marker. Bar colour comes from the derived status bucket (`rollupOf`), so a bar cannot claim a stage the work beneath it does not have — a bar's colour is a fact, not a setting. Include a today marker and period headers. Horizontally scrollable; no zoom and no drag-to-reschedule in this slice, since that would be a write and belongs with an explicit action. Clicking a bar opens the item panel. Initiatives only — this is the external representation, not cards. Out of scope: target-vs-actual, because no actual exists.",
@@ -886,8 +886,8 @@
             "title": "Implement pure timeline layout function and unit tests",
             "description": "Create a framework-free domain function that maps board initiatives to timeline positions and groups, with full vitest coverage for edge cases.",
             "dependencies": [],
-            "details": "Add `src/domain/timelineLayout.ts` exporting a pure `layoutTimeline(initiatives, domain)` function. It must compute the visible date domain from `targetStartDate` and `targetEndDate`, map dates to x positions, support a range crossing a year boundary, pack rows for overlapping bars, treat zero-width bars as milestones, place initiatives with only one date as milestone markers, and return a separate unscheduled tray for initiatives with neither date. Accept only top-level board initiatives; no cards and no store/UI dependencies. Include the `rollupOf` status bucket on returned items for later colouring without allowing per-item settings.",
-            "status": "pending",
+            "details": "Add `src/domain/timelineLayout.ts` exporting a pure `layoutTimeline(initiatives, domain)` function. It must compute the visible date domain from `targetStartDate` and `targetEndDate`, map dates to x positions, support a range crossing a year boundary, pack rows for overlapping bars, treat zero-width bars as milestones, place initiatives with only one date as milestone markers, and return a separate unscheduled tray for initiatives with neither date. Accept only top-level board initiatives; no cards and no store/UI dependencies. Include the `rollupOf` status bucket on returned items for later colouring without allowing per-item settings. DELIVERED: src/domain/timelineLayout.ts — pure layoutTimeline(entries, { today }) returning the month-widened day domain, positioned bars and milestones (span covers its end date; single date or equal dates are zero-width milestones; backwards dates shown as the meant span), greedy row packing in start order longest-first, the unscheduled tray, month headers positioned for the axis (tested across a year boundary), and the today offset or null. Entries carry the derived bucket in and bars carry it out — colour is a fact from the caller, not a setting here. 12 tests in timelineLayout.test.ts covering every case in the task strategy. The board-local top-level initiative set stays with the caller (57.3) so dashboard and timeline read one computation.",
+            "status": "done",
             "testStrategy": "Add `src/domain/timelineLayout.test.ts` with vitest tests: date-to-x mapping over a year-boundary range, row packing, unscheduled items with neither date, single-date milestone markers, zero-width bars, empty board, and stable ordering. Assert no invented dates and no mutation of input."
           },
           {
@@ -1056,7 +1056,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-15T12:00:00.000Z",
+      "lastModified": "2026-10-16T11:32:50.050Z",
       "taskCount": 65,
       "completedCount": 44,
       "tags": [
