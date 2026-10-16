@@ -20,9 +20,9 @@ import {
 } from '@/domain/derive'
 import { buildRefs, initiativeCellOf } from '@/domain/board'
 import { isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
-import { STAGE_ACCENT, STAGE_SURFACE } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
-import { Columns3, Rows3, Settings } from 'lucide-react'
+import { ChevronsRight, Columns3, Rows3, Settings } from 'lucide-react'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
 
@@ -114,6 +114,7 @@ export function BoardSummary({
 
   const isInitiatives = variant === 'initiatives'
   const drop = (itemId: string, laneId: string) => moveInitiative(itemId, boardId, laneId)
+  const collapsedLanes = useStore((s) => s.collapsedLanes)
 
   /** The initiative currently in flight, if any — `dataTransfer` can't be read on hover. */
   const [dragging, setDragging] = useState<string | null>(null)
@@ -178,10 +179,12 @@ export function BoardSummary({
     <div className="flex gap-2 p-2" data-dragging={dragging ?? undefined}>
       {sections.map(({ section, stage, cells, byCell, total }) => {
         const split = cells.length > 1
+        const folded = collapsedLanes[section.id] === true
         return (
           <Cell
             key={section.id}
             lane={section}
+            stage={stage}
             isSection
             primary
             count={total}
@@ -192,7 +195,11 @@ export function BoardSummary({
             onDrop={(itemId) => drop(itemId, section.id)}
             // A section with more cells claims more of the width, so every *cell* gets an
             // equal share of the board — splitting a column doesn't squeeze its own cells.
-            style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}`, flexGrow: cells.length, flexBasis: 0, flexShrink: 1 }}
+            style={{
+              borderTop: `4px solid ${STAGE_ACCENT[stage]}`,
+              // A folded section gives its width back rather than its share of it.
+              ...(folded ? { flexGrow: 0, flexBasis: '36px', flexShrink: 0 } : { flexGrow: cells.length, flexBasis: 0, flexShrink: 1 }),
+            }}
             className={cn(
               'flex min-w-0 flex-col overflow-hidden rounded-lg border border-slate-300',
               STAGE_SURFACE[stage],
@@ -205,6 +212,7 @@ export function BoardSummary({
                     <Cell
                       key={cell.id}
                       lane={cell}
+                      stage={stage}
                       count={cards.length}
                       droppable
                       canDrop={canDropOn(section.id, cell.id)}
@@ -237,6 +245,7 @@ export function BoardSummary({
  */
 function Cell({
   lane,
+  stage,
   isSection,
   primary,
   count,
@@ -250,6 +259,8 @@ function Cell({
   children,
 }: {
   lane: Lane
+  /** The section's stage — the cell's own accent, and its own even when it is a sub-cell. */
+  stage?: Stage
   isSection?: boolean
   primary?: boolean
   count: number
@@ -270,6 +281,8 @@ function Cell({
   const setLaneWip = useStore((s) => s.setLaneWip)
   const setLaneDescription = useStore((s) => s.setLaneDescription)
   const askConfirm = useStore((s) => s.askConfirm)
+  const toggleCollapse = useStore((s) => s.toggleCollapse)
+  const collapsedLanes = useStore((s) => s.collapsedLanes)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
 
@@ -295,6 +308,40 @@ function Cell({
     })
   }
 
+  // A folded section is a vertical strip; a folded cell of one is horizontal, because that is
+  // how it sits. Same strip as the cards workflow, and the same accent, so a folded column
+  // reads as the column it is on either surface.
+  if (isSection && collapsedLanes[lane.id] === true) {
+    const accent = stage ? STAGE_ACCENT[stage] : undefined
+    return (
+      <div
+        className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2"
+        style={{ ...style, ...(accent ? { backgroundColor: tintOn(accent, 0.18), borderColor: accent } : {}) }}
+      >
+        <button
+          onClick={() => toggleCollapse(lane.id)}
+          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-700 transition hover:bg-white/70"
+          title="Expand"
+        >
+          <ChevronsRight size={13} />
+        </button>
+        <span
+          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-700 px-1 text-micro font-bold tabular-nums text-white"
+          title={`${count} initiative${count === 1 ? '' : 's'}`}
+        >
+          {count}
+        </span>
+        <button onClick={() => toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand">
+          <span
+            className="rotate-180 whitespace-nowrap text-meta font-bold uppercase tracking-wide text-slate-700 [writing-mode:vertical-rl]"
+          >
+            {lane.name}
+          </span>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className={className ?? 'flex min-w-0 flex-1 basis-0 flex-col'} style={style}>
       <div className={head}>
@@ -308,8 +355,17 @@ function Cell({
           <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums text-white">
             {count}
           </span>
-          {editable && (
-            <CtlGroup>
+          <CtlGroup>
+            {/* A section is this workflow's top-level column, and folding one away is a view
+                action rather than an edit — the cards workflow offers it without edit mode, and
+                so does this. A cell of a split section is not: it shares the width it has. */}
+            {isSection && (
+              <LaneCtl title="Collapse this column" onClick={() => toggleCollapse(lane.id)}>
+                <ChevronsRight size={12} />
+              </LaneCtl>
+            )}
+            {editable && (
+              <>
               {leaf && (
                 <>
                   <LaneCtl title="Split this cell into columns" onClick={() => splitLane(lane.id, 'columns')}>
@@ -329,8 +385,9 @@ function Cell({
               >
                 <Settings size={12} />
               </LaneCtl>
-            </CtlGroup>
-          )}
+              </>
+            )}
+          </CtlGroup>
         </span>
       </div>
 

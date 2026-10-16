@@ -131,10 +131,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   const canMovePrev = sibIdx > 0
   const canMoveNext = sibIdx >= 0 && sibIdx < siblings.length - 1
   const parentOrientation = parent?.orientation ?? 'columns'
-  // Every lane can fold away except the board itself, whose folding would leave nothing to look
-  // at. Not only the ones with something inside them: a column with a single cell is still a
-  // column, and folding it is how a team reclaims width it has stopped using.
-  const canCollapse = !isRoot
+  // A top-level column folds away, and so does a row of a rows-split — the shape where one lane
+  // spans the whole width, so folding it gives the other rows their space back. Not a cell of a
+  // columns-split: those share the width they have, and folding one would be folding a column
+  // the board has already divided. And never the board itself, which would leave nothing.
+  const canCollapse = !isRoot && (top || parentOrientation === 'rows')
   const collapsed = ctx.collapsedLanes[lane.id] === true && canCollapse
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
@@ -369,10 +370,9 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             )}
             style={
               orientation === 'columns'
-                ? {
-                    gridTemplateColumns: kids.map((k) => (ctx.collapsedLanes[k.id] ? '36px' : 'minmax(min-content, 1fr)')).join(' '),
-                    ...(isRoot ? {} : { gridAutoFlow: 'column' as const }),
-                  }
+                ? isRoot
+                  ? { gridTemplateColumns: kids.map((k) => (ctx.collapsedLanes[k.id] ? '36px' : 'minmax(min-content, 1fr)')).join(' ') }
+                  : { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' }
                 : undefined
             }
           >
