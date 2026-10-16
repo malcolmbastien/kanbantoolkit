@@ -27,11 +27,12 @@ interface Props {
   onCancelEdit: () => void
   onOpenBoardSettings: () => void
   onAddCard: () => void
+  onAddInitiative: () => void
   onReset: () => void
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onReset } = props
+  const { boards, boardId, editMode, showObjectives, showDashboard, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleArchive, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
@@ -132,6 +133,14 @@ export function TopBar(props: Props) {
               className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
             >
               <Plus size={13} /> Card
+            </button>
+            <button
+              onClick={onAddInitiative}
+              disabled={editMode}
+              title="New initiative — an outcome this board owns, in its initiatives workflow"
+              className="flex items-center gap-1 rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-meta font-medium text-indigo-700 hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-40"
+            >
+              <Plus size={13} /> Initiative
             </button>
           </>
         )}

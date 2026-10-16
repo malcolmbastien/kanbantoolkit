@@ -12,7 +12,7 @@ import { FocusChip } from './components/FocusChip'
 import { ManagementDashboard } from './components/ManagementDashboard'
 import { ObjectivesView } from './components/ObjectivesView'
 import { TopBar } from './components/TopBar'
-import { boardCardTypeId } from './domain/board'
+import { boardCardTypeId, initiativeTypeId } from './domain/board'
 import { activeFilterCount } from './domain/filters'
 import { leafLanes } from './domain/lanes'
 import { filtersFromParam } from './domain/filters'
@@ -155,6 +155,21 @@ export default function App() {
     if (firstLeaf) onAddCard(firstLeaf.id)
   }
 
+  /**
+   * A new initiative, in the first cell of the board's initiatives workflow.
+   *
+   * The mirror of `quickAdd`, and it has to be: an initiative is not a card with a different
+   * label — it lives in the other lane tree, in a cell of a section, and the Initiative type is
+   * the one type a person never chooses. Which is exactly why the button matters, since until
+   * now the only way to make one was to link it from another board.
+   */
+  const quickAddInitiative = () => {
+    const typeId = initiativeTypeId(issueTypes)
+    const firstLeaf = leafLanes(lanes, boardId, 'initiatives')[0]
+    if (!typeId || !firstLeaf) return
+    addCard({ boardId, typeId, laneId: firstLeaf.id, title: 'New initiative' })
+  }
+
 
   return (
     <div className="flex h-full flex-col">
@@ -179,6 +194,7 @@ export default function App() {
         onCancelEdit={cancelEdit}
         onOpenBoardSettings={toggleBoardSettings}
         onAddCard={quickAdd}
+        onAddInitiative={quickAddInitiative}
         onReset={resetDemo}
       />
 
