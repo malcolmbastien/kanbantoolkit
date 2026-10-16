@@ -380,10 +380,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                   // Rows size to their content (+ buffer); only the last row stretches
                   // to fill the column's remaining height.
                   stacked
-                    // A folded row is its header and no more, with a little air under it: the
-                    // rows sit flush against each other, so a closed one needs a nudge of its
-                    // own or the next header crowds it.
-                    ? cn('w-full', ctx.collapsedLanes[k.id] ? 'mb-1 shrink-0' : i === kids.length - 1 && 'grow')
+                    // A folded row is its header and no more — no height of its own, and no
+                    // margin of its own either: the header already carries the spacing that
+                    // separates it from the rows beside it, and adding to that is what made it
+                    // stand out as different.
+                    ? cn('w-full', ctx.collapsedLanes[k.id] ? 'shrink-0' : i === kids.length - 1 && 'grow')
                     : cn('flex-1', isRoot && 'overflow-hidden rounded-lg border border-slate-300'),
                 )}
               >
