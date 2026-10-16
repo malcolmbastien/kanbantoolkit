@@ -1,5 +1,5 @@
 import { isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
-import { childrenOf, leavesUnder, rootLane, WORKFLOWS } from './lanes'
+import { childrenOf, leafLanes, leavesUnder, rootLane, WORKFLOWS } from './lanes'
 import type { Board, BoardBand, BoardTemplate, IssueType, Item, Lane, Placement, SplitOrientation, TemplateLane } from './types'
 
 /** Items placed on a board (via explicit placement records). */
@@ -458,6 +458,18 @@ export function cardTypes(types: IssueType[]): IssueType[] {
 /** The default card type: the first non-Initiative type. */
 export function defaultCardTypeId(types: IssueType[]): string | undefined {
   return cardTypes(types)[0]?.id ?? types[0]?.id
+}
+
+/**
+ * Where a card lands on a board: the cell the board named, or the first one it has.
+ *
+ * The fallback is the point of this being a function. A named cell can be deleted, or split
+ * into cells that did not exist when it was named, and a board that has lost its answer should
+ * still take a card rather than refuse one.
+ */
+export function defaultDropLane(board: Board | undefined, lanes: Lane[], boardId: string): Lane | undefined {
+  const leaves = leafLanes(lanes, boardId, 'cards')
+  return leaves.find((l) => l.id === board?.defaultDropLaneId) ?? leaves[0]
 }
 
 /**

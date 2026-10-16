@@ -108,6 +108,14 @@ export interface Board {
    */
   defaultCardTypeId?: string
   /**
+   * The cell a new card lands in — and where a card moved onto this board will land.
+   *
+   * A board's first leaf is a reasonable guess and a poor answer: it is a cell a team would
+   * never choose, and it changes the moment they split the column before it. Absent means the
+   * first leaf, so a board that has never said still behaves as it did.
+   */
+  defaultDropLaneId?: string
+  /**
    * How per-lane WIP limits are enforced on this board:
    * `visualize` (default) — tint at/over the limit, moves always allowed;
    * `justify` — allow exceeding a limit, but ask for a reason (recorded as a comment);

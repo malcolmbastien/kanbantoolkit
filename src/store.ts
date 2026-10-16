@@ -208,6 +208,8 @@ export interface Actions {
   renameBoard: (id: string, name: string) => void
   setBoardBand: (id: string, band: BoardBand) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
+  /** The cell new cards land in, and where a card moved onto this board lands. */
+  setBoardDefaultDropLane: (id: string, laneId: string | undefined) => void
   /** Set which card types are allowed on a board (empty = every card type). */
   setBoardWipEnforcement: (id: string, mode: 'visualize' | 'justify' | 'block') => void
 
@@ -1040,6 +1042,9 @@ export const useStore = create<Store>()(
       setBoardBand: (id, band) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, band } : b)) }),
       setBoardDefaultCardType: (id, defaultCardTypeId) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
+
+      setBoardDefaultDropLane: (id, defaultDropLaneId) =>
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultDropLaneId } : b)) }),
 
       setBoardWipEnforcement: (id, wipEnforcement) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) }),

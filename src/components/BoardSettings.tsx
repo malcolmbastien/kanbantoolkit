@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { LayoutTemplate, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
+import { lanePath, leafLanes } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 
@@ -17,6 +18,8 @@ export function BoardSettings() {
   const renameBoard = useStore((s) => s.renameBoard)
   const setBoardBand = useStore((s) => s.setBoardBand)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
+  const setBoardDefaultDropLane = useStore((s) => s.setBoardDefaultDropLane)
+  const lanes = useStore((s) => s.lanes)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
   const saveBoardAsTemplate = useStore((s) => s.saveBoardAsTemplate)
   const addIssueType = useStore((s) => s.addIssueType)
@@ -247,6 +250,22 @@ export function BoardSettings() {
                       {t.name}
                     </option>
                   ))}
+              </select>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-meta text-slate-600">New cards land in</span>
+              <select
+                value={board.defaultDropLaneId ?? ''}
+                onChange={(e) => setBoardDefaultDropLane(board.id, e.target.value || undefined)}
+                title="Where a new card is created, and where a card moved onto this board will land"
+                className="rounded border border-slate-200 px-1.5 py-1 text-meta"
+              >
+                <option value="">the first cell</option>
+                {leafLanes(lanes, board.id, 'cards').map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {lanePath(lanes, l.id).join(' / ')}
+                  </option>
+                ))}
               </select>
             </div>
             <p className="mt-1 text-micro text-slate-600">

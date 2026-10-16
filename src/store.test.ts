@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, buildRefs, cardTypes, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
+import { boardCardTypeId, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
 import { NO_FILTERS } from './domain/filters'
@@ -1106,6 +1106,26 @@ describe('store actions', () => {
     expect(migrated.items[0].assignees).toEqual(['u-maya-blake'])
     expect('assignee' in migrated.items[0]).toBe(false)
     expect(migrated.items[1].assignees).toBeUndefined()
+  })
+
+  it('a card lands in the cell the board named, and falls back when that cell is gone', () => {
+    const atlas = () => s().boards.find((b) => b.id === 'b-atlas')
+    const leaves = () => leafLanes(s().lanes, 'b-atlas', 'cards')
+    // Unnamed: the first leaf, which is where it went before a board could say.
+    expect(defaultDropLane(atlas(), s().lanes, 'b-atlas')?.id).toBe(leaves()[0].id)
+
+    const chosen = leaves()[leaves().length - 1]
+    s().setBoardDefaultDropLane('b-atlas', chosen.id)
+    expect(atlas()?.defaultDropLaneId).toBe(chosen.id)
+    expect(defaultDropLane(atlas(), s().lanes, 'b-atlas')?.id).toBe(chosen.id)
+
+    // A named cell that has been deleted — or split away — is not a reason to refuse a card.
+    s().setBoardDefaultDropLane('b-atlas', 'lane-that-is-gone')
+    expect(defaultDropLane(atlas(), s().lanes, 'b-atlas')?.id).toBe(leaves()[0].id)
+
+    // Clearing it goes back to the first leaf.
+    s().setBoardDefaultDropLane('b-atlas', undefined)
+    expect(atlas()?.defaultDropLaneId).toBeUndefined()
   })
 
   it('a new card gets the board default, or a sane one if that is not a card type', () => {

@@ -12,7 +12,7 @@ import { FocusChip } from './components/FocusChip'
 import { ManagementDashboard } from './components/ManagementDashboard'
 import { ObjectivesView } from './components/ObjectivesView'
 import { TopBar } from './components/TopBar'
-import { boardCardTypeId, initiativeTypeId } from './domain/board'
+import { boardCardTypeId, defaultDropLane, initiativeTypeId } from './domain/board'
 import { activeFilterCount } from './domain/filters'
 import { leafLanes } from './domain/lanes'
 import { filtersFromParam } from './domain/filters'
@@ -150,9 +150,15 @@ export default function App() {
     addCard({ boardId, typeId, laneId, title: 'New card' })
   }
 
+  /**
+   * A new card, in the board's default drop column — or the first leaf if it has never said.
+   *
+   * Falling back rather than failing matters here: a cell the board named can be deleted or
+   * split away, and a board that has lost its answer should still be able to take a card.
+   */
   const quickAdd = () => {
-    const firstLeaf = leafLanes(lanes, boardId, 'cards')[0]
-    if (firstLeaf) onAddCard(firstLeaf.id)
+    const lane = defaultDropLane(boards.find((b) => b.id === boardId), lanes, boardId)
+    if (lane) onAddCard(lane.id)
   }
 
   /**
