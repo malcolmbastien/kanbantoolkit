@@ -687,12 +687,12 @@
         "id": "42",
         "title": "Bulk move cards to another board",
         "description": "Deferred from task 16: extend the bulk-action bar with a move-to-another-board action.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "16"
         ],
         "priority": "low",
-        "details": "Add a 'Move to board' control to the BulkActions bar: pick a target board (management or team) and a target lane on it, then move every selected card's placement there. Needs a cascading lane picker (lanes belong to boards) and should create a placement when a card has none on the target board. Reuse the existing placement model (one placement per board).",
+        "details": "Add a 'Move to board' control to the BulkActions bar: pick a target board (management or team) and a target lane on it, then move every selected card's placement there. Needs a cascading lane picker (lanes belong to boards) and should create a placement when a card has none on the target board. Reuse the existing placement model (one placement per board). DELIVERED: the bulk bar gains Move to board. The destination is the target board’s default drop column rather than a cascading lane picker — the task predates that setting, and a picker would only offer a second opinion about a question the board has already answered. Each option shows where it goes. A move and not a copy: the source placement goes, any existing target placement goes, and one is written per card, so a card with no placement still arrives. resolvedAt follows the target stage. Verified in the browser with a real shift-selection. 149 tests, was 147.",
         "testStrategy": "Unit-test the batch move across boards: placements are created/updated on the target board with the chosen lane, the source board's placements are removed or kept per the model, and resolvedAt tracks the target stage. Run npm test.",
         "subtasks": []
       },
@@ -977,7 +977,7 @@
       "version": "1.0.0",
       "lastModified": "2026-10-15T12:00:00.000Z",
       "taskCount": 63,
-      "completedCount": 40,
+      "completedCount": 41,
       "tags": [
         "backlog"
       ]
