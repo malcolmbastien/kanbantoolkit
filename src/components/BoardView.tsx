@@ -45,25 +45,13 @@ export function BoardView({ requestMove }: Props) {
   // appeared on the dashboard, timeline and archive too, and filtered nothing there. The
   // bar is always present because the Filters control always is; the rest of it appears
   // only when it has something functional to say.
+  //
+  // Filters sits at the far right, in the corner where its panel opens: a control belongs
+  // against the surface it commands, so pushing it there puts the button and the drawer it
+  // opens in one place, and leaves the left of the bar to the board's own state.
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
-        <button
-          onClick={toggleFilters}
-          disabled={editMode}
-          className={cn(
-            'flex items-center gap-1 rounded-md border px-2 py-1 font-medium transition disabled:pointer-events-none disabled:opacity-40',
-            showFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-          )}
-          title="Filters — narrow the cards shown on this board"
-        >
-          <SlidersHorizontal size={12} /> Filters
-          {activeFilterCount(filters) > 0 && (
-            <span className="grid h-4 min-w-4 place-items-center rounded-full bg-indigo-500 px-1 text-micro font-bold text-white">
-              {activeFilterCount(filters)}
-            </span>
-          )}
-        </button>
         {board?.archived && <ArchivedBoardChip />}
         {editMode && (
           <span className="rounded bg-amber-100 px-1.5 py-px font-semibold text-amber-800 ring-1 ring-amber-300">
@@ -87,6 +75,22 @@ export function BoardView({ requestMove }: Props) {
               <Archive size={11} /> Archive done ({doneCount})
             </button>
           )}
+          <button
+            onClick={toggleFilters}
+            disabled={editMode}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 font-medium transition disabled:pointer-events-none disabled:opacity-40',
+              showFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+            )}
+            title="Filters — narrow the cards shown on this board"
+          >
+            <SlidersHorizontal size={12} /> Filters
+            {activeFilterCount(filters) > 0 && (
+              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-indigo-500 px-1 text-micro font-bold text-white">
+                {activeFilterCount(filters)}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
