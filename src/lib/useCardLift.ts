@@ -35,8 +35,10 @@ export function useCardLift({
   onMove,
   onDrop,
 }: {
-  /** The pointer, while a card is in the air — the caller resolves what is under it. */
-  onMove?: (x: number, y: number) => void
+  /** The pointer, while a card is in the air — the caller resolves what is under it. The
+   * lifted card's id rides along because the listener is registered once, at pointerdown:
+   * a callback that read `lift` through its own closure would see null for the whole drag. */
+  onMove?: (itemId: string, x: number, y: number) => void
   onDrop: (itemId: string, x: number, y: number) => void
 }) {
   const [lift, setLift] = useState<CardDrag | null>(null)
@@ -70,7 +72,7 @@ export function useCardLift({
         })
       }
       setLift((d) => (d ? { ...d, x: ev.clientX, y: ev.clientY } : d))
-      onMove?.(ev.clientX, ev.clientY)
+      onMove?.(itemId, ev.clientX, ev.clientY)
     }
 
     const finish = (ev: PointerEvent, put: boolean) => {

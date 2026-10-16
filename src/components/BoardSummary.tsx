@@ -124,13 +124,22 @@ export function BoardSummary({
   // the same on either surface. Where it lands is this surface's own: a cell, and only a cell of
   // the section the initiative already belongs to.
   const { lift, start: startLift, justDragged } = useCardLift({
-    onMove: (x, y) => setDropCell(cellUnder(x, y, lift?.itemId)),
+    // The lifted card's id comes from the gesture, not from `lift` — the move listener is
+    // registered once at pointerdown, when lift is still null, so reading it through this
+    // closure made the cell preview dead for the whole drag. This was the bug: drops worked
+    // (onDrop is handed the id) while the target cell never lit up.
+    onMove: (itemId, x, y) => setDropCell(cellUnder(x, y, itemId)),
     onDrop: (itemId, x, y) => {
+      setDropCell(null)
       const cell = cellUnder(x, y, itemId)
       if (cell) moveInitiative(itemId, boardId, cell)
     },
   })
   const [dropCell, setDropCell] = useState<string | null>(null)
+  // The highlighted cell is live only while an initiative is actually in the air — the same
+  // rule the cards workflow keeps. A pointercancel ends a gesture without a drop, so the
+  // preview must answer to the gesture, not to whichever cell was last under the pointer.
+  const previewCell = lift !== null ? dropCell : null
   /** The cell under the pointer, if it is one an initiative may move into. */
   const cellUnder = (x: number, y: number, itemId: string | undefined) => {
     const here = itemId ? initiativeCellOf(itemId, boardId, graph) : undefined
@@ -263,7 +272,7 @@ export function BoardSummary({
             primary
             count={total}
             sectionId={section.id}
-            isTarget={dropCell === section.id}
+            isTarget={previewCell === section.id}
             interactive={interactive}
             editMode={editMode}
             // A section with more cells claims more of the width, so every *cell* gets an
@@ -288,7 +297,7 @@ export function BoardSummary({
                       stage={stage}
                       sectionId={section.id}
                       count={cards.length}
-                      isTarget={dropCell === cell.id}
+                      isTarget={previewCell === cell.id}
                       interactive={interactive}
                       editMode={editMode}
                     >

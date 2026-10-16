@@ -662,8 +662,12 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   }
 
   const { lift, start: startLift, justDragged } = useCardLift({
-    onMove: (x, y) => setDropAt(gapUnder(x, y)),
+    // The lifted card's id arrives from the gesture itself. `gapUnder` reads the DOM, so it
+    // never needed the id — but the parameter is the shape now, so no caller is tempted to
+    // read `lift` through a closure that predates the lift.
+    onMove: (_itemId, x, y) => setDropAt(gapUnder(x, y)),
     onDrop: (itemId, x, y) => {
+      setDropAt(null)
       const gap = gapUnder(x, y)
       if (gap) dropCardAt(itemId, gap.laneId, gap.index)
     },
@@ -679,8 +683,11 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     parentPickId,
     drag: {
       itemId: lift?.itemId ?? null,
-      laneId: dropAt?.laneId ?? null,
-      index: dropAt?.index ?? null,
+      // The gap is live only while a card is actually in the air. `dropAt` outliving the
+      // gesture would leave a placeholder standing in the lane the card landed in — the
+      // gesture is the only thing that may show it.
+      laneId: lifting ? (dropAt?.laneId ?? null) : null,
+      index: lifting ? (dropAt?.index ?? null) : null,
       start: startLift,
     },
     openCard: (itemId) => {
