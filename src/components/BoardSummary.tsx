@@ -147,9 +147,13 @@ export function BoardSummary({
     const cell = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-cell-id]')
     const cellId = cell?.dataset.cellId
     const sectionId = cell?.dataset.sectionId
+    // A split section's own body answers `closest('[data-cell-id]')` too — it is a container,
+    // not a cell. The store refuses drops there, so the preview refuses to light it: a shadow
+    // may only stand where a drop would be accepted.
+    if (!cellId || !isLeaf(lanes, cellId)) return null
     // An initiative may only be rearranged within its own section, and never onto the cell it
     // already sits in — so those are the only cells worth highlighting.
-    if (!cellId || sectionId !== here.sectionId || cellId === here.cellId) return null
+    if (sectionId !== here.sectionId || cellId === here.cellId) return null
     return cellId
   }
   const parentPickId = useStore((s) => s.parentPickId)
@@ -431,7 +435,15 @@ function Cell({
   }
 
   return (
-    <div className={className ?? 'flex min-w-0 flex-1 basis-0 flex-col'} style={style}>
+    <div
+      className={className ?? 'flex min-w-0 flex-1 basis-0 flex-col'}
+      style={style}
+      // A leaf marks its whole widget — header included — so pointing at a row's header bar
+      // means that row. A container never marks itself: its body would answer otherwise, and
+      // a container is not a place an initiative can go.
+      data-cell-id={leaf ? lane.id : undefined}
+      data-section-id={sectionId}
+    >
       <div className={head}>
         {/* The same three slots the cards workflow uses: the fold control left, the name
             centred, the count and any edit controls right. The left slot was a spacer, which is
