@@ -39,7 +39,7 @@ import {
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, matchesFilters, type CardFilters } from '@/domain/filters'
-import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, WIP_HEADER } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -131,10 +131,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   const canMovePrev = sibIdx > 0
   const canMoveNext = sibIdx >= 0 && sibIdx < siblings.length - 1
   const parentOrientation = parent?.orientation ?? 'columns'
-  // Two things can collapse: a top-level column (into a vertical strip, LeanKit style),
-  // and a row of a column split into rows — the shape where one lane spans the whole
-  // width, so folding it away gives the other rows their space back.
-  const canCollapse = kids.length > 0 && (top || parent?.orientation === 'rows')
+  // Every lane can fold away except the board itself, whose folding would leave nothing to look
+  // at. Not only the ones with something inside them: a column with a single cell is still a
+  // column, and folding it is how a team reclaims width it has stopped using.
+  const canCollapse = !isRoot
   const collapsed = ctx.collapsedLanes[lane.id] === true && canCollapse
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
@@ -194,7 +194,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               <button
                 onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
                 className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
-                title={collapsed ? 'Expand' : `Collapse ${top ? 'column' : 'row'}`}
+                title={collapsed ? 'Expand' : `Collapse ${parentOrientation === 'columns' ? 'column' : 'row'}`}
               >
                 {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
               </button>
@@ -293,18 +293,28 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     )
   }
 
-  // A collapsed top-level column: a narrow vertical strip (LeanKit style) with an
-  // expand control, a card counter, and the column name reading bottom-to-top.
-  if (collapsed && top) {
+  // A collapsed lane is a strip rather than a box — vertical in a row of columns, horizontal in
+  // a stack of rows. It wears the column's own accent, so a folded column is identifiable from
+  // across the board without being read, which is the point of folding it rather than deleting
+  // it: the column is still there, and still this column.
+  if (collapsed) {
+    const accent = stage ? STAGE_ACCENT[stage] : undefined
+    const vertical = parentOrientation === 'columns'
     const count = countInLane(lane.id)
     return (
-      <div className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 bg-slate-100 py-2 text-slate-600">
+      <div
+        className={cn(
+          'flex h-full min-h-0 w-full overflow-hidden rounded-lg border border-slate-300',
+          vertical ? 'flex-col items-center gap-2 py-2' : 'flex-row items-center gap-2 px-2',
+        )}
+        style={accent ? { backgroundColor: tintOn(accent, 0.18), borderColor: accent } : undefined}
+      >
         <button
           onClick={() => ctx.toggleCollapse(lane.id)}
-          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
-          title="Expand column"
+          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-700 transition hover:bg-white/70"
+          title="Expand"
         >
-          <ChevronsRight size={13} />
+          {vertical ? <ChevronsRight size={13} /> : <ChevronDown size={13} />}
         </button>
         <span
           className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-700 px-1 text-micro font-bold tabular-nums text-white"
@@ -312,8 +322,13 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         >
           {count}
         </span>
-        <button onClick={() => ctx.toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand column">
-          <span className="rotate-180 whitespace-nowrap text-meta font-bold uppercase tracking-wide [writing-mode:vertical-rl] text-slate-600">
+        <button onClick={() => ctx.toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand">
+          <span
+            className={cn(
+              'whitespace-nowrap text-meta font-bold uppercase tracking-wide text-slate-700',
+              vertical && 'rotate-180 [writing-mode:vertical-rl]',
+            )}
+          >
             {lane.name}
           </span>
         </button>
@@ -344,14 +359,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
       >
         {!hideHeader && (editMode || lane.name) && header(false)}
-        {collapsed ? (
-          <div className="px-1.5 pb-1">
-            <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-400 bg-slate-200 px-2 py-0.5 text-micro font-semibold text-slate-600">
-              <ChevronsRight size={10} /> {kids.length} lane{kids.length === 1 ? '' : 's'} hidden
-            </span>
-          </div>
-        ) : (
-          <div
+        <div
             className={cn(
               'flex w-full flex-1 min-h-0',
               // Stacked rows get a gap and their own outline; a nested columns split gets a
@@ -361,9 +369,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             )}
             style={
               orientation === 'columns'
-                ? isRoot
-                  ? { gridTemplateColumns: kids.map((k) => (ctx.collapsedLanes[k.id] ? '36px' : 'minmax(min-content, 1fr)')).join(' ') }
-                  : { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' }
+                ? {
+                    gridTemplateColumns: kids.map((k) => (ctx.collapsedLanes[k.id] ? '36px' : 'minmax(min-content, 1fr)')).join(' '),
+                    ...(isRoot ? {} : { gridAutoFlow: 'column' as const }),
+                  }
                 : undefined
             }
           >
@@ -375,15 +384,14 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                   // Rows size to their content (+ buffer); only the last row stretches
                   // to fill the column's remaining height.
                   stacked
-                    ? cn('w-full', i === kids.length - 1 && 'grow')
+                    ? cn('w-full', ctx.collapsedLanes[k.id] ? 'h-9 shrink-0' : i === kids.length - 1 && 'grow')
                     : cn('flex-1', isRoot && 'overflow-hidden rounded-lg border border-slate-300'),
                 )}
               >
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />
               </div>
             ))}
-          </div>
-        )}
+        </div>
       </div>
     )
   }
