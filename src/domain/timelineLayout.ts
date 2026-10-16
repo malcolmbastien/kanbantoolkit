@@ -7,8 +7,8 @@ import { parseDay } from './filters'
  * This module places, it does not decide: the set of initiatives is the caller's (the same
  * board-local top-level set the dashboard and the initiatives workflow compute), and the colour
  * of a bar is carried in as a derived bucket — a fact from the work beneath, never a setting.
- * What it owns is the geometry: the visible day domain, the day offsets, the row packing, and
- * the month structure of the axis.
+ * What it owns is the geometry: the visible day domain, the day offsets, one row per scheduled
+ * initiative, and the month structure of the axis.
  *
  * An initiative with neither date is never placed at an invented day — it comes back in an
  * unscheduled tray. A single date marks one day. Two equal dates are a point, not a one-day
@@ -30,6 +30,8 @@ export interface TimelineBar {
   title: string
   /** A `span` covers a range of days; a `milestone` marks a single day. */
   kind: 'span' | 'milestone'
+  /** A milestone's single date: a start alone, an end alone, or both on the same day. */
+  from?: 'start' | 'end' | 'both'
   /** Row index — packed so overlapping shapes never share a row. */
   row: number
   /** Day offset from the domain start (local midnight to local midnight, DST-safe). */
@@ -84,6 +86,7 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
     entry: TimelineEntry
     index: number
     kind: 'span' | 'milestone'
+    from?: 'start' | 'end' | 'both'
     start: Date
     end: Date
   }> = []
@@ -95,12 +98,13 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
     if (!s && !e) {
       unscheduled.push(entry)
     } else if (s && e) {
-      if (s.getTime() === e.getTime()) placed.push({ entry, index, kind: 'milestone', start: s, end: s })
+      if (s.getTime() === e.getTime())
+        placed.push({ entry, index, kind: 'milestone', from: 'both', start: s, end: s })
       else if (s < e) placed.push({ entry, index, kind: 'span', start: s, end: e })
       else placed.push({ entry, index, kind: 'span', start: e, end: s })
     } else {
       const day = (s ?? e)!
-      placed.push({ entry, index, kind: 'milestone', start: day, end: day })
+      placed.push({ entry, index, kind: 'milestone', from: s ? 'start' : 'end', start: day, end: day })
     }
   })
 
@@ -138,42 +142,40 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
     entry: p.entry,
     index: p.index,
     kind: p.kind,
+    from: p.from,
     start: daysBetween(p.start, start),
     end: p.kind === 'span' ? daysBetween(p.end, start) + 1 : daysBetween(p.start, start),
   }))
+
+  // One row per scheduled initiative. Packing overlapping work onto a shared row saves space
+  // but muddies whose bar is whose, and the rows are what make a glance trustworthy — so the
+  // chart reads as a list over time instead. Chronological, longest first on ties, input order
+  // on full ties: deterministic, and the top row is the earliest work.
   const order = shapes
     .map((_, i) => i)
     .sort(
       (a, b) =>
         shapes[a].start - shapes[b].start || shapes[b].end - shapes[a].end || shapes[a].index - shapes[b].index,
     )
-  const rowEnds: number[] = []
-  const bars: TimelineBar[] = []
-  for (const i of order) {
+  const bars: TimelineBar[] = order.map((i, row) => {
     const shape = shapes[i]
-    let row = rowEnds.findIndex((end) => end <= shape.start)
-    if (row === -1) {
-      row = rowEnds.length
-      rowEnds.push(0)
-    }
-    rowEnds[row] = Math.max(rowEnds[row], shape.end)
-    bars.push({
+    return {
       id: shape.entry.id,
       title: shape.entry.title,
       kind: shape.kind,
+      from: shape.from,
       row,
       start: shape.start,
       end: shape.end,
       bucket: shape.entry.bucket,
-    })
-  }
-  bars.sort((a, b) => a.row - b.row || a.start - b.start || a.end - b.end)
+    }
+  })
 
   return {
     start,
     totalDays,
     bars,
-    rowCount: rowEnds.length,
+    rowCount: bars.length,
     unscheduled,
     months,
     today: todayOffset >= 0 && todayOffset < totalDays ? todayOffset : null,

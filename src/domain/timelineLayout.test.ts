@@ -47,19 +47,19 @@ describe('timeline layout', () => {
     ])
   })
 
-  it('packs overlapping spans into separate rows and reuses a row once free', () => {
+  it('gives every scheduled initiative its own row, in chronological order', () => {
     const l = layoutTimeline(
       [
-        entry('a', { targetStartDate: '2026-11-01', targetEndDate: '2026-11-10' }),
         entry('b', { targetStartDate: '2026-11-06', targetEndDate: '2026-11-15' }),
         entry('c', { targetStartDate: '2026-11-16', targetEndDate: '2026-11-20' }),
+        entry('a', { targetStartDate: '2026-11-01', targetEndDate: '2026-11-10' }),
       ],
       { today: TODAY },
     )
-    expect(l.bars.find((b) => b.id === 'a')!.row).toBe(0)
-    expect(l.bars.find((b) => b.id === 'b')!.row).toBe(1)
-    expect(l.bars.find((b) => b.id === 'c')!.row).toBe(0)
-    expect(l.rowCount).toBe(2)
+    // Chronological, whatever order the caller listed them in: the earliest work tops the chart.
+    expect(l.bars.map((b) => b.id)).toEqual(['a', 'b', 'c'])
+    expect(l.bars.map((b) => b.row)).toEqual([0, 1, 2])
+    expect(l.rowCount).toBe(3)
   })
 
   it('puts an initiative with neither date in the unscheduled tray, never at an invented day', () => {
@@ -98,10 +98,12 @@ describe('timeline layout', () => {
     )
     const e = l.bars.find((b) => b.id === 'end-only')!
     expect(e.kind).toBe('milestone')
+    expect(e.from).toBe('end')
     expect(e.start).toBe(14)
     expect(e.end).toBe(14) // zero width
     const s = l.bars.find((b) => b.id === 'start-only')!
     expect(s.kind).toBe('milestone')
+    expect(s.from).toBe('start')
     expect(s.start).toBe(2)
   })
 
@@ -111,6 +113,7 @@ describe('timeline layout', () => {
     })
     expect(l.bars).toHaveLength(1)
     expect(l.bars[0].kind).toBe('milestone')
+    expect(l.bars[0].from).toBe('both') // a start and an end on the same day
     expect(l.bars[0].start).toBe(4)
     expect(l.bars[0].end).toBe(4)
   })
@@ -139,7 +142,7 @@ describe('timeline layout', () => {
     ]
     const l = layoutTimeline(input, { today: TODAY })
     expect(input.map((e) => e.id)).toEqual(['c', 'b', 'a'])
-    expect(l.bars.map((b) => b.id)).toEqual(['a', 'c', 'b'])
+    expect(l.bars.map((b) => b.id)).toEqual(['a', 'b', 'c'])
   })
 
   it('carries the derived bucket through — colour is a fact, not a setting', () => {

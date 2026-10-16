@@ -1,11 +1,13 @@
 import { ChartNoAxesGantt } from 'lucide-react'
-import { boardInitiatives } from '@/domain/board'
-import { rollupOf, type Graph } from '@/domain/derive'
+import { Card } from './Card'
+import { boardInitiatives, buildRefs } from '@/domain/board'
+import { blockedBelow, checklistProgress, decompositionChildren, dependenciesOf, dependentsOf, isComplete, openDescendants, rollupOf, statusOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { layoutTimeline } from '@/domain/timelineLayout'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { useStore } from '@/store'
 import { chipColors, STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import type { IssueType, Item } from '@/domain/types'
 
 /** The chart's width per day. Fixed for now — zoom is out of scope for this slice. */
 const DAY_PX = 28
@@ -29,9 +31,13 @@ export function TimelineView({ boardId }: { boardId: string }) {
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
   const boards = useStore((s) => s.boards)
+  const users = useStore((s) => s.users)
   const openItem = useStore((s) => s.openItem)
 
   const graph: Graph = { items, edges, links, placements, lanes }
+  const refs = buildRefs(items, issueTypes)
+  const typeOf = (typeId: string): IssueType =>
+    issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
   const board = boards.find((b) => b.id === boardId)
   const initiatives = boardInitiatives(graph, boardId, issueTypes)
   const layout = layoutTimeline(
@@ -106,24 +112,6 @@ export function TimelineView({ boardId }: { boardId: string }) {
                     />
                   ))}
 
-                  {/* Today, drawn only when the domain actually contains it — the layout
-                      answers that, so the marker can never point at an invented place. */}
-                  {layout.today !== null && (
-                    <>
-                      <div
-                        data-timeline-today
-                        className="absolute bottom-0 top-0 w-px bg-rose-500"
-                        style={{ left: (layout.today + 0.5) * DAY_PX }}
-                      />
-                      <span
-                        className="absolute top-1 -translate-x-1/2 rounded bg-rose-500 px-1.5 py-px text-micro font-bold uppercase tracking-wide text-white"
-                        style={{ left: (layout.today + 0.5) * DAY_PX }}
-                      >
-                        Today
-                      </span>
-                    </>
-                  )}
-
                   {/* Bars and milestones — position, row and colour straight from the layout.
                       The colour is the bucket the work beneath derived: a bar cannot claim a
                       stage it does not have, because nothing here accepts a setting. */}
@@ -159,10 +147,18 @@ export function TimelineView({ boardId }: { boardId: string }) {
                         className="group absolute flex items-center transition hover:brightness-95"
                         style={{ left: (bar.start + 0.5) * DAY_PX, top: bar.row * ROW_PX + 10, height: ROW_PX - 20 }}
                       >
-                        {/* A diamond for a point in time, centred on the day it marks. */}
+                        {/* Three distinct marks, centred on the day: a hollow circle where the
+                            work begins, a filled diamond where it is due, a filled dot for an
+                            initiative that is a single day. */}
                         <span
-                          className="h-2.5 w-2.5 shrink-0 -translate-x-1/2 rotate-45 rounded-[2px] shadow-sm ring-1 ring-inset ring-slate-900/20"
-                          style={{ background: chip.background }}
+                          data-timeline-milestone-from={bar.from}
+                          className={cn(
+                            'shrink-0 -translate-x-1/2 shadow-sm',
+                            bar.from === 'end' && 'h-2.5 w-2.5 rotate-45 rounded-[2px] ring-1 ring-inset ring-slate-900/20',
+                            bar.from === 'both' && 'h-2.5 w-2.5 rounded-full ring-1 ring-inset ring-slate-900/20',
+                            bar.from === 'start' && 'h-3 w-3 rounded-full border-[3px] bg-white',
+                          )}
+                          style={bar.from === 'start' ? { borderColor: chip.background } : { background: chip.background }}
                         />
                         <span className="ml-1 max-w-44 truncate text-meta text-slate-700 group-hover:text-slate-900">
                           {bar.title}
@@ -179,26 +175,70 @@ export function TimelineView({ boardId }: { boardId: string }) {
                     </div>
                   )}
                 </div>
+
+                {/* Today, drawn only when the domain actually contains it — the layout answers
+                    that, so the marker can never point at an invented place. It spans the whole
+                    chart, header included, and sits above the bars: the one date here that is
+                    not a target must never be hidden by the work it cuts through. */}
+                {layout.today !== null && (
+                  <>
+                    <div
+                      data-timeline-today
+                      className="absolute inset-y-0 z-10 w-px bg-rose-500"
+                      style={{ left: (layout.today + 0.5) * DAY_PX }}
+                    />
+                    <span
+                      className="absolute top-0 z-10 -translate-x-1/2 rounded-b-md bg-rose-500 px-1.5 py-px text-micro font-bold uppercase tracking-wide text-white"
+                      style={{ left: (layout.today + 0.5) * DAY_PX }}
+                    >
+                      Today
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
             {/* The unscheduled tray — a place, not a position: work with no target dates is
-                never invented onto the axis. Clicking opens the initiative. */}
+                never invented onto the axis. These are the same initiative cards the
+                initiatives workflow draws, so the tray reads as work, not as buttons. */}
             {layout.unscheduled.length > 0 && (
               <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="text-meta font-semibold uppercase tracking-wide text-slate-600">Unscheduled — no target dates</div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {layout.unscheduled.map((u) => (
-                    <button
-                      key={u.id}
-                      data-timeline-unscheduled={u.id}
-                      onClick={() => openItem(u.id)}
-                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-meta text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
-                      title="Open this initiative"
-                    >
-                      {u.title}
-                    </button>
-                  ))}
+                  {layout.unscheduled.map((u) => {
+                    const item = initiatives.find((i) => i.id === u.id)
+                    if (!item) return null
+                    const childItems = decompositionChildren(item.id, edges)
+                      .map((id) => items.find((i) => i.id === id))
+                      .filter((i): i is Item => Boolean(i))
+                      .filter((i) => !i.archived)
+                    const symbols = childItems.map((ci) => ({ bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
+                    return (
+                      <div key={u.id} data-timeline-unscheduled={u.id} className="w-56 shrink-0">
+                        <Card
+                          item={item}
+                          type={typeOf(item.typeId)}
+                          ref_={refs.get(item.id) ?? ''}
+                          wide
+                          users={users}
+                          symbols={symbols}
+                          blockedTone="aggregate"
+                          onOpen={openItem}
+                          summary={{
+                            childCount: decompositionChildren(item.id, edges).length,
+                            dependentsCount: dependentsOf(item.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
+                            linksCount: dependenciesOf(item.id, graph).length + dependentsOf(item.id, graph).length,
+                            blockedBelow: blockedBelow(item.id, graph),
+                            uncommittedBelow: uncommittedBelow(item.id, graph),
+                            openDescendants: openDescendants(item.id, graph).length,
+                            rollupPercent: rollupOf(item.id, graph).percent,
+                            done: isComplete(item.id, graph),
+                            checklist: checklistProgress(item),
+                          }}
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
