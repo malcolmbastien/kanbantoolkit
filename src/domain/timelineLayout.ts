@@ -32,6 +32,11 @@ export interface TimelineBar {
   kind: 'span' | 'milestone'
   /** A milestone's single date: a start alone, an end alone, or both on the same day. */
   from?: 'start' | 'end' | 'both'
+  /** The day a milestone marks, or a span's first day — ISO, as laid out: a backwards span is
+   * labelled in the order it renders, not the order it was typed. */
+  dateIso: string
+  /** A span's last day (inclusive), ISO. A milestone has none. */
+  endIso?: string
   /** Row index — packed so overlapping shapes never share a row. */
   row: number
   /** Day offset from the domain start (local midnight to local midnight, DST-safe). */
@@ -87,6 +92,8 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
     index: number
     kind: 'span' | 'milestone'
     from?: 'start' | 'end' | 'both'
+    dateIso: string
+    endIso?: string
     start: Date
     end: Date
   }> = []
@@ -99,12 +106,14 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
       unscheduled.push(entry)
     } else if (s && e) {
       if (s.getTime() === e.getTime())
-        placed.push({ entry, index, kind: 'milestone', from: 'both', start: s, end: s })
-      else if (s < e) placed.push({ entry, index, kind: 'span', start: s, end: e })
-      else placed.push({ entry, index, kind: 'span', start: e, end: s })
+        placed.push({ entry, index, kind: 'milestone', from: 'both', dateIso: entry.targetStartDate!, start: s, end: s })
+      else if (s < e)
+        placed.push({ entry, index, kind: 'span', dateIso: entry.targetStartDate!, endIso: entry.targetEndDate, start: s, end: e })
+      else
+        placed.push({ entry, index, kind: 'span', dateIso: entry.targetEndDate!, endIso: entry.targetStartDate, start: e, end: s })
     } else {
       const day = (s ?? e)!
-      placed.push({ entry, index, kind: 'milestone', from: s ? 'start' : 'end', start: day, end: day })
+      placed.push({ entry, index, kind: 'milestone', from: s ? 'start' : 'end', dateIso: (s ? entry.targetStartDate : entry.targetEndDate)!, start: day, end: day })
     }
   })
 
@@ -143,6 +152,8 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
     index: p.index,
     kind: p.kind,
     from: p.from,
+    dateIso: p.dateIso,
+    endIso: p.endIso,
     start: daysBetween(p.start, start),
     end: p.kind === 'span' ? daysBetween(p.end, start) + 1 : daysBetween(p.start, start),
   }))
@@ -164,6 +175,8 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
       title: shape.entry.title,
       kind: shape.kind,
       from: shape.from,
+      dateIso: shape.dateIso,
+      endIso: shape.endIso,
       row,
       start: shape.start,
       end: shape.end,

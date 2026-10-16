@@ -26,9 +26,12 @@ describe('timeline layout', () => {
     expect(a.kind).toBe('span')
     expect(a.start).toBe(0)
     expect(a.end).toBe(10) // inclusive of the end date
+    expect(a.dateIso).toBe('2026-11-01')
+    expect(a.endIso).toBe('2026-11-10')
     const b = l.bars.find((x) => x.id === 'b')!
     expect(b.start).toBe(65) // 30 (Nov) + 31 (Dec) + 4
     expect(b.end).toBe(67)
+    expect(b.dateIso).toBe('2027-01-05')
     expect(l.totalDays).toBe(92)
   })
 
@@ -99,11 +102,14 @@ describe('timeline layout', () => {
     const e = l.bars.find((b) => b.id === 'end-only')!
     expect(e.kind).toBe('milestone')
     expect(e.from).toBe('end')
+    expect(e.dateIso).toBe('2026-11-15')
+    expect(e.endIso).toBeUndefined()
     expect(e.start).toBe(14)
     expect(e.end).toBe(14) // zero width
     const s = l.bars.find((b) => b.id === 'start-only')!
     expect(s.kind).toBe('milestone')
     expect(s.from).toBe('start')
+    expect(s.dateIso).toBe('2026-11-03')
     expect(s.start).toBe(2)
   })
 
@@ -114,6 +120,7 @@ describe('timeline layout', () => {
     expect(l.bars).toHaveLength(1)
     expect(l.bars[0].kind).toBe('milestone')
     expect(l.bars[0].from).toBe('both') // a start and an end on the same day
+    expect(l.bars[0].dateIso).toBe('2026-11-05')
     expect(l.bars[0].start).toBe(4)
     expect(l.bars[0].end).toBe(4)
   })
@@ -125,6 +132,9 @@ describe('timeline layout', () => {
     expect(l.bars[0].kind).toBe('span')
     expect(l.bars[0].start).toBe(1)
     expect(l.bars[0].end).toBe(10)
+    // Labelled as rendered: the meant order, not the typed one.
+    expect(l.bars[0].dateIso).toBe('2026-11-02')
+    expect(l.bars[0].endIso).toBe('2026-11-10')
   })
 
   it('draws the today marker only when today lies inside the domain', () => {

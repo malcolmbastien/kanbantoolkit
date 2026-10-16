@@ -3,6 +3,7 @@ import { Card } from './Card'
 import { boardInitiatives, buildRefs } from '@/domain/board'
 import { blockedBelow, checklistProgress, decompositionChildren, dependenciesOf, dependentsOf, isComplete, openDescendants, rollupOf, statusOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { layoutTimeline } from '@/domain/timelineLayout'
+import { parseDay } from '@/domain/filters'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { useStore } from '@/store'
 import { chipColors, STAGE_ACCENT } from '@/lib/colors'
@@ -13,6 +14,19 @@ import type { IssueType, Item } from '@/domain/types'
 const DAY_PX = 28
 /** The height of one packed row; bars land here in the next step. */
 const ROW_PX = 56
+
+/** A single day, read at a glance — the chart's own headers carry the year. */
+const fmtDay = (iso: string): string => parseDay(iso)!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+/** A span, precise about what it claims: the year appears when the span crosses one. */
+const fmtRange = (fromIso: string, toIso: string): string => {
+  const from = parseDay(fromIso)!
+  const to = parseDay(toIso)!
+  const day = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return from.getFullYear() === to.getFullYear()
+    ? `${day(from)} \u2013 ${day(to)}, ${from.getFullYear()}`
+    : `${day(from)}, ${from.getFullYear()} \u2013 ${day(to)}, ${to.getFullYear()}`
+}
 
 /**
  * The board's initiatives laid out over time.
@@ -117,7 +131,8 @@ export function TimelineView({ boardId }: { boardId: string }) {
                       stage it does not have, because nothing here accepts a setting. */}
                   {layout.bars.map((bar) => {
                     const chip = chipColors(STAGE_ACCENT[bar.bucket])
-                    const label = `${bar.title} \u00b7 ${STAGE_LABELS[bar.bucket]}`
+                    const shown = bar.kind === 'span' ? fmtRange(bar.dateIso, bar.endIso!) : fmtDay(bar.dateIso)
+                    const label = `${bar.title} \u00b7 ${shown} \u00b7 ${STAGE_LABELS[bar.bucket]}`
                     return bar.kind === 'span' ? (
                       <button
                         key={bar.id}
@@ -135,7 +150,10 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           color: chip.color,
                         }}
                       >
-                        <span className="truncate text-meta font-medium">{bar.title}</span>
+                        <span className="flex min-w-0 flex-col justify-center leading-tight">
+                          <span className="truncate text-meta font-medium">{bar.title}</span>
+                          <span className="truncate text-micro">{shown}</span>
+                        </span>
                       </button>
                     ) : (
                       <button
@@ -160,8 +178,9 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           )}
                           style={bar.from === 'start' ? { borderColor: chip.background } : { background: chip.background }}
                         />
-                        <span className="ml-1 max-w-44 truncate text-meta text-slate-700 group-hover:text-slate-900">
-                          {bar.title}
+                        <span className="ml-1 flex min-w-0 max-w-44 items-baseline">
+                          <span className="truncate text-meta text-slate-700 group-hover:text-slate-900">{bar.title}</span>
+                          <span className="shrink-0 text-micro text-slate-600">&nbsp;\u00b7 {shown}</span>
                         </span>
                       </button>
                     )
