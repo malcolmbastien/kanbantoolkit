@@ -180,7 +180,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
                         />
                         <span className="ml-1 flex min-w-0 max-w-44 items-baseline">
                           <span className="truncate text-meta text-slate-700 group-hover:text-slate-900">{bar.title}</span>
-                          <span className="shrink-0 text-micro text-slate-600">&nbsp;\u00b7 {shown}</span>
+                          <span className="shrink-0 text-micro text-slate-600">&nbsp;· {shown}</span>
                         </span>
                       </button>
                     )
