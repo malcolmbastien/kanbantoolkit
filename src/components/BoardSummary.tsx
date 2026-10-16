@@ -315,7 +315,7 @@ function Cell({
     const accent = stage ? STAGE_ACCENT[stage] : undefined
     return (
       <div
-        className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2"
+        className="flex min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2"
         style={{ ...style, ...(accent ? { backgroundColor: tintOn(accent, 0.18), borderColor: accent } : {}) }}
       >
         <button
