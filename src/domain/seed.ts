@@ -1,6 +1,7 @@
 import type { Board, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, User, Workflow } from './types'
 
 const T = Date.UTC(2026, 9, 15, 9, 0, 0)
+const DAY = 86_400_000
 
 /* ------------------------------------------------------------------ *
  * Demo org: "Meridian". Two teams, a company portfolio, and a couple of
@@ -273,6 +274,7 @@ item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignees: ['u-j
 item('st-signup-design', 'Design signup screens', 't-story', { size: 3 })
 item('st-signup-form', 'Build signup form', 't-story', {
   size: 5,
+  createdAt: T - 7 * DAY,
   assignees: ['u-rk', 'u-mb'],
   checklist: [
     { id: 'cl-form-1', text: 'Form markup + validation', done: true },
@@ -283,6 +285,8 @@ item('st-signup-form', 'Build signup form', 't-story', {
 })
 item('st-email', 'Email verification', 't-story', {
   size: 3,
+  createdAt: T - 35 * DAY,
+  log: [{ id: 'log-email-1', at: T - 35 * DAY, kind: 'created' }],
   checklist: [
     { id: 'cl-email-1', text: 'Draft the template', done: true },
     { id: 'cl-email-2', text: 'Send on signup', done: false },
@@ -292,9 +296,10 @@ item('st-sso', 'SSO buttons', 't-story', {
   size: 2,
   blocked: true,
   blockedReason: 'Gateway contract not ready',
+  createdAt: T - 18 * DAY,
   log: [
-    { id: 'log-sso-1', at: T, kind: 'created' },
-    { id: 'log-sso-2', at: T + 2 * 3_600_000, kind: 'blocked', note: 'Gateway contract not ready' },
+    { id: 'log-sso-1', at: T - 18 * DAY, kind: 'created' },
+    { id: 'log-sso-2', at: T - 12 * DAY, kind: 'blocked', note: 'Gateway contract not ready' },
   ],
 })
 item('df-signup', 'Signup validation on retry', 't-bug', { size: 2 })
@@ -340,8 +345,8 @@ item('st-legacy-a', 'Retire legacy auth endpoint', 't-story', {
  * ------------------------------------------------------------------ */
 const placements: Placement[] = []
 let placeSeq = 0
-const place = (itemId: string, boardId: string, laneId: string) =>
-  placements.push({ id: `pl-${++placeSeq}`, boardId, itemId, laneId })
+const place = (itemId: string, boardId: string, laneId: string, enteredAt?: number) =>
+  placements.push({ id: `pl-${++placeSeq}`, boardId, itemId, laneId, ...(enteredAt ? { laneEnteredAt: enteredAt } : {}) })
 
 // Company strategy + line of business. Initiatives are placed in the board's *initiatives*
 // workflow — the team's card lanes are a different tree.
@@ -358,9 +363,11 @@ place('init-platform', 'b-portfolio', p.init.backlog.id) // uncommitted inventor
 // Team Atlas — committed onboarding work.
 place('init-signup', 'b-atlas', a.init.ns.id)
 place('st-signup-design', 'b-atlas', a.done.id)
-place('st-signup-form', 'b-atlas', a.dev.id)
-place('st-email', 'b-atlas', a.ns.id)
-place('st-sso', 'b-atlas', a.test!.id)
+// A few Atlas stamps tell time's story: Not Started has held one card about a month, and
+// the pieces under way have their own younger ages. The rest predate the stamp on purpose.
+place('st-signup-form', 'b-atlas', a.dev.id, T - 6 * DAY)
+place('st-email', 'b-atlas', a.ns.id, T - 30 * DAY)
+place('st-sso', 'b-atlas', a.test!.id, T - 12 * DAY)
 place('df-signup', 'b-atlas', a.test!.id)
 
 // Team Nova — committed welcome work + uncommitted gateway work.

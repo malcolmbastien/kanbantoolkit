@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { laneAges, medianOf } from './filters'
 import { activeFilterCount, ageDays, filtersFromParam, hasActiveFilters, isDueSoon, isOverdue, matchesFilters, NO_FILTERS, parseDay, sameFilters, type CardFilters } from './filters'
-import type { Item } from './types'
+import type { Item, Lane, Placement } from './types'
 
 const card = (patch: Partial<Item> = {}): Item => ({ id: 'x', title: 'X', typeId: 't-story', createdAt: 0, ...patch })
 const with_ = (patch: Partial<CardFilters>): CardFilters => ({ ...NO_FILTERS, ...patch })
@@ -173,5 +174,37 @@ describe('card filters', () => {
     expect(d.getMonth()).toBe(2)
     expect(d.getDate()).toBe(1)
     expect(parseDay(undefined)).toBeUndefined()
+  })
+})
+
+describe('column age', () => {
+  const day = 86_400_000
+  const now = 1_000 * day
+  // A column with a cell inside it: work in a cell ages for the column that holds it.
+  const lanes: Lane[] = [
+    { id: 'col', boardId: 'b', parentId: null, order: 0, name: 'In Progress', workflow: 'cards', stage: 'inProgress' },
+    { id: 'cell', boardId: 'b', parentId: 'col', order: 0, name: 'A', workflow: 'cards', stage: 'inProgress' },
+    { id: 'other', boardId: 'b', parentId: null, order: 1, name: 'Done', workflow: 'cards', stage: 'done' },
+  ]
+  const place = (id: string, lane: string, agoDays?: number): Placement => ({
+    id,
+    boardId: 'b',
+    itemId: id,
+    laneId: lane,
+    ...(agoDays === undefined ? {} : { laneEnteredAt: now - agoDays * day }),
+  })
+
+  it('reads every placement under a lane, cells included, stampless ones skipped', () => {
+    const placements = [place('p1', 'cell', 10), place('p2', 'col', 2), place('p3', 'col'), place('p4', 'other', 99)]
+    const ages = laneAges(lanes, placements, 'col', now)
+    expect(ages.slice().sort((a, b) => a - b)).toEqual([2, 10])
+  })
+
+  it('medians the middle day, averaging the two middle ones for an even count', () => {
+    expect(medianOf([])).toBeUndefined()
+    expect(medianOf([9])).toBe(9)
+    expect(medianOf([10, 2])).toBe(6)
+    expect(medianOf([9, 1, 2, 2, 11])).toBe(2)
+    expect(medianOf([10, 4, 2, 8])).toBe(6)
   })
 })

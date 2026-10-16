@@ -2,6 +2,7 @@ import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, List
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
+import { STALE_AFTER_DAYS } from '@/domain/filters'
 import { PriorityBadge } from './PriorityBadge'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
 
@@ -429,7 +430,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
           </span>
           <span className="ml-auto flex shrink-0 items-center gap-1">
             {summary.done && <DoneStamp />}
-            {summary.ageDays !== undefined && summary.ageDays >= 7 && (
+            {summary.ageDays !== undefined && summary.ageDays >= STALE_AFTER_DAYS && (
               <span
                 className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"
                 title={`${summary.ageDays} days in this lane`}

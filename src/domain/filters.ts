@@ -1,4 +1,5 @@
-import type { Item, Placement } from './types'
+import { subtreeIds } from './lanes'
+import type { Item, Lane, Placement } from './types'
 
 /**
  * Card filters for the board view. Filters combine with AND across categories
@@ -59,6 +60,37 @@ export function isOverdue(item: Item, resolved: boolean, now = Date.now()): bool
 
 /** How far ahead "due soon" reaches, counted in days including today: a week. */
 export const DUE_SOON_DAYS = 7
+
+/**
+ * The staleness threshold, in days — the point where a card stops staying quiet about how
+ * long it has sat still. One constant for the card's aging cue and the dashboard's oldest
+ * numbers, so every surface speaks at the same moment.
+ */
+export const STALE_AFTER_DAYS = 7
+
+/**
+ * Every known age inside a lane's subtree, in days: the card's placement names the leaf it
+ * sits in, and counting a container means reading its descendants — a cell's work ages for
+ * the column that holds it. Placements without a stamp say nothing and are skipped.
+ */
+export function laneAges(lanes: Lane[], placements: Placement[], laneId: string, now = Date.now()): number[] {
+  const ids = new Set(subtreeIds(lanes, laneId))
+  return placements
+    .filter((p) => ids.has(p.laneId))
+    .map((p) => ageDays(p, now))
+    .filter((a): a is number => a !== undefined)
+}
+
+/**
+ * The middle age, or the average of the two middle ones for an even count — one number for
+ * "how long does work usually sit here", unmoved by one extreme old card.
+ */
+export function medianOf(ages: number[]): number | undefined {
+  if (ages.length === 0) return undefined
+  const sorted = [...ages].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
 
 /** A card is due soon when its target end date falls within the next week and isn't resolved. */
 export function isDueSoon(item: Item, resolved: boolean, now = Date.now()): boolean {

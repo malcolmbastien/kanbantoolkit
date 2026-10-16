@@ -2,13 +2,18 @@ import { Ban, CalendarClock, Layers, Target } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
 import { boardInitiatives, buildRefs } from '@/domain/board'
-import { STAGE_LABELS } from '@/domain/lanes'
+import { childrenOf, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { laneAges, medianOf, STALE_AFTER_DAYS } from '@/domain/filters'
 import { BAND_ACCENT, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Stage } from '@/domain/types'
 
 const barColor = (pct: number) => (pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
+
+/** Days in a column, quiet: a whole number of days, or one decimal for an in-between median. */
+const daysLabel = (n: number | undefined) =>
+  n === undefined ? '\u2014' : `${Number.isInteger(n) ? n : n.toFixed(1)}d`
 
 /** Parse an ISO 'YYYY-MM-DD' as a local date so it doesn't shift a day. */
 function parseDate(iso?: string): Date | undefined {
@@ -39,6 +44,17 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   const selectedItemId = useStore((s) => s.selectedItemId)
 
   const graph: Graph = { items, edges, links, placements, lanes }
+  // The cards workflow's columns, each reading how long its work has sat still — derived
+  // from the placements' lane stamps, never stored, never acting on anything.
+  const done = new Set(items.filter((i) => i.archived).map((i) => i.id))
+  const boardPlacements = placements.filter((p) => p.boardId === boardId && !done.has(p.itemId))
+  const cardsRoot = rootLane(lanes, boardId, 'cards')
+  const columns = (cardsRoot ? childrenOf(lanes, cardsRoot.id) : []).map((c) => {
+    const ids = new Set(subtreeIds(lanes, c.id))
+    const cards = boardPlacements.filter((p) => ids.has(p.laneId)).length
+    const ages = laneAges(lanes, boardPlacements, c.id)
+    return { lane: c, cards, oldest: ages.length ? Math.max(...ages) : undefined, median: medianOf(ages) }
+  })
   const refs = buildRefs(items, issueTypes)
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
@@ -189,6 +205,56 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             </tbody>
           </table>
         </div>
+
+        {/* Time in column — where time sits, per column of this board's cards workflow.
+            A stuck column is a number before it is a feeling, and the oldest number speaks
+            at the same staleness threshold the card's own aging cue does. */}
+        <section className="mt-4 overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
+          <div className="border-b border-slate-200 bg-slate-100 px-4 py-2 text-micro font-semibold uppercase tracking-wide text-slate-600">
+            Time in column
+          </div>
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-200 text-micro uppercase tracking-wide text-slate-600">
+                <th className="px-4 py-2 font-semibold">Column</th>
+                <th className="px-4 py-2 font-semibold">Cards</th>
+                <th className="px-4 py-2 font-semibold">Oldest</th>
+                <th className="px-4 py-2 font-semibold">Median</th>
+              </tr>
+            </thead>
+            <tbody>
+              {columns.map(({ lane, cards, oldest, median }) => {
+                const stale = oldest !== undefined && oldest >= STALE_AFTER_DAYS
+                return (
+                  <tr key={lane.id} className="border-b border-slate-100 last:border-0">
+                    <td className="px-4 py-1.5 font-medium text-slate-700">
+                      {lane.name || STAGE_LABELS[lane.stage ?? 'inProgress']}
+                    </td>
+                    <td className="px-4 py-1.5 tabular-nums text-slate-600">{cards}</td>
+                    <td
+                      className={cn('px-4 py-1.5 tabular-nums', stale ? 'text-amber-700' : 'text-slate-600')}
+                      title={stale ? 'A card has sat still past the staleness threshold — the same moment a card starts showing its age' : undefined}
+                    >
+                      {daysLabel(oldest)}
+                    </td>
+                    <td className="px-4 py-1.5 tabular-nums text-slate-600">{daysLabel(median)}</td>
+                  </tr>
+                )
+              })}
+              {columns.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-meta text-slate-600">
+                    The cards workflow has no columns yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          <p className="border-t border-slate-100 px-4 py-2 text-micro text-slate-600">
+            Read from each placement's lane stamp — never stored on the item and never acting: nothing is auto-moved or
+            flagged. The clock starts when a card enters its lane, so splitting a column re-stamps the cards it reshapes.
+          </p>
+        </section>
 
         <p className="mt-3 text-meta text-slate-600">
           Work progress and status are computed from the leaf work beneath each initiative. Blocked below counts explicitly

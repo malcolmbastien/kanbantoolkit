@@ -932,9 +932,11 @@ describe('store actions', () => {
     const dev = laneByName('b-atlas', 'Dev')
     const done = laneByName('b-atlas', 'Done')
 
-    // Seeded placements predate the clock, so they carry no age — which is the honest
-    // 'unknown', not zero.
-    expect(stamp('st-email')).toBeUndefined()
+    // Most seeded placements predate the clock, so they carry no age — which is the honest
+    // 'unknown', not zero. The few the seed backdates carry real stamps: Not Started has
+    // held Email verification for about a month.
+    expect(stamp('df-signup')).toBeUndefined()
+    expect(stamp('st-email')).toBeTruthy()
 
     // A move stamps.
     s().moveCard('st-email', 'b-atlas', dev.id)
