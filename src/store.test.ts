@@ -1328,11 +1328,21 @@ describe('timeline view state', () => {
     expect(s().showBoards).toBe(false)
   })
 
-  it('toggling is idempotent — twice lands back on the board', () => {
-    s().toggleTimeline()
+  it('tabs select — selecting the same tab twice stays on it', () => {
+    s().setTimeline(true)
+    s().setTimeline(true)
     expect(s().showTimeline).toBe(true)
-    s().toggleTimeline()
+  })
+
+  it('the Board tab is the board itself — every view flag clears, the workspace with it', () => {
+    s().setTimeline(true)
+    s().setBoards(true)
+    s().setBoard()
     expect(s().showTimeline).toBe(false)
+    expect(s().showBoards).toBe(false)
+    expect(s().showDashboard).toBe(false)
+    expect(s().showArchive).toBe(false)
+    expect(s().showObjectives).toBe(false)
   })
 
   it('opening another view closes the timeline', () => {

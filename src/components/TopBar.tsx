@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, SlidersHorizontal, Target, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, SlidersHorizontal, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -8,7 +8,6 @@ interface Props {
   boards: Board[]
   boardId: string
   editMode: boolean
-  showObjectives: boolean
   showDashboard: boolean
   showTimeline: boolean
   showArchive: boolean
@@ -17,10 +16,10 @@ interface Props {
   /** Number of active filter categories (for the button badge). */
   activeFilterCount: number
   onSelectBoard: (id: string) => void
-  onToggleObjectives: () => void
-  onToggleDashboard: () => void
-  onToggleTimeline: () => void
-  onToggleArchive: () => void
+  onShowBoard: () => void
+  onShowDashboard: () => void
+  onShowTimeline: () => void
+  onShowArchive: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
   onToggleFilters: () => void
@@ -34,7 +33,11 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showObjectives, showDashboard, showTimeline, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onToggleObjectives, onToggleDashboard, onToggleTimeline, onToggleArchive, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+
+  // The Board tab is the board itself, so it is lit when no view sits over it — and not while
+  // the organisation workspace is open, because that is not a board either.
+  const boardActive = !showDashboard && !showTimeline && !showArchive && !showBoards
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
@@ -69,19 +72,19 @@ export function TopBar(props: Props) {
 
 
           <button
-            onClick={onToggleObjectives}
+            onClick={onShowBoard}
             disabled={editMode}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showObjectives ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+              boardActive ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
-            title="Objectives & Key Results — how work maps to priorities"
+            title="Board — the board itself"
           >
-            <Target size={12} /> Objectives
+            <Kanban size={12} /> Board
           </button>
 
           <button
-            onClick={onToggleDashboard}
+            onClick={onShowDashboard}
             disabled={editMode}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
@@ -93,7 +96,7 @@ export function TopBar(props: Props) {
           </button>
 
           <button
-            onClick={onToggleTimeline}
+            onClick={onShowTimeline}
             disabled={editMode}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
@@ -105,7 +108,7 @@ export function TopBar(props: Props) {
           </button>
 
           <button
-            onClick={onToggleArchive}
+            onClick={onShowArchive}
             disabled={editMode}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',

@@ -28,19 +28,16 @@ export default function App() {
   const selectedItemId = useStore((s) => s.selectedItemId)
   const editMode = useStore((s) => s.editMode)
   const showObjectives = useStore((s) => s.showObjectives)
-  const toggleObjectives = useStore((s) => s.toggleObjectives)
   const setObjectives = useStore((s) => s.setObjectives)
   const showDashboard = useStore((s) => s.showDashboard)
-  const toggleDashboard = useStore((s) => s.toggleDashboard)
+  const setBoard = useStore((s) => s.setBoard)
   const setDashboard = useStore((s) => s.setDashboard)
-  const toggleTimeline = useStore((s) => s.toggleTimeline)
   const setTimeline = useStore((s) => s.setTimeline)
   const showArchive = useStore((s) => s.showArchive)
   const showTimeline = useStore((s) => s.showTimeline)
-  const toggleArchive = useStore((s) => s.toggleArchive)
+  const setArchive = useStore((s) => s.setArchive)
   const showBoards = useStore((s) => s.showBoards)
   const setBoards = useStore((s) => s.setBoards)
-  const setArchive = useStore((s) => s.setArchive)
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
   const toggleFilters = useStore((s) => s.toggleFilters)
@@ -200,7 +197,6 @@ export default function App() {
         boards={boards}
         boardId={boardId}
         editMode={editMode}
-        showObjectives={showObjectives}
         showDashboard={showDashboard}
         showTimeline={showTimeline}
         showArchive={showArchive}
@@ -208,10 +204,10 @@ export default function App() {
         showFilters={showFilters}
         activeFilterCount={activeFilterCount(filters)}
         onSelectBoard={selectBoard}
-        onToggleObjectives={toggleObjectives}
-        onToggleDashboard={toggleDashboard}
-        onToggleTimeline={toggleTimeline}
-        onToggleArchive={toggleArchive}
+        onShowBoard={setBoard}
+        onShowDashboard={() => setDashboard(true)}
+        onShowTimeline={() => setTimeline(true)}
+        onShowArchive={() => setArchive(true)}
         onGoToBoards={() => setBoards(true)}
         onToggleFilters={toggleFilters}
         onEditBoard={beginEdit}

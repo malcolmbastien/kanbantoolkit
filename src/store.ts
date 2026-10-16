@@ -111,15 +111,13 @@ export interface Actions {
   toggleLens: (id: string) => void
   setLens: (id: string | null) => void
   clearLens: () => void
-  toggleObjectives: () => void
   setObjectives: (v: boolean) => void
+  /** The board itself as the active view — a tab, not a toggle: every view flag clears. */
+  setBoard: () => void
   /** Open/close the board settings dialog. */
   toggleBoardSettings: () => void
-  toggleDashboard: () => void
   setDashboard: (v: boolean) => void
-  toggleTimeline: () => void
   setTimeline: (v: boolean) => void
-  toggleArchive: () => void
   setArchive: (v: boolean) => void
   toggleBoards: () => void
   setBoards: (v: boolean) => void
@@ -935,14 +933,13 @@ export const useStore = create<Store>()(
       toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
-      toggleObjectives: () => set({ showObjectives: !get().showObjectives, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false }),
       toggleBoardSettings: () => set({ showBoardSettings: !get().showBoardSettings }),
       setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false } : {}) }),
-      toggleDashboard: () => set({ showDashboard: !get().showDashboard, showObjectives: false, showTimeline: false, showArchive: false, showBoards: false }),
+      // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
+      // Board tab is the board itself — every view flag clears, the workspace with it.
+      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false }),
       setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false } : {}) }),
-      toggleTimeline: () => set({ showTimeline: !get().showTimeline, showObjectives: false, showDashboard: false, showArchive: false, showBoards: false }),
       setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false } : {}) }),
-      toggleArchive: () => set({ showArchive: !get().showArchive, showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false }),
       setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false } : {}) }),
       toggleBoards: () => {
         const on = !get().showBoards
