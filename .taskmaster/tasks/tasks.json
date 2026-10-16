@@ -194,7 +194,7 @@
   "backlog": {
     "tasks": [
       {
-        "id": "1",
+        "id": 1,
         "title": "Implement Objective and Key Result data model and persistence",
         "description": "Define and persist Objectives and Key Results as commitment-limited entities with period, status, score, target, current, and progress fields.",
         "status": "done",
@@ -205,7 +205,7 @@
         "subtasks": []
       },
       {
-        "id": "2",
+        "id": 2,
         "title": "Build Objectives & Key Results view with period selector and score summary",
         "description": "Create the OKR view where objectives are listed by period, with commitment limit status and score summary, and nested key results.",
         "status": "done",
@@ -218,7 +218,7 @@
         "subtasks": []
       },
       {
-        "id": "3",
+        "id": 3,
         "title": "Implement Objective create, edit, delete, and status workflow",
         "description": "Add UI and behavior to create, edit, delete, activate, score, and close Objectives.",
         "status": "done",
@@ -232,7 +232,7 @@
         "subtasks": []
       },
       {
-        "id": "4",
+        "id": 4,
         "title": "Implement Key Result add, edit, and score UI",
         "description": "Add the ability to create, edit, update current/target values, and score Key Results under Objectives.",
         "status": "done",
@@ -247,7 +247,7 @@
         "subtasks": []
       },
       {
-        "id": "5",
+        "id": 5,
         "title": "Implement objective-work attribution edges and rollup computation",
         "description": "Implement many-to-many attribution edges from initiatives and cards to objectives, and compute objective rollup without inflating WIP.",
         "status": "done",
@@ -260,7 +260,7 @@
         "subtasks": []
       },
       {
-        "id": "6",
+        "id": 6,
         "title": "Build map-work-to-objectives UI and attribution UX with coverage/impact reporting",
         "description": "Allow attaching initiatives and cards to objectives and display coverage, rollup status, and percent of attributed work.",
         "status": "done",
@@ -274,7 +274,7 @@
         "subtasks": []
       },
       {
-        "id": "7",
+        "id": 7,
         "title": "Implement cross-board initiative rollup and board-local top-level initiative semantics",
         "description": "Enable top-level initiatives from one management board to roll up to top-level initiatives on another management board, while preserving board-local top-level definitions.",
         "status": "done",
@@ -288,7 +288,7 @@
         "subtasks": []
       },
       {
-        "id": "8",
+        "id": 8,
         "title": "Column WIP limits: board-level enforcement mode with at/over tints",
         "description": "Per-lane WIP limits with a board-level enforcement mode and yellow/red column tints. No thresholds, effective dates, or soft-block.",
         "status": "done",
@@ -299,7 +299,7 @@
         "subtasks": []
       },
       {
-        "id": "10",
+        "id": 10,
         "title": "Implement initiative health and at-risk flags beyond percent complete",
         "description": "Add P2 initiative health and at-risk flags based on signals beyond simple percent complete.",
         "status": "pending",
@@ -310,7 +310,7 @@
         "subtasks": []
       },
       {
-        "id": "11",
+        "id": 11,
         "title": "Build full card editor in side panel",
         "description": "P0 full card editor supports title, markdown description, assignee, size, and type in the side panel.",
         "status": "done",
@@ -322,7 +322,7 @@
         "updatedAt": "2026-10-11T13:41:40.403Z"
       },
       {
-        "id": "12",
+        "id": 12,
         "title": "Implement archive items (clear Done work off boards, keep it searchable)",
         "description": "Archive items so completed (Done) work can be cleared off boards without deleting it; archived items leave the boards but stay searchable and still appear in linked-issue surfaces. Deletion is split into a separate task (39).",
         "status": "done",
@@ -334,7 +334,7 @@
         "updatedAt": "2026-10-11T16:05:39.991Z"
       },
       {
-        "id": "13",
+        "id": 13,
         "title": "Implement quick-add and paste-many card creation in lanes",
         "description": "P1 quick-add and paste-many: paste a list into a lane to create multiple cards.",
         "status": "cancelled",
@@ -345,7 +345,7 @@
         "subtasks": []
       },
       {
-        "id": "14",
+        "id": 14,
         "title": "Add checklists inside a card",
         "description": "P2 checklist support inside a card for finer-grained work than schedulable cards.",
         "status": "done",
@@ -358,7 +358,7 @@
         "subtasks": []
       },
       {
-        "id": "15",
+        "id": 15,
         "title": "Add comments and activity log per item",
         "description": "P2 comments and activity log per item.",
         "status": "pending",
@@ -371,7 +371,7 @@
         "subtasks": []
       },
       {
-        "id": "16",
+        "id": 16,
         "title": "Implement multi-select and bulk actions",
         "description": "P2 multi-select cards (shift+click) and bulk actions for move to lane, retype, assign, archive, and delete.",
         "status": "done",
@@ -385,7 +385,7 @@
         "subtasks": []
       },
       {
-        "id": "17",
+        "id": 17,
         "title": "Implement lane reorder and add via buttons (Cards workflow)",
         "description": "P0 button-driven board editing for the Cards workflow: move columns left/right and rows up/down, and add a column to a column split or a row to a row split. No drag; order persists.",
         "status": "done",
@@ -397,7 +397,7 @@
         "updatedAt": "2026-10-11T16:22:51.266Z"
       },
       {
-        "id": "18",
+        "id": 18,
         "title": "Implement inline rename and confirm-before-delete replacing window.prompt",
         "description": "P0 inline rename for lanes/items and confirm-before-delete modal instead of window.prompt.",
         "status": "done",
@@ -410,7 +410,7 @@
         "subtasks": []
       },
       {
-        "id": "19",
+        "id": 19,
         "title": "Implement lane settings popover",
         "description": "P1 lane settings popover: name, WIP limit, policy, and delete.",
         "status": "done",
@@ -423,7 +423,7 @@
         "subtasks": []
       },
       {
-        "id": "20",
+        "id": 20,
         "title": "Persist collapsed columns (lane collapse/expand)",
         "description": "P1 collapse/expand lanes while remembering state across reloads.",
         "status": "done",
@@ -436,7 +436,7 @@
         "subtasks": []
       },
       {
-        "id": "21",
+        "id": 21,
         "title": "Duplicate a board (templates shipped in 51/52; wizard dropped)",
         "description": "P1 board scaffolding. Narrowed by the user: templates already shipped (tasks 51/52) and the new-team-board wizard is dropped — a board starts from a template or a duplicate, not from a wizard.",
         "status": "done",
@@ -450,7 +450,7 @@
         "updatedAt": "2026-10-13T00:48:21.913Z"
       },
       {
-        "id": "22",
+        "id": 22,
         "title": "Build pending dependency confirmation inbox on blocker side",
         "description": "P0 inbox for blockers to confirm or reject dependency requests with a reason.",
         "status": "cancelled",
@@ -462,7 +462,7 @@
         "updatedAt": "2026-10-11T15:22:01.711Z"
       },
       {
-        "id": "23",
+        "id": 23,
         "title": "Build dependency register view split into live blockage vs planning risk",
         "description": "P0 dependency register shows all open dependencies split into live blockage and planning risk.",
         "status": "cancelled",
@@ -476,7 +476,7 @@
         "updatedAt": "2026-10-11T18:36:19.853Z"
       },
       {
-        "id": "24",
+        "id": 24,
         "title": "Implement raise dependency with pin picker, FS/SS/FF types, and lag editor",
         "description": "P1 raise a dependency with a pin picker, finish-to-start/start-to-start/finish-to-finish types, and lag editor.",
         "status": "cancelled",
@@ -490,7 +490,7 @@
         "updatedAt": "2026-10-11T18:55:46.464Z"
       },
       {
-        "id": "25",
+        "id": 25,
         "title": "Implement blocker badge drill-in with cross-board count",
         "description": "P1 blocker badge showing 'blocks N across M boards'",
         "status": "cancelled",
@@ -502,7 +502,7 @@
         "updatedAt": "2026-10-11T18:55:46.475Z"
       },
       {
-        "id": "26",
+        "id": 26,
         "title": "Build global search across all boards",
         "description": "Search items by title/ref across every board with jump-to results.",
         "status": "done",
@@ -513,7 +513,7 @@
         "subtasks": []
       },
       {
-        "id": "27",
+        "id": 27,
         "title": "Board filters: side-panel filter set for the current board",
         "description": "A Filters button opens a right-side panel with basic card filters: one per card type, plus blocked, overdue and unassigned.",
         "status": "done",
@@ -524,7 +524,7 @@
         "subtasks": []
       },
       {
-        "id": "28",
+        "id": 28,
         "title": "Add lineage breadcrumb and show-on-other-boards to the item panel",
         "description": "Show the parent chain and the boards an item appears on, with jump links.",
         "status": "done",
@@ -535,7 +535,7 @@
         "subtasks": []
       },
       {
-        "id": "29",
+        "id": 29,
         "title": "Add a command palette / quick board switcher",
         "description": "Keyboard-driven switcher for boards, items and actions.",
         "status": "pending",
@@ -546,7 +546,7 @@
         "subtasks": []
       },
       {
-        "id": "30",
+        "id": 30,
         "title": "Add ghost lanes for cross-scope dependencies",
         "description": "Surface inbound external dependencies as a read-only edge lane.",
         "status": "cancelled",
@@ -558,7 +558,7 @@
         "updatedAt": "2026-10-11T18:33:39.037Z"
       },
       {
-        "id": "31",
+        "id": 31,
         "title": "Implement undo/redo for mutations",
         "description": "Undo/redo across edits, ideally by wrapping mutations in a command layer.",
         "status": "cancelled",
@@ -569,7 +569,7 @@
         "subtasks": []
       },
       {
-        "id": "32",
+        "id": 32,
         "title": "Implement workspace export and import (JSON)",
         "description": "Back up and restore the whole workspace as JSON.",
         "status": "pending",
@@ -580,7 +580,7 @@
         "subtasks": []
       },
       {
-        "id": "33",
+        "id": 33,
         "title": "Add toasts and action feedback",
         "description": "Give immediate feedback for moves, confirms, saves and errors.",
         "status": "cancelled",
@@ -591,7 +591,7 @@
         "subtasks": []
       },
       {
-        "id": "34",
+        "id": 34,
         "title": "Add empty states and contextual hints",
         "description": "Guide first-run and empty boards/lanes/columns.",
         "status": "pending",
@@ -602,7 +602,7 @@
         "subtasks": []
       },
       {
-        "id": "35",
+        "id": 35,
         "title": "Virtualize large columns and boards",
         "description": "Keep boards fast with hundreds of cards.",
         "status": "pending",
@@ -613,7 +613,7 @@
         "subtasks": []
       },
       {
-        "id": "36",
+        "id": 36,
         "title": "Touch and responsive layout with touch drag",
         "description": "Usable on tablet/mobile, including drag.",
         "status": "pending",
@@ -624,7 +624,7 @@
         "subtasks": []
       },
       {
-        "id": "37",
+        "id": 37,
         "title": "Keyboard navigation and accessibility pass",
         "description": "Make the app keyboard-navigable and screen-reader friendly.",
         "status": "pending",
@@ -635,7 +635,7 @@
         "subtasks": []
       },
       {
-        "id": "38",
+        "id": 38,
         "title": "Add Backlog status and column to standard workflows and seeded boards",
         "description": "Introduce a Backlog stage for initiatives and cards, add Backlog columns to all seeded boards, and enforce hierarchical stage derivation so any Backlog descendant forces its ancestors into Backlog.",
         "details": "Extend the workflow status enum/type with BACKLOG and order it before the committed statuses (Not Started, In Progress, Done). Treat Backlog as the only uncommitted state. Update the standard workflow definitions for initiatives and cards to include Backlog as the first stage, and update the board/lane column definitions so each seeded board includes a Backlog column/lane mapped to the Backlog status.\n\nUpdate seed data and any idempotent seed/migration logic so all seeded boards receive the new Backlog column. Preserve existing column ordering by inserting Backlog before Not Started. If columns have WIP limits, Backlog should not impose a committed-work WIP limit.\n\nImplement the hierarchical stage invariant in the domain/service layer, not only in the UI. For an item, treat any childless descendant as a leaf. If the item itself has no children, its own status is its leaf status. The effective stage should be computed as follows: collect all descendant leaves; if any leaf is BACKLOG, return BACKLOG; otherwise derive the committed stage from those leaves using the existing roll-up rules (for example, any In Progress leaf makes the ancestor In Progress; otherwise any Not Started leaf makes it Not Started; otherwise Done).\n\nAdd a validation guard when changing an item's status or accepting a move/drop: reject any attempt to place a parent in a committed status while any descendant leaf remains Backlog. When a leaf changes into Backlog, recalculate ancestors so they become Backlog. When the last Backlog descendant moves out of Backlog, recalculate ancestors back to the appropriate committed stage. Ensure recalculation is transactional and covers deep initiative/card hierarchies.\n\nUpdate API DTOs, serializers, filters, board counts, and any status-transition actions to accept and expose Backlog. Ensure drag-and-drop into the Backlog column updates the card/initiative status and triggers the same roll-up/invariant logic as direct status changes.",
@@ -647,7 +647,7 @@
         "updatedAt": "2026-10-11T15:18:47.967Z"
       },
       {
-        "id": "39",
+        "id": 39,
         "title": "Implement delete cards (remove the card and its relationships)",
         "description": "P0 delete a card. Deleting removes the card and every relationship it participates in; its children lose their parent (become roots). Split from task 12 so deletion logic is reviewed separately.",
         "status": "done",
@@ -659,7 +659,7 @@
         "updatedAt": "2026-10-11T19:28:06.820Z"
       },
       {
-        "id": "40",
+        "id": 40,
         "title": "Lane editor: insert-after, delete safety, duplicate subtree, collapse",
         "description": "Cards-workflow lane editing extras: insert a lane after a sibling, confirm before removing a lane with cards, duplicate a lane with its sub-lanes, and collapse/expand containers.",
         "status": "done",
@@ -671,7 +671,7 @@
         "updatedAt": "2026-10-11T16:22:51.266Z"
       },
       {
-        "id": "41",
+        "id": 41,
         "title": "Saved filter presets + assignee and initiative filters",
         "description": "Extend the board filters with assignee and initiative filters, and let users save named presets per board.",
         "status": "pending",
@@ -684,7 +684,7 @@
         "subtasks": []
       },
       {
-        "id": "42",
+        "id": 42,
         "title": "Bulk move cards to another board",
         "description": "Deferred from task 16: extend the bulk-action bar with a move-to-another-board action.",
         "status": "done",
@@ -697,7 +697,7 @@
         "subtasks": []
       },
       {
-        "id": "43",
+        "id": 43,
         "title": "Card context menu (single card and selection groups)",
         "description": "Right-click a card for a menu of quick actions; when the card is part of a selection group the actions apply to the whole group.",
         "status": "done",
@@ -708,7 +708,7 @@
         "subtasks": []
       },
       {
-        "id": "44",
+        "id": 44,
         "title": "Board settings panel",
         "description": "A board settings panel: title, type, rollup, card types, WIP enforcement, linked team boards.",
         "status": "done",
@@ -719,7 +719,7 @@
         "subtasks": []
       },
       {
-        "id": "45",
+        "id": 45,
         "title": "Quarterly planning: plan a department's initiatives across its teams, mapped to OKRs",
         "description": "Support a department running quarterly planning with its teams: each team ends up with a list of initiatives for the quarter, all connected to OKRs.",
         "status": "cancelled",
@@ -731,7 +731,7 @@
         "updatedAt": "2026-10-12T19:54:55.815Z"
       },
       {
-        "id": "46",
+        "id": 46,
         "title": "Flight-level bands: an acyclic board-aggregation DAG with operational / coordination / strategic lenses",
         "description": "Model flight levels as bands (lenses) over one board-aggregation graph so large orgs can nest coordination boards at any depth, instead of a fixed three-tier level enum.",
         "status": "done",
@@ -742,7 +742,7 @@
         "subtasks": []
       },
       {
-        "id": "47",
+        "id": 47,
         "title": "Strategic initiatives as first-class L3 items; OKRs attach at the top and inherit down",
         "description": "Strategic initiatives live on L3 portfolio boards as ordinary initiatives; OKRs attach only to them, and every other altitude connects up with the standard parent/child relationship.",
         "status": "done",
@@ -755,7 +755,7 @@
         "subtasks": []
       },
       {
-        "id": "48",
+        "id": 48,
         "title": "Board workspace: browse, search and open boards",
         "description": "A top-level Boards workspace listing every board in the organisation, grouped by band, with search. Rows carry the name and band only; opening one switches to that board. Reachable from a TopBar toggle and from the board picker.",
         "status": "done",
@@ -767,7 +767,7 @@
         "updatedAt": "2026-10-12T20:29:32.775Z"
       },
       {
-        "id": "49",
+        "id": 49,
         "title": "Board workspace: create a board",
         "description": "Create a board from the workspace: a name plus a band, optionally from a template.",
         "status": "done",
@@ -781,7 +781,7 @@
         "updatedAt": "2026-10-12T20:34:24.447Z"
       },
       {
-        "id": "50",
+        "id": 50,
         "title": "Archive boards (retire a board without destroying it)",
         "description": "Let a board be archived: hidden from the picker, the workspace's default list and the aggregation bands, but not destroyed. Mirrors item archiving (task 12).",
         "status": "done",
@@ -795,7 +795,7 @@
         "updatedAt": "2026-10-12T20:50:34.967Z"
       },
       {
-        "id": "51",
+        "id": 51,
         "title": "Board templates: define, save and instantiate",
         "description": "A template is a board design, not its work: save a board's design as a template, and create new boards from it.",
         "status": "done",
@@ -809,7 +809,7 @@
         "updatedAt": "2026-10-12T21:26:37.937Z"
       },
       {
-        "id": "52",
+        "id": 52,
         "title": "Board templates: manage the library",
         "description": "List, rename and remove templates from the workspace.",
         "status": "done",
@@ -823,7 +823,7 @@
         "updatedAt": "2026-10-12T21:48:02.509Z"
       },
       {
-        "id": "53",
+        "id": 53,
         "title": "Board workspace: per-board headline, graph gaps, and board admin",
         "description": "Deferred from the workspace's first slice: a richer per-board summary, inline graph gaps, and board admin from the workspace.",
         "status": "deferred",
@@ -836,7 +836,7 @@
         "subtasks": []
       },
       {
-        "id": "54",
+        "id": 54,
         "title": "Card aging — how long a card has sat in its current lane",
         "description": "P1 flow signal: a card that has sat too long in a lane is the problem WIP limits exist to expose. LeanKit shows card aging and Businessmap shows aging WIP; Flowline records nothing about time-in-lane today.",
         "status": "done",
@@ -848,7 +848,7 @@
         "updatedAt": "2026-10-13T12:00:00.000Z"
       },
       {
-        "id": "55",
+        "id": 55,
         "title": "Manual rank within a lane",
         "description": "P1: the order cards sit in a lane is how Kanban expresses priority. `Placement` has no order field, so cards render in insertion order and a team cannot say 'this one first'.",
         "status": "done",
@@ -860,7 +860,7 @@
         "updatedAt": "2026-10-13T12:00:00.000Z"
       },
       {
-        "id": "56",
+        "id": 56,
         "title": "Priority: card badge, context menu and store tests",
         "description": "P1, narrowed: the priority field itself shipped with the item-panel redesign (task 60). What remains is surfacing it — a badge on the card face, the multi-select bulk editor, and the filter.",
         "status": "done",
@@ -872,7 +872,7 @@
         "updatedAt": "2026-10-13T12:00:00.000Z"
       },
       {
-        "id": "57",
+        "id": 57,
         "title": "Timeline view of a board's initiatives workflow",
         "description": "P1: a board view, like the dashboard, laying the board's initiatives out over time by their target start and end dates.",
         "status": "pending",
@@ -880,11 +880,68 @@
         "priority": "high",
         "details": "A new view toggled from the TopBar alongside Dashboard and Objectives, addressable as `?board=<id>&view=timeline` and linked from the board workspace the way the dashboard now is. Rows are the board's local top-level initiatives — the same set `ManagementDashboard` and `BoardSummary` compute — so the surfaces cannot disagree. Bars span `targetStartDate` to `targetEndDate`; an initiative with neither date goes to an 'unscheduled' tray rather than being placed at an invented date, and one with a single date is shown as a milestone marker. Bar colour comes from the derived status bucket (`rollupOf`), so a bar cannot claim a stage the work beneath it does not have — a bar's colour is a fact, not a setting. Include a today marker and period headers. Horizontally scrollable; no zoom and no drag-to-reschedule in this slice, since that would be a write and belongs with an explicit action. Clicking a bar opens the item panel. Initiatives only — this is the external representation, not cards. Out of scope: target-vs-actual, because no actual exists.",
         "testStrategy": "Unit-test the layout as a pure function: date-to-x mapping, row packing, unscheduled items, single-date milestones, zero-width bars, an empty board, and a range crossing a year boundary. Route/store test that `?view=timeline` selects the view, and that the timeline shows exactly the same initiative set as the dashboard. Run npm test.",
-        "subtasks": [],
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement pure timeline layout function and unit tests",
+            "description": "Create a framework-free domain function that maps board initiatives to timeline positions and groups, with full vitest coverage for edge cases.",
+            "dependencies": [],
+            "details": "Add `src/domain/timelineLayout.ts` exporting a pure `layoutTimeline(initiatives, domain)` function. It must compute the visible date domain from `targetStartDate` and `targetEndDate`, map dates to x positions, support a range crossing a year boundary, pack rows for overlapping bars, treat zero-width bars as milestones, place initiatives with only one date as milestone markers, and return a separate unscheduled tray for initiatives with neither date. Accept only top-level board initiatives; no cards and no store/UI dependencies. Include the `rollupOf` status bucket on returned items for later colouring without allowing per-item settings.",
+            "status": "pending",
+            "testStrategy": "Add `src/domain/timelineLayout.test.ts` with vitest tests: date-to-x mapping over a year-boundary range, row packing, unscheduled items with neither date, single-date milestone markers, zero-width bars, empty board, and stable ordering. Assert no invented dates and no mutation of input."
+          },
+          {
+            "id": 2,
+            "title": "Wire timeline view state, URL routing, and navigation entry points",
+            "description": "Add timeline as a board view option in UI state, addressable by `?board=<id>&view=timeline`, with TopBar and workspace links like the dashboard.",
+            "dependencies": [],
+            "details": "Extend the existing view-selection state slice next to `showArchive`, `showObjectives`, and `showDashboard` with `showTimeline`. Make `?board=<id>&view=timeline` select the timeline view, mirroring existing view routing. Add a TopBar toggle alongside Dashboard and Objectives and add a link from the board workspace equivalent to the dashboard link. Keep the state ephemeral/UI-only; do not add new persisted fields or change the persisted shape, so no version bump or migration is needed.",
+            "status": "pending",
+            "testStrategy": "Unit-test the store/routing logic: `?view=timeline` selects timeline, toggling updates the view idempotently, and the TopBar/workspace link emits the correct target URL. Assert existing view flags remain unchanged and persisted shape is not touched."
+          },
+          {
+            "id": 3,
+            "title": "Build TimelineView frame: period headers, today marker, scroll, unscheduled tray",
+            "description": "Create the TimelineView component shell that renders the time axis, period headers, a today marker, and the unscheduled tray for initiatives with no dates.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement `TimelineView` under the board view switch. It must call the pure `layoutTimeline` function and render the returned domain as horizontally scrollable space. Render period headers such as months or quarters from the domain, draw a today marker when today falls within the range, and render an unscheduled tray listing initiatives that have neither `targetStartDate` nor `targetEndDate`. No zoom and no drag-to-reschedule. The initiative set must come from the same top-level initiative computation used by `ManagementDashboard` and `BoardSummary` so the surfaces cannot disagree.",
+            "status": "pending",
+            "testStrategy": "Component/unit tests render TimelineView with a known top-level initiative set and assert period headers appear, today marker appears for a range containing today, and unscheduled initiatives land in the tray. Ensure no zoom/drag handlers exist."
+          },
+          {
+            "id": 4,
+            "title": "Render timeline bars, milestone markers, status colours, and item panel opening",
+            "description": "Render positioned initiative bars and milestone markers from layout output, colouring from the derived rollupOf status bucket, and make clicking a bar open the item panel.",
+            "dependencies": [
+              1,
+              3
+            ],
+            "details": "Use the row positions produced by `layoutTimeline` to render each initiative as a bar spanning `targetStartDate` to `targetEndDate`, with single-date initiatives drawn as milestone markers. Bar colour must be derived from the `rollupOf` status bucket only, never from an initiative setting. Clicking a bar or milestone must open the existing item panel for that initiative. Add stable DOM hooks such as `data-timeline-bar-id` and `data-timeline-milestone-id` for tests. Initiatives only; do not render cards in this view.",
+            "status": "pending",
+            "testStrategy": "Add component tests: bars use the correct left/width from layout, milestone markers render for single-date initiatives, colour maps from rollupOf status bucket, clicking a bar calls the item panel opener, and DOM hooks match expected initiative IDs. Assert no cards are rendered."
+          },
+          {
+            "id": 5,
+            "title": "Run full verification pass and browser probe for timeline view",
+            "description": "Run build, lint, unit tests, and the existing headless Chrome/CDP browser verification for the new timeline view, adding timeline hooks where needed.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Execute the project's complete verification pipeline: `npm run build`, `npm run lint`, and `vitest`. Run the existing headless Chrome + CDP probe pattern against a board URL such as `?board=<id>&view=timeline`, verifying the view renders initiatives, period headers, today marker, unscheduled tray, and bar colours. Add or adjust timeline DOM hooks if the existing probes cannot target the right elements. Confirm no persisted-shape migration was introduced and that the timeline shows the same top-level initiatives as the dashboard and board summary.",
+            "status": "pending",
+            "testStrategy": "Run all of build, lint, and vitest successfully; browser probe asserts the timeline route renders and exposes the expected initiative IDs, status colours, and unscheduled tray contents. Spot-check the store in the browser to confirm no new persisted fields were added."
+          }
+        ],
         "updatedAt": "2026-10-13T12:00:00.000Z"
       },
       {
-        "id": "58",
+        "id": 58,
         "title": "Board filters: by assignee, by priority, by card age",
         "description": "P1: extend the existing filter panel (blocked / overdue / unassigned) with the three dimensions the new fields make possible.",
         "status": "done",
@@ -899,7 +956,7 @@
         "updatedAt": "2026-10-13T12:00:00.000Z"
       },
       {
-        "id": "59",
+        "id": 59,
         "title": "Flow metrics — a board view derived from movement history",
         "description": "P2, and the biggest item here: a read-only analytics view per board — cycle time, lead time, throughput and a cumulative flow diagram — built from recorded lane transitions. All three competitors have this and Flowline has none of it.",
         "status": "pending",
@@ -911,7 +968,7 @@
         "updatedAt": "2026-10-13T12:00:00.000Z"
       },
       {
-        "id": "60",
+        "id": 60,
         "title": "Item panel: redesign the drawer — header, tabs, property grid, comment footer",
         "description": "P1 UI: redesign the right-hand drawer into a compact, tabbed panel — a title block, a Details / Hierarchy & Links / Activity tab strip, a two-column property grid, a strategic-impact card and a sticky comment composer. It stays a drawer: a centred modal was considered and rejected because it covers the board you are working against.",
         "status": "done",
@@ -925,7 +982,7 @@
         "updatedAt": "2026-10-13T12:00:00.000Z"
       },
       {
-        "id": "61",
+        "id": 61,
         "title": "Pan the board by dragging empty workflow space",
         "description": "P1: drag any empty part of a workflow to pan the board — for navigating flows wider than the screen, and to stop a drag on the board from becoming a text selection.",
         "status": "done",
@@ -937,7 +994,7 @@
         "updatedAt": "2026-10-14T12:00:00.000Z"
       },
       {
-        "id": "62",
+        "id": 62,
         "title": "Legibility — a type scale and a contrast floor",
         "description": "Usability, and the one felt on every screen: much of the interface is set too small and too pale to read comfortably. The item panel is the worst of it, but the top bar and the card faces have the same problem. This is not a matter of taste — 10px text and slate-400 on white are below the thresholds at which text is reliably readable.",
         "status": "done",
@@ -949,7 +1006,7 @@
         "updatedAt": "2026-10-14T12:00:00.000Z"
       },
       {
-        "id": "63",
+        "id": 63,
         "title": "A completed card and initiative are stamped Done",
         "description": "A visual indicator on the board: a green check that stamps a card or an initiative as Done, so a finished thing reads as finished at a glance rather than having to be inferred from the column it sits in.",
         "status": "done",
@@ -961,7 +1018,7 @@
         "updatedAt": "2026-10-14T12:00:00.000Z"
       },
       {
-        "id": "64",
+        "id": 64,
         "title": "Set a card’s parent from its context menu, by pointing at an initiative",
         "description": "Connect a card to an initiative from the card itself. The context menu gains a “Set parent” option which puts the board into a pick mode; clicking an initiative there sets it as the card’s parent, and the card’s roll-up chip appears. Only a card connects to an initiative — an initiative is never the child of a card.",
         "status": "done",
@@ -973,7 +1030,7 @@
         "updatedAt": "2026-10-15T12:00:00.000Z"
       },
       {
-        "id": "65",
+        "id": 65,
         "title": "A context menu for initiatives, and connecting a card from the initiative end",
         "description": "Initiative cards have no context menu at all. Give them one, and in it the same act task 64 added for cards but from the other end: pick a card and it becomes a child of this initiative — one edge, set from whichever end you happen to be looking at.",
         "status": "done",
@@ -985,7 +1042,7 @@
         "updatedAt": "2026-10-15T12:00:00.000Z"
       },
       {
-        "id": "66",
+        "id": 66,
         "title": "Connect a team initiative to a management one, from a Program board",
         "description": "A Program board shows each linked board as a band, and a band is read-only today — not by policy but because the context menu has nowhere to render there. Allow the one act that belongs on this surface: a team initiative in a band rolling up to a management initiative on the board itself.",
         "status": "done",
@@ -1004,7 +1061,9 @@
       "completedCount": 44,
       "tags": [
         "backlog"
-      ]
+      ],
+      "created": "2026-10-16T11:20:38.070Z",
+      "description": "Tasks for backlog context"
     }
   }
 }
