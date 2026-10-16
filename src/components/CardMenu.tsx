@@ -17,7 +17,7 @@ import {
   CornerDownRight,
   Unlink,
 } from 'lucide-react'
-import { cardTypes, isInitiativeItem } from '@/domain/board'
+import { cardTypes, isAggregating, isInitiativeItem } from '@/domain/board'
 import { decompositionParent } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -49,6 +49,9 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const items = useStore((s) => s.items)
   const setItemFields = useStore((s) => s.setItemFields)
   const boardId = useStore((s) => s.boardId)
+  const boards = useStore((s) => s.boards)
+  // An aggregating board shows bands, not a cards workflow: there is no card to connect to.
+  const aggregating = isAggregating(boards.find((b) => b.id === boardId))
   const lanes = useStore((s) => s.lanes)
   const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
@@ -358,8 +361,9 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
           </button>
         )}
         {/* The same edge, named from the initiative: you are looking at an outcome and want to
-            pull work under it, which is when the connection is actually in your head. */}
-        {single && only && isInitiativeItem(only, issueTypes) && (
+            pull work under it, which is when the connection is actually in your head. Not on an
+            aggregating board, which renders no cards workflow — there would be nothing to pick. */}
+        {single && only && isInitiativeItem(only, issueTypes) && !aggregating && (
           <button className={ITEM} onClick={() => run(() => startChildPick(only.id))}>
             <span className="shrink-0 text-slate-600">
               <CornerDownRight size={13} className="-scale-x-100" />
