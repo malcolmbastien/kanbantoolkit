@@ -59,11 +59,14 @@ const HEAD_ROW = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1'
  */
 export function BoardSummary({
   boardId,
+  viewedBoardId,
   rootsOnly,
   variant = 'team',
   interactive = false,
 }: {
   boardId: string
+  /** The board the person is looking at, when this is a band inside another board. */
+  viewedBoardId?: string
   rootsOnly?: boolean
   variant?: 'initiatives' | 'team'
   /** Own surface: drag initiatives between cells and edit the flow. Linked bands set this false. */
@@ -206,7 +209,12 @@ export function BoardSummary({
         locked={editMode}
         // The menu is new here: initiative cards never had one.
         onContextMenu={openCardMenu}
-        dimmed={childPickId !== null}
+        dimmed={
+          childPickId !== null ||
+          // Waiting for a parent, only the initiatives on this board are choices — so on a
+          // Program board the bands' initiatives dim and the board's own stay lit.
+          (parentPickId !== null && !initiativeCellOf(c.id, viewedBoardId ?? boardId, graph))
+        }
         onOpen={(id) => {
           if (justDragged.current) return
           // Naming a card for an initiative: an initiative is not a card, so it is not a choice.
@@ -215,6 +223,10 @@ export function BoardSummary({
           // an open. Every card on this surface is an initiative, which is why the pick is
           // answered here and not on the cards workflow.
           if (parentPickId) {
+            // Only the initiatives on the board being viewed are choices. On a Program board
+            // that is what keeps a band from parenting another band: the act is a team
+            // initiative rolling up to a management one, and this is what makes it that.
+            if (!initiativeCellOf(id, viewedBoardId ?? boardId, graph)) return
             setParent(parentPickId, id)
             cancelParentPick()
             return

@@ -8,18 +8,15 @@ import {
   ChevronUp,
   ChevronsRight,
   Columns3,
-  CornerDownRight,
   CopyPlus,
   Plus,
   Rows3,
   Settings,
-  X,
 } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
 import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
-import { CardMenu } from './CardMenu'
 import { DragLayer } from './DragLayer'
 import { useCardLift } from '@/lib/useCardLift'
 import { DropColumn } from './DropColumn'
@@ -595,7 +592,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const cancelParentPick = useStore((s) => s.cancelParentPick)
   const childPickId = useStore((s) => s.childPickId)
   const cancelChildPick = useStore((s) => s.cancelChildPick)
-  const childPickItem = items.find((i) => i.id === childPickId)
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
@@ -604,9 +600,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const rowRef = useRef<HTMLDivElement>(null)
   // Drag empty workflow space to move the board. See usePanScroll.
   const pan = usePanScroll<HTMLDivElement>()
-  const cardMenu = useStore((s) => s.cardMenu)
   const openCardMenu = useStore((s) => s.openCardMenu)
-  const closeCardMenu = useStore((s) => s.closeCardMenu)
 
   const boardPlacements = placements
     .filter((p) => p.boardId === boardId)
@@ -775,50 +769,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       {canvas}
       {lift && (
         <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
-      )}
-      {childPickId && (
-        <div
-          data-child-pick
-          className="fixed bottom-4 left-4 z-40 flex max-w-[min(26rem,80vw)] items-center gap-2 rounded-lg border border-indigo-400/60 bg-indigo-600 px-3 py-2 text-meta font-medium text-white shadow-2xl"
-        >
-          <CornerDownRight size={13} className="-scale-x-100 shrink-0" />
-          <span className="min-w-0">
-            <span className="text-indigo-200">Connect to {childPickItem?.title ?? 'this initiative'}:</span> click the card
-          </span>
-          <button
-            onClick={cancelChildPick}
-            className="shrink-0 rounded p-0.5 text-indigo-100 transition hover:bg-white/15 hover:text-white"
-            title="Cancel"
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
-      {parentPickId && (
-        <div
-          data-parent-pick
-          className="fixed bottom-4 left-4 z-40 flex max-w-[min(26rem,80vw)] items-center gap-2 rounded-lg border border-indigo-400/60 bg-indigo-600 px-3 py-2 text-meta font-medium text-white shadow-2xl"
-        >
-          <CornerDownRight size={13} className="shrink-0" />
-          <span className="min-w-0">
-            <span className="text-indigo-200">Set parent:</span> click the initiative this card rolls up to
-          </span>
-          <button
-            onClick={cancelParentPick}
-            className="shrink-0 rounded p-0.5 text-indigo-100 transition hover:bg-white/15 hover:text-white"
-            title="Cancel"
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
-      {cardMenu && (
-        <CardMenu
-          itemIds={multiSelect.includes(cardMenu.itemId) ? multiSelect : [cardMenu.itemId]}
-          x={cardMenu.x}
-          y={cardMenu.y}
-          onClose={closeCardMenu}
-        />
       )}
     </>
   )

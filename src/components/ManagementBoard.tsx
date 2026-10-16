@@ -167,7 +167,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
                       </button>
                     </span>
                   </div>
-                  {!isCollapsed && <BoardSummary boardId={t.id} />}
+                  {!isCollapsed && <BoardSummary boardId={t.id} viewedBoardId={board.id} />}
                 </div>
               )
             })}

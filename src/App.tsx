@@ -11,6 +11,7 @@ import { ItemPanel } from './components/ItemPanel'
 import { FocusChip } from './components/FocusChip'
 import { ManagementDashboard } from './components/ManagementDashboard'
 import { ObjectivesView } from './components/ObjectivesView'
+import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
 import { boardCardTypeId, defaultDropLane, initiativeTypeId } from './domain/board'
 import { activeFilterCount } from './domain/filters'
@@ -187,6 +188,9 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* One host for the menu and the pick chips, so every surface has them — an aggregating
+          board renders no BoardCanvas, and used to get neither. */}
+      <Overlays />
       <TopBar
         boards={boards}
         boardId={boardId}
