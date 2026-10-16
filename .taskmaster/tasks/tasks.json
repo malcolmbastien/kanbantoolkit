@@ -1084,12 +1084,13 @@
         "id": "69",
         "title": "Aging and staleness: time-in-column on cards, a stale filter, and column age on the dashboard",
         "description": "Surface how long work has been sitting where it is — derived from laneEnteredAt, never stored, never blocking.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Competitor basis: LeanKit's staleness filter and card/board health; Businessmap's aging-work analytics. Flowline already stores laneEnteredAt on every placement and the domain has ageDays \\u2014 the data exists, nothing new is recorded. Three surfaces, all derived at render: (1) time-in-column on cards, quiet until it matters \\u2014 a subtle cue that appears only past a threshold, so the board stays calm and the old work speaks up; (2) a stale filter in the existing filter panel (is this card older than N days in its current column) with a sensible default \\u2014 pick one in build, say 7 days \\u2014 composing with the other filters; (3) per-column age on the management dashboard \\u2014 oldest and median time-in-column per column, so a stuck column is a number before it is a feeling. CONSTRAINTS: nothing is auto-moved, nothing is auto-flagged, no notifications \\u2014 time-respecting means the facts are always visible and never nag; age is read from placements, never written onto items.",
         "testStrategy": "Unit tests for the staleness predicate including the boundary (a card exactly N days old), and for the dashboard column-age computation (oldest/median across a lane's placements). Filter integration: stale composes with blocked/assignee/type filters. Browser probe: a seeded old placement shows the aging cue, the filter isolates it, and a fresh placement shows nothing.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-16T21:59:07.332Z"
       },
       {
         "id": "70",
@@ -1140,9 +1141,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T21:28:55.480Z",
+      "lastModified": "2026-10-16T21:59:07.332Z",
       "taskCount": 72,
-      "completedCount": 49,
+      "completedCount": 50,
       "tags": [
         "backlog"
       ]
