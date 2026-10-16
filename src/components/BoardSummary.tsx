@@ -20,10 +20,24 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { buildRefs, initiativeCellOf } from '@/domain/board'
-import { isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
+import { childrenOf, isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, ChevronsRight, Columns3, Rows3, Settings } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  BetweenHorizontalStart,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronsRight,
+  Columns3,
+  CopyPlus,
+  Minimize2,
+  Plus,
+  Rows3,
+  Settings,
+} from 'lucide-react'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
 
@@ -318,6 +332,12 @@ function Cell({
 }) {
   const lanes = useStore((s) => s.lanes)
   const splitLane = useStore((s) => s.splitLane)
+  const addLane = useStore((s) => s.addLane)
+  const unsplitLane = useStore((s) => s.unsplitLane)
+  const setLaneOrientation = useStore((s) => s.setLaneOrientation)
+  const insertLaneAfter = useStore((s) => s.insertLaneAfter)
+  const duplicateLane = useStore((s) => s.duplicateLane)
+  const moveLane = useStore((s) => s.moveLane)
   const removeLane = useStore((s) => s.removeLane)
   const renameLane = useStore((s) => s.renameLane)
   const setLaneWip = useStore((s) => s.setLaneWip)
@@ -330,6 +350,9 @@ function Cell({
 
   const editable = interactive && editMode
   const leaf = isLeaf(lanes, lane.id)
+  const siblings = lane.parentId ? childrenOf(lanes, lane.parentId) : []
+  const at = siblings.findIndex((l) => l.id === lane.id)
+  const orientation = lane.orientation ?? 'columns'
 
   // The same header bar the cards workflow uses: its own ground, a margin on every side,
   // so a section and its cells are separate labels rather than a continuous band.
@@ -413,7 +436,22 @@ function Cell({
           </span>
           {editable && (
             <CtlGroup>
-              {leaf && (
+              {!isSection && (
+                <>
+                  <LaneCtl title={orientation === 'rows' ? 'Move up' : 'Move left'} disabled={at <= 0} onClick={() => moveLane(lane.id, -1)}>
+                    {orientation === 'rows' ? <ChevronUp size={12} /> : <ChevronLeft size={12} />}
+                  </LaneCtl>
+                  <LaneCtl
+                    title={orientation === 'rows' ? 'Move down' : 'Move right'}
+                    disabled={at < 0 || at >= siblings.length - 1}
+                    onClick={() => moveLane(lane.id, 1)}
+                  >
+                    {orientation === 'rows' ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  </LaneCtl>
+                  <CtlDivider />
+                </>
+              )}
+              {leaf ? (
                 <>
                   <LaneCtl title="Split this cell into columns" onClick={() => splitLane(lane.id, 'columns')}>
                     <Columns3 size={12} />
@@ -421,9 +459,34 @@ function Cell({
                   <LaneCtl title="Split this cell into rows" onClick={() => splitLane(lane.id, 'rows')}>
                     <Rows3 size={12} />
                   </LaneCtl>
-                  <CtlDivider />
+                </>
+              ) : (
+                <>
+                  <LaneCtl title={`Add a ${orientation === 'rows' ? 'row' : 'column'} to this split`} onClick={() => addLane(lane.id)}>
+                    <Plus size={12} />
+                  </LaneCtl>
+                  {/* A section arranges its own cells, so flipping is offered here even though a
+                      section is top-level: the stages are fixed, the shape they take is not. */}
+                  <LaneCtl title="Flip columns ↔ rows" onClick={() => setLaneOrientation(lane.id, orientation === 'rows' ? 'columns' : 'rows')}>
+                    <ArrowLeftRight size={12} />
+                  </LaneCtl>
+                  <LaneCtl title="Merge this split back into one cell" onClick={() => unsplitLane(lane.id)}>
+                    <Minimize2 size={12} />
+                  </LaneCtl>
                 </>
               )}
+              {!isSection && (
+                <>
+                  <CtlDivider />
+                  <LaneCtl title="Insert a new lane after this one" onClick={() => insertLaneAfter(lane.id)}>
+                    <BetweenHorizontalStart size={12} />
+                  </LaneCtl>
+                  <LaneCtl title="Duplicate this lane and its sub-lanes" onClick={() => duplicateLane(lane.id)}>
+                    <CopyPlus size={12} />
+                  </LaneCtl>
+                </>
+              )}
+              <CtlDivider />
               <LaneCtl
                 btnRef={btnRef}
                 active={settingsOpen}

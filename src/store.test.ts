@@ -1108,6 +1108,35 @@ describe('store actions', () => {
     expect(migrated.items[1].assignees).toBeUndefined()
   })
 
+  it('removing one cell of a split folds the split away rather than stranding its cards', () => {
+    s().selectBoard('b-atlas')
+    const backlog = laneByName('b-atlas', 'Backlog')
+    s().splitLane(backlog.id, 'columns')
+    const cells = childrenOf(s().lanes, backlog.id)
+    expect(cells).toHaveLength(2)
+    s().moveCard('st-email', 'b-atlas', cells[1].id)
+
+    s().removeLane(cells[0].id)
+
+    // One child is not a split: the survivor folds away and the section holds the card itself,
+    // which is the cell the surface looks in. Before this the card sat in a cell nothing drew.
+    expect(childrenOf(s().lanes, backlog.id)).toHaveLength(0)
+    expect(s().placements.find((x) => x.itemId === 'st-email' && x.boardId === 'b-atlas')?.laneId).toBe(backlog.id)
+  })
+
+  it('unsplit merges a split back into one cell', () => {
+    s().selectBoard('b-atlas')
+    const backlog = laneByName('b-atlas', 'Backlog')
+    s().splitLane(backlog.id, 'columns')
+    const cells = childrenOf(s().lanes, backlog.id)
+    s().moveCard('st-email', 'b-atlas', cells[1].id)
+
+    s().unsplitLane(backlog.id)
+
+    expect(childrenOf(s().lanes, backlog.id)).toHaveLength(0)
+    expect(s().placements.find((x) => x.itemId === 'st-email' && x.boardId === 'b-atlas')?.laneId).toBe(backlog.id)
+  })
+
   it('a parent is always an initiative', () => {
     const parentOf = (id: string) => decompositionParent(id, s().edges)
     // A card rolls up to an initiative.

@@ -255,6 +255,8 @@ export interface Actions {
   moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: SplitOrientation) => void
   removeLane: (laneId: string) => void
+  /** Merge a split back into one cell: its cards move up to it, its cells go. */
+  unsplitLane: (laneId: string) => void
   renameLane: (laneId: string, name: string) => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
   /** Set a lane's policy text (entry/exit rules). */
@@ -1366,13 +1368,44 @@ export const useStore = create<Store>()(
         if (!lane || lane.parentId === null) return
         const parent = state.lanes.find((l) => l.id === lane.parentId)
         if (parent?.parentId === null) return // top-level columns are fixed; refine, don't delete
+        const parentId = lane.parentId
         const ids = new Set(subtreeIds(state.lanes, laneId))
-        const siblings = childrenOf(state.lanes, lane.parentId).filter((l) => l.id !== laneId)
-        const target = siblings.flatMap((s) => leavesUnder(state.lanes, s.id))[0]
-        const placements = state.placements
-          .map((p) => (ids.has(p.laneId) ? (target ? toLane(state.placements, p, target.id) : null) : p))
-          .filter((p): p is Placement => p !== null)
-        set({ lanes: state.lanes.filter((l) => !ids.has(l.id)), placements })
+        let lanes = state.lanes.filter((l) => !ids.has(l.id))
+
+        // A split left with one child is not a split, so the child folds away too and the parent
+        // becomes the cell its cards live in. Without this the parent still has a child, so the
+        // surface looks for cards in the parent's *own* cell, finds none, and everything that was
+        // in the surviving cell goes invisible — which reads as losing it.
+        const left = childrenOf(lanes, parentId)
+        const folded = left.length === 1 ? new Set(subtreeIds(lanes, left[0].id)) : null
+        if (folded) lanes = lanes.filter((l) => !folded.has(l.id))
+
+        // Where the cards go: the first surviving leaf under the parent, or the parent itself
+        // once it has become one. Never nowhere — a delete must not be able to discard a card.
+        const target = leavesUnder(lanes, parentId)[0]?.id ?? parentId
+        set({
+          lanes,
+          placements: state.placements.map((p) =>
+            ids.has(p.laneId) || folded?.has(p.laneId) ? toLane(state.placements, p, target) : p,
+          ),
+        })
+      },
+
+      /**
+       * Merge a split back into one cell: its cards move up to it and its cells go.
+       *
+       * The explicit version of what removing a cell does implicitly — "I want this section to be
+       * one cell again" is a thing worth being able to say directly.
+       */
+      unsplitLane: (laneId) => {
+        const state = get()
+        const kids = childrenOf(state.lanes, laneId)
+        if (kids.length === 0) return
+        const inner = new Set(kids.flatMap((k) => subtreeIds(state.lanes, k.id)))
+        set({
+          lanes: state.lanes.filter((l) => !inner.has(l.id)),
+          placements: state.placements.map((p) => (inner.has(p.laneId) ? toLane(state.placements, p, laneId) : p)),
+        })
       },
 
       renameLane: (laneId, name) => set({ lanes: get().lanes.map((l) => (l.id === laneId ? { ...l, name } : l)) }),
