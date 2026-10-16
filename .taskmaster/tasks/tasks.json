@@ -971,12 +971,24 @@
         "testStrategy": "The type rule first, because it is what makes the rest safe: an initiative whose parent would be a card is refused; an initiative under an initiative is allowed; a card under an initiative is allowed; a card under a card is allowed — the rule is about where initiatives may sit, not about how deep cards go. With that in place a cycle is unreachable, so the test asserts the rule rather than trying to enumerate loops: the store refuses the one edge that could start one. Then that setting a parent replaces rather than adds, and that removing one leaves the card a root. Then the interaction in the browser, with real input: the menu offers Set parent, choosing it puts the board in the mode, clicking an initiative sets the parent and the card's chip appears, clicking a card does nothing at all because a card cannot be a parent, and Escape leaves the parent exactly as it was. Run npm test.",
         "subtasks": [],
         "updatedAt": "2026-10-15T12:00:00.000Z"
+      },
+      {
+        "id": "65",
+        "title": "A context menu for initiatives, and connecting a card from the initiative end",
+        "description": "Initiative cards have no context menu at all. Give them one, and in it the same act task 64 added for cards but from the other end: pick a card and it becomes a child of this initiative — one edge, set from whichever end you happen to be looking at.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Task 64 let a card name the initiative it rolls up to, from the card. This is the same edge named from the initiative: you are looking at an outcome and you want to pull work under it, which is the moment the connection is actually in your head. Both ends set one decomposition edge, so both must go through `setParent` and neither may invent a second kind of link. The rule holds unchanged and is what makes it safe: a parent is always an initiative, so an initiative may only ever take children, never a parent that is a card. Initiative cards currently pass no `onContextMenu` at all, so the menu is new — reuse `CardMenu` rather than writing a second one, since most of what it offers (priority, assignees, size, dates, block, archive) applies to an initiative too, and the card-only entries are already guarded. The pick is the shape task 64 used: a mode in the store, a floating chip saying what to do, Escape to cancel, and the board resolving a click. The difference is which end is being chosen — there, an initiative among dimmed cards; here, a card among dimmed initiatives — so the mode needs a direction rather than a second mechanism, and the same `parentPickId` should grow one rather than being duplicated. Clicking anything that is not a valid choice does nothing and leaves the mode open, as before. Feedback after picking: the card appears as a child in the initiative's Hierarchy &amp; Links, and its own roll-up chip appears on the card.",
+        "testStrategy": "The rule first, unchanged and already tested: a parent is always an initiative, so connecting a card to an initiative is allowed and connecting an initiative to a card is not — assert the second is refused, because that is the one this feature makes easy to attempt from the wrong end. Then that both directions produce exactly one decomposition edge: connecting from the initiative and then from the card names the same edge, not two. Then the interaction in the browser with real input: an initiative has a context menu, the connect option puts the board in a pick mode, clicking a card sets the parent and closes the mode, clicking an initiative does nothing and keeps it open, and Escape leaves the graph exactly as it was. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-15T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
       "lastModified": "2026-10-15T12:00:00.000Z",
-      "taskCount": 63,
+      "taskCount": 64,
       "completedCount": 42,
       "tags": [
         "backlog"
