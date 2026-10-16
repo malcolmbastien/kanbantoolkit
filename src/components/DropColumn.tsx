@@ -11,9 +11,9 @@ import { Fragment } from 'react'
  * The lane is not a drop target of its own: the board owns the drag, and finds the lane by its
  * `data-lane-id`. This only draws what the board decides.
  *
- * The initiatives workflow drops into a *cell* rather than at a position: its cells have no
- * order, so a card at a position would be meaningless there. The gesture is shared — `useCardLift`
- * — and only where the card lands differs.
+ * The initiatives workflow drops into a cell of its own section, and a cell's initiatives are
+ * a rank a person orders — so its drag shows this same gap, and the drop writes the position.
+ * The gesture is shared — `useCardLift` — and only where the card lands differs.
  */
 export function DropColumn({
   laneId,

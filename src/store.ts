@@ -239,6 +239,8 @@ export interface Actions {
    * the arrangement within a section is the user's to set.
    */
   moveInitiative: (itemId: string, boardId: string, laneId: string) => void
+  /** Land an initiative at a position in a cell — a rank within the cell, like a card's. */
+  moveInitiativeToIndex: (itemId: string, boardId: string, laneId: string, index: number) => void
   /** Move a card one place up or down within its lane (delta -1 = up). */
   /** Land a card at a position in a lane, counting the cards already there. */
   moveCardToIndex: (itemId: string, boardId: string, laneId: string, index: number) => void
@@ -322,6 +324,7 @@ function placeCard(
   moving: Placement,
   laneId: string,
   atOf: (ordered: Placement[]) => number,
+  { stampDone = true }: { stampDone?: boolean } = {},
 ) {
   // The cards already in the lane, without the one in the air: the position is in *that*
   // list, because that is the list the card lands in.
@@ -336,12 +339,16 @@ function placeCard(
       if (p.id === moving.id) return { ...p, laneId, laneEnteredAt: Date.now(), rank: rankById.get(p.id) ?? 0 }
       return rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p
     }),
-    items: state.items.map((i) => {
-      if (i.id !== moving.itemId) return i
-      if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
-      if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
-      return i
-    }),
+    // The Done stamp belongs to leaf work only: an initiative's completion is derived from the
+    // work beneath it, so landing one in a Done cell must never write resolvedAt onto it.
+    items: stampDone
+      ? state.items.map((i) => {
+          if (i.id !== moving.itemId) return i
+          if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
+          if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
+          return i
+        })
+      : state.items,
   })
 }
 
@@ -1212,6 +1219,21 @@ export const useStore = create<Store>()(
               { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now(), rank: nextRank(state.placements, laneId) },
             ]
         set({ placements })
+      },
+
+      // A rank within a cell, like a card's within a lane: the initiatives of a cell are a
+      // list a person orders. The section still bounds the move, and a container is still
+      // not a place an initiative can go.
+      moveInitiativeToIndex: (itemId, boardId, laneId, index) => {
+        const state = get()
+        const target = state.lanes.find((l) => l.id === laneId)
+        if (!target || target.workflow !== 'initiatives') return
+        if (!isLeaf(state.lanes, laneId)) return
+        const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
+        if (effectiveStage(state.lanes, laneId) !== rollupOf(itemId, graph).bucket) return
+        const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
+        if (!moving) return
+        placeCard(set, state, moving, laneId, () => index, { stampDone: false })
       },
 
       setItemFields: (id, patch) =>

@@ -20,7 +20,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardInitiatives, buildRefs, initiativeCellOf } from '@/domain/board'
-import { childrenOf, isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
+import { childrenOf, isLeaf, leavesUnder, placementsInOrder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import {
@@ -84,7 +84,7 @@ export function BoardSummary({
   const lensId = useStore((s) => s.lensId)
   const toggleLens = useStore((s) => s.toggleLens)
   const editMode = useStore((s) => s.editMode)
-  const moveInitiative = useStore((s) => s.moveInitiative)
+  const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
@@ -106,11 +106,18 @@ export function BoardSummary({
       const stage = (section.stage ?? 'inProgress') as Stage
       const cells = leavesUnder(lanes, section.id)
       const inSection = initiatives.filter((i) => initiativeCellOf(i.id, boardId, graph)?.sectionId === section.id)
-      const byCell = new Map<string, Item[]>(cells.map((c) => [c.id, []]))
-      for (const i of inSection) {
-        const cellId = initiativeCellOf(i.id, boardId, graph)?.cellId
-        if (cellId && byCell.has(cellId)) byCell.get(cellId)!.push(i)
-      }
+      // A cell's initiatives are a rank a person orders — the same order a drop writes — so
+      // they read through placementsInOrder, exactly like a lane's cards.
+      const inSectionIds = new Set(inSection.map((i) => i.id))
+      const byCell = new Map<string, Item[]>(
+        cells.map((c) => [
+          c.id,
+          placementsInOrder(graph.placements, c.id)
+            .map((pl) => items.find((i) => i.id === pl.itemId))
+            .filter((i): i is Item => Boolean(i))
+            .filter((i) => inSectionIds.has(i.id)),
+        ]),
+      )
       return { section, stage, cells, byCell, total: inSection.length }
     })
 
@@ -131,11 +138,11 @@ export function BoardSummary({
     onMove: (itemId, x, y) => setDropCell(cellUnder(x, y, itemId)),
     onDrop: (itemId, x, y) => {
       setDropCell(null)
-      const cell = cellUnder(x, y, itemId)
-      if (cell) moveInitiative(itemId, boardId, cell)
+      const target = cellUnder(x, y, itemId)
+      if (target) moveInitiativeToIndex(itemId, boardId, target.cellId, target.index)
     },
   })
-  const [dropCell, setDropCell] = useState<string | null>(null)
+  const [dropCell, setDropCell] = useState<{ cellId: string; index: number } | null>(null)
   // The highlighted cell is live only while an initiative is actually in the air — the same
   // rule the cards workflow keeps. A pointercancel ends a gesture without a drop, so the
   // preview must answer to the gesture, not to whichever cell was last under the pointer.
@@ -151,10 +158,21 @@ export function BoardSummary({
     // not a cell. The store refuses drops there, so the preview refuses to light it: a shadow
     // may only stand where a drop would be accepted.
     if (!cellId || !isLeaf(lanes, cellId)) return null
-    // An initiative may only be rearranged within its own section, and never onto the cell it
-    // already sits in — so those are the only cells worth highlighting.
-    if (sectionId !== here.sectionId || cellId === here.cellId) return null
-    return cellId
+    // An initiative may only be rearranged within its own section — and its own cell counts:
+    // the initiatives of a cell are a rank, and reordering it is a move.
+    if (sectionId !== here.sectionId) return null
+    // The position the drop will write: the cards that remain, in rank order — which is the
+    // order they render in — and how many of them sit above the pointer.
+    const cards = [...cell.querySelectorAll<HTMLElement>('[data-card-id]')].filter((el) => el.dataset.cardId !== itemId)
+    let index = cards.length
+    for (let i = 0; i < cards.length; i++) {
+      const r = cards[i].getBoundingClientRect()
+      if (y < r.top + r.height / 2) {
+        index = i
+        break
+      }
+    }
+    return { cellId, index }
   }
   const parentPickId = useStore((s) => s.parentPickId)
   const setParent = useStore((s) => s.setParent)
@@ -179,6 +197,23 @@ export function BoardSummary({
    * the result of the drop before it happens rather than after, the same as a card does.
    */
   const inCell = (cards: Item[]) => cards.filter((c) => c.id !== lift?.itemId)
+  /** The drop shadow a card drag has: a recessed gap inserted where the initiative will land. */
+  const withGap = (nodes: React.ReactNode[], at: number | null) => {
+    if (at === null) return nodes
+    const out = [...nodes]
+    out.splice(
+      at,
+      0,
+      <div
+        key="drop-gap"
+        data-drop-placeholder
+        className="min-h-[68px] w-full shrink-0 rounded-md bg-slate-900/[0.08] shadow-[inset_0_2px_6px_rgba(15,23,42,0.12)] ring-1 ring-inset ring-slate-900/10"
+      />,
+    )
+    return out
+  }
+  /** The hovered position in a cell, if the cell in flight would land there. */
+  const gapAt = (cellId: string) => (previewCell && previewCell.cellId === cellId ? previewCell.index : null)
 
   const initiativeCard = (c: Item) => {
     const pid = decompositionParent(c.id, edges)
@@ -276,7 +311,6 @@ export function BoardSummary({
             primary
             count={total}
             sectionId={section.id}
-            isTarget={previewCell === section.id}
             interactive={interactive}
             editMode={editMode}
             // A section with more cells claims more of the width, so every *cell* gets an
@@ -301,21 +335,16 @@ export function BoardSummary({
                       stage={stage}
                       sectionId={section.id}
                       count={cards.length}
-                      isTarget={previewCell === cell.id}
                       interactive={interactive}
                       editMode={editMode}
                     >
-                      {inCell(cards).map(initiativeCard)}
+                      {withGap(inCell(cards).map(initiativeCard), gapAt(cell.id))}
                     </Cell>
                   )
                 })
               : (() => {
                   const cards = byCell.get(section.id) ?? []
-                  return (
-                    <>
-                      {inCell(cards).map(initiativeCard)}
-                    </>
-                  )
+                  return <>{withGap(inCell(cards).map(initiativeCard), gapAt(section.id))}</>
                 })()}
           </Cell>
         )
@@ -335,7 +364,6 @@ function Cell({
   isSection,
   primary,
   count,
-  isTarget,
   interactive,
   editMode,
   className,
@@ -350,8 +378,6 @@ function Cell({
   isSection?: boolean
   primary?: boolean
   count: number
-  /** Whether the initiative in flight would land here. */
-  isTarget?: boolean
   interactive: boolean
   editMode: boolean
   className?: string
@@ -539,12 +565,6 @@ function Cell({
         data-section-id={sectionId}
         className="flex min-h-[96px] min-w-0 flex-1 flex-col gap-1 p-1"
       >
-        {isTarget && (
-          <div
-            data-drop-placeholder
-            className="h-[68px] shrink-0 rounded-md bg-slate-900/[0.08] ring-1 ring-inset ring-slate-900/10"
-          />
-        )}
         {children}
       </div>
 

@@ -1363,3 +1363,27 @@ describe('timeline view state', () => {
     expect(persistedSlice(s())).not.toHaveProperty('showTimeline')
   })
 })
+
+describe('initiative rank within a cell', () => {
+  beforeEach(() => s().resetDemo())
+
+  it('moveInitiativeToIndex reorders within the cell, rewriting the ranks', () => {
+    // Two backlog initiatives in one cell: init-explore joins init-platform on b-portfolio.
+    const cellId = s().placements.find((p) => p.itemId === 'init-platform' && p.boardId === 'b-portfolio')!.laneId
+    s().moveInitiative('init-explore', 'b-portfolio', cellId)
+    const order = () => placementsInOrder(s().placements, cellId).map((p) => p.itemId)
+    expect(order()).toEqual(['init-platform', 'init-explore'])
+    s().moveInitiativeToIndex('init-platform', 'b-portfolio', cellId, 1)
+    expect(order()).toEqual(['init-explore', 'init-platform'])
+    // The rewrite is dense: the ranks are 0..n-1, not the old numbers with a gap.
+    expect(s().placements.filter((p) => p.laneId === cellId).map((p) => p.rank ?? 0).sort((a, b) => a - b)).toEqual([0, 1])
+  })
+
+  it('another section\u2019s cell and a container are refused', () => {
+    const ipCell = s().placements.find((p) => p.itemId === 'init-activation' && p.boardId === 'b-strategy')!.laneId
+    const before = JSON.stringify(s().placements)
+    // init-explore is a Backlog initiative: the In Progress cell is another section entirely.
+    s().moveInitiativeToIndex('init-explore', 'b-strategy', ipCell, 0)
+    expect(JSON.stringify(s().placements)).toBe(before)
+  })
+})
