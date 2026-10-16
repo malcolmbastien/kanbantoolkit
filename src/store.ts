@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, nextRank, placementsInOrder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
-import { NO_FILTERS, type CardFilters } from '@/domain/filters'
+import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { uid as makeUid } from '@/lib/utils'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, TemplateLane, User } from '@/domain/types'
@@ -74,6 +74,11 @@ export interface ViewState {
   /** Active card filters applied to the current board. */
   filters: CardFilters
   /**
+   * Named filter sets the board can re-apply — the one deliberately persisted piece of
+   * filter state. Filter *state* is view state; the collection of saved sets is data.
+   */
+  savedFilters: SavedFilter[]
+  /**
    * An external dependency (from the boundary lane) being inspected; the local
    * cards that wait on it are highlighted on the board. View-only.
    */
@@ -125,6 +130,12 @@ export interface Actions {
   toggleFilters: () => void
   /** Merge a patch into the active card filters. */
   setFilters: (patch: Partial<CardFilters>) => void
+  /** Save the active filters as a named set. */
+  saveFilter: (name: string) => void
+  /** Apply a saved filter set in full — it replaces whatever is active. */
+  applySavedFilter: (id: string) => void
+  /** Forget a saved filter set. */
+  removeSavedFilter: (id: string) => void
   /** Add/remove a card type from the type filter. */
   toggleFilterType: (typeId: string) => void
   clearFilters: () => void
@@ -435,6 +446,7 @@ const initialView: ViewState = {
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
+  savedFilters: [],
   boundaryId: null,
   parentPickId: null,
   childPickId: null,
@@ -658,6 +670,9 @@ export function migrateState(persisted: unknown): Partial<Store> {
   if (Array.isArray(p.issueTypes) && !(p.issueTypes as IssueType[]).some((t) => t.name === 'Epic')) {
     p.issueTypes = [...(p.issueTypes as IssueType[]), { id: 't-epic', name: 'Epic', color: '#8b5cf6' }]
   }
+  // v28: named filter sets became persisted data — the deliberate exception to filters
+  // being view state. Older state simply has none.
+  if (!Array.isArray(p.savedFilters)) p.savedFilters = []
   return p as Partial<Store>
 }
 
@@ -672,7 +687,9 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
 
 /**
  * The slice of state written to localStorage. View-only state (selection, filters,
- * multi-select, boundary focus, a pending confirm) is excluded. While editing, the
+ * multi-select, boundary focus, a pending confirm) is excluded. Saved filter sets are
+ * the deliberate exception: the named sets are a user's data, not a view.
+ * While editing, the
  * pre-edit (draft) design substitutes the live one so a reload reverts unsaved
  * layout changes.
  *
@@ -690,6 +707,7 @@ export function persistedSlice(s: Store): Partial<Store> {
     keyResults: s.keyResults,
     boardTemplates: s.boardTemplates,
     autoArchiveDays: s.autoArchiveDays,
+    savedFilters: s.savedFilters,
     // Collapsed columns are remembered across reloads.
     collapsedLanes: s.collapsedLanes,
     boardId: design.boardId,
@@ -712,6 +730,39 @@ export const useStore = create<Store>()(
         const show = !get().showFilters
         // One side panel at a time: opening filters dismisses an open card.
         set({ showFilters: show, ...(show ? { selectedItemId: null } : {}) })
+      },
+      saveFilter: (name) => {
+        const trimmed = name.trim()
+        if (!trimmed) return
+        const f = get().filters
+        if (!hasActiveFilters(f)) return
+        // Copy arrays as they go in: a saved set must never alias the live filter state, or
+        // toggling a checkbox later would edit the past.
+        const filters: CardFilters = {
+          ...f,
+          text: f.text?.trim() || undefined,
+          typeIds: [...f.typeIds],
+          assigneeIds: [...f.assigneeIds],
+          priorities: [...f.priorities],
+        }
+        set({ savedFilters: [...get().savedFilters, { id: uid(), name: trimmed, filters }] })
+      },
+      applySavedFilter: (id) => {
+        const saved = get().savedFilters.find((s) => s.id === id)
+        if (!saved) return
+        // A full replacement, not a merge — applying a named set means adopting it, and
+        // clearing afterwards leaves exactly NO_FILTERS, so no residue can linger.
+        set({
+          filters: {
+            ...saved.filters,
+            typeIds: [...saved.filters.typeIds],
+            assigneeIds: [...saved.filters.assigneeIds],
+            priorities: [...saved.filters.priorities],
+          },
+        })
+      },
+      removeSavedFilter: (id) => {
+        set({ savedFilters: get().savedFilters.filter((s) => s.id !== id) })
       },
       setFilters: (patch) => set({ filters: { ...get().filters, ...patch } }),
       toggleFilterType: (typeId) => {
@@ -1614,7 +1665,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 27,
+      version: 28,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

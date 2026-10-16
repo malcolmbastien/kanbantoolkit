@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { activeFilterCount, ageDays, filtersFromParam, hasActiveFilters, isOverdue, matchesFilters, NO_FILTERS, parseDay, type CardFilters } from './filters'
+import { activeFilterCount, ageDays, filtersFromParam, hasActiveFilters, isDueSoon, isOverdue, matchesFilters, NO_FILTERS, parseDay, sameFilters, type CardFilters } from './filters'
 import type { Item } from './types'
 
 const card = (patch: Partial<Item> = {}): Item => ({ id: 'x', title: 'X', typeId: 't-story', createdAt: 0, ...patch })
 const with_ = (patch: Partial<CardFilters>): CardFilters => ({ ...NO_FILTERS, ...patch })
+/** A local 'YYYY-MM-DD' some days from a base date, so boundaries are stated in days. */
+const day = (offset: number, from = Date.now()) => {
+  const d = new Date(from)
+  d.setDate(d.getDate() + offset)
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`
+}
+// A fixed afternoon in the middle of a month: neither daylight-saving drift nor a midnight
+// roll-over can move the boundaries these tests pin.
+const NOON = new Date(2026, 3, 15, 12).getTime()
 
 describe('card filters', () => {
   it('matches everything when no filter is active', () => {
@@ -43,8 +53,15 @@ describe('card filters', () => {
     expect(matchesFilters(card({ assignees: ['u-2'] }), f, false)).toBe(true)
     expect(matchesFilters(card({ assignees: ['u-9'] }), f, false)).toBe(false)
     expect(matchesFilters(card(), f, false)).toBe(false)
-    // Assignee and unassigned are independent switches, not opposites.
+    // "Unassigned" is a pseudo-entry in the same list, so it composes as a union with the
+    // picked people rather than standing apart as a second switch.
+    const both = with_({ assigneeIds: ['u-1'], unassigned: true })
+    expect(matchesFilters(card({ assignees: ['u-1'] }), both, false)).toBe(true)
+    expect(matchesFilters(card(), both, false)).toBe(true)
+    expect(matchesFilters(card({ assignees: ['u-9'] }), both, false)).toBe(false)
+    // On its own it is still "only the ownerless cards".
     expect(matchesFilters(card(), with_({ unassigned: true }), false)).toBe(true)
+    expect(matchesFilters(card({ assignees: ['MB'] }), with_({ unassigned: true }), false)).toBe(false)
   })
 
   it('filters by priority, and a card with none matches no selection', () => {
@@ -113,6 +130,41 @@ describe('card filters', () => {
     expect(isOverdue(card({ targetEndDate: '2000-01-01' }), true)).toBe(false)
     expect(isOverdue(card(), false)).toBe(false)
     expect(isOverdue(card({ targetEndDate: '2999-01-01' }), false)).toBe(false)
+  })
+
+  it('isDueSoon is target date within the next seven days, boundary included', () => {
+    // Seven days counting today: the sixth day ahead is in, and neither the seventh nor
+    // the eighth makes it — the window does not stretch past the week it names.
+    expect(isDueSoon(card({ targetEndDate: day(0, NOON) }), false, NOON)).toBe(true)
+    expect(isDueSoon(card({ targetEndDate: day(6, NOON) }), false, NOON)).toBe(true)
+    expect(isDueSoon(card({ targetEndDate: day(7, NOON) }), false, NOON)).toBe(false)
+    expect(isDueSoon(card({ targetEndDate: day(8, NOON) }), false, NOON)).toBe(false)
+    // A date already past belongs to overdue, not due soon — and the two never double-count.
+    expect(isDueSoon(card({ targetEndDate: day(-1, NOON) }), false, NOON)).toBe(false)
+    // A done card has no due date, and neither does a card with no target date at all.
+    expect(isDueSoon(card({ targetEndDate: day(2, NOON) }), true, NOON)).toBe(false)
+    expect(isDueSoon(card(), false, NOON)).toBe(false)
+    // In the matcher itself, so the panel's toggle and the ?filters= token share one truth.
+    expect(matchesFilters(card({ targetEndDate: day(3, NOON) }), with_({ dueSoon: true }), false, NOON)).toBe(true)
+    expect(matchesFilters(card({ targetEndDate: day(10, NOON) }), with_({ dueSoon: true }), false, NOON)).toBe(false)
+  })
+
+  it('narrows by text over the title and the description, case-insensitively', () => {
+    expect(matchesFilters(card({ title: 'Rework the Login Flow' }), with_({ text: ' login ' }), false)).toBe(true)
+    expect(matchesFilters(card({ description: 'The telemetry rollout notes' }), with_({ text: 'Telemetry' }), false)).toBe(true)
+    expect(matchesFilters(card({ description: 'The telemetry rollout notes' }), with_({ text: 'payments' }), false)).toBe(false)
+    // Whitespace narrows nothing, exactly as it counts nothing.
+    expect(matchesFilters(card(), with_({ text: '\t' }), false)).toBe(true)
+    expect(activeFilterCount(with_({ text: '' }))).toBe(0)
+    expect(activeFilterCount(with_({ text: 'flow' }))).toBe(1)
+  })
+
+  it('sameFilters compares the narrowing, not the order a list was built in', () => {
+    expect(sameFilters(with_({ assigneeIds: ['a', 'b'] }), with_({ assigneeIds: ['b', 'a'] }))).toBe(true)
+    expect(sameFilters(with_({ dueSoon: true }), NO_FILTERS)).toBe(false)
+    // Whitespace in a text query is no narrowing, so neither is having it saved.
+    expect(sameFilters(with_({ text: ' ' }), NO_FILTERS)).toBe(true)
+    expect(sameFilters(with_({ text: 'x' }), with_({}))).toBe(false)
   })
 
   it('parses a day without a timezone shift', () => {

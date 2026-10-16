@@ -1,15 +1,17 @@
-import { X } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 import { cardTypes, initiativeTypeId } from '@/domain/board'
 import { statusOf, type Graph } from '@/domain/derive'
-import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters } from '@/domain/filters'
+import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters, sameFilters, type SavedFilter } from '@/domain/filters'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { useState } from 'react'
 import type { Item } from '@/domain/types'
 
 /**
  * The board filter panel — a right-side panel (like the item panel) with a few
- * basic filters: one per card type, plus blocked / overdue / unassigned.
+ * basic filters: a text query, one per card type, plus blocked / overdue / due soon,
+ * and the named filter sets a board can re-apply.
  */
 export function FilterPanel() {
   const boardId = useStore((s) => s.boardId)
@@ -24,6 +26,10 @@ export function FilterPanel() {
   const toggleFilterType = useStore((s) => s.toggleFilterType)
   const setFilters = useStore((s) => s.setFilters)
   const clearFilters = useStore((s) => s.clearFilters)
+  const savedFilters = useStore((s) => s.savedFilters)
+  const saveFilter = useStore((s) => s.saveFilter)
+  const applySavedFilter = useStore((s) => s.applySavedFilter)
+  const removeSavedFilter = useStore((s) => s.removeSavedFilter)
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const types = cardTypes(issueTypes)
@@ -43,6 +49,8 @@ export function FilterPanel() {
   const users = useStore((s) => s.users)
   // Only the people who actually hold work here: a filter list of the whole org is noise.
   const assignedHere = users.filter((u) => boardCards.some((c) => (c.assignees ?? []).includes(u.id)))
+
+  const [saveName, setSaveName] = useState('')
 
   return (
     <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
@@ -68,6 +76,33 @@ export function FilterPanel() {
             : `${boardCards.length} cards on this board`}
         </div>
 
+        <SavedSection
+          saved={savedFilters}
+          activeId={savedFilters.find((s) => sameFilters(s.filters, filters))?.id}
+          onApply={applySavedFilter}
+          onRemove={removeSavedFilter}
+          name={saveName}
+          onName={setSaveName}
+          onSave={() => {
+            saveFilter(saveName)
+            setSaveName('')
+          }}
+          canSave={saveName.trim().length > 0 && hasActiveFilters(filters)}
+        />
+        <section>
+          <SectionLabel>Text</SectionLabel>
+          <input
+            type="search"
+            value={filters.text ?? ''}
+            onChange={(e) => setFilters({ text: e.target.value })}
+            placeholder="Contains — title or description"
+            className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-meta text-slate-700 placeholder:text-slate-400"
+          />
+          <p className="mt-1 text-micro text-slate-600">
+            Case doesn't matter. Clearing the field shows every card again.
+          </p>
+        </section>
+
         <section>
           <SectionLabel>Card type</SectionLabel>
           <div className="space-y-1">
@@ -87,30 +122,32 @@ export function FilterPanel() {
 
         <section>
           <SectionLabel>Assignee</SectionLabel>
-          {assignedHere.length === 0 ? (
-            <p className="text-meta text-slate-600">No one is assigned on this board.</p>
-          ) : (
-            <div className="space-y-1">
-              {assignedHere.map((u) => {
-                const on = filters.assigneeIds.includes(u.id)
-                return (
-                  <label key={u.id} className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50">
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() =>
-                        setFilters({
-                          assigneeIds: on ? filters.assigneeIds.filter((x) => x !== u.id) : [...filters.assigneeIds, u.id],
-                        })
-                      }
-                    />
-                    <span className="flex-1 text-slate-700">{u.name}</span>
-                  </label>
-                )
-              })}
-            </div>
-          )}
-          <p className="mt-1 text-micro text-slate-600">No one checked shows every card.</p>
+          <div className="space-y-1">
+            {assignedHere.map((u) => {
+              const on = filters.assigneeIds.includes(u.id)
+              return (
+                <label key={u.id} className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() =>
+                      setFilters({
+                        assigneeIds: on ? filters.assigneeIds.filter((x) => x !== u.id) : [...filters.assigneeIds, u.id],
+                      })
+                    }
+                  />
+                  <span className="flex-1 text-slate-700">{u.name}</span>
+                </label>
+              )
+            })}
+            {/* "No one" is a pseudo-entry in the same list, not a separate switch: one concept,
+                one control — and it composes, so picking a person and it shows both. */}
+            <label className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50">
+              <input type="checkbox" checked={filters.unassigned} onChange={(e) => setFilters({ unassigned: e.target.checked })} />
+              <span className="flex-1 italic text-slate-600">Unassigned</span>
+            </label>
+          </div>
+          <p className="mt-1 text-micro text-slate-600">Nothing checked shows every card; the picked people and "Unassigned" combine.</p>
         </section>
 
         <section>
@@ -177,10 +214,10 @@ export function FilterPanel() {
               onChange={(v) => setFilters({ overdue: v })}
             />
             <ToggleRow
-              label="Unassigned"
-              hint="no assignee"
-              checked={filters.unassigned}
-              onChange={(v) => setFilters({ unassigned: v })}
+              label="Due soon"
+              hint="target date within a week, not done"
+              checked={filters.dueSoon}
+              onChange={(v) => setFilters({ dueSoon: v })}
             />
           </div>
         </section>
@@ -222,4 +259,73 @@ function ToggleRow({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div className="mb-1.5 text-meta font-semibold uppercase tracking-wide text-slate-600">{children}</div>
+}
+
+function SavedSection({
+  saved,
+  activeId,
+  onApply,
+  onRemove,
+  name,
+  onName,
+  onSave,
+  canSave,
+}: {
+  saved: SavedFilter[]
+  /** The saved set that matches what is currently active, if any. */
+  activeId?: string
+  onApply: (id: string) => void
+  onRemove: (id: string) => void
+  name: string
+  onName: (n: string) => void
+  onSave: () => void
+  canSave: boolean
+}) {
+  return (
+    <section>
+      <SectionLabel>Saved filters</SectionLabel>
+      {saved.length === 0 ? (
+        <p className="text-micro text-slate-600">Nothing saved yet. Set some filters below, then name and save them here.</p>
+      ) : (
+        <div className="space-y-1">
+          {saved.map((s) => (
+            <div key={s.id} className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1">
+              <button
+                onClick={() => onApply(s.id)}
+                className={cn(
+                  'min-w-0 flex-1 truncate text-left text-slate-700',
+                  s.id === activeId && 'font-semibold text-indigo-700',
+                )}
+                title={`Apply the ${s.name} filters`}
+              >
+                {s.name}
+              </button>
+              <button onClick={() => onRemove(s.id)} className="shrink-0 text-slate-400 hover:text-slate-700" title={`Forget ${s.name}`}>
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-1.5 flex items-center gap-1">
+        <input
+          value={name}
+          onChange={(e) => onName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && canSave) onSave()
+          }}
+          placeholder="Name these filters"
+          className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-meta text-slate-700 placeholder:text-slate-400"
+        />
+        <button
+          onClick={onSave}
+          disabled={!canSave}
+          className="flex shrink-0 items-center gap-1 rounded-md border border-indigo-300 bg-white px-2 py-1 font-medium text-indigo-700 hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-40"
+          title="Save the active filters under this name"
+        >
+          <Plus size={12} /> Save
+        </button>
+      </div>
+    </section>
+  )
 }

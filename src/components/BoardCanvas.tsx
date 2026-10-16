@@ -62,7 +62,6 @@ interface Ctx {
   /** The people directory (to resolve card assignees). */
   users: User[]
   editMode: boolean
-  search: string
   filters: CardFilters
   /** External dependency (boundary lane) whose local dependents are highlighted. */
   boundaryId: string | null
@@ -399,9 +398,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     )
   }
 
+  // Every narrowing here reads the filter panel — including its text criterion. The
+  // top-bar search is a cross-board finder; it no longer also filters these columns,
+  // and a deep-linked ?q= lands in the text filter instead (see App).
   const cards = boardItems
     .filter((i) => effectiveLane.get(i.id) === lane.id)
-    .filter((i) => !ctx.search || i.title.toLowerCase().includes(ctx.search.toLowerCase()))
     .filter((i) => matchesFilters(i, ctx.filters, statusOf(i.id, graph).resolved, Date.now(), ctx.ageOf(i.id)))
 
   return (
@@ -562,7 +563,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
   const users = useStore((s) => s.users)
-  const search = useStore((s) => s.search)
   const filters = useStore((s) => s.filters)
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
@@ -677,7 +677,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const lifting = lift !== null
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, users, editMode, search, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
+    lanes, items, issueTypes, refs, graph, users, editMode, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     interactive,
     parentPickId,

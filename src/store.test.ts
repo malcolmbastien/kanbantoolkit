@@ -3,7 +3,7 @@ import { decompositionChildren, decompositionParent, checklistProgress, rollupOf
 import { boardCardTypeId, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
-import { NO_FILTERS } from './domain/filters'
+import { hasActiveFilters, NO_FILTERS } from './domain/filters'
 import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 
@@ -1385,5 +1385,67 @@ describe('initiative rank within a cell', () => {
     // init-explore is a Backlog initiative: the In Progress cell is another section entirely.
     s().moveInitiativeToIndex('init-explore', 'b-strategy', ipCell, 0)
     expect(JSON.stringify(s().placements)).toBe(before)
+  })
+})
+
+describe('saved filters', () => {
+  beforeEach(() => s().resetDemo())
+
+  it('saves the active set, replaces the live filters on apply, and clears without residue', () => {
+    s().setFilters({ blocked: true, text: ' onboarding ' })
+    s().saveFilter('Blocked onboarding')
+    const saved = s().savedFilters[0]
+    // The name is trimmed, the text query normalised on the way in.
+    expect(saved.name).toBe('Blocked onboarding')
+    expect(saved.filters.blocked).toBe(true)
+    expect(saved.filters.text).toBe('onboarding')
+    // Editing the live filters must never write into the past.
+    s().setFilters({ overdue: true })
+    expect(saved.filters.overdue).toBe(false)
+
+    s().clearFilters()
+    expect(s().savedFilters).toHaveLength(1)
+    s().applySavedFilter(saved.id)
+    const f = s().filters
+    expect(f.blocked).toBe(true)
+    expect(f.text).toBe('onboarding')
+    // A full replacement, not a merge: the overdue toggle that came after saving is gone.
+    expect(f.overdue).toBe(false)
+    expect(f.priorities).toEqual([])
+    expect(hasActiveFilters(f)).toBe(true)
+    // Clearing after applying lands on the empty set — no residue of either source.
+    s().clearFilters()
+    expect(s().filters).toEqual(NO_FILTERS)
+    // Forgetting a set leaves the active filters alone.
+    s().applySavedFilter(saved.id)
+    s().removeSavedFilter(saved.id)
+    expect(s().savedFilters).toHaveLength(0)
+    expect(s().filters.blocked).toBe(true)
+  })
+
+  it('refuses an unnamed set and an unnamed empty set', () => {
+    s().saveFilter('   ')
+    expect(s().savedFilters).toHaveLength(0)
+    s().saveFilter('Not yet narrowed')
+    // An empty set is "show everything" — nothing worth a name.
+    expect(s().savedFilters).toHaveLength(0)
+    s().setFilters({ unassigned: true })
+    s().saveFilter('Ownerless')
+    expect(s().savedFilters).toHaveLength(1)
+    // An unknown id is a silent no-op, not a crash.
+    const before = JSON.stringify(s().filters)
+    expect(() => s().applySavedFilter('nope')).not.toThrow()
+    expect(JSON.stringify(s().filters)).toBe(before)
+  })
+
+  it('migratePersisted backfills the saved-filter collection for pre-bump state', () => {
+    const slice = persistedSlice(s()) as Record<string, unknown>
+    expect(slice.savedFilters).toEqual([])
+    // States from before v28 carry no collection at all; the migration outfit them with
+    // the empty one rather than reading undefined.
+    const pre = { ...slice }
+    delete pre.savedFilters
+    const out = migratePersisted(pre, 27) as Record<string, unknown>
+    expect(out.savedFilters).toEqual([])
   })
 })

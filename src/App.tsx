@@ -78,7 +78,13 @@ export default function App() {
       }
     }
     const q = params.get('q')
-    if (q) setSearch(q)
+    if (q) {
+      setSearch(q)
+      // A deep-linked ?q= meant a narrowed board, and the top-bar search no longer filters
+      // the columns — narrowing by text is the filter panel's criterion now. Both get the
+      // query: the finder keeps its results, the board keeps its narrowing.
+      useStore.getState().setFilters({ text: q })
+    }
     // ?filters=1 opens the panel; ?filters=blocked,overdue also applies those filters.
     const filtersParam = params.get('filters')
     if (filtersParam) {

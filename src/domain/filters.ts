@@ -12,7 +12,9 @@ export interface CardFilters {
   blocked: boolean
   /** Only cards past their target date that aren't done. */
   overdue: boolean
-  /** Only cards with no assignees. */
+  /** Only cards whose target date is within the next week and that aren't done. */
+  dueSoon: boolean
+  /** Only cards with no assignees — the pseudo-entry in the assignee filter. */
   unassigned: boolean
   /** Selected assignee ids. Empty = anyone. */
   assigneeIds: string[]
@@ -20,12 +22,15 @@ export interface CardFilters {
   priorities: string[]
   /** Only cards that have sat in their lane at least this many days. Undefined = any age. */
   minAgeDays?: number
+  /** Only cards whose title or description contains this text. Undefined/empty = any card. */
+  text?: string
 }
 
 export const NO_FILTERS: CardFilters = {
   typeIds: [],
   blocked: false,
   overdue: false,
+  dueSoon: false,
   unassigned: false,
   assigneeIds: [],
   priorities: [],
@@ -52,16 +57,35 @@ export function isOverdue(item: Item, resolved: boolean, now = Date.now()): bool
   return Boolean(t && t.getTime() < now)
 }
 
+/** How far ahead "due soon" reaches, counted in days including today: a week. */
+export const DUE_SOON_DAYS = 7
+
+/** A card is due soon when its target end date falls within the next week and isn't resolved. */
+export function isDueSoon(item: Item, resolved: boolean, now = Date.now()): boolean {
+  if (resolved) return false
+  const t = parseDay(item.targetEndDate)
+  if (!t) return false
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const start = today.getTime()
+  // Counting today itself: an end date today+DUE_SOON_DAYS-1 is in, and even today+
+  // DUE_SOON_DAYS is not — the window is the next seven days, not one past them.
+  return t.getTime() >= start && t.getTime() < start + DUE_SOON_DAYS * 86_400_000
+}
+
 /** Number of active filter categories (for the button badge). */
 export function activeFilterCount(f: CardFilters): number {
   return (
     (f.typeIds.length > 0 ? 1 : 0) +
     (f.blocked ? 1 : 0) +
     (f.overdue ? 1 : 0) +
+    (f.dueSoon ? 1 : 0) +
     (f.unassigned ? 1 : 0) +
     (f.assigneeIds.length > 0 ? 1 : 0) +
     (f.priorities.length > 0 ? 1 : 0) +
-    (f.minAgeDays !== undefined ? 1 : 0)
+    (f.minAgeDays !== undefined ? 1 : 0) +
+    // An all-whitespace query narrows nothing, so it counts as nothing either.
+    ((f.text ?? '').trim() ? 1 : 0)
   )
 }
 
@@ -80,13 +104,24 @@ export function matchesFilters(
 ): boolean {
   if (f.typeIds.length > 0 && !f.typeIds.includes(item.typeId)) return false
   if (f.blocked && item.blocked !== true) return false
-  if (f.unassigned && (item.assignees?.length ?? 0) > 0) return false
   if (f.overdue && !isOverdue(item, resolved, now)) return false
-  // Within a category the filter is a union: any selected assignee, any selected priority.
-  if (f.assigneeIds.length > 0 && !(item.assignees ?? []).some((id) => f.assigneeIds.includes(id))) return false
+  if (f.dueSoon && !isDueSoon(item, resolved, now)) return false
+  // Assignees are one concept with one control: the picked people and the unassigned
+  // pseudo-entry draw from the same list, so they combine as a union within the category
+  // — picking Alice and "no one" shows Alice's cards plus every card without an owner.
+  const assigneePicked = f.assigneeIds.length > 0 || f.unassigned
+  if (assigneePicked) {
+    const a = item.assignees ?? []
+    if (!(f.unassigned && a.length === 0) && !a.some((id) => f.assigneeIds.includes(id))) return false
+  }
+  // Within the remaining categories the filter is a union: any selected priority.
   if (f.priorities.length > 0 && (!item.priority || !f.priorities.includes(item.priority))) return false
   // An age filter excludes cards whose age is unknown, rather than pretending they are old.
   if (f.minAgeDays !== undefined && (age === undefined || age < f.minAgeDays)) return false
+  // Text looks in the title and the description, case-insensitively. Whitespace alone
+  // narrows nothing.
+  const text = (f.text ?? '').trim().toLowerCase()
+  if (text && !`${item.title}\n${item.description ?? ''}`.toLowerCase().includes(text)) return false
   return true
 }
 
@@ -109,6 +144,7 @@ export function filtersFromParam(param: string | null): CardFilters | undefined 
     const key = rawKey.toLowerCase()
     if (key === 'blocked') next.blocked = true
     else if (key === 'overdue') next.overdue = true
+    else if (key === 'duesoon') next.dueSoon = true
     else if (key === 'unassigned') next.unassigned = true
     else if (key === 'priority' && rawValue) {
       const level = rawValue.toLowerCase()
@@ -121,4 +157,30 @@ export function filtersFromParam(param: string | null): CardFilters | undefined 
     }
   }
   return next
+}
+
+/**
+ * A named filter set the board can re-apply — the one deliberately persisted piece of
+ * filter state. Everything else about filters stays view state.
+ */
+export interface SavedFilter {
+  id: string
+  name: string
+  filters: CardFilters
+}
+
+/** Whether two filter sets would narrow the board the same way, whatever order they were built in. */
+export function sameFilters(a: CardFilters, b: CardFilters): boolean {
+  const set = (ids: string[]) => [...ids].sort().join()
+  return (
+    (a.text ?? '').trim() === (b.text ?? '').trim() &&
+    a.blocked === b.blocked &&
+    a.overdue === b.overdue &&
+    a.dueSoon === b.dueSoon &&
+    a.unassigned === b.unassigned &&
+    a.minAgeDays === b.minAgeDays &&
+    set(a.typeIds) === set(b.typeIds) &&
+    set(a.assigneeIds) === set(b.assigneeIds) &&
+    set(a.priorities) === set(b.priorities)
+  )
 }
