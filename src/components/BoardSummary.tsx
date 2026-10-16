@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Card, type CardParent } from './Card'
-import { DroppableCell } from './DroppableCell'
+import { DragLayer } from './DragLayer'
+import { useCardLift } from '@/lib/useCardLift'
 import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
 import {
@@ -113,19 +114,43 @@ export function BoardSummary({
   if (sections.length === 0) return <p className="p-3 text-meta text-slate-600">This board has no typed columns.</p>
 
   const isInitiatives = variant === 'initiatives'
-  const drop = (itemId: string, laneId: string) => moveInitiative(itemId, boardId, laneId)
   const collapsedLanes = useStore((s) => s.collapsedLanes)
 
-  /** The initiative currently in flight, if any — `dataTransfer` can't be read on hover. */
-  const [dragging, setDragging] = useState<string | null>(null)
+  /** The initiative currently in flight, if any. */
+  // The same lift the cards workflow uses — one implementation, so a card in the air behaves
+  // the same on either surface. Where it lands is this surface's own: a cell, and only a cell of
+  // the section the initiative already belongs to.
+  const { lift, start: startLift, justDragged } = useCardLift({
+    onMove: (x, y) => setDropCell(cellUnder(x, y, lift?.itemId)),
+    onDrop: (itemId, x, y) => {
+      const cell = cellUnder(x, y, itemId)
+      if (cell) moveInitiative(itemId, boardId, cell)
+    },
+  })
+  const [dropCell, setDropCell] = useState<string | null>(null)
+  /** The cell under the pointer, if it is one an initiative may move into. */
+  const cellUnder = (x: number, y: number, itemId: string | undefined) => {
+    const here = itemId ? initiativeCellOf(itemId, boardId, graph) : undefined
+    if (!here) return null
+    const cell = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-cell-id]')
+    const cellId = cell?.dataset.cellId
+    const sectionId = cell?.dataset.sectionId
+    // An initiative may only be rearranged within its own section, and never onto the cell it
+    // already sits in — so those are the only cells worth highlighting.
+    if (!cellId || sectionId !== here.sectionId || cellId === here.cellId) return null
+    return cellId
+  }
   const parentPickId = useStore((s) => s.parentPickId)
   const setParent = useStore((s) => s.setParent)
   const cancelParentPick = useStore((s) => s.cancelParentPick)
   // An initiative may only be rearranged within its own section, and never onto the cell
   // it already sits in — so those are the only cells worth highlighting.
-  const dragTarget = dragging ? initiativeCellOf(dragging, boardId, graph) : undefined
-  const canDropOn = (sectionId: string, cellId: string) =>
-    Boolean(dragTarget && dragTarget.sectionId === sectionId && dragTarget.cellId !== cellId)
+
+  /**
+   * The card in the air has left its cell — the lift draws it, not the cell — so the lane shows
+   * the result of the drop before it happens rather than after, the same as a card does.
+   */
+  const inCell = (cards: Item[]) => cards.filter((c) => c.id !== lift?.itemId)
 
   const initiativeCard = (c: Item) => {
     const pid = decompositionParent(c.id, edges)
@@ -158,10 +183,14 @@ export function BoardSummary({
         // team-level initiatives don't set this board's focus. The lineage highlight still
         // crosses into the bands, which is the point of it.
         onLens={interactive ? toggleLens : undefined}
+        // `draggable` gates whether a card can be picked up at all; `onLift` is what makes the
+        // picking up ours rather than the browser's. A native drag dies the moment its source
+        // leaves the document, and lifting the card out of its cell is the point.
         draggable={interactive}
-        onDragStateChange={setDragging}
+        onLift={interactive ? startLift : undefined}
         locked={editMode}
         onOpen={(id) => {
+          if (justDragged.current) return
           // While a card is waiting for a parent, an initiative click is the answer rather than
           // an open. Every card on this surface is an initiative, which is why the pick is
           // answered here and not on the cards workflow.
@@ -189,7 +218,10 @@ export function BoardSummary({
 
 
   return (
-    <div className="flex gap-2 p-2" data-dragging={dragging ?? undefined}>
+    <div className="flex gap-2 p-2">
+      {lift && (
+        <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
+      )}
       {sections.map(({ section, stage, cells, byCell, total }) => {
         const split = cells.length > 1
         const folded = collapsedLanes[section.id] === true
@@ -201,11 +233,10 @@ export function BoardSummary({
             isSection
             primary
             count={total}
-            droppable={!split}
-            canDrop={canDropOn(section.id, section.id)}
+            sectionId={section.id}
+            isTarget={dropCell === section.id}
             interactive={interactive}
             editMode={editMode}
-            onDrop={(itemId) => drop(itemId, section.id)}
             // A section with more cells claims more of the width, so every *cell* gets an
             // equal share of the board — splitting a column doesn't squeeze its own cells.
             style={{
@@ -226,14 +257,13 @@ export function BoardSummary({
                       key={cell.id}
                       lane={cell}
                       stage={stage}
+                      sectionId={section.id}
                       count={cards.length}
-                      droppable
-                      canDrop={canDropOn(section.id, cell.id)}
+                      isTarget={dropCell === cell.id}
                       interactive={interactive}
                       editMode={editMode}
-                      onDrop={(itemId) => drop(itemId, cell.id)}
                     >
-                      {cards.map(initiativeCard)}
+                      {inCell(cards).map(initiativeCard)}
                     </Cell>
                   )
                 })
@@ -241,7 +271,7 @@ export function BoardSummary({
                   const cards = byCell.get(section.id) ?? []
                   return (
                     <>
-                      {cards.map(initiativeCard)}
+                      {inCell(cards).map(initiativeCard)}
                     </>
                   )
                 })()}
@@ -259,14 +289,13 @@ export function BoardSummary({
 function Cell({
   lane,
   stage,
+  sectionId,
   isSection,
   primary,
   count,
-  droppable,
-  canDrop,
+  isTarget,
   interactive,
   editMode,
-  onDrop,
   className,
   style,
   children,
@@ -274,15 +303,15 @@ function Cell({
   lane: Lane
   /** The section's stage — the cell's own accent, and its own even when it is a sub-cell. */
   stage?: Stage
+  /** The section this cell belongs to. An initiative never leaves it. */
+  sectionId: string
   isSection?: boolean
   primary?: boolean
   count: number
-  droppable: boolean
-  /** Whether the item currently in flight may land here. */
-  canDrop?: boolean
+  /** Whether the initiative in flight would land here. */
+  isTarget?: boolean
   interactive: boolean
   editMode: boolean
-  onDrop: (itemId: string) => void
   className?: string
   style?: React.CSSProperties
   children: React.ReactNode
@@ -408,13 +437,21 @@ function Cell({
         </span>
       </div>
 
-      {droppable ? (
-        <DroppableCell laneId={lane.id} enabled={interactive && !editMode && Boolean(canDrop)} onDropItem={onDrop}>
-          {children}
-        </DroppableCell>
-      ) : (
-        <div className="flex min-w-0 flex-1 gap-2 p-2">{children}</div>
-      )}
+      {/* Every cell is a drop target, and says which section it belongs to: an initiative never
+          leaves its own. */}
+      <div
+        data-cell-id={lane.id}
+        data-section-id={sectionId}
+        className="flex min-h-[96px] min-w-0 flex-1 flex-col gap-1 p-1"
+      >
+        {isTarget && (
+          <div
+            data-drop-placeholder
+            className="h-[68px] shrink-0 rounded-md bg-slate-900/[0.08] ring-1 ring-inset ring-slate-900/10"
+          />
+        )}
+        {children}
+      </div>
 
       {settingsOpen && (
         <LaneSettings
