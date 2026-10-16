@@ -1,12 +1,12 @@
 import { Ban, CalendarClock, Layers, Target } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
-import { blockedBelow, decompositionChildren, decompositionParent, rollupOf, type Graph } from '@/domain/derive'
-import { buildRefs } from '@/domain/board'
+import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
+import { boardInitiatives, buildRefs } from '@/domain/board'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { BAND_ACCENT, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { IssueType, Item, Stage } from '@/domain/types'
+import type { IssueType, Stage } from '@/domain/types'
 
 const barColor = (pct: number) => (pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
@@ -51,23 +51,10 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     .map((id) => boards.find((b) => b.id === id)?.name)
     .filter((n): n is string => Boolean(n))
 
-  const onBoard = placements
-    .filter((p) => p.boardId === boardId)
-    .map((p) => items.find((i) => i.id === p.itemId))
-    .filter((i): i is Item => Boolean(i))
-
-  // Board-local top-level initiatives — an initiative whose parent is not on this
-  // board is top-level here (the same set the Initiatives workflow shows).
-  const onBoardIds = new Set(onBoard.map((i) => i.id))
+  // Board-local top-level initiatives — the same computation the initiatives workflow and the
+  // timeline read, so the surfaces cannot disagree about what this board's initiatives are.
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
-  const initiatives = (
-    initiativeTypeId
-      ? onBoard.filter((i) => i.typeId === initiativeTypeId)
-      : onBoard.filter((i) => decompositionChildren(i.id, edges).length > 0)
-  ).filter((i) => !i.archived).filter((i) => {
-    const parent = decompositionParent(i.id, edges)
-    return !parent || !onBoardIds.has(parent)
-  })
+  const initiatives = boardInitiatives(graph, boardId, issueTypes)
 
   const rows = initiatives.map((item) => {
     const roll = rollupOf(item.id, graph)

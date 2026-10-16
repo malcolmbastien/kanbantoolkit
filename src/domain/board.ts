@@ -1,4 +1,4 @@
-import { isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
+import { decompositionChildren, decompositionParent, isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
 import { childrenOf, leafLanes, leavesUnder, rootLane, WORKFLOWS } from './lanes'
 import type { Board, BoardBand, BoardTemplate, IssueType, Item, Lane, Placement, SplitOrientation, TemplateLane } from './types'
 
@@ -6,6 +6,42 @@ import type { Board, BoardBand, BoardTemplate, IssueType, Item, Lane, Placement,
 export function itemsOnBoard(boardId: string, placements: Placement[], items: Item[]): Item[] {
   const ids = new Set(placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
   return items.filter((i) => ids.has(i.id))
+}
+
+/**
+ * The initiatives of a board's initiatives workflow — items of the Initiative type placed on
+ * it, never archived. With `rootsOnly`, only the board's *local* top-level ones: an initiative
+ * whose parent is not on this same board is top-level here, so it can roll up to a top-level
+ * initiative on another management board and still appear as top-level on its own.
+ *
+ * One computation, on purpose: the dashboard, the board's own initiatives flow and the timeline
+ * all read this, so the surfaces cannot disagree about what a board's initiatives are. Order
+ * follows the placements — the order the board itself keeps. When no Initiative type exists
+ * (data before types load), having decomposition children stands in for the type.
+ */
+export function boardInitiatives(
+  graph: Graph,
+  boardId: string,
+  issueTypes: IssueType[],
+  { rootsOnly = true }: { rootsOnly?: boolean } = {},
+): Item[] {
+  const onBoard = graph.placements
+    .filter((p) => p.boardId === boardId)
+    .map((p) => graph.items.find((i) => i.id === p.itemId))
+    .filter((i): i is Item => Boolean(i))
+  const onBoardIds = new Set(onBoard.map((i) => i.id))
+  const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
+  return (
+    initiativeTypeId
+      ? onBoard.filter((i) => i.typeId === initiativeTypeId)
+      : onBoard.filter((i) => decompositionChildren(i.id, graph.edges).length > 0)
+  )
+    .filter((i) => !i.archived)
+    .filter((i) => {
+      if (!rootsOnly) return true
+      const parent = decompositionParent(i.id, graph.edges)
+      return !parent || !onBoardIds.has(parent)
+    })
 }
 
 /* ------------------------------------------------------------------ *

@@ -234,7 +234,7 @@ export default function App() {
           ) : showDashboard ? (
             <ManagementDashboard boardId={boardId} />
           ) : showTimeline ? (
-            <TimelineView />
+            <TimelineView boardId={boardId} />
           ) : (
             <BoardView requestMove={requestMove} />
           )}

@@ -15,6 +15,7 @@ import {
   templateSetLaneWip,
   templateSetOrientation,
   templateSplitLane,
+  boardInitiatives,
 } from './board'
 import { childrenOf, rootLane } from './lanes'
 import { createSeed } from './seed'
@@ -295,5 +296,67 @@ describe('editing a template’s design', () => {
   it('keeps every key unique through the edits', () => {
     const next = templateSplitLane(scrum(), 'k0', 'rows', keys())
     expect(new Set(next.map((l) => l.key)).size).toBe(next.length)
+  })
+})
+
+describe('boardInitiatives — the one set every initiative surface reads', () => {
+  const INIT = 't-initiative'
+  const STORY = 't-story'
+  const types = [
+    { id: INIT, name: 'Initiative', color: '#6366f1' },
+    { id: STORY, name: 'Story', color: '#64748b' },
+  ]
+  const item = (id: string, typeId: string, patch: Record<string, unknown> = {}) =>
+    ({ id, title: id, typeId, createdAt: 0, ...patch })
+  const edge = (from: string, to: string) => ({ id: `e-${from}-${to}`, kind: 'decomposition' as const, from, to })
+  let placementSeq = 0
+  const graphOf = (items: ReturnType<typeof item>[], edges: ReturnType<typeof edge>[] = [], placements: Array<{ itemId: string; boardId: string; laneId: string }> = []) =>
+    ({ items, edges, links: [], placements: placements.map((p) => ({ ...p, id: `pl-${++placementSeq}` })), lanes: [] })
+  const on = (itemId: string, boardId = 'b-mine') => ({ itemId, boardId, laneId: 'lane-x' })
+
+  it('keeps only Initiative-type items placed on the board, and never archived ones', () => {
+    const g = graphOf(
+      [item('a', INIT), item('c', STORY), item('d', INIT, { archived: true })],
+      [],
+      [on('a'), on('c'), on('d')],
+    )
+    expect(boardInitiatives(g, 'b-mine', types).map((i) => i.id)).toEqual(['a'])
+  })
+
+  it('rootsOnly hides an initiative whose parent sits on the same board', () => {
+    const g = graphOf(
+      [item('parent', INIT), item('child', INIT)],
+      [edge('parent', 'child')],
+      [on('parent'), on('child')],
+    )
+    expect(boardInitiatives(g, 'b-mine', types).map((i) => i.id)).toEqual(['parent'])
+    expect(boardInitiatives(g, 'b-mine', types, { rootsOnly: false }).map((i) => i.id)).toEqual(['parent', 'child'])
+  })
+
+  it('an initiative parented from another board is still top-level here', () => {
+    const g = graphOf(
+      [item('mgr', INIT), item('team', INIT)],
+      [edge('mgr', 'team')],
+      [on('mgr', 'b-other'), on('team')],
+    )
+    expect(boardInitiatives(g, 'b-mine', types).map((i) => i.id)).toEqual(['team'])
+  })
+
+  it('follows placement order — the order the board itself keeps', () => {
+    const g = graphOf(
+      [item('a', INIT), item('b', INIT)],
+      [],
+      [on('b'), on('a')],
+    )
+    expect(boardInitiatives(g, 'b-mine', types).map((i) => i.id)).toEqual(['b', 'a'])
+  })
+
+  it('with no Initiative type, having decomposition children stands in', () => {
+    const g = graphOf(
+      [item('parent', STORY), item('leaf', STORY), item('childless', STORY)],
+      [edge('parent', 'leaf')],
+      [on('parent'), on('leaf'), on('childless')],
+    )
+    expect(boardInitiatives(g, 'b-mine', [{ id: STORY, name: 'Story', color: '#64748b' }]).map((i) => i.id)).toEqual(['parent'])
   })
 })

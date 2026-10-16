@@ -19,7 +19,7 @@ import {
   uncommittedBelow,
   type Graph,
 } from '@/domain/derive'
-import { buildRefs, initiativeCellOf } from '@/domain/board'
+import { boardInitiatives, buildRefs, initiativeCellOf } from '@/domain/board'
 import { childrenOf, isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -91,25 +91,12 @@ export function BoardSummary({
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
-  const onBoard = placements
-    .filter((p) => p.boardId === boardId)
-    .map((p) => items.find((i) => i.id === p.itemId))
-    .filter((i): i is Item => Boolean(i))
-
-  // Initiative-level work only — items of the Initiative type. `rootsOnly` restricts to a
-  // board's *local* top-level initiatives: ones whose parent is not on this same board, so
-  // an initiative can roll up to a top-level initiative on another management board and
+  // Initiative-level work only — the same computation the dashboard and the timeline read, so
+  // the surfaces cannot disagree about what this board's initiatives are. `rootsOnly` restricts
+  // to the board's *local* top-level initiatives: ones whose parent is not on this same board,
+  // so an initiative can roll up to a top-level initiative on another management board and
   // still appear as top-level on its own board.
-  const onBoardIds = new Set(onBoard.map((i) => i.id))
-  const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
-  const initiatives = (initiativeTypeId
-    ? onBoard.filter((i) => i.typeId === initiativeTypeId)
-    : onBoard.filter((i) => decompositionChildren(i.id, edges).length > 0)
-  ).filter((i) => !i.archived).filter((i) => {
-    if (!rootsOnly) return true
-    const parent = decompositionParent(i.id, edges)
-    return !parent || !onBoardIds.has(parent)
-  })
+  const initiatives = boardInitiatives(graph, boardId, issueTypes, { rootsOnly })
 
   // A section is a typed column; its cells are its leaves — itself, until it's split.
   const sections = topLevelLanes(lanes, boardId, 'initiatives')
