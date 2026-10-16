@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, SlidersHorizontal, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -12,9 +12,6 @@ interface Props {
   showTimeline: boolean
   showArchive: boolean
   showBoards: boolean
-  showFilters: boolean
-  /** Number of active filter categories (for the button badge). */
-  activeFilterCount: number
   onSelectBoard: (id: string) => void
   onShowBoard: () => void
   onShowDashboard: () => void
@@ -22,7 +19,6 @@ interface Props {
   onShowArchive: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
-  onToggleFilters: () => void
   onEditBoard: () => void
   onSaveEdit: () => void
   onCancelEdit: () => void
@@ -33,7 +29,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showBoards, showFilters, activeFilterCount, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onGoToBoards, onToggleFilters, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showBoards, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either.
@@ -117,23 +113,6 @@ export function TopBar(props: Props) {
             title="Archive — filed-away items (still searchable, still in links)"
           >
             <Archive size={12} /> Archive
-          </button>
-
-          <button
-            onClick={onToggleFilters}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-            )}
-            title="Filters — narrow the cards shown on this board"
-          >
-            <SlidersHorizontal size={12} /> Filters
-            {activeFilterCount > 0 && (
-              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-indigo-500 px-1 text-micro font-bold text-white">
-                {activeFilterCount}
-              </span>
-            )}
           </button>
 
           </div>

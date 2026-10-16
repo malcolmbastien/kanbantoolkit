@@ -15,9 +15,8 @@ import { ObjectivesView } from './components/ObjectivesView'
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
 import { boardCardTypeId, defaultDropLane, initiativeTypeId } from './domain/board'
-import { activeFilterCount } from './domain/filters'
-import { leafLanes } from './domain/lanes'
 import { filtersFromParam } from './domain/filters'
+import { leafLanes } from './domain/lanes'
 import { useStore } from './store'
 
 export default function App() {
@@ -39,8 +38,10 @@ export default function App() {
   const showBoards = useStore((s) => s.showBoards)
   const setBoards = useStore((s) => s.setBoards)
   const showFilters = useStore((s) => s.showFilters)
-  const filters = useStore((s) => s.filters)
-  const toggleFilters = useStore((s) => s.toggleFilters)
+  // The filter panel belongs to the board surface: filters narrow one board's cards, so the
+  // panel must not trail into the dashboard, timeline, archive or the workspace. Leaving for
+  // a view keeps the choice — coming back shows it again.
+  const boardSurface = !showDashboard && !showTimeline && !showArchive && !showObjectives && !showBoards
   const showBoardSettings = useStore((s) => s.showBoardSettings)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
@@ -201,15 +202,12 @@ export default function App() {
         showTimeline={showTimeline}
         showArchive={showArchive}
         showBoards={showBoards}
-        showFilters={showFilters}
-        activeFilterCount={activeFilterCount(filters)}
         onSelectBoard={selectBoard}
         onShowBoard={setBoard}
         onShowDashboard={() => setDashboard(true)}
         onShowTimeline={() => setTimeline(true)}
         onShowArchive={() => setArchive(true)}
         onGoToBoards={() => setBoards(true)}
-        onToggleFilters={toggleFilters}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}
@@ -235,7 +233,7 @@ export default function App() {
             <BoardView requestMove={requestMove} />
           )}
         </div>
-        {showFilters ? <FilterPanel /> : selectedItemId ? <ItemPanel itemId={selectedItemId} /> : null}
+        {showFilters && boardSurface ? <FilterPanel /> : selectedItemId ? <ItemPanel itemId={selectedItemId} /> : null}
       </div>
 
       {showBoardSettings && <BoardSettings />}
