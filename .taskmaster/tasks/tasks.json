@@ -959,12 +959,24 @@
         "testStrategy": "The risk is a false positive, not a false negative, so test the negatives hardest: a card in a Done column is stamped; a card in Backlog, Not Started or In Progress is not; an initiative whose leaves are all done is stamped; an initiative with one leaf still open is not, even when every other leaf is done and its percentage reads 100 — which is exactly the case `rollupOf` exists to get right. Then a browser check that the mark renders on both card shapes and on nothing else, and a screenshot of a board with a Done column and a mixed initiatives flow to confirm it reads as an affirmation rather than as another badge.",
         "subtasks": [],
         "updatedAt": "2026-10-14T12:00:00.000Z"
+      },
+      {
+        "id": "64",
+        "title": "Set a card’s parent from its context menu, by pointing at an initiative",
+        "description": "Connect a card to an initiative from the card itself. The context menu gains a “Set parent” option which puts the board into a pick mode; clicking an initiative there sets it as the card’s parent, and the card’s roll-up chip appears.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "The item panel already has a Parent section with a select, so this is the same act done from the board — where the card and the initiative are both on screen and you can see what you are connecting to. A dropdown of every item by name is the fallback; pointing at the actual initiative is the thing a board can do that a list cannot. The mechanics are small: the menu gains an option, choosing it sets a mode in the store, and a click on an initiative in that mode calls the existing `setParent`. One parent, always — `setParent` replaces rather than appends, so picking a second initiative moves the card rather than giving it two, and the menu should offer to remove an existing parent as well as set one. Two things need care. The first is that the picker must not create a cycle: `setParent` guards against parenting an item to itself but not against parenting it to one of its own descendants, and a loop there is one the rollup cannot survive — so the picker must refuse the card’s own subtree, dimmed and unclickable rather than silently ignored, and the store should refuse it too rather than trusting the UI. The second is that only initiatives are offered, since a card rolls up to an outcome; the store’s rule stays generic and the picker is what narrows it. The mode is the shape `boundaryId` already has — one id in the store, Escape to cancel, the board reads it — and a second mechanism for the same idea would be one too many. Feedback after picking: the card’s roll-up chip, and the panel’s Parent section if the card is open. Out of scope: changing what a parent means, setting parents for a whole selection at once, and the initiative side of the connection, which already has its own way in.",
+        "testStrategy": "The store rules first, because they are where a wrong answer is silent: setting a parent replaces any existing one rather than adding a second, removing it leaves the card a root, and a cycle is refused — the last is the one that matters, since a loop makes rollup recurse until it dies, and it is exactly the case a picker makes easy to reach by accident. Then the picker’s exclusion set: the card’s own subtree is never offered. Then the interaction in the browser, with real input rather than synthetic events: the menu offers Set parent, choosing it puts the board in the mode, clicking an initiative sets the parent and the card’s chip appears, clicking the card itself or one of its descendants does nothing at all, and Escape leaves the parent exactly as it was. Run npm test.",
+        "subtasks": [],
+        "updatedAt": "2026-10-15T12:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-14T12:00:00.000Z",
-      "taskCount": 62,
+      "lastModified": "2026-10-15T12:00:00.000Z",
+      "taskCount": 63,
       "completedCount": 40,
       "tags": [
         "backlog"
