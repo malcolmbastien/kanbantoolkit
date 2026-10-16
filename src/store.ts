@@ -220,7 +220,6 @@ export interface Actions {
    */
   moveInitiative: (itemId: string, boardId: string, laneId: string) => void
   /** Move a card one place up or down within its lane (delta -1 = up). */
-  moveCardRank: (itemId: string, boardId: string, delta: number) => void
   /** Land a card at a position in a lane, counting the cards already there. */
   moveCardToIndex: (itemId: string, boardId: string, laneId: string, index: number) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
@@ -1100,26 +1099,6 @@ export const useStore = create<Store>()(
         set({ placements, items })
       },
 
-      /**
-       * Move a card within its lane. The whole lane is renumbered to a clean 0..n-1 first,
-       * so a lane that predates rank — or was left half-ranked by a bulk move — reorders
-       * predictably rather than by whatever numbers happened to be there.
-       */
-      moveCardRank: (itemId, boardId, delta) => {
-        const state = get()
-        const placement = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
-        if (!placement) return
-        const ordered = placementsInOrder(state.placements, placement.laneId).map((p, i) => ({ ...p, rank: i }))
-        const idx = ordered.findIndex((p) => p.id === placement.id)
-        const to = idx + delta
-        if (idx < 0 || to < 0 || to >= ordered.length) return
-        const [moved] = ordered.splice(idx, 1)
-        ordered.splice(to, 0, moved)
-        const rankById = new Map(ordered.map((p, i) => [p.id, i]))
-        set({
-          placements: state.placements.map((p) => (rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p)),
-        })
-      },
 
       /**
        * Land a card at a position in a lane. The lane is renumbered to a clean 0..n-1 as it

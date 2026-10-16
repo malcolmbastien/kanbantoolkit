@@ -868,16 +868,10 @@ describe('store actions', () => {
     expect(order()).toEqual(['st-signup-form', 'st-email', 'st-sso'])
 
     // Reordering renumbers the whole lane to a clean sequence.
-    s().moveCardRank('st-sso', 'b-atlas', -1)
+    s().moveCardToIndex('st-sso', 'b-atlas', dev.id, 1)
     expect(order()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
     const ranks = placementsInOrder(s().placements, dev.id).map((p) => p.rank)
     expect(ranks).toEqual([0, 1, 2])
-
-    // Off the ends is a no-op, not a wrap.
-    s().moveCardRank('st-signup-form', 'b-atlas', -1)
-    expect(order()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
-    s().moveCardRank('st-email', 'b-atlas', 1)
-    expect(order()).toEqual(['st-signup-form', 'st-sso', 'st-email'])
 
     // A cross-lane move appends to the target lane.
     s().moveCard('st-email', 'b-atlas', done.id)

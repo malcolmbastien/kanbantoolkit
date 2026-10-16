@@ -801,7 +801,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       {cardMenu && (
         <CardMenu
           itemIds={multiSelect.includes(cardMenu.itemId) ? multiSelect : [cardMenu.itemId]}
-          anchorId={cardMenu.itemId}
           x={cardMenu.x}
           y={cardMenu.y}
           onClose={closeCardMenu}

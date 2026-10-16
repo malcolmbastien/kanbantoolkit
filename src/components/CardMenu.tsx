@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Archive,
-  ArrowDown,
-  ArrowUp,
   Ban,
   CalendarClock,
   Check,
@@ -28,7 +26,6 @@ interface Props {
   /** The cards this menu acts on — a selection group, or just the one. */
   itemIds: string[]
   /** The right-clicked card, for 'Open'. */
-  anchorId: string
   x: number
   y: number
   onClose: () => void
@@ -45,15 +42,13 @@ const FLYOUT = 'fixed z-50 max-h-[60vh] overflow-y-auto rounded-lg border border
  * acts on the whole selection group when the card is part of one. Sub-actions
  * fly out to the side, and flip left near the viewport edge.
  */
-export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
+export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const items = useStore((s) => s.items)
   const setItemFields = useStore((s) => s.setItemFields)
-  const moveCardRank = useStore((s) => s.moveCardRank)
   const boardId = useStore((s) => s.boardId)
   const lanes = useStore((s) => s.lanes)
   const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
-  const openItem = useStore((s) => s.openItem)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
   const setItemsType = useStore((s) => s.setItemsType)
   const addItemsAssignee = useStore((s) => s.addItemsAssignee)
@@ -345,33 +340,6 @@ export function CardMenu({ itemIds, anchorId, x, y, onClose }: Props) {
           {single ? (only?.title ?? 'Card') : `${count} cards`}
         </div>
 
-        {single && (
-          <button className={ITEM} onClick={() => run(() => openItem(anchorId))}>
-            <span className="shrink-0 text-slate-600">
-              <FolderInput size={13} />
-            </span>
-            <span className="flex-1">Open</span>
-          </button>
-        )}
-
-        {/* Rank, for the selected card only: order within a lane is how a board expresses
-            priority, and a menu item is the keyboard-reachable half of it. */}
-        {single && (
-          <>
-            <button className={ITEM} onClick={() => run(() => moveCardRank(only!.id, boardId, -1))}>
-              <span className="shrink-0 text-slate-600">
-                <ArrowUp size={13} />
-              </span>
-              <span className="flex-1">Move up</span>
-            </button>
-            <button className={ITEM} onClick={() => run(() => moveCardRank(only!.id, boardId, 1))}>
-              <span className="shrink-0 text-slate-600">
-                <ArrowDown size={13} />
-              </span>
-              <span className="flex-1">Move down</span>
-            </button>
-          </>
-        )}
         {header('move', <FolderInput size={13} />, 'Move to lane')}
         {header('priority', <Flag size={13} />, 'Priority', single && only?.priority ? PRIORITY_META[only.priority].label : '')}
         {header('assignee', <UserPlus size={13} />, 'Assignees')}
