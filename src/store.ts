@@ -73,6 +73,8 @@ export interface ViewState {
   showFilters: boolean
   /** Active card filters applied to the current board. */
   filters: CardFilters
+  /** The board legend panel open (a right-side panel, like the item panel). */
+  showLegend: boolean
   /**
    * Named filter sets the board can re-apply — the one deliberately persisted piece of
    * filter state. Filter *state* is view state; the collection of saved sets is data.
@@ -126,8 +128,10 @@ export interface Actions {
   setArchive: (v: boolean) => void
   toggleBoards: () => void
   setBoards: (v: boolean) => void
-  /** Toggle the filters side panel (closes the item panel when opening). */
+  /** Toggle the filters side panel (closes the item panel and the legend when opening). */
   toggleFilters: () => void
+  /** Toggle the board legend (closes the item panel and filters when opening). */
+  toggleLegend: () => void
   /** Merge a patch into the active card filters. */
   setFilters: (patch: Partial<CardFilters>) => void
   /** Save the active filters as a named set. */
@@ -230,6 +234,8 @@ export interface Actions {
    */
   duplicateBoard: (boardId: string, name?: string) => void
   renameBoard: (id: string, name: string) => void
+  /** Write the board's own description — the legend opens with it. */
+  setBoardDescription: (id: string, description: string) => void
   setBoardBand: (id: string, band: BoardBand) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
   /**
@@ -447,6 +453,7 @@ const initialView: ViewState = {
   showFilters: false,
   filters: NO_FILTERS,
   savedFilters: [],
+  showLegend: false,
   boundaryId: null,
   parentPickId: null,
   childPickId: null,
@@ -673,6 +680,14 @@ export function migrateState(persisted: unknown): Partial<Store> {
   // v28: named filter sets became persisted data — the deliberate exception to filters
   // being view state. Older state simply has none.
   if (!Array.isArray(p.savedFilters)) p.savedFilters = []
+  // v29: a board carries its own description — the legend opens with it. Backfill with the
+  // empty string, which the legend then prompts about.
+  if (Array.isArray(p.boards)) {
+    p.boards = (p.boards as unknown[]).map((b) => {
+      const board = b as Record<string, unknown>
+      return typeof board.description === 'string' ? board : { ...board, description: '' }
+    })
+  }
   return p as Partial<Store>
 }
 
@@ -724,12 +739,17 @@ export const useStore = create<Store>()(
       ...initialView,
 
       selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null }),
-      openItem: (selectedItemId) => set({ selectedItemId, multiSelect: [], ...(selectedItemId ? { showFilters: false } : {}) }),
+      openItem: (selectedItemId) => set({ selectedItemId, multiSelect: [], ...(selectedItemId ? { showFilters: false, showLegend: false } : {}) }),
       setSearch: (search) => set({ search }),
       toggleFilters: () => {
         const show = !get().showFilters
-        // One side panel at a time: opening filters dismisses an open card.
-        set({ showFilters: show, ...(show ? { selectedItemId: null } : {}) })
+        // One side panel at a time: opening filters dismisses an open card, and the legend.
+        set({ showFilters: show, showLegend: false, ...(show ? { selectedItemId: null } : {}) })
+      },
+      toggleLegend: () => {
+        const show = !get().showLegend
+        // The same one-panel rule: the legend takes the drawer and dismisses the others.
+        set({ showLegend: show, showFilters: false, ...(show ? { selectedItemId: null } : {}) })
       },
       saveFilter: (name) => {
         const trimmed = name.trim()
@@ -1080,6 +1100,7 @@ export const useStore = create<Store>()(
           id: boardId,
           name,
           band: resolvedBand,
+          description: '',
           ...(resolvedBand !== 'team' ? { linkedBoardIds: [] } : {}),
           ...(template?.defaultCardTypeId ? { defaultCardTypeId: template.defaultCardTypeId } : {}),
           ...(template?.wipEnforcement ? { wipEnforcement: template.wipEnforcement } : {}),
@@ -1171,6 +1192,8 @@ export const useStore = create<Store>()(
       },
 
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
+      setBoardDescription: (id, description) =>
+        set({ boards: get().boards.map((b) => (b.id === id ? { ...b, description } : b)) }),
       setBoardBand: (id, band) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, band } : b)) }),
       setBoardDefaultCardType: (id, defaultCardTypeId) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
@@ -1665,7 +1688,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 28,
+      version: 29,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

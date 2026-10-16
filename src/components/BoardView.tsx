@@ -1,4 +1,4 @@
-import { Archive, SlidersHorizontal } from 'lucide-react'
+import { Archive, Info, SlidersHorizontal } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
@@ -27,6 +27,8 @@ export function BoardView({ requestMove }: Props) {
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
   const toggleFilters = useStore((s) => s.toggleFilters)
+  const showLegend = useStore((s) => s.showLegend)
+  const toggleLegend = useStore((s) => s.toggleLegend)
 
   const board = boards.find((b) => b.id === boardId)
   // Drag empty workflow space to move the board. See usePanScroll.
@@ -40,18 +42,25 @@ export function BoardView({ requestMove }: Props) {
     (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
   ).length
 
-  // The board's secondary bar: board-scoped controls live with the board. Filters narrow
-  // this board's cards, so the button belongs here rather than in the top bar — where it
-  // appeared on the dashboard, timeline and archive too, and filtered nothing there. The
-  // bar is always present because the Filters control always is; the rest of it appears
-  // only when it has something functional to say.
-  //
+  // The board's secondary bar: board-scoped controls live with the board. On the left,
+  // the board's state and its explainers — the legend right beside any condition chip.
   // Filters sits at the far right, in the corner where its panel opens: a control belongs
-  // against the surface it commands, so pushing it there puts the button and the drawer it
-  // opens in one place, and leaves the left of the bar to the board's own state.
+  // against the surface it commands. The bar is always present because the Filters control
+  // always is; the rest of it appears only when it has something functional to say.
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
+        <button
+          onClick={toggleLegend}
+          disabled={editMode}
+          className={cn(
+            'flex items-center gap-1 rounded-md border px-2 py-1 font-medium transition disabled:pointer-events-none disabled:opacity-40',
+            showLegend ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+          )}
+          title="Legend — what this board means and how to read it"
+        >
+          <Info size={12} /> Legend
+        </button>
         {board?.archived && <ArchivedBoardChip />}
         {editMode && (
           <span className="rounded bg-amber-100 px-1.5 py-px font-semibold text-amber-800 ring-1 ring-amber-300">

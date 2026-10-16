@@ -16,6 +16,7 @@ export function BoardSettings() {
   const boardId = useStore((s) => s.boardId)
   const issueTypes = useStore((s) => s.issueTypes)
   const renameBoard = useStore((s) => s.renameBoard)
+  const setBoardDescription = useStore((s) => s.setBoardDescription)
   const setBoardBand = useStore((s) => s.setBoardBand)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardDefaultDropLane = useStore((s) => s.setBoardDefaultDropLane)
@@ -103,6 +104,22 @@ export function BoardSettings() {
               onChange={(e) => renameBoard(board.id, e.target.value)}
               className="w-full rounded border border-slate-200 px-2 py-1.5 text-body font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400"
             />
+          </div>
+
+          {/* Description — the board's own voice; the legend opens with it */}
+          <div>
+            <label className={label} htmlFor="board-description">
+              Description
+            </label>
+            <textarea
+              id="board-description"
+              value={board.description}
+              onChange={(e) => setBoardDescription(board.id, e.target.value)}
+              rows={3}
+              placeholder="What this board is for — a newcomer reads this first, in the legend"
+              className="w-full resize-y rounded border border-slate-200 px-2 py-1.5 text-body text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            <p className="mt-1 text-micro text-slate-600">Shown at the top of the board legend.</p>
           </div>
 
           {/* Flight-level band */}

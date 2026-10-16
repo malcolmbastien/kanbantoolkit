@@ -7,6 +7,7 @@ import { BoardSettings } from './components/BoardSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ReasonDialog } from './components/ReasonDialog'
 import { FilterPanel } from './components/FilterPanel'
+import { BoardLegend } from './components/BoardLegend'
 import { ItemPanel } from './components/ItemPanel'
 import { FocusChip } from './components/FocusChip'
 import { ManagementDashboard } from './components/ManagementDashboard'
@@ -37,8 +38,10 @@ export default function App() {
   const setArchive = useStore((s) => s.setArchive)
   const showBoards = useStore((s) => s.showBoards)
   const setBoards = useStore((s) => s.setBoards)
+  const showLegend = useStore((s) => s.showLegend)
   const showFilters = useStore((s) => s.showFilters)
-  // The filter panel belongs to the board surface: filters narrow one board's cards, so the
+  // The side panels belong to the board surface: the legend and the filters narrow or
+  // explain one board, so neither trails into the dashboard, timeline or archive.: filters narrow one board's cards, so the
   // panel must not trail into the dashboard, timeline, archive or the workspace. Leaving for
   // a view keeps the choice — coming back shows it again.
   const boardSurface = !showDashboard && !showTimeline && !showArchive && !showObjectives && !showBoards
@@ -239,7 +242,7 @@ export default function App() {
             <BoardView requestMove={requestMove} />
           )}
         </div>
-        {showFilters && boardSurface ? <FilterPanel /> : selectedItemId ? <ItemPanel itemId={selectedItemId} /> : null}
+        {showLegend && boardSurface ? <BoardLegend /> : showFilters && boardSurface ? <FilterPanel /> : selectedItemId ? <ItemPanel itemId={selectedItemId} /> : null}
       </div>
 
       {showBoardSettings && <BoardSettings />}

@@ -1449,3 +1449,52 @@ describe('saved filters', () => {
     expect(out.savedFilters).toEqual([])
   })
 })
+
+describe('one side panel at a time', () => {
+  beforeEach(() => s().resetDemo())
+
+  it('the legend, the filters and an open card take the same drawer', () => {
+    s().openItem('st-email')
+    s().toggleLegend()
+    expect(s().showLegend).toBe(true)
+    expect(s().selectedItemId).toBeNull()
+    expect(s().showFilters).toBe(false)
+    s().toggleFilters()
+    expect(s().showFilters).toBe(true)
+    expect(s().showLegend).toBe(false)
+    s().toggleLegend()
+    expect(s().showLegend).toBe(true)
+    expect(s().showFilters).toBe(false)
+  })
+
+  it('the legend stays a view choice, never persisted data', () => {
+    const slice = persistedSlice(s()) as Record<string, unknown>
+    expect('showLegend' in slice).toBe(false)
+  })
+})
+
+describe('board description', () => {
+  beforeEach(() => s().resetDemo())
+
+  it('edits in place and duplicates carry it across', () => {
+    s().setBoardDescription('b-atlas', 'Where Atlas lands its work.')
+    expect(s().boards.find((b) => b.id === 'b-atlas')!.description).toBe('Where Atlas lands its work.')
+    s().renameBoard('b-atlas', 'Atlas')
+    expect(s().boards.find((b) => b.id === 'b-atlas')!.description).toBe('Where Atlas lands its work.')
+  })
+
+  it('migratePersisted backfills a missing description and preserves an existing one', () => {
+    const slice = persistedSlice(s()) as Record<string, unknown>
+    const stripped = [...((slice.boards as Record<string, unknown>[]) ?? [])]
+    delete stripped[0].description
+    // A pre-bump state carries boards without the field at all; the migration outfits
+    // each with the empty string, which the legend then prompts about.
+    const out = migratePersisted({ ...slice, boards: stripped }, 28) as { boards: { description: string }[] }
+    expect(out.boards[0].description).toBe('')
+    // And one already written keeps its own words.
+    const kept = { ...slice }
+    ;(kept.boards as Record<string, unknown>[])[1].description = 'our own words go here'
+    const out2 = migratePersisted(kept, 28) as { boards: { description: string }[] }
+    expect(out2.boards[1].description).toBe('our own words go here')
+  })
+})

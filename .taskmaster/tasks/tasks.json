@@ -1095,12 +1095,12 @@
         "id": "70",
         "title": "Filter updates: text search, saved filters, due-soon status, unassigned as an assignee option",
         "description": "Four additions to the card filter panel, one control per concept.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "(1) TEXT SEARCH as a filter criterion \\u2014 there is a separate top-bar search today; the filter panel gains a text field over title/description, and the two must compose rather than duplicate: decide in build whether search moves into filters entirely or the two AND together. (2) SAVED FILTERS \\u2014 named, persisted filter sets (Windshift's saved searches): save the current filters under a name, re-apply from the panel. This is the one persisted piece \\u2014 persist version bump and a migrate backfill, and coordinate with any other pending bump so only one migration lands. (3) DUE SOON as a status option \\u2014 a date-bucket alongside blocked and overdue: targetEndDate within the next N days and not resolved. Pick N in build (a week is the obvious default) and pin the boundary in a test. (4) UNASSIGNED as an assignee option \\u2014 the separate unassigned toggle becomes a pseudo-entry in the assignee filter: one concept, one control, composable with picked assignees. CONSTRAINTS: filters are view state and never persisted \\u2014 saved filters are the deliberate exception; filters are explicit \\u2014 nothing is hidden by default; narrowing what you see never changes what a column carries.",
         "testStrategy": "Unit tests per predicate: due-soon boundary (end date today+N-1 in, today+N+1 out), unassigned composing with explicit assignee ids, text search over title and description case-insensitively. Saved filters: round-trip through migratePersisted with a pre-bump payload, and that applying one leaves no residue when cleared. Browser probe: each filter isolates seeded cards; a saved filter survives a reload.",
-        "updatedAt": "2026-10-16T21:00:09.188Z",
+        "updatedAt": "2026-10-16T21:12:35.125Z",
         "subtasks": []
       },
       {
@@ -1139,9 +1139,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T21:00:09.188Z",
+      "lastModified": "2026-10-16T21:12:35.125Z",
       "taskCount": 72,
-      "completedCount": 47,
+      "completedCount": 48,
       "tags": [
         "backlog"
       ]

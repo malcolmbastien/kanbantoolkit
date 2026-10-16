@@ -27,13 +27,13 @@ const users: User[] = [
 ]
 
 const boards: Board[] = [
-  { id: 'b-strategy', name: 'Company Strategy', band: 'portfolio', linkedBoardIds: ['b-lob', 'b-delivery'] },
-  { id: 'b-lob', name: 'Digital line of business', band: 'program', linkedBoardIds: ['b-portfolio'] },
+  { id: 'b-strategy', name: 'Company Strategy', band: 'portfolio', description: 'Where objectives and their coverage live — a strategic lens, not a workflow: the whole organisation reads it.', linkedBoardIds: ['b-lob', 'b-delivery'] },
+  { id: 'b-lob', name: 'Digital line of business', band: 'program', description: 'The digital line of business — its initiatives aggregate the boards beneath.', linkedBoardIds: ['b-portfolio'] },
   // A Program that bridges the two team boards straight to the portfolio.
-  { id: 'b-delivery', name: 'Product Delivery', band: 'program', linkedBoardIds: ['b-atlas', 'b-nova'] },
-  { id: 'b-portfolio', name: 'Growth value stream', band: 'program', linkedBoardIds: ['b-atlas', 'b-nova'] },
-  { id: 'b-atlas', name: 'Team Atlas', band: 'team', defaultCardTypeId: 't-story' },
-  { id: 'b-nova', name: 'Team Nova', band: 'team', defaultCardTypeId: 't-story' },
+  { id: 'b-delivery', name: 'Product Delivery', band: 'program', description: 'The delivery bridge: the two team boards’ initiatives, rolled up for management.', linkedBoardIds: ['b-atlas', 'b-nova'] },
+  { id: 'b-portfolio', name: 'Growth value stream', band: 'program', description: 'A coordination board over Team Atlas and Team Nova — it shows work, it does not hold it.', linkedBoardIds: ['b-atlas', 'b-nova'] },
+  { id: 'b-atlas', name: 'Team Atlas', band: 'team', description: 'Team Atlas’s own flow, as the team designed it — everything below the typed columns is theirs to rework.', defaultCardTypeId: 't-story' },
+  { id: 'b-nova', name: 'Team Nova', band: 'team', description: 'Team Nova’s own flow — its lanes, limits and policies are what the board does.', defaultCardTypeId: 't-story' },
 ]
 
 const lanes: Lane[] = []

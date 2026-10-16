@@ -88,6 +88,11 @@ export interface Board {
   name: string
   band: BoardBand
   /**
+   * The board's own voice: what it is and how to read it, in the team's words. The board
+   * legend opens with it, and board settings edits it in place.
+   */
+  description: string
+  /**
    * Retired: hidden from the board picker, the board workspace's list and the aggregation
    * bands, but never destroyed — its lanes, items, placements and edges are untouched.
    * Aggregation edges are deliberately kept, so unarchiving restores the graph exactly;
