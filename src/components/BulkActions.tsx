@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Archive, CheckSquare, Trash2, X } from 'lucide-react'
-import { cardTypes, isInitiativeItem } from '@/domain/board'
+import { cardTypes, defaultDropLane, isInitiativeItem } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { useStore } from '@/store'
 
@@ -19,6 +19,8 @@ export function BulkActions() {
   const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
+  const moveCardsToBoard = useStore((s) => s.moveCardsToBoard)
+  const boards = useStore((s) => s.boards)
   const setItemsType = useStore((s) => s.setItemsType)
   const items = useStore((s) => s.items)
   // An initiative is never retyped, so the control is not offered for a selection that
@@ -32,10 +34,16 @@ export function BulkActions() {
   const clearMultiSelect = useStore((s) => s.clearMultiSelect)
 
   const [assignee, setAssignee] = useState('')
+  const [targetBoard, setTargetBoard] = useState('')
 
   if (multiSelect.length === 0) return null
 
   const leaves = leafLanes(lanes, boardId, 'cards')
+  // The boards this one can hand work to, each labelled with the cell it would land in — the
+  // destination is not a mystery to be discovered after the move.
+  const elsewhere = boards
+    .filter((b) => b.id !== boardId)
+    .map((b) => ({ board: b, lane: defaultDropLane(b, lanes, b.id) }))
   const types = cardTypes(issueTypes)
   const count = multiSelect.length
 
@@ -73,6 +81,38 @@ export function BulkActions() {
           ))}
         </select>
       </label>
+
+      {/* Handing work to another board, which is a different act from moving it within this
+          one: the cards leave, and where they land is that board's own answer. */}
+      {elsewhere.length > 0 && (
+        <label className="flex items-center gap-1 text-slate-600">
+          Move to board
+          <select
+            value={targetBoard}
+            onChange={(e) => setTargetBoard(e.target.value)}
+            className={SELECT_CLS}
+            title="Move every selected card to another board, into the cell that board lands cards in"
+          >
+            <option value="">board…</option>
+            {elsewhere.map(({ board, lane }) => (
+              <option key={board.id} value={board.id}>
+                {board.name}
+                {lane ? ` → ${lanePath(lanes, lane.id).join(' / ')}` : ' → no cell'}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={!targetBoard}
+            onClick={() => {
+              moveCardsToBoard(multiSelect, targetBoard)
+              setTargetBoard('')
+            }}
+            className="rounded bg-indigo-600 px-2 py-1 font-medium text-white disabled:opacity-40"
+          >
+            Move
+          </button>
+        </label>
+      )}
 
       {!selectionHasInitiative && (
         <label className="flex items-center gap-1 text-slate-600">

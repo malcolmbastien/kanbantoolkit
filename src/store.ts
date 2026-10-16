@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, nextRank, placementsInOrder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, canRetype, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
+import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { NO_FILTERS, type CardFilters } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
@@ -208,6 +208,11 @@ export interface Actions {
   renameBoard: (id: string, name: string) => void
   setBoardBand: (id: string, band: BoardBand) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
+  /**
+   * Move a selection to another board. It lands in that board's default drop column — the same
+   * cell a new card would go to, which is what that setting is for.
+   */
+  moveCardsToBoard: (itemIds: string[], boardId: string) => void
   /** The cell new cards land in, and where a card moved onto this board lands. */
   setBoardDefaultDropLane: (id: string, laneId: string | undefined) => void
   /** Set which card types are allowed on a board (empty = every card type). */
@@ -706,6 +711,46 @@ export const useStore = create<Store>()(
       cancelWipPrompt: () => set({ wipPrompt: null }),
       openCardMenu: (itemId, x, y) => set({ cardMenu: { itemId, x, y } }),
       closeCardMenu: () => set({ cardMenu: null }),
+
+      moveCardsToBoard: (itemIds, targetBoardId) => {
+        const state = get()
+        const ids = new Set(itemIds)
+        // A board with nowhere to put them cannot take them, and doing nothing is better than
+        // dropping the cards on the floor. Moving a board to itself is not a move.
+        if (targetBoardId === state.boardId) return
+        const lane = defaultDropLane(state.boards.find((b) => b.id === targetBoardId), state.lanes, targetBoardId)
+        if (!lane) return
+        const stage = effectiveStage(state.lanes, lane.id)
+        const at = nextRank(state.placements, lane.id)
+        set({
+          // A move, not a copy: the card leaves the board it was on, because one card counted by
+          // two boards is counted twice. Any placement it already had on the target goes too —
+          // one per board — and one is written for every card, so a card that had no placement
+          // at all still arrives.
+          placements: [
+            ...state.placements.filter((p) => !(ids.has(p.itemId) && (p.boardId === state.boardId || p.boardId === targetBoardId))),
+            ...state.items
+              .filter((i) => ids.has(i.id))
+              .map((i, n) => ({
+                id: uid(),
+                boardId: targetBoardId,
+                itemId: i.id,
+                laneId: lane.id,
+                laneEnteredAt: Date.now(),
+                rank: at + n,
+              })),
+          ],
+          // Keep the auto-archive clock in step with the stage they land in.
+          items: state.items.map((i) => {
+            if (!ids.has(i.id)) return i
+            if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
+            if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
+            return i
+          }),
+          // They are not on this board any more, so they are not selected on it either.
+          multiSelect: [],
+        })
+      },
 
       moveCardsToLane: (itemIds, laneId) => {
         const state = get()

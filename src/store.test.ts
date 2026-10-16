@@ -1108,6 +1108,47 @@ describe('store actions', () => {
     expect(migrated.items[1].assignees).toBeUndefined()
   })
 
+  it('a selection moves to another board, into that board\u2019s own drop cell', () => {
+    s().selectBoard('b-atlas')
+    const nova = leafLanes(s().lanes, 'b-nova', 'cards')
+    s().setBoardDefaultDropLane('b-nova', nova[1].id)
+
+    s().moveCardsToBoard(['st-email', 'st-signup-form'], 'b-nova')
+
+    const on = (boardId: string, itemId: string) => s().placements.filter((p) => p.boardId === boardId && p.itemId === itemId)
+    // Gone from the board it left, and there exactly once on the one it arrived at.
+    expect(on('b-atlas', 'st-email')).toHaveLength(0)
+    expect(on('b-atlas', 'st-signup-form')).toHaveLength(0)
+    expect(on('b-nova', 'st-email')).toHaveLength(1)
+    expect(on('b-nova', 'st-email')[0].laneId).toBe(nova[1].id)
+    expect(on('b-nova', 'st-signup-form')[0].laneId).toBe(nova[1].id)
+    // They are on another board now, so they are not selected on this one.
+    expect(s().multiSelect).toEqual([])
+
+    // There and back again: one placement per board, never two.
+    s().selectBoard('b-nova')
+    s().moveCardsToBoard(['st-email'], 'b-atlas')
+    expect(on('b-nova', 'st-email')).toHaveLength(0)
+    expect(on('b-atlas', 'st-email')).toHaveLength(1)
+  })
+
+  it('a move keeps the auto-archive clock in step with the stage it lands in', () => {
+    s().selectBoard('b-atlas')
+    const done = laneByName('b-nova', 'Done')
+    s().setBoardDefaultDropLane('b-nova', done.id)
+    s().moveCardsToBoard(['st-email'], 'b-nova')
+    // Landing in a Done cell resolves it.
+    expect(s().items.find((i) => i.id === 'st-email')?.resolvedAt).toBeTruthy()
+
+    const backlog = laneByName('b-nova', 'Backlog')
+    s().setBoardDefaultDropLane('b-nova', backlog.id)
+    s().moveCardsToBoard(['st-email'], 'b-atlas') // back, then out again into Backlog
+    s().selectBoard('b-atlas')
+    s().moveCardsToBoard(['st-email'], 'b-nova')
+    // ...and landing somewhere uncommitted un-resolves it, rather than leaving a stale stamp.
+    expect(s().items.find((i) => i.id === 'st-email')?.resolvedAt).toBeFalsy()
+  })
+
   it('a card lands in the cell the board named, and falls back when that cell is gone', () => {
     const atlas = () => s().boards.find((b) => b.id === 'b-atlas')
     const leaves = () => leafLanes(s().lanes, 'b-atlas', 'cards')
