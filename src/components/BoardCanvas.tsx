@@ -1,8 +1,22 @@
 import { Fragment, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronsRight, CopyPlus, Plus, Settings } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  BetweenHorizontalStart,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronsRight,
+  Columns3,
+  CopyPlus,
+  Plus,
+  Rows3,
+  Settings,
+} from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
+import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { CardMenu } from './CardMenu'
 import { DragLayer } from './DragLayer'
 import { DropColumn } from './DropColumn'
@@ -96,28 +110,6 @@ interface Ctx {
   openCardMenu: (itemId: string, x: number, y: number) => void
 }
 
-function Ctl({ children, onClick, title, active, danger, disabled, btnRef }: { children: React.ReactNode; onClick: () => void; title: string; active?: boolean; danger?: boolean; disabled?: boolean; btnRef?: React.Ref<HTMLButtonElement> }) {
-  return (
-    <button
-      ref={btnRef}
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={cn(
-        'grid h-5 w-5 place-items-center rounded text-meta transition',
-        disabled
-          ? 'cursor-not-allowed bg-slate-100 text-slate-600'
-          : active
-            ? 'bg-indigo-600 text-white'
-            : danger
-              ? 'bg-slate-200 text-slate-600 hover:bg-rose-100 hover:text-rose-700'
-              : 'bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-900',
-      )}
-    >
-      {children}
-    </button>
-  )
-}
 
 /**
  * A lane header row: the name truly centred, with the edge controls pinned left and right.
@@ -224,59 +216,61 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         </div>
 
         {editMode && !isRoot && (
-          <div className="mt-1 flex w-0 min-w-full flex-wrap items-center gap-1" style={{ contain: 'inline-size' }}>
+          <div className="mt-1 flex w-0 min-w-full flex-wrap items-center gap-1.5" style={{ contain: 'inline-size' }}>
+            <CtlGroup>
             {/* Top-level columns (Backlog / Not Started / In Progress / Done) are fixed in
                 place; only sub-lanes move, and only within their top-level parent. */}
             {!top && (
               <>
                 {parentOrientation === 'rows' ? (
                   <>
-                    <Ctl title="Move up" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}>▲</Ctl>
-                    <Ctl title="Move down" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▼</Ctl>
+                    <LaneCtl title="Move up" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}><ChevronUp size={12} /></LaneCtl>
+                    <LaneCtl title="Move down" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}><ChevronDown size={12} /></LaneCtl>
                   </>
                 ) : (
                   <>
-                    <Ctl title="Move left" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}>◀</Ctl>
-                    <Ctl title="Move right" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}>▶</Ctl>
+                    <LaneCtl title="Move left" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}><ChevronLeft size={12} /></LaneCtl>
+                    <LaneCtl title="Move right" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}><ChevronRight size={12} /></LaneCtl>
                   </>
                 )}
-                <span className="mx-0.5 h-4 w-px bg-slate-300" />
+                <CtlDivider />
               </>
             )}
 
             {isLeafCell ? (
               <>
-                <Ctl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}>▤</Ctl>
-                <Ctl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}>▥</Ctl>
+                <LaneCtl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}><Columns3 size={12} /></LaneCtl>
+                <LaneCtl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}><Rows3 size={12} /></LaneCtl>
               </>
             ) : (
               <>
-                <Ctl title={`Add a ${(lane.orientation ?? 'columns') === 'rows' ? 'row' : 'column'} to this split`} onClick={() => ctx.addLane(lane.id)}>
-                  ＋
-                </Ctl>
+                <LaneCtl title={`Add a ${(lane.orientation ?? 'columns') === 'rows' ? 'row' : 'column'} to this split`} onClick={() => ctx.addLane(lane.id)}>
+                  <Plus size={12} />
+                </LaneCtl>
                 {!top && (
-                  <Ctl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, (lane.orientation ?? 'columns') === 'rows' ? 'columns' : 'rows')}>
-                    ⟷
-                  </Ctl>
+                  <LaneCtl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, (lane.orientation ?? 'columns') === 'rows' ? 'columns' : 'rows')}>
+                    <ArrowLeftRight size={12} />
+                  </LaneCtl>
                 )}
               </>
             )}
             {!top && (
               <>
-                <Ctl title="Insert a new lane after this one" onClick={() => ctx.insertLaneAfter(lane.id)}>⊞</Ctl>
-                <Ctl title="Duplicate this lane and its sub-lanes" onClick={() => ctx.duplicateLane(lane.id)}>
-                  <CopyPlus size={11} />
-                </Ctl>
+                <CtlDivider />
+                <LaneCtl title="Insert a new lane after this one" onClick={() => ctx.insertLaneAfter(lane.id)}><BetweenHorizontalStart size={12} /></LaneCtl>
+                <LaneCtl title="Duplicate this lane and its sub-lanes" onClick={() => ctx.duplicateLane(lane.id)}><CopyPlus size={12} /></LaneCtl>
               </>
             )}
-            <Ctl
+            <CtlDivider />
+            <LaneCtl
               btnRef={settingsBtnRef}
               active={settingsOpen}
               title="Lane settings — name, WIP limit, policy"
               onClick={() => setSettingsOpen((o) => !o)}
             >
-              <Settings size={11} />
-            </Ctl>
+              <Settings size={12} />
+            </LaneCtl>
+            </CtlGroup>
             {top && <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">typed column — split to refine</span>}
           </div>
         )}

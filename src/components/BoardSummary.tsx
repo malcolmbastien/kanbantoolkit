@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Card, type CardParent } from './Card'
 import { DroppableCell } from './DroppableCell'
+import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
 import {
   blockedBelow,
@@ -21,6 +22,7 @@ import { buildRefs, initiativeCellOf } from '@/domain/board'
 import { isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { Columns3, Rows3, Settings } from 'lucide-react'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
 
@@ -307,27 +309,27 @@ function Cell({
             {count}
           </span>
           {editable && (
-            <span className="flex shrink-0 items-center gap-0.5">
+            <CtlGroup>
               {leaf && (
                 <>
-                  <Ctl light={!primary} title="Split this cell into columns" onClick={() => splitLane(lane.id, 'columns')}>
-                    ▤
-                  </Ctl>
-                  <Ctl light={!primary} title="Split this cell into rows" onClick={() => splitLane(lane.id, 'rows')}>
-                    ▥
-                  </Ctl>
+                  <LaneCtl title="Split this cell into columns" onClick={() => splitLane(lane.id, 'columns')}>
+                    <Columns3 size={12} />
+                  </LaneCtl>
+                  <LaneCtl title="Split this cell into rows" onClick={() => splitLane(lane.id, 'rows')}>
+                    <Rows3 size={12} />
+                  </LaneCtl>
+                  <CtlDivider />
                 </>
               )}
-              <Ctl
-                light={!primary}
+              <LaneCtl
                 btnRef={btnRef}
                 active={settingsOpen}
                 title="Lane settings — name, WIP limit, policy"
                 onClick={() => setSettingsOpen((o) => !o)}
               >
-                ⚙
-              </Ctl>
-            </span>
+                <Settings size={12} />
+              </LaneCtl>
+            </CtlGroup>
           )}
         </span>
       </div>
@@ -360,36 +362,3 @@ function Cell({
 }
 
 /** A tiny edit button. `light` for the pale sub-headers, dark otherwise. */
-function Ctl({
-  children,
-  onClick,
-  title,
-  active,
-  light,
-  btnRef,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  title: string
-  active?: boolean
-  light?: boolean
-  btnRef?: React.Ref<HTMLButtonElement>
-}) {
-  return (
-    <button
-      ref={btnRef}
-      onClick={onClick}
-      title={title}
-      className={cn(
-        'rounded px-1.5 py-0.5 text-micro font-semibold transition',
-        active
-          ? 'bg-indigo-400 text-white'
-          : light
-            ? 'bg-white text-slate-600 ring-1 ring-slate-300 hover:bg-slate-50'
-            : 'bg-white/10 text-slate-200 hover:bg-white/25',
-      )}
-    >
-      {children}
-    </button>
-  )
-}
