@@ -458,7 +458,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           ctx.interactive && !ctx.editMode ? (
             <button
               onClick={() => ctx.onAddCard(lane.id)}
-              className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-0.5 text-micro text-slate-600 hover:border-indigo-400 hover:text-indigo-600"
+              className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-0.5 text-micro text-slate-600 hover:border-indigo-400 hover:text-indigo-600 pointer-coarse:py-1.5"
             >
               <Plus size={10} /> card
             </button>

@@ -632,12 +632,13 @@
         "id": "37",
         "title": "Keyboard navigation and accessibility pass",
         "description": "Make the app keyboard-navigable and screen-reader friendly.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Focus management, tab order, ARIA roles for lanes/cards/boards, keyboard commands for common actions; audit contrast.",
         "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T18:01:22.662Z"
       },
       {
         "id": "38",
@@ -1173,9 +1174,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T17:56:46.244Z",
+      "lastModified": "2026-10-17T18:01:22.662Z",
       "taskCount": 74,
-      "completedCount": 60,
+      "completedCount": 61,
       "tags": [
         "backlog"
       ]

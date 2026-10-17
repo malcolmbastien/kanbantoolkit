@@ -292,6 +292,11 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
           // `@[Npx]:` variants below) instead of overflowing a customised flow.
           '@container group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
           FOCUS_RING,
+          // On touch: a vertical swipe still scrolls the board (the browser takes it, and the
+          // lift aborts on `pointercancel`), while a horizontal swipe is the drag. Both axes
+          // ours would make the board unscrollable from a card; both the browser's would make
+          // a card undraggable.
+          draggable && !locked && 'touch-pan-y',
           locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
           lensCls,
           lockCls,
@@ -451,6 +456,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       className={cn(
         'group relative flex min-h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
         FOCUS_RING,
+        draggable && !locked && 'touch-pan-y',
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
         lensCls,
         lockCls,
@@ -504,7 +510,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
                   const r = e.currentTarget.getBoundingClientRect()
                   onContextMenu(item.id, r.right - 4, r.bottom + 4)
                 }}
-                className="shrink-0 rounded text-slate-600 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:text-slate-700"
+                className="shrink-0 rounded text-slate-600 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:text-slate-700 pointer-coarse:-m-1.5 pointer-coarse:p-1.5 pointer-coarse:opacity-100"
                 title="More actions"
                 aria-label="Card actions"
               >
