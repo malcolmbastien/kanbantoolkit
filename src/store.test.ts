@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { decompositionChildren, decompositionParent, checklistProgress, descendants, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, searchItems } from './domain/board'
+import { decompositionChildren, decompositionParent, checklistProgress, descendants, openDependenciesOf, rollupOf, statusOf } from './domain/derive'
+import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
 import { hasActiveFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
@@ -1463,6 +1463,108 @@ describe('store actions', () => {
     // …but it may still be rearranged within its own section.
     s().moveInitiative('init-signup', 'b-atlas', atlasSection('inProgress').id)
     expect(laneOf('init-signup', 'b-atlas')).toBe(atlasSection('inProgress').id)
+  })
+
+  it('initiative kinds belong to a board, and None is the absence of one', () => {
+    s().selectBoard('b-atlas')
+    const kinds = () => s().boards.find((b) => b.id === 'b-atlas')!.initiativeTypes ?? []
+
+    // Nothing to start with: an empty list, and None is not an entry in it to delete.
+    expect(kinds()).toEqual([])
+    expect(boardInitiativeTypes(s().boards.find((b) => b.id === 'b-atlas'))).toEqual([])
+
+    s().addInitiativeType('b-atlas', '  Bet  ', '#0ea5e9')
+    s().addInitiativeType('b-atlas', 'Programme', '#8b5cf6')
+    expect(kinds().map((k) => k.name)).toEqual(['Bet', 'Programme']) // trimmed on the way in
+    // Nothing may be called None — it would be a second thing meaning the same.
+    s().addInitiativeType('b-atlas', 'none', '#000000')
+    expect(kinds()).toHaveLength(2)
+    const bet = kinds()[0]
+
+    // A kind is given to an initiative, and to nothing else.
+    s().setInitiativeKind('init-signup', bet.id)
+    expect(s().items.find((i) => i.id === 'init-signup')!.initiativeTypeId).toBe(bet.id)
+    expect(s().items.find((i) => i.id === 'init-signup')!.typeId).toBe('t-initiative') // typeId is untouched
+    s().setInitiativeKind('st-email', bet.id)
+    expect(s().items.find((i) => i.id === 'st-email')!.initiativeTypeId).toBeUndefined()
+    // A kind from another board is allowed and resolves: an initiative can be placed on more than
+    // one board while its kind is item-level, so a label has to be readable wherever it is defined.
+    s().addInitiativeType('b-nova', 'Nova-only', '#22c55e')
+    const novaKind = s().boards.find((b) => b.id === 'b-nova')!.initiativeTypes![0].id
+    s().setInitiativeKind('init-signup', novaKind)
+    expect(initiativeTypeById(s().boards, s().items.find((i) => i.id === 'init-signup')!.initiativeTypeId)?.name).toBe('Nova-only')
+    s().setInitiativeKind('init-signup', bet.id)
+
+    // An id no board defines is refused: labels that cannot be read back are not labels.
+    s().setInitiativeKind('init-signup', 'kind-that-does-not-exist')
+    expect(s().items.find((i) => i.id === 'init-signup')!.initiativeTypeId).toBe(bet.id)
+    // None is the absence of a value, so clearing it is setting nothing.
+    s().setInitiativeKind('init-signup', undefined)
+    expect(s().items.find((i) => i.id === 'init-signup')!.initiativeTypeId).toBeUndefined()
+
+    // Renaming and recolouring show everywhere at once: nothing is copied onto the item.
+    s().setInitiativeKind('init-signup', bet.id)
+    s().updateInitiativeType('b-atlas', bet.id, { name: 'Bet on growth', color: '#f43f5e' })
+    expect(initiativeTypeById(s().boards, s().items.find((i) => i.id === 'init-signup')!.initiativeTypeId)?.name).toBe('Bet on growth')
+    s().updateInitiativeType('b-atlas', bet.id, { name: 'None' })
+    expect(initiativeTypeById(s().boards, bet.id)?.name).toBe('Bet on growth') // refused
+
+    // Removing a kind in use is refused, and the count says why.
+    expect(initiativesCarrying(s().items, bet.id)).toBe(1)
+    s().removeInitiativeType('b-atlas', bet.id)
+    expect(kinds().map((k) => k.name)).toEqual(['Bet on growth', 'Programme'])
+    s().setInitiativeKind('init-signup', undefined)
+    s().removeInitiativeType('b-atlas', bet.id)
+    expect(kinds().map((k) => k.name)).toEqual(['Programme'])
+  })
+
+  it('a kind changes nothing else: the same rollup, WIP, health and flow either way', () => {
+    const snapshot = () => {
+      const g = graph()
+      return JSON.stringify({
+        rollup: rollupOf('init-signup', g),
+        lane: laneCardCount(s().lanes, s().placements, laneByName('b-atlas', 'Not Started').id),
+        health: initiativeHealth('init-signup', g),
+        deps: openDependenciesOf('st-email', g).map((d) => d.state),
+        flow: flowSummary([flowRecord(s().items.find((i) => i.id === 'st-signup-form')!, 'inProgress')], Date.now()),
+      })
+    }
+    s().selectBoard('b-atlas')
+    const before = snapshot()
+    s().addInitiativeType('b-atlas', 'Bet', '#0ea5e9')
+    s().setInitiativeKind('init-signup', s().boards.find((b) => b.id === 'b-atlas')!.initiativeTypes![0].id)
+    expect(snapshot()).toBe(before)
+  })
+
+  it('a kind belongs to a board: duplicated with it, never carried by a template', () => {
+    s().selectBoard('b-atlas')
+    s().addInitiativeType('b-atlas', 'Bet', '#0ea5e9')
+    const kindId = s().boards.find((b) => b.id === 'b-atlas')!.initiativeTypes![0].id
+
+    // A copy of a board is a board: the kinds come across, with ids of their own, so renaming one
+    // board's Bet cannot rename the other's.
+    s().duplicateBoard('b-atlas', 'Atlas two')
+    const copy = s().boards.find((b) => b.name === 'Atlas two')!
+    expect(copy.initiativeTypes!.map((k) => k.name)).toEqual(['Bet'])
+    expect(copy.initiativeTypes![0].id).not.toBe(kindId)
+    s().updateInitiativeType(copy.id, copy.initiativeTypes![0].id, { name: 'Bet (copy)' })
+    expect(s().boards.find((b) => b.id === 'b-atlas')!.initiativeTypes![0].name).toBe('Bet')
+
+    // A template designs a flow and nothing else, so the kinds do not travel with it.
+    s().saveBoardAsTemplate('b-atlas', 'Atlas flow')
+    const template = s().boardTemplates.find((t) => t.name === 'Atlas flow')!
+    expect(template).not.toHaveProperty('initiativeTypes')
+
+    // Old state: a board without the field reads as no kinds at all.
+    const migrated = migrateState({ boards: [{ id: 'x', name: 'X', band: 'team' }] }) as { boards: Board[] }
+    expect(boardInitiativeTypes(migrated.boards[0])).toEqual([])
+
+    // The kind filter is view state, and it goes with the board it was set on.
+    s().setInitiativeKindFilter(kindId)
+    expect(s().initiativeKindFilter).toBe(kindId)
+    expect(persistedSlice(s())).not.toHaveProperty('initiativeKindFilter')
+    s().selectBoard('b-nova')
+    expect(s().initiativeKindFilter).toBe(null)
   })
 
   it('a filter narrows what you see, never the load a column carries', () => {

@@ -1,9 +1,10 @@
-import { memo } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
+import type { InitiativeType } from '@/domain/types'
 import { PriorityBadge } from './PriorityBadge'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
 
@@ -61,6 +62,14 @@ interface Props {
    * - `aggregate` — softened, amber (top-level: "N blocked below")
    */
   blockedTone?: 'detail' | 'aggregate'
+  /**
+   * An initiative's kind, already resolved (`initiativeTypeById`), and the board's list to pick
+   * from. Given only on the initiatives surface: a card has no kind, and `onSetKind` being absent
+   * is what says so — so nothing renders on the cards workflow.
+   */
+  kind?: InitiativeType
+  kinds?: InitiativeType[]
+  onSetKind?: (kindId: string | undefined) => void
   /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
   lens?: 'self' | 'in' | 'out'
   onLens?: (id: string) => void
@@ -152,7 +161,7 @@ const cardKeyboard = (
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kinds, onSetKind, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
       ? onLift
@@ -310,9 +319,12 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, blockedTon
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-          {/* header row — every card on this surface is an initiative, so the type chip
-              is redundant; the ref and the rollup % carry the identification. */}
+          {/* header row — every card on this surface is an initiative, so the *type* chip is
+              redundant; the ref and the rollup % carry the identification. The kind chip is not
+              redundant: it is the board's own label for this initiative, and it reads first
+              because it is a category. Unset means absent, so nothing renders without one. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {kind && onSetKind && !locked && <KindChip kind={kind} kinds={kinds ?? []} onSet={onSetKind} />}
             <span className="text-micro font-semibold tabular-nums text-slate-600">{ref_}</span>
             {item.size ? <span className="text-micro tabular-nums text-slate-600">· {item.size}</span> : null}
             <span className="ml-auto flex items-center gap-1.5">
@@ -636,6 +648,10 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.draggable !== b.draggable || a.locked !== b.locked || a.lens !== b.lens) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
   if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title || a.parent?.ref_ !== b.parent?.ref_) return false
+  // The kind is drawn, so a change to it re-renders. The list is the board's own array, which the
+  // store replaces only when it changes — `onSetKind` is ignored like the other callbacks.
+  if (a.kind?.id !== b.kind?.id || a.kind?.name !== b.kind?.name || a.kind?.color !== b.kind?.color) return false
+  if (a.kinds !== b.kinds) return false
   if (a.symbols?.length !== b.symbols?.length) return false
   if (a.symbols && b.symbols && a.symbols.some((sym, i) => sym.bucket !== b.symbols![i].bucket || sym.title !== b.symbols![i].title)) return false
   return summaryEqual(a.summary, b.summary)
@@ -652,6 +668,78 @@ const summaryEqual = (a: CardSummary, b: CardSummary) =>
   a.ageDays === b.ageDays &&
   a.checklist?.done === b.checklist?.done &&
   a.checklist?.total === b.checklist?.total
+
+/**
+ * An initiative's kind, on its face, with the picker behind it.
+ *
+ * Businessmap changes the type by clicking the icon on the card, and that is the better
+ * affordance: the label is where the reading happens, so it is where the changing should happen
+ * too — no trip to the panel to change a word. The list is the board's own, plus the kind this
+ * initiative already carries if that came from another board, so the control never lies about
+ * what the item says.
+ */
+function KindChip({ kind, kinds, onSet }: { kind: InitiativeType; kinds: InitiativeType[]; onSet: (id: string | undefined) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const options = kinds.some((k) => k.id === kind.id) ? kinds : [...kinds, kind]
+  const chip = chipColors(kind.color)
+  const choose = (id: string | undefined) => {
+    onSet(id)
+    setOpen(false)
+  }
+
+  return (
+    <span ref={ref} className="relative shrink-0">
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((o) => !o)
+        }}
+        style={{ backgroundColor: chip.background, color: chip.color }}
+        className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide shadow-sm transition hover:brightness-95"
+        title={`Kind: ${kind.name} — click to change it`}
+        aria-label={`Kind: ${kind.name}`}
+      >
+        {kind.name}
+      </button>
+      {open && (
+        <span className="absolute left-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg">
+          {[undefined, ...options.map((k) => k.id)].map((id) => {
+            const option = id === undefined ? undefined : options.find((k) => k.id === id)
+            const on = id === undefined ? false : id === kind.id
+            return (
+              <button
+                key={id ?? 'none'}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  choose(id)
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta transition hover:bg-slate-50',
+                  on ? 'font-semibold text-indigo-700' : 'text-slate-700',
+                )}
+              >
+                {option && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chipColors(option.color).background }} />}
+                <span className="min-w-0 flex-1 truncate">{option?.name ?? 'None'}</span>
+                {on && <Check size={11} className="shrink-0" />}
+              </button>
+            )
+          })}
+        </span>
+      )}
+    </span>
+  )
+}
 
 /** A card that does not re-render when nothing about it changed. See `cardPropsEqual`. */
 export const Card = memo(CardBase, cardPropsEqual)

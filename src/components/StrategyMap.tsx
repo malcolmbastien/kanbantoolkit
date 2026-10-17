@@ -1,10 +1,10 @@
 import { Fragment, useState } from 'react'
 import { Target, TriangleAlert, X } from 'lucide-react'
-import { buildRefs, initiativeTypeId } from '@/domain/board'
+import { buildRefs, initiativeTypeById, initiativeTypeId } from '@/domain/board'
 import { decompositionParent, okrCoverage, rollupOf, type Graph } from '@/domain/derive'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
 import { STAGE_LABELS } from '@/domain/lanes'
-import { OBJECTIVE_STATUS_STYLES, stageChip } from '@/lib/colors'
+import { OBJECTIVE_STATUS_STYLES, chipColors, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item, Objective, Stage } from '@/domain/types'
@@ -33,6 +33,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
   const objectives = useStore((s) => s.objectives)
+  const boards = useStore((s) => s.boards)
   const keyResults = useStore((s) => s.keyResults)
   const setAttribution = useStore((s) => s.setAttribution)
   const openItem = useStore((s) => s.openItem)
@@ -83,6 +84,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     // The same rules the dashboard reads, from the same derivation — a portfolio and a
     // programme cannot disagree about whether an initiative is in trouble.
     const health = initiativeHealth(it.id, graph)
+    const kind = initiativeTypeById(boards, it.initiativeTypeId)
     return (
       <div key={it.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-1.5 py-1">
         <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{refs.get(it.id)}</span>
@@ -93,6 +95,17 @@ export function StrategyMap({ boardId }: { boardId: string }) {
         >
           {it.title}
         </button>
+        {/* A kind is a label and nothing more, so it reads beside the title rather than in the
+            health cluster: it says what sort of bet this is, not whether it is in trouble. */}
+        {kind && (
+          <span
+            className="shrink-0 rounded px-1 py-px text-micro font-bold uppercase tracking-wide"
+            style={{ backgroundColor: chipColors(kind.color).background, color: chipColors(kind.color).color }}
+            title={`Kind: ${kind.name}`}
+          >
+            {kind.name}
+          </span>
+        )}
         {health.flags.length > 0 && (
           <span
             className={cn('flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-micro font-semibold ring-1', HEALTH_META[health.level].chip)}

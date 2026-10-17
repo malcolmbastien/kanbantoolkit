@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ExternalLink, Layers, Plus, X } from 'lucide
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
+import { KindFilter } from './KindFilter'
 import { StrategyMap } from './StrategyMap'
 import { BAND_ACCENT } from '@/lib/colors'
 import { linkableBoards } from '@/domain/board'
@@ -116,7 +117,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
                 <span className="truncate text-meta text-slate-600">the outcomes this board owns</span>
               </>,
               <BoardSummary boardId={board.id} rootsOnly variant="initiatives" interactive />,
-              undefined,
+              <KindFilter boardId={board.id} />,
               true,
               'band',
             )}

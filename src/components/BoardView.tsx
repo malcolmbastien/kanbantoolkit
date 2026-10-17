@@ -2,6 +2,7 @@ import { Archive, Download, Info, SlidersHorizontal } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
+import { KindFilter } from './KindFilter'
 import { ManagementBoard } from './ManagementBoard'
 import { isAggregating } from '@/domain/board'
 import { boardCsv, csvFilename } from '@/domain/csv'
@@ -31,6 +32,7 @@ export function BoardView({ requestMove }: Props) {
   const toggleFilters = useStore((s) => s.toggleFilters)
   const showLegend = useStore((s) => s.showLegend)
   const toggleLegend = useStore((s) => s.toggleLegend)
+
   const edges = useStore((s) => s.edges)
   const links = useStore((s) => s.links)
   const issueTypes = useStore((s) => s.issueTypes)
@@ -44,6 +46,7 @@ export function BoardView({ requestMove }: Props) {
   if (isAggregating(board)) return <ManagementBoard boardId={boardId} />
 
   const accent = BAND_ACCENT[board?.band ?? 'team']
+
   const doneCount = placements.filter(
     (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
   ).length
@@ -132,6 +135,7 @@ export function BoardView({ requestMove }: Props) {
               <h2 className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
               <span className="truncate text-meta text-slate-600">this team’s initiatives — status rolls up from the cards below</span>
             </div>
+            <KindFilter boardId={boardId} />
           </div>
           <BoardSummary boardId={boardId} interactive />
         </section>

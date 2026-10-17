@@ -1,13 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
+import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
 import { canPlaceInSection, decompositionParent, descendants, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { uid as makeUid } from '@/lib/utils'
-import type { Board, BoardBand, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, TemplateLane, User } from '@/domain/types'
+import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, TemplateLane, User } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -82,6 +82,12 @@ export interface ViewState {
    * deliberately not persisted: it is about this session, not about the work.
    */
   recentItemIds: string[]
+  /**
+   * The kind the initiatives flow is narrowed to, or null for all of them. View state, never
+   * persisted: it narrows what the flow *shows* and nothing else — not the cards workflow, not the
+   * dashboard, the timeline or the strategy map, and never a count.
+   */
+  initiativeKindFilter: string | null
   /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
@@ -272,6 +278,23 @@ export interface Actions {
   setBoardWipEnforcement: (id: string, mode: 'visualize' | 'justify' | 'block') => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
+  /**
+   * Give an initiative its kind — or `undefined` for None. Refused for anything that is not an
+   * initiative, and for an id no board defines: the rule is the model's, not the panel's.
+   */
+  setInitiativeKind: (itemId: string, kindId: string | undefined) => void
+  /** A board's own vocabulary for its initiatives. None is not an entry here — it is absence. */
+  addInitiativeType: (boardId: string, name: string, color: string) => void
+  updateInitiativeType: (boardId: string, id: string, patch: Partial<InitiativeType>) => void
+  /**
+   * Remove a kind. **Refused while any initiative still carries it** — refused rather than
+   * corrected, never a silent blanking; the settings panel says how many carry it and disables
+   * the control. (The opposite of `removeIssueType`, which filters and leaves items pointing at
+   * nothing.)
+   */
+  removeInitiativeType: (boardId: string, id: string) => void
+  /** Narrow the initiatives flow to one kind, or all of them. View state: never persisted. */
+  setInitiativeKindFilter: (kindId: string | null) => void
   /**
    * Build the load-test board (see `stressBoard`) and open it. Asking again *replaces* it, so the
    * size can be changed without piling boards up, and everything it made is recognised by the
@@ -606,6 +629,7 @@ const initialView: ViewState = {
   showMyWork: false,
   showMetrics: false,
   recentItemIds: [],
+  initiativeKindFilter: null,
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
@@ -926,7 +950,10 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null }),
+      selectBoard: (boardId) =>
+        // The kind filter goes with the board it was set on: a kind from another board would
+        // narrow the flow to nothing, which reads as a broken board rather than a stale filter.
+        set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null, initiativeKindFilter: null }),
       openItem: (selectedItemId) =>
         set({
           selectedItemId,
@@ -1483,6 +1510,61 @@ export const useStore = create<Store>()(
         }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
       },
+
+      setInitiativeKind: (itemId, kindId) => {
+        const state = get()
+        const item = state.items.find((i) => i.id === itemId)
+        // Only an initiative carries a kind. Refused here rather than merely hidden by the panel,
+        // because the rule is the model's: a card's label is its `typeId` and nothing else.
+        if (!item || !isInitiativeItem(item, state.issueTypes)) return
+        // An id no board defines is refused too: the panel only offers what exists, and the model
+        // does not keep labels that cannot be read back.
+        if (kindId !== undefined && !initiativeTypeById(state.boards, kindId)) return
+        set({
+          items: state.items.map((i) => (i.id === itemId ? { ...i, initiativeTypeId: kindId } : i)),
+        })
+      },
+
+      addInitiativeType: (boardId, name, color) => {
+        const trimmed = name.trim()
+        // Nothing may be called None: None is the *absence* of a kind, so a kind with that name
+        // would be a second thing meaning the same, and the picker could not tell them apart.
+        if (!trimmed || /^none$/i.test(trimmed)) return
+        set({
+          boards: get().boards.map((b) =>
+            b.id === boardId
+              ? { ...b, initiativeTypes: [...(b.initiativeTypes ?? []), { id: uid(), name: trimmed, color }] }
+              : b,
+          ),
+        })
+      },
+
+      updateInitiativeType: (boardId, id, patch) => {
+        // The same guard as `addInitiativeType`: renaming a kind to None is refused too.
+        const next = patch.name === undefined ? patch : { ...patch, name: patch.name.trim() }
+        if (next.name !== undefined && /^none$/i.test(next.name)) return
+        set({
+          boards: get().boards.map((b) =>
+            b.id === boardId
+              ? { ...b, initiativeTypes: (b.initiativeTypes ?? []).map((t) => (t.id === id ? { ...t, ...next } : t)) }
+              : b,
+          ),
+        })
+      },
+
+      removeInitiativeType: (boardId, id) => {
+        const state = get()
+        // In use: refused, and the settings panel says how many carry it. Nothing is blanked
+        // behind anyone's back — the items keep saying what they said.
+        if (initiativesCarrying(state.items, id) > 0) return
+        set({
+          boards: state.boards.map((b) =>
+            b.id === boardId ? { ...b, initiativeTypes: (b.initiativeTypes ?? []).filter((t) => t.id !== id) } : b,
+          ),
+        })
+      },
+
+      setInitiativeKindFilter: (initiativeKindFilter) => set({ initiativeKindFilter }),
 
       addStressBoard: (cards) => {
         const state = get()

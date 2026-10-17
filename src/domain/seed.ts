@@ -39,6 +39,26 @@ const day = (n: number) => new Date(T + n * DAY).toISOString().slice(0, 10)
 export function createSeed(): FlowState {
   const { users, issueTypes, boards, lanes, boardTemplates, st, lob, del, p, a, n } = demoWorkspace()
 
+  // A board's own vocabulary for its initiatives — deliberately per board, and deliberately not
+  // everywhere: the strategic board says what kind of bet each initiative is, the value stream
+  // says how the work is shaped, and the two team boards have none at all, which is what "None is
+  // the only option" looks like in practice.
+  const kindsFor = (boardId: string, defs: [string, string][]) => {
+    const made = defs.map(([name, color]) => ({ id: `kind-${boardId}-${name.toLowerCase()}`, name, color }))
+    const board = boards.find((b) => b.id === boardId)!
+    board.initiativeTypes = made
+    return new Map(made.map((k) => [k.name, k.id]))
+  }
+  const strategyKinds = kindsFor('b-strategy', [
+    ['Bet', '#8b5cf6'],
+    ['Programme', '#0ea5e9'],
+    ['Experiment', '#f59e0b'],
+  ])
+  const streamKinds = kindsFor('b-portfolio', [
+    ['Workstream', '#0ea5e9'],
+    ['Enabler', '#64748b'],
+  ])
+
   const items: Item[] = []
   const placements: Placement[] = []
   const edges: Edge[] = []
@@ -378,6 +398,24 @@ export function createSeed(): FlowState {
   place('init-lakehouse', 'b-nova', n.init.ip.id)
   place('init-observability', 'b-nova', n.init.ip.id)
   place('init-data-quality', 'b-nova', n.init.backlog.id) // unplanned, and it says so
+
+  /* ---------------------------------------------------------------- *
+   * What kind of initiative each one is. The kinds are the board's, so an
+   * initiative is labelled where it is owned.
+   * ---------------------------------------------------------------- */
+
+  const kindOf = (id: string, kindId: string | undefined) => {
+    const item = items.find((i) => i.id === id)
+    if (item && kindId) item.initiativeTypeId = kindId
+  }
+  // Only where the board has kinds: a label belongs to the board that owns the outcome, so the
+  // line of business and the delivery bridge — which have none — stay plain.
+  kindOf('init-revenue', strategyKinds.get('Bet'))
+  kindOf('init-trust', strategyKinds.get('Bet'))
+  kindOf('init-margin', strategyKinds.get('Programme'))
+  kindOf('init-journey', streamKinds.get('Workstream'))
+  kindOf('init-reliability', streamKinds.get('Workstream'))
+  kindOf('init-sso', streamKinds.get('Workstream'))
 
   /* ---------------------------------------------------------------- *
    * Objectives & Key Results — commitment-limited, never in columns.

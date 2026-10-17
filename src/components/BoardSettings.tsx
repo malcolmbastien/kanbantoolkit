@@ -3,6 +3,7 @@ import { LayoutTemplate, Pencil, Plus, Settings, Target, Trash2, X } from 'lucid
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
+import { initiativesCarrying } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 
@@ -24,6 +25,10 @@ export function BoardSettings() {
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
   const saveBoardAsTemplate = useStore((s) => s.saveBoardAsTemplate)
   const addIssueType = useStore((s) => s.addIssueType)
+  const items = useStore((s) => s.items)
+  const addInitiativeType = useStore((s) => s.addInitiativeType)
+  const updateInitiativeType = useStore((s) => s.updateInitiativeType)
+  const removeInitiativeType = useStore((s) => s.removeInitiativeType)
   const updateIssueType = useStore((s) => s.updateIssueType)
   const removeIssueType = useStore((s) => s.removeIssueType)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -32,6 +37,8 @@ export function BoardSettings() {
   const close = useStore((s) => s.toggleBoardSettings)
   const [newTypeName, setNewTypeName] = useState('')
   const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
+  const [newKindName, setNewKindName] = useState('')
+  const [newKindColor, setNewKindColor] = useState('#0ea5e9')
   const [savedTemplate, setSavedTemplate] = useState(false)
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -52,6 +59,7 @@ export function BoardSettings() {
   if (!board) return null
 
   const types = cardTypes(issueTypes)
+  const kinds = board.initiativeTypes ?? []
   const linked = board.linkedBoardIds ?? []
   const isAggregatingBoard = isAggregating(board)
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
@@ -64,6 +72,13 @@ export function BoardSettings() {
     updateIssueType(id, { name, color: editColor })
     setEditingTypeId(null)
   }
+  const addKind = () => {
+    const name = newKindName.trim()
+    if (!name) return
+    addInitiativeType(board.id, name, newKindColor)
+    setNewKindName('')
+  }
+
   const addType = () => {
     const name = newTypeName.trim()
     if (!name) return
@@ -145,9 +160,15 @@ export function BoardSettings() {
             <p className="mt-1 text-micro text-slate-600">{BAND_STYLES[board.band]?.hint}</p>
           </div>
 
-          {/* Card types */}
+          {/* Card types — the workspace's vocabulary, not this board's: every board offers all
+              of them and picks only a default (v27). The label said "on this board", which the
+              per-board subsets used to make true. */}
           <div>
-            <div className={label}>Card types on this board</div>
+            <div className={label}>Card types</div>
+            <p className="mb-1.5 text-micro text-slate-600">
+              A card type belongs to the workspace — every board offers all of them. This board only
+              picks the one new cards start as.
+            </p>
             <div className="space-y-1">
               {types.map((t) =>
                 editingTypeId === t.id ? (
@@ -288,6 +309,87 @@ export function BoardSettings() {
             <p className="mt-1 text-micro text-slate-600">
               The Initiative type is reserved for the Initiatives workflow and is never a card type.
             </p>
+          </div>
+
+          {/* Initiative kinds — this board's own vocabulary, deliberately not the workspace's.
+              None is not an entry here: it is the *absence* of a kind, so there is nothing to
+              remove and nothing to protect from removal. */}
+          <div>
+            <div className={label}>Initiative kinds</div>
+            <p className="mb-1.5 text-micro text-slate-600">
+              This board's own labels for its initiatives — a bet, a programme, an experiment. They
+              are labels and nothing more: no columns, no WIP, and nothing derived from them. None
+              is always available and is not listed here, because it is the absence of a kind.
+            </p>
+            <div className="space-y-1">
+              {kinds.length === 0 && <p className="text-meta text-slate-600">No kinds yet — None is the only option.</p>}
+              {kinds.map((k) => {
+                const used = initiativesCarrying(items, k.id)
+                return (
+                  <div key={k.id} className={row}>
+                    <input
+                      type="color"
+                      value={k.color}
+                      onChange={(e) => updateInitiativeType(board.id, k.id, { color: e.target.value })}
+                      title={`${k.name} colour`}
+                      className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                    />
+                    <input
+                      value={k.name}
+                      onChange={(e) => updateInitiativeType(board.id, k.id, { name: e.target.value })}
+                      aria-label={`${k.name} name`}
+                      className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-200 focus:border-indigo-300"
+                    />
+                    {used > 0 && (
+                      <span className="shrink-0 text-micro text-slate-600">
+                        {used} initiative{used === 1 ? '' : 's'}
+                      </span>
+                    )}
+                    <button
+                      disabled={used > 0}
+                      onClick={() => removeInitiativeType(board.id, k.id)}
+                      title={
+                        used > 0
+                          ? `${used} initiative${used === 1 ? ' still carries' : 's still carry'} this kind — clear ${used === 1 ? 'it' : 'those'} first`
+                          : `Remove ${k.name}`
+                      }
+                      className="shrink-0 rounded p-0.5 text-slate-600 transition enabled:hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-2 flex items-center gap-1">
+              <input
+                type="color"
+                value={newKindColor}
+                onChange={(e) => setNewKindColor(e.target.value)}
+                title="New kind colour"
+                className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+              />
+              <input
+                value={newKindName}
+                onChange={(e) => setNewKindName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addKind()
+                  }
+                }}
+                placeholder="Define a new initiative kind…"
+                className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+              <button
+                disabled={!newKindName.trim()}
+                onClick={addKind}
+                className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-meta font-medium text-white disabled:opacity-40"
+                title="Create this kind for this board"
+              >
+                <Plus size={11} /> Add kind
+              </button>
+            </div>
           </div>
 
           {/* WIP enforcement */}

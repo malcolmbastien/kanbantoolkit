@@ -22,7 +22,7 @@ import {
   uncommittedBelow,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks } from '@/domain/board'
+import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks, initiativeTypeById } from '@/domain/board'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -80,6 +80,9 @@ export function BoardSummary({
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
+  const boards = useStore((s) => s.boards)
+  const kindFilter = useStore((s) => s.initiativeKindFilter)
+  const setInitiativeKind = useStore((s) => s.setInitiativeKind)
   const users = useStore((s) => s.users)
   const links = useStore((s) => s.links)
   const selectedItemId = useStore((s) => s.selectedItemId)
@@ -99,7 +102,14 @@ export function BoardSummary({
   // to the board's *local* top-level initiatives: ones whose parent is not on this same board,
   // so an initiative can roll up to a top-level initiative on another management board and
   // still appear as top-level on its own board.
-  const initiatives = boardInitiatives(graph, boardId, issueTypes, { rootsOnly })
+  const allInitiatives = boardInitiatives(graph, boardId, issueTypes, { rootsOnly })
+  // The kind filter narrows *this board's* flow and nothing else. Not the bands — another board's
+  // flow shown through this one, with its own vocabulary and its own reading — and not the cards
+  // workflow, the dashboard, the timeline or the strategy map. It never moves a count either: a
+  // cell's badge reads the column, as everywhere.
+  const initiatives =
+    variant === 'initiatives' && kindFilter ? allInitiatives.filter((i) => i.initiativeTypeId === kindFilter) : allInitiatives
+  const boardKinds = boards.find((b) => b.id === boardId)?.initiativeTypes
 
   // A section is a typed column; its cells are its leaves — itself, until it's split.
   const sections = topLevelLanes(lanes, boardId, 'initiatives')
@@ -113,8 +123,12 @@ export function BoardSummary({
       // it was arranged in has no rank left to read; `initiativeRanks` decides where it reads
       // instead of dropping it, which is what this filtering used to do by hand.
       const byCell = initiativeRanks(graph, boardId, section.id, initiatives)
-      const total = [...byCell.values()].reduce((n, rank) => n + rank.length, 0)
-      return { section, stage, cells, byCell, total }
+      // The badge reads the column, not the view: narrowing the flow changes what is *shown*, and
+      // never the load the cell carries. Two walks, because the two answers differ exactly when a
+      // filter is on — and only then.
+      const held = initiativeRanks(graph, boardId, section.id, allInitiatives)
+      const total = [...held.values()].reduce((n, rank) => n + rank.length, 0)
+      return { section, stage, cells, byCell, held, total }
     })
 
   if (sections.length === 0) return <p className="p-3 text-meta text-slate-600">This board has no typed columns.</p>
@@ -235,6 +249,11 @@ export function BoardSummary({
         users={users}
         symbols={symbols}
         blockedTone={isInitiatives ? 'aggregate' : 'detail'}
+        // A kind is a board's own label for its own outcomes, so it is offered where the board
+        // owns them — its own initiatives flow, not the bands another board's flow shows through.
+        kind={isInitiatives ? initiativeTypeById(boards, c.initiativeTypeId) : undefined}
+        kinds={isInitiatives ? boardKinds : undefined}
+        onSetKind={interactive && !editMode ? (kindId) => setInitiativeKind(c.id, kindId) : undefined}
         selected={selectedItemId === c.id}
         lens={lensRole(c.id, lensId, graph)}
         // Focus belongs to the board's own initiatives workflow. A Linked boards band is
@@ -295,7 +314,7 @@ export function BoardSummary({
       {lift && (
         <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
       )}
-      {sections.map(({ section, stage, cells, byCell, total }) => {
+      {sections.map(({ section, stage, cells, byCell, held, total }) => {
         const split = cells.length > 1
         const folded = collapsedLanes[section.id] === true
         // The section's own orientation arranges its cells; 'columns' by default.
@@ -340,7 +359,7 @@ export function BoardSummary({
                       lane={cell}
                       stage={stage}
                       sectionId={section.id}
-                      count={cards.length}
+                      count={(held.get(cell.id) ?? []).length}
                       interactive={interactive}
                       editMode={editMode}
                       // Stacked cells size to their content with the last one filling what

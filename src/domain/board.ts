@@ -15,7 +15,35 @@ import {
   WORKFLOWS,
   type LaneNode,
 } from './lanes'
-import type { Board, BoardBand, BoardTemplate, IssueType, Item, Lane, Placement, SplitOrientation, TemplateLane } from './types'
+import type { Board, BoardBand, BoardTemplate, InitiativeType, IssueType, Item, Lane, Placement, SplitOrientation, TemplateLane } from './types'
+
+/** The kinds a board offers, in the order it lists them. An absent list is simply empty. */
+export function boardInitiativeTypes(board: Board | undefined): InitiativeType[] {
+  return board?.initiativeTypes ?? []
+}
+
+/**
+ * A kind by id, wherever it is defined.
+ *
+ * An initiative can be placed on more than one board while its kind is item-level, so a kind
+ * defined on one board can be read on another: resolve by id across all of them. Nothing is
+ * returned when the definition is gone — a board deleted while items placed on it live on — so a
+ * surface renders nothing rather than a raw id. The name and colour are never copied onto the
+ * item, because a kind renamed has to rename everywhere at once.
+ */
+export function initiativeTypeById(boards: Board[], id: string | undefined): InitiativeType | undefined {
+  if (!id) return undefined
+  for (const board of boards) {
+    const found = board.initiativeTypes?.find((t) => t.id === id)
+    if (found) return found
+  }
+  return undefined
+}
+
+/** How many items carry a kind — what a refusal has to be able to say out loud. */
+export function initiativesCarrying(items: Item[], kindId: string): number {
+  return items.filter((i) => i.initiativeTypeId === kindId).length
+}
 
 /** Items placed on a board (via explicit placement records). */
 export function itemsOnBoard(boardId: string, placements: Placement[], items: Item[]): Item[] {
@@ -338,12 +366,18 @@ export function duplicateBoard(
 
   const { archived: _archived, archivedAt: _archivedAt, ...rest } = board
   const id = uid()
+  // The kinds come across with the design, with fresh ids: two boards may each have a "Bet", and
+  // renaming one must not rename the other. (No item comes across, so nothing has to be remapped.)
+  const kindIds = new Map((board.initiativeTypes ?? []).map((t) => [t.id, uid()] as const))
   return {
     board: {
       ...rest,
       id,
       name: name?.trim() || `${board.name} copy`,
       ...(board.linkedBoardIds ? { linkedBoardIds: [...board.linkedBoardIds] } : {}),
+      ...(board.initiativeTypes
+        ? { initiativeTypes: board.initiativeTypes.map((t) => ({ ...t, id: kindIds.get(t.id)! })) }
+        : {}),
       },
     lanes: subtree.map((lane) => ({
       ...lane,

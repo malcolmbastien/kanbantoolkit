@@ -40,7 +40,7 @@ import {
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { buildRefs, cardTypes, isInitiativeItem, placementOn } from '@/domain/board'
+import { boardInitiativeTypes, buildRefs, cardTypes, initiativeTypeById, isInitiativeItem, placementOn } from '@/domain/board'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
@@ -100,6 +100,7 @@ export function ItemPanel({ itemId }: Props) {
   const unarchiveItem = useStore((s) => s.unarchiveItem)
   const deleteItem = useStore((s) => s.deleteItem)
   const duplicateCard = useStore((s) => s.duplicateCard)
+  const setInitiativeKind = useStore((s) => s.setInitiativeKind)
   const askConfirm = useStore((s) => s.askConfirm)
   const boardSurface = useStore(isBoardSurface)
   const addAssignee = useStore((s) => s.addAssignee)
@@ -175,6 +176,10 @@ export function ItemPanel({ itemId }: Props) {
   const duplicateReason = boardSurface
     ? "A copy lands in the original's cell — this card is not in one on this board."
     : "A copy lands in the original's cell — open this card from its board."
+  // The kinds this board offers, and the one this initiative carries — which may come from
+  // another board, since an initiative can be placed on more than one.
+  const kinds = boardInitiativeTypes(boards.find((b) => b.id === boardId))
+  const kind = initiativeTypeById(boards, item.initiativeTypeId)
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
   const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
   const userById = (id: string) => users.find((u) => u.id === id)
@@ -332,11 +337,37 @@ export function ItemPanel({ itemId }: Props) {
         {moreOpen && (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
             {typeIsFixed ? (
-              <p className="text-meta text-slate-600">
-                {isInitiative
-                  ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
-                  : 'Type is fixed. Sub-task belongs to the system rather than to you — a card\'s sub-tasks are a checklist, not items.'}
-              </p>
+              <>
+                <p className="text-meta text-slate-600">
+                  {isInitiative
+                    ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
+                    : 'Type is fixed. Sub-task belongs to the system rather than to you — a card\'s sub-tasks are a checklist, not items.'}
+                </p>
+                {/* The paragraph above explains what is fixed; this is the label that is not. A
+                    kind says what sort of initiative this is and nothing else — and None is the
+                    absence of one, so it is the first option and cannot be removed. */}
+                {isInitiative && (
+                  <label className="flex items-center gap-2">
+                    <span className="w-14 shrink-0 text-micro uppercase tracking-wide text-slate-600">Kind</span>
+                    <select
+                      value={item.initiativeTypeId ?? ''}
+                      onChange={(e) => setInitiativeKind(item.id, e.target.value || undefined)}
+                      className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta font-medium"
+                      title="A kind is this board's own label for an initiative — a bet, a programme, an experiment. Every kind behaves the same."
+                    >
+                      <option value="">None</option>
+                      {kinds.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.name}
+                        </option>
+                      ))}
+                      {/* A kind defined on another board still shows, so the control never lies
+                          about what the item says. */}
+                      {kind && !kinds.some((k) => k.id === kind.id) && <option value={kind.id}>{kind.name}</option>}
+                    </select>
+                  </label>
+                )}
+              </>
             ) : (
               <label className="flex items-center gap-2">
                 <span className="w-14 shrink-0 text-micro uppercase tracking-wide text-slate-600">Type</span>

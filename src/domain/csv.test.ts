@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { boardCsv, BOARD_CSV_HEADER, csvField, csvFilename, dashboardCsv, toCsv } from './csv'
 import { blockedBelow, rollupOf, type Graph } from './derive'
-import { boardInitiatives, buildRefs } from './board'
+import { boardInitiatives, buildRefs, initiativeTypeById } from './board'
 import { initiativeHealth } from './health'
 import { HEALTH_META } from './health'
 import { createFixture } from './fixture'
@@ -111,22 +111,25 @@ describe('csv', () => {
       blocked: blockedBelow(item.id, graph),
       overdue: false,
       health: initiativeHealth(item.id, graph),
+      kind: initiativeTypeById(seed.boards, item.initiativeTypeId)?.name ?? 'None',
     }))
     const parsed = parseCsv(dashboardCsv(rows, seed.items, seed.issueTypes))
     expect(parsed[0][1]).toBe('Initiative')
     const signup = parsed.find((r) => r[1] === 'New signup flow')!
     const roll = rollupOf('init-signup', graph)
-    expect(signup[3]).toBe(String(roll.percent))
-    expect(signup[4]).toBe(String(roll.done))
-    expect(signup[5]).toBe(String(roll.total))
-    expect(signup[7]).toBe(String(roll.size)) // cumulative size, beside the counts it sits with
-    expect(signup[10]).toBe('In Progress')
-    expect(signup[11]).toBe('no') // overdue
-    expect(signup[12]).toBe(String(blockedBelow('init-signup', graph)))
+    expect(signup[2]).toBe('Initiative')
+    expect(signup[3]).toBe('None') // the fixture's initiatives carry no kind
+    expect(signup[4]).toBe(String(roll.percent))
+    expect(signup[5]).toBe(String(roll.done))
+    expect(signup[6]).toBe(String(roll.total))
+    expect(signup[8]).toBe(String(roll.size)) // cumulative size, beside the counts it sits with
+    expect(signup[11]).toBe('In Progress')
+    expect(signup[12]).toBe('no') // overdue
+    expect(signup[13]).toBe(String(blockedBelow('init-signup', graph)))
     // Health is part of the row now, so the file and the table cannot disagree about it.
     const health = initiativeHealth('init-signup', graph)
-    expect(signup[13]).toBe(HEALTH_META[health.level].label)
-    expect(signup[14]).toBe(health.flags.map((f) => f.label).join('; '))
+    expect(signup[14]).toBe(HEALTH_META[health.level].label)
+    expect(signup[15]).toBe(health.flags.map((f) => f.label).join('; '))
   })
 
   it('names the file after the board, without punctuation a filesystem minds', () => {
@@ -145,6 +148,7 @@ describe('csv', () => {
           blocked: 0,
           overdue: false,
           health: initiativeHealth(item.id, graph),
+          kind: 'None',
         })),
         seed.items,
         seed.issueTypes,

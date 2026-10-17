@@ -12,6 +12,22 @@ export interface IssueType {
 }
 
 /**
+ * A board's own label for an initiative: a name and a colour, and nothing else. It says what kind
+ * of initiative this is — a bet, a programme, an experiment — and every kind behaves identically:
+ * no lifecycle, no columns, no WIP, and no effect on rollup, health, dependencies or metrics.
+ *
+ * Named a "type" in the model, because that is the model's word for a label (`IssueType`), and
+ * called **Kind** in the interface, where "Type" already means the reserved Initiative type — the
+ * one thing that makes an item an initiative at all. The two words differing is deliberate: they
+ * are two different things, and `Item.typeId` is never one of these.
+ */
+export interface InitiativeType {
+  id: string
+  name: string
+  color: string
+}
+
+/**
  * A person. Items reference users by id; surfaces show the full name (dropdowns)
  * or the initials / photo (cards).
  */
@@ -87,6 +103,20 @@ export interface Board {
   id: string
   name: string
   band: BoardBand
+  /**
+   * The kinds this board's initiatives can be: its own vocabulary for the outcomes it owns.
+   *
+   * Deliberately per board, unlike `IssueType`, which is workspace-wide — a card type is the
+   * *work* vocabulary everyone doing that work shares, while an initiative kind is what a board
+   * says about its own outcomes, and a portfolio board's "Bet" means nothing on a team board.
+   * v27 deleted per-board card-type subsets for the opposite reason; this is not a shortlist of
+   * the workspace's types, it is a board's own labels.
+   *
+   * Absent or empty means None only. **None is the absence of a value, not an entry in this
+   * list**: `Item.initiativeTypeId === undefined` *is* None, so there is no row anyone can delete
+   * and old state reads as None with no backfill.
+   */
+  initiativeTypes?: InitiativeType[]
   /**
    * The board's own voice: what it is and how to read it, in the team's words. The board
    * legend opens with it, and board settings edits it in place.
@@ -231,6 +261,12 @@ export interface Item {
   description?: string
   typeId: string
   size?: number
+  /**
+   * An initiative's kind — a board's own label for it (see `InitiativeType`), never a card's:
+   * `setInitiativeKind` refuses one on a card. Absent means None. This is *not* `typeId`, which
+   * is what makes an item an initiative in the first place.
+   */
+  initiativeTypeId?: string
   /** Assignee user ids (see `User`). A card or initiative can have several. */
   assignees?: string[]
   /**

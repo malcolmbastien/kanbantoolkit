@@ -154,6 +154,24 @@ describe('the demo dataset', () => {
     expect(childrenOf(lanes, topLevelLanes(lanes, 'b-atlas', 'cards')[2].id).map((l) => l.name)).toEqual(['Dev', 'Test'])
   })
 
+  it('labels initiatives with the board’s own kinds, and leaves the team boards plain', () => {
+    const kinds = (boardId: string) => boards.find((b) => b.id === boardId)!.initiativeTypes ?? []
+    expect(kinds('b-strategy').map((k) => k.name)).toEqual(['Bet', 'Programme', 'Experiment'])
+    expect(kinds('b-portfolio').map((k) => k.name)).toEqual(['Workstream', 'Enabler'])
+    // A team board has none, which is what "None is the only option" looks like.
+    expect(kinds('b-atlas')).toEqual([])
+
+    // A kind belongs to the board that owns the outcome, so the demo never labels an initiative
+    // with another board's vocabulary — and no kind is called None.
+    for (const init of initiatives) {
+      const board = boards.find((b) => b.id === at(init.id).boardId)!
+      if (!init.initiativeTypeId) continue
+      expect(board.initiativeTypes?.some((k) => k.id === init.initiativeTypeId), init.title).toBe(true)
+    }
+    expect(initiatives.filter((i) => i.initiativeTypeId).length).toBeGreaterThanOrEqual(6)
+    expect(boards.flatMap((b) => b.initiativeTypes ?? []).every((k) => !/^none$/i.test(k.name))).toBe(true)
+  })
+
   it('has a history old enough for Flow to have a shape', () => {
     const delivered = cards.filter((c) => c.resolvedAt)
     expect(delivered.length).toBeGreaterThanOrEqual(4)

@@ -102,12 +102,15 @@ export interface DashboardCsvRow {
   blocked: number
   overdue: boolean
   health: InitiativeHealth
+  /** The board's own label for the initiative, or "None" — which is the absence of one. */
+  kind: string
 }
 
 export const DASHBOARD_CSV_HEADER = [
   'Ref',
   'Initiative',
   'Type',
+  'Kind',
   'Progress %',
   'Done',
   'Total',
@@ -128,10 +131,11 @@ export function dashboardCsv(rows: DashboardCsvRow[], items: Item[], types: Issu
   const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? 'Item'
   return toCsv([
     DASHBOARD_CSV_HEADER,
-    ...rows.map(({ item, roll, blocked, overdue, health }) => [
+    ...rows.map(({ item, roll, blocked, overdue, health, kind }) => [
       refs.get(item.id) ?? '',
       item.title,
       nameOf(item.typeId),
+      kind,
       roll.percent,
       roll.done,
       roll.total,
