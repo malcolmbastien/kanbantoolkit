@@ -610,23 +610,25 @@
         "id": "35",
         "title": "Virtualize large columns and boards",
         "description": "Keep boards fast with hundreds of cards.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Windowed rendering for lanes/columns with many cards; keep drag-and-drop working; measure and avoid re-render storms.",
         "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T18:10:30.411Z"
       },
       {
         "id": "36",
         "title": "Touch and responsive layout with touch drag",
         "description": "Usable on tablet/mobile, including drag.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Responsive board layout; pointer/touch drag support (native DnD touch fallback); larger hit targets; test on tablet widths.",
         "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T18:10:34.606Z"
       },
       {
         "id": "37",
@@ -1174,9 +1176,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T18:01:22.662Z",
+      "lastModified": "2026-10-17T18:10:34.606Z",
       "taskCount": 74,
-      "completedCount": 61,
+      "completedCount": 63,
       "tags": [
         "backlog"
       ]
