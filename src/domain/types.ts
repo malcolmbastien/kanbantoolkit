@@ -174,7 +174,18 @@ export interface BoardTemplate {
 }
 
 /** A notable event in an item's history. Append-only. */
-export type ItemLogKind = 'created' | 'moved' | 'blocked' | 'unblocked' | 'archived' | 'unarchived' | 'noted' | 'limit'
+export type ItemLogKind =
+  | 'created'
+  | 'moved'
+  | 'edited'
+  | 'linked'
+  | 'unlinked'
+  | 'blocked'
+  | 'unblocked'
+  | 'archived'
+  | 'unarchived'
+  | 'noted'
+  | 'limit'
 
 /**
  * A checklist entry inside a card — finer-grained work than a schedulable card.

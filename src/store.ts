@@ -339,12 +339,20 @@ export interface Actions {
 
   /** Link two items: `dependentId` depends on `dependencyId`. Immediate — no approval step. */
   addDependency: (dependencyId: string, dependentId: string, reason?: string) => void
+  /** Remove a dependency link. Both directions are in the dependent's own history. */
+  removeDependency: (dependencyId: string, dependentId: string) => void
   setAttribution: (itemId: string, objectiveId: string, on: boolean) => void
 
   /** Explicitly block/unblock an item — a status independent of any link. */
   blockItem: (itemId: string, reason?: string) => void
   unblockItem: (itemId: string, note?: string) => void
   addLogNote: (itemId: string, note: string) => void
+  /**
+   * Record a free-text edit once the person has finished typing it. The panel calls this on
+   * blur: a title is typed a letter at a time, and a history of every keystroke is not a
+   * history. `before` is what the field held when it was focused.
+   */
+  logTextEdit: (itemId: string, field: 'title' | 'description', before: string) => void
 
   /** File an item away (cascades to its whole subtree); stays searchable and in links. */
   archiveItem: (itemId: string) => void
@@ -510,6 +518,46 @@ const movedEntry = (
     ...(fromStage ? { fromStage } : {}),
     ...(toStage ? { toStage } : {}),
   }
+}
+
+/**
+ * The field edits worth keeping in a history: the decisions — a retype, a resize, a
+ * reprioritisation, a re-date, a reassignment. Free text is not here, because it arrives one
+ * keystroke at a time (see `logTextEdit`), and neither are `blocked`/`resolvedAt`, which have
+ * their own events and their own clocks.
+ */
+const FIELD_LOG: { key: keyof Item; label: string }[] = [
+  { key: 'typeId', label: 'type' },
+  { key: 'size', label: 'size' },
+  { key: 'priority', label: 'priority' },
+  { key: 'targetStartDate', label: 'target start' },
+  { key: 'targetEndDate', label: 'target end' },
+  { key: 'assignees', label: 'assignees' },
+]
+
+const clip = (text: string) => (text.length > 48 ? `${text.slice(0, 47)}…` : text)
+
+/** The entries for the fields this patch actually changed, in the order they are listed above. */
+function fieldEditEntries(before: Item, after: Item, state: Store): ItemLogEntry[] {
+  const entries: ItemLogEntry[] = []
+  for (const { key, label } of FIELD_LOG) {
+    const from = before[key]
+    const to = after[key]
+    if (JSON.stringify(from) === JSON.stringify(to)) continue
+    const name = (value: unknown): string => {
+      // People read as people, or as nobody — the empty list and the missing field are the
+      // same state and must not read as two.
+      if (key === 'assignees') {
+        const ids = (value as string[] | undefined) ?? []
+        return ids.map((id) => state.users.find((u) => u.id === id)?.name ?? id).join(', ') || 'nobody'
+      }
+      if (value === undefined || value === null || value === '') return 'none'
+      if (key === 'typeId') return state.issueTypes.find((t) => t.id === value)?.name ?? String(value)
+      return String(value)
+    }
+    entries.push(logEntry('edited', `${label}: ${name(from)} → ${name(to)}`))
+  }
+  return entries
 }
 
 /**
@@ -1598,17 +1646,23 @@ export const useStore = create<Store>()(
         placeCard(set, { ...state, items }, moving, laneId, () => index, { stampDone: false })
       },
 
-      setItemFields: (id, patch) =>
+      setItemFields: (id, patch) => {
+        const state = get()
         set({
-          items: get().items.map((i) => {
+          items: state.items.map((i) => {
             if (i.id !== id) return i
             // The panel's type control is hidden for an initiative, but the guard lives
             // here too: the rule is the model's, not the UI's.
-            if (!patch.typeId || canRetype(i, patch.typeId, get().issueTypes)) return { ...i, ...patch }
+            const allowed = !patch.typeId || canRetype(i, patch.typeId, state.issueTypes)
             const { typeId: _reserved, ...rest } = patch
-            return { ...i, ...rest }
+            const next: Item = { ...i, ...(allowed ? patch : rest) }
+            // What changed is part of the record — and a change the model refused changed
+            // nothing, so it says nothing.
+            const entries = fieldEditEntries(i, next, state)
+            return entries.length > 0 ? { ...next, log: [...(next.log ?? []), ...entries] } : next
           }),
-        }),
+        })
+      },
 
       addChecklistItem: (itemId, text) => {
         const t = text.trim()
@@ -1786,7 +1840,27 @@ export const useStore = create<Store>()(
         if (dependencyId === dependentId) return
         const state = get()
         if (state.links.some((l) => l.from === dependencyId && l.to === dependentId)) return
-        set({ links: [...state.links, { id: uid(), from: dependencyId, to: dependentId, reason }] })
+        const waitsOn = state.items.find((i) => i.id === dependencyId)?.title ?? 'something'
+        set({
+          links: [...state.links, { id: uid(), from: dependencyId, to: dependentId, reason }],
+          // The relationship belongs in the dependent's history: it is the card whose plans
+          // changed. The other end keeps its own story when someone looks at it.
+          items: state.items.map((i) =>
+            i.id === dependentId ? { ...i, log: [...(i.log ?? []), logEntry('linked', `waits on ${waitsOn}`)] } : i,
+          ),
+        })
+      },
+
+      removeDependency: (dependencyId, dependentId) => {
+        const state = get()
+        if (!state.links.some((l) => l.from === dependencyId && l.to === dependentId)) return
+        const waited = state.items.find((i) => i.id === dependencyId)?.title ?? 'something'
+        set({
+          links: state.links.filter((l) => !(l.from === dependencyId && l.to === dependentId)),
+          items: state.items.map((i) =>
+            i.id === dependentId ? { ...i, log: [...(i.log ?? []), logEntry('unlinked', `no longer waits on ${waited}`)] } : i,
+          ),
+        })
       },
 
       setAttribution: (itemId, objectiveId, on) => {
@@ -1825,6 +1899,18 @@ export const useStore = create<Store>()(
         set({
           items: get().items.map((i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('noted', note)] } : i)),
         }),
+
+      logTextEdit: (itemId, field, before) => {
+        const state = get()
+        const item = state.items.find((i) => i.id === itemId)
+        if (!item) return
+        const now = field === 'title' ? item.title : item.description ?? ''
+        if (now.trim() === before.trim()) return
+        const note = field === 'title' ? `title: "${clip(before.trim())}" → "${clip(now.trim())}"` : 'description edited'
+        set({
+          items: state.items.map((i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('edited', note)] } : i)),
+        })
+      },
 
       archiveItem: (itemId) => {
         const state = get()

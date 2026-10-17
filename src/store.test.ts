@@ -1331,6 +1331,50 @@ describe('store actions', () => {
     expect(initiativeHealth('init-explore', graph()).flags.map((f) => f.flag)).toEqual(['unplanned'])
   })
 
+  it('the log is the item\'s own history: comments, and the changes that were decisions', () => {
+    s().selectBoard('b-atlas')
+    const log = (id: string) => s().items.find((i) => i.id === id)!.log ?? []
+    const editedNotes = (id: string) => log(id).filter((e) => e.kind === 'edited').map((e) => e.note)
+
+    // A comment: one entry, and only on the card it was left on.
+    s().addLogNote('st-email', 'Waiting on **legal** before this can move.')
+    expect(log('st-email').at(-1)).toMatchObject({ kind: 'noted', note: 'Waiting on **legal** before this can move.' })
+    expect(log('df-signup')).toEqual([])
+
+    // The decisions, each in its own words — and in the order they were made.
+    s().setItemFields('st-email', { size: 5, priority: 'urgent', targetEndDate: '2026-12-01' })
+    expect(editedNotes('st-email')).toEqual(['size: 3 → 5', 'priority: none → urgent', 'target end: none → 2026-12-01'])
+    s().setItemFields('st-email', { assignees: ['u-mb'] })
+    expect(editedNotes('st-email').at(-1)).toBe('assignees: nobody → Maya Blake')
+    // A retype is named by what the types are called…
+    s().setItemFields('st-email', { typeId: 't-bug' })
+    expect(editedNotes('st-email').at(-1)).toBe('type: User Story → Bug')
+    // …and a retype the model refuses changed nothing, so it says nothing.
+    s().setItemFields('init-signup', { typeId: 't-story' })
+    expect(log('init-signup')).toEqual([])
+
+    // Free text is logged once, when the field is left — never a letter at a time.
+    s().setItemFields('st-email', { title: 'Email verificatio' })
+    s().setItemFields('st-email', { title: 'Email verification done right' })
+    expect(editedNotes('st-email').at(-1)).toBe('type: User Story → Bug')
+    s().logTextEdit('st-email', 'title', 'Email verification')
+    expect(editedNotes('st-email').at(-1)).toBe('title: "Email verification" → "Email verification done right"')
+    // Leaving the field without changing anything says nothing.
+    const count = log('st-email').length
+    s().logTextEdit('st-email', 'title', 'Email verification done right')
+    s().logTextEdit('st-email', 'description', '')
+    expect(log('st-email').length).toBe(count)
+
+    // A dependency is in the dependent's history, both ways; the other end keeps its own story.
+    s().addDependency('st-sso', 'st-email')
+    expect(log('st-email').at(-1)).toMatchObject({ kind: 'linked' })
+    expect(log('st-email').at(-1)!.note).toBe('waits on SSO buttons')
+    s().removeDependency('st-sso', 'st-email')
+    expect(log('st-email').at(-1)).toMatchObject({ kind: 'unlinked', note: 'no longer waits on SSO buttons' })
+    expect(log('st-sso').map((e) => e.kind)).not.toContain('linked')
+    expect(s().links.some((l) => l.from === 'st-sso' && l.to === 'st-email')).toBe(false)
+  })
+
   it('a filter narrows what you see, never the load a column carries', () => {
     const ns = laneByName('b-atlas', 'Not Started')
     const before = laneCardCount(s().lanes, s().placements, ns.id)

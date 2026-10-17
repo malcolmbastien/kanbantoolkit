@@ -58,6 +58,9 @@ interface Props {
 const LOG_STYLES: Record<string, string> = {
   created: 'bg-slate-300',
   moved: 'bg-sky-500',
+  edited: 'bg-slate-400',
+  linked: 'bg-violet-400',
+  unlinked: 'bg-violet-200',
   blocked: 'bg-rose-500',
   unblocked: 'bg-emerald-500',
   noted: 'bg-indigo-400',
@@ -91,6 +94,8 @@ export function ItemPanel({ itemId }: Props) {
   const blockItem = useStore((s) => s.blockItem)
   const unblockItem = useStore((s) => s.unblockItem)
   const addLogNote = useStore((s) => s.addLogNote)
+  const logTextEdit = useStore((s) => s.logTextEdit)
+  const removeDependency = useStore((s) => s.removeDependency)
   const archiveItem = useStore((s) => s.archiveItem)
   const unarchiveItem = useStore((s) => s.unarchiveItem)
   const deleteItem = useStore((s) => s.deleteItem)
@@ -116,6 +121,18 @@ export function ItemPanel({ itemId }: Props) {
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
   const [newSubtask, setNewSubtask] = useState('')
+  // Free text is logged once, when the field is left: a title is typed a letter at a time, and
+  // a history of every keystroke is not a history. See `logTextEdit`.
+  const textEditRef = useRef<{ id: string; field: 'title' | 'description'; before: string } | null>(null)
+  const startTextEdit = (id: string, field: 'title' | 'description', before: string) => {
+    textEditRef.current = { id, field, before }
+  }
+  const endTextEdit = (field: 'title' | 'description') => {
+    const edit = textEditRef.current
+    if (!edit || edit.field !== field) return
+    logTextEdit(edit.id, field, edit.before)
+    textEditRef.current = null
+  }
   const [editingEntry, setEditingEntry] = useState<string | null>(null)
   const [entryDraft, setEntryDraft] = useState('')
   // Escape closes the editor without saving, and the blur that follows must not put the text
@@ -455,6 +472,8 @@ export function ItemPanel({ itemId }: Props) {
 
           <input
             value={item.title}
+            onFocus={() => startTextEdit(item.id, 'title', item.title)}
+            onBlur={() => endTextEdit('title')}
             onChange={(e) => setItemFields(item.id, { title: e.target.value })}
             className="w-full rounded border border-transparent bg-transparent text-title font-semibold leading-snug text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
           />
@@ -733,6 +752,8 @@ export function ItemPanel({ itemId }: Props) {
               ) : (
                 <textarea
                   value={item.description ?? ''}
+                  onFocus={() => startTextEdit(item.id, 'description', item.description ?? '')}
+                  onBlur={() => endTextEdit('description')}
                   onChange={(e) => setItemFields(item.id, { description: e.target.value })}
                   rows={5}
                   placeholder="Add a description… (supports **bold**, lists, `code`, links)"
@@ -954,6 +975,13 @@ export function ItemPanel({ itemId }: Props) {
                         <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependency.title}</span>
                         {dep.dependency.archived && <span className="rounded bg-amber-100 px-1 text-meta font-semibold text-amber-700">archived</span>}
                         <span className={cn('rounded px-1 text-meta font-semibold ring-1', state.className)}>{state.label}</span>
+                        <button
+                          onClick={() => removeDependency(dep.dependency.id, dep.dependent.id)}
+                          className="shrink-0 text-slate-400 hover:text-rose-500"
+                          title="Remove this link — the dependency itself is untouched"
+                        >
+                          <X size={12} />
+                        </button>
                       </div>
                       <div className="text-meta text-slate-600">
                         derived → {dependencyState(dep.dependency.id, dep.dependent.id, graph)}
@@ -1086,7 +1114,12 @@ export function ItemPanel({ itemId }: Props) {
                   <div className="min-w-0 flex-1">
                     <div className="text-meta text-slate-700">
                       <span className="font-semibold capitalize">{e.kind}</span>
-                      {e.note ? ` — ${e.note}` : ''}
+                      {e.kind === 'noted' && e.note ? (
+                        // A comment is markdown, like a description — the composer promises it.
+                        <div className="mt-0.5" dangerouslySetInnerHTML={{ __html: renderMarkdown(e.note) }} />
+                      ) : (
+                        e.note ? ` — ${e.note}` : ''
+                      )}
                     </div>
                     <div className="text-meta text-slate-600">{new Date(e.at).toLocaleString()}</div>
                   </div>

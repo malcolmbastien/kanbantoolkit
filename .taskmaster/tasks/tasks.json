@@ -539,12 +539,13 @@
         "id": "29",
         "title": "Add a command palette / quick board switcher",
         "description": "Keyboard-driven switcher for boards, items and actions.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Cmd/Ctrl-K palette listing boards, recent items, and common actions; fuzzy match; keyboard selection.",
         "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T17:52:01.508Z"
       },
       {
         "id": "30",
@@ -1171,9 +1172,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T17:46:45.501Z",
+      "lastModified": "2026-10-17T17:52:01.508Z",
       "taskCount": 74,
-      "completedCount": 58,
+      "completedCount": 59,
       "tags": [
         "backlog"
       ]
