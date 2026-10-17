@@ -595,12 +595,13 @@
         "id": "34",
         "title": "Add empty states and contextual hints",
         "description": "Guide first-run and empty boards/lanes/columns.",
-        "status": "pending",
+        "status": "cancelled",
         "dependencies": [],
         "priority": "medium",
         "details": "Empty-state panels for boards, lanes, the objectives view and search with a short hint and a primary action; contextual tooltips on first use.",
         "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T14:47:12.279Z"
       },
       {
         "id": "35",
@@ -1165,7 +1166,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T00:00:00.000Z",
+      "lastModified": "2026-10-17T14:47:12.279Z",
       "taskCount": 74,
       "completedCount": 52,
       "tags": [
