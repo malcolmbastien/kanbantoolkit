@@ -2,6 +2,7 @@ import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, 
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
+import { isBoardSurface } from '@/store'
 import type { Board } from '@/domain/types'
 
 interface Props {
@@ -11,6 +12,8 @@ interface Props {
   showDashboard: boolean
   showTimeline: boolean
   showArchive: boolean
+  /** The objectives view sits over the board too, so the Board tab must not light up behind it. */
+  showObjectives: boolean
   showMyWork: boolean
   showBoards: boolean
   onSelectBoard: (id: string) => void
@@ -31,11 +34,12 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showBoards, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMyWork, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMyWork, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
-  // the organisation workspace is open, because that is not a board either.
-  const boardActive = !showDashboard && !showTimeline && !showArchive && !showBoards && !showMyWork
+  // the organisation workspace is open, because that is not a board either. One definition of
+  // "the board is the surface", shared with the panels that read it.
+  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMyWork })
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">

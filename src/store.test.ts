@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
-import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
+import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
 import { hasActiveFilters, NO_FILTERS } from './domain/filters'
 import { migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
@@ -854,6 +854,88 @@ describe('store actions', () => {
     expect(laneCardCount(s().lanes, s().placements, done.id)).toBe(before)
     expect(rollupOf('init-signup', graph()).total).toBe(rollBefore)
     expect(s().placements.length).toBe(placementsBefore)
+  })
+
+  it('duplicating a card copies its shape, never its state', () => {
+    s().selectBoard('b-atlas')
+    const src = s().items.find((i) => i.id === 'st-signup-form')!
+    // Everything a copy must not inherit, put on the original first.
+    s().setItemFields(src.id, {
+      description: 'Prompt: who is exposed, and to what?',
+      priority: 'high',
+      targetStartDate: '2026-10-01',
+      targetEndDate: '2026-11-30',
+      blocked: true,
+      blockedReason: 'waiting on legal',
+      resolvedAt: Date.now(),
+    })
+    s().setParent(src.id, 'init-signup')
+    s().addDependency('st-sso', src.id)
+
+    const copyId = s().duplicateCard(src.id)!
+    const copy = s().items.find((i) => i.id === copyId)!
+
+    // A distinct record of the same shape.
+    expect(copyId).not.toBe(src.id)
+    expect(copy.title).toBe('Build signup form copy')
+    expect(copy.typeId).toBe(src.typeId)
+    expect(copy.size).toBe(src.size)
+    expect(copy.description).toBe('Prompt: who is exposed, and to what?')
+
+    // None of the original's commitments come with it.
+    const absent: (keyof Item)[] = ['assignees', 'priority', 'blocked', 'blockedReason', 'targetStartDate', 'targetEndDate', 'resolvedAt', 'lastMoveReason', 'archived', 'archivedAt']
+    for (const key of absent) expect(copy[key]).toBeUndefined()
+
+    // A copied checklist is a fresh set of steps, never a set already ticked.
+    expect(src.checklist!.some((c) => c.done)).toBe(true)
+    expect(copy.checklist!.map((c) => c.text)).toEqual(src.checklist!.map((c) => c.text))
+    expect(copy.checklist!.every((c) => !c.done)).toBe(true)
+    expect(copy.checklist!.some((c) => src.checklist!.some((o) => o.id === c.id))).toBe(false)
+
+    // A new record: its creation and nothing else, no parent, no dependency, one placement.
+    expect(copy.log!.map((l) => l.kind)).toEqual(['created'])
+    expect(decompositionParent(copyId, s().edges)).toBeUndefined()
+    expect(s().links.some((l) => l.from === copyId || l.to === copyId)).toBe(false)
+    expect(s().placements.filter((p) => p.itemId === copyId).length).toBe(1)
+  })
+
+  it('a copy lands in the original\'s cell, directly below it — and nowhere when there is no cell', () => {
+    s().selectBoard('b-atlas')
+    const lane = s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')!.laneId
+    const before = placementsInOrder(s().placements, lane).map((p) => p.itemId)
+
+    const copyId = s().duplicateCard('st-signup-form')!
+    const ordered = placementsInOrder(s().placements, lane)
+    expect(ordered.map((p) => p.itemId).indexOf(copyId)).toBe(ordered.map((p) => p.itemId).indexOf('st-signup-form') + 1)
+    // The lane's order is otherwise untouched, and its ranks are a clean 0..n-1.
+    expect(ordered.map((p) => p.itemId).filter((id) => id !== copyId)).toEqual(before)
+    expect(ordered.map((p) => p.rank)).toEqual(ordered.map((_, i) => i))
+
+    // Nothing copied is left half-made: no cell means no record at all.
+    const items = s().items.length
+    expect(s().duplicateCard('nothing-like-this')).toBeUndefined()
+    // An initiative is not a card: its section is derived from the work below, so a copied
+    // one would be placed in a cell it cannot read in.
+    expect(s().duplicateCard('init-signup')).toBeUndefined()
+    s().selectBoard('b-nova')
+    expect(s().duplicateCard('st-signup-form')).toBeUndefined()
+    // And not while the board is being designed: Cancel would drop the placement the copy
+    // landed in and leave the card itself behind.
+    s().selectBoard('b-atlas')
+    s().beginEdit()
+    expect(s().duplicateCard('st-signup-form')).toBeUndefined()
+    s().cancelEdit()
+    expect(s().items.length).toBe(items)
+  })
+
+  it('a copy is created rather than moved: landing in Done does not tick it resolved', () => {
+    s().selectBoard('b-atlas')
+    // Seeded in Atlas' Done column, with no checklist.
+    expect(effectiveStage(s().lanes, s().placements.find((p) => p.itemId === 'st-signup-design')!.laneId)).toBe('done')
+    const copyId = s().duplicateCard('st-signup-design')!
+    const copy = s().items.find((i) => i.id === copyId)!
+    expect(copy.resolvedAt).toBeUndefined()
+    expect(copy.checklist).toBeUndefined()
   })
 
   it('boundary: toggling selects an external dependency; changing board clears it', () => {

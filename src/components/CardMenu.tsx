@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Check,
   ChevronRight,
+  Copy,
   Flag,
   FolderInput,
   Minus,
@@ -17,7 +18,7 @@ import {
   CornerDownRight,
   Unlink,
 } from 'lucide-react'
-import { cardTypes, isAggregating, isInitiativeItem } from '@/domain/board'
+import { cardTypes, isAggregating, isInitiativeItem, placementOn } from '@/domain/board'
 import { decompositionParent } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -47,8 +48,10 @@ const FLYOUT = 'fixed z-50 max-h-[60vh] overflow-y-auto rounded-lg border border
  */
 export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const items = useStore((s) => s.items)
+  const placements = useStore((s) => s.placements)
   const setItemFields = useStore((s) => s.setItemFields)
   const boardId = useStore((s) => s.boardId)
+  const duplicateCard = useStore((s) => s.duplicateCard)
   const boards = useStore((s) => s.boards)
   // An aggregating board shows bands, not a cards workflow: there is no card to connect to.
   const aggregating = isAggregating(boards.find((b) => b.id === boardId))
@@ -88,6 +91,10 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const lanesLeaf = leafLanes(lanes, boardId, 'cards')
   const anyBlocked = targets.some((t) => t.blocked)
   const allBlocked = count > 0 && targets.every((t) => t.blocked)
+  // Duplicating is offered for a card that is in a cell of the board in front of us: the copy
+  // lands in that cell, so a card with no cell here — read inside another board's band, or on a
+  // surface that has no board behind it — has nowhere for a copy to go.
+  const cell = single && only ? placementOn(placements, only.id, boardId) : undefined
 
   // Escape closes the flyout first, then the menu; a click outside closes both.
   useEffect(() => {
@@ -401,6 +408,34 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
         )}
 
         <div className="my-1 border-t border-slate-100" />
+
+        {/* The "copy me" template: a new card with this one's shape and none of its
+            commitments. Absent for an initiative, which is defined by its type and reads in a
+            section derived from the work below — a copy of it would have no cell it could
+            read in. (The menu does not open at all while the board is being designed: a
+            locked card opens nothing, and the store refuses a copy then regardless.) */}
+        {single && only && !isInitiativeItem(only, issueTypes) && (
+          cell ? (
+            <button className={ITEM} onClick={() => run(() => duplicateCard(only.id))}>
+              <span className="shrink-0 text-slate-600">
+                <Copy size={13} />
+              </span>
+              <span className="flex-1">Duplicate</span>
+            </button>
+          ) : (
+            // A copy lands in the original's cell, and this card is not in one here. Shown
+            // rather than hidden, so the missing affordance explains itself.
+            <span title="A copy lands in the original's cell — this card is not in a cell on this board">
+              <button disabled className={cn(ITEM, 'cursor-not-allowed opacity-50')}>
+                <span className="shrink-0 text-slate-400">
+                  <Copy size={13} />
+                </span>
+                <span className="flex-1">Duplicate</span>
+                <span className="text-micro text-slate-500">not in a cell here</span>
+              </button>
+            </span>
+          )
+        )}
 
         <button className={ITEM} onClick={() => run(() => archiveItems(itemIds))}>
           <span className="shrink-0 text-slate-600">

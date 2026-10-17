@@ -19,7 +19,7 @@ import { TopBar } from './components/TopBar'
 import { boardCardTypeId, defaultDropLane, initiativeTypeId } from './domain/board'
 import { filtersFromParam } from './domain/filters'
 import { leafLanes } from './domain/lanes'
-import { useStore } from './store'
+import { isBoardSurface, useStore } from './store'
 
 export default function App() {
   const boards = useStore((s) => s.boards)
@@ -43,11 +43,10 @@ export default function App() {
   const setMyWork = useStore((s) => s.setMyWork)
   const showLegend = useStore((s) => s.showLegend)
   const showFilters = useStore((s) => s.showFilters)
-  // The side panels belong to the board surface: the legend and the filters narrow or
-  // explain one board, so neither trails into the dashboard, timeline or archive.: filters narrow one board's cards, so the
-  // panel must not trail into the dashboard, timeline, archive or the workspace. Leaving for
-  // a view keeps the choice — coming back shows it again.
-  const boardSurface = !showDashboard && !showTimeline && !showArchive && !showObjectives && !showBoards && !showMyWork
+  // The side panels belong to the board surface: the legend and the filters narrow or explain
+  // one board, so neither trails into the dashboard, timeline, archive, objectives, the
+  // workspace or My work. Leaving for a view keeps the choice — coming back shows it again.
+  const boardSurface = useStore(isBoardSurface)
   const showBoardSettings = useStore((s) => s.showBoardSettings)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
@@ -213,6 +212,7 @@ export default function App() {
         showDashboard={showDashboard}
         showTimeline={showTimeline}
         showArchive={showArchive}
+        showObjectives={showObjectives}
         showBoards={showBoards}
         showMyWork={showMyWork}
         onSelectBoard={selectBoard}

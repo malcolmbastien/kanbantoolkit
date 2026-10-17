@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   CircleDot,
+  Copy,
   Eye,
   Flag,
   GitBranch,
@@ -39,14 +40,14 @@ import {
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { buildRefs, cardTypes, isInitiativeItem } from '@/domain/board'
+import { buildRefs, cardTypes, isInitiativeItem, placementOn } from '@/domain/board'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
 import { chipColors, DEP_STATE_STYLES, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
-import { useStore } from '@/store'
+import { useStore, isBoardSurface } from '@/store'
 import type { Item } from '@/domain/types'
 
 interface Props {
@@ -92,7 +93,9 @@ export function ItemPanel({ itemId }: Props) {
   const archiveItem = useStore((s) => s.archiveItem)
   const unarchiveItem = useStore((s) => s.unarchiveItem)
   const deleteItem = useStore((s) => s.deleteItem)
+  const duplicateCard = useStore((s) => s.duplicateCard)
   const askConfirm = useStore((s) => s.askConfirm)
+  const boardSurface = useStore(isBoardSurface)
   const addAssignee = useStore((s) => s.addAssignee)
   const boardId = useStore((s) => s.boardId)
   const selectBoard = useStore((s) => s.selectBoard)
@@ -146,6 +149,13 @@ export function ItemPanel({ itemId }: Props) {
   const isSubtask = item.typeId === issueTypes.find((t) => t.name === 'Sub-task')?.id
   // Two types belong to the system rather than the user, so the control is not offered.
   const typeIsFixed = isInitiative || isSubtask
+  // A copy lands in the original's cell, so Duplicate needs one: this card, in a cell of the
+  // board in front of us. Everywhere else there is nothing for a copy to land on.
+  const duplicateCell = placementOn(placements, item.id, boardId)
+  const canDuplicate = boardSurface && Boolean(duplicateCell)
+  const duplicateReason = boardSurface
+    ? "A copy lands in the original's cell — this card is not in one on this board."
+    : "A copy lands in the original's cell — open this card from its board."
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
   const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
   const userById = (id: string) => users.find((u) => u.id === id)
@@ -287,7 +297,7 @@ export function ItemPanel({ itemId }: Props) {
               <Eye size={15} />
             </IconButton>
             <IconButton
-              title="More — card type, archive, delete"
+              title="More — card type, duplicate, archive, delete"
               active={moreOpen}
               onClick={() => setMoreOpen((o) => !o)}
             >
@@ -322,6 +332,24 @@ export function ItemPanel({ itemId }: Props) {
               </label>
             )}
             <div className="flex items-center gap-1.5">
+              {/* The "copy me" template: a new card with this one's shape and none of its
+                  commitments, landing in the same cell. An initiative and a sub-task belong
+                  to the system rather than to you, so for those the row is not there. */}
+              {!typeIsFixed && (
+                <button
+                  onClick={() => duplicateCard(item.id)}
+                  disabled={!canDuplicate}
+                  title={canDuplicate ? 'Copy this card into the same cell, directly below the original' : undefined}
+                  className={cn(
+                    'flex items-center gap-1 rounded border px-2 py-1 text-meta font-medium transition',
+                    canDuplicate
+                      ? 'border-slate-300 text-slate-600 hover:bg-slate-100'
+                      : 'cursor-not-allowed border-slate-200 text-slate-400',
+                  )}
+                >
+                  <Copy size={11} /> Duplicate
+                </button>
+              )}
               {item.archived ? (
                 <button
                   onClick={() => unarchiveItem(item.id)}
@@ -353,6 +381,8 @@ export function ItemPanel({ itemId }: Props) {
                 <Trash2 size={11} /> Delete
               </button>
             </div>
+            {/* A disabled button shows no tooltip, so the reason is said in words. */}
+            {!typeIsFixed && !canDuplicate && <p className="text-micro text-slate-600">{duplicateReason}</p>}
           </div>
         )}
 

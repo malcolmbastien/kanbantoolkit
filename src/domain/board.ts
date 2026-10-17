@@ -24,6 +24,15 @@ export function itemsOnBoard(boardId: string, placements: Placement[], items: It
 }
 
 /**
+ * The one placement an item has on a board — the cell it sits in there. `undefined` when it
+ * does not sit on that board at all, which is the honest answer for a card read inside
+ * another board's band, or for one opened from a surface that has no board behind it.
+ */
+export function placementOn(placements: Placement[], itemId: string, boardId: string): Placement | undefined {
+  return placements.find((p) => p.itemId === itemId && p.boardId === boardId)
+}
+
+/**
  * The initiatives of a board's initiatives workflow — items of the Initiative type placed on
  * it, never archived. With `rootsOnly`, only the board's *local* top-level ones: an initiative
  * whose parent is not on this same board is top-level here, so it can roll up to a top-level

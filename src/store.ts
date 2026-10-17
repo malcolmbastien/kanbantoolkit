@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
+import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
@@ -262,6 +262,16 @@ export interface Actions {
   setBoardWipEnforcement: (id: string, mode: 'visualize' | 'justify' | 'block') => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
+  /**
+   * Copy a card: the same shape, none of the original's commitments. The copy carries the
+   * title, type, size, description and a fresh checklist (new entry ids, nothing ticked) —
+   * never assignees, dates, priority, blocking, resolvedAt, a parent or links.
+   *
+   * A copy lands where the original sits, so it needs a cell: copying an item that has no
+   * placement on the current board creates nothing and answers `undefined`, and the caller
+   * says why rather than the copy landing somewhere nobody chose.
+   */
+  duplicateCard: (itemId: string) => string | undefined
   moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => void
   /**
    * Move an initiative between the cells of its section. The section itself is
@@ -340,6 +350,17 @@ export interface Actions {
 }
 
 export type Store = FlowState & WorkspaceIdentity & ViewState & Actions
+
+/**
+ * Is the board itself the surface in front? Every other view — dashboard, timeline, archive,
+ * objectives, boards, my work — shows work without the board's cells around it, so an action
+ * that needs a cell (duplicating a card, which lands where the original sits) has nothing to
+ * act on there. One definition, read by the surfaces that ask.
+ */
+export const isBoardSurface = (
+  s: Pick<ViewState, 'showDashboard' | 'showTimeline' | 'showArchive' | 'showObjectives' | 'showBoards' | 'showMyWork'>,
+): boolean =>
+  !s.showDashboard && !s.showTimeline && !s.showArchive && !s.showObjectives && !s.showBoards && !s.showMyWork
 
 const uid = makeUid
 
@@ -1313,6 +1334,59 @@ export const useStore = create<Store>()(
           rank: nextRank(get().placements, laneId),
         }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
+      },
+
+      duplicateCard: (itemId) => {
+        const state = get()
+        const src = state.items.find((i) => i.id === itemId)
+        const at = placementOn(state.placements, itemId, state.boardId)
+        // No cell, no copy. A card read inside another board's band, or opened from a surface
+        // that has no board behind it, has nowhere here to land — and a record put down
+        // somewhere nobody chose is worse than a refusal that can be explained.
+        if (!src || !at) return undefined
+        // A copy is a card: an initiative's type is what makes it one and its *section* is
+        // derived from the work below, so a copied initiative would be placed in a cell it
+        // cannot read in. The menu never offers it; the store never mints one.
+        if (isInitiativeItem(src, state.issueTypes)) return undefined
+        // Design mode is not for making work. A placement made now would be dropped by Cancel
+        // while the copy itself survived — a card left with no cell at all.
+        if (state.editMode) return undefined
+        const item: Item = {
+          id: uid(),
+          title: `${src.title} copy`,
+          typeId: src.typeId,
+          createdAt: Date.now(),
+          log: [logEntry('created')],
+          // Shape, not state: the size, description and steps are what make this record the
+          // record it is; the assignees, dates and reasons are judgements about *that* card.
+          ...(src.size !== undefined ? { size: src.size } : {}),
+          ...(src.description !== undefined ? { description: src.description } : {}),
+          // A copied checklist is a fresh set of steps, never a set already ticked.
+          ...(src.checklist?.length
+            ? { checklist: src.checklist.map((c) => ({ id: uid(), text: c.text, done: false })) }
+            : {}),
+        }
+        const placement: Placement = {
+          id: uid(),
+          boardId: state.boardId,
+          itemId: item.id,
+          laneId: at.laneId,
+          laneEnteredAt: Date.now(),
+          rank: nextRank(state.placements, at.laneId),
+        }
+        // One write, and the copy exists only where it is also placed. `placeCard` then
+        // renumbers the lane and seats it directly below the original. `stampDone: false`
+        // because a copy is created rather than moved: like a brand new card, landing in Done
+        // does not tick it resolved.
+        placeCard(
+          set,
+          { ...state, items: [...state.items, item], placements: [...state.placements, placement] },
+          placement,
+          at.laneId,
+          (ordered) => ordered.findIndex((p) => p.id === at.id) + 1,
+          { stampDone: false },
+        )
+        return item.id
       },
 
       moveCard: (itemId, boardId, laneId, reason) => {
