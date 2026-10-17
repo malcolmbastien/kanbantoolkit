@@ -1,4 +1,5 @@
 import { buildRefs, isInitiativeItem } from './board'
+import { HEALTH_META, type InitiativeHealth } from './health'
 import { decompositionParent } from './derive'
 import type { Graph } from './derive'
 import { childrenOf, effectiveStage, lanePath, placementsInOrder, rootLane, STAGE_LABELS } from './lanes'
@@ -100,6 +101,7 @@ export interface DashboardCsvRow {
   roll: { bucket: Stage; percent: number; done: number; total: number; inProgress: number }
   blocked: number
   overdue: boolean
+  health: InitiativeHealth
 }
 
 export const DASHBOARD_CSV_HEADER = [
@@ -115,6 +117,8 @@ export const DASHBOARD_CSV_HEADER = [
   'Status',
   'Overdue',
   'Blocked below',
+  'Health',
+  'Flags',
 ]
 
 /** The dashboard's rows as CSV text — the same rows, the same numbers, as a file. */
@@ -123,7 +127,7 @@ export function dashboardCsv(rows: DashboardCsvRow[], items: Item[], types: Issu
   const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? 'Item'
   return toCsv([
     DASHBOARD_CSV_HEADER,
-    ...rows.map(({ item, roll, blocked, overdue }) => [
+    ...rows.map(({ item, roll, blocked, overdue, health }) => [
       refs.get(item.id) ?? '',
       item.title,
       nameOf(item.typeId),
@@ -136,6 +140,8 @@ export function dashboardCsv(rows: DashboardCsvRow[], items: Item[], types: Issu
       STAGE_LABELS[roll.bucket],
       overdue ? 'yes' : 'no',
       blocked,
+      HEALTH_META[health.level].label,
+      health.flags.map((f) => f.label).join('; '),
     ]),
   ])
 }

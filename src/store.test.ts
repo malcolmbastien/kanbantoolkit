@@ -5,6 +5,7 @@ import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placement
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
 import { hasActiveFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
 import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
+import { initiativeHealth } from './domain/health'
 import { migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 
@@ -1293,6 +1294,41 @@ describe('store actions', () => {
     const migrated = migrateState({ savedFilters: [old] }) as { savedFilters: SavedFilter[] }
     expect(migrated.savedFilters[0]).toEqual(old)
     expect(migrated.savedFilters[0].boardId).toBeUndefined()
+  })
+
+  it('the seeded initiative is at risk, and the flags clear when the state behind them does', () => {
+    const health = () => initiativeHealth('init-signup', graph())
+
+    // Team Atlas' initiative: a blocked card below it, a card waiting on work that is not done
+    // (both risks — someone else can see them), nothing moved below for twelve days, and one
+    // committed card nobody owns.
+    const before = health()
+    expect(before.level).toBe('atRisk')
+    expect(before.flags.map((f) => f.flag)).toEqual(['blocked', 'waiting', 'stale', 'unowned'])
+    expect(before.flags[0].label).toBe('1 blocked')
+    expect(before.flags[1].why).toContain('wait on work that is not done')
+    expect(before.flags[2].tone).toBe('watch')
+
+    // Unblocking one card clears one flag and no more: each rule answers for itself.
+    s().unblockItem('st-sso')
+    expect(health().flags.map((f) => f.flag)).toEqual(['waiting', 'stale', 'unowned'])
+
+    // Deliver the two cards that were waiting (the seed links the gateway to both): the
+    // dependency risk goes with them. The staleness is still there — nothing *else* below has
+    // moved, and the rule reads the newest arrival, not the loudest one.
+    const done = laneByName('b-atlas', 'Done').id
+    s().moveCard('st-email', 'b-atlas', done)
+    s().moveCard('st-sso', 'b-atlas', done)
+    expect(health().flags.map((f) => f.flag)).toEqual(['stale', 'unowned'])
+
+    // Move the last card still sitting there, and the stale flag clears too.
+    s().moveCard('st-signup-form', 'b-atlas', done)
+    const after = health()
+    expect(after.flags.map((f) => f.flag)).toEqual(['unowned'])
+    expect(after.level).toBe('watch')
+
+    // And an initiative with nothing under it has nothing to roll up.
+    expect(initiativeHealth('init-explore', graph()).flags.map((f) => f.flag)).toEqual(['unplanned'])
   })
 
   it('a filter narrows what you see, never the load a column carries', () => {

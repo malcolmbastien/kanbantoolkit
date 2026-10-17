@@ -1,7 +1,8 @@
 import { Fragment, useState } from 'react'
 import { Target, TriangleAlert, X } from 'lucide-react'
 import { buildRefs, initiativeTypeId } from '@/domain/board'
-import { decompositionParent, okrCoverage, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
+import { decompositionParent, okrCoverage, rollupOf, type Graph } from '@/domain/derive'
+import { HEALTH_META, initiativeHealth } from '@/domain/health'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { OBJECTIVE_STATUS_STYLES, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -79,7 +80,9 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const initiativeRow = (it: Item, objectiveId?: string) => {
     const roll = rollupOf(it.id, graph)
     const bucket = roll.bucket as Stage
-    const uncommitted = uncommittedBelow(it.id, graph)
+    // The same rules the dashboard reads, from the same derivation — a portfolio and a
+    // programme cannot disagree about whether an initiative is in trouble.
+    const health = initiativeHealth(it.id, graph)
     return (
       <div key={it.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-1.5 py-1">
         <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{refs.get(it.id)}</span>
@@ -90,12 +93,12 @@ export function StrategyMap({ boardId }: { boardId: string }) {
         >
           {it.title}
         </button>
-        {uncommitted > 0 && (
+        {health.flags.length > 0 && (
           <span
-            className="flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 py-px text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
-            title={`${uncommitted} card${uncommitted === 1 ? '' : 's'} below are still in Backlog — this initiative is committed, so its work should be too`}
+            className={cn('flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-micro font-semibold ring-1', HEALTH_META[health.level].chip)}
+            title={health.flags.map((f) => f.why).join(' · ')}
           >
-            <TriangleAlert size={10} /> {uncommitted}
+            <TriangleAlert size={10} /> {HEALTH_META[health.level].label}
           </span>
         )}
         <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{roll.percent}%</span>

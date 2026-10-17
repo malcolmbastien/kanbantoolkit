@@ -676,14 +676,15 @@
         "id": "41",
         "title": "Saved filter presets + assignee and initiative filters",
         "description": "Extend the board filters with assignee and initiative filters, and let users save named presets per board.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "27"
         ],
         "priority": "medium",
         "details": "Deferred from task 27. Add an assignee filter (one entry per distinct assignee on the board) and an initiative filter (narrow cards to those under a chosen initiative) to the Filters side panel. Support saving the active filter set as a named preset against the board (persisted with the board, so it needs a persist version bump + migration), listing/loading/removing presets, and an active-preset indicator. Keep filters combining with AND and reusing matchesFilters in src/domain/filters.ts.",
         "testStrategy": "Unit-test the assignee/initiative matching and preset CRUD (add/load/remove, per-board scoping). Verify a saved preset round-trips through persistence and rehydrates. Run npm test.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T17:38:53.113Z"
       },
       {
         "id": "42",
@@ -1169,9 +1170,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T17:33:05.021Z",
+      "lastModified": "2026-10-17T17:38:53.113Z",
       "taskCount": 74,
-      "completedCount": 56,
+      "completedCount": 57,
       "tags": [
         "backlog"
       ]

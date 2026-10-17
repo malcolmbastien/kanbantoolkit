@@ -1,7 +1,8 @@
-import { Ban, CalendarClock, Download, Layers, Target } from 'lucide-react'
+import { CalendarClock, Download, Layers, Target } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
 import { boardInitiatives, buildRefs } from '@/domain/board'
+import { HEALTH_META, initiativeHealth } from '@/domain/health'
 import { csvFilename, dashboardCsv } from '@/domain/csv'
 import { childrenOf, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { laneAges, medianOf, STALE_AFTER_DAYS } from '@/domain/filters'
@@ -82,11 +83,11 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     const childInits = decompositionChildren(item.id, edges).filter(
       (id) => items.find((i) => i.id === id)?.typeId === initiativeTypeId,
     ).length
-    return { item, roll, blocked, target, overdue, childInits }
+    return { item, roll, blocked, target, overdue, childInits, health: initiativeHealth(item.id, graph) }
   })
 
-  const blockedInitiatives = rows.filter((r) => r.blocked > 0).length
   const doneInitiatives = rows.filter((r) => r.roll.bucket === 'done').length
+  const atRisk = rows.filter((r) => r.health.level === 'atRisk').length
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
@@ -110,7 +111,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           <div className="ml-auto flex items-center gap-4 text-meta text-slate-600">
             <Stat label="Initiatives" value={rows.length} />
             <Stat label="Done" value={doneInitiatives} tone="emerald" />
-            <Stat label="With blocked work" value={blockedInitiatives} tone={blockedInitiatives > 0 ? 'rose' : undefined} />
+            <Stat label="At risk" value={atRisk} tone={atRisk > 0 ? 'rose' : undefined} />
             {/* One explicit action, one file — the rows above, as a spreadsheet. */}
             <button
               onClick={() => downloadText(csvFilename(board?.name ?? 'board', 'initiatives'), dashboardCsv(rows, items, issueTypes))}
@@ -131,11 +132,11 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                 <th className="px-4 py-2 font-semibold">Work progress</th>
                 <th className="px-4 py-2 font-semibold">Target date</th>
                 <th className="px-4 py-2 font-semibold">Status</th>
-                <th className="px-4 py-2 font-semibold">Blocked below</th>
+                <th className="px-4 py-2 font-semibold">Health</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ item, roll, blocked, overdue, childInits }) => {
+              {rows.map(({ item, roll, overdue, childInits, health }) => {
                 const type = typeOf(item.typeId)
                 const bucket = roll.bucket as Stage
                 return (
@@ -193,14 +194,26 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                       </span>
                     </td>
 
+                    {/* Health: the level, then each rule that spoke. A healthy initiative says so
+                        quietly — the absence of a flag is information too. */}
                     <td className="px-4 py-2.5">
-                      {blocked > 0 ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-meta font-bold text-rose-700 ring-1 ring-rose-200">
-                          <Ban size={11} /> {blocked} blocked
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-bold ring-1', HEALTH_META[health.level].chip)}>
+                          {HEALTH_META[health.level].label}
                         </span>
-                      ) : (
-                        <span className="text-meta text-slate-600">—</span>
-                      )}
+                        {health.flags.map((f) => (
+                          <span
+                            key={f.flag}
+                            title={f.why}
+                            className={cn(
+                              'shrink-0 rounded px-1 py-px text-micro font-medium',
+                              f.tone === 'risk' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-800',
+                            )}
+                          >
+                            {f.label}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -267,8 +280,10 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
         </section>
 
         <p className="mt-3 text-meta text-slate-600">
-          Work progress and status are computed from the leaf work beneath each initiative. Blocked below counts explicitly
-          blocked descendants anywhere in the chain.
+          Work progress and status are computed from the leaf work beneath each initiative. Health is derived the same
+          way — blocked work, open dependencies, a clock that has stopped, work nobody owns, an initiative with nothing
+          under it, and committed work over Backlog. Nothing is set by hand and nothing goes stale: each rule reads what
+          the board already knows.
         </p>
       </div>
     </div>

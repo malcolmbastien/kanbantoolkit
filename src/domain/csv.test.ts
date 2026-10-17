@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { boardCsv, BOARD_CSV_HEADER, csvField, csvFilename, dashboardCsv, toCsv } from './csv'
 import { blockedBelow, rollupOf, type Graph } from './derive'
 import { boardInitiatives, buildRefs } from './board'
+import { initiativeHealth } from './health'
+import { HEALTH_META } from './health'
 import { createSeed } from './seed'
 
 /**
@@ -108,6 +110,7 @@ describe('csv', () => {
       roll: rollupOf(item.id, graph),
       blocked: blockedBelow(item.id, graph),
       overdue: false,
+      health: initiativeHealth(item.id, graph),
     }))
     const parsed = parseCsv(dashboardCsv(rows, seed.items, seed.issueTypes))
     expect(parsed[0][1]).toBe('Initiative')
@@ -119,6 +122,10 @@ describe('csv', () => {
     expect(signup[9]).toBe('In Progress')
     expect(signup[10]).toBe('no') // overdue
     expect(signup[11]).toBe(String(blockedBelow('init-signup', graph)))
+    // Health is part of the row now, so the file and the table cannot disagree about it.
+    const health = initiativeHealth('init-signup', graph)
+    expect(signup[12]).toBe(HEALTH_META[health.level].label)
+    expect(signup[13]).toBe(health.flags.map((f) => f.label).join('; '))
   })
 
   it('names the file after the board, without punctuation a filesystem minds', () => {
@@ -136,6 +143,7 @@ describe('csv', () => {
           roll: rollupOf(item.id, graph),
           blocked: 0,
           overdue: false,
+          health: initiativeHealth(item.id, graph),
         })),
         seed.items,
         seed.issueTypes,
