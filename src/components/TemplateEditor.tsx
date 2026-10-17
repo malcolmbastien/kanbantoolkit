@@ -342,9 +342,11 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
             onSave={(name) => apply(templateRenameLane(template, lane.key, name))}
             ariaLabel={`Rename ${lane.name}`}
             title="Rename this lane"
-            className="min-w-0 flex-1 truncate rounded text-left text-micro font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-900/5"
-            // A ring, not a border, so the lane's header bar keeps its height while typing.
-            inputClassName="min-w-0 flex-1 rounded px-1 text-micro font-bold uppercase tracking-wide text-slate-800 outline-none ring-1 ring-inset ring-indigo-300"
+            // Stretched to the header bar and reaching a little past it — the bar is the only
+            // thing to aim at in a lane this narrow. The negative margin cancels the padding,
+            // so the text inside has not moved.
+            className="min-w-0 flex-1 self-stretch -my-0.5 truncate rounded py-0.5 text-left text-micro font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-900/5"
+            inputClassName="min-w-0 flex-1 self-stretch -my-0.5 rounded px-1 py-0.5 text-micro font-bold uppercase tracking-wide text-slate-800 outline-none ring-1 ring-inset ring-indigo-300"
           />
         ) : (
           <span className="truncate text-micro font-bold uppercase tracking-wide text-slate-700" title={lane.name}>

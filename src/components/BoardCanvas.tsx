@@ -212,10 +212,13 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               onSave={(name) => ctx.renameLane(lane.id, name)}
               ariaLabel={`Rename ${lane.name || 'this lane'}`}
               title="Rename this lane"
-              className="w-full rounded text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
-              // A ring, not a border: the header bar must not grow by a pixel the moment a
-              // name is clicked — the column's whole body would shift with it.
-              inputClassName="w-full rounded bg-white px-1 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+              // The name fills its row and reaches a little past it: a 15px line of text is a
+              // mean thing to ask anyone to hit. The negative margin cancels the padding
+              // exactly, so the field is big to point at and its text has not moved a pixel.
+              // A ring, not a border, for the same reason — the header bar and everything
+              // under it must not shift the moment a name is clicked.
+              className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
+              inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
             />
           ) : (
             <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{lane.name || 'Board'}</span>
@@ -489,8 +492,8 @@ function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: La
               onSave={(name) => ctx.renameLane(lane.id, name)}
               ariaLabel={`Rename ${lane.name || 'this lane'}`}
               title="Rename this lane"
-              className="w-full rounded text-center text-meta font-bold uppercase tracking-wide transition hover:bg-slate-900/5"
-              inputClassName="w-full rounded bg-white px-1 text-center text-meta font-bold uppercase tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+              className="w-full -my-1 rounded py-1 text-center text-meta font-bold uppercase tracking-wide transition hover:bg-slate-900/5"
+              inputClassName="w-full -my-1 rounded bg-white px-1 py-1 text-center text-meta font-bold uppercase tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
             />
           ) : (
             <span className="text-meta font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
@@ -512,8 +515,8 @@ function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: La
                 onSave={(name) => ctx.renameLane(col.id, name)}
                 ariaLabel={`Rename ${col.name}`}
                 title="Rename this lane"
-                className="w-full rounded text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
-                inputClassName="w-full rounded bg-white px-1 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+                className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
+                inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
               />
             ) : (
               <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{col.name}</span>

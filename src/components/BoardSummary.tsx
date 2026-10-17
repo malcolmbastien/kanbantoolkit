@@ -507,10 +507,10 @@ function Cell({
             onSave={(name) => renameLane(lane.id, name)}
             ariaLabel={`Rename ${lane.name}`}
             title="Rename this lane"
-            className="w-full rounded text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
-            // A ring, not a border: the header bar must not grow by a pixel the moment a
-            // name is clicked — the column's whole body would shift with it.
-            inputClassName="w-full rounded bg-white px-1 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+            // Bigger than its row, like the board's headers: the negative margin cancels the
+            // padding, so the field is easier to hit and its text has not moved.
+            className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
+            inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
           />
         ) : (
           <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
