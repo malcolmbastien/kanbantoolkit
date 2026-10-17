@@ -48,6 +48,7 @@ import { initialsOf } from '@/domain/users'
 import { chipColors, DEP_STATE_STYLES, stageChip } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore, isBoardSurface } from '@/store'
+import { TagInput } from './TagInput'
 import type { Item } from '@/domain/types'
 
 interface Props {
@@ -676,25 +677,13 @@ export function ItemPanel({ itemId }: Props) {
                       </span>
                     )
                   })}
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) toggleItemTag(boardId, item.id, e.target.value)
-                    }}
-                    title="Add a tag this board defines"
-                    className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-600"
-                  >
-                    {/* The placeholder is about the *board*, not the item: an item with no tags on
-                        a board that has some still has something to add. */}
-                    <option value="">{boardTagList.length === 0 ? 'No tags on this board' : 'Add a tag…'}</option>
-                    {boardTagList
-                      .filter((t) => !(item.tagIds ?? []).includes(t.id))
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                  </select>
+                  {/* Type to find one: the board's vocabulary, filtered as you go. */}
+                  <TagInput
+                    tags={boardTagList}
+                    carried={item.tagIds ?? []}
+                    onAdd={(id) => toggleItemTag(boardId, item.id, id)}
+                    className="min-w-[7rem] flex-1"
+                  />
                 </div>
               </Field>
 

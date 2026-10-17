@@ -1268,13 +1268,27 @@
         "testStrategy": "The model already has its test (`OKRs attach to strategic initiatives only`), so this is a UI fix verified in the browser: on a team board (Team Atlas), open an initiative's panel and confirm the OKR section explains the rule and offers no checkboxes; on a portfolio board (Company Strategy), open a strategic initiative and confirm the checkboxes are there and that checking one writes an attribution edge. Run npm test and the dependency scan.",
         "subtasks": [],
         "updatedAt": "2026-10-17T23:30:00.000Z"
+      },
+      {
+        "id": "84",
+        "title": "The panel's tag picker is a field you type into, not a list you read",
+        "description": "The Tags field offered a select of the board's tags. It is now a text field with the board's vocabulary under it, filtered as you type.",
+        "status": "done",
+        "dependencies": [
+          "82"
+        ],
+        "priority": "low",
+        "details": "Requested: \\\"the tags field should be a text field that offers a drop down of existing tags on \"\n\\\"that board and some auto-complete\\\".\\n\\n\"\nA select made you read a list to find a word you already knew. `TagInput` (new component) replaces \"\nit: focus the field and the board's tags are there, swatch and all; type and it narrows, prefixes \"\nfirst (\\\"de\\\" reaches Debt before Tech-debt); ArrowUp/ArrowDown move the highlight, Enter takes it, \"\na click takes it too and leaves the caret in the field so the next tag is another word. It carries \"\nthe combobox roles (aria-expanded/controls/autocomplete, aria-activedescendant, listbox/option) so \"\nthe keyboard and screen-reader pass still holds.\\n\\n\"\nIt offers the tags the board **defines** and no others. A tag is this board's managed vocabulary \"\nwith a colour that has to mean something; a word nobody defined is not one, so the field says \"\nwhere to define it (board settings) rather than inventing a colour for it. That is the same stance \"\nas the model's `toggleItemTag`, which refuses an id the board does not list.\\n\\n\"\nEmpty is never blank: the board defines nothing; every tag it defines is already on the item; the \"\ntyped word is already on the item; or nothing matches and here is where tags are defined.\\n\\n\"\nOne thing the browser turned up: Escape in the field closed the whole drawer, because App's global \"\nEscape handler walks the layer stack and knew nothing about this list. A popover is dismissed \"\nfirst, as the card menu's flyout is, so the open list now swallows the key and a second Escape \"\ncloses the panel.",
+        "testStrategy": "Verified in the browser on Team Atlas (which defines security, tech-debt, customer-facing) and on \"\nCompany Strategy (which defines none): focus lists all three; typing \\\"te\\\" narrows to tech-debt and \"\nEnter adds it; a click adds one and keeps the caret in the field; typing a carried tag says \\\"Already \"\non this item.\\\"; typing nonsense points at board settings; an item wearing all of them says so; a \"\nboard with no tags says so; ArrowDown moves the highlight; Escape closes the list and leaves the \"\npanel, and a second Escape closes the panel. npm test, build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-17T23:55:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T23:30:00.000Z",
-      "taskCount": 82,
-      "completedCount": 69,
+      "lastModified": "2026-10-17T23:55:00.000Z",
+      "taskCount": 83,
+      "completedCount": 70,
       "tags": [
         "backlog"
       ]
