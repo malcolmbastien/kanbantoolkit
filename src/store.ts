@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
-import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
+import { canPlaceInSection, decompositionParent, descendants, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
@@ -1644,10 +1644,14 @@ export const useStore = create<Store>()(
         const target = state.lanes.find((l) => l.id === laneId)
         // Initiatives are arranged in the initiatives workflow — never in a card lane.
         if (!target || target.workflow !== 'initiatives') return
-        // The section is derived from the work below — a move may rearrange a cell
-        // within it, never cross into another one.
+        // The section is derived from the work below — a move may rearrange a cell within it,
+        // never cross into another one. An initiative with nothing under it is its own leaf, so
+        // its section is the only fact there is: it can be committed before it is broken down,
+        // and moved back, and the derived section governs as soon as there is work to derive
+        // from. (Refusing these made decomposition a precondition of commitment, which is
+        // backwards.)
         const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
-        if (effectiveStage(state.lanes, laneId) !== rollupOf(itemId, graph).bucket) return
+        if (!canPlaceInSection(itemId, laneId, graph)) return
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (existing && existing.laneId === laneId) return
         const placements = existing
@@ -1673,7 +1677,7 @@ export const useStore = create<Store>()(
         if (!target || target.workflow !== 'initiatives') return
         if (!isLeaf(state.lanes, laneId)) return
         const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
-        if (effectiveStage(state.lanes, laneId) !== rollupOf(itemId, graph).bucket) return
+        if (!canPlaceInSection(itemId, laneId, graph)) return
         const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (!moving) return
         // A rank within the same cell is an arrangement, not a move.

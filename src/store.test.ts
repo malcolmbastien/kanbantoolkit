@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
+import { decompositionChildren, decompositionParent, checklistProgress, descendants, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
@@ -1433,6 +1433,36 @@ describe('store actions', () => {
     }
   })
 
+  it('an initiative with nothing below it is its own leaf: it can be committed before it is broken down', () => {
+    s().selectBoard('b-strategy')
+    const section = (stage: Stage) => topLevelLanes(s().lanes, 'b-strategy', 'initiatives').find((l) => l.stage === stage)!
+    const laneOf = (id: string, boardId = 'b-strategy') => s().placements.find((p) => p.itemId === id && p.boardId === boardId)!.laneId
+    // The fixture's unplanned initiative: no descendants at all.
+    expect(descendants('init-explore', graph())).toEqual([])
+    expect(laneOf('init-explore')).toBe(section('backlog').id)
+
+    // It moves between sections, and back — the section is the only fact there is.
+    s().moveInitiative('init-explore', 'b-strategy', section('notStarted').id)
+    expect(laneOf('init-explore')).toBe(section('notStarted').id)
+    s().moveInitiativeToIndex('init-explore', 'b-strategy', section('inProgress').id, 0)
+    expect(laneOf('init-explore')).toBe(section('inProgress').id)
+    s().moveInitiative('init-explore', 'b-strategy', section('backlog').id)
+    expect(laneOf('init-explore')).toBe(section('backlog').id)
+    // And it records where it went, like any other move.
+    expect((s().items.find((i) => i.id === 'init-explore')!.log ?? []).at(-1)).toMatchObject({ kind: 'moved', toStage: 'backlog' })
+
+    // An initiative with work below still may not cross a section: the derivation governs.
+    expect(descendants('init-signup', graph()).length).toBeGreaterThan(0)
+    s().selectBoard('b-atlas')
+    const before = laneOf('init-signup', 'b-atlas')
+    const atlasSection = (stage: Stage) => topLevelLanes(s().lanes, 'b-atlas', 'initiatives').find((l) => l.stage === stage)!
+    s().moveInitiative('init-signup', 'b-atlas', atlasSection('done').id)
+    expect(laneOf('init-signup', 'b-atlas')).toBe(before)
+    // …but it may still be rearranged within its own section.
+    s().moveInitiative('init-signup', 'b-atlas', atlasSection('inProgress').id)
+    expect(laneOf('init-signup', 'b-atlas')).toBe(atlasSection('inProgress').id)
+  })
+
   it('a filter narrows what you see, never the load a column carries', () => {
     const ns = laneByName('b-atlas', 'Not Started')
     const before = laneCardCount(s().lanes, s().placements, ns.id)
@@ -1856,10 +1886,14 @@ describe('initiative rank within a cell', () => {
   })
 
   it('another section\u2019s cell and a container are refused', () => {
-    const ipCell = s().placements.find((p) => p.itemId === 'init-activation' && p.boardId === 'b-strategy')!.laneId
+    // init-efficiency has work below it (init-delivery, sitting in Not Started), so its section
+    // is derived and Done is another section entirely. A childless initiative is its own leaf and
+    // *may* cross — that carve-out has its own test.
+    const doneCell = topLevelLanes(s().lanes, 'b-strategy', 'initiatives').find((l) => l.stage === 'done')!.id
+    expect(descendants('init-efficiency', graph()).length).toBeGreaterThan(0)
+    expect(rollupOf('init-efficiency', graph()).bucket).toBe('notStarted')
     const before = JSON.stringify(s().placements)
-    // init-explore is a Backlog initiative: the In Progress cell is another section entirely.
-    s().moveInitiativeToIndex('init-explore', 'b-strategy', ipCell, 0)
+    s().moveInitiativeToIndex('init-efficiency', 'b-strategy', doneCell, 0)
     expect(JSON.stringify(s().placements)).toBe(before)
   })
 })

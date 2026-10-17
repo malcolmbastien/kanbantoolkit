@@ -16,6 +16,7 @@ import {
   isComplete,
   lensRole,
   openDescendants,
+  canPlaceInSection,
   rollupOf,
   statusOf,
   uncommittedBelow,
@@ -154,8 +155,10 @@ export function BoardSummary({
     // may only stand where a drop would be accepted.
     if (!cellId || !isLeaf(lanes, cellId)) return null
     // An initiative may only be rearranged within its own section — and its own cell counts:
-    // the initiatives of a cell are a rank, and reordering it is a move.
-    if (sectionId !== here.sectionId) return null
+    // the initiatives of a cell are a rank, and reordering it is a move. An initiative with
+    // nothing below it is the exception, because its section is the only fact there is; the rule
+    // lives in the domain (`canPlaceInSection`), so this preview and the store cannot disagree.
+    if (!canPlaceInSection(itemId!, cellId, graph) && sectionId !== here.sectionId) return null
     // The position the drop will write: the cards that remain, in rank order — which is the
     // order they render in — and how many of them sit above the pointer.
     const cards = [...cell.querySelectorAll<HTMLElement>('[data-card-id]')].filter((el) => el.dataset.cardId !== itemId)

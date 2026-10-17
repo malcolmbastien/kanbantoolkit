@@ -347,6 +347,24 @@ export function rollupOf(id: string, graph: Graph): Rollup {
  * Zero for anything still in Backlog itself (nothing is claimed yet) and for anything
  * Done (every leaf is finished by definition).
  */
+/**
+ * May this initiative sit in this cell?
+ *
+ * Its section is *derived* from the work below it, so a move may rearrange a cell within a
+ * section but never cross into another one — **unless there is no work below**. An initiative
+ * with nothing under it is its own leaf (`rollupOf` reads its own placement), and then its
+ * section is the only fact there is: it may be committed before it is broken down, and moved
+ * back afterwards. Refusing that made decomposition a precondition of commitment, which is
+ * backwards.
+ *
+ * Both the store's move actions and the initiatives surface's drop preview ask this, so the
+ * gesture and the model cannot disagree about where a drop is allowed.
+ */
+export function canPlaceInSection(itemId: string, laneId: string, graph: Graph): boolean {
+  if (descendants(itemId, graph).length === 0) return true
+  return effectiveStage(graph.lanes, laneId) === rollupOf(itemId, graph).bucket
+}
+
 export function uncommittedBelow(id: string, graph: Graph): number {
   const roll = rollupOf(id, graph)
   return roll.bucket === 'notStarted' || roll.bucket === 'inProgress' ? roll.uncommitted : 0
