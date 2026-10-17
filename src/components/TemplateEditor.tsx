@@ -10,6 +10,7 @@ import {
   templateChildren,
   templateDuplicateLane,
   templateInsertLaneAfter,
+  templateLaneIsRow,
   templateMoveLane,
   templateRemoveLane,
   templateRenameLane,
@@ -315,6 +316,8 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
   const isTop = lane.parentKey === null
   const rows = lane.orientation === 'rows'
   const siblings = templateChildren(template, lane.parentKey)
+  /** This lane is a row of its parent's stack, not a column beside its siblings. */
+  const isRow = templateLaneIsRow(template, lane.key)
   const idx = siblings.findIndex((s) => s.key === lane.key)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBtnRef = useRef<HTMLButtonElement>(null)
@@ -322,7 +325,11 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
   return (
     <div
       className="flex min-w-[112px] flex-col overflow-hidden rounded border border-slate-300 bg-slate-50"
-      style={{ flexGrow: leafCount(template, lane.key), flexBasis: 0 }}
+      // A lane in a split of columns claims width in proportion to the cells beneath it, which
+      // is what `leafCount` is for. A lane in a split of *rows* must not: `flexBasis: 0` in a
+      // column whose height is its own content is a lane with no height at all — which is how
+      // a stack of rows arrived as two hairlines, headers and controls clipped away with them.
+      style={isRow ? undefined : { flexGrow: leafCount(template, lane.key), flexBasis: 0 }}
     >
       <div
         className="mx-0.5 mt-0.5 flex items-center gap-1.5 rounded border border-slate-300 bg-white px-1.5 py-0.5"
@@ -347,7 +354,7 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
             isLeafCell={!isContainer}
             top={isTop}
             orientation={lane.orientation}
-            horizontal={(siblings.find((s) => s.key === lane.parentKey)?.orientation ?? 'columns') !== 'rows'}
+            horizontal={!isRow}
             canMovePrev={idx > 0}
             canMoveNext={idx < siblings.length - 1}
             onMove={(d) => apply(templateMoveLane(template, lane.key, d))}

@@ -182,6 +182,23 @@ export function templateChildren(template: BoardTemplate, parentKey: string | nu
 }
 
 /**
+ * Whether a lane is one *row* of its parent's stack rather than a column beside its siblings.
+ *
+ * It decides two things a surface must not guess at: which way the lane moves (up/down, not
+ * left/right) and what it claims room with — a lane in a split of columns takes width in
+ * proportion to the cells beneath it, while a lane in a split of rows takes its own height.
+ * Guessing it wrong is not a small thing on screen: `flex-basis: 0` on a row of a stack whose
+ * height is its own content is a lane with no height at all, controls and all.
+ *
+ * A top-level column is not a row: the root arranges its children as columns.
+ */
+export function templateLaneIsRow(template: BoardTemplate, key: string): boolean {
+  const lane = template.lanes.find((l) => l.key === key)
+  const parent = lane?.parentKey == null ? undefined : template.lanes.find((l) => l.key === lane.parentKey)
+  return parent?.orientation === 'rows'
+}
+
+/**
  * The bridge to the kernels: template lanes become structural nodes under a phantom root
  * (the thing the board root is on the board), and kernel results come back as template
  * lanes. The extra template fields (WIP limit, policy) ride along in the spread.

@@ -10,6 +10,7 @@ import {
   templateDuplicateLane,
   templateInsertLaneAfter,
   templateFromBoard,
+  templateLaneIsRow,
   templateMoveLane,
   templateRemoveLane,
   templateRenameLane,
@@ -278,6 +279,27 @@ describe('editing a template’s design', () => {
       'One at a time.',
     )
     expect(templateSetOrientation(t, 'k4', 'rows').find((l) => l.key === 'k4')?.orientation).toBe('rows')
+  })
+
+  it('knows which lanes are rows of a stack and which are columns beside their siblings', () => {
+    const t = scrum()
+    // Top-level typed columns sit in the root's arrangement, which is columns.
+    expect(templateLaneIsRow(t, 'k0')).toBe(false)
+    // 'Ready to Start' is an explicit split of columns, so its children are columns.
+    expect(templateLaneIsRow(t, 'k1')).toBe(false)
+    expect(templateLaneIsRow(t, 'k2')).toBe(false)
+
+    // A cell split into rows: the two new lanes are rows of that stack…
+    const rows = { ...t, lanes: templateSplitLane(t, 'k0', 'rows', keys()) }
+    expect(childNames(rows.lanes, 'k0')).toEqual(['Row 1', 'Row 2'])
+    expect(rows.lanes.filter((l) => l.parentKey === 'k0').map((l) => templateLaneIsRow(rows, l.key))).toEqual([true, true])
+
+    // …and flipping a split flips the answer for its children, never for itself.
+    const flipped = { ...t, lanes: templateSetOrientation(t, 'k1', 'rows') }
+    expect(templateLaneIsRow(flipped, 'k2')).toBe(true)
+    expect(templateLaneIsRow(flipped, 'k1')).toBe(false)
+    // A lane that is not there is not a row — the editor asks this while lanes come and go.
+    expect(templateLaneIsRow(t, 'nope')).toBe(false)
   })
 
   it('reorders sub-lanes within their parent, and leaves the columns fixed', () => {
