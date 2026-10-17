@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Card, type CardParent } from './Card'
 import { DragLayer } from './DragLayer'
 import { DropGap } from './DropGap'
+import { InlineEdit } from './InlineEdit'
 import { useCardLift } from '@/lib/useCardLift'
 import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
@@ -498,9 +499,24 @@ function Cell({
             </button>
           )}
         </span>
-        <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
-          {lane.name}
-        </span>
+        {editable ? (
+          // Edited where it is read, exactly as on the cards workflow: this flow has no
+          // edit cluster of its own on a program board, so the name is the way in.
+          <InlineEdit
+            value={lane.name}
+            onSave={(name) => renameLane(lane.id, name)}
+            ariaLabel={`Rename ${lane.name}`}
+            title="Rename this lane"
+            className="w-full rounded text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
+            // A ring, not a border: the header bar must not grow by a pixel the moment a
+            // name is clicked — the column's whole body would shift with it.
+            inputClassName="w-full rounded bg-white px-1 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+          />
+        ) : (
+          <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
+            {lane.name}
+          </span>
+        )}
         <span className="flex items-center justify-end gap-1">
           <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums text-white">
             {count}

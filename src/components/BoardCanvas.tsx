@@ -10,6 +10,7 @@ import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
 import { LaneEditControls } from './LaneCtl'
 import { DragLayer } from './DragLayer'
+import { InlineEdit } from './InlineEdit'
 import { useCardLift } from '@/lib/useCardLift'
 import { DropColumn } from './DropColumn'
 import { LanePolicy, LaneSettings } from './LaneSettings'
@@ -202,7 +203,23 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               </button>
             ) : null}
           </span>
-          <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{lane.name || 'Board'}</span>
+          {/* The name is the lane's own, so in edit mode it is edited where it is read —
+              no trip to the settings popover to type a word. Out of edit mode it is a
+              label like any other: the board is for working, not for designing. */}
+          {editMode && !isRoot ? (
+            <InlineEdit
+              value={lane.name}
+              onSave={(name) => ctx.renameLane(lane.id, name)}
+              ariaLabel={`Rename ${lane.name || 'this lane'}`}
+              title="Rename this lane"
+              className="w-full rounded text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
+              // A ring, not a border: the header bar must not grow by a pixel the moment a
+              // name is clicked — the column's whole body would shift with it.
+              inputClassName="w-full rounded bg-white px-1 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+            />
+          ) : (
+            <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{lane.name || 'Board'}</span>
+          )}
           <span className="flex items-center justify-end gap-1">
             <span
               className={cn(

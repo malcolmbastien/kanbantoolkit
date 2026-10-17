@@ -335,9 +335,22 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
         className="mx-0.5 mt-0.5 flex items-center gap-1.5 rounded border border-slate-300 bg-white px-1.5 py-0.5"
         style={lane.stage ? { borderTop: `3px solid ${STAGE_ACCENT[lane.stage]}` } : undefined}
       >
-        <span className="truncate text-micro font-bold uppercase tracking-wide text-slate-700" title={lane.name}>
-          {lane.name}
-        </span>
+        {editing ? (
+          // The lane's own name, edited where it is read — the same as the board's headers.
+          <InlineEdit
+            value={lane.name}
+            onSave={(name) => apply(templateRenameLane(template, lane.key, name))}
+            ariaLabel={`Rename ${lane.name}`}
+            title="Rename this lane"
+            className="min-w-0 flex-1 truncate rounded text-left text-micro font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-900/5"
+            // A ring, not a border, so the lane's header bar keeps its height while typing.
+            inputClassName="min-w-0 flex-1 rounded px-1 text-micro font-bold uppercase tracking-wide text-slate-800 outline-none ring-1 ring-inset ring-indigo-300"
+          />
+        ) : (
+          <span className="truncate text-micro font-bold uppercase tracking-wide text-slate-700" title={lane.name}>
+            {lane.name}
+          </span>
+        )}
         {lane.wipLimit !== undefined && (
           <span className="ml-auto shrink-0 text-micro font-semibold tabular-nums text-slate-600">
             WIP {lane.wipLimit}
