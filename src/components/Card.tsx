@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
@@ -151,7 +152,7 @@ const cardKeyboard = (
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
       ? onLift
@@ -613,3 +614,44 @@ function Avatar({ user }: { user: User }) {
     </span>
   )
 }
+
+/**
+ * When a card can be skipped.
+ *
+ * A board re-renders every card it draws whenever anything about the board changes — a filter, a
+ * selection, a lane's WIP — and with two hundred cards on screen that is two hundred React
+ * commits, which is where the time goes (measured: React's commit phase, not the derivations).
+ * Most of those cards are unchanged, and this says so by comparing everything a card draws.
+ *
+ * The callbacks are deliberately *not* compared. That is safe because the only ones that could
+ * go stale — the drag gesture and where it lands — read the newest state through a ref rather
+ * than through their own closure (see `dragRef` in BoardCanvas). Everything else is a store
+ * action, which never changes.
+ */
+export function cardPropsEqual(a: Props, b: Props): boolean {
+  // An item is immutable: the store replaces it rather than mutating it, so a new reference is
+  // a real change and the same reference is not.
+  if (a.item !== b.item || a.type !== b.type || a.users !== b.users) return false
+  if (a.ref_ !== b.ref_ || a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
+  if (a.draggable !== b.draggable || a.locked !== b.locked || a.lens !== b.lens) return false
+  if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
+  if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title || a.parent?.ref_ !== b.parent?.ref_) return false
+  if (a.symbols?.length !== b.symbols?.length) return false
+  if (a.symbols && b.symbols && a.symbols.some((sym, i) => sym.bucket !== b.symbols![i].bucket || sym.title !== b.symbols![i].title)) return false
+  return summaryEqual(a.summary, b.summary)
+}
+
+const summaryEqual = (a: CardSummary, b: CardSummary) =>
+  a.childCount === b.childCount &&
+  a.dependentsCount === b.dependentsCount &&
+  a.linksCount === b.linksCount &&
+  a.blockedBelow === b.blockedBelow &&
+  a.openDescendants === b.openDescendants &&
+  a.rollupPercent === b.rollupPercent &&
+  a.done === b.done &&
+  a.ageDays === b.ageDays &&
+  a.checklist?.done === b.checklist?.done &&
+  a.checklist?.total === b.checklist?.total
+
+/** A card that does not re-render when nothing about it changed. See `cardPropsEqual`. */
+export const Card = memo(CardBase, cardPropsEqual)

@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from 'react'
+import { Fragment, useCallback, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -647,12 +647,19 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   // The card in the air, and the single gap it would land in. The gesture itself is shared with
   // the initiatives workflow; only where the card lands is this surface's own.
-  const dropCardAt = (itemId: string, laneId: string, index: number) => {
+  //
+  // Read through a ref, so the function itself never changes identity: a card that is memoized
+  // (see `Card`) keeps the callback it was first given, and it must not be a stale one. The
+  // lane map is the part that moves, so the ref carries it.
+  const dragRef = useRef({ onMove, boardId, moveCardToIndex, effectiveLane })
+  dragRef.current = { onMove, boardId, moveCardToIndex, effectiveLane }
+  const dropCardAt = useCallback((itemId: string, laneId: string, index: number) => {
     // Changing lane goes through the move seam first — that is the path a board can intercept.
     // Landing at a position is then a plain reorder inside the target lane.
-    if (effectiveLane.get(itemId) !== laneId) onMove?.(itemId, boardId, laneId)
-    moveCardToIndex(itemId, boardId, laneId, index)
-  }
+    const { onMove: move, boardId: board, moveCardToIndex: place, effectiveLane: lanes } = dragRef.current
+    if (lanes.get(itemId) !== laneId) move?.(itemId, board, laneId)
+    place(itemId, board, laneId, index)
+  }, [])
 
   /** The lane under the pointer, and the gap in it the card would land in. */
   const gapUnder = (x: number, y: number) => {
