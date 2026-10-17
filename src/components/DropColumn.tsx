@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { DropGap } from './DropGap'
 
 /**
  * A lane's cards, and the gap a lifted card would land in.
@@ -19,6 +20,7 @@ export function DropColumn({
   laneId,
   items,
   draggingId,
+  draggingSize,
   at,
   footer,
 }: {
@@ -27,6 +29,8 @@ export function DropColumn({
   items: Array<{ id: string; node: React.ReactNode }>
   /** The card in the air, if any — lifted out, so the lane previews where the drop lands. */
   draggingId?: string | null
+  /** The lifted card's measurements, so the gap is its shape rather than a guess at one. */
+  draggingSize?: { width: number; height: number } | null
   /** The gap currently shown in this lane, if any. */
   at?: number | null
   footer?: React.ReactNode
@@ -36,13 +40,9 @@ export function DropColumn({
   const remaining = draggingId ? items.filter((i) => i.id !== draggingId) : items
 
   // A shadow, not a box: the lifted card is the thing you are holding, so what it leaves
-  // behind is the shape it will occupy — recessed, the way a shadow is.
-  const placeholder = (
-    <div
-      data-drop-placeholder
-      className="min-h-[112px] w-[180px] shrink-0 rounded-md bg-slate-900/[0.08] shadow-[inset_0_2px_6px_rgba(15,23,42,0.12)] ring-1 ring-inset ring-slate-900/10"
-    />
-  )
+  // behind is the shape it will occupy — recessed, the way a shadow is, and the card's own
+  // size, so a tall card does not leave a short shadow.
+  const placeholder = <DropGap width={draggingSize?.width} height={draggingSize?.height} />
 
   return (
     <div data-lane-id={laneId} className="flex min-h-[96px] flex-1 flex-col gap-1 p-1 transition">

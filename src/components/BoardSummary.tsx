@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Card, type CardParent } from './Card'
 import { DragLayer } from './DragLayer'
+import { DropGap } from './DropGap'
 import { useCardLift } from '@/lib/useCardLift'
 import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
@@ -204,11 +205,9 @@ export function BoardSummary({
     out.splice(
       at,
       0,
-      <div
-        key="drop-gap"
-        data-drop-placeholder
-        className="min-h-[68px] w-full shrink-0 rounded-md bg-slate-900/[0.08] shadow-[inset_0_2px_6px_rgba(15,23,42,0.12)] ring-1 ring-inset ring-slate-900/10"
-      />,
+      // The card's own measurements, so the shadow is the shape that will land there — an
+      // initiative carrying a parent chip and a blocked row is taller than a plain card.
+      <DropGap key="drop-gap" width={lift?.width} height={lift?.height} full />,
     )
     return out
   }
