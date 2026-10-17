@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, MoreHorizontal, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
@@ -519,20 +519,6 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
               </span>
             )}
             {lensButton}
-            {onContextMenu && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  const r = e.currentTarget.getBoundingClientRect()
-                  onContextMenu(item.id, r.right - 4, r.bottom + 4)
-                }}
-                className="shrink-0 rounded text-slate-600 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:text-slate-700 pointer-coarse:-m-1.5 pointer-coarse:p-1.5 pointer-coarse:opacity-100"
-                title="More actions"
-                aria-label="Card actions"
-              >
-                <MoreHorizontal size={13} />
-              </button>
-            )}
           </span>
         </div>
         <div className="mt-1 line-clamp-2 text-meta font-semibold leading-snug text-slate-900">{item.title}</div>

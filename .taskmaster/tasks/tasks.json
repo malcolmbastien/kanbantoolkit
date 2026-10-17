@@ -1282,13 +1282,39 @@
         "testStrategy": "Verified in the browser on Team Atlas (which defines security, tech-debt, customer-facing) and on \"\nCompany Strategy (which defines none): focus lists all three; typing \\\"te\\\" narrows to tech-debt and \"\nEnter adds it; a click adds one and keeps the caret in the field; typing a carried tag says \\\"Already \"\non this item.\\\"; typing nonsense points at board settings; an item wearing all of them says so; a \"\nboard with no tags says so; ArrowDown moves the highlight; Escape closes the list and leaves the \"\npanel, and a second Escape closes the panel. npm test, build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-17T23:55:00.000Z"
+      },
+      {
+        "id": "85",
+        "title": "A tag nobody defined yet can be created from the item that wants it",
+        "description": "The Tags field offers to create a word the board does not define, and applying it is one gesture — the tag is the board's from then on, managed in board settings like any other.",
+        "status": "done",
+        "dependencies": [
+          "84"
+        ],
+        "priority": "low",
+        "details": "Asked for after 84: let the user create tags on the fly from the Tags field.\\n\\n\"\nThe field now ends its list with `Create “x”` when the typed word is one the board has never \"\nheard. Enter (or a click) defines the tag on the board and applies it to the item in one \"\ngesture. Board settings stays where tags are *managed* — renamed, recoloured, removed — and \"\nthe created tag arrives there like any other.\\n\\n\"\n`addTag` now returns the new tag's id so the caller can use the tag it has just defined: two \"\nfacts in the model (the board's vocabulary, the item's set), one gesture in the panel. \"\n`toggleItemTag`'s guard still runs, so nothing is applied that the board does not list.\\n\\n\"\nThe one thing it will not do is make a second tag differing only in case: a name the board \"\nalready defines — carried on this item or not — *is* that tag, and the list offers it instead \"\nof a create row.\\n\\n\"\nA new tag needs a colour, and somebody mid-thought should not have to pick one; but every \"\ncreated tag the same grey would make the board's vocabulary unreadable, which is the one thing \"\na tag is for. So `TAG_PALETTE` cycles — a default, not a decision, and board settings recolours \"\nany of them. The create row's tooltip says so.",
+        "testStrategy": "A store test: `addTag` hands back the id, the tag is on the board, `toggleItemTag` accepts it \"\nand the item carries it; the created tag is then an ordinary one (renamed, refused removal in \"\nuse) and a blank name creates nothing. In the browser on Team Atlas: typing \\\"compliance\\\" \"\noffers `Create “compliance”`, Enter applies it and the board defines it in the palette's next \"\ncolour; typing a name the board already defines offers the tag rather than a second one. \"\nnpm test, build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T00:30:00.000Z"
+      },
+      {
+        "id": "86",
+        "title": "The card's hover kebab is gone; the menu keeps its other doors",
+        "description": "Asked for: remove the kebab menu icon from the top right of cards on hover.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "low",
+        "details": "The narrow card drew a `MoreHorizontal` button in its header row, revealed on hover, wired to \"\n`openCardMenu`. It is removed, and with it the import.\\n\\n\"\nThe card menu is unchanged and still reachable three ways: right-click (on the card root), \"\nShift+F10 or the ContextMenu key on a focused card (`cardKeyboard`), and — for touch — the item \"\npanel, which carries the same actions. The `onContextMenu` prop stays exactly as it was, so \"\nnothing else moved.\\n\\n\"\nWhat this does give up: on a coarse pointer the button was the one always-visible door to the \"\nmenu (`pointer-coarse:opacity-100`), and there is no long-press. Tap → panel is the touch path \"\nnow. A long-press could be added to `useCardLift` if the menu is wanted there.",
+        "testStrategy": "Verified in the browser: no element with `aria-label=\\\"Card actions\\\"` remains on the board; \"\nright-click still opens the card menu, and Shift+F10 on a focused card still opens it. npm \"\ntest, build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T00:30:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T23:55:00.000Z",
-      "taskCount": 83,
-      "completedCount": 70,
+      "lastModified": "2026-10-18T00:30:00.000Z",
+      "taskCount": 85,
+      "completedCount": 72,
       "tags": [
         "backlog"
       ]

@@ -88,6 +88,15 @@ export function chipColors(hex: string): { background: string; color: string } {
   return { background: mix(hex, '#000000', 0.65), color: '#ffffff' }
 }
 
+/**
+ * The colours a tag is given when it is created from an item rather than from board settings.
+ *
+ * Somebody who types a new tag is mid-thought and should not have to choose a colour; but every
+ * new tag the same grey would make the board's vocabulary unreadable, which is the one thing a
+ * tag is for. So they cycle — a default, not a decision: board settings recolours any of them.
+ */
+export const TAG_PALETTE = ['#0ea5e9', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#64748b']
+
 /** Solid-ish chip styling for a stage (used on lane headers). */
 export function stageChip(stage: Stage): string {
   switch (stage) {

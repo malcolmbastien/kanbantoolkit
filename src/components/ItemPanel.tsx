@@ -45,7 +45,7 @@ import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
-import { chipColors, DEP_STATE_STYLES, stageChip } from '@/lib/colors'
+import { chipColors, DEP_STATE_STYLES, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
@@ -103,6 +103,7 @@ export function ItemPanel({ itemId }: Props) {
   const duplicateCard = useStore((s) => s.duplicateCard)
   const setInitiativeKind = useStore((s) => s.setInitiativeKind)
   const toggleItemTag = useStore((s) => s.toggleItemTag)
+  const addTag = useStore((s) => s.addTag)
   const askConfirm = useStore((s) => s.askConfirm)
   const boardSurface = useStore(isBoardSurface)
   const addAssignee = useStore((s) => s.addAssignee)
@@ -677,11 +678,16 @@ export function ItemPanel({ itemId }: Props) {
                       </span>
                     )
                   })}
-                  {/* Type to find one: the board's vocabulary, filtered as you go. */}
+                  {/* Type to find one: the board's vocabulary, filtered as you go — or to make
+                      a new one, which the board settings then owns like any other. */}
                   <TagInput
                     tags={boardTagList}
                     carried={item.tagIds ?? []}
                     onAdd={(id) => toggleItemTag(boardId, item.id, id)}
+                    onCreate={(name) => {
+                      const id = addTag(boardId, name, TAG_PALETTE[boardTagList.length % TAG_PALETTE.length])
+                      if (id) toggleItemTag(boardId, item.id, id)
+                    }}
                     className="min-w-[7rem] flex-1"
                   />
                 </div>

@@ -302,7 +302,7 @@ export interface Actions {
    */
   toggleItemTag: (boardId: string, itemId: string, tagId: string) => void
   /** A board's own tags, like its kinds and for the same reason. */
-  addTag: (boardId: string, name: string, color: string) => void
+  addTag: (boardId: string, name: string, color: string) => string | undefined
   updateTag: (boardId: string, id: string, patch: Partial<Tag>) => void
   /** Refused while any item still carries it, and the settings say how many do. */
   removeTag: (boardId: string, id: string) => void
@@ -1596,10 +1596,14 @@ export const useStore = create<Store>()(
 
       addTag: (boardId, name, color) => {
         const trimmed = name.trim()
-        if (!trimmed) return
+        if (!trimmed) return undefined
+        // The id comes back so a caller can apply the tag it just defined — defining and using it
+        // is one gesture in the panel, even though it is two facts in the model.
+        const tag: Tag = { id: uid(), name: trimmed, color }
         set({
-          boards: get().boards.map((b) => (b.id === boardId ? { ...b, tags: [...(b.tags ?? []), { id: uid(), name: trimmed, color }] } : b)),
+          boards: get().boards.map((b) => (b.id === boardId ? { ...b, tags: [...(b.tags ?? []), tag] } : b)),
         })
+        return tag.id
       },
 
       updateTag: (boardId, id, patch) => {

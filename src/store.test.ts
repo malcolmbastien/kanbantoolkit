@@ -1612,6 +1612,31 @@ describe('store actions', () => {
     expect(tagsOf(s().boards, item('st-email'))).toEqual([])
   })
 
+  it('a tag typed from an item is defined on the board and applied in one gesture', () => {
+    s().selectBoard('b-atlas')
+    const board = () => s().boards.find((b) => b.id === 'b-atlas')!
+    const item = (id: string) => s().items.find((i) => i.id === id)!
+
+    expect(board().tags ?? []).toEqual([])
+    // `addTag` hands back the id, so the caller can use the tag it has just defined: two facts in
+    // the model, one gesture in the panel.
+    const id = s().addTag('b-atlas', 'compliance', '#0ea5e9')
+    expect(id).toBeTruthy()
+    expect(board().tags!.map((t) => t.name)).toEqual(['compliance'])
+    s().toggleItemTag('b-atlas', 'st-email', id!)
+    expect(item('st-email').tagIds).toEqual([id])
+
+    // An ordinary tag from then on: managed in board settings, and refused a removal in use.
+    s().updateTag('b-atlas', id!, { name: 'compliance & audit' })
+    expect(tagsOf(s().boards, item('st-email')).map((t) => t.name)).toEqual(['compliance & audit'])
+    expect(itemsCarryingTag(s().items, id!)).toBe(1)
+    s().removeTag('b-atlas', id!)
+    expect(board().tags!.map((t) => t.name)).toEqual(['compliance & audit'])
+
+    // A blank name is nothing to create.
+    expect(s().addTag('b-atlas', '   ', '#0ea5e9')).toBeUndefined()
+  })
+
   it('tags change nothing else: the same rollup, WIP, health and flow either way', () => {
     const snapshot = () => {
       const g = graph()
