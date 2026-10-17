@@ -24,13 +24,13 @@ import {
 } from './board'
 import { rollupOf } from './derive'
 import { childrenOf, placementsInOrder, rootLane } from './lanes'
-import { createSeed } from './seed'
+import { createFixture } from './fixture'
 import type { Lane, TemplateLane, Workflow } from './types'
 
 const names = (groups: ReturnType<typeof boardsByBand>) => groups.flatMap((g) => g.boards.map((b) => b.name))
 
 describe('board workspace — grouping, ordering and the name filter', () => {
-  const s = createSeed()
+  const s = createFixture()
 
   it('groups by flight level top-down, then by name', () => {
     const groups = boardsByBand(s.boards)
@@ -77,7 +77,7 @@ describe('board workspace — grouping, ordering and the name filter', () => {
 })
 
 describe('board templates — a design, not its work', () => {
-  const s = createSeed()
+  const s = createFixture()
   const atlas = () => s.boards.find((b) => b.id === 'b-atlas')!
 
   it('every built-in template has exactly four top-level columns, one per stage', () => {
@@ -158,7 +158,7 @@ describe('board templates — a design, not its work', () => {
 })
 
 describe('duplicating a board', () => {
-  const s = createSeed()
+  const s = createFixture()
   const keys = () => {
     let n = 0
     return () => `new${++n}`
@@ -218,7 +218,7 @@ describe('duplicating a board', () => {
 })
 
 describe('retyping an item', () => {
-  const s = createSeed()
+  const s = createFixture()
   const types = s.issueTypes
   const initiative = s.items.find((i) => i.id === 'init-signup')!
   const card = s.items.find((i) => i.id === 'st-sso')!
@@ -235,7 +235,7 @@ describe('retyping an item', () => {
 })
 
 describe('editing a template’s design', () => {
-  const scrum = () => createSeed().boardTemplates.find((t) => t.id === 'tpl-scrum')!
+  const scrum = () => createFixture().boardTemplates.find((t) => t.id === 'tpl-scrum')!
   /** Fresh keys, as the editor mints them. */
   const keys = () => {
     let n = 0

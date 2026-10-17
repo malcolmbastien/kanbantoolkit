@@ -27,7 +27,7 @@ import {
   type Graph,
 } from './derive'
 import { effectiveStage, inheritedWipState, isLeaf, laneCardCount, leafLanes, rootLane, strongestWip, topLevelLanes, wipState } from './lanes'
-import { createSeed } from './seed'
+import { createFixture } from './fixture'
 import type { FlowState, Item, Lane } from './types'
 
 const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes })
@@ -35,7 +35,7 @@ const laneByName = (s: FlowState, boardId: string, name: string) =>
   s.lanes.find((l) => l.boardId === boardId && l.name === name)!
 
 describe('generic hierarchy — parent / child', () => {
-  const s = createSeed()
+  const s = createFixture()
   const g = graphOf(s)
 
   it('depth is derived from the parent chain', () => {
@@ -53,7 +53,7 @@ describe('generic hierarchy — parent / child', () => {
 })
 
 describe('recursive LeanKit lanes', () => {
-  const s = createSeed()
+  const s = createFixture()
 
   it('every board root is a column split with the standard typed columns', () => {
     expect(rootLane(s.lanes, 'b-atlas', 'cards')?.orientation).toBe('columns')
@@ -77,7 +77,7 @@ describe('recursive LeanKit lanes', () => {
 })
 
 describe('dependency state is computed from cells', () => {
-  const s = createSeed()
+  const s = createFixture()
   const g = graphOf(s)
 
   it('unresolved dependency + not-started dependent = Open / planning risk', () => {
@@ -91,7 +91,7 @@ describe('dependency state is computed from cells', () => {
   })
 
   it('flips to Satisfied once the dependency moves to a done lane — dependents untouched', () => {
-    const s2 = createSeed()
+    const s2 = createFixture()
     const done = laneByName(s2, 'b-nova', 'Done')
     s2.placements = s2.placements.map((p) =>
       p.itemId === 'init-gateway' && p.boardId === 'b-nova' ? { ...p, laneId: done.id } : p,
@@ -109,7 +109,7 @@ describe('dependency state is computed from cells', () => {
 })
 
 describe('blocked is an explicit status, not derived from links', () => {
-  const s = createSeed()
+  const s = createFixture()
   const g = graphOf(s)
 
   it('reads the status set on the item', () => {
@@ -118,7 +118,7 @@ describe('blocked is an explicit status, not derived from links', () => {
   })
 
   it('blocking an item does not change its cell or dependency state', () => {
-    const s2 = createSeed()
+    const s2 = createFixture()
     const before = statusOf('st-email', graphOf(s2))
     s2.items = s2.items.map((i) => (i.id === 'st-email' ? { ...i, blocked: true } : i))
     const after = statusOf('st-email', graphOf(s2))
@@ -136,7 +136,7 @@ describe('blocked is an explicit status, not derived from links', () => {
 })
 
 describe('archive — filed away, still in the data', () => {
-  const s = createSeed()
+  const s = createFixture()
   const g = graphOf(s)
 
   it('reads the archived flag', () => {
@@ -153,7 +153,7 @@ describe('archive — filed away, still in the data', () => {
 })
 
 describe('composition pressure and attribution', () => {
-  const s = createSeed()
+  const s = createFixture()
   const g = graphOf(s)
 
   it('a team initiative shows its open descendants', () => {
@@ -187,7 +187,7 @@ describe('composition pressure and attribution', () => {
 })
 
 describe('rollup — a parent status is determined by the lowest-level work', () => {
-  const s = createSeed()
+  const s = createFixture()
   const g = graphOf(s)
 
   it('all committed, some started → inProgress; all uncommitted → backlog', () => {
@@ -209,7 +209,7 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
   })
 
   it('progress is acknowledged even while part of the work is still uncommitted', () => {
-    const s2 = createSeed()
+    const s2 = createFixture()
     const backlog = laneByName(s2, 'b-atlas', 'Backlog')
     s2.placements = s2.placements.map((p) =>
       p.itemId === 'st-email' && p.boardId === 'b-atlas' ? { ...p, laneId: backlog.id } : p,
@@ -220,7 +220,7 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
   })
 
   it('moving the last Backlog leaf out returns the ancestors to a committed stage', () => {
-    const s2 = createSeed()
+    const s2 = createFixture()
     const backlog = laneByName(s2, 'b-nova', 'Backlog')
     const notStarted = laneByName(s2, 'b-nova', 'Not Started')
     // API gateway's three leaves all start in Backlog, so it and its parent are Backlog.
@@ -252,7 +252,7 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
   })
 
   it('flags a Not Started initiative too, once part of its work is uncommitted', () => {
-    const s2 = createSeed()
+    const s2 = createFixture()
     const ns = laneByName(s2, 'b-atlas', 'Not Started')
     const backlog = laneByName(s2, 'b-atlas', 'Backlog')
     s2.placements = s2.placements.map((p) => {
@@ -264,7 +264,7 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
   })
 
   it('all committed leaves done → the parent rolls up to done', () => {
-    const s2 = createSeed()
+    const s2 = createFixture()
     const done = laneByName(s2, 'b-atlas', 'Done')
     const children = ['st-signup-design', 'st-signup-form', 'st-email', 'st-sso', 'df-signup']
     s2.placements = s2.placements.map((p) =>
@@ -279,7 +279,7 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     // The Done stamp is `bucket === 'done'`, so this is the case that would make it lie:
     // every committed leaf finished, so the percentage reads 100, while one leaf sits in
     // Backlog. Completion is counted against every leaf, not against the committed ones.
-    const s2 = createSeed()
+    const s2 = createFixture()
     const done = laneByName(s2, 'b-atlas', 'Done')
     const backlog = laneByName(s2, 'b-atlas', 'Backlog')
     const finished = ['st-signup-design', 'st-signup-form', 'st-email', 'st-sso']
@@ -339,7 +339,7 @@ describe('WIP limit state', () => {
   })
 })
 
-describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () => {  const s = createSeed()
+describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () => {  const s = createFixture()
 
   it('every seeded board includes Backlog as the first typed column', () => {
     expect(s.boards.length).toBeGreaterThan(0)
@@ -363,7 +363,7 @@ describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () 
 })
 
 describe('boundary waiting — local cards waiting on an external item', () => {
-  const s = createSeed()
+  const s = createFixture()
 
   it('is true for a local card with a still-open dependency on the external item', () => {
     const g = graphOf(s)
@@ -377,7 +377,7 @@ describe('boundary waiting — local cards waiting on an external item', () => {
 })
 
 describe('lineage — the chain a card rolls up through', () => {
-  const s = createSeed()
+  const s = createFixture()
   const g = graphOf(s)
 
   it('walks from the root down to the item', () => {

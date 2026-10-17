@@ -1,520 +1,417 @@
-import type { Board, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, ItemLink, Lane, Placement, Objective, Stage, User, Workflow } from './types'
+import { STAGES, STAGE_LABELS } from './lanes'
+import { demoWorkspace } from './demo'
+import type { Edge, FlowState, Item, ItemLink, ItemLogEntry, Lane, Objective, Placement, Stage } from './types'
+
+export { BUILT_IN_TEMPLATES } from './demo'
+
+/**
+ * The demo: what a client sees when they open the app, and what **Reset** puts back.
+ *
+ * The boards are not here — they live in `demo.ts`, shared with the fixture the tests run against,
+ * because "the same boards, different work" is the point of this file. What is here is a quarter
+ * of work on them: a programme called *Meridian* growing from self-serve into the enterprise,
+ * spread over four altitudes so that every view has something real to say.
+ *
+ * A few things are deliberately imperfect, because a demo of a board that only shows tidy work
+ * demonstrates nothing:
+ *
+ * - **Team Atlas is waiting on Team Nova.** SSO cannot start until the identity platform lands, so
+ *   the boundary lane on Atlas has something to pin, and the initiative above it carries a
+ *   dependency risk.
+ * - **Two cards are blocked**, one of them in Backlog — blocked work that nobody has picked up.
+ * - **Some work is stale, some is unowned, one initiative has nothing under it yet**, so the health
+ *   column is not a row of identical green badges.
+ * - **One strategic initiative serves no OKR, and one objective is served by nothing**, which is
+ *   what the coverage gaps on the strategy map are for.
+ *
+ * Everything else is meant to read like a company that is doing fine: a queue, work in flight,
+ * things delivered and filed away, and a history old enough that Flow has a shape.
+ */
 
 const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 const DAY = 86_400_000
 
-/* ------------------------------------------------------------------ *
- * Demo org: "Meridian". Two teams, a company portfolio, and a couple of
- * OKRs. Small but complete enough to feel the model.
- * ------------------------------------------------------------------ */
-const issueTypes: IssueType[] = [
-  { id: 't-initiative', name: 'Initiative', color: '#6366f1' },
-  { id: 't-story', name: 'User Story', color: '#0ea5e9' },
-  { id: 't-epic', name: 'Epic', color: '#8b5cf6' },
-  { id: 't-bug', name: 'Bug', color: '#f43f5e' },
-  { id: 't-spike', name: 'Spike', color: '#f59e0b' },
-  { id: 't-task', name: 'Task', color: '#64748b' },
-  // Not a card type: it is what a decomposition child is, and the panel never offers it.
-  { id: 't-subtask', name: 'Sub-task', color: '#94a3b8' },
-]
-
-/** Demo people. Items reference these by id; cards show initials (or a photo). */
-const users: User[] = [
-  { id: 'u-mb', name: 'Maya Blake' },
-  { id: 'u-ds', name: 'Diego Santos' },
-  { id: 'u-rk', name: 'Riley Kim' },
-  { id: 'u-lm', name: 'Lena Moreau' },
-  { id: 'u-jt', name: 'Jonah Tran' },
-]
-
-const boards: Board[] = [
-  { id: 'b-strategy', name: 'Company Strategy', band: 'portfolio', description: 'Where objectives and their coverage live — a strategic lens, not a workflow: the whole organisation reads it.', linkedBoardIds: ['b-lob', 'b-delivery'] },
-  { id: 'b-lob', name: 'Digital line of business', band: 'program', description: 'The digital line of business — its initiatives aggregate the boards beneath.', linkedBoardIds: ['b-portfolio'] },
-  // A Program that bridges the two team boards straight to the portfolio.
-  { id: 'b-delivery', name: 'Product Delivery', band: 'program', description: 'The delivery bridge: the two team boards’ initiatives, rolled up for management.', linkedBoardIds: ['b-atlas', 'b-nova'] },
-  { id: 'b-portfolio', name: 'Growth value stream', band: 'program', description: 'A coordination board over Team Atlas and Team Nova — it shows work, it does not hold it.', linkedBoardIds: ['b-atlas', 'b-nova'] },
-  { id: 'b-atlas', name: 'Team Atlas', band: 'team', description: 'Team Atlas’s own flow, as the team designed it — everything below the typed columns is theirs to rework.', defaultCardTypeId: 't-story' },
-  { id: 'b-nova', name: 'Team Nova', band: 'team', description: 'Team Nova’s own flow — its lanes, limits and policies are what the board does.', defaultCardTypeId: 't-story' },
-]
-
-const lanes: Lane[] = []
-let seq = 0
-function lane(
-  boardId: string,
-  name: string,
-  parentId: string | null,
-  order: number,
-  workflow: Workflow,
-  opts: Partial<Pick<Lane, 'orientation' | 'wipLimit' | 'stage'>> = {},
-): Lane {
-  const l: Lane = { id: `lane-${++seq}`, boardId, name, parentId, order, workflow, ...opts }
-  lanes.push(l)
-  return l
-}
-const root = (boardId: string, workflow: Workflow) => lane(boardId, '', null, 0, workflow, { orientation: 'columns' })
-
-/** The standard four typed columns, one cell each — where either workflow starts. */
-function columns(boardId: string, workflow: Workflow) {
-  const r = root(boardId, workflow)
-  const backlog = lane(boardId, 'Backlog', r.id, 0, workflow, { stage: 'backlog' })
-  const ns = lane(boardId, 'Not Started', r.id, 1, workflow, { stage: 'notStarted' })
-  const ip = lane(boardId, 'In Progress', r.id, 2, workflow, { stage: 'inProgress' })
-  const done = lane(boardId, 'Done', r.id, 3, workflow, { stage: 'done' })
-  return { r, backlog, ns, ip, done }
-}
-
-// The team's own flow, plus the initiatives workflow the board starts with. The two are
-// independent: In Progress splits into Dev / Test for the cards, while the initiatives
-// workflow keeps its four standard sections — a team refines its board, the organisation
-// still reads the same shape.
-function workflow(boardId: string, splitProgress: boolean) {
-  const c = columns(boardId, 'cards')
-  if (splitProgress) c.ip.orientation = 'columns'
-  const dev = splitProgress ? lane(boardId, 'Dev', c.ip.id, 0, 'cards') : c.ip
-  const test = splitProgress ? lane(boardId, 'Test', c.ip.id, 1, 'cards') : undefined
-  const init = columns(boardId, 'initiatives')
-  return { ...c, dev, test, init }
-}
-
-// A four-altitude demo: teams roll up to a value stream, to a line of business,
-// to the company strategy. Coordination/strategic boards aggregate, so their
-// lanes are plain columns.
-const st = workflow('b-strategy', false)
-const lob = workflow('b-lob', false)
-const del = workflow('b-delivery', false)
-const p = workflow('b-portfolio', false)
-// Team boards: In Progress refined into Dev / Test.
-const a = workflow('b-atlas', true)
-const n = workflow('b-nova', true)
-
-// Demo WIP limits: Not Started is at its limit (yellow); Backlog is over it (red).
-a.ns.wipLimit = 1
-n.backlog.wipLimit = 2
-
-// Demo lane policies (shown via the lane's info icon).
-a.ns.description =
-  'Pull one card at a time. A card may only enter once it is sized and has a clear owner.'
-a.test!.description =
-  'Definition of done: reviewed, automated checks green, and deployed to staging before it can move to Done.'
-
-/**
- * Templates the product ships with.
- *
- * These are part of the *app*, not of a user's data, so the persist migration adds any
- * that a stored state is missing (v22) rather than waiting for a Reset — a built-in
- * template should reach people who already had state before it existed.
- */
-export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
-  /**
-   * The Scrum workflow, from the reference board. Four top-level columns, one per stage —
-   * a board's root is always exactly that, and a fifth would be a column with a stage that
-   * already exists.
-   *
-   * The reference board draws *Ready for Delivery* and *Done* as two green columns; here
-   * they are the two cells of the Done column, which is what they are: accepted work and
-   * released work, both done, in one stage.
-   */
-  {
-    id: 'tpl-feature-flow',
-    name: 'Feature Flow',
-    band: 'team',
-    // Two card types, as the board it came from uses.
-    defaultCardTypeId: 't-story',
-    lanes: [
-      { key: 'k0', parentKey: null, order: 0, name: 'Pool of Ideas', stage: 'backlog' },
-      {
-        key: 'k1',
-        parentKey: null,
-        order: 1,
-        name: 'Not Started',
-        stage: 'notStarted',
-        orientation: 'columns',
-      },
-      {
-        key: 'k2',
-        parentKey: 'k1',
-        order: 0,
-        name: 'Feature Preparation',
-        orientation: 'columns',
-        wipLimit: 10,
-        description: 'Business case showing value, cost of delay, size estimate and design outline.',
-      },
-      { key: 'k3', parentKey: 'k2', order: 0, name: 'In Progress', wipLimit: 3 },
-      { key: 'k4', parentKey: 'k2', order: 1, name: 'Ready', wipLimit: 10 },
-      {
-        key: 'k5',
-        parentKey: 'k1',
-        order: 1,
-        name: 'Feature Selected',
-        wipLimit: 5,
-        description: 'Selection at the replenishment meeting chaired by the Product Director.',
-      },
-      { key: 'k6', parentKey: 'k1', order: 2, name: 'User Story Identified', wipLimit: 30 },
-      {
-        key: 'k7',
-        parentKey: null,
-        order: 2,
-        name: 'In Progress',
-        stage: 'inProgress',
-        orientation: 'columns',
-      },
-      {
-        key: 'k8',
-        parentKey: 'k7',
-        order: 0,
-        name: 'User Story Preparation',
-        orientation: 'columns',
-        wipLimit: 15,
-        description: 'Small, well-understood, testable, and agreed with the Product Director and the team.',
-      },
-      { key: 'k9', parentKey: 'k8', order: 0, name: 'In Progress' },
-      { key: 'k10', parentKey: 'k8', order: 1, name: 'Ready' },
-      {
-        key: 'k11',
-        parentKey: 'k7',
-        order: 1,
-        name: 'User Story Development',
-        orientation: 'columns',
-        wipLimit: 15,
-        description: "As per the team's Definition of Done.",
-      },
-      { key: 'k12', parentKey: 'k11', order: 0, name: 'In Progress' },
-      { key: 'k13', parentKey: 'k11', order: 1, name: 'Ready (Done)' },
-      {
-        key: 'k14',
-        parentKey: 'k7',
-        order: 2,
-        name: 'Feature Acceptance',
-        orientation: 'columns',
-        wipLimit: 8,
-      },
-      { key: 'k15', parentKey: 'k14', order: 0, name: 'In Progress' },
-      { key: 'k16', parentKey: 'k14', order: 1, name: 'Ready' },
-      {
-        key: 'k17',
-        parentKey: null,
-        order: 3,
-        name: 'Done',
-        stage: 'done',
-        orientation: 'columns',
-      },
-      {
-        key: 'k18',
-        parentKey: 'k17',
-        order: 0,
-        name: 'Deployment',
-        wipLimit: 5,
-        description: 'Risk assessed per the continuous deployment policy.',
-      },
-      { key: 'k19', parentKey: 'k17', order: 1, name: 'Delivered' },
-    ],
-  },
-  {
-    id: 'tpl-scrum',
-    name: 'Scrum',
-    band: 'team',
-    lanes: [
-      { key: 'k0', parentKey: null, order: 0, name: 'Product Backlog', stage: 'backlog' },
-      { key: 'k1', parentKey: null, order: 1, name: 'Ready to Start', stage: 'notStarted', orientation: 'columns' },
-      { key: 'k2', parentKey: 'k1', order: 0, name: 'Backlog Refinement' },
-      { key: 'k3', parentKey: 'k1', order: 1, name: 'Current Sprint' },
-      { key: 'k4', parentKey: null, order: 2, name: 'In Progress', stage: 'inProgress', orientation: 'columns' },
-      { key: 'k5', parentKey: 'k4', order: 0, name: 'Working on' },
-      { key: 'k6', parentKey: 'k4', order: 1, name: 'Ready for Review' },
-      { key: 'k7', parentKey: 'k4', order: 2, name: 'Review' },
-      { key: 'k8', parentKey: null, order: 3, name: 'Done', stage: 'done', orientation: 'columns' },
-      { key: 'k9', parentKey: 'k8', order: 0, name: 'Ready for Delivery' },
-      { key: 'k10', parentKey: 'k8', order: 1, name: 'Done' },
-    ],
-  },
-]
-
-/* ------------------------------------------------------------------ *
- * Objectives & Key Results (commitment-limited; never in columns)
- * ------------------------------------------------------------------ */
-const objectives: Objective[] = [
-  { id: 'obj-activation', title: 'Grow activation', period: 'FY26 Q1', status: 'active', score: 45 },
-  { id: 'obj-efficiency', title: 'Reduce cost-to-serve', period: 'FY26 Q1', status: 'active' },
-  // Deliberately unserved — no strategic initiative carries it (an L3 coverage gap).
-  { id: 'obj-reliability', title: 'Improve reliability', period: 'FY26 Q1', status: 'active' },
-]
-const keyResults = [
-  { id: 'kr-activation', objectiveId: 'obj-activation', title: 'Activation rate +10pp', progress: 30 },
-  { id: 'kr-completion', objectiveId: 'obj-activation', title: 'Signup completion 90%', progress: 60 },
-  { id: 'kr-tickets', objectiveId: 'obj-efficiency', title: 'Support tickets −30%', progress: 10 },
-]
-
-/* ------------------------------------------------------------------ *
- * Items
- * ------------------------------------------------------------------ */
-const items: Item[] = []
-const item = (id: string, title: string, typeId: string, extra: Partial<Item> = {}) =>
-  items.push({ id, title, typeId, createdAt: T, ...extra })
-
-/**
- * A card's journey, back-dated. The app records moves as they happen (each one carrying the
- * stage it landed in), so a board seeded today would otherwise have no history at all and the
- * flow view would have nothing to read — which is exactly what the demo must not do.
- */
-const moved = (id: string, at: number, from: Lane, to: Lane, fromStage: Stage, toStage: Stage, boardId = 'b-atlas'): ItemLogEntry => ({
-  id,
-  at,
-  kind: 'moved',
-  note: `${from.name} → ${to.name}`,
-  boardId,
-  fromLaneId: from.id,
-  toLaneId: to.id,
-  fromStage,
-  toStage,
-})
-
-// Strategic initiatives (company strategy) — the top of the chain. OKRs attach
-// here and everything below inherits through the decomposition.
-item('init-activation', 'Activation Programme', 't-initiative', { size: 74, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
-item('init-efficiency', 'Operating Efficiency', 't-initiative', { size: 62, assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
-// Deliberately carries no OKR — an L3 coverage gap to demonstrate.
-item('init-explore', 'Exploration Portfolio', 't-initiative', { size: 12, assignees: ['u-jt'], targetEndDate: '2027-06-30' })
-// Line-of-business initiative.
-item('init-growth', 'Customer Growth', 't-initiative', { size: 55, assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-01-31' })
-// Program initiative (Product Delivery) — bridges the teams to the portfolio.
-item('init-delivery', 'Delivery Excellence', 't-initiative', { size: 24, assignees: ['u-lm'], targetEndDate: '2027-02-28' })
-// Value-stream initiatives.
-item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2026-12-15' })
-item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignees: ['u-ds'], targetStartDate: '2026-11-01', targetEndDate: '2027-03-31' })
-
-// Team-level initiatives.
-item('init-signup', 'New signup flow', 't-initiative', { size: 13, assignees: ['u-rk'], targetEndDate: '2026-11-30' })
-item('init-welcome', 'Welcome experience', 't-initiative', { size: 8, assignees: ['u-lm'], targetEndDate: '2026-11-15' })
-item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignees: ['u-jt'], targetEndDate: '2027-02-28' })
-
-// Cards — Team Atlas.
-item('st-signup-design', 'Design signup screens', 't-story', {
-  size: 3,
-  createdAt: T - 58 * DAY,
-  // Long in the making, delivered this week: the slowest card on the board, and the one the
-  // flow view's tail is honest about.
-  resolvedAt: T - 2 * DAY,
-  log: [
-    { id: 'log-design-1', at: T - 58 * DAY, kind: 'created' },
-    moved('log-design-2', T - 56 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),
-    moved('log-design-3', T - 45 * DAY, a.ns, a.ip, 'notStarted', 'inProgress'),
-    moved('log-design-4', T - 2 * DAY, a.ip, a.done, 'inProgress', 'done'),
-  ],
-})
-item('st-signup-form', 'Build signup form', 't-story', {
-  size: 5,
-  createdAt: T - 20 * DAY,
-  assignees: ['u-rk', 'u-mb'],
-  log: [
-    { id: 'log-form-1', at: T - 20 * DAY, kind: 'created' },
-    moved('log-form-2', T - 14 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),
-    moved('log-form-3', T - 6 * DAY, a.ns, a.dev!, 'notStarted', 'inProgress'),
-  ],
-  checklist: [
-    { id: 'cl-form-1', text: 'Form markup + validation', done: true },
-    { id: 'cl-form-2', text: 'Wire up the API call', done: true },
-    { id: 'cl-form-3', text: 'Error states', done: false },
-    { id: 'cl-form-4', text: 'Analytics events', done: false },
-  ],
-})
-item('st-email', 'Email verification', 't-story', {
-  size: 3,
-  createdAt: T - 35 * DAY,
-  log: [
-    { id: 'log-email-1', at: T - 35 * DAY, kind: 'created' },
-    moved('log-email-3', T - 30 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),
-  ],
-  checklist: [
-    { id: 'cl-email-1', text: 'Draft the template', done: true },
-    { id: 'cl-email-2', text: 'Send on signup', done: false },
-  ],
-})
-item('st-sso', 'SSO buttons', 't-story', {
-  size: 2,
-  blocked: true,
-  blockedReason: 'Gateway contract not ready',
-  createdAt: T - 18 * DAY,
-  log: [
-    { id: 'log-sso-1', at: T - 18 * DAY, kind: 'created' },
-    moved('log-sso-3', T - 15 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),
-    moved('log-sso-4', T - 12 * DAY, a.ns, a.test!, 'notStarted', 'inProgress'),
-    { id: 'log-sso-2', at: T - 12 * DAY, kind: 'blocked', note: 'Gateway contract not ready' },
-  ],
-})
-item('df-signup', 'Signup validation on retry', 't-bug', { size: 2 })
-
-/**
- * Team Atlas' delivered history: cards that were created, worked, done and filed away. They keep
- * their placements — that is what archiving means here, off the board and still linked — so the
- * flow view reads the team's throughput across weeks rather than only its most recent delivery,
- * while the board itself stays about what is in front of the team.
- */
-const filed = (
-  id: string,
-  title: string,
-  typeId: string,
-  size: number,
-  created: number,
-  started: number,
-  worked: number,
-  done: number,
-) =>
-  item(id, title, typeId, {
-    size,
-    createdAt: created,
-    resolvedAt: done,
-    archived: true,
-    archivedAt: done + DAY,
-    log: [
-      { id: `${id}-1`, at: created, kind: 'created' },
-      moved(`${id}-2`, started, a.backlog, a.ns, 'backlog', 'notStarted'),
-      moved(`${id}-3`, worked, a.ns, a.ip, 'notStarted', 'inProgress'),
-      moved(`${id}-4`, done, a.ip, a.done, 'inProgress', 'done'),
-      { id: `${id}-5`, at: done + DAY, kind: 'archived' },
-    ],
-  })
-
-filed('st-export-csv', 'Export the register as CSV', 't-story', 3, T - 64 * DAY, T - 62 * DAY, T - 56 * DAY, T - 49 * DAY)
-filed('st-scim-spike', 'Spike: SCIM provisioning', 't-spike', 2, T - 60 * DAY, T - 59 * DAY, T - 52 * DAY, T - 44 * DAY)
-filed('st-billing-handoff', 'Billing portal handoff', 't-story', 5, T - 52 * DAY, T - 48 * DAY, T - 45 * DAY, T - 37 * DAY)
-filed('st-audit-log', 'Audit log retention', 't-story', 2, T - 45 * DAY, T - 44 * DAY, T - 40 * DAY, T - 30 * DAY)
-filed('st-ratelimit-ui', 'Rate limit messaging', 't-story', 3, T - 38 * DAY, T - 37 * DAY, T - 29 * DAY, T - 23 * DAY)
-filed('st-onboarding-email', 'Onboarding email sequence', 't-story', 3, T - 33 * DAY, T - 27 * DAY, T - 24 * DAY, T - 16 * DAY)
-filed('st-legacy-import', 'Import legacy accounts', 't-story', 5, T - 26 * DAY, T - 25 * DAY, T - 20 * DAY, T - 9 * DAY)
-
-// Cards — Team Nova.
-item('st-welcome-copy', 'Welcome copy', 't-story', { size: 1 })
-item('st-tour', 'Guided tour', 't-story', { size: 5, assignees: ['u-lm'] })
-item('st-gateway-contract', 'Define gateway contract', 't-story', { size: 5, assignees: ['u-jt'] })
-item('st-ratelimit', 'Rate limiting', 't-story', {
-  size: 3,
-  blocked: true,
-  blockedReason: 'Awaiting capacity review',
-  log: [
-    { id: 'log-rl-1', at: T + 3_600_000, kind: 'created' },
-    { id: 'log-rl-2', at: T + 5 * 3_600_000, kind: 'blocked', note: 'Awaiting capacity review' },
-  ],
-})
-item('sp-gateway', 'Spike: gateway options', 't-spike', { size: 2 })
-
-// A filed-away initiative: off the boards, but still linked and searchable.
-item('init-legacy', 'Legacy SSO migration', 't-initiative', {
-  size: 13,
-  assignees: ['u-jt'],
-  archived: true,
-  archivedAt: T + 86_400_000,
-  log: [
-    { id: 'log-legacy-1', at: T, kind: 'created' },
-    { id: 'log-legacy-2', at: T + 86_400_000, kind: 'archived' },
-  ],
-})
-item('st-legacy-a', 'Retire legacy auth endpoint', 't-story', {
-  size: 3,
-  archived: true,
-  archivedAt: T + 86_400_000,
-  log: [
-    { id: 'log-legacy-a-1', at: T, kind: 'created' },
-    { id: 'log-legacy-a-2', at: T + 86_400_000, kind: 'archived' },
-  ],
-})
-
-/* ------------------------------------------------------------------ *
- * Placements
- * ------------------------------------------------------------------ */
-const placements: Placement[] = []
-let placeSeq = 0
-const place = (itemId: string, boardId: string, laneId: string, enteredAt?: number) =>
-  placements.push({ id: `pl-${++placeSeq}`, boardId, itemId, laneId, ...(enteredAt ? { laneEnteredAt: enteredAt } : {}) })
-
-// Company strategy + line of business. Initiatives are placed in the board's *initiatives*
-// workflow — the team's card lanes are a different tree.
-place('init-activation', 'b-strategy', st.init.ns.id)
-place('init-efficiency', 'b-strategy', st.init.ns.id)
-place('init-explore', 'b-strategy', st.init.backlog.id) // uncommitted inventory
-place('init-growth', 'b-lob', lob.init.ns.id)
-place('init-delivery', 'b-delivery', del.init.ns.id)
-
-// Growth value stream.
-place('init-onboarding', 'b-portfolio', p.init.ns.id)
-place('init-platform', 'b-portfolio', p.init.backlog.id) // uncommitted inventory
-
-// Team Atlas — committed onboarding work.
-place('init-signup', 'b-atlas', a.init.ns.id)
-place('st-signup-design', 'b-atlas', a.done.id)
-// A few Atlas stamps tell time's story: Not Started has held one card about a month, and
-// the pieces under way have their own younger ages. The rest predate the stamp on purpose.
-place('st-signup-form', 'b-atlas', a.dev.id, T - 6 * DAY)
-// Delivered and filed away, in the board's Done cell: what a board carries includes its past.
-for (const id of ['st-export-csv', 'st-scim-spike', 'st-billing-handoff', 'st-audit-log', 'st-ratelimit-ui', 'st-onboarding-email', 'st-legacy-import']) {
-  place(id, 'b-atlas', a.done.id)
-}
-place('st-email', 'b-atlas', a.ns.id, T - 30 * DAY)
-place('st-sso', 'b-atlas', a.test!.id, T - 12 * DAY)
-place('df-signup', 'b-atlas', a.test!.id)
-
-// Team Nova — committed welcome work + uncommitted gateway work.
-place('init-welcome', 'b-nova', n.init.ns.id)
-place('st-welcome-copy', 'b-nova', n.ns.id)
-place('st-tour', 'b-nova', n.dev.id)
-place('init-gateway', 'b-nova', n.init.ns.id)
-place('st-gateway-contract', 'b-nova', n.backlog.id)
-place('st-ratelimit', 'b-nova', n.backlog.id)
-place('sp-gateway', 'b-nova', n.backlog.id)
-
-// Archived work keeps its placement record (its last board/lane) but is hidden.
-place('init-legacy', 'b-nova', n.init.done.id)
-place('st-legacy-a', 'b-nova', n.done.id)
-
-/* ------------------------------------------------------------------ *
- * Edges
- * ------------------------------------------------------------------ */
-const edges: Edge[] = []
-let edgeSeq = 0
-const edge = (kind: Edge['kind'], from: string, to: string) =>
-  edges.push({ id: `e-${++edgeSeq}`, kind, from, to })
-const decompose = (parent: string, children: string[]) =>
-  children.forEach((c) => edge('decomposition', parent, c))
-
-// The chain: strategic → line of business → value stream → team → cards.
-decompose('init-activation', ['init-growth'])
-decompose('init-efficiency', ['init-delivery'])
-decompose('init-growth', ['init-onboarding', 'init-platform'])
-decompose('init-onboarding', ['init-signup', 'init-welcome'])
-decompose('init-platform', ['init-gateway'])
-decompose('init-signup', ['st-signup-design', 'st-signup-form', 'st-email', 'st-sso', 'df-signup'])
-decompose('init-welcome', ['st-welcome-copy', 'st-tour'])
-decompose('init-gateway', ['st-gateway-contract', 'st-ratelimit', 'sp-gateway'])
-decompose('init-legacy', ['st-legacy-a'])
-
-// Links: the only item-to-item connection — "to depends on from". They never set an
-// item's blocked status.
-const links: ItemLink[] = []
-let linkSeq = 0
-const link = (from: string, to: string, extra: Partial<ItemLink> = {}) =>
-  links.push({ id: `lnk-${++linkSeq}`, from, to, ...extra })
-
-// A Platform dependency of Team Atlas work (cross-team).
-link('init-gateway', 'st-email', { reason: 'Email verification needs the gateway contract' })
-link('init-gateway', 'st-sso', { reason: 'SSO goes through the gateway' })
-link('st-signup-form', 'st-tour', { reason: 'Tour depends on the new signup flow' })
-
-// Attribution — informs, never counts as WIP. OKRs map to initiatives only;
-// cards map to initiatives through the hierarchy, never to objectives directly.
-edge('attribution', 'obj-activation', 'init-activation')
-edge('attribution', 'obj-efficiency', 'init-efficiency')
+/** A day, `n` days before the demo's today. */
+const ago = (n: number) => T - n * DAY
+/** An ISO date `n` days from today — negative for something already past. */
+const day = (n: number) => new Date(T + n * DAY).toISOString().slice(0, 10)
 
 export function createSeed(): FlowState {
+  const { users, issueTypes, boards, lanes, boardTemplates, st, lob, del, p, a, n } = demoWorkspace()
+
+  const items: Item[] = []
+  const placements: Placement[] = []
+  const edges: Edge[] = []
+  const links: ItemLink[] = []
+
+  const item = (id: string, title: string, typeId: string, extra: Partial<Item> = {}) =>
+    items.push({ id, title, typeId, createdAt: ago(60), ...extra })
+
+  const place = (itemId: string, boardId: string, laneId: string, enteredAt?: number) =>
+    placements.push({ id: `pl-${itemId}`, boardId, itemId, laneId, ...(enteredAt ? { laneEnteredAt: enteredAt } : {}) })
+
+  const edge = (kind: Edge['kind'], from: string, to: string) => edges.push({ id: `e-${edges.length + 1}`, kind, from, to })
+  const decompose = (parent: string, children: string[]) => children.forEach((child) => edge('decomposition', parent, child))
+  const link = (from: string, to: string, extra: Partial<ItemLink> = {}) => links.push({ id: `lnk-${links.length + 1}`, from, to, ...extra })
+
+  /**
+   * A card's history, derived from where it ended up rather than hand-written: created, then the
+   * stages it crossed to get there, spread evenly between the two. A demo card therefore cannot
+   * carry a history that disagrees with its column — and Flow, the timeline and the age cue all
+   * read the same arrival stamp.
+   */
+  const journey = (id: string, boardId: string, created: number, arrived: number, stage: Stage): ItemLogEntry[] => {
+    const log: ItemLogEntry[] = [{ id: `${id}-l1`, at: created, kind: 'created' }]
+    const steps = STAGES.slice(0, STAGES.indexOf(stage) + 1)
+    for (let i = 1; i < steps.length; i++) {
+      log.push({
+        id: `${id}-l${i + 1}`,
+        at: Math.round(created + ((arrived - created) * i) / (steps.length - 1)),
+        kind: 'moved',
+        note: `${STAGE_LABELS[steps[i - 1]]} → ${STAGE_LABELS[steps[i]]}`,
+        boardId,
+        fromStage: steps[i - 1],
+        toStage: steps[i],
+      })
+    }
+    return log
+  }
+
+  /**
+   * A card and its cell in one call: `created` and `arrived` are days ago, and the stage comes
+   * from the column it sits in — so a card's journey, its age and its status cannot drift apart.
+   */
+  const card = (
+    id: string,
+    title: string,
+    typeId: string,
+    boardId: string,
+    lane: Lane,
+    stage: Stage,
+    created: number,
+    arrived: number,
+    extra: Partial<Item> = {},
+  ) => {
+    const at = ago(arrived)
+    item(id, title, typeId, {
+      createdAt: ago(created),
+      log: journey(id, boardId, ago(created), at, stage),
+      ...(stage === 'done' ? { resolvedAt: at } : {}),
+      ...extra,
+    })
+    place(id, boardId, lane.id, at)
+  }
+
+  /* ---------------------------------------------------------------- *
+   * The strategy, the line of business and delivery — the top of the
+   * chain. OKRs attach to the strategic initiatives; everything below
+   * inherits through the decomposition.
+   * ---------------------------------------------------------------- */
+
+  item('init-revenue', 'Recurring revenue engine', 't-initiative', {
+    size: 89,
+    assignees: ['u-mb'],
+    targetStartDate: '2026-10-01',
+    targetEndDate: '2027-03-31',
+  })
+  item('init-margin', 'Gross margin programme', 't-initiative', { size: 55, assignees: ['u-ds'], targetEndDate: '2027-06-30' })
+  // Serves no OKR on purpose: the coverage gap a strategy map is for.
+  item('init-trust', 'Enterprise trust', 't-initiative', { size: 34, assignees: ['u-jt'], targetEndDate: '2027-01-31' })
+
+  item('init-selfserve', 'Self-serve growth', 't-initiative', { size: 55, assignees: ['u-mb'], targetEndDate: '2027-02-28' })
+  item('init-consolidation', 'Platform consolidation', 't-initiative', { size: 34, assignees: ['u-ds'], targetEndDate: '2027-05-31' })
+
+  item('init-checkout', 'Checkout & billing', 't-initiative', { size: 34, assignees: ['u-ds'], targetEndDate: '2027-01-31' })
+  item('init-data', 'Data platform', 't-initiative', { size: 21, assignees: ['u-lm'], targetEndDate: '2027-04-30' })
+
+  item('init-journey', 'Onboarding journey', 't-initiative', { size: 34, assignees: ['u-mb'], targetEndDate: '2026-12-31' })
+  item('init-reliability', 'Reliability programme', 't-initiative', { size: 21, assignees: ['u-rk'], targetEndDate: '2027-02-28' })
+  item('init-sso', 'Enterprise SSO', 't-initiative', { size: 13, assignees: ['u-jt'], targetEndDate: '2026-12-15' })
+
+  decompose('init-revenue', ['init-selfserve'])
+  decompose('init-margin', ['init-consolidation'])
+  decompose('init-selfserve', ['init-journey', 'init-checkout'])
+  decompose('init-consolidation', ['init-reliability', 'init-data'])
+  decompose('init-trust', ['init-sso'])
+
+  /* ---------------------------------------------------------------- *
+   * Team Atlas — a refined flow, four initiatives, and a dependency
+   * that reaches across to Team Nova.
+   * ---------------------------------------------------------------- */
+
+  item('init-signup-redesign', 'Signup redesign', 't-initiative', { size: 13, assignees: ['u-mb', 'u-rk'], targetEndDate: '2026-12-31' })
+  item('init-trial', 'Trial experience', 't-initiative', { size: 8, assignees: ['u-lm'], targetEndDate: '2027-01-31' })
+  item('init-billing', 'Billing migration', 't-initiative', { size: 21, assignees: ['u-ds'], targetEndDate: '2027-02-28' })
+  item('init-slo', 'SLOs & error budgets', 't-initiative', { size: 5, assignees: ['u-rk'] })
+
+  decompose('init-journey', ['init-signup-redesign', 'init-trial'])
+  decompose('init-checkout', ['init-billing'])
+  decompose('init-reliability', ['init-slo'])
+
+  card('st-signup-screens', 'Design the signup screens', 't-story', 'b-atlas', a.done, 'done', 62, 40, {
+    size: 3,
+    assignees: ['u-rk'],
+    priority: 'medium',
+  })
+  card('st-signup-rebuild', 'Rebuild the signup form', 't-story', 'b-atlas', a.dev, 'inProgress', 30, 6, {
+    size: 5,
+    assignees: ['u-rk', 'u-mb'],
+    priority: 'high',
+    description: 'One page, one field at a time.\n\nAcceptance: works on a phone, measured, and behind a flag.',
+    checklist: [
+      { id: 'cl-form-1', text: 'Form markup and validation', done: true },
+      { id: 'cl-form-2', text: 'Wire up the API call', done: true },
+      { id: 'cl-form-3', text: 'Error states', done: false },
+      { id: 'cl-form-4', text: 'Analytics events', done: false },
+    ],
+  })
+  card('st-signup-validation', 'Signup validation on retry', 't-bug', 'b-atlas', a.test!, 'inProgress', 12, 3, {
+    size: 2,
+    assignees: ['u-mb'],
+    priority: 'high',
+    targetStartDate: day(-6),
+    targetEndDate: day(-1),
+  })
+  card('st-enterprise-sso', 'Add SSO for enterprise tenants', 't-story', 'b-atlas', a.dev, 'inProgress', 21, 5, {
+    size: 5,
+    assignees: ['u-jt'],
+    priority: 'urgent',
+    blocked: true,
+    blockedReason: 'Waiting on the identity contract',
+    targetStartDate: day(3),
+    targetEndDate: day(24),
+  })
+  card('st-pricing-cache', 'Cache the pricing catalogue', 't-task', 'b-atlas', a.dev, 'inProgress', 16, 2, {
+    size: 3,
+    assignees: ['u-ds'],
+  })
+  card('st-payment-retries', 'Payment retries on soft decline', 't-story', 'b-atlas', a.test!, 'inProgress', 24, 4, {
+    size: 5,
+    assignees: ['u-ds', 'u-mb'],
+    priority: 'urgent',
+    targetStartDate: day(-10),
+    targetEndDate: day(4),
+    checklist: [
+      { id: 'cl-retry-1', text: 'Retry on a soft decline only', done: true },
+      { id: 'cl-retry-2', text: 'Back off between attempts', done: false },
+    ],
+  })
+  card('st-invoice-numbering', 'Migrate invoice numbering', 't-story', 'b-atlas', a.ns, 'notStarted', 19, 9, {
+    size: 3,
+    // Nobody on it, and overdue: committed work with no owner is exactly what health is for.
+    targetStartDate: day(-8),
+    targetEndDate: day(-3),
+  })
+  card('st-coupon-retire', 'Retire the legacy coupon service', 't-task', 'b-atlas', a.ns, 'notStarted', 26, 11, {
+    size: 5,
+    assignees: ['u-ds'],
+    blocked: true,
+    blockedReason: 'Needs a decision on grandfathered pricing',
+    targetEndDate: day(31),
+  })
+  card('st-usage-billing', 'Add usage-based billing events', 't-story', 'b-atlas', a.backlog, 'backlog', 8, 8, {
+    size: 8,
+    assignees: ['u-ds'],
+    priority: 'high',
+    targetEndDate: day(45),
+  })
+  card('st-pricing-experiment', 'Split the pricing experiment framework', 't-spike', 'b-atlas', a.backlog, 'backlog', 9, 9, {
+    size: 2,
+  })
+  card('st-trial-funnel', 'Instrument the trial funnel', 't-story', 'b-atlas', a.backlog, 'backlog', 6, 6, {
+    size: 3,
+    assignees: ['u-lm'],
+    priority: 'medium',
+    targetEndDate: day(14),
+  })
+  card('st-rate-limit-msg', 'Rate limit messaging', 't-story', 'b-atlas', a.done, 'done', 70, 44, {
+    size: 3,
+    assignees: ['u-rk'],
+    archived: true,
+    archivedAt: ago(43),
+  })
+
+  decompose('init-signup-redesign', ['st-signup-screens', 'st-signup-rebuild', 'st-signup-validation'])
+  decompose('init-trial', ['st-pricing-experiment', 'st-trial-funnel'])
+  decompose('init-billing', ['st-coupon-retire', 'st-invoice-numbering', 'st-payment-retries', 'st-pricing-cache', 'st-usage-billing'])
+  decompose('init-slo', ['st-rate-limit-msg'])
+
+  /* ---------------------------------------------------------------- *
+   * Team Nova — the identity platform Atlas is waiting on, and the
+   * data work underneath the margin programme.
+   * ---------------------------------------------------------------- */
+
+  item('init-identity', 'Identity platform', 't-initiative', { size: 21, assignees: ['u-jt', 'u-ds'], targetEndDate: '2026-12-15' })
+  item('init-audit', 'Audit & compliance', 't-initiative', { size: 13, assignees: ['u-lm'], targetEndDate: '2027-01-31' })
+  item('init-lakehouse', 'Lakehouse cutover', 't-initiative', { size: 21, assignees: ['u-ds'], targetEndDate: '2027-03-31' })
+  item('init-observability', 'Observability', 't-initiative', { size: 8, assignees: ['u-rk'], targetEndDate: '2027-02-28' })
+  // Nothing under it yet — the "nothing below" health rule, on purpose.
+  item('init-data-quality', 'Data quality guardrails', 't-initiative', { size: 5, assignees: ['u-lm'], targetEndDate: '2027-04-30' })
+
+  decompose('init-sso', ['init-identity'])
+  decompose('init-trust', ['init-audit'])
+  decompose('init-data', ['init-lakehouse'])
+  decompose('init-reliability', ['init-observability'])
+
+  card('st-identity-contract', 'Define the identity contract', 't-story', 'b-nova', n.dev, 'inProgress', 34, 12, {
+    size: 8,
+    assignees: ['u-jt', 'u-ds'],
+    priority: 'urgent',
+    description: 'One contract, three consumers: Atlas, the admin console, and the partner API.',
+    checklist: [
+      { id: 'cl-id-1', text: 'Token shape agreed', done: true },
+      { id: 'cl-id-2', text: 'Tenant scoping agreed', done: true },
+      { id: 'cl-id-3', text: 'Documented for consumers', done: false },
+    ],
+    targetEndDate: day(9),
+  })
+  card('st-lakehouse-ingest', 'Lakehouse ingest pipeline', 't-story', 'b-nova', n.dev, 'inProgress', 28, 10, {
+    size: 13,
+    assignees: ['u-ds'],
+    priority: 'medium',
+    targetStartDate: day(-20),
+    targetEndDate: day(-5),
+  })
+  card('st-error-budget', 'Error budget dashboard', 't-story', 'b-nova', n.dev, 'inProgress', 22, 7, {
+    size: 5,
+    assignees: ['u-rk'],
+    targetEndDate: day(21),
+  })
+  card('st-scim', 'SCIM provisioning spike', 't-spike', 'b-nova', n.test!, 'inProgress', 20, 5, {
+    size: 3,
+    assignees: ['u-jt'],
+    checklist: [
+      { id: 'cl-scim-1', text: 'Read the spec', done: true },
+      { id: 'cl-scim-2', text: 'Try the sandbox', done: false },
+      { id: 'cl-scim-3', text: 'Write it up', done: false },
+    ],
+  })
+  card('st-audit-retention', 'Audit log retention', 't-story', 'b-nova', n.test!, 'inProgress', 26, 6, {
+    size: 2,
+    assignees: ['u-lm'],
+    priority: 'high',
+    targetEndDate: day(16),
+  })
+  card('st-trial-eligibility', 'Trial eligibility rules', 't-story', 'b-nova', n.ns, 'notStarted', 18, 8, {
+    size: 5,
+    assignees: ['u-lm'],
+    targetEndDate: day(28),
+  })
+  card('st-cost-attribution', 'Cost attribution per tenant', 't-story', 'b-nova', n.backlog, 'backlog', 11, 11, {
+    size: 8,
+    priority: 'high',
+    targetEndDate: day(60),
+  })
+  card('st-audit-backfill', 'Backfill the audit index', 't-task', 'b-nova', n.backlog, 'backlog', 10, 10, {
+    size: 5,
+  })
+  card('st-auth-retire', 'Retire the legacy auth endpoint', 't-story', 'b-nova', n.backlog, 'backlog', 15, 15, {
+    size: 3,
+    assignees: ['u-jt'],
+    blocked: true,
+    blockedReason: 'Security review pending',
+    targetEndDate: day(40),
+  })
+  card('st-identity-contract-v1', 'Identity contract v1', 't-story', 'b-nova', n.done, 'done', 80, 52, {
+    size: 5,
+    assignees: ['u-jt'],
+  })
+  card('st-register-export', 'Export the register as CSV', 't-story', 'b-nova', n.done, 'done', 66, 41, {
+    size: 3,
+    assignees: ['u-lm'],
+    archived: true,
+    archivedAt: ago(40),
+  })
+
+  decompose('init-identity', ['st-identity-contract', 'st-identity-contract-v1', 'st-scim'])
+  decompose('init-audit', ['st-audit-backfill', 'st-audit-retention', 'st-auth-retire'])
+  decompose('init-lakehouse', ['st-cost-attribution', 'st-lakehouse-ingest'])
+  decompose('init-observability', ['st-error-budget'])
+  decompose('init-trial', ['st-trial-eligibility'])
+
+  /* ---------------------------------------------------------------- *
+   * Dependencies — links, never a status. The one that matters is the
+   * first: Team Atlas cannot finish SSO until Team Nova's identity
+   * platform is done, so it shows up in the boundary lane on Atlas.
+   * ---------------------------------------------------------------- */
+
+  link('init-identity', 'st-enterprise-sso', { reason: 'SSO is built on the identity platform' })
+  link('init-lakehouse', 'st-cost-attribution', { reason: 'Attribution needs the lakehouse tables' })
+  link('init-audit', 'st-auth-retire', { reason: 'Retiring auth needs the audit trail in place' })
+  link('init-billing', 'st-payment-retries', { reason: 'Retries land with the billing migration' })
+  link('st-identity-contract', 'st-enterprise-sso', { reason: 'The SSO buttons consume the contract' })
+
+  /* ---------------------------------------------------------------- *
+   * Placements — the work above, in the cells of each board's own flow.
+   * ---------------------------------------------------------------- */
+
+  // Company Strategy: strategic initiatives, in the section their rollup names.
+  place('init-revenue', 'b-strategy', st.init.ip.id)
+  place('init-margin', 'b-strategy', st.init.ip.id)
+  place('init-trust', 'b-strategy', st.init.ip.id)
+
+  // Digital line of business.
+  place('init-selfserve', 'b-lob', lob.init.ip.id)
+  place('init-consolidation', 'b-lob', lob.init.ip.id)
+
+  // Product Delivery — the bridge to the teams.
+  place('init-checkout', 'b-delivery', del.init.ip.id)
+  place('init-data', 'b-delivery', del.init.ip.id)
+
+  // Growth value stream — where the teams' outcomes are coordinated.
+  place('init-journey', 'b-portfolio', p.init.ip.id)
+  place('init-reliability', 'b-portfolio', p.init.ip.id)
+  place('init-sso', 'b-portfolio', p.init.ip.id)
+
+  // Team Atlas.
+  place('init-signup-redesign', 'b-atlas', a.init.ip.id)
+  place('init-billing', 'b-atlas', a.init.ip.id)
+  place('init-trial', 'b-atlas', a.init.ns.id) // committed, not under way
+  place('init-slo', 'b-atlas', a.init.done.id) // delivered: its only card was released
+
+  // Team Nova.
+  place('init-identity', 'b-nova', n.init.ip.id)
+  place('init-audit', 'b-nova', n.init.ip.id)
+  place('init-lakehouse', 'b-nova', n.init.ip.id)
+  place('init-observability', 'b-nova', n.init.ip.id)
+  place('init-data-quality', 'b-nova', n.init.backlog.id) // unplanned, and it says so
+
+  /* ---------------------------------------------------------------- *
+   * Objectives & Key Results — commitment-limited, never in columns.
+   * OKRs attach to *strategic* initiatives only, and everything below
+   * inherits through the decomposition.
+   * ---------------------------------------------------------------- */
+
+  const objectives: Objective[] = [
+    { id: 'obj-activation', title: 'Grow activation', period: 'FY26 Q4', status: 'active', score: 45 },
+    { id: 'obj-efficiency', title: 'Reduce cost to serve', period: 'FY26 Q4', status: 'active' },
+    // Deliberately unserved: no strategic initiative carries it, which is one of the two gaps
+    // the strategy map exists to show.
+    { id: 'obj-reliability', title: 'Improve reliability', period: 'FY26 Q4', status: 'active' },
+  ]
+  const keyResults = [
+    { id: 'kr-completion', objectiveId: 'obj-activation', title: 'Signup completion 85%', progress: 60 },
+    { id: 'kr-trial-paid', objectiveId: 'obj-activation', title: 'Trial to paid 12%', progress: 35 },
+    { id: 'kr-margin', objectiveId: 'obj-efficiency', title: 'Gross margin 78%', progress: 52 },
+    { id: 'kr-cost-tenant', objectiveId: 'obj-efficiency', title: 'Cost per tenant −25%', progress: 18 },
+  ]
+
+  // Attribution informs and never counts as WIP. `init-trust` is left unmapped on purpose —
+  // the other half of the coverage story.
+  edge('attribution', 'obj-activation', 'init-revenue')
+  edge('attribution', 'obj-efficiency', 'init-margin')
+
   return {
-    users: structuredClone(users),
-    issueTypes: structuredClone(issueTypes),
-    boards: structuredClone(boards),
-    lanes: structuredClone(lanes),
-    items: structuredClone(items),
-    placements: structuredClone(placements),
-    edges: structuredClone(edges),
-    links: structuredClone(links),
-    objectives: structuredClone(objectives),
-    keyResults: structuredClone(keyResults),
-    boardTemplates: structuredClone(BUILT_IN_TEMPLATES),
+    users,
+    issueTypes,
+    boards,
+    lanes,
+    items,
+    placements,
+    edges,
+    links,
+    objectives,
+    keyResults,
+    boardTemplates,
   }
 }

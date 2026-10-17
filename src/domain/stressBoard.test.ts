@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { STRESS_BOARD_ID, STRESS_PREFIX, stressBoard } from './stressBoard'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, placementsInOrder, topLevelLanes } from './lanes'
 import { rollupOf, type Graph } from './derive'
-import { createSeed } from './seed'
+import { createFixture } from './fixture'
 import type { Stage } from './types'
 
 const NOW = Date.UTC(2026, 9, 17, 12)
-const types = createSeed().issueTypes
+const types = createFixture().issueTypes
 const built = stressBoard(300, types, NOW)
 const { board, lanes, items, placements, edges, links } = built
 

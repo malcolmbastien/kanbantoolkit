@@ -9,6 +9,7 @@ import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
 import { isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
+import { createFixture } from './domain/fixture'
 
 vi.stubGlobal('localStorage', {
   getItem: () => null,
@@ -17,6 +18,17 @@ vi.stubGlobal('localStorage', {
 })
 
 const s = () => useStore.getState()
+
+/**
+ * Back to a known world: the store's own default view, with the *fixture's* work in it. The demo
+ * dataset (`seed.ts`) is for people to look at and will change as the story does; the assertions
+ * below name specific cards, so they run against the fixture, which is the same boards with a
+ * world built to be asserted about.
+ */
+const resetToFixture = () => {
+  s().resetDemo()
+  useStore.setState({ ...createFixture() })
+}
 const graph = () => {
   const st = s()
   return { items: st.items, edges: st.edges, links: st.links, placements: st.placements, lanes: st.lanes }
@@ -25,7 +37,7 @@ const laneByName = (boardId: string, name: string, workflow: Workflow = 'cards')
   s().lanes.find((l) => l.boardId === boardId && l.name === name && l.workflow === workflow)!
 
 describe('store actions', () => {
-  beforeEach(() => s().resetDemo())
+  beforeEach(() => resetToFixture())
 
   it('one parent: setParent replaces any existing parent', () => {
     s().setParent('st-signup-form', 'init-welcome')
@@ -1780,7 +1792,7 @@ describe('store actions', () => {
 })
 
 describe('timeline view state', () => {
-  beforeEach(() => s().resetDemo())
+  beforeEach(() => resetToFixture())
 
   it('setTimeline(true) selects the timeline and closes the other views', () => {
     s().setDashboard(true)
@@ -1829,7 +1841,7 @@ describe('timeline view state', () => {
 })
 
 describe('initiative rank within a cell', () => {
-  beforeEach(() => s().resetDemo())
+  beforeEach(() => resetToFixture())
 
   it('moveInitiativeToIndex reorders within the cell, rewriting the ranks', () => {
     // Two backlog initiatives in one cell: init-explore joins init-platform on b-portfolio.
@@ -1853,7 +1865,7 @@ describe('initiative rank within a cell', () => {
 })
 
 describe('saved filters', () => {
-  beforeEach(() => s().resetDemo())
+  beforeEach(() => resetToFixture())
 
   it('saves the active set, replaces the live filters on apply, and clears without residue', () => {
     s().setFilters({ blocked: true, text: ' onboarding ' })
@@ -1915,7 +1927,7 @@ describe('saved filters', () => {
 })
 
 describe('one side panel at a time', () => {
-  beforeEach(() => s().resetDemo())
+  beforeEach(() => resetToFixture())
 
   it('the legend, the filters and an open card take the same drawer', () => {
     s().openItem('st-email')
@@ -1938,7 +1950,7 @@ describe('one side panel at a time', () => {
 })
 
 describe('board description', () => {
-  beforeEach(() => s().resetDemo())
+  beforeEach(() => resetToFixture())
 
   it('edits in place and duplicates carry it across', () => {
     s().setBoardDescription('b-atlas', 'Where Atlas lands its work.')
@@ -1964,7 +1976,7 @@ describe('board description', () => {
 })
 
 describe('workspace import', () => {
-  beforeEach(() => s().resetDemo())
+  beforeEach(() => resetToFixture())
 
   /** The current workspace as an export would write it. */
   const exportOf = () => ({ app: 'flowline', exportedAt: '2026-10-16T09:00:00.000Z', version: PERSIST_VERSION, state: { ...persistedSlice(s()) } })

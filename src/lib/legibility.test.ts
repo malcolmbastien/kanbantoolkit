@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CONTRAST_FLOOR, chipColors, contrastRatio, tintOn } from './colors'
 import { cn } from './utils'
-import { createSeed } from '../domain/seed'
+import { createFixture } from '../domain/fixture'
 
 /**
  * Every `.tsx` under `src` as source text — globbed rather than walked, so a file added later
@@ -102,7 +102,7 @@ describe('legibility', () => {
   it('keeps a type chip readable on every type colour', () => {
     // White on sky-500 is 2.8:1 and on amber-500 it is 2.2:1 — the chips were picked by a
     // brightness guess rather than by contrast, and the guess was wrong for both.
-    for (const type of createSeed().issueTypes) {
+    for (const type of createFixture().issueTypes) {
       const { background, color } = chipColors(type.color)
       expect(contrastRatio(color, background), `${type.name} ${type.color}`).toBeGreaterThanOrEqual(CONTRAST_FLOOR)
     }

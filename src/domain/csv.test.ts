@@ -4,7 +4,7 @@ import { blockedBelow, rollupOf, type Graph } from './derive'
 import { boardInitiatives, buildRefs } from './board'
 import { initiativeHealth } from './health'
 import { HEALTH_META } from './health'
-import { createSeed } from './seed'
+import { createFixture } from './fixture'
 
 /**
  * A minimal RFC 4180 reader, written out here rather than shared with the writer: a round-trip
@@ -41,7 +41,7 @@ function parseCsv(text: string): string[][] {
   return rows
 }
 
-const seed = createSeed()
+const seed = createFixture()
 const graph: Graph = { items: seed.items, edges: seed.edges, links: seed.links, placements: seed.placements, lanes: seed.lanes }
 
 describe('csv', () => {
