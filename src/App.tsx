@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { ArchiveView } from './components/ArchiveView'
+import { MyWorkView } from './components/MyWorkView'
 import { BoardWorkspace } from './components/BoardWorkspace'
 import { BoardView } from './components/BoardView'
 import { BulkActions } from './components/BulkActions'
@@ -38,13 +39,15 @@ export default function App() {
   const setArchive = useStore((s) => s.setArchive)
   const showBoards = useStore((s) => s.showBoards)
   const setBoards = useStore((s) => s.setBoards)
+  const showMyWork = useStore((s) => s.showMyWork)
+  const setMyWork = useStore((s) => s.setMyWork)
   const showLegend = useStore((s) => s.showLegend)
   const showFilters = useStore((s) => s.showFilters)
   // The side panels belong to the board surface: the legend and the filters narrow or
   // explain one board, so neither trails into the dashboard, timeline or archive.: filters narrow one board's cards, so the
   // panel must not trail into the dashboard, timeline, archive or the workspace. Leaving for
   // a view keeps the choice — coming back shows it again.
-  const boardSurface = !showDashboard && !showTimeline && !showArchive && !showObjectives && !showBoards
+  const boardSurface = !showDashboard && !showTimeline && !showArchive && !showObjectives && !showBoards && !showMyWork
   const showBoardSettings = useStore((s) => s.showBoardSettings)
   const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
@@ -211,11 +214,13 @@ export default function App() {
         showTimeline={showTimeline}
         showArchive={showArchive}
         showBoards={showBoards}
+        showMyWork={showMyWork}
         onSelectBoard={selectBoard}
         onShowBoard={setBoard}
         onShowDashboard={() => setDashboard(true)}
         onShowTimeline={() => setTimeline(true)}
         onShowArchive={() => setArchive(true)}
+        onShowMyWork={() => setMyWork(true)}
         onGoToBoards={() => setBoards(true)}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -232,6 +237,8 @@ export default function App() {
             <BoardWorkspace />
           ) : showArchive ? (
             <ArchiveView />
+          ) : showMyWork ? (
+            <MyWorkView />
           ) : showObjectives ? (
             <ObjectivesView />
           ) : showDashboard ? (

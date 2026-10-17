@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, UserRound, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -11,12 +11,14 @@ interface Props {
   showDashboard: boolean
   showTimeline: boolean
   showArchive: boolean
+  showMyWork: boolean
   showBoards: boolean
   onSelectBoard: (id: string) => void
   onShowBoard: () => void
   onShowDashboard: () => void
   onShowTimeline: () => void
   onShowArchive: () => void
+  onShowMyWork: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
   onEditBoard: () => void
@@ -29,11 +31,11 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showBoards, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showBoards, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMyWork, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either.
-  const boardActive = !showDashboard && !showTimeline && !showArchive && !showBoards
+  const boardActive = !showDashboard && !showTimeline && !showArchive && !showBoards && !showMyWork
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
@@ -59,12 +61,14 @@ export function TopBar(props: Props) {
               bar is tight is the focus chip — which is why focusing no longer wraps the
               bar and shoves the whole screen down. */}
           <div className="flex min-w-0 shrink-0 items-center gap-x-3">
-            <div className="flex items-center gap-1.5 text-meta font-medium text-slate-600">
-              Board
-              <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
-            </div>
+            {!showMyWork && (
+              <div className="flex items-center gap-1.5 text-meta font-medium text-slate-600">
+                Board
+                <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
+              </div>
+            )}
 
-            <div className="h-5 w-px bg-slate-200" />
+            {!showMyWork && <div className="h-5 w-px bg-slate-200" />}
 
 
           <button
@@ -115,13 +119,25 @@ export function TopBar(props: Props) {
             <Archive size={12} /> Archive
           </button>
 
+          <button
+            onClick={onShowMyWork}
+            disabled={editMode}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+              showMyWork ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+            )}
+            title="My work — everything assigned to this workspace's person, across every board"
+          >
+            <UserRound size={12} /> My work
+          </button>
+
           </div>
 
         </>
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {!showBoards && (
+        {!showBoards && !showMyWork && (
           <>
             <button
               onClick={onAddCard}
@@ -143,7 +159,7 @@ export function TopBar(props: Props) {
 
         <GlobalSearch />
 
-        {!showBoards && !editMode && (
+        {!showBoards && !showMyWork && !editMode && (
           <button
             onClick={onOpenBoardSettings}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
@@ -154,7 +170,7 @@ export function TopBar(props: Props) {
         )}
 
 
-        {!showBoards &&
+        {!showBoards && !showMyWork &&
           (editMode ? (
             <>
               <button

@@ -45,6 +45,11 @@ export interface CardMenuState {
   y: number
 }
 
+/** Whose browser this is: My work reads it. Persisted with the workspace like the users it points into. */
+interface WorkspaceIdentity {
+  meUserId?: string
+}
+
 export interface ViewState {
   boardId: string
   selectedItemId: string | null
@@ -67,6 +72,8 @@ export interface ViewState {
   showArchive: boolean
   /** Show the board workspace — every board in the organisation — instead of a board. */
   showBoards: boolean
+  /** Show My work — everything assigned to the workspace's person, across every board. */
+  showMyWork: boolean
   /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
@@ -188,6 +195,10 @@ export interface Actions {
   /** Link a board under another (aggregation). Refused if it would create a cycle. */
   addLinkedBoard: (parentId: string, childId: string) => void
   removeLinkedBoard: (parentId: string, childId: string) => void
+  /** Show My work — everything assigned to the workspace's person, across every board. */
+  setMyWork: (v: boolean) => void
+  /** Whose work My work shows (undefined until the person picks themselves). */
+  setUser: (id: string | undefined) => void
   resetDemo: () => void
   /** Replace the workspace with an imported one; validated at the picker, trusted, migrated and whitelisted here. */
   importWorkspace: (state: Record<string, unknown>, version: number) => void
@@ -328,7 +339,7 @@ export interface Actions {
   deleteItem: (itemId: string) => void
 }
 
-export type Store = FlowState & ViewState & Actions
+export type Store = FlowState & WorkspaceIdentity & ViewState & Actions
 
 const uid = makeUid
 
@@ -451,6 +462,7 @@ const initialView: ViewState = {
   showTimeline: false,
   showArchive: false,
   showBoards: false,
+  showMyWork: false,
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
@@ -698,6 +710,8 @@ export function migrateState(persisted: unknown): Partial<Store> {
  * state older than v5 is reseeded with the current demo design.
  */
 export function migratePersisted(persisted: unknown, version: number): Partial<Store> {
+  // v30 added meUserId (whose browser this is): optional, so an old file reads undefined
+  // with nothing to backfill — migrateState passes it through untouched.
   if (version < 9) return createSeed() as unknown as Partial<Store>
   return migrateState(persisted)
 }
@@ -713,11 +727,13 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
  * Exported for testing.
  */
 /** The current persisted workspace shape — every schema change bumps it with a migrate. */
-export const PERSIST_VERSION = 29
+export const PERSIST_VERSION = 30
 
 export function persistedSlice(s: Store): Partial<Store> {
   const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
   return {
+    // Whose browser this is: My work reads it, like the users directory it points into.
+    meUserId: s.meUserId,
     users: s.users,
     issueTypes: s.issueTypes,
     items: s.items,
@@ -743,6 +759,7 @@ export function persistedSlice(s: Store): Partial<Store> {
  * state) can never leak into the store.
  */
 export const WORKSPACE_KEYS = [
+  'meUserId',
   'users',
   'issueTypes',
   'items',
@@ -1040,13 +1057,20 @@ export const useStore = create<Store>()(
       setLens: (id) => set({ lensId: id }),
       clearLens: () => set({ lensId: null }),
       toggleBoardSettings: () => set({ showBoardSettings: !get().showBoardSettings }),
-      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false } : {}) }),
+      setMyWork: (v) =>
+        set({
+          showMyWork: v,
+          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false } : {}),
+        }),
+      /** Whose work the My work view shows — no default: the person picks themselves. */
+      setUser: (id: string | undefined) => set({ meUserId: id }),
+      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false } : {}) }),
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
       // Board tab is the board itself — every view flag clears, the workspace with it.
-      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false }),
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false } : {}) }),
-      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false } : {}) }),
-      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false } : {}) }),
+      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false } : {}) }),
+      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showMyWork: false } : {}) }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showMyWork: false } : {}) }),
       toggleBoards: () => {
         const on = !get().showBoards
         set({
@@ -1055,6 +1079,7 @@ export const useStore = create<Store>()(
           showDashboard: false,
           showTimeline: false,
           showArchive: false,
+          showMyWork: false,
           // The workspace is organisation-level, so a board's side panel has no place in it.
           ...(on ? { showFilters: false, selectedItemId: null } : {}),
         })
@@ -1063,7 +1088,7 @@ export const useStore = create<Store>()(
         set({
           showBoards: v,
           ...(v
-            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showFilters: false, selectedItemId: null }
+            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showMyWork: false, showFilters: false, selectedItemId: null }
             : {}),
         }),
 
@@ -1108,7 +1133,7 @@ export const useStore = create<Store>()(
         }
         set({ editMode: false, draft: null, boards: d.boards, lanes: d.lanes, placements: d.placements, boardId: d.boardId })
       },
-      resetDemo: () => set({ ...createSeed(), ...initialView }),
+      resetDemo: () => set({ ...createSeed(), meUserId: undefined, ...initialView }),
       importWorkspace: (state, version) => {
         // Validation happened at the file picker; here the migrated shape is whitelisted —
         // only what the app persists comes across, so an unknown key cannot leak in — and
@@ -1126,6 +1151,7 @@ export const useStore = create<Store>()(
           autoArchiveDays: undefined,
           savedFilters: [],
           collapsedLanes: {},
+          meUserId: undefined,
           boardId: undefined,
           boards: [],
           lanes: [],
@@ -1149,6 +1175,7 @@ export const useStore = create<Store>()(
           showTimeline: s.showTimeline,
           showArchive: s.showArchive,
           showBoards: s.showBoards,
+          showMyWork: s.showMyWork,
         }
         set({ ...view, ...data, boardId } as Partial<Store>)
       },
