@@ -57,6 +57,27 @@ export interface TimelineMonth {
   days: number
 }
 
+/**
+ * One day of the axis — the tick row, and the calendar facts that make it readable.
+ *
+ * The day numbers are the axis's own, so they are the layout's to answer: the surface must not
+ * construct a date to label a column, or a boundary could be marked on a day the domain does
+ * not contain. `monthStart` is where the axis restates the month; `weekend` lets a target read
+ * against the working week.
+ */
+export interface TimelineDay {
+  /** Day offset from the domain start. */
+  offset: number
+  /** The day itself, ISO — the surface prints it, it does not build it. */
+  dateIso: string
+  /** Day of the month, 1–31: the number the tick prints. */
+  day: number
+  /** The first of a calendar month. */
+  monthStart: boolean
+  /** Saturday or Sunday. */
+  weekend: boolean
+}
+
 export interface TimelineLayout {
   /** Day offsets are measured from this date. */
   start: Date
@@ -66,6 +87,8 @@ export interface TimelineLayout {
   /** Initiatives with neither date. A tray, not a position. */
   unscheduled: TimelineEntry[]
   months: TimelineMonth[]
+  /** Every day of the axis, in order. */
+  days: TimelineDay[]
   /** Day offset of today, or null when today lies outside the domain. */
   today: number | null
 }
@@ -81,6 +104,10 @@ const DAY = 86_400_000
 const daysBetween = (a: Date, b: Date): number => Math.round((a.getTime() - b.getTime()) / DAY)
 
 const monthLength = (year: number, month: number): number => new Date(year, month + 1, 0).getDate()
+
+/** An ISO 'YYYY-MM-DD' for a local date — read back by `parseDay`, never through UTC. */
+const isoOf = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 export function layoutTimeline(entries: readonly TimelineEntry[], options: TimelineOptions = {}): TimelineLayout {
   const source = options.today ?? new Date()
@@ -143,10 +170,22 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
     }
   }
 
+  // The axis day by day, from the same start the offsets are measured from — so a tick and the
+  // bar beneath it can never disagree about which day they are.
+  const days: TimelineDay[] = Array.from({ length: totalDays }, (_, offset) => {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset)
+    const weekday = d.getDay()
+    return {
+      offset,
+      dateIso: isoOf(d),
+      day: d.getDate(),
+      monthStart: d.getDate() === 1,
+      weekend: weekday === 0 || weekday === 6,
+    }
+  })
+
   const todayOffset = daysBetween(today, start)
 
-  // Pack greedily: everything in start order, longest first on ties, into the first row
-  // whose last shape has finished. Deterministic, and good enough that rows stay few.
   const shapes = placed.map((p) => ({
     entry: p.entry,
     index: p.index,
@@ -158,10 +197,10 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
     end: p.kind === 'span' ? daysBetween(p.end, start) + 1 : daysBetween(p.start, start),
   }))
 
-  // One row per scheduled initiative. Packing overlapping work onto a shared row saves space
-  // but muddies whose bar is whose, and the rows are what make a glance trustworthy — so the
-  // chart reads as a list over time instead. Chronological, longest first on ties, input order
-  // on full ties: deterministic, and the top row is the earliest work.
+  // One row per scheduled initiative — a list over time, not a packed grid. Overlapping work
+  // sharing a row would save space but muddy whose bar is whose, and the row is what makes a
+  // glance trustworthy. Chronological, longest first on ties, input order on full ties:
+  // deterministic, and the top row is the earliest work.
   const order = shapes
     .map((_, i) => i)
     .sort(
@@ -191,6 +230,7 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
     rowCount: bars.length,
     unscheduled,
     months,
+    days,
     today: todayOffset >= 0 && todayOffset < totalDays ? todayOffset : null,
   }
 }

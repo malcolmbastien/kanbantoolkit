@@ -12,8 +12,18 @@ import type { IssueType, Item } from '@/domain/types'
 
 /** The chart's width per day. Fixed for now — zoom is out of scope for this slice. */
 const DAY_PX = 28
-/** The height of one packed row; bars land here in the next step. */
+/** The height of one row — the bar's band, and the label beside it. */
 const ROW_PX = 56
+/** The initiative column: every row's own name, frozen while the axis scrolls under it. */
+const LABEL_PX = 224
+/**
+ * The axis's two bands, and their heights. The month band names the period; the day band is the
+ * tick row. They are explicit rather than font-sized, because the initiative column's header has
+ * to end exactly where the body begins or every label would sit beside the wrong bar.
+ */
+const MONTH_PX = 28
+const DAY_ROW_PX = 22
+const HEADER_PX = MONTH_PX + DAY_ROW_PX
 
 /** A single day, read at a glance — the chart's own headers carry the year. */
 const fmtDay = (iso: string): string => parseDay(iso)!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -99,32 +109,117 @@ export function TimelineView({ boardId }: { boardId: string }) {
         ) : (
           <>
             {/* The chart. One fixed width per day, horizontally scrollable — the axis is as
-                long as the work is, and nothing here zooms or drag-reschedules. */}
+                long as the work is, and nothing here zooms or drag-reschedules. The initiative
+                column is frozen to the left: a bar scrolled off its own name is unreadable, so
+                the name travels with the row. */}
             <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="relative" style={{ width: layout.totalDays * DAY_PX }}>
-                {/* Period headers — whole calendar months, positioned by the layout. */}
-                <div className="flex border-b border-slate-200">
-                  {layout.months.map((m) => (
-                    <div
-                      key={`${m.year}-${m.month}`}
-                      data-timeline-month={`${m.year}-${m.month + 1}`}
-                      style={{ width: m.days * DAY_PX }}
-                      className="shrink-0 truncate border-r border-slate-200 px-2 py-1.5 text-meta font-semibold text-slate-700 last:border-r-0"
-                    >
-                      {new Date(m.year, m.month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                    </div>
-                  ))}
+              <div className="relative flex" style={{ width: LABEL_PX + layout.totalDays * DAY_PX }}>
+                {/* The initiative column — one row per scheduled initiative, in the layout's
+                    own order, so every label sits beside its bar. */}
+                <div
+                  data-timeline-labels
+                  className="sticky left-0 z-20 shrink-0 border-r border-slate-200 bg-white"
+                  style={{ width: LABEL_PX }}
+                >
+                  <div
+                    style={{ height: HEADER_PX }}
+                    className="flex items-center border-b border-slate-200 px-2 text-meta font-bold uppercase tracking-wide text-slate-600"
+                  >
+                    Initiative
+                  </div>
+                  {layout.bars.map((bar) => {
+                    const shown = bar.kind === 'span' ? fmtRange(bar.dateIso, bar.endIso!) : fmtDay(bar.dateIso)
+                    return (
+                      <div
+                        key={bar.id}
+                        data-timeline-label-id={bar.id}
+                        title={`${bar.title} \u00b7 ${shown} \u00b7 ${STAGE_LABELS[bar.bucket]}`}
+                        className={cn(
+                          'flex items-center gap-1.5 border-b border-slate-100 px-2',
+                          bar.row % 2 === 1 && 'bg-slate-50',
+                        )}
+                        style={{ height: ROW_PX }}
+                      >
+                        {/* The bucket is the work's, not a setting — so it is a dot here, the
+                            same fact the bar's colour carries. */}
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: chipColors(STAGE_ACCENT[bar.bucket]).background }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => openItem(bar.id)}
+                          className="min-w-0 flex-1 truncate text-left text-meta font-medium text-slate-800 hover:text-indigo-700"
+                        >
+                          {bar.title}
+                        </button>
+                        <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600" title="Rollup — share of leaf work done">
+                          {rollupOf(bar.id, graph).percent}%
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
 
-                {/* The body: one band per packed row, the bars and milestones placed on them. */}
-                <div className="relative" style={{ height: Math.max(layout.rowCount * ROW_PX, 96) }} data-timeline-body>
-                  {Array.from({ length: layout.rowCount }, (_, r) => (
-                    <div
-                      key={r}
-                      className={cn('absolute inset-x-0', r % 2 === 1 && 'bg-slate-50')}
-                      style={{ top: r * ROW_PX, height: ROW_PX }}
-                    />
-                  ))}
+                {/* The axis: months over days, the days' own grid down the body, and the bars. */}
+                <div className="relative shrink-0" style={{ width: layout.totalDays * DAY_PX }}>
+                  {/* Period headers — whole calendar months, positioned by the layout. */}
+                  <div className="flex border-b border-slate-200" style={{ height: MONTH_PX }}>
+                    {layout.months.map((m) => (
+                      <div
+                        key={`${m.year}-${m.month}`}
+                        data-timeline-month={`${m.year}-${m.month + 1}`}
+                        style={{ width: m.days * DAY_PX }}
+                        className="flex shrink-0 items-center truncate border-r border-slate-200 px-2 text-meta font-semibold text-slate-700 last:border-r-0"
+                      >
+                        {new Date(m.year, m.month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* The tick row: a day number per column, weekends muted and the today column
+                      named. Every tick is a day the domain actually contains, and its tooltip
+                      spells the date out in full. */}
+                  <div data-timeline-days className="flex border-b border-slate-200 bg-slate-50" style={{ height: DAY_ROW_PX }}>
+                    {layout.days.map((d) => (
+                      <div
+                        key={d.offset}
+                        data-timeline-day={d.dateIso}
+                        title={fmtDay(d.dateIso)}
+                        style={{ width: DAY_PX }}
+                        className={cn(
+                          'flex shrink-0 items-center justify-center border-r border-slate-100 text-micro tabular-nums',
+                          // Weekends are muted by their band, never by a lighter grey: the
+                          // number has to stay above the legibility floor to be readable at all.
+                          d.weekend ? 'bg-slate-100 text-slate-600' : 'text-slate-600',
+                          d.monthStart && 'border-l border-slate-300 font-semibold text-slate-800',
+                          layout.today === d.offset && 'bg-rose-100 font-bold text-rose-700',
+                        )}
+                      >
+                        {d.day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* The body: one band per row, the days' own gridlines, the bars on top. */}
+                  <div className="relative" style={{ height: Math.max(layout.rowCount * ROW_PX, 96) }} data-timeline-body>
+                    {Array.from({ length: layout.rowCount }, (_, r) => (
+                      <div
+                        key={r}
+                        className={cn('pointer-events-none absolute inset-x-0', r % 2 === 1 && 'bg-slate-50')}
+                        style={{ top: r * ROW_PX, height: ROW_PX }}
+                      />
+                    ))}
+                    {/* A column per day, so a bar can be read against the numbers above it.
+                        Weekend columns are shaded faintly: they are the days a target usually
+                        does not land on, and seeing them makes a span read as weeks. */}
+                    {layout.days.map((d) => (
+                      <div
+                        key={d.offset}
+                        className={cn('pointer-events-none absolute inset-y-0 border-r border-slate-100', d.weekend && 'bg-slate-50/70')}
+                        style={{ left: d.offset * DAY_PX, width: DAY_PX }}
+                      />
+                    ))}
 
                   {/* Bars and milestones — position, row and colour straight from the layout.
                       The colour is the bucket the work beneath derived: a bar cannot claim a
@@ -195,25 +290,27 @@ export function TimelineView({ boardId }: { boardId: string }) {
                   )}
                 </div>
 
-                {/* Today, drawn only when the domain actually contains it — the layout answers
-                    that, so the marker can never point at an invented place. It spans the whole
-                    chart, header included, and sits above the bars: the one date here that is
-                    not a target must never be hidden by the work it cuts through. */}
-                {layout.today !== null && (
-                  <>
-                    <div
-                      data-timeline-today
-                      className="absolute inset-y-0 z-10 w-px bg-rose-500"
-                      style={{ left: (layout.today + 0.5) * DAY_PX }}
-                    />
-                    <span
-                      className="absolute top-0 z-10 -translate-x-1/2 rounded-b-md bg-rose-500 px-1.5 py-px text-micro font-bold uppercase tracking-wide text-white"
-                      style={{ left: (layout.today + 0.5) * DAY_PX }}
-                    >
-                      Today
-                    </span>
-                  </>
-                )}
+                  {/* Today, drawn only when the domain actually contains it — the layout answers
+                      that, so the marker can never point at an invented place. It spans the
+                      axis, header included, and sits above the bars: the one date here that is
+                      not a target must never be hidden by the work it cuts through. It starts
+                      at the axis, not the card, because the initiative column is not a date. */}
+                  {layout.today !== null && (
+                    <>
+                      <div
+                        data-timeline-today
+                        className="absolute inset-y-0 z-10 w-px bg-rose-500"
+                        style={{ left: (layout.today + 0.5) * DAY_PX }}
+                      />
+                      <span
+                        className="absolute top-0 z-10 -translate-x-1/2 rounded-b-md bg-rose-500 px-1.5 py-px text-micro font-bold uppercase tracking-wide text-white"
+                        style={{ left: (layout.today + 0.5) * DAY_PX }}
+                      >
+                        Today
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 

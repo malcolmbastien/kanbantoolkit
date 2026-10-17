@@ -155,6 +155,29 @@ describe('timeline layout', () => {
     expect(l.bars.map((b) => b.id)).toEqual(['a', 'b', 'c'])
   })
 
+  it('carries the axis day by day — every tick a day the domain actually holds', () => {
+    const l = layoutTimeline([entry('a', { targetStartDate: '2026-11-28', targetEndDate: '2026-12-02' })], {
+      today: TODAY,
+    })
+    expect(l.days).toHaveLength(l.totalDays) // November and December, whole months
+    // 1 Nov 2026 is a Sunday, and it is where the axis restates the month.
+    expect(l.days[0]).toEqual({ offset: 0, dateIso: '2026-11-01', day: 1, monthStart: true, weekend: true })
+    expect(l.days[31]).toEqual({ offset: 31, dateIso: '2026-12-02', day: 2, monthStart: false, weekend: false })
+    expect(l.days.filter((d) => d.monthStart).map((d) => d.dateIso)).toEqual(['2026-11-01', '2026-12-01'])
+    // The weekends are the calendar's own: Sat 5 Dec is one, Fri 4 Dec is not.
+    expect(l.days.filter((d) => d.weekend).map((d) => d.dateIso)).toContain('2026-12-05')
+    expect(l.days.find((d) => d.dateIso === '2026-12-04')!.weekend).toBe(false)
+    // The offsets are the ones the bars are placed with, so a tick cannot drift off its column.
+    expect(l.days.map((d) => d.offset)).toEqual(l.days.map((_, i) => i))
+  })
+
+  it('numbers an empty board’s axis too, so the tick row is never blank', () => {
+    const l = layoutTimeline([], { today: TODAY })
+    expect(l.days).toHaveLength(31) // December 2026
+    expect(l.days[0]).toEqual({ offset: 0, dateIso: '2026-12-01', day: 1, monthStart: true, weekend: false })
+    expect(l.days[30].day).toBe(31)
+  })
+
   it('carries the derived bucket through — colour is a fact, not a setting', () => {
     const l = layoutTimeline(
       [
