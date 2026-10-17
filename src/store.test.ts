@@ -4,7 +4,7 @@ import { boardCardTypeId, buildRefs, cardTypes, defaultDropLane, defaultCardType
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
 import { hasActiveFilters, NO_FILTERS } from './domain/filters'
-import { migratePersisted, migrateState, persistedSlice, useStore } from './store'
+import { migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 
 vi.stubGlobal('localStorage', {
@@ -1498,5 +1498,94 @@ describe('board description', () => {
     ;(kept.boards as Record<string, unknown>[])[1].description = 'our own words go here'
     const out2 = migratePersisted(kept, 28) as { boards: { description: string }[] }
     expect(out2.boards[1].description).toBe('our own words go here')
+  })
+})
+
+describe('workspace import', () => {
+  beforeEach(() => s().resetDemo())
+
+  /** The current workspace as an export would write it. */
+  const exportOf = () => ({ app: 'flowline', exportedAt: '2026-10-16T09:00:00.000Z', version: PERSIST_VERSION, state: { ...persistedSlice(s()) } })
+
+  it('the exported file restores exactly what it carried, and what a file omits starts empty', () => {
+    const backup = exportOf()
+    // The state drifts away from the backup.
+    s().renameBoard('b-atlas', 'Renamed Atlas')
+    s().addCard({ boardId: 'b-atlas', typeId: s().issueTypes[0].id, laneId: laneByName('b-atlas', 'Done').id, title: 'Stray' })
+    expect(s().boards.find((b) => b.id === 'b-atlas')!.name).toBe('Renamed Atlas')
+
+    s().importWorkspace(backup.state, backup.version)
+    // The backup's data comes back untouched...
+    expect(s().boards.find((b) => b.id === 'b-atlas')!.name).toBe('Team Atlas')
+    expect(s().items.some((i) => i.title === 'Stray')).toBe(false)
+    // ...and the shape agrees with what was exported.
+    const restored = persistedSlice(s())
+    expect(JSON.stringify(restored.boards)).toBe(JSON.stringify(backup.state.boards))
+    expect(JSON.stringify(restored.items)).toBe(JSON.stringify(backup.state.items))
+
+    // An entity the file does not mention starts empty rather than keeping the old state.
+    // (Users are the one exception a migrate may re-derive from item assignees.)
+    const headless = { ...backup.state }
+    delete headless.objectives
+    s().importWorkspace(headless as Record<string, unknown>, backup.version)
+    expect(s().objectives).toEqual([])
+  })
+
+  it('imports a minimal file, winning a usable board, and lands on a real board', () => {
+    s().importWorkspace(
+      {
+        boards: [{ id: 'bx', name: 'Imported', band: 'team', description: '' }],
+        lanes: [],
+        items: [{ id: 'ix', title: 'One card', typeId: 't-story', createdAt: 0 }],
+        placements: [{ id: 'px', boardId: 'bx', itemId: 'ix', laneId: 'lx' }],
+        issueTypes: [{ id: 't-story', name: 'User Story', color: '#6366f1' }],
+      },
+      PERSIST_VERSION,
+    )
+    expect(s().boards.map((b) => b.id)).toEqual(['bx'])
+    // A board the file names in boardId wins; a dangling one does not strand the app.
+    expect(s().boardId).toBe('bx')
+    expect(s().selectedItemId).toBeNull()
+    expect(s().editMode).toBe(false)
+    expect(s().showLegend).toBe(false)
+    // Whatever surface the import was started from keeps showing.
+    s().setBoards(true)
+    s().importWorkspace(
+      { boards: [{ id: 'bx', name: 'Imported again', band: 'team', description: '' }], lanes: [], items: [], placements: [], issueTypes: [] },
+      PERSIST_VERSION,
+    )
+    expect(s().showBoards).toBe(true)
+  })
+
+  it('lands on the imported workspace\'s own board when it exists there', () => {
+    s().importWorkspace(
+      {
+        boardId: 'bz',
+        boards: [
+          { id: 'by', name: 'First', band: 'team', description: '' },
+          { id: 'bz', name: 'Second', band: 'team', description: '' },
+        ],
+        lanes: [],
+        items: [],
+        placements: [],
+        issueTypes: [],
+      },
+      PERSIST_VERSION,
+    )
+    expect(s().boardId).toBe('bz')
+  })
+
+  it('an import of an older shape migrates through the same backfills a reload would', () => {
+    // A v15-era shape: boards without descriptions (the backfills run unconditionally,
+    // exactly as an on-load rehydrate does).
+    const legacy = {
+      boards: [{ id: 'b-og', name: 'Old Shape', band: 'team' }],
+      lanes: [],
+      items: [],
+      placements: [],
+      issueTypes: [],
+    }
+    s().importWorkspace(legacy, PERSIST_VERSION)
+    expect(s().boards[0].description).toBe('')
   })
 })

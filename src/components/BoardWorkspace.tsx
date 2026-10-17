@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { TemplateEditor } from './TemplateEditor'
 import { boardsByBand } from '@/domain/board'
+import { readWorkspaceFile } from '@/domain/workspace'
 import { cn } from '@/lib/utils'
-import { useStore } from '@/store'
+import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
 import type { Board, BoardBand, BoardTemplate } from '@/domain/types'
 
 /**
@@ -32,6 +33,7 @@ export function BoardWorkspace() {
   const renameBoardTemplate = useStore((s) => s.renameBoardTemplate)
   const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
   const askConfirm = useStore((s) => s.askConfirm)
+  const importWorkspace = useStore((s) => s.importWorkspace)
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -50,6 +52,8 @@ export function BoardWorkspace() {
   const [templateBand, setTemplateBand] = useState<BoardBand>('team')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const allGroups = boardsByBand(boards, q, showArchived)
   const groups = bandFilter === 'all' ? allGroups : allGroups.filter((g) => g.band === bandFilter)
@@ -103,6 +107,49 @@ export function BoardWorkspace() {
     })
 
   const preview = boardTemplates.find((t) => t.id === previewId)
+
+  /** Download the workspace: exactly what the app persists, plus the shape it was written in. */
+  const exportWorkspace = () => {
+    const backup = {
+      app: 'flowline',
+      exportedAt: new Date().toISOString(),
+      version: PERSIST_VERSION,
+      state: persistedSlice(useStore.getState()),
+    }
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `flowline-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const onImportFile = async (file: File | undefined) => {
+    if (!file) return
+    let json: unknown
+    try {
+      json = JSON.parse(await file.text())
+    } catch {
+      setImportError('That file is not valid JSON.')
+      return
+    }
+    const read = readWorkspaceFile(json, PERSIST_VERSION)
+    if (!read.ok || !read.state) {
+      setImportError(read.error ?? 'That file is not a Flowline workspace.')
+      return
+    }
+    setImportError(null)
+    const boards = read.state.boards as { name: string; archived?: boolean }[]
+    const items = (read.state.items as unknown[]).length
+    askConfirm({
+      title: `Import “${file.name}”?`,
+      body: `It replaces this workspace: ${boards.length} board${boards.length === 1 ? '' : 's'}, ${items} work item${items === 1 ? '' : 's'}. The current workspace is overwritten — export first if you want to keep it.`,
+      confirmLabel: 'Import',
+      danger: true,
+      onConfirm: () => importWorkspace(read.state!, read.version!),
+    })
+  }
 
   const remove = (board: Board) =>
     askConfirm({
@@ -508,6 +555,51 @@ export function BoardWorkspace() {
               ))}
             </div>
           )}
+        </section>
+
+        {/* Workspace data — the organisation, out and back into files. The export is what
+            the app persists, at the shape it was written in; the import replaces everything,
+            after the file passes the shape check and the person confirms. */}
+        <section data-workspace-data className="mt-4 rounded-lg border border-slate-300 bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-slate-600">
+                <Download size={12} /> Workspace data
+              </div>
+              <p className="mt-0.5 text-meta text-slate-600">
+                Export downloads every board, card and initiative as a JSON file; importing one replaces this workspace
+                with what the file carries.
+              </p>
+              {importError && <p className="mt-1 text-meta font-medium text-rose-600">{importError}</p>}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={exportWorkspace}
+                className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                title="Download the whole workspace as JSON"
+              >
+                <Download size={13} /> Export
+              </button>
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                title="Import a workspace file — replaces everything here"
+              >
+                <Upload size={13} /> Import…
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={(e) => {
+                  void onImportFile(e.target.files?.[0])
+                  // Reading the same file again must fire again.
+                  e.target.value = ''
+                }}
+              />
+            </div>
+          </div>
         </section>
       </div>
 

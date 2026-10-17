@@ -189,6 +189,8 @@ export interface Actions {
   addLinkedBoard: (parentId: string, childId: string) => void
   removeLinkedBoard: (parentId: string, childId: string) => void
   resetDemo: () => void
+  /** Replace the workspace with an imported one; validated at the picker, trusted, migrated and whitelisted here. */
+  importWorkspace: (state: Record<string, unknown>, version: number) => void
 
   addIssueType: (name: string, color: string) => string
   updateIssueType: (id: string, patch: Partial<IssueType>) => void
@@ -710,6 +712,9 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
  *
  * Exported for testing.
  */
+/** The current persisted workspace shape — every schema change bumps it with a migrate. */
+export const PERSIST_VERSION = 29
+
 export function persistedSlice(s: Store): Partial<Store> {
   const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
   return {
@@ -731,6 +736,29 @@ export function persistedSlice(s: Store): Partial<Store> {
     placements: design.placements,
   }
 }
+
+/**
+ * The keys a workspace file carries — exactly what `persistedSlice` writes. An import
+ * copies only these, so an unknown key in a file (a view flag, a widget hanging off
+ * state) can never leak into the store.
+ */
+export const WORKSPACE_KEYS = [
+  'users',
+  'issueTypes',
+  'items',
+  'edges',
+  'links',
+  'objectives',
+  'keyResults',
+  'boardTemplates',
+  'autoArchiveDays',
+  'savedFilters',
+  'collapsedLanes',
+  'boardId',
+  'boards',
+  'lanes',
+  'placements',
+] as const
 
 export const useStore = create<Store>()(
   persist(
@@ -1081,6 +1109,49 @@ export const useStore = create<Store>()(
         set({ editMode: false, draft: null, boards: d.boards, lanes: d.lanes, placements: d.placements, boardId: d.boardId })
       },
       resetDemo: () => set({ ...createSeed(), ...initialView }),
+      importWorkspace: (state, version) => {
+        // Validation happened at the file picker; here the migrated shape is whitelisted —
+        // only what the app persists comes across, so an unknown key cannot leak in — and
+        // every entity the file does not mention starts empty.
+        const migrated = migratePersisted(state, version) as Record<string, unknown>
+        const blank: Record<string, unknown> = {
+          users: [],
+          issueTypes: [],
+          items: [],
+          edges: [],
+          links: [],
+          objectives: [],
+          keyResults: [],
+          boardTemplates: [],
+          autoArchiveDays: undefined,
+          savedFilters: [],
+          collapsedLanes: {},
+          boardId: undefined,
+          boards: [],
+          lanes: [],
+          placements: [],
+        }
+        const data: Record<string, unknown> = {}
+        for (const k of WORKSPACE_KEYS) data[k] = k in migrated ? migrated[k] : blank[k]
+        const boards = data.boards as { id: string }[]
+        if (boards.length === 0) return
+        const ids = new Set(boards.map((b) => b.id))
+        // Land on the workspace's own board when it exists, else the first one written.
+        const boardId = typeof data.boardId === 'string' && ids.has(data.boardId) ? data.boardId : boards[0].id
+        // The workspace was replaced, not the session's place in it: whatever surface the
+        // person is on (a board, the workspace, the timeline) keeps showing, now fed by the
+        // imported data. Focus-like state (selection, filters, drafting, settling) resets.
+        const s = get()
+        const view = {
+          ...initialView,
+          showObjectives: s.showObjectives,
+          showDashboard: s.showDashboard,
+          showTimeline: s.showTimeline,
+          showArchive: s.showArchive,
+          showBoards: s.showBoards,
+        }
+        set({ ...view, ...data, boardId } as Partial<Store>)
+      },
 
       addIssueType: (name, color) => {
         const id = uid()
@@ -1688,7 +1759,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'flowline-state-v3',
-      version: 29,
+      version: PERSIST_VERSION,
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

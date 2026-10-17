@@ -572,12 +572,13 @@
         "id": "32",
         "title": "Implement workspace export and import (JSON)",
         "description": "Back up and restore the whole workspace as JSON.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Serialize FlowState to JSON and download; import validates shape and version, then replaces state; guard against invalid files.",
         "testStrategy": "Manual verification plus focused unit tests where logic is involved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T03:32:41.946Z"
       },
       {
         "id": "33",
@@ -1141,9 +1142,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T21:59:07.332Z",
+      "lastModified": "2026-10-17T03:32:41.946Z",
       "taskCount": 72,
-      "completedCount": 50,
+      "completedCount": 51,
       "tags": [
         "backlog"
       ]
