@@ -37,7 +37,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
-import { childrenOf, effectiveStage, isTopLevel, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
+import { childrenOf, effectiveStage, inheritedWipState, isTopLevel, leavesUnder, rootLane, strongestWip, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -149,6 +149,12 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     }).length
   }
   const wip = wipState(countInLane(lane.id), lane.wipLimit)
+  // The load above this lane: an ancestor at or over its limit makes the whole column
+  // full — the children only exist inside it, so they read as full too. Only the body
+  // tint travels down; the strong header colour stays on the one lane whose own limit
+  // it is, so "whose limit" never blurs.
+  const inheritedWip = inheritedWipState(lanes, lane.id, countInLane)
+  const fullWip = strongestWip(wip, inheritedWip)
 
   // Confirm before removing a lane that carries cards or sub-lanes.
   const removeWithConfirm = () => {
@@ -319,8 +325,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           <ChevronsRight size={13} />
         </button>
         <span
-          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-700 px-1 text-micro font-bold tabular-nums text-white"
-          title={`${count} card${count === 1 ? '' : 's'}`}
+          className={cn(
+            'grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1 text-micro font-bold tabular-nums text-white',
+            wip === 'over' ? 'bg-rose-800' : wip === 'at' ? 'bg-amber-700' : 'bg-slate-700',
+          )}
+          title={`${count} card${count === 1 ? '' : 's'}${wip === 'over' ? ' — over its limit' : wip === 'at' ? ' — at its limit' : ''}`}
         >
           {count}
         </span>
@@ -407,7 +416,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   return (
     <div
-      className={cn('flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col', wip === 'over' ? 'bg-rose-50' : wip === 'at' ? 'bg-amber-50' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100')}
+      className={cn('flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col', fullWip === 'over' ? 'bg-rose-50' : fullWip === 'at' ? 'bg-amber-50' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100')}
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
       {!hideHeader && header(true)}

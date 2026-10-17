@@ -143,6 +143,38 @@ export function wipState(count: number, limit?: number): 'at' | 'over' | null {
   return null
 }
 
+/**
+ * The strongest WIP state anywhere among a lane's ancestors — the load above a lane is a
+ * fact about everything under it: when a parent or top-level column fills up, its children
+ * only exist inside it, so the whole column reads as full. Derived by walking up (never
+ * stored), and "over" outranks "at" so a descendant of a full column shows the stronger
+ * state even when a higher ancestor has merely reached its own.
+ */
+export function inheritedWipState(
+  lanes: Lane[],
+  laneId: string,
+  countInLane: (laneId: string) => number,
+): 'at' | 'over' | null {
+  let state: 'at' | 'over' | null = null
+  let parentId = lanes.find((l) => l.id === laneId)?.parentId
+  while (parentId) {
+    const ancestor = lanes.find((l) => l.id === parentId)
+    if (!ancestor) break
+    const w = wipState(countInLane(ancestor.id), ancestor.wipLimit)
+    if (w === 'over') return 'over'
+    if (w === 'at') state = 'at'
+    parentId = ancestor.parentId
+  }
+  return state
+}
+
+/** Two WIP states at once — an at-limit lane inside an over-limit column is over. */
+export function strongestWip(a: 'at' | 'over' | null, b: 'at' | 'over' | null): 'at' | 'over' | null {
+  if (a === 'over' || b === 'over') return 'over'
+  if (a === 'at' || b === 'at') return 'at'
+  return null
+}
+
 /** Ordered leaves somewhere in a subtree (not board-scoped). */
 export function leavesUnder(lanes: Lane[], laneId: string): Lane[] {
   const out: Lane[] = []

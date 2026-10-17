@@ -26,9 +26,9 @@ import {
   waitsOn,
   type Graph,
 } from './derive'
-import { effectiveStage, isLeaf, laneCardCount, leafLanes, rootLane, topLevelLanes, wipState } from './lanes'
+import { effectiveStage, inheritedWipState, isLeaf, laneCardCount, leafLanes, rootLane, strongestWip, topLevelLanes, wipState } from './lanes'
 import { createSeed } from './seed'
-import type { FlowState, Item } from './types'
+import type { FlowState, Item, Lane } from './types'
 
 const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes })
 const laneByName = (s: FlowState, boardId: string, name: string) =>
@@ -301,6 +301,41 @@ describe('WIP limit state', () => {
     expect(wipState(1, 2)).toBeNull()
     expect(wipState(2, 2)).toBe('at')
     expect(wipState(3, 2)).toBe('over')
+  })
+
+  it('a descendant inherits the state of the column above it — the children exist inside it', () => {
+    // In Progress (3/3) → Dev (1/2), Test (no limit): both children are inside a full column.
+    const inProgress: Lane = { id: 'l-ip', boardId: 'b', parentId: null, order: 0, name: 'In Progress', workflow: 'cards', stage: 'inProgress', wipLimit: 3 }
+    const dev: Lane = { id: 'l-dev', boardId: 'b', parentId: 'l-ip', order: 0, name: 'Dev', workflow: 'cards' }
+    const test: Lane = { id: 'l-test', boardId: 'b', parentId: 'l-ip', order: 1, name: 'Test', workflow: 'cards' }
+    const lanes: Lane[] = [inProgress, dev, test]
+    const counts = (id: string) => (id === 'l-ip' ? 3 : id === 'l-dev' ? 1 : 2)
+    expect(inheritedWipState(lanes, 'l-dev', counts)).toBe('at')
+    expect(inheritedWipState(lanes, 'l-test', counts)).toBe('at')
+    expect(inheritedWipState(lanes, 'l-ip', counts)).toBeNull() // the column itself reads its own limit
+
+    // One card more: the column is over, and everything under it says so.
+    expect(inheritedWipState(lanes, 'l-dev', (id) => (id === 'l-ip' ? 4 : counts(id)))).toBe('over')
+  })
+
+  it('the strongest state wins down the chain — over outranks at, and deeper at-limit ancestors count', () => {
+    const grand: Lane = { id: 'g', boardId: 'b', parentId: null, order: 0, name: 'G', workflow: 'cards', stage: 'inProgress', wipLimit: 2 }
+    const mid: Lane = { id: 'm', boardId: 'b', parentId: 'g', order: 0, name: 'M', workflow: 'cards', wipLimit: 1 }
+    const leaf: Lane = { id: 'x', boardId: 'b', parentId: 'm', order: 0, name: 'X', workflow: 'cards' }
+    const lanes: Lane[] = [grand, mid, leaf]
+    // Grand is at (2/2) and mid is over (2/1): the leaf reads over, not merely at.
+    expect(inheritedWipState(lanes, 'x', (id) => (id === 'g' ? 2 : id === 'm' ? 2 : 0))).toBe('over')
+    // Grand over and mid under its own limit: still over.
+    expect(inheritedWipState(lanes, 'x', (id) => (id === 'g' ? 3 : id === 'm' ? 1 : 0))).toBe('over')
+    // An unbounded chain is nothing.
+    expect(inheritedWipState([{ ...grand, wipLimit: undefined }, { ...mid, wipLimit: undefined }, leaf], 'x', () => 9)).toBeNull()
+  })
+
+  it('two states at once compose — at inside over is over', () => {
+    expect(strongestWip('at', 'over')).toBe('over')
+    expect(strongestWip('over', null)).toBe('over')
+    expect(strongestWip('at', null)).toBe('at')
+    expect(strongestWip(null, null)).toBeNull()
   })
 })
 
