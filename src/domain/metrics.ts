@@ -1,0 +1,167 @@
+import type { Item, Stage } from './types'
+
+/**
+ * Flow metrics — lead time, cycle time, throughput and a cumulative flow diagram — derived from
+ * what the cards themselves recorded.
+ *
+ * Nothing here is stored and nothing is maintained by hand: a card's history is the `moved`
+ * entries in its own log (task 74), each of which carries the **stage** it landed in. That is
+ * the point of recording stages rather than lane ids: a team is free to rename, split and
+ * rearrange its columns, and the four stages stay fixed, so a board redesigned on Tuesday still
+ * reports its own past correctly on Wednesday.
+ *
+ * The history starts the day the app began recording moves, which is honest and worth saying
+ * out loud wherever these numbers are shown.
+ */
+
+const DAY_MS = 86_400_000
+export const WEEK_MS = 7 * DAY_MS
+
+/** A move as flow reads it: the stage it landed in, and when. */
+export interface StageMove {
+  at: number
+  to: Stage
+  from?: Stage
+}
+
+/** One card's history in the terms flow is read in — all of it derived from the card's log. */
+export interface FlowRecord {
+  id: string
+  title: string
+  createdAt: number
+  resolvedAt?: number
+  archivedAt?: number
+  /** The stage it was in before its first recorded move: where the history starts. */
+  startedIn: Stage
+  moves: StageMove[]
+}
+
+/**
+ * Read one card's history. `currentStage` is the stage the card sits in now, which is what tells
+ * a card that has never moved where it started; a card that has moved knows from its first entry.
+ */
+export function flowRecord(item: Item, currentStage: Stage | undefined): FlowRecord {
+  const moves = (item.log ?? [])
+    .filter((e) => e.kind === 'moved' && e.toStage)
+    .sort((a, b) => a.at - b.at)
+    .map((e) => ({ at: e.at, to: e.toStage as Stage, ...(e.fromStage ? { from: e.fromStage } : {}) }))
+  return {
+    id: item.id,
+    title: item.title,
+    createdAt: item.createdAt,
+    ...(item.resolvedAt ? { resolvedAt: item.resolvedAt } : {}),
+    ...(item.archivedAt ? { archivedAt: item.archivedAt } : {}),
+    startedIn: moves[0]?.from ?? currentStage ?? 'backlog',
+    moves,
+  }
+}
+
+/** The stage a card was in at a moment: the last move at or before it, else where it started. */
+export function stageAt(record: FlowRecord, at: number): Stage {
+  let stage = record.startedIn
+  for (const m of record.moves) {
+    if (m.at > at) break
+    stage = m.to
+  }
+  return stage
+}
+
+/**
+ * When the work was committed — the first time it was not Backlog. A card created straight into
+ * a committed column was committed the day it was created; one that has never left Backlog never
+ * was, which is why a cycle time is missing rather than zero.
+ */
+export function committedAt(record: FlowRecord): number | undefined {
+  if (record.startedIn !== 'backlog') return record.createdAt
+  return record.moves.find((m) => m.to !== 'backlog')?.at
+}
+
+/** Whether the card was still work in flight at a moment — delivered or filed away is neither. */
+export function inFlightAt(record: FlowRecord, at: number): boolean {
+  if (stageAt(record, at) === 'done') return false
+  return !(record.archivedAt !== undefined && record.archivedAt <= at)
+}
+
+const days = (from: number, to: number) => (to - from) / DAY_MS
+
+/** Lead time per resolved card, in days: created to resolved. */
+export function leadTimes(records: FlowRecord[]): number[] {
+  return records.flatMap((r) => (r.resolvedAt === undefined ? [] : [days(r.createdAt, r.resolvedAt)]))
+}
+
+/** Cycle time per resolved card that was committed, in days: first committed to resolved. */
+export function cycleTimes(records: FlowRecord[]): number[] {
+  return records.flatMap((r) => {
+    const committed = committedAt(r)
+    return r.resolvedAt === undefined || committed === undefined ? [] : [days(committed, r.resolvedAt)]
+  })
+}
+
+/** Weekly boundaries ending at `now`, oldest first — the axis a flow chart is read on. */
+export function weeklyBuckets(now: number, weeks: number): number[] {
+  return Array.from({ length: weeks }, (_, i) => now - (weeks - 1 - i) * WEEK_MS)
+}
+
+/** Items resolved in each bucket's own week: the week ending at that boundary, and not before. */
+export function throughput(records: FlowRecord[], buckets: number[]): number[] {
+  return buckets.map((b) =>
+    records.filter((r) => r.resolvedAt !== undefined && r.resolvedAt > b - WEEK_MS && r.resolvedAt <= b).length,
+  )
+}
+
+/**
+ * Items per stage at each bucket boundary — the cumulative flow diagram.
+ *
+ * A card that did not exist yet is not in a column. A card filed away mid-flight left the flow
+ * and is no longer counted; one filed away from Done was *delivered*, and delivery is a fact the
+ * diagram keeps. Nothing is smoothed: a card that moves backwards moves backwards here too, which
+ * is the whole reason to draw the diagram rather than a number.
+ */
+export function cumulativeFlow(records: FlowRecord[], buckets: number[]): Record<Stage, number>[] {
+  return buckets.map((b) => {
+    const counts = { backlog: 0, notStarted: 0, inProgress: 0, done: 0 } as Record<Stage, number>
+    for (const r of records) {
+      if (r.createdAt > b) continue
+      const stage = stageAt(r, b)
+      if (r.archivedAt !== undefined && r.archivedAt <= b && stage !== 'done') continue
+      counts[stage] += 1
+    }
+    return counts
+  })
+}
+
+/** The middle of a set of values, or the middle two averaged. Nothing in, nothing out. */
+export function median(values: number[]): number | undefined {
+  if (values.length === 0) return undefined
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+/** The value at a percentile (nearest rank) — the tail a median hides. */
+export function percentile(values: number[], p: number): number | undefined {
+  if (values.length === 0) return undefined
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))]
+}
+
+export interface FlowSummary {
+  /** Cards still moving at `now`. */
+  inFlight: number
+  /** Cards that reached Done, however long ago. */
+  delivered: number
+  lead: { median?: number; p85?: number; count: number }
+  cycle: { median?: number; p85?: number; count: number }
+}
+
+/** The four numbers a flow view leads with, over the cards it was given. */
+export function flowSummary(records: FlowRecord[], now: number): FlowSummary {
+  const lead = leadTimes(records)
+  const cycle = cycleTimes(records)
+  return {
+    inFlight: records.filter((r) => inFlightAt(r, now)).length,
+    delivered: records.filter((r) => stageAt(r, now) === 'done').length,
+    lead: { median: median(lead), p85: percentile(lead, 85), count: lead.length },
+    cycle: { median: median(cycle), p85: percentile(cycle, 85), count: cycle.length },
+  }
+}

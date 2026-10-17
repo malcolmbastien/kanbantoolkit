@@ -1,4 +1,4 @@
-import type { Board, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLink, Lane, Placement, Objective, User, Workflow } from './types'
+import type { Board, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, ItemLink, Lane, Placement, Objective, Stage, User, Workflow } from './types'
 
 const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 const DAY = 86_400_000
@@ -251,6 +251,23 @@ const items: Item[] = []
 const item = (id: string, title: string, typeId: string, extra: Partial<Item> = {}) =>
   items.push({ id, title, typeId, createdAt: T, ...extra })
 
+/**
+ * A card's journey, back-dated. The app records moves as they happen (each one carrying the
+ * stage it landed in), so a board seeded today would otherwise have no history at all and the
+ * flow view would have nothing to read — which is exactly what the demo must not do.
+ */
+const moved = (id: string, at: number, from: Lane, to: Lane, fromStage: Stage, toStage: Stage, boardId = 'b-atlas'): ItemLogEntry => ({
+  id,
+  at,
+  kind: 'moved',
+  note: `${from.name} → ${to.name}`,
+  boardId,
+  fromLaneId: from.id,
+  toLaneId: to.id,
+  fromStage,
+  toStage,
+})
+
 // Strategic initiatives (company strategy) — the top of the chain. OKRs attach
 // here and everything below inherits through the decomposition.
 item('init-activation', 'Activation Programme', 't-initiative', { size: 74, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
@@ -271,11 +288,28 @@ item('init-welcome', 'Welcome experience', 't-initiative', { size: 8, assignees:
 item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignees: ['u-jt'], targetEndDate: '2027-02-28' })
 
 // Cards — Team Atlas.
-item('st-signup-design', 'Design signup screens', 't-story', { size: 3 })
+item('st-signup-design', 'Design signup screens', 't-story', {
+  size: 3,
+  createdAt: T - 58 * DAY,
+  // Long in the making, delivered this week: the slowest card on the board, and the one the
+  // flow view's tail is honest about.
+  resolvedAt: T - 2 * DAY,
+  log: [
+    { id: 'log-design-1', at: T - 58 * DAY, kind: 'created' },
+    moved('log-design-2', T - 56 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),
+    moved('log-design-3', T - 45 * DAY, a.ns, a.ip, 'notStarted', 'inProgress'),
+    moved('log-design-4', T - 2 * DAY, a.ip, a.done, 'inProgress', 'done'),
+  ],
+})
 item('st-signup-form', 'Build signup form', 't-story', {
   size: 5,
-  createdAt: T - 7 * DAY,
+  createdAt: T - 20 * DAY,
   assignees: ['u-rk', 'u-mb'],
+  log: [
+    { id: 'log-form-1', at: T - 20 * DAY, kind: 'created' },
+    moved('log-form-2', T - 14 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),
+    moved('log-form-3', T - 6 * DAY, a.ns, a.dev!, 'notStarted', 'inProgress'),
+  ],
   checklist: [
     { id: 'cl-form-1', text: 'Form markup + validation', done: true },
     { id: 'cl-form-2', text: 'Wire up the API call', done: true },
@@ -286,7 +320,10 @@ item('st-signup-form', 'Build signup form', 't-story', {
 item('st-email', 'Email verification', 't-story', {
   size: 3,
   createdAt: T - 35 * DAY,
-  log: [{ id: 'log-email-1', at: T - 35 * DAY, kind: 'created' }],
+  log: [
+    { id: 'log-email-1', at: T - 35 * DAY, kind: 'created' },
+    moved('log-email-3', T - 30 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),
+  ],
   checklist: [
     { id: 'cl-email-1', text: 'Draft the template', done: true },
     { id: 'cl-email-2', text: 'Send on signup', done: false },
@@ -299,10 +336,51 @@ item('st-sso', 'SSO buttons', 't-story', {
   createdAt: T - 18 * DAY,
   log: [
     { id: 'log-sso-1', at: T - 18 * DAY, kind: 'created' },
+    moved('log-sso-3', T - 15 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),
+    moved('log-sso-4', T - 12 * DAY, a.ns, a.test!, 'notStarted', 'inProgress'),
     { id: 'log-sso-2', at: T - 12 * DAY, kind: 'blocked', note: 'Gateway contract not ready' },
   ],
 })
 item('df-signup', 'Signup validation on retry', 't-bug', { size: 2 })
+
+/**
+ * Team Atlas' delivered history: cards that were created, worked, done and filed away. They keep
+ * their placements — that is what archiving means here, off the board and still linked — so the
+ * flow view reads the team's throughput across weeks rather than only its most recent delivery,
+ * while the board itself stays about what is in front of the team.
+ */
+const filed = (
+  id: string,
+  title: string,
+  typeId: string,
+  size: number,
+  created: number,
+  started: number,
+  worked: number,
+  done: number,
+) =>
+  item(id, title, typeId, {
+    size,
+    createdAt: created,
+    resolvedAt: done,
+    archived: true,
+    archivedAt: done + DAY,
+    log: [
+      { id: `${id}-1`, at: created, kind: 'created' },
+      moved(`${id}-2`, started, a.backlog, a.ns, 'backlog', 'notStarted'),
+      moved(`${id}-3`, worked, a.ns, a.ip, 'notStarted', 'inProgress'),
+      moved(`${id}-4`, done, a.ip, a.done, 'inProgress', 'done'),
+      { id: `${id}-5`, at: done + DAY, kind: 'archived' },
+    ],
+  })
+
+filed('st-export-csv', 'Export the register as CSV', 't-story', 3, T - 64 * DAY, T - 62 * DAY, T - 56 * DAY, T - 49 * DAY)
+filed('st-scim-spike', 'Spike: SCIM provisioning', 't-spike', 2, T - 60 * DAY, T - 59 * DAY, T - 52 * DAY, T - 44 * DAY)
+filed('st-billing-handoff', 'Billing portal handoff', 't-story', 5, T - 52 * DAY, T - 48 * DAY, T - 45 * DAY, T - 37 * DAY)
+filed('st-audit-log', 'Audit log retention', 't-story', 2, T - 45 * DAY, T - 44 * DAY, T - 40 * DAY, T - 30 * DAY)
+filed('st-ratelimit-ui', 'Rate limit messaging', 't-story', 3, T - 38 * DAY, T - 37 * DAY, T - 29 * DAY, T - 23 * DAY)
+filed('st-onboarding-email', 'Onboarding email sequence', 't-story', 3, T - 33 * DAY, T - 27 * DAY, T - 24 * DAY, T - 16 * DAY)
+filed('st-legacy-import', 'Import legacy accounts', 't-story', 5, T - 26 * DAY, T - 25 * DAY, T - 20 * DAY, T - 9 * DAY)
 
 // Cards — Team Nova.
 item('st-welcome-copy', 'Welcome copy', 't-story', { size: 1 })
@@ -366,6 +444,10 @@ place('st-signup-design', 'b-atlas', a.done.id)
 // A few Atlas stamps tell time's story: Not Started has held one card about a month, and
 // the pieces under way have their own younger ages. The rest predate the stamp on purpose.
 place('st-signup-form', 'b-atlas', a.dev.id, T - 6 * DAY)
+// Delivered and filed away, in the board's Done cell: what a board carries includes its past.
+for (const id of ['st-export-csv', 'st-scim-spike', 'st-billing-handoff', 'st-audit-log', 'st-ratelimit-ui', 'st-onboarding-email', 'st-legacy-import']) {
+  place(id, 'b-atlas', a.done.id)
+}
 place('st-email', 'b-atlas', a.ns.id, T - 30 * DAY)
 place('st-sso', 'b-atlas', a.test!.id, T - 12 * DAY)
 place('df-signup', 'b-atlas', a.test!.id)

@@ -74,6 +74,8 @@ export interface ViewState {
   showBoards: boolean
   /** Show My work — everything assigned to the workspace's person, across every board. */
   showMyWork: boolean
+  /** Show the flow metrics view for the current board — derived, read-only. */
+  showMetrics: boolean
   /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
@@ -133,6 +135,8 @@ export interface Actions {
   setDashboard: (v: boolean) => void
   setTimeline: (v: boolean) => void
   setArchive: (v: boolean) => void
+  /** The board's flow metrics — derived from movement history, never stored. */
+  setMetrics: (v: boolean) => void
   toggleBoards: () => void
   setBoards: (v: boolean) => void
   /** Toggle the filters side panel (closes the item panel and the legend when opening). */
@@ -358,9 +362,18 @@ export type Store = FlowState & WorkspaceIdentity & ViewState & Actions
  * act on there. One definition, read by the surfaces that ask.
  */
 export const isBoardSurface = (
-  s: Pick<ViewState, 'showDashboard' | 'showTimeline' | 'showArchive' | 'showObjectives' | 'showBoards' | 'showMyWork'>,
+  s: Pick<
+    ViewState,
+    'showDashboard' | 'showTimeline' | 'showArchive' | 'showObjectives' | 'showBoards' | 'showMyWork' | 'showMetrics'
+  >,
 ): boolean =>
-  !s.showDashboard && !s.showTimeline && !s.showArchive && !s.showObjectives && !s.showBoards && !s.showMyWork
+  !s.showDashboard &&
+  !s.showTimeline &&
+  !s.showArchive &&
+  !s.showObjectives &&
+  !s.showBoards &&
+  !s.showMyWork &&
+  !s.showMetrics
 
 const uid = makeUid
 
@@ -466,22 +479,31 @@ const laneNameAt = (lanes: Lane[], laneId: string | undefined): string => {
  * `fromLaneId`/`toLaneId` hold the cells for anything that reads movements rather than words.
  * `why` is for the moves nobody made — a card rehomed because its lane was split or removed —
  * so a silent cell change explains itself.
+ *
+ * The entry also carries the board and the **stages**: a lane can be renamed or split tomorrow,
+ * and a stage cannot, so this is what the flow metrics are derived from.
  */
 const movedEntry = (
   lanes: Lane[],
+  boardId: string,
   fromLaneId: string | undefined,
   toLaneId: string,
   why?: string,
 ): ItemLogEntry => {
   const from = laneNameAt(lanes, fromLaneId)
   const to = laneNameAt(lanes, toLaneId)
+  const fromStage = fromLaneId ? effectiveStage(lanes, fromLaneId) : undefined
+  const toStage = effectiveStage(lanes, toLaneId)
   return {
     id: uid(),
     at: Date.now(),
     kind: 'moved',
     note: `${from ? `${from} → ${to}` : `into ${to}`}${why ? ` · ${why}` : ''}`,
+    boardId,
     ...(fromLaneId ? { fromLaneId } : {}),
     toLaneId,
+    ...(fromStage ? { fromStage } : {}),
+    ...(toStage ? { toStage } : {}),
   }
 }
 
@@ -521,6 +543,7 @@ const initialView: ViewState = {
   showArchive: false,
   showBoards: false,
   showMyWork: false,
+  showMetrics: false,
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
@@ -985,7 +1008,7 @@ export const useStore = create<Store>()(
             // Each card in the group records its own move, from the cell it was in. An item
             // with no placement here is not moved by this, so it records nothing.
             const from = state.placements.find((p) => p.itemId === i.id && p.boardId === state.boardId)?.laneId
-            const moved = from && from !== laneId ? { log: [...(i.log ?? []), movedEntry(state.lanes, from, laneId)] } : {}
+            const moved = from && from !== laneId ? { log: [...(i.log ?? []), movedEntry(state.lanes, state.boardId, from, laneId)] } : {}
             const next = { ...i, ...moved }
             if (stage === 'done' && !next.resolvedAt) return { ...next, resolvedAt: Date.now() }
             if (stage !== 'done' && next.resolvedAt) return { ...next, resolvedAt: null }
@@ -1123,17 +1146,24 @@ export const useStore = create<Store>()(
       setMyWork: (v) =>
         set({
           showMyWork: v,
-          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false } : {}),
+          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false } : {}),
         }),
       /** Whose work the My work view shows — no default: the person picks themselves. */
       setUser: (id: string | undefined) => set({ meUserId: id }),
-      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false } : {}) }),
+      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
       // Board tab is the board itself — every view flag clears, the workspace with it.
-      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false }),
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false } : {}) }),
-      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showMyWork: false } : {}) }),
-      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showMyWork: false } : {}) }),
+      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
+      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
+      // Flow is a board's own view: derived from its cards, so it sits with the board tabs and
+      // clears them like every other view does.
+      setMetrics: (v) =>
+        set({
+          showMetrics: v,
+          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false } : {}),
+        }),
       toggleBoards: () => {
         const on = !get().showBoards
         set({
@@ -1471,7 +1501,7 @@ export const useStore = create<Store>()(
           // And the move itself. The journey is the point of the history: a card's past is
           // otherwise unrecoverable, and the overrun above explains a limit rather than a
           // destination. A same-cell reorder returned early and writes nothing.
-          next = { ...next, log: [...(next.log ?? []), movedEntry(state.lanes, existing?.laneId, laneId)] }
+          next = { ...next, log: [...(next.log ?? []), movedEntry(state.lanes, boardId, existing?.laneId, laneId)] }
           return next
         })
         set({ placements, items })
@@ -1496,7 +1526,7 @@ export const useStore = create<Store>()(
           moving.laneId === laneId
             ? state.items
             : state.items.map((i) =>
-                i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, moving.laneId, laneId)] } : i,
+                i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, boardId, moving.laneId, laneId)] } : i,
               )
         placeCard(set, { ...state, items }, moving, laneId, () => index)
       },
@@ -1521,7 +1551,7 @@ export const useStore = create<Store>()(
         set({
           placements,
           items: state.items.map((i) =>
-            i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, existing?.laneId, laneId)] } : i,
+            i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, boardId, existing?.laneId, laneId)] } : i,
           ),
         })
       },
@@ -1543,7 +1573,7 @@ export const useStore = create<Store>()(
           moving.laneId === laneId
             ? state.items
             : state.items.map((i) =>
-                i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, moving.laneId, laneId)] } : i,
+                i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, boardId, moving.laneId, laneId)] } : i,
               )
         placeCard(set, { ...state, items }, moving, laneId, () => index, { stampDone: false })
       },
@@ -1613,7 +1643,7 @@ export const useStore = create<Store>()(
         const movedIds = new Set(state.placements.filter((p) => p.laneId === laneId).map((p) => p.itemId))
         const items = state.items.map((i) =>
           movedIds.has(i.id)
-            ? { ...i, log: [...(i.log ?? []), movedEntry(lanes, laneId, firstChildId, 'lane split')] }
+            ? { ...i, log: [...(i.log ?? []), movedEntry(lanes, lane.boardId, laneId, firstChildId, 'lane split')] }
             : i,
         )
         set({ lanes, placements, items })
@@ -1675,7 +1705,7 @@ export const useStore = create<Store>()(
           placements: state.placements.map((p) => (vanished.has(p.laneId) ? toLane(state.placements, p, to) : p)),
           items: state.items.map((i) =>
             from.has(i.id)
-              ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, from.get(i.id), to, 'lane removed')] }
+              ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, lane.boardId, from.get(i.id), to, 'lane removed')] }
               : i,
           ),
         })

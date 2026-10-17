@@ -200,6 +200,17 @@ export interface ItemLogEntry {
    */
   fromLaneId?: string
   toLaneId?: string
+  /**
+   * The stage the move landed in, and — when it is known — the one it left. Stages rather than
+   * lane ids alone, because the four stages are fixed while a team is free to rename, split and
+   * rearrange its columns: a history written in stages cannot be corrupted by a later board
+   * design, which is what the flow metrics are read from.
+   */
+  fromStage?: Stage
+  toStage?: Stage
+  /** The board the move happened on: a card can sit on more than one, and each board's flow
+   * reads only its own moves. */
+  boardId?: string
 }
 
 /** A card, without any board/state/level field. */

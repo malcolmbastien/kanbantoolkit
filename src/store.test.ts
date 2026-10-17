@@ -4,6 +4,7 @@ import { boardCardTypeId, boardInitiatives, buildRefs, cardTypes, defaultDropLan
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
 import { hasActiveFilters, NO_FILTERS } from './domain/filters'
+import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
 import { migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 
@@ -1165,6 +1166,84 @@ describe('store actions', () => {
     expect(s().lanes.find((l) => l.id === row1.id)).toBeUndefined()
     expect(s().lanes.find((l) => l.id === entry.fromLaneId)).toBeUndefined()
     expect(s().placements.find((p) => p.itemId === 'st-email')!.laneId).toBe(entry.toLaneId)
+  })
+
+  it('the demo board carries a history the flow view can read', () => {
+    // The view's scope: the cards this board carries in its cards workflow, filed-away ones
+    // included — a board's throughput does not stop at the archive.
+    const laneOf = new Map(s().placements.filter((p) => p.boardId === 'b-atlas').map((p) => [p.itemId, p.laneId]))
+    const records = [...laneOf.keys()]
+      .filter((id) => s().lanes.find((l) => l.id === laneOf.get(id))?.workflow === 'cards')
+      .map((id) => s().items.find((i) => i.id === id)!)
+      .map((i) => flowRecord(i, effectiveStage(s().lanes, laneOf.get(i.id)!)))
+    const summary = flowSummary(records, Date.now())
+
+    // Eight delivered (one of them this week, seven filed away), four still moving.
+    expect(records.length).toBe(12)
+    expect(summary.delivered).toBe(8)
+    expect(summary.inFlight).toBe(4)
+    // Lead time includes the wait in Backlog; cycle time starts at the first commit, so it is
+    // shorter for the cards that queued — and the slowest card is the outlier the p85 names.
+    expect(summary.lead.median).toBe(15.5)
+    expect(summary.lead.p85).toBe(17)
+    expect(summary.cycle.median).toBe(14)
+    expect(summary.cycle.p85).toBe(16)
+    expect(summary.lead.count).toBe(8)
+
+    // And the history is a real shape over weeks, not a flat line: the flow diagram is neither
+    // empty at the start of its window nor unchanged from the first week to the last.
+    const buckets = weeklyBuckets(Date.now(), 8)
+    const flow = cumulativeFlow(records, buckets)
+    expect(flow.every((c) => c.backlog + c.notStarted + c.inProgress + c.done > 0)).toBe(true)
+    expect(flow[flow.length - 1].done).toBeGreaterThan(flow[0].done)
+    expect(throughput(records, buckets).reduce((a, b) => a + b, 0)).toBe(8)
+  })
+
+  it('renaming or splitting a column later leaves the history in stages alone', () => {
+    s().selectBoard('b-atlas')
+    const dev = laneByName('b-atlas', 'Dev')
+    const movedOf = (id: string) => (s().items.find((i) => i.id === id)!.log ?? []).filter((e) => e.kind === 'moved')
+    const before = movedOf('st-signup-form')
+
+    s().renameLane(dev.id, 'Development')
+    s().splitLane(dev.id, 'rows')
+    const after = movedOf('st-signup-form')
+
+    // What was recorded stays recorded: the entry names the cell as it was, with its stage.
+    expect(after.slice(0, before.length).map((e) => [e.note, e.toStage, e.boardId])).toEqual(
+      before.map((e) => [e.note, e.toStage, e.boardId]),
+    )
+    // A split rehomes the card into a row, and the entry still records the *stage* it was in —
+    // so the flow view reads the same journey through a board redesign.
+    const split = after[after.length - 1]
+    expect(split.toStage).toBe('inProgress')
+    expect(split.note).toContain('lane split')
+    const record = flowRecord(s().items.find((i) => i.id === 'st-signup-form')!, effectiveStage(s().lanes, dev.id))
+    expect(record.moves.map((m) => m.to)).toEqual(['notStarted', 'inProgress', 'inProgress'])
+  })
+
+  it('a move entry written before stages were recorded still loads, and is not a move flow reads', () => {
+    const migrated = migrateState({
+      items: [
+        {
+          id: 'x',
+          title: 'X',
+          typeId: 't-story',
+          createdAt: 1,
+          log: [
+            { id: 'l1', at: 2, kind: 'created' },
+            { id: 'l2', at: 3, kind: 'moved', toLaneId: 'lane-1', note: 'Somewhere → Elsewhere' },
+          ],
+        },
+      ],
+    }) as { items: { log: unknown[] }[] }
+    // The entry is left exactly as it was — additive fields, nothing to backfill.
+    expect(migrated.items[0].log).toEqual([
+      { id: 'l1', at: 2, kind: 'created' },
+      { id: 'l2', at: 3, kind: 'moved', toLaneId: 'lane-1', note: 'Somewhere → Elsewhere' },
+    ])
+    // It is skipped rather than guessed at: the stage it landed in was never recorded.
+    expect(flowRecord(migrated.items[0] as never, 'inProgress').moves).toEqual([])
   })
 
   it('a filter narrows what you see, never the load a column carries', () => {

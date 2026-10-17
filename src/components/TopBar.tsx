@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, UserRound, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, TrendingUp, UserRound, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,8 @@ interface Props {
   showArchive: boolean
   /** The objectives view sits over the board too, so the Board tab must not light up behind it. */
   showObjectives: boolean
+  /** Flow metrics are the board's own view — derived from its cards' history. */
+  showMetrics: boolean
   showMyWork: boolean
   showBoards: boolean
   onSelectBoard: (id: string) => void
@@ -21,6 +23,7 @@ interface Props {
   onShowDashboard: () => void
   onShowTimeline: () => void
   onShowArchive: () => void
+  onShowMetrics: () => void
   onShowMyWork: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
@@ -34,12 +37,12 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMyWork, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
   // "the board is the surface", shared with the panels that read it.
-  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMyWork })
+  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMyWork, showMetrics })
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
@@ -109,6 +112,18 @@ export function TopBar(props: Props) {
             title="Timeline — this board's initiatives laid out over time"
           >
             <ChartNoAxesGantt size={12} /> Timeline
+          </button>
+
+          <button
+            onClick={onShowMetrics}
+            disabled={editMode}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+              showMetrics ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+            )}
+            title="Flow — this board's delivery metrics, read from each card's own history"
+          >
+            <TrendingUp size={12} /> Flow
           </button>
 
           <button

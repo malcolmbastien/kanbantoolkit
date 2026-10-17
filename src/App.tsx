@@ -13,6 +13,7 @@ import { ItemPanel } from './components/ItemPanel'
 import { FocusChip } from './components/FocusChip'
 import { ManagementDashboard } from './components/ManagementDashboard'
 import { TimelineView } from './components/TimelineView'
+import { MetricsView } from './components/MetricsView'
 import { ObjectivesView } from './components/ObjectivesView'
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
@@ -30,6 +31,8 @@ export default function App() {
   const editMode = useStore((s) => s.editMode)
   const showObjectives = useStore((s) => s.showObjectives)
   const setObjectives = useStore((s) => s.setObjectives)
+  const showMetrics = useStore((s) => s.showMetrics)
+  const setMetrics = useStore((s) => s.setMetrics)
   const showDashboard = useStore((s) => s.showDashboard)
   const setBoard = useStore((s) => s.setBoard)
   const setDashboard = useStore((s) => s.setDashboard)
@@ -105,6 +108,7 @@ export default function App() {
     if (params.get('view') === 'objectives') setObjectives(true)
     if (params.get('view') === 'dashboard') setDashboard(true)
     if (params.get('view') === 'timeline') setTimeline(true)
+    if (params.get('view') === 'metrics') setMetrics(true)
     if (params.get('view') === 'archive') setArchive(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -213,12 +217,14 @@ export default function App() {
         showTimeline={showTimeline}
         showArchive={showArchive}
         showObjectives={showObjectives}
+        showMetrics={showMetrics}
         showBoards={showBoards}
         showMyWork={showMyWork}
         onSelectBoard={selectBoard}
         onShowBoard={setBoard}
         onShowDashboard={() => setDashboard(true)}
         onShowTimeline={() => setTimeline(true)}
+        onShowMetrics={() => setMetrics(true)}
         onShowArchive={() => setArchive(true)}
         onShowMyWork={() => setMyWork(true)}
         onGoToBoards={() => setBoards(true)}
@@ -243,6 +249,8 @@ export default function App() {
             <ObjectivesView />
           ) : showDashboard ? (
             <ManagementDashboard boardId={boardId} />
+          ) : showMetrics ? (
+            <MetricsView boardId={boardId} />
           ) : showTimeline ? (
             <TimelineView boardId={boardId} />
           ) : (
