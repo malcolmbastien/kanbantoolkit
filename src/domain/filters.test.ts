@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { laneAges, medianOf } from './filters'
 import { activeFilterCount, ageDays, filtersFromParam, hasActiveFilters, isDueSoon, isOverdue, matchesFilters, NO_FILTERS, parseDay, sameFilters, type CardFilters } from './filters'
-import type { Item, Lane, Placement } from './types'
+import { initiativeScope } from './filters'
+import type { Edge, Item, Lane, Placement } from './types'
+import type { Graph } from './derive'
 
 const card = (patch: Partial<Item> = {}): Item => ({ id: 'x', title: 'X', typeId: 't-story', createdAt: 0, ...patch })
 const with_ = (patch: Partial<CardFilters>): CardFilters => ({ ...NO_FILTERS, ...patch })
@@ -206,5 +208,50 @@ describe('column age', () => {
     expect(medianOf([10, 2])).toBe(6)
     expect(medianOf([9, 1, 2, 2, 11])).toBe(2)
     expect(medianOf([10, 4, 2, 8])).toBe(6)
+  })
+
+  it('an initiative filter narrows to the work under it, however deep', () => {
+    const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
+    const graph: Graph = {
+      items: [
+        card({ id: 'init-a', typeId: 't-initiative' }),
+        card({ id: 'init-b', typeId: 't-initiative' }),
+        card({ id: 'epic', typeId: 't-epic' }),
+        card({ id: 'leaf' }),
+      ],
+      edges: [edge('init-a', 'init-b'), edge('init-b', 'epic'), edge('epic', 'leaf')],
+      links: [],
+      placements: [],
+      lanes: [],
+    }
+    const scope = (id: string) => initiativeScope(with_({ initiativeId: id }), graph)
+
+    // The initiative, its child initiative, and the work two levels below it.
+    expect([...scope('init-a')!].sort()).toEqual(['epic', 'init-a', 'init-b', 'leaf'])
+    expect(matchesFilters(graph.items[3], with_({ initiativeId: 'init-a' }), false, Date.now(), undefined, scope('init-a'))).toBe(true)
+    expect(matchesFilters(graph.items[0], with_({ initiativeId: 'init-a' }), false, Date.now(), undefined, scope('init-a'))).toBe(true)
+
+    // Someone else's work is out of it — an initiative filter is not a text match.
+    expect(matchesFilters(graph.items[3], with_({ initiativeId: 'init-b' }), false, Date.now(), undefined, scope('init-b'))).toBe(true)
+    expect(matchesFilters(graph.items[0], with_({ initiativeId: 'init-b' }), false, Date.now(), undefined, scope('init-b'))).toBe(false)
+    expect(matchesFilters(card({ id: 'outside' }), with_({ initiativeId: 'init-a' }), false, Date.now(), undefined, scope('init-a'))).toBe(false)
+
+    // With nothing to narrow to it matches nothing, not everything: a filter that quietly
+    // stops filtering is the one failure nobody would notice.
+    expect(matchesFilters(graph.items[3], with_({ initiativeId: 'init-a' }), false)).toBe(false)
+    expect(initiativeScope(NO_FILTERS, graph)).toBeUndefined()
+    // An unknown initiative narrows to itself and nothing else.
+    expect([...scope('gone')!]).toEqual(['gone'])
+  })
+
+  it('an initiative filter is one active filter, and part of a preset\'s identity', () => {
+    expect(activeFilterCount(with_({ initiativeId: 'init-a' }))).toBe(1)
+    expect(hasActiveFilters(with_({ initiativeId: 'init-a' }))).toBe(true)
+    expect(sameFilters(with_({ initiativeId: 'init-a' }), with_({ initiativeId: 'init-a' }))).toBe(true)
+    expect(sameFilters(with_({ initiativeId: 'init-a' }), with_({ initiativeId: 'init-b' }))).toBe(false)
+    expect(sameFilters(with_({ initiativeId: 'init-a' }), NO_FILTERS)).toBe(false)
+    // It composes with the rest, like every other category.
+    const both = with_({ initiativeId: 'init-a', blocked: true })
+    expect(activeFilterCount(both)).toBe(2)
   })
 })

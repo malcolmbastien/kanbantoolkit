@@ -1122,12 +1122,13 @@
         "id": "72",
         "title": "CSV export: the board and the dashboard as downloaded files",
         "description": "Local-first means the data is yours: one explicit action produces a CSV.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Export the current board's cards as CSV \\u2014 ref, title, type, column (its lane), assignees, blocked and reason, target dates, parent \\u2014 and the management dashboard's initiative rows in a second shape. Generated client-side and downloaded directly: no server exists and none is needed. The serialiser must quote properly \\u2014 titles with commas, quotes and newlines are the normal case, not the edge case. One explicit action per export; import is out of scope for this slice. Competitor basis: LeanKit and Windshift both export; for Flowline it is the cheapest possible expression of data ownership.",
         "testStrategy": "Unit tests for the serialiser: embedded commas, double quotes, newlines, and unicode titles round-trip through a standard CSV parse; empty lanes produce headers only. Browser probe: the download fires with the expected row count matching the board's cards.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T17:33:05.021Z"
       },
       {
         "id": "73",
@@ -1168,9 +1169,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T17:24:44.672Z",
+      "lastModified": "2026-10-17T17:33:05.021Z",
       "taskCount": 74,
-      "completedCount": 55,
+      "completedCount": 56,
       "tags": [
         "backlog"
       ]

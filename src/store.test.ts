@@ -3,7 +3,7 @@ import { decompositionChildren, decompositionParent, checklistProgress, rollupOf
 import { boardCardTypeId, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
-import { hasActiveFilters, NO_FILTERS } from './domain/filters'
+import { hasActiveFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
 import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
 import { migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
@@ -1244,6 +1244,55 @@ describe('store actions', () => {
     ])
     // It is skipped rather than guessed at: the stage it landed in was never recorded.
     expect(flowRecord(migrated.items[0] as never, 'inProgress').moves).toEqual([])
+  })
+
+  it('filter presets belong to the board they were saved on', () => {
+    s().selectBoard('b-atlas')
+    s().setFilters({ priorities: ['urgent'] })
+    s().saveFilter('Urgent here')
+    s().selectBoard('b-nova')
+    s().setFilters({ blocked: true })
+    s().saveFilter('Blocked here')
+
+    expect(s().savedFilters.map((p) => [p.name, p.boardId])).toEqual([
+      ['Urgent here', 'b-atlas'],
+      ['Blocked here', 'b-nova'],
+    ])
+
+    // Applying one adopts it whole; clearing afterwards leaves no residue.
+    const atlas = s().savedFilters.find((p) => p.name === 'Urgent here')!
+    s().applySavedFilter(atlas.id)
+    expect(s().filters.priorities).toEqual(['urgent'])
+    expect(s().filters.blocked).toBe(false)
+    s().clearFilters()
+    expect(hasActiveFilters(s().filters)).toBe(false)
+
+    // A saved set never aliases the live filter state: toggling a box later cannot edit the past.
+    s().selectBoard('b-atlas')
+    s().setFilters({ priorities: ['low'] })
+    expect(s().savedFilters.find((p) => p.id === atlas.id)!.filters.priorities).toEqual(['urgent'])
+
+    s().removeSavedFilter(atlas.id)
+    expect(s().savedFilters.map((p) => p.name)).toEqual(['Blocked here'])
+  })
+
+  it('a preset round-trips through persistence, and an old one stays available everywhere', () => {
+    s().selectBoard('b-atlas')
+    s().setFilters({ priorities: ['high'], unassigned: true })
+    s().saveFilter('Unassigned high')
+
+    const persisted = persistedSlice(s()) as { savedFilters: SavedFilter[] }
+    const rehydrated = migrateState({ ...persisted }) as { savedFilters: SavedFilter[] }
+    expect(rehydrated.savedFilters).toHaveLength(1)
+    expect(rehydrated.savedFilters[0]).toMatchObject({ name: 'Unassigned high', boardId: 'b-atlas' })
+    expect(rehydrated.savedFilters[0].filters).toMatchObject({ priorities: ['high'], unassigned: true })
+
+    // A set saved before presets belonged to a board has no board, and nothing invents one:
+    // it stays available everywhere rather than being claimed for a board after the fact.
+    const old = { id: 'sf-old', name: 'Old', filters: NO_FILTERS }
+    const migrated = migrateState({ savedFilters: [old] }) as { savedFilters: SavedFilter[] }
+    expect(migrated.savedFilters[0]).toEqual(old)
+    expect(migrated.savedFilters[0].boardId).toBeUndefined()
   })
 
   it('a filter narrows what you see, never the load a column carries', () => {

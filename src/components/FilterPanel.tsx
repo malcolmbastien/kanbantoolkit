@@ -1,7 +1,7 @@
 import { X, Plus } from 'lucide-react'
 import { cardTypes, initiativeTypeId } from '@/domain/board'
-import { statusOf, type Graph } from '@/domain/derive'
-import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters, sameFilters, type SavedFilter } from '@/domain/filters'
+import { lineageOf, statusOf, type Graph } from '@/domain/derive'
+import { activeFilterCount, ageDays, hasActiveFilters, initiativeScope, matchesFilters, sameFilters, type SavedFilter } from '@/domain/filters'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -43,12 +43,32 @@ export function FilterPanel() {
     .filter((i): i is Item => Boolean(i))
     .filter((i) => !i.archived && i.typeId !== initiativeId)
   const placementOf = (id: string) => placements.find((p) => p.itemId === id && p.boardId === boardId)
+  const scope = initiativeScope(filters, graph)
   const matched = boardCards.filter((i) =>
-    matchesFilters(i, filters, statusOf(i.id, graph).resolved, Date.now(), ageDays(placementOf(i.id))),
+    matchesFilters(i, filters, statusOf(i.id, graph).resolved, Date.now(), ageDays(placementOf(i.id)), scope),
   ).length
   const users = useStore((s) => s.users)
   // Only the people who actually hold work here: a filter list of the whole org is noise.
   const assignedHere = users.filter((u) => boardCards.some((c) => (c.assignees ?? []).includes(u.id)))
+
+  // A board's own presets, plus any saved before presets belonged to a board — those stay
+  // available everywhere rather than being claimed for one board after the fact.
+  const presets = savedFilters.filter((s) => !s.boardId || s.boardId === boardId)
+
+  // The initiatives this board's cards roll up to, with how many cards each holds, so the
+  // choice shows what it will narrow to before it is made.
+  const initiativesHere = (() => {
+    const counts = new Map<string, number>()
+    for (const c of boardCards) {
+      for (const ancestor of lineageOf(c.id, graph)) {
+        if (ancestor.typeId !== initiativeId) continue
+        counts.set(ancestor.id, (counts.get(ancestor.id) ?? 0) + 1)
+      }
+    }
+    return [...counts.entries()]
+      .map(([id, count]) => ({ id, count, name: items.find((i) => i.id === id)?.title ?? 'Initiative' }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  })()
 
   const [saveName, setSaveName] = useState('')
 
@@ -77,8 +97,8 @@ export function FilterPanel() {
         </div>
 
         <SavedSection
-          saved={savedFilters}
-          activeId={savedFilters.find((s) => sameFilters(s.filters, filters))?.id}
+          saved={presets}
+          activeId={presets.find((s) => sameFilters(s.filters, filters))?.id}
           onApply={applySavedFilter}
           onRemove={removeSavedFilter}
           name={saveName}
@@ -118,6 +138,34 @@ export function FilterPanel() {
             })}
           </div>
           <p className="mt-1 text-micro text-slate-600">No type checked shows every type.</p>
+        </section>
+
+        <section>
+          <SectionLabel>Initiative</SectionLabel>
+          {initiativesHere.length === 0 ? (
+            <p className="text-micro text-slate-600">
+              No cards on this board sit under an initiative yet — connect a card to one and it appears here.
+            </p>
+          ) : (
+            <>
+              <select
+                value={filters.initiativeId ?? ''}
+                onChange={(e) => setFilters({ initiativeId: e.target.value || undefined })}
+                className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-meta text-slate-700"
+              >
+                <option value="">Any initiative</option>
+                {initiativesHere.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name} ({i.count})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-micro text-slate-600">
+                Narrows to the work under one initiative, however deep. Cards that roll up to no initiative are
+                excluded.
+              </p>
+            </>
+          )}
         </section>
 
         <section>
@@ -300,6 +348,14 @@ function SavedSection({
               >
                 {s.name}
               </button>
+              {!s.boardId && (
+                <span
+                  className="shrink-0 rounded bg-slate-100 px-1 text-micro text-slate-600"
+                  title="Saved before presets belonged to a board, so it stays available on every board"
+                >
+                  shared
+                </span>
+              )}
               <button onClick={() => onRemove(s.id)} className="shrink-0 text-slate-400 hover:text-slate-700" title={`Forget ${s.name}`}>
                 <X size={12} />
               </button>

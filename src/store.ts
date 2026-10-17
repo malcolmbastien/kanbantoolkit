@@ -891,7 +891,8 @@ export const useStore = create<Store>()(
           assigneeIds: [...f.assigneeIds],
           priorities: [...f.priorities],
         }
-        set({ savedFilters: [...get().savedFilters, { id: uid(), name: trimmed, filters }] })
+        // Saved against the board it was built on: a preset is one board's way of reading itself.
+        set({ savedFilters: [...get().savedFilters, { id: uid(), name: trimmed, boardId: get().boardId, filters }] })
       },
       applySavedFilter: (id) => {
         const saved = get().savedFilters.find((s) => s.id === id)

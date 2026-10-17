@@ -1,3 +1,4 @@
+import { descendants, type Graph } from './derive'
 import { subtreeIds } from './lanes'
 import type { Item, Lane, Placement } from './types'
 
@@ -21,6 +22,12 @@ export interface CardFilters {
   assigneeIds: string[]
   /** Selected priorities. Empty = any priority. */
   priorities: string[]
+  /**
+   * Only the work under this initiative — itself and everything the decomposition puts below it.
+   * Undefined = any. A card's place under an initiative is derived from the edges, not stored on
+   * the card, which is why matching it needs `initiativeScope` alongside the filter.
+   */
+  initiativeId?: string
   /** Only cards that have sat in their lane at least this many days. Undefined = any age. */
   minAgeDays?: number
   /** Only cards whose title or description contains this text. Undefined/empty = any card. */
@@ -49,6 +56,16 @@ export function ageDays(placement: Placement | undefined, now = Date.now()): num
 /** Parse an ISO 'YYYY-MM-DD' as a local date so it doesn't shift a day. */
 export function parseDay(iso?: string): Date | undefined {
   return iso ? new Date(`${iso}T00:00:00`) : undefined
+}
+
+/**
+ * The ids an initiative filter narrows to: the initiative and everything under it. Separate from
+ * `matchesFilters` because it is the one filter that needs the graph — every other one is a fact
+ * about the card itself.
+ */
+export function initiativeScope(f: CardFilters, graph: Graph): ReadonlySet<string> | undefined {
+  if (!f.initiativeId) return undefined
+  return new Set([f.initiativeId, ...descendants(f.initiativeId, graph)])
 }
 
 /** A card is overdue when its target end date is in the past and it isn't resolved. */
@@ -115,6 +132,7 @@ export function activeFilterCount(f: CardFilters): number {
     (f.unassigned ? 1 : 0) +
     (f.assigneeIds.length > 0 ? 1 : 0) +
     (f.priorities.length > 0 ? 1 : 0) +
+    (f.initiativeId !== undefined ? 1 : 0) +
     (f.minAgeDays !== undefined ? 1 : 0) +
     // An all-whitespace query narrows nothing, so it counts as nothing either.
     ((f.text ?? '').trim() ? 1 : 0)
@@ -133,7 +151,12 @@ export function matchesFilters(
   now = Date.now(),
   /** The card's age in its lane, when it is known — see `ageDays`. */
   age?: number,
+  /** The ids an initiative filter narrows to — see `initiativeScope`. */
+  within?: ReadonlySet<string>,
 ): boolean {
+  // An initiative filter with nothing to narrow to matches nothing rather than everything: a
+  // filter that silently stops filtering is the one failure nobody would notice.
+  if (f.initiativeId && !within?.has(item.id)) return false
   if (f.typeIds.length > 0 && !f.typeIds.includes(item.typeId)) return false
   if (f.blocked && item.blocked !== true) return false
   if (f.overdue && !isOverdue(item, resolved, now)) return false
@@ -198,6 +221,12 @@ export function filtersFromParam(param: string | null): CardFilters | undefined 
 export interface SavedFilter {
   id: string
   name: string
+  /**
+   * The board it was saved against — a preset is that board's own way of reading itself. Absent
+   * on a set saved before presets belonged to a board: it stays available on every board, because
+   * claiming it for one of them would be inventing a fact about where it came from.
+   */
+  boardId?: string
   filters: CardFilters
 }
 
@@ -211,6 +240,7 @@ export function sameFilters(a: CardFilters, b: CardFilters): boolean {
     a.dueSoon === b.dueSoon &&
     a.unassigned === b.unassigned &&
     a.minAgeDays === b.minAgeDays &&
+    a.initiativeId === b.initiativeId &&
     set(a.typeIds) === set(b.typeIds) &&
     set(a.assigneeIds) === set(b.assigneeIds) &&
     set(a.priorities) === set(b.priorities)

@@ -31,7 +31,7 @@ import {
 } from '@/domain/derive'
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
 import { childrenOf, effectiveStage, inheritedWipState, isTopLevel, leavesUnder, rootLane, strongestWip, subtreeIds, wipState } from '@/domain/lanes'
-import { ageDays, matchesFilters, type CardFilters } from '@/domain/filters'
+import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -72,6 +72,8 @@ interface Ctx {
   effectiveLane: Map<string, string>
   /** How long a card has sat in its lane, when the placement knows. See `ageDays`. */
   ageOf: (itemId: string) => number | undefined
+  /** The ids an initiative filter narrows to, when one is active. See `initiativeScope`. */
+  initiativeScope: ReadonlySet<string> | undefined
   interactive: boolean
   /**
    * The card in the air and the one gap it would land in. A lane has a single insertion
@@ -389,7 +391,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   // and a deep-linked ?q= lands in the text filter instead (see App).
   const cards = boardItems
     .filter((i) => effectiveLane.get(i.id) === lane.id)
-    .filter((i) => matchesFilters(i, ctx.filters, statusOf(i.id, graph).resolved, Date.now(), ctx.ageOf(i.id)))
+    .filter((i) => matchesFilters(i, ctx.filters, statusOf(i.id, graph).resolved, Date.now(), ctx.ageOf(i.id), ctx.initiativeScope))
 
   return (
     <div
@@ -691,6 +693,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const ctx: Ctx = {
     lanes, items, issueTypes, refs, graph, users, editMode, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
+    initiativeScope: initiativeScope(filters, graph),
     interactive,
     parentPickId,
     drag: {
