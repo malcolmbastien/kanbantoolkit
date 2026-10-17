@@ -1132,19 +1132,20 @@
         "id": "73",
         "title": "My work across boards: everything assigned to me, wherever it lives",
         "description": "A view over the graph: all of the current user's assigned work across every board, with its board and cell context.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Competitor basis: LeanKit's My Cards, Businessmap's My Queue, Windshift's personal view \\u2014 all three converge here, and Flowline's graph makes it cheap: assignments are on items, placements say where each sits. The query: every item whose assignees include the current user, joined with its placements, grouped by board (and plausibly by urgency \\u2014 overdue and due-soon first, reusing the filters work). Each entry shows its board and cell context so the answer to \\u2018where is this?’ is on the card; clicking opens the item panel. SURFACE: a nav tab alongside Board/Dashboard/Timeline/Archive, or a panel \\u2014 decide in build against the tabs model; the nav is tabs now and a new tab must earn its place. CONSTRAINTS: fully derived \\u2014 no my-work flag, no second placement record; moves still happen on boards, this view opens work rather than relocating it; assignment reads the local users, so it is per-browser by nature.",
         "testStrategy": "Unit test the cross-board query: an item assigned to the user on two boards appears twice with the right placement contexts; unassigned and other-user items never appear. Browser probe: seeded assignments on two boards both appear, grouped sensibly, and clicking one opens the item panel.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T03:53:55.100Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T03:32:41.946Z",
+      "lastModified": "2026-10-17T03:53:55.100Z",
       "taskCount": 72,
-      "completedCount": 51,
+      "completedCount": 52,
       "tags": [
         "backlog"
       ]
