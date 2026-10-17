@@ -302,12 +302,13 @@
         "id": "10",
         "title": "Implement initiative health and at-risk flags beyond percent complete",
         "description": "Add P2 initiative health and at-risk flags based on signals beyond simple percent complete.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Define rules for health flags using blockers, dependency risk, stale progress, uncovered work, and rollup anomalies. Add flag badges in portfolio and initiative views. Keep rule evaluation on compact state/derived selectors.",
         "testStrategy": "Seed initiatives with blockers, stale progress, and uncovered children. Confirm expected at-risk flags appear. Verify flags clear when conditions are resolved.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T17:46:45.501Z"
       },
       {
         "id": "11",
@@ -1170,9 +1171,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T17:38:53.113Z",
+      "lastModified": "2026-10-17T17:46:45.501Z",
       "taskCount": 74,
-      "completedCount": 57,
+      "completedCount": 58,
       "tags": [
         "backlog"
       ]

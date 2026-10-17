@@ -86,6 +86,7 @@ export function GlobalSearch() {
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder="Search all boards…"
+        title="Search every board by title or ref — or press ⌘K for the command palette"
         className="w-44 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2 text-meta text-slate-800 placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-400"
       />
       {showResults && (
@@ -105,11 +106,11 @@ export function GlobalSearch() {
                     onClick={() => choose(i.id)}
                     className={cn(
                       'flex w-full items-center gap-2 px-3 py-1.5 text-left transition',
-                      idx === active ? 'bg-indigo-500/30' : 'hover:bg-slate-700/60',
+                      idx === active ? 'bg-indigo-50' : 'hover:bg-slate-50',
                     )}
                   >
                     <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{refs.get(i.id)}</span>
-                    <span className="min-w-0 flex-1 truncate text-meta text-slate-100">{i.title}</span>
+                    <span className="min-w-0 flex-1 truncate text-meta text-slate-800">{i.title}</span>
                   </button>
                 )
               })}

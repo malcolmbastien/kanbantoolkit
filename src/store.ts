@@ -76,6 +76,11 @@ export interface ViewState {
   showMyWork: boolean
   /** Show the flow metrics view for the current board — derived, read-only. */
   showMetrics: boolean
+  /**
+   * Items opened lately, newest first — the command palette's empty state. View state, and
+   * deliberately not persisted: it is about this session, not about the work.
+   */
+  recentItemIds: string[]
   /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
@@ -544,6 +549,7 @@ const initialView: ViewState = {
   showBoards: false,
   showMyWork: false,
   showMetrics: false,
+  recentItemIds: [],
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
@@ -865,7 +871,20 @@ export const useStore = create<Store>()(
       ...initialView,
 
       selectBoard: (boardId) => set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null }),
-      openItem: (selectedItemId) => set({ selectedItemId, multiSelect: [], ...(selectedItemId ? { showFilters: false, showLegend: false } : {}) }),
+      openItem: (selectedItemId) =>
+        set({
+          selectedItemId,
+          multiSelect: [],
+          ...(selectedItemId
+            ? {
+                showFilters: false,
+                showLegend: false,
+                // Opening a card is what "recently" means: the list is the order cards were
+                // opened in, and re-opening one moves it back to the front rather than doubling it.
+                recentItemIds: [selectedItemId, ...get().recentItemIds.filter((id) => id !== selectedItemId)].slice(0, 8),
+              }
+            : {}),
+        }),
       setSearch: (search) => set({ search }),
       toggleFilters: () => {
         const show = !get().showFilters

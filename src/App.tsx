@@ -3,6 +3,7 @@ import { ArchiveView } from './components/ArchiveView'
 import { MyWorkView } from './components/MyWorkView'
 import { BoardWorkspace } from './components/BoardWorkspace'
 import { BoardView } from './components/BoardView'
+import { CommandPalette } from './components/CommandPalette'
 import { BulkActions } from './components/BulkActions'
 import { BoardSettings } from './components/BoardSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
@@ -209,6 +210,8 @@ export default function App() {
       {/* One host for the menu and the pick chips, so every surface has them — an aggregating
           board renders no BoardCanvas, and used to get neither. */}
       <Overlays />
+      {/* One palette for the whole app: boards, cards and the app's own verbs. */}
+      <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} />
       <TopBar
         boards={boards}
         boardId={boardId}
