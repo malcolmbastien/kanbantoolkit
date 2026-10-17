@@ -20,8 +20,8 @@ import {
   uncommittedBelow,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiatives, buildRefs, initiativeCellOf } from '@/domain/board'
-import { childrenOf, isLeaf, leavesUnder, placementsInOrder, topLevelLanes } from '@/domain/lanes'
+import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks } from '@/domain/board'
+import { childrenOf, isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import {
@@ -106,20 +106,13 @@ export function BoardSummary({
     .map((section) => {
       const stage = (section.stage ?? 'inProgress') as Stage
       const cells = leavesUnder(lanes, section.id)
-      const inSection = initiatives.filter((i) => initiativeCellOf(i.id, boardId, graph)?.sectionId === section.id)
       // A cell's initiatives are a rank a person orders — the same order a drop writes — so
-      // they read through placementsInOrder, exactly like a lane's cards.
-      const inSectionIds = new Set(inSection.map((i) => i.id))
-      const byCell = new Map<string, Item[]>(
-        cells.map((c) => [
-          c.id,
-          placementsInOrder(graph.placements, c.id)
-            .map((pl) => items.find((i) => i.id === pl.itemId))
-            .filter((i): i is Item => Boolean(i))
-            .filter((i) => inSectionIds.has(i.id)),
-        ]),
-      )
-      return { section, stage, cells, byCell, total: inSection.length }
+      // they read through placements. An initiative the work below has rolled out of the cell
+      // it was arranged in has no rank left to read; `initiativeRanks` decides where it reads
+      // instead of dropping it, which is what this filtering used to do by hand.
+      const byCell = initiativeRanks(graph, boardId, section.id, initiatives)
+      const total = [...byCell.values()].reduce((n, rank) => n + rank.length, 0)
+      return { section, stage, cells, byCell, total }
     })
 
   if (sections.length === 0) return <p className="p-3 text-meta text-slate-600">This board has no typed columns.</p>

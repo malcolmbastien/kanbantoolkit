@@ -18,8 +18,11 @@ import {
   templateSetOrientation,
   templateSplitLane,
   boardInitiatives,
+  initiativeCellOf,
+  initiativeRanks,
 } from './board'
-import { childrenOf, rootLane } from './lanes'
+import { rollupOf } from './derive'
+import { childrenOf, placementsInOrder, rootLane } from './lanes'
 import { createSeed } from './seed'
 import type { Lane, TemplateLane, Workflow } from './types'
 
@@ -340,6 +343,76 @@ describe('editing a template’s design', () => {
   })
 })
 
+describe('initiativeRanks — a section reads every initiative whose rollup put it there', () => {
+  const INIT = 't-initiative'
+  const STORY = 't-story'
+  const types = [
+    { id: INIT, name: 'Initiative', color: '#6366f1' },
+    { id: STORY, name: 'Story', color: '#64748b' },
+  ]
+  const lane = (id: string, workflow: Workflow, patch: Partial<Lane> = {}): Lane => ({
+    id,
+    boardId: 'b-mine',
+    parentId: null,
+    order: 0,
+    name: id,
+    workflow,
+    ...patch,
+  })
+  // Two independent lane trees, as every board has: the cards workflow the work sits in,
+  // and the initiatives flow it rolls up through.
+  const lanes: Lane[] = [
+    lane('cards-root', 'cards'),
+    lane('cards-backlog', 'cards', { parentId: 'cards-root', name: 'Backlog', stage: 'backlog' }),
+    lane('cards-ns', 'cards', { parentId: 'cards-root', order: 1, name: 'Not Started', stage: 'notStarted' }),
+    lane('init-root', 'initiatives'),
+    lane('sec-backlog', 'initiatives', { parentId: 'init-root', name: 'Backlog', stage: 'backlog' }),
+    lane('sec-ns', 'initiatives', { parentId: 'init-root', order: 1, name: 'Not Started', stage: 'notStarted' }),
+  ]
+  const item = (id: string, typeId: string) => ({ id, title: id, typeId, createdAt: 0 })
+  const edge = (from: string, to: string) => ({ id: `e-${from}-${to}`, kind: 'decomposition' as const, from, to })
+  let seq = 0
+  const at = (itemId: string, laneId: string) => ({ id: `pl-${++seq}`, itemId, boardId: 'b-mine', laneId })
+  /** An initiative, the card below it, and where each of them sits. */
+  const graphOf = (items: ReturnType<typeof item>[], edges: ReturnType<typeof edge>[], placements: ReturnType<typeof at>[]) =>
+    ({ items, edges, links: [], placements, lanes })
+  /** What a cell of a section reads, top to bottom. */
+  const rankOf = (g: ReturnType<typeof graphOf>, sectionId: string, cellId: string) =>
+    (initiativeRanks(g, 'b-mine', sectionId, boardInitiatives(g, 'b-mine', types)).get(cellId) ?? []).map((i) => i.id)
+
+  it('reads an initiative in the section its rollup names, not the cell its placement still holds', () => {
+    // Arranged in Backlog, and its only card is in Backlog too — so the arrangement is honest.
+    const arranged = graphOf([item('ini', INIT), item('card', STORY)], [edge('ini', 'card')], [at('ini', 'sec-backlog'), at('card', 'cards-backlog')])
+    expect(rollupOf('ini', arranged).bucket).toBe('backlog')
+    expect(rankOf(arranged, 'sec-backlog', 'sec-backlog')).toEqual(['ini'])
+
+    // The card moves to Not Started. The initiative belongs to Not Started now, but its
+    // placement still names the Backlog cell — a cell the new section does not hold. Reading
+    // the placement alone left it in no cell of any section: it vanished from the flow.
+    const moved = graphOf([item('ini', INIT), item('card', STORY)], [edge('ini', 'card')], [at('ini', 'sec-backlog'), at('card', 'cards-ns')])
+    expect(rollupOf('ini', moved).bucket).toBe('notStarted')
+    expect(rankOf(moved, 'sec-ns', 'sec-ns')).toEqual(['ini'])
+    // The placement still names the old cell — nothing at all names the new one, which is why
+    // reading placements could only ever find an initiative in the section it had left.
+    expect(placementsInOrder(moved.placements, 'sec-ns')).toEqual([])
+    // It reads in the cell the rollup falls back to, and in the section it belongs to only.
+    expect(initiativeCellOf('ini', 'b-mine', moved)).toEqual({ sectionId: 'sec-ns', cellId: 'sec-ns' })
+    expect(rankOf(moved, 'sec-backlog', 'sec-backlog')).toEqual([])
+  })
+
+  it('keeps the arrangement — a placed initiative holds its rank, an arrival goes last', () => {
+    // `a` was arranged in the cell it reads in; `b` still names the Backlog cell. Board order
+    // puts `b` first, so page order cannot be what decides the rank.
+    const g = graphOf(
+      [item('a', INIT), item('b', INIT), item('card-a', STORY), item('card-b', STORY)],
+      [edge('a', 'card-a'), edge('b', 'card-b')],
+      [at('b', 'sec-backlog'), at('a', 'sec-ns'), at('card-b', 'cards-ns'), at('card-a', 'cards-ns')],
+    )
+    expect(boardInitiatives(g, 'b-mine', types).map((i) => i.id)).toEqual(['b', 'a'])
+    expect(rollupOf('a', g).bucket).toBe('notStarted')
+    expect(rankOf(g, 'sec-ns', 'sec-ns')).toEqual(['a', 'b'])
+  })
+})
 describe('boardInitiatives — the one set every initiative surface reads', () => {
   const INIT = 't-initiative'
   const STORY = 't-story'

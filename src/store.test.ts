@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, searchItems } from './domain/board'
+import { boardCardTypeId, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, searchItems } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Lane, Placement, Stage, Workflow } from './domain/types'
 import { hasActiveFilters, NO_FILTERS } from './domain/filters'
@@ -74,6 +74,31 @@ describe('store actions', () => {
     s().moveInitiative('init-welcome', 'b-nova', section('done').id)
     expect(initiativeCellOf('init-welcome', 'b-nova', g())?.cellId).toBe(cells[1].id)
     expect(initiativeCellOf('init-welcome', 'b-nova', g())?.sectionId).toBe(ip.id)
+  })
+
+  it('an initiative rolls up with the card below it, instead of vanishing from the flow', () => {
+    // The report: an initiative in Backlog, a card in Backlog, the card made its child — then
+    // the card moves to Not Started. The initiative belongs to Not Started by rollup, but its
+    // placement still named the Backlog cell, and the flow read placements — so it was in no
+    // cell of any section and disappeared altogether.
+    const boardId = 'b-atlas'
+    const section = (stage: Stage) => topLevelLanes(s().lanes, boardId, 'initiatives').find((l) => l.stage === stage)!
+    const ranksOf = (stage: Stage) =>
+      [...initiativeRanks(graph(), boardId, section(stage).id, boardInitiatives(graph(), boardId, s().issueTypes)).values()]
+        .flat()
+        .map((i) => i.id)
+    s().addCard({ boardId, typeId: 't-initiative', laneId: section('backlog').id, title: 'Rolling initiative' })
+    s().addCard({ boardId, typeId: 't-story', laneId: laneByName(boardId, 'Backlog').id, title: 'Rolling card' })
+    const ini = s().items.find((i) => i.title === 'Rolling initiative')!.id
+    const card = s().items.find((i) => i.title === 'Rolling card')!.id
+    s().setParent(card, ini)
+    expect(ranksOf('backlog')).toContain(ini)
+
+    s().moveCard(card, boardId, laneByName(boardId, 'Not Started').id)
+
+    expect(rollupOf(ini, graph()).bucket).toBe('notStarted')
+    expect(ranksOf('notStarted')).toContain(ini)
+    expect(ranksOf('backlog')).not.toContain(ini)
   })
 
   it('a nested container can gain a child; the top level is fixed', () => {

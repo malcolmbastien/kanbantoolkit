@@ -7,6 +7,7 @@ import {
   leafLanes,
   leavesUnder,
   moveLaneNode,
+  placementsInOrder,
   removeLaneNodes,
   rootLane,
   setLaneOrientationNode,
@@ -429,6 +430,53 @@ export function initiativeCellOf(
   const placement = graph.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
   const cellId = placement && cells.some((c) => c.id === placement.laneId) ? placement.laneId : cells[0]?.id
   return cellId ? { sectionId: section.id, cellId } : undefined
+}
+
+/**
+ * A section's initiatives, cell by cell — what the initiatives flow draws.
+ *
+ * The section is derived and the cell is arranged, so the two can disagree: the work below
+ * moves the rollup into another section while the placement still names a cell of the old one.
+ * That stale placement is not an error to repair — it is where the initiative was *last*
+ * arranged, and if the work moves back it reads correctly again — but while the rollup
+ * disagrees it cannot be honoured, so the initiative reads in the cell `initiativeCellOf`
+ * falls back to. It goes last in that cell's rank: nothing arranged it there, so it does not
+ * displace what a person put in order.
+ *
+ * Reading the placement instead was the bug: the initiative belonged to the section by rollup,
+ * no cell of that section held its placement, and every cell filtered by placement — so moving
+ * a card to Not Started made its parent initiative vanish from the flow altogether rather than
+ * roll up into Not Started.
+ */
+export function initiativeRanks(
+  graph: Graph,
+  boardId: string,
+  sectionId: string,
+  /** The board's initiatives — exactly the set the surface shows, from `boardInitiatives`. */
+  initiatives: Item[],
+): Map<string, Item[]> {
+  const cells = leavesUnder(graph.lanes, sectionId)
+  const byCell = new Map<string, Item[]>(cells.map((c) => [c.id, []]))
+  const here = new Set(
+    initiatives
+      .filter((i) => initiativeCellOf(i.id, boardId, graph)?.sectionId === sectionId)
+      .map((i) => i.id),
+  )
+  for (const cell of cells) {
+    for (const pl of placementsInOrder(graph.placements, cell.id)) {
+      if (!here.has(pl.itemId)) continue
+      const item = graph.items.find((i) => i.id === pl.itemId)
+      if (item) byCell.get(cell.id)!.push(item)
+    }
+  }
+  const arranged = new Set([...byCell.values()].flat().map((i) => i.id))
+  for (const i of initiatives) {
+    if (!here.has(i.id) || arranged.has(i.id)) continue
+    const cellId = initiativeCellOf(i.id, boardId, graph)?.cellId
+    const rank = cellId ? byCell.get(cellId) : undefined
+    if (rank) rank.push(i)
+  }
+  return byCell
 }
 
 /** Open dependencies of on-board work that live on another board (boundary pins). */
