@@ -1256,13 +1256,25 @@
         "testStrategy": "Unit-test applying and removing several tags on a card and on an initiative; the same tag twice is refused; a tag from another board cannot be applied; removing a tag in use is refused and says how many carry it; a tag renamed or recoloured shows the new name everywhere at once, with nothing copied onto the items; and a dangling tag id renders nothing rather than an id (delete the board that defined it). **Parity as a test**: rollup bucket, lane counts, health flags, dependency state and flow numbers are identical with and without tags. **Filtering**: the Tag category narrows to cards carrying any selected tag (union within, AND with the rest), counts as one active filter, is not persisted and is not a saved preset, and does not move a lane's count. Persistence: a board with tags, and items carrying them, round-trip through `persistedSlice` / `migrateState`; an old board without the field loads with none; `duplicateBoard` carries the list and `templateFromBoard` does not. Over CDP: add two tags to a card and one to an initiative and see the chips on both faces and in the panels; filter the board by one and watch the cards narrow while the counts stay; rename a tag in board settings and watch every chip change; confirm a refused removal says how many still carry it. Run `npm test` and the dependency scan.",
         "subtasks": [],
         "updatedAt": "2026-10-17T20:34:50.885Z"
+      },
+      {
+        "id": "83",
+        "title": "The panel offered OKRs on an initiative that cannot carry them",
+        "description": "A team board's initiative showed the \"Map an OKR\" checkboxes, and every one of them did nothing: the model accepts attribution on strategic initiatives only.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Reported from the side drawer: the app shows OKRs but does not let you connect an initiative to one. It was the panel lying, not the model failing.\n\n`setAttribution` refuses `on` unless `isStrategicInitiative(itemId)` — an Initiative placed on a portfolio-band board — because everything below inherits through the decomposition, and the model has a test for it (a card, a team initiative and a value-stream initiative are all refused; a strategic one is allowed). The panel, though, gated the whole \"Strategic impact\" section on `isInitiative` alone, so on any team board it rendered the checkboxes and a silent refusal behind each one. That is the one failure the house rules are most against: a control that appears to work and quietly does not.\n\nFix: offer the mapping only where the model accepts it. A strategic initiative keeps the section as it was; a non-strategic one shows the same panel with the reason instead of the control — \"OKRs attach to strategic initiatives … this one inherits the OKRs it serves from the strategic initiative above it\" — and still lists any attribution it carries, with its unlink, since removing is always allowed and a stale mapping has to be clearable.\n\nThe neighbour was checked for the same flaw: `linkTeamInitiative` creates a team initiative beneath whatever it is called on and does exactly that, so it is not inert.",
+        "testStrategy": "The model already has its test (`OKRs attach to strategic initiatives only`), so this is a UI fix verified in the browser: on a team board (Team Atlas), open an initiative's panel and confirm the OKR section explains the rule and offers no checkboxes; on a portfolio board (Company Strategy), open a strategic initiative and confirm the checkboxes are there and that checking one writes an attribution edge. Run npm test and the dependency scan.",
+        "subtasks": [],
+        "updatedAt": "2026-10-17T23:30:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T20:34:50.885Z",
-      "taskCount": 81,
-      "completedCount": 68,
+      "lastModified": "2026-10-17T23:30:00.000Z",
+      "taskCount": 82,
+      "completedCount": 69,
       "tags": [
         "backlog"
       ]

@@ -40,7 +40,7 @@ import {
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiativeTypes, boardTags, buildRefs, cardTypes, initiativeTypeById, isInitiativeItem, placementOn, tagsOf } from '@/domain/board'
+import { boardInitiativeTypes, boardTags, buildRefs, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
@@ -170,6 +170,11 @@ export function ItemPanel({ itemId }: Props) {
   const isSubtask = item.typeId === issueTypes.find((t) => t.name === 'Sub-task')?.id
   // Two types belong to the system rather than the user, so the control is not offered.
   const typeIsFixed = isInitiative || isSubtask
+  // OKRs attach to *strategic* initiatives — a portfolio board's own — and everything below inherits
+  // through the decomposition. The model refuses the rest (`setAttribution`), so the panel offers the
+  // control only where it works and says why where it does not: a checkbox that quietly does nothing
+  // is the one failure the house rules are most against.
+  const isStrategic = isInitiative && isStrategicInitiative(item.id, { items, placements, boards, issueTypes })
   // A copy lands in the original's cell, so Duplicate needs one: this card, in a cell of the
   // board in front of us. Everywhere else there is nothing for a copy to land on.
   const duplicateCell = placementOn(placements, item.id, boardId)
@@ -679,7 +684,9 @@ export function ItemPanel({ itemId }: Props) {
                     title="Add a tag this board defines"
                     className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-600"
                   >
-                    <option value="">{itemTags.length === 0 ? 'No tags' : 'Add a tag…'}</option>
+                    {/* The placeholder is about the *board*, not the item: an item with no tags on
+                        a board that has some still has something to add. */}
+                    <option value="">{boardTagList.length === 0 ? 'No tags on this board' : 'Add a tag…'}</option>
                     {boardTagList
                       .filter((t) => !(item.tagIds ?? []).includes(t.id))
                       .map((t) => (
@@ -753,9 +760,9 @@ export function ItemPanel({ itemId }: Props) {
                   </span>
                 </div>
 
-                {attributed.length === 0 ? (
+                {attributed.length === 0 && isStrategic ? (
                   <p className="mt-1 text-meta text-indigo-700/70">No OKR maps to this initiative yet.</p>
-                ) : (
+                ) : attributed.length === 0 ? null : (
                   <div className="mt-1.5 space-y-2">
                     {attributed.map((o) => {
                       const krs = keyResults.filter((k) => k.objectiveId === o.id)
@@ -797,6 +804,12 @@ export function ItemPanel({ itemId }: Props) {
                   </div>
                 )}
 
+                {!isStrategic ? (
+                  <p className="mt-1 text-meta text-indigo-700/70">
+                    OKRs attach to strategic initiatives — the ones a portfolio board owns — and this one
+                    inherits the OKRs it serves from the strategic initiative above it. Map them there.
+                  </p>
+                ) : (
                 <div className="mt-2 border-t border-indigo-100 pt-1.5">
                     <span className="text-micro uppercase tracking-wide text-indigo-500">Map an OKR</span>
                     <div className="mt-1 space-y-0.5">
@@ -815,6 +828,7 @@ export function ItemPanel({ itemId }: Props) {
                       <p className="mt-1 text-meta text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
                     )}
                 </div>
+                )}
                 </section>
             )}
 
