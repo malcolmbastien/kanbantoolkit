@@ -134,10 +134,9 @@ export function TimelineView({ boardId }: { boardId: string }) {
                         key={bar.id}
                         data-timeline-label-id={bar.id}
                         title={`${bar.title} \u00b7 ${shown} \u00b7 ${STAGE_LABELS[bar.bucket]}`}
-                        className={cn(
-                          'flex items-center gap-1.5 border-b border-slate-100 px-2',
-                          bar.row % 2 === 1 && 'bg-slate-50',
-                        )}
+                        // The hairline under each row is the chart's own row separation — the
+                        // same line the Initiative column draws, continued across the axis.
+                        className="flex items-center gap-1.5 border-b border-slate-100 px-2"
                         style={{ height: ROW_PX }}
                       >
                         {/* The bucket is the work's, not a setting — so it is a dot here, the
@@ -201,23 +200,27 @@ export function TimelineView({ boardId }: { boardId: string }) {
                     ))}
                   </div>
 
-                  {/* The body: one band per row, the days' own gridlines, the bars on top. */}
+                  {/* The body: the days' grid, then the row hairlines over it, then the bars.
+                      One grid, not two textures — the rows are separated by the same hairline
+                      the Initiative column draws, so both sides of the chart speak the same way.
+                      Day columns go underneath so a row's line is never interrupted by a
+                      weekend's fill. */}
                   <div className="relative" style={{ height: Math.max(layout.rowCount * ROW_PX, 96) }} data-timeline-body>
-                    {Array.from({ length: layout.rowCount }, (_, r) => (
-                      <div
-                        key={r}
-                        className={cn('pointer-events-none absolute inset-x-0', r % 2 === 1 && 'bg-slate-50')}
-                        style={{ top: r * ROW_PX, height: ROW_PX }}
-                      />
-                    ))}
-                    {/* A column per day, so a bar can be read against the numbers above it.
-                        Weekend columns are shaded faintly: they are the days a target usually
-                        does not land on, and seeing them makes a span read as weeks. */}
+                    {/* A column per day, so a bar can be read against the numbers above it. The
+                        weekends are the only fill left: they are the days a target usually does
+                        not land on, and seeing them makes a span read as weeks. */}
                     {layout.days.map((d) => (
                       <div
                         key={d.offset}
-                        className={cn('pointer-events-none absolute inset-y-0 border-r border-slate-100', d.weekend && 'bg-slate-50/70')}
+                        className={cn('pointer-events-none absolute inset-y-0 border-r border-slate-100', d.weekend && 'bg-slate-50')}
                         style={{ left: d.offset * DAY_PX, width: DAY_PX }}
+                      />
+                    ))}
+                    {Array.from({ length: layout.rowCount }, (_, r) => (
+                      <div
+                        key={r}
+                        className="pointer-events-none absolute inset-x-0 border-b border-slate-100"
+                        style={{ top: r * ROW_PX, height: ROW_PX }}
                       />
                     ))}
 
