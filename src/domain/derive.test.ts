@@ -28,7 +28,7 @@ import {
 } from './derive'
 import { effectiveStage, inheritedWipState, isLeaf, laneCardCount, leafLanes, rootLane, strongestWip, topLevelLanes, wipState } from './lanes'
 import { createFixture } from './fixture'
-import type { FlowState, Item, Lane } from './types'
+import type { Edge, FlowState, Item, Lane } from './types'
 
 const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes })
 const laneByName = (s: FlowState, boardId: string, name: string) =>
@@ -37,6 +37,32 @@ const laneByName = (s: FlowState, boardId: string, name: string) =>
 describe('generic hierarchy — parent / child', () => {
   const s = createFixture()
   const g = graphOf(s)
+
+  it('adds up the work below, counting an unsized leaf as one point', () => {
+    const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-story', createdAt: 0, ...extra })
+    const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
+    const g: Graph = {
+      items: [
+        item('init', { typeId: 't-initiative', size: 21 }),
+        item('epic', { size: 5 }),
+        item('a', { size: 2 }),
+        item('b'), // unsized: one point, so a size and a count never disagree
+        item('c', { size: 8 }),
+        item('lonely', { typeId: 't-initiative', size: 13 }),
+      ],
+      edges: [edge('init', 'epic'), edge('epic', 'a'), edge('epic', 'b'), edge('init', 'c')],
+      links: [],
+      placements: [],
+      lanes: [],
+    }
+    // Two levels deep: the sum is of the leaves, whatever the shape above them.
+    expect(rollupOf('init', g).size).toBe(2 + 1 + 8)
+    // An item's own size is not "below" it.
+    expect(rollupOf('epic', g).size).toBe(3)
+    expect(rollupOf('a', g).size).toBe(0)
+    // And an initiative with nothing under it reads 0 — not its own claim of 13.
+    expect(rollupOf('lonely', g).size).toBe(0)
+  })
 
   it('depth is derived from the parent chain', () => {
     expect(depth('init-activation', g)).toBe(0)

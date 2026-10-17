@@ -1313,18 +1313,20 @@ describe('store actions', () => {
     const health = () => initiativeHealth('init-signup', graph())
 
     // Team Atlas' initiative: a blocked card below it, a card waiting on work that is not done
-    // (both risks — someone else can see them), nothing moved below for twelve days, and one
-    // committed card nobody owns.
+    // (both risks — someone else can see them), nothing moved below for twelve days, one committed
+    // card nobody owns, and work that adds up to more than the initiative estimates (15 points
+    // below against a claim of 13).
     const before = health()
     expect(before.level).toBe('atRisk')
-    expect(before.flags.map((f) => f.flag)).toEqual(['blocked', 'waiting', 'stale', 'unowned'])
+    expect(before.flags.map((f) => f.flag)).toEqual(['blocked', 'waiting', 'stale', 'unowned', 'oversized'])
+    expect(before.flags.at(-1)!.why).toContain('15 points')
     expect(before.flags[0].label).toBe('1 blocked')
     expect(before.flags[1].why).toContain('wait on work that is not done')
     expect(before.flags[2].tone).toBe('watch')
 
     // Unblocking one card clears one flag and no more: each rule answers for itself.
     s().unblockItem('st-sso')
-    expect(health().flags.map((f) => f.flag)).toEqual(['waiting', 'stale', 'unowned'])
+    expect(health().flags.map((f) => f.flag)).toEqual(['waiting', 'stale', 'unowned', 'oversized'])
 
     // Deliver the two cards that were waiting (the seed links the gateway to both): the
     // dependency risk goes with them. The staleness is still there — nothing *else* below has
@@ -1332,12 +1334,12 @@ describe('store actions', () => {
     const done = laneByName('b-atlas', 'Done').id
     s().moveCard('st-email', 'b-atlas', done)
     s().moveCard('st-sso', 'b-atlas', done)
-    expect(health().flags.map((f) => f.flag)).toEqual(['stale', 'unowned'])
+    expect(health().flags.map((f) => f.flag)).toEqual(['stale', 'unowned', 'oversized'])
 
     // Move the last card still sitting there, and the stale flag clears too.
     s().moveCard('st-signup-form', 'b-atlas', done)
     const after = health()
-    expect(after.flags.map((f) => f.flag)).toEqual(['unowned'])
+    expect(after.flags.map((f) => f.flag)).toEqual(['unowned', 'oversized'])
     expect(after.level).toBe('watch')
 
     // And an initiative with nothing under it has nothing to roll up.

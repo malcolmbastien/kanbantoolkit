@@ -158,7 +158,8 @@ export function ItemPanel({ itemId }: Props) {
   const badge = dependentSummary(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
   const status = statusOf(item.id, graph)
-  const stage = rollupOf(item.id, graph).bucket
+  const roll = rollupOf(item.id, graph)
+  const stage = roll.bucket
   const log = item.log ?? []
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
 
@@ -622,6 +623,17 @@ export function ItemPanel({ itemId }: Props) {
                   />
                   <span className="text-meta text-slate-600">pts</span>
                 </div>
+                {/* An initiative's estimate is a claim about work that is not here yet; the work
+                    below is the reality. Both numbers, so a claim that is too small can be seen to
+                    be too small — the health flag says so too, in words. */}
+                {isInitiative && roll.size > 0 && (
+                  <span
+                    className="text-micro text-slate-600"
+                    title="The sizes of the leaf work below this initiative, unsized work counting as 1"
+                  >
+                    {roll.size} pts below
+                  </span>
+                )}
               </Field>
 
               <Field label="Target start">

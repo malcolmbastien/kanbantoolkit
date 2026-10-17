@@ -323,6 +323,9 @@ export function createSeed(): FlowState {
     archivedAt: ago(40),
   })
 
+  // The Atlas card that waits on the identity platform belongs to the SSO outcome it is for —
+  // without this it rolls up to nothing and the story the boundary lane tells has no shape.
+  decompose('init-sso', ['st-enterprise-sso'])
   decompose('init-identity', ['st-identity-contract', 'st-identity-contract-v1', 'st-scim'])
   decompose('init-audit', ['st-audit-backfill', 'st-audit-retention', 'st-auth-retire'])
   decompose('init-lakehouse', ['st-cost-attribution', 'st-lakehouse-ingest'])

@@ -119,13 +119,14 @@ describe('csv', () => {
     expect(signup[3]).toBe(String(roll.percent))
     expect(signup[4]).toBe(String(roll.done))
     expect(signup[5]).toBe(String(roll.total))
-    expect(signup[9]).toBe('In Progress')
-    expect(signup[10]).toBe('no') // overdue
-    expect(signup[11]).toBe(String(blockedBelow('init-signup', graph)))
+    expect(signup[7]).toBe(String(roll.size)) // cumulative size, beside the counts it sits with
+    expect(signup[10]).toBe('In Progress')
+    expect(signup[11]).toBe('no') // overdue
+    expect(signup[12]).toBe(String(blockedBelow('init-signup', graph)))
     // Health is part of the row now, so the file and the table cannot disagree about it.
     const health = initiativeHealth('init-signup', graph)
-    expect(signup[12]).toBe(HEALTH_META[health.level].label)
-    expect(signup[13]).toBe(health.flags.map((f) => f.label).join('; '))
+    expect(signup[13]).toBe(HEALTH_META[health.level].label)
+    expect(signup[14]).toBe(health.flags.map((f) => f.label).join('; '))
   })
 
   it('names the file after the board, without punctuation a filesystem minds', () => {

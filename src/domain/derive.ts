@@ -302,6 +302,12 @@ export interface Rollup {
   uncommitted: number
   /** Done leaves as a percentage of countable (committed) leaves. */
   percent: number
+  /**
+   * The work *below*, in points: the sum of the leaf descendants' sizes, with an unsized leaf
+   * counting as 1 so a count and a size never disagree about how many pieces there are. Zero for
+   * anything with nothing under it — including a card, whose work is itself and not below it.
+   */
+  size: number
   bucket: RollupBucket
 }
 
@@ -315,6 +321,9 @@ export function rollupOf(id: string, graph: Graph): Rollup {
   const started = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).started).length
   const countable = Math.max(1, committed)
   const percent = total === 0 ? 0 : Math.round((done / countable) * 100)
+  // `leafItems` answers with the item itself when it has no children, so the sum is taken over
+  // the leaves *other* than the item: what is below, not what is here.
+  const size = leaves.reduce((sum, l) => (l.id === id ? sum : sum + (l.size ?? 1)), 0)
 
   // A parent is as advanced as the work beneath it, but never claims completion early:
   // everything done → done; anything under way → inProgress; anything committed →
@@ -334,6 +343,7 @@ export function rollupOf(id: string, graph: Graph): Rollup {
     notStarted: Math.max(0, committed - started),
     uncommitted: backlog,
     percent: Math.min(100, percent),
+    size,
     bucket,
   }
 }

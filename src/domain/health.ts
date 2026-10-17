@@ -8,7 +8,7 @@ import {
   uncommittedBelow,
   type Graph,
 } from './derive'
-import { STALE_AFTER_DAYS } from './filters'
+import { parseDay, STALE_AFTER_DAYS } from './filters'
 
 /**
  * Initiative health: the signals that say an initiative is in trouble, derived and never stored.
@@ -25,7 +25,7 @@ import { STALE_AFTER_DAYS } from './filters'
  * moving, nobody on it, nothing underneath, committed over uncommitted).
  */
 
-export type HealthFlag = 'blocked' | 'waiting' | 'stale' | 'unowned' | 'unplanned' | 'uncommitted'
+export type HealthFlag = 'blocked' | 'waiting' | 'stale' | 'unowned' | 'unplanned' | 'uncommitted' | 'oversized' | 'outlasted'
 
 export interface HealthFlagInfo {
   flag: HealthFlag
@@ -63,6 +63,7 @@ function newestArrival(id: string, graph: Graph): number | undefined {
 export function initiativeHealth(id: string, graph: Graph, now = Date.now()): InitiativeHealth {
   const roll = rollupOf(id, graph)
   const open = openDescendants(id, graph)
+  const item = graph.items.find((i) => i.id === id)
   const flags: HealthFlagInfo[] = []
 
   // A hard stop, and the one signal that is a person's own word rather than a derivation.
@@ -120,6 +121,34 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
       why: 'No work sits under it yet, so nothing rolls up to it',
       tone: 'watch',
     })
+  }
+
+  // The work below, against what the initiative itself says. Two arithmetic warnings — the same
+  // two Businessmap raises an exclamation mark for: the work is bigger than the initiative
+  // claims, or it is due after the initiative is. Both are watches: the numbers are surfaced,
+  // never enforced, and an initiative with nothing below it raises neither.
+  if (item?.size !== undefined && roll.size > item.size) {
+    flags.push({
+      flag: 'oversized',
+      label: `${roll.size} pts below`,
+      why: `The work below adds up to ${roll.size} points; this initiative estimates ${item.size}`,
+      tone: 'watch',
+    })
+  }
+  const ownEnd = parseDay(item?.targetEndDate)?.getTime()
+  if (ownEnd !== undefined) {
+    const later = open.filter((i) => {
+      const end = parseDay(i.targetEndDate)?.getTime()
+      return end !== undefined && end > ownEnd
+    })
+    if (later.length > 0) {
+      flags.push({
+        flag: 'outlasted',
+        label: `${later.length} due later`,
+        why: `${later.length} card${plural(later.length)} below ${later.length === 1 ? 'is' : 'are'} due after this initiative`,
+        tone: 'watch',
+      })
+    }
   }
 
   // The rollup anomaly the cards themselves already warn about: committed over uncommitted.
