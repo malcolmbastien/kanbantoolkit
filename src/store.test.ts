@@ -5,6 +5,7 @@ import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placement
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
 import { hasActiveFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
 import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
+import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
 import { migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
@@ -1373,6 +1374,41 @@ describe('store actions', () => {
     expect(log('st-email').at(-1)).toMatchObject({ kind: 'unlinked', note: 'no longer waits on SSO buttons' })
     expect(log('st-sso').map((e) => e.kind)).not.toContain('linked')
     expect(s().links.some((l) => l.from === 'st-sso' && l.to === 'st-email')).toBe(false)
+  })
+
+  it('the load-test board is built on request, and rebuilt rather than doubled', () => {
+    s().addStressBoard(120)
+    const stressLanes = () => s().lanes.filter((l) => l.boardId === STRESS_BOARD_ID)
+    expect(s().boards.filter((b) => b.id === STRESS_BOARD_ID)).toHaveLength(1)
+    expect(s().boardId).toBe(STRESS_BOARD_ID)
+    expect(s().items.filter((i) => i.id.startsWith(`${STRESS_PREFIX}card-`))).toHaveLength(120)
+    expect(stressLanes().length).toBeGreaterThan(20) // typed columns, cells and containers
+    // It opens as the board itself, with nothing in front of it.
+    expect(s().selectedItemId).toBe(null)
+    expect(s().filters).toEqual(NO_FILTERS)
+    expect([s().showDashboard, s().showTimeline, s().showMetrics, s().showBoards, s().showMyWork]).toEqual([false, false, false, false, false])
+
+    // Asking for a different size replaces it — one board, and the old cards are gone.
+    s().addStressBoard(40)
+    expect(s().boards.filter((b) => b.id === STRESS_BOARD_ID)).toHaveLength(1)
+    expect(s().items.filter((i) => i.id.startsWith(`${STRESS_PREFIX}card-`))).toHaveLength(40)
+    expect(s().placements.filter((p) => p.boardId === STRESS_BOARD_ID)).toHaveLength(40 + 9) // cards and initiatives
+    expect(s().items.filter((i) => i.id.startsWith(`${STRESS_PREFIX}card-`) && s().placements.every((p) => p.itemId !== i.id))).toEqual([])
+
+    // And a real board is untouched: its cards, its people, its links.
+    expect(s().boards.some((b) => b.id === 'b-atlas')).toBe(true)
+    expect(s().items.find((i) => i.id === 'st-signup-form')?.title).toBe('Build signup form')
+    expect(s().users.some((u) => u.id === 'u-mb')).toBe(true)
+    expect(s().links.some((l) => l.from === 'init-gateway')).toBe(true)
+    // The people the load test references come with it, and only once.
+    expect(s().users.filter((u) => u.id.startsWith(STRESS_PREFIX))).toHaveLength(8)
+    expect(new Set(s().users.map((u) => u.id)).size).toBe(s().users.length)
+
+    // Reset takes it with everything else — it was never part of the demo.
+    s().resetDemo()
+    expect(s().boards.some((b) => b.id === STRESS_BOARD_ID)).toBe(false)
+    expect(s().items.some((i) => i.id.startsWith(STRESS_PREFIX))).toBe(false)
+    expect(s().users.some((u) => u.id.startsWith(STRESS_PREFIX))).toBe(false)
   })
 
   it('a filter narrows what you see, never the load a column carries', () => {

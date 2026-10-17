@@ -34,6 +34,7 @@ export default function App() {
   const setObjectives = useStore((s) => s.setObjectives)
   const showMetrics = useStore((s) => s.showMetrics)
   const setMetrics = useStore((s) => s.setMetrics)
+  const addStressBoard = useStore((s) => s.addStressBoard)
   const showDashboard = useStore((s) => s.showDashboard)
   const setBoard = useStore((s) => s.setBoard)
   const setDashboard = useStore((s) => s.setDashboard)
@@ -106,6 +107,10 @@ export default function App() {
     for (const id of params.getAll('collapse')) {
       if (!useStore.getState().collapsedLanes[id]) toggleCollapse(id)
     }
+    // A load-test board, built on request: `?stress=300` (and `?stress` alone is 300). Asking
+    // again replaces the one it built before, so the size is changed by asking, not by cleaning up.
+    const stress = params.get('stress')
+    if (stress !== null) addStressBoard(Math.max(1, Math.min(2000, Number(stress) || 300)))
     if (params.get('view') === 'objectives') setObjectives(true)
     if (params.get('view') === 'dashboard') setDashboard(true)
     if (params.get('view') === 'timeline') setTimeline(true)

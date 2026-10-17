@@ -4,6 +4,7 @@ import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveS
 import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
+import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { uid as makeUid } from '@/lib/utils'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, TemplateLane, User } from '@/domain/types'
@@ -271,6 +272,13 @@ export interface Actions {
   setBoardWipEnforcement: (id: string, mode: 'visualize' | 'justify' | 'block') => void
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
+  /**
+   * Build the load-test board (see `stressBoard`) and open it. Asking again *replaces* it, so the
+   * size can be changed without piling boards up, and everything it made is recognised by the
+   * `stress-` prefix it carries — a real board is never touched, and Reset removes it with
+   * everything else.
+   */
+  addStressBoard: (cards: number) => void
   /**
    * Copy a card: the same shape, none of the original's commitments. The copy carries the
    * title, type, size, description and a fresh checklist (new entry ids, nothing ticked) —
@@ -1474,6 +1482,38 @@ export const useStore = create<Store>()(
           rank: nextRank(get().placements, laneId),
         }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
+      },
+
+      addStressBoard: (cards) => {
+        const state = get()
+        const made = stressBoard(cards, state.issueTypes, Date.now())
+        const isStress = (id: string) => id.startsWith(STRESS_PREFIX)
+        set({
+          boards: [...state.boards.filter((b) => !isStress(b.id)), made.board],
+          lanes: [...state.lanes.filter((l) => !isStress(l.id)), ...made.lanes],
+          items: [...state.items.filter((i) => !isStress(i.id)), ...made.items],
+          placements: [...state.placements.filter((p) => !isStress(p.itemId)), ...made.placements],
+          edges: [...state.edges.filter((e) => !isStress(e.from) && !isStress(e.to)), ...made.edges],
+          links: [...state.links.filter((l) => !isStress(l.from) && !isStress(l.to)), ...made.links],
+          users: [...state.users.filter((u) => !isStress(u.id)), ...made.users],
+          // It opens as the board itself: a load test is for looking at, and whatever view was in
+          // front belongs to whatever was being looked at before.
+          boardId: made.board.id,
+          selectedItemId: null,
+          editMode: false,
+          draft: null,
+          lensId: null,
+          multiSelect: [],
+          boundaryId: null,
+          filters: NO_FILTERS,
+          showObjectives: false,
+          showDashboard: false,
+          showTimeline: false,
+          showArchive: false,
+          showBoards: false,
+          showMyWork: false,
+          showMetrics: false,
+        })
       },
 
       duplicateCard: (itemId) => {
