@@ -265,6 +265,13 @@ describe('editing a template’s design', () => {
   it('renames, sets WIP and policy, and flips orientation', () => {
     const t = scrum()
     expect(templateRenameLane(t, 'k5', 'Doing').find((l) => l.key === 'k5')?.name).toBe('Doing')
+    // A typed column's name is the team's own: rename the label, and the stage is untouched —
+    // the template names its own flow ('Ready to Start' is a Not Started column already).
+    expect(templateRenameLane(t, 'k4', 'In flight').find((l) => l.key === 'k4')).toMatchObject({
+      name: 'In flight',
+      stage: 'inProgress',
+      parentKey: null,
+    })
     expect(templateSetLaneWip(t, 'k5', 2).find((l) => l.key === 'k5')?.wipLimit).toBe(2)
     expect(templateSetLaneWip(t, 'k5', undefined).find((l) => l.key === 'k5')?.wipLimit).toBeUndefined()
     expect(templateSetLanePolicy(t, 'k5', 'One at a time.').find((l) => l.key === 'k5')?.description).toBe(

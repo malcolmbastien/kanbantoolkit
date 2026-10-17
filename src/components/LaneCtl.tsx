@@ -65,7 +65,8 @@ export function LaneCtl({
  * Boards (edit mode) and the template editor render this same component, so the
  * capabilities are the same because the code is the same: sub-lanes move, a leaf splits,
  * a split gains a lane and flips its arrangement, and the typed top-level columns stay
- * put — flippable, but never moved, inserted after or duplicated.
+ * put — never moved, inserted after or duplicated. Their *names* are the team's own, so
+ * renaming is in the settings popover like every other lane's.
  */
 export function LaneEditControls({
   isLeafCell,
@@ -86,7 +87,7 @@ export function LaneEditControls({
 }: {
   /** A leaf (cell) splits; a split gains a lane — the board's own vocabulary. */
   isLeafCell: boolean
-  /** A top-level typed column is fixed in place — flippable, but never moved or removed. */
+  /** A top-level typed column is fixed in place — never moved, inserted after or duplicated. */
   top: boolean
   /** The lane's own arrangement, for the "add a row/column" wording. */
   orientation?: SplitOrientation
@@ -167,7 +168,6 @@ export function LaneEditControls({
       <LaneCtl btnRef={settingsBtnRef} active={settingsActive} title="Lane settings — name, WIP limit, policy" onClick={onSettings}>
         <Settings size={12} />
       </LaneCtl>
-      {top && <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">typed column — split to refine</span>}
     </CtlGroup>
   )
 }

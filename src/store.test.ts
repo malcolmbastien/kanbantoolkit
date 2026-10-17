@@ -191,6 +191,29 @@ describe('store actions', () => {
     expect(leafLanes(s().lanes, boardId, 'cards').length).toBeGreaterThanOrEqual(7)
   })
 
+  it('renames a typed column without changing its stage or moving anything', () => {
+    const root = rootLane(s().lanes, 'b-atlas', 'cards')!
+    const columns = () => topLevelLanes(s().lanes, 'b-atlas', 'cards')
+    const before = columns().map((c) => ({ id: c.id, stage: c.stage }))
+    const status = () => s().items.map((i) => statusOf(i.id, graph()))
+    const counts = () =>
+      leafLanes(s().lanes, 'b-atlas', 'cards').map((l) => laneCardCount(s().lanes, s().placements, l.id))
+    const statusBefore = status()
+    const countsBefore = counts()
+
+    // The label is the team's own — 'In flight' is still the in-progress column.
+    const ip = laneByName('b-atlas', 'In Progress')
+    s().renameLane(ip.id, 'In flight')
+
+    const renamed = laneByName('b-atlas', 'In flight')
+    expect(renamed.id).toBe(ip.id)
+    expect(renamed.stage).toBe('inProgress')
+    expect(childrenOf(s().lanes, root.id).map((c) => ({ id: c.id, stage: c.stage }))).toEqual(before)
+    // Nothing moved: status comes from the column's stage, never from its name.
+    expect(status()).toEqual(statusBefore)
+    expect(counts()).toEqual(countsBefore)
+  })
+
   it('boards carry a flight-level band that can be changed', () => {
     expect(s().boards.find((b) => b.id === 'b-strategy')?.band).toBe('portfolio')
     expect(s().boards.find((b) => b.id === 'b-portfolio')?.band).toBe('program')

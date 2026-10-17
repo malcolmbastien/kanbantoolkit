@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { Info, Trash2 } from 'lucide-react'
 import type { Lane } from '@/domain/types'
+
+/** The settings panel's own width (`w-72`) — the popover clamps against it. */
+const PANEL_W = 288
 
 /**
  * A lane's policy, revealed by hovering (or focusing) the info icon in the lane
@@ -35,7 +38,7 @@ export function LanePolicy({ policy }: { policy: string }) {
         <div
           role="tooltip"
           style={{ top: pos.top, right: pos.right }}
-          className="fixed z-50 w-60 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-2 text-meta leading-relaxed text-slate-100 shadow-xl"
+          className="fixed z-50 w-64 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-meta leading-relaxed text-slate-700 shadow-xl"
         >
           <div className="mb-0.5 text-micro font-bold uppercase tracking-wide text-slate-600">Policy</div>
           <p className="whitespace-pre-wrap">{policy}</p>
@@ -48,7 +51,10 @@ export function LanePolicy({ policy }: { policy: string }) {
 interface LaneSettingsProps {
   /** Structural on purpose: a template lane edits through this same popover. */
   lane: Pick<Lane, 'name' | 'wipLimit' | 'description'>
-  /** Top-level typed columns are fixed: name read-only, no remove. */
+  /**
+   * Top-level typed columns: their name is the team's own, so it is editable here like any
+   * other lane's — only removal is unavailable, because a board must keep one column per stage.
+   */
   top: boolean
   /** The settings button, to anchor the popover. */
   anchorRef: RefObject<HTMLButtonElement | null>
@@ -70,12 +76,21 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
-  // Anchor under the settings button; keep it in place while the board scrolls.
-  useEffect(() => {
-    const update = () => {
-      const r = anchorRef.current?.getBoundingClientRect()
-      if (r) setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 272)) })
+  // Anchor under the settings button; keep it in place while the board scrolls. It is clamped
+  // to the viewport on both axes — a popover taller than the room below the button would put
+  // its own Done button out of reach.
+  const update = useCallback(() => {
+    const r = anchorRef.current?.getBoundingClientRect()
+    if (!r) return
+    const h = panelRef.current?.offsetHeight ?? 0
+    const next = {
+      top: Math.max(8, Math.min(r.bottom + 4, h ? window.innerHeight - h - 8 : r.bottom + 4)),
+      left: Math.max(8, Math.min(r.left, window.innerWidth - PANEL_W - 8)),
     }
+    setPos((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next))
+  }, [anchorRef])
+
+  useEffect(() => {
     update()
     window.addEventListener('scroll', update, true)
     window.addEventListener('resize', update)
@@ -83,7 +98,11 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
       window.removeEventListener('scroll', update, true)
       window.removeEventListener('resize', update)
     }
-  }, [anchorRef])
+  }, [update])
+
+  // Measured once it is on screen — and on every change after that, so a policy being typed
+  // into is a panel that re-clamps rather than one that walks off the bottom of the window.
+  useLayoutEffect(update)
 
   // Close on Escape or a click outside.
   useEffect(() => {
@@ -108,15 +127,20 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
 
   if (!pos) return null
 
-  const field = 'w-full rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-slate-100 outline-none focus:ring-2 focus:ring-indigo-400'
+  // One field style and one label style, and they are the app's: this popover used to be a dark
+  // panel of its own, which put its text a step below the rest of the interface and left the
+  // labels darker than the surface they sat on.
+  const field =
+    'w-full rounded border border-slate-200 px-2 py-1.5 text-body text-slate-800 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-400'
   const label = 'mb-1 block text-micro font-bold uppercase tracking-wide text-slate-600'
+  const hint = 'mt-1 text-meta text-slate-600'
 
   return (
     <div
       ref={panelRef}
       data-lane-settings
       style={{ top: pos.top, left: pos.left }}
-      className="fixed z-50 w-64 space-y-3 rounded-lg border border-slate-600 bg-slate-800 p-3 text-meta text-slate-100 shadow-2xl"
+      className="fixed z-50 w-72 space-y-3 rounded-lg border border-slate-200 bg-white p-3 text-meta text-slate-800 shadow-2xl"
     >
       <div>
         <label className={label} htmlFor="lane-name">
@@ -125,7 +149,6 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
         <input
           id="lane-name"
           value={name}
-          disabled={top}
           onChange={(e) => {
             setNameDraft(e.target.value)
             const v = e.target.value.trim()
@@ -134,9 +157,8 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
           onBlur={() => {
             if (!name.trim()) setNameDraft(lane.name)
           }}
-          className={`${field} text-meta disabled:opacity-60`}
+          className={field}
         />
-        {top && <p className="mt-1 text-micro text-slate-600">Typed columns are fixed — split to refine.</p>}
       </div>
 
       <div>
@@ -154,7 +176,7 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
             setWip(v === '' ? undefined : Math.max(0, Math.floor(Number(v) || 0)))
           }}
           placeholder="none"
-          className={`${field} w-20 text-meta`}
+          className={`${field} w-20`}
         />
       </div>
 
@@ -172,23 +194,23 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
           }}
           rows={3}
           placeholder="Rules of play — entry / exit criteria…"
-          className={`${field} resize-y text-meta leading-relaxed placeholder:text-slate-600`}
+          className={`${field} resize-y leading-relaxed`}
         />
-        <p className="mt-1 text-micro text-slate-600">Shown to the board via the lane's info icon.</p>
+        <p className={hint}>Shown to the board via the lane's info icon.</p>
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-slate-700 pt-2">
+      <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
         {top ? (
           <span />
         ) : (
           <button
             onClick={remove}
-            className="flex items-center gap-1 rounded border border-rose-500/50 px-2 py-1 font-medium text-rose-300 hover:bg-rose-500/20"
+            className="flex items-center gap-1 rounded border border-rose-200 px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-50"
           >
             <Trash2 size={11} /> Remove lane
           </button>
         )}
-        <button onClick={onClose} className="rounded bg-slate-600 px-2.5 py-1 font-medium text-white hover:bg-slate-500">
+        <button onClick={onClose} className="rounded bg-indigo-600 px-2.5 py-1 font-medium text-white transition hover:bg-indigo-700">
           Done
         </button>
       </div>
