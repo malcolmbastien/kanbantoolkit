@@ -449,6 +449,43 @@ const logEntry = (kind: ItemLogEntry['kind'], note?: string): ItemLogEntry => ({
 })
 
 /**
+ * How a lane reads in a history note: the name it had at that moment, or the stage it carries
+ * when a board has left it unnamed. Callers pass the lanes *as they were* — a lane renamed or
+ * removed later must not rewrite what the note says, which is the whole point of a history.
+ */
+const laneNameAt = (lanes: Lane[], laneId: string | undefined): string => {
+  if (!laneId) return ''
+  const lane = lanes.find((l) => l.id === laneId)
+  if (!lane) return 'a lane since gone'
+  const stage = effectiveStage(lanes, laneId)
+  return lane.name || (stage ? STAGE_LABELS[stage] : 'a lane since gone')
+}
+
+/**
+ * A move, recorded where it happened. The note holds the names as they were ("Dev → Test"), and
+ * `fromLaneId`/`toLaneId` hold the cells for anything that reads movements rather than words.
+ * `why` is for the moves nobody made — a card rehomed because its lane was split or removed —
+ * so a silent cell change explains itself.
+ */
+const movedEntry = (
+  lanes: Lane[],
+  fromLaneId: string | undefined,
+  toLaneId: string,
+  why?: string,
+): ItemLogEntry => {
+  const from = laneNameAt(lanes, fromLaneId)
+  const to = laneNameAt(lanes, toLaneId)
+  return {
+    id: uid(),
+    at: Date.now(),
+    kind: 'moved',
+    note: `${from ? `${from} → ${to}` : `into ${to}`}${why ? ` · ${why}` : ''}`,
+    ...(fromLaneId ? { fromLaneId } : {}),
+    toLaneId,
+  }
+}
+
+/**
  * Expand item ids to the union of their subtrees, cascading only from *roots* (ids
  * whose ancestor is not also in the set) so a cascade never double-processes work.
  */
@@ -945,9 +982,14 @@ export const useStore = create<Store>()(
           // Keep the auto-archive clock in step with the target stage.
           items: state.items.map((i) => {
             if (!ids.has(i.id)) return i
-            if (stage === 'done' && !i.resolvedAt) return { ...i, resolvedAt: Date.now() }
-            if (stage !== 'done' && i.resolvedAt) return { ...i, resolvedAt: null }
-            return i
+            // Each card in the group records its own move, from the cell it was in. An item
+            // with no placement here is not moved by this, so it records nothing.
+            const from = state.placements.find((p) => p.itemId === i.id && p.boardId === state.boardId)?.laneId
+            const moved = from && from !== laneId ? { log: [...(i.log ?? []), movedEntry(state.lanes, from, laneId)] } : {}
+            const next = { ...i, ...moved }
+            if (stage === 'done' && !next.resolvedAt) return { ...next, resolvedAt: Date.now() }
+            if (stage !== 'done' && next.resolvedAt) return { ...next, resolvedAt: null }
+            return next
           }),
         })
       },
@@ -1426,6 +1468,10 @@ export const useStore = create<Store>()(
           if (stage !== 'done' && i.resolvedAt) next = { ...next, resolvedAt: null }
           // A justified WIP overrun is recorded on the card and in its log.
           if (reason) next = { ...next, lastMoveReason: reason, log: [...(i.log ?? []), logEntry('limit', reason)] }
+          // And the move itself. The journey is the point of the history: a card's past is
+          // otherwise unrecoverable, and the overrun above explains a limit rather than a
+          // destination. A same-cell reorder returned early and writes nothing.
+          next = { ...next, log: [...(next.log ?? []), movedEntry(state.lanes, existing?.laneId, laneId)] }
           return next
         })
         set({ placements, items })
@@ -1444,7 +1490,15 @@ export const useStore = create<Store>()(
         const state = get()
         const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (!moving) return
-        placeCard(set, state, moving, laneId, () => index)
+        // Dropping a card where it already is lands it at a *position*, not in a new cell, so
+        // the history says nothing: a log of every drag would be noise, not a journey.
+        const items =
+          moving.laneId === laneId
+            ? state.items
+            : state.items.map((i) =>
+                i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, moving.laneId, laneId)] } : i,
+              )
+        placeCard(set, { ...state, items }, moving, laneId, () => index)
       },
 
       moveInitiative: (itemId, boardId, laneId) => {
@@ -1464,7 +1518,12 @@ export const useStore = create<Store>()(
               ...state.placements,
               { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now(), rank: nextRank(state.placements, laneId) },
             ]
-        set({ placements })
+        set({
+          placements,
+          items: state.items.map((i) =>
+            i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, existing?.laneId, laneId)] } : i,
+          ),
+        })
       },
 
       // A rank within a cell, like a card's within a lane: the initiatives of a cell are a
@@ -1479,7 +1538,14 @@ export const useStore = create<Store>()(
         if (effectiveStage(state.lanes, laneId) !== rollupOf(itemId, graph).bucket) return
         const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (!moving) return
-        placeCard(set, state, moving, laneId, () => index, { stampDone: false })
+        // A rank within the same cell is an arrangement, not a move.
+        const items =
+          moving.laneId === laneId
+            ? state.items
+            : state.items.map((i) =>
+                i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, moving.laneId, laneId)] } : i,
+              )
+        placeCard(set, { ...state, items }, moving, laneId, () => index, { stampDone: false })
       },
 
       setItemFields: (id, patch) =>
@@ -1542,7 +1608,15 @@ export const useStore = create<Store>()(
         const createdIds = new Set(created.map((c) => c.id))
         const lanes = nodes.map((n) => (createdIds.has(n.id) ? { ...n, boardId: lane.boardId, workflow: lane.workflow } : n))
         const placements = state.placements.map((p) => (p.laneId === laneId ? toLane(state.placements, p, firstChildId) : p))
-        set({ lanes, placements })
+        // The cards in the split cell change cell because the board was edited, not because a
+        // person moved them — so the history records the move and says what made it.
+        const movedIds = new Set(state.placements.filter((p) => p.laneId === laneId).map((p) => p.itemId))
+        const items = state.items.map((i) =>
+          movedIds.has(i.id)
+            ? { ...i, log: [...(i.log ?? []), movedEntry(lanes, laneId, firstChildId, 'lane split')] }
+            : i,
+        )
+        set({ lanes, placements, items })
       },
 
       setLaneOrientation: (laneId, orientation) => set({ lanes: setLaneOrientationNode(get().lanes, laneId, orientation) }),
@@ -1593,9 +1667,17 @@ export const useStore = create<Store>()(
         // parent, or the parent itself once it is a cell. Never nowhere.
         const { nodes, vanished, to } = removeLaneNodes(state.lanes, laneId)
         if (vanished.size === 0) return // top-level columns are fixed; refine, don't delete
+        // Where each card came from, read before the lanes go: the note must say it even though
+        // that lane no longer exists by the time anyone reads it.
+        const from = new Map(state.placements.filter((p) => vanished.has(p.laneId)).map((p) => [p.itemId, p.laneId]))
         set({
           lanes: nodes,
           placements: state.placements.map((p) => (vanished.has(p.laneId) ? toLane(state.placements, p, to) : p)),
+          items: state.items.map((i) =>
+            from.has(i.id)
+              ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, from.get(i.id), to, 'lane removed')] }
+              : i,
+          ),
         })
       },
 

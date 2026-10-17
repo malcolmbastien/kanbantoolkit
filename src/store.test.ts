@@ -1089,6 +1089,84 @@ describe('store actions', () => {
     expect(stamp(fresh.id)).toBeTruthy()
   })
 
+  it('a card keeps the history of its journey: a move is recorded where it happened', () => {
+    s().selectBoard('b-atlas')
+    const moved = (id: string) => (s().items.find((i) => i.id === id)!.log ?? []).filter((e) => e.kind === 'moved')
+    const laneId = (name: string) => laneByName('b-atlas', name).id
+    const ns = laneId('Not Started')
+    const dev = laneId('Dev')
+
+    // A card carrying no log at all still records: the history starts where the card is.
+    expect(s().items.find((i) => i.id === 'df-signup')!.log).toBeUndefined()
+    s().moveCard('df-signup', 'b-atlas', ns)
+    expect(moved('df-signup').map((e) => e.note)).toEqual(['Test → Not Started'])
+    expect(moved('df-signup')[0]).toMatchObject({ fromLaneId: laneId('Test'), toLaneId: ns })
+
+    // Landing where it already is is an arrangement, not a move: nothing is written.
+    s().moveCard('df-signup', 'b-atlas', ns)
+    s().moveCardToIndex('df-signup', 'b-atlas', ns, 0)
+    expect(moved('df-signup').length).toBe(1)
+
+    // A drag into another cell is a move, and the entry names both ends as they were then.
+    s().moveCardToIndex('df-signup', 'b-atlas', dev, 0)
+    expect(moved('df-signup').map((e) => e.note)).toEqual(['Test → Not Started', 'Not Started → Dev'])
+
+    // History is what was true then: renaming the lane afterwards does not rewrite it.
+    s().renameLane(dev, 'Development')
+    expect(moved('df-signup').at(-1)!.note).toBe('Not Started → Dev')
+    expect(s().lanes.find((l) => l.id === dev)!.name).toBe('Development')
+
+    // A bulk move is a journey for each card in it.
+    s().moveCardsToLane(['df-signup', 'st-sso'], ns)
+    expect(moved('df-signup').at(-1)!.note).toBe('Development → Not Started')
+    expect(moved('st-sso').at(-1)!.note).toBe('Test → Not Started')
+  })
+
+  it('an initiative records its moves within its section too', () => {
+    s().selectBoard('b-nova')
+    const moved = () => (s().items.find((i) => i.id === 'init-welcome')!.log ?? []).filter((e) => e.kind === 'moved')
+    const seeded = s().placements.find((p) => p.itemId === 'init-welcome' && p.boardId === 'b-nova')!.laneId
+    const ip = topLevelLanes(s().lanes, 'b-nova', 'initiatives').find((l) => l.stage === 'inProgress')!
+    s().splitLane(ip.id, 'columns')
+    const cells = childrenOf(s().lanes, ip.id)
+
+    s().moveInitiative('init-welcome', 'b-nova', cells[1].id)
+    expect(moved()).toHaveLength(1)
+    expect(moved()[0]).toMatchObject({ fromLaneId: seeded, toLaneId: cells[1].id })
+    expect(moved()[0].note).toBe('Not Started → Column 2')
+
+    // A rank within the same cell arranges; it does not move.
+    s().moveInitiativeToIndex('init-welcome', 'b-nova', cells[1].id, 0)
+    expect(moved()).toHaveLength(1)
+
+    // And a move the model refuses is not a move to record.
+    const done = topLevelLanes(s().lanes, 'b-nova', 'initiatives').find((l) => l.stage === 'done')!
+    s().moveInitiative('init-welcome', 'b-nova', done.id)
+    expect(moved()).toHaveLength(1)
+  })
+
+  it('a lane removed records where its cards went, though that lane is gone', () => {
+    s().selectBoard('b-atlas')
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().splitLane(ns.id, 'rows')
+    const [row1] = childrenOf(s().lanes, ns.id)
+
+    // The board changed under the card: nobody moved it, so the entry says what did.
+    const afterSplit = (s().items.find((i) => i.id === 'st-email')!.log ?? []).at(-1)!
+    expect(afterSplit.kind).toBe('moved')
+    expect(afterSplit.note).toBe('Not Started → Row 1 · lane split')
+    expect(afterSplit).toMatchObject({ fromLaneId: ns.id, toLaneId: row1.id })
+
+    // Removing the row folds the split and relocates its cards.
+    s().removeLane(row1.id)
+    const entry = (s().items.find((i) => i.id === 'st-email')!.log ?? []).at(-1)!
+    expect(entry.note).toBe('Row 1 → Not Started · lane removed')
+    // The lane it names is gone — the note still reads, and the placement agrees with the ids.
+    expect(s().lanes.find((l) => l.id === row1.id)).toBeUndefined()
+    expect(s().lanes.find((l) => l.id === entry.fromLaneId)).toBeUndefined()
+    expect(s().placements.find((p) => p.itemId === 'st-email')!.laneId).toBe(entry.toLaneId)
+  })
+
   it('a filter narrows what you see, never the load a column carries', () => {
     const ns = laneByName('b-atlas', 'Not Started')
     const before = laneCardCount(s().lanes, s().placements, ns.id)

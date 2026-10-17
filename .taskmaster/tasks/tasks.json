@@ -1156,19 +1156,20 @@
         "id": "75",
         "title": "Duplicate a card: the “copy me” template for a consistently-shaped record",
         "description": "An explicit Duplicate action on a card that produces a fresh item with the same type, size, description and checklist (reset to undone), titled “… copy”, and none of the original's state.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Basis: the LeanKit register practice keeps a “Copy me!” template card in a Template cell of the board, so every new risk is created with the same shape and the same prompts. Flowline has `duplicateLane` and `duplicateBoard` — structure, not work — and no way to copy a card. A template *entity* is not needed and would be a second kind of design alongside `BoardTemplate`; a card you copy is the same idea with nothing new to persist.\n\nWhat the copy carries: title `<title> copy`, `typeId`, `size`, `description`, and the checklist with **fresh entry ids and `done: false`** — a copied checklist is a fresh set of steps, never a set already ticked. Fresh `id`, `createdAt`, and `log: [logEntry('created')]`.\n\nWhat it deliberately does not carry: `assignees`, `priority`, `blocked` / `blockedReason`, `targetStartDate` / `targetEndDate`, `resolvedAt`, `lastMoveReason`, `archived` — these are judgements about *that* card; and no placement, no parent edge, no links, no dependency edges. A copy is a new card with none of the original's commitments.\n\nWhere it lands — SETTLE THIS: invoked from a board (card context menu, item panel opened from a board), the copy lands in the same cell, directly below the original, reusing `nextRank` / the same placement path a new card takes so lane ordering stays clean. Offered from a surface with no cell context (search, archive, My work) it should be refused rather than guessed — or land via `defaultDropLane`; pick one and say so in the UI (a disabled action explains itself).\n\nNotes: no persist version bump — this mints a normal `Item`, no new fields. The refused-with-reason path must not half-create: one `addItem`-shaped store action, so a failure leaves nothing behind. `buildRefs` is derived from the items array, so the copy takes the next ordinal for its type prefix; its instability (a deletion renumbers later items) is the subject of a separate idea, not fixed here. Also wire the same action into wherever a card's context menu already lives so the affordance is not board-canvas-only.",
         "testStrategy": "Unit-test the store action: a copy is a distinct item with a fresh id, the checklist is copied with fresh ids and everything undone, and assignees / dates / priority / blocked / parent / links / placements are all absent; and that copying a card with no checklist yields none. Over CDP: duplicate a card carrying a fully-ticked checklist and confirm the copy reads “… copy”, sits directly below the original, has an unticked checklist, no assignees and an Activity tab holding only its creation; confirm the action is absent or refused where no cell is known. Run npm test and the dependency scan.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T17:05:17.560Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T14:47:12.279Z",
+      "lastModified": "2026-10-17T17:05:17.560Z",
       "taskCount": 74,
-      "completedCount": 52,
+      "completedCount": 53,
       "tags": [
         "backlog"
       ]

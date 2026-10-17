@@ -174,7 +174,7 @@ export interface BoardTemplate {
 }
 
 /** A notable event in an item's history. Append-only. */
-export type ItemLogKind = 'created' | 'blocked' | 'unblocked' | 'archived' | 'unarchived' | 'noted' | 'limit'
+export type ItemLogKind = 'created' | 'moved' | 'blocked' | 'unblocked' | 'archived' | 'unarchived' | 'noted' | 'limit'
 
 /**
  * A checklist entry inside a card — finer-grained work than a schedulable card.
@@ -190,7 +190,16 @@ export interface ItemLogEntry {
   id: string
   at: number
   kind: ItemLogKind
+  /** What happened, in the words of the moment — a move's lane names as they were then. */
   note?: string
+  /**
+   * For a move: the cell it came from and the one it went to. Linkage, not display — the note
+   * is what a person reads, and it stays true after a lane is renamed or removed, which is why
+   * neither the note nor the panel ever looks a lane up. Optional, so an entry written before
+   * these existed, or by an event that is not a move, carries neither.
+   */
+  fromLaneId?: string
+  toLaneId?: string
 }
 
 /** A card, without any board/state/level field. */

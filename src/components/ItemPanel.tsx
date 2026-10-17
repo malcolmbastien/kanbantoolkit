@@ -57,6 +57,7 @@ interface Props {
 /** Dot colour per log event kind. */
 const LOG_STYLES: Record<string, string> = {
   created: 'bg-slate-300',
+  moved: 'bg-sky-500',
   blocked: 'bg-rose-500',
   unblocked: 'bg-emerald-500',
   noted: 'bg-indigo-400',
