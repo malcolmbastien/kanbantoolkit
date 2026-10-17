@@ -326,7 +326,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       orientation === 'columns' &&
       kids.length >= 2 &&
       kids.every((k) => (k.orientation ?? 'columns') === 'rows' && childrenOf(lanes, k.id).length > 0)
-    if (transposable && !collapsed) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} />
+    if (transposable && !collapsed) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} isRoot={isRoot} />
 
     return (
       <div
@@ -469,7 +469,7 @@ function countInLane(laneId: string, ctx: Ctx): number {
 }
 
 /** columns × lanes grid: lanes span the columns; cells in a lane share its height. */
-function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ctx: Ctx }) {
+function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: Lane[]; ctx: Ctx; isRoot: boolean }) {
   const { lanes, editMode } = ctx
   const rowNames: string[] = []
   for (const col of columns) {
@@ -480,7 +480,21 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
     <div className="flex min-h-0 w-full flex-1 flex-col">
       {(editMode || lane.name) && (
         <div className="border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-center text-slate-800">
-          <span className="text-meta font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+          {/* This band is the only header a transposed container gets — its lane tree is
+              rendered as a grid, so no other header carries its name. The board's own band
+              stays a label, as everywhere else: its identity is the board, not a lane. */}
+          {editMode && !isRoot ? (
+            <InlineEdit
+              value={lane.name}
+              onSave={(name) => ctx.renameLane(lane.id, name)}
+              ariaLabel={`Rename ${lane.name || 'this lane'}`}
+              title="Rename this lane"
+              className="w-full rounded text-center text-meta font-bold uppercase tracking-wide transition hover:bg-slate-900/5"
+              inputClassName="w-full rounded bg-white px-1 text-center text-meta font-bold uppercase tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+            />
+          ) : (
+            <span className="text-meta font-bold uppercase tracking-wide">{lane.name || 'Board'}</span>
+          )}
         </div>
       )}
       <div
@@ -492,7 +506,18 @@ function SwimlaneBoard({ lane, columns, ctx }: { lane: Lane; columns: Lane[]; ct
         {columns.map((col) => (
           <div key={col.id} className={cn(HEAD_ROW, 'gap-1.5 border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-slate-800')}>
             <span />
-            <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{col.name}</span>
+            {editMode ? (
+              <InlineEdit
+                value={col.name}
+                onSave={(name) => ctx.renameLane(col.id, name)}
+                ariaLabel={`Rename ${col.name}`}
+                title="Rename this lane"
+                className="w-full rounded text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
+                inputClassName="w-full rounded bg-white px-1 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+              />
+            ) : (
+              <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{col.name}</span>
+            )}
             <span className="flex justify-end">
               <span className="rounded bg-slate-700 px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums text-white">
                 {countInLane(col.id, ctx)}

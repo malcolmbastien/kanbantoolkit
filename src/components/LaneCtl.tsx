@@ -65,8 +65,9 @@ export function LaneCtl({
  * Boards (edit mode) and the template editor render this same component, so the
  * capabilities are the same because the code is the same: sub-lanes move, a leaf splits,
  * a split gains a lane and flips its arrangement, and the typed top-level columns stay
- * put — never moved, inserted after or duplicated. Their *names* are the team's own, so
- * renaming is in the settings popover like every other lane's.
+ * put — never moved, inserted after or duplicated. A lane's *name* is the team's own and is
+ * typed where it is read — in the header, in edit mode — so this cluster carries only the
+ * shape: the settings popover keeps the WIP limit and the policy.
  */
 export function LaneEditControls({
   isLeafCell,
