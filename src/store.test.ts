@@ -7,7 +7,7 @@ import { hasActiveFilters, NO_FILTERS, type SavedFilter } from './domain/filters
 import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
-import { migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
+import { isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 
 vi.stubGlobal('localStorage', {
@@ -1409,6 +1409,16 @@ describe('store actions', () => {
     expect(s().boards.some((b) => b.id === STRESS_BOARD_ID)).toBe(false)
     expect(s().items.some((i) => i.id.startsWith(STRESS_PREFIX))).toBe(false)
     expect(s().users.some((u) => u.id.startsWith(STRESS_PREFIX))).toBe(false)
+  })
+
+  it('the board is the surface only when no view sits over it', () => {
+    const base = { showDashboard: false, showTimeline: false, showArchive: false, showObjectives: false, showBoards: false, showMyWork: false, showMetrics: false }
+    expect(isBoardSurface(base)).toBe(true)
+    // Every view counts, including the ones added later — a flag this list forgets would put the
+    // board's own controls in front of a view that reports on work.
+    for (const flag of Object.keys(base) as (keyof typeof base)[]) {
+      expect(isBoardSurface({ ...base, [flag]: true }), flag).toBe(false)
+    }
   })
 
   it('a filter narrows what you see, never the load a column carries', () => {

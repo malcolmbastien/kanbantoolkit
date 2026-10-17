@@ -60,8 +60,10 @@ export function TopBar(props: Props) {
         <span className="text-title font-semibold tracking-tight text-slate-900">Flowline</span>
       </button>
 
-      {/* Everything below acts on the open board. The workspace is outside that section, so
-          it shows the organisation's controls only. */}
+      {/* The navigation is always here: where you can go does not depend on where you are.
+          What does depend on it is further right — a control that acts on the board shows only
+          when the board is the surface, because a view that *reports* on work (dashboard,
+          timeline, flow, archive, objectives) is not the place to make it. */}
       {!showBoards && (
         <>
           {/* The board's own controls never shrink, so the only thing that gives when the
@@ -156,7 +158,8 @@ export function TopBar(props: Props) {
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {!showBoards && !showMyWork && (
+        {/* Making work is the board's business, so these show on the board and nowhere else. */}
+        {boardActive && (
           <>
             <button
               onClick={onAddCard}
@@ -178,7 +181,7 @@ export function TopBar(props: Props) {
 
         <GlobalSearch />
 
-        {!showBoards && !showMyWork && !editMode && (
+        {boardActive && !editMode && (
           <button
             onClick={onOpenBoardSettings}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
@@ -189,7 +192,7 @@ export function TopBar(props: Props) {
         )}
 
 
-        {!showBoards && !showMyWork &&
+        {boardActive &&
           (editMode ? (
             <>
               <button
