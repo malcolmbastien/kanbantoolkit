@@ -302,6 +302,8 @@ export function BoardSummary({
       {sections.map(({ section, stage, cells, byCell, total }) => {
         const split = cells.length > 1
         const folded = collapsedLanes[section.id] === true
+        // The section's own orientation arranges its cells; 'columns' by default.
+        const rows = (section.orientation ?? 'columns') === 'rows'
         return (
           <Cell
             key={section.id}
@@ -317,16 +319,24 @@ export function BoardSummary({
             // equal share of the board — splitting a column doesn't squeeze its own cells.
             style={{
               borderTop: `4px solid ${STAGE_ACCENT[stage]}`,
-              // A folded section gives its width back rather than its share of it.
-              ...(folded ? { flexGrow: 0, flexBasis: '36px', flexShrink: 0 } : { flexGrow: cells.length, flexBasis: 0, flexShrink: 1 }),
+              // A folded section gives its width back rather than its share of it. A stacked
+              // one claims a single share — its cells are its own full width already — while
+              // a split column shares itself out, so either way every cell holds one share
+              // of the board and splitting never squeezes the cells it made.
+              ...(folded
+                ? { flexGrow: 0, flexBasis: '36px', flexShrink: 0 }
+                : { flexGrow: split && !rows ? cells.length : 1, flexBasis: 0, flexShrink: 1 }),
             }}
             className={cn(
               'flex min-w-0 flex-col overflow-hidden rounded-lg border border-slate-300',
               STAGE_SURFACE[stage],
             )}
           >
-            {split
-              ? cells.map((cell) => {
+            {split ? (
+              // A section arranges its own cells — the same flip the lane settings write.
+              // 'columns' lays the cells side by side; 'rows' stacks them full-width.
+              <div className={cn('flex min-h-0 flex-1 gap-1', rows ? 'flex-col' : 'flex-row')}>
+                {cells.map((cell, i) => {
                   const cards = byCell.get(cell.id) ?? []
                   return (
                     <Cell
@@ -337,15 +347,23 @@ export function BoardSummary({
                       count={cards.length}
                       interactive={interactive}
                       editMode={editMode}
+                      // Stacked cells size to their content with the last one filling what
+                      // is left of the section, the same as a stacked lane in the canvas.
+                      className={
+                        rows
+                          ? cn('flex min-h-0 w-full flex-col', i === cells.length - 1 && 'grow')
+                          : 'flex min-w-0 flex-1 basis-0 flex-col'
+                      }
                     >
                       {withGap(inCell(cards).map(initiativeCard), gapAt(cell.id))}
                     </Cell>
                   )
-                })
-              : (() => {
-                  const cards = byCell.get(section.id) ?? []
-                  return <>{withGap(inCell(cards).map(initiativeCard), gapAt(section.id))}</>
-                })()}
+                })}
+              </div>
+            ) : (() => {
+                const cards = byCell.get(section.id) ?? []
+                return <>{withGap(inCell(cards).map(initiativeCard), gapAt(section.id))}</>
+              })()}
           </Cell>
         )
       })}

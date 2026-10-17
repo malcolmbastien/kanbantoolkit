@@ -249,11 +249,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 <LaneCtl title={`Add a ${(lane.orientation ?? 'columns') === 'rows' ? 'row' : 'column'} to this split`} onClick={() => ctx.addLane(lane.id)}>
                   <Plus size={12} />
                 </LaneCtl>
-                {!top && (
-                  <LaneCtl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, (lane.orientation ?? 'columns') === 'rows' ? 'columns' : 'rows')}>
-                    <ArrowLeftRight size={12} />
-                  </LaneCtl>
-                )}
+                {/* The typed columns are fixed in place, but the shape they take is not:
+                    a split Backlog or Done may be arranged either way, like any split. */}
+                <LaneCtl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, (lane.orientation ?? 'columns') === 'rows' ? 'columns' : 'rows')}>
+                  <ArrowLeftRight size={12} />
+                </LaneCtl>
               </>
             )}
             {!top && (
