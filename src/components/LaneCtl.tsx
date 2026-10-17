@@ -1,4 +1,6 @@
+import { ArrowLeftRight, BetweenHorizontalStart, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, CopyPlus, Plus, Rows3, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { SplitOrientation } from '@/domain/types'
 
 /**
  * The lane-editing controls, shared by both workflows.
@@ -54,5 +56,118 @@ export function LaneCtl({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * The whole lane-editing cluster — the one toolbar over one lane.
+ *
+ * Boards (edit mode) and the template editor render this same component, so the
+ * capabilities are the same because the code is the same: sub-lanes move, a leaf splits,
+ * a split gains a lane and flips its arrangement, and the typed top-level columns stay
+ * put — flippable, but never moved, inserted after or duplicated.
+ */
+export function LaneEditControls({
+  isLeafCell,
+  top,
+  orientation,
+  horizontal,
+  canMovePrev,
+  canMoveNext,
+  onMove,
+  onSplit,
+  onAdd,
+  onFlip,
+  onInsert,
+  onDuplicate,
+  onSettings,
+  settingsActive,
+  settingsBtnRef,
+}: {
+  /** A leaf (cell) splits; a split gains a lane — the board's own vocabulary. */
+  isLeafCell: boolean
+  /** A top-level typed column is fixed in place — flippable, but never moved or removed. */
+  top: boolean
+  /** The lane's own arrangement, for the "add a row/column" wording. */
+  orientation?: SplitOrientation
+  /** Whether the *parent* arranges its children as columns — it decides which way "move" points. */
+  horizontal: boolean
+  canMovePrev: boolean
+  canMoveNext: boolean
+  onMove: (delta: number) => void
+  onSplit: (orientation: SplitOrientation) => void
+  onAdd: () => void
+  onFlip: () => void
+  onInsert: () => void
+  onDuplicate: () => void
+  onSettings: () => void
+  settingsActive: boolean
+  settingsBtnRef: React.Ref<HTMLButtonElement>
+}) {
+  return (
+    <CtlGroup>
+      {!top && (
+        <>
+          {horizontal ? (
+            <>
+              <LaneCtl title="Move left" disabled={!canMovePrev} onClick={() => onMove(-1)}>
+                <ChevronLeft size={12} />
+              </LaneCtl>
+              <LaneCtl title="Move right" disabled={!canMoveNext} onClick={() => onMove(1)}>
+                <ChevronRight size={12} />
+              </LaneCtl>
+            </>
+          ) : (
+            <>
+              <LaneCtl title="Move up" disabled={!canMovePrev} onClick={() => onMove(-1)}>
+                <ChevronUp size={12} />
+              </LaneCtl>
+              <LaneCtl title="Move down" disabled={!canMoveNext} onClick={() => onMove(1)}>
+                <ChevronDown size={12} />
+              </LaneCtl>
+            </>
+          )}
+          <CtlDivider />
+        </>
+      )}
+
+      {isLeafCell ? (
+        <>
+          <LaneCtl title="Split this cell into columns" onClick={() => onSplit('columns')}>
+            <Columns3 size={12} />
+          </LaneCtl>
+          <LaneCtl title="Split this cell into rows" onClick={() => onSplit('rows')}>
+            <Rows3 size={12} />
+          </LaneCtl>
+        </>
+      ) : (
+        <>
+          <LaneCtl title={`Add a ${(orientation ?? 'columns') === 'rows' ? 'row' : 'column'} to this split`} onClick={onAdd}>
+            <Plus size={12} />
+          </LaneCtl>
+          {/* The typed columns are fixed in place, but the shape they take is not: a split
+              Backlog or Done may be arranged either way, like any split. */}
+          <LaneCtl title="Flip columns ↔ rows" onClick={onFlip}>
+            <ArrowLeftRight size={12} />
+          </LaneCtl>
+        </>
+      )}
+      {!top && (
+        <>
+          <CtlDivider />
+          <LaneCtl title="Insert a new lane after this one" onClick={onInsert}>
+            <BetweenHorizontalStart size={12} />
+          </LaneCtl>
+          <LaneCtl title="Duplicate this lane and its sub-lanes" onClick={onDuplicate}>
+            <CopyPlus size={12} />
+          </LaneCtl>
+        </>
+      )}
+      <CtlDivider />
+      <LaneCtl btnRef={settingsBtnRef} active={settingsActive} title="Lane settings — name, WIP limit, policy" onClick={onSettings}>
+        <Settings size={12} />
+      </LaneCtl>
+      {top && <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">typed column — split to refine</span>}
+    </CtlGroup>
   )
 }

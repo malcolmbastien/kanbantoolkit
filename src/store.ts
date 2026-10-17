@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { ancestorsOf, childrenOf, defaultColumns, effectiveStage, isLeaf, leafLanes, leavesUnder, nextRank, placementsInOrder, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeId, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, templateFromBoard } from '@/domain/board'
 import { decompositionParent, descendants, rollupOf, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
@@ -1460,111 +1460,51 @@ export const useStore = create<Store>()(
       splitLane: (laneId, orientation, count = 2) => {
         const state = get()
         const lane = state.lanes.find((l) => l.id === laneId)
-        if (!lane || !isLeaf(state.lanes, laneId)) return
-        const children: Lane[] = Array.from({ length: count }, (_, i) => ({
-          id: uid(),
-          boardId: lane.boardId,
-          parentId: laneId,
-          order: i,
-          name: orientation === 'rows' ? `Row ${i + 1}` : `Column ${i + 1}`,
-          workflow: lane.workflow,
-        }))
-        const placements = state.placements.map((p) => (p.laneId === laneId ? toLane(state.placements, p, children[0].id) : p))
-        set({
-          lanes: state.lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)).concat(children),
-          placements,
-        })
+        if (!lane) return
+        // The kernel carries the rulebook; the board adds only what a Lane carries beyond a node.
+        const { nodes, created, firstChildId } = splitLaneNodes(state.lanes, laneId, orientation, uid, count)
+        if (created.length === 0) return
+        // The kernel only knows nodes; the board's lanes carry a board and a workflow too.
+        const createdIds = new Set(created.map((c) => c.id))
+        const lanes = nodes.map((n) => (createdIds.has(n.id) ? { ...n, boardId: lane.boardId, workflow: lane.workflow } : n))
+        const placements = state.placements.map((p) => (p.laneId === laneId ? toLane(state.placements, p, firstChildId) : p))
+        set({ lanes, placements })
       },
 
-      setLaneOrientation: (laneId, orientation) => {
-        const state = get()
-        const lane = state.lanes.find((l) => l.id === laneId)
-        if (!lane || lane.parentId === null) return // never flip the board root
-        set({ lanes: state.lanes.map((l) => (l.id === laneId ? { ...l, orientation } : l)) })
-      },
+      setLaneOrientation: (laneId, orientation) => set({ lanes: setLaneOrientationNode(get().lanes, laneId, orientation) }),
 
-      moveLane: (laneId, delta) => {
-        const state = get()
-        const lane = state.lanes.find((l) => l.id === laneId)
-        if (!lane || lane.parentId === null) return // the board root has no siblings
-        const parent = state.lanes.find((l) => l.id === lane.parentId)
-        if (!parent || parent.parentId === null) return // top-level columns are fixed in place
-        const siblings = childrenOf(state.lanes, lane.parentId)
-        const idx = siblings.findIndex((s) => s.id === laneId)
-        const j = idx + delta
-        if (idx < 0 || j < 0 || j >= siblings.length) return
-        const reordered = [...siblings]
-        const [moved] = reordered.splice(idx, 1)
-        reordered.splice(j, 0, moved)
-        // Renumber siblings so order stays a clean 0..n-1 sequence.
-        const orderById = new Map(reordered.map((s, i) => [s.id, i]))
-        set({ lanes: state.lanes.map((l) => (orderById.has(l.id) ? { ...l, order: orderById.get(l.id)! } : l)) })
-      },
+      moveLane: (laneId, delta) => set({ lanes: moveLaneNode(get().lanes, laneId, delta) }),
 
       addLane: (parentId) => {
         const state = get()
         const parent = state.lanes.find((l) => l.id === parentId)
         if (!parent) return
-        // The top-level columns are fixed (three typed stages); refine by splitting.
-        if (parent.parentId === null) return
-        const order = childrenOf(state.lanes, parentId).length
-        const name = parent.orientation === 'rows' ? `Row ${order + 1}` : `Column ${order + 1}`
-        const child: Lane = { id: uid(), boardId: parent.boardId, parentId, order, name, workflow: parent.workflow }
-        const lanes = state.lanes.map((l) => (l.id === parentId ? { ...l, orientation: parent.orientation ?? 'columns' } : l))
-        set({ lanes: lanes.concat([child]) })
+        const { nodes, created } = addLaneNode(state.lanes, parentId, uid)
+        if (!created) return // the board root stays four columns; refine by splitting
+        set({
+          lanes: nodes.map((n) => (n.id === created.id ? { ...n, boardId: parent.boardId, workflow: parent.workflow } : n)),
+        })
       },
 
       insertLaneAfter: (laneId) => {
         const state = get()
         const lane = state.lanes.find((l) => l.id === laneId)
-        if (!lane || lane.parentId === null) return
-        const parent = state.lanes.find((l) => l.id === lane.parentId)
-        // Top-level columns are fixed in place; insert only among sub-lanes.
-        if (!parent || parent.parentId === null) return
-        const siblings = childrenOf(state.lanes, lane.parentId)
-        const idx = siblings.findIndex((s) => s.id === laneId)
-        const orientation = parent.orientation ?? 'columns'
-        const child: Lane = {
-          id: uid(),
-          boardId: lane.boardId,
-          parentId: lane.parentId,
-          order: idx + 1,
-          name: orientation === 'rows' ? `Row ${siblings.length + 1}` : `Column ${siblings.length + 1}`,
-          workflow: lane.workflow,
-        }
-        const lanes = state.lanes.map((l) =>
-          l.parentId === lane.parentId && l.order > idx ? { ...l, order: l.order + 1 } : l,
-        )
-        set({ lanes: [...lanes, child] })
+        if (!lane) return
+        const { nodes, created } = insertLaneAfterNode(state.lanes, laneId, uid)
+        if (!created) return // typed columns are fixed in place; insert only among sub-lanes
+        set({
+          lanes: nodes.map((n) => (n.id === created.id ? { ...n, boardId: lane.boardId, workflow: lane.workflow } : n)),
+        })
       },
 
       duplicateLane: (laneId) => {
         const state = get()
         const src = state.lanes.find((l) => l.id === laneId)
-        if (!src || src.parentId === null) return
-        const parent = state.lanes.find((l) => l.id === src.parentId)
-        if (!parent || parent.parentId === null) return // don't clone top-level columns
-        const ids = subtreeIds(state.lanes, laneId)
-        const idMap = new Map(ids.map((id) => [id, uid()]))
-        const siblings = childrenOf(state.lanes, src.parentId)
-        const idx = siblings.findIndex((s) => s.id === laneId)
-        const clones: Lane[] = ids.map((id) => {
-          const l = state.lanes.find((x) => x.id === id)!
-          const clone: Lane = {
-            ...l,
-            id: idMap.get(id)!,
-            parentId: l.parentId && idMap.has(l.parentId) ? idMap.get(l.parentId)! : l.parentId,
-          }
-          if (id === laneId) {
-            clone.name = `${l.name} copy`
-            clone.order = idx + 1
-          }
-          return clone
-        })
-        const lanes = state.lanes.map((l) =>
-          l.parentId === src.parentId && l.order > idx ? { ...l, order: l.order + 1 } : l,
-        )
-        set({ lanes: [...lanes, ...clones] })
+        if (!src) return
+        // Clones are spread from the original lanes, so they carry the board and
+        // workflow with them — the kernel only knows nodes.
+        const { nodes } = duplicateLaneNode(state.lanes, laneId, uid)
+        set({ lanes: nodes })
       },
 
       toggleCollapse: (laneId) =>
@@ -1573,29 +1513,15 @@ export const useStore = create<Store>()(
       removeLane: (laneId) => {
         const state = get()
         const lane = state.lanes.find((l) => l.id === laneId)
-        if (!lane || lane.parentId === null) return
-        const parent = state.lanes.find((l) => l.id === lane.parentId)
-        if (parent?.parentId === null) return // top-level columns are fixed; refine, don't delete
-        const parentId = lane.parentId
-        const ids = new Set(subtreeIds(state.lanes, laneId))
-        let lanes = state.lanes.filter((l) => !ids.has(l.id))
-
-        // A split left with one child is not a split, so the child folds away too and the parent
-        // becomes the cell its cards live in. Without this the parent still has a child, so the
-        // surface looks for cards in the parent's *own* cell, finds none, and everything that was
-        // in the surviving cell goes invisible — which reads as losing it.
-        const left = childrenOf(lanes, parentId)
-        const folded = left.length === 1 ? new Set(subtreeIds(lanes, left[0].id)) : null
-        if (folded) lanes = lanes.filter((l) => !folded.has(l.id))
-
-        // Where the cards go: the first surviving leaf under the parent, or the parent itself
-        // once it has become one. Never nowhere — a delete must not be able to discard a card.
-        const target = leavesUnder(lanes, parentId)[0]?.id ?? parentId
+        if (!lane) return
+        // The kernel refuses the typed columns, removes the sub-tree, folds a split left
+        // with one child, and says where cards go — the first surviving leaf under the
+        // parent, or the parent itself once it is a cell. Never nowhere.
+        const { nodes, vanished, to } = removeLaneNodes(state.lanes, laneId)
+        if (vanished.size === 0) return // top-level columns are fixed; refine, don't delete
         set({
-          lanes,
-          placements: state.placements.map((p) =>
-            ids.has(p.laneId) || folded?.has(p.laneId) ? toLane(state.placements, p, target) : p,
-          ),
+          lanes: nodes,
+          placements: state.placements.map((p) => (vanished.has(p.laneId) ? toLane(state.placements, p, to) : p)),
         })
       },
 

@@ -46,7 +46,8 @@ export function LanePolicy({ policy }: { policy: string }) {
 }
 
 interface LaneSettingsProps {
-  lane: Lane
+  /** Structural on purpose: a template lane edits through this same popover. */
+  lane: Pick<Lane, 'name' | 'wipLimit' | 'description'>
   /** Top-level typed columns are fixed: name read-only, no remove. */
   top: boolean
   /** The settings button, to anchor the popover. */

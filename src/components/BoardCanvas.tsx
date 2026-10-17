@@ -1,22 +1,14 @@
 import { Fragment, useRef, useState } from 'react'
 import {
-  ArrowLeftRight,
-  BetweenHorizontalStart,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
-  ChevronUp,
   ChevronsRight,
-  Columns3,
-  CopyPlus,
   Plus,
-  Rows3,
-  Settings,
 } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
 import { BoundaryConnectors } from './BoundaryConnectors'
 import { Card, type CardParent } from './Card'
-import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
+import { LaneEditControls } from './LaneCtl'
 import { DragLayer } from './DragLayer'
 import { useCardLift } from '@/lib/useCardLift'
 import { DropColumn } from './DropColumn'
@@ -225,61 +217,24 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
         {editMode && !isRoot && (
           <div className="mt-1 flex w-0 min-w-full flex-wrap items-center gap-1.5" style={{ contain: 'inline-size' }}>
-            <CtlGroup>
-            {/* Top-level columns (Backlog / Not Started / In Progress / Done) are fixed in
-                place; only sub-lanes move, and only within their top-level parent. */}
-            {!top && (
-              <>
-                {parentOrientation === 'rows' ? (
-                  <>
-                    <LaneCtl title="Move up" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}><ChevronUp size={12} /></LaneCtl>
-                    <LaneCtl title="Move down" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}><ChevronDown size={12} /></LaneCtl>
-                  </>
-                ) : (
-                  <>
-                    <LaneCtl title="Move left" disabled={!canMovePrev} onClick={() => ctx.moveLane(lane.id, -1)}><ChevronLeft size={12} /></LaneCtl>
-                    <LaneCtl title="Move right" disabled={!canMoveNext} onClick={() => ctx.moveLane(lane.id, 1)}><ChevronRight size={12} /></LaneCtl>
-                  </>
-                )}
-                <CtlDivider />
-              </>
-            )}
-
-            {isLeafCell ? (
-              <>
-                <LaneCtl title="Split this cell into columns" onClick={() => ctx.splitLane(lane.id, 'columns')}><Columns3 size={12} /></LaneCtl>
-                <LaneCtl title="Split this cell into rows" onClick={() => ctx.splitLane(lane.id, 'rows')}><Rows3 size={12} /></LaneCtl>
-              </>
-            ) : (
-              <>
-                <LaneCtl title={`Add a ${(lane.orientation ?? 'columns') === 'rows' ? 'row' : 'column'} to this split`} onClick={() => ctx.addLane(lane.id)}>
-                  <Plus size={12} />
-                </LaneCtl>
-                {/* The typed columns are fixed in place, but the shape they take is not:
-                    a split Backlog or Done may be arranged either way, like any split. */}
-                <LaneCtl title="Flip columns ↔ rows" onClick={() => ctx.setLaneOrientation(lane.id, (lane.orientation ?? 'columns') === 'rows' ? 'columns' : 'rows')}>
-                  <ArrowLeftRight size={12} />
-                </LaneCtl>
-              </>
-            )}
-            {!top && (
-              <>
-                <CtlDivider />
-                <LaneCtl title="Insert a new lane after this one" onClick={() => ctx.insertLaneAfter(lane.id)}><BetweenHorizontalStart size={12} /></LaneCtl>
-                <LaneCtl title="Duplicate this lane and its sub-lanes" onClick={() => ctx.duplicateLane(lane.id)}><CopyPlus size={12} /></LaneCtl>
-              </>
-            )}
-            <CtlDivider />
-            <LaneCtl
-              btnRef={settingsBtnRef}
-              active={settingsOpen}
-              title="Lane settings — name, WIP limit, policy"
-              onClick={() => setSettingsOpen((o) => !o)}
-            >
-              <Settings size={12} />
-            </LaneCtl>
-            </CtlGroup>
-            {top && <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">typed column — split to refine</span>}
+            {/* The same control component the template editor uses — one cluster, one rulebook. */}
+            <LaneEditControls
+              isLeafCell={isLeafCell}
+              top={top}
+              orientation={lane.orientation}
+              horizontal={parentOrientation !== 'rows'}
+              canMovePrev={canMovePrev}
+              canMoveNext={canMoveNext}
+              onMove={(d) => ctx.moveLane(lane.id, d)}
+              onSplit={(o) => ctx.splitLane(lane.id, o)}
+              onAdd={() => ctx.addLane(lane.id)}
+              onFlip={() => ctx.setLaneOrientation(lane.id, (lane.orientation ?? 'columns') === 'rows' ? 'columns' : 'rows')}
+              onInsert={() => ctx.insertLaneAfter(lane.id)}
+              onDuplicate={() => ctx.duplicateLane(lane.id)}
+              onSettings={() => setSettingsOpen((o) => !o)}
+              settingsActive={settingsOpen}
+              settingsBtnRef={settingsBtnRef}
+            />
           </div>
         )}
         {settingsOpen && (

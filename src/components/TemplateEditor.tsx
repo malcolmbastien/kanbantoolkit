@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Eye, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { InlineEdit } from './InlineEdit'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
+import { LaneEditControls } from './LaneCtl'
+import { LaneSettings } from './LaneSettings'
 import {
   cardTypes,
   templateAddLane,
   templateChildren,
+  templateDuplicateLane,
+  templateInsertLaneAfter,
   templateMoveLane,
   templateRemoveLane,
   templateRenameLane,
@@ -312,6 +316,8 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
   const rows = lane.orientation === 'rows'
   const siblings = templateChildren(template, lane.parentKey)
   const idx = siblings.findIndex((s) => s.key === lane.key)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsBtnRef = useRef<HTMLButtonElement>(null)
 
   return (
     <div
@@ -322,164 +328,68 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
         className="mx-0.5 mt-0.5 flex items-center gap-1.5 rounded border border-slate-300 bg-white px-1.5 py-0.5"
         style={lane.stage ? { borderTop: `3px solid ${STAGE_ACCENT[lane.stage]}` } : undefined}
       >
-        {editing ? (
-          // A plain input rather than InlineEdit: this one autofocuses, which scrolls a
-          // long lane name to its end and hides the start while you are reading it.
-          <input
-            value={lane.name}
-            onChange={(e) => apply(templateRenameLane(template, lane.key, e.target.value))}
-            aria-label={`Lane name: ${lane.name}`}
-            className="w-full min-w-0 rounded border border-indigo-300 px-1 py-px text-micro font-bold uppercase tracking-wide text-slate-800 outline-none"
-          />
-        ) : (
-          <>
-            <span className="truncate text-micro font-bold uppercase tracking-wide text-slate-700" title={lane.name}>
-              {lane.name}
-            </span>
-            {lane.wipLimit !== undefined && (
-              <span className="ml-auto shrink-0 text-micro font-semibold tabular-nums text-slate-600">
-                WIP {lane.wipLimit}
-              </span>
-            )}
-          </>
+        <span className="truncate text-micro font-bold uppercase tracking-wide text-slate-700" title={lane.name}>
+          {lane.name}
+        </span>
+        {lane.wipLimit !== undefined && (
+          <span className="ml-auto shrink-0 text-micro font-semibold tabular-nums text-slate-600">
+            WIP {lane.wipLimit}
+          </span>
         )}
       </div>
 
       {editing && (
-        <>
-          <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-white px-1 py-0.5">
-            {isContainer ? (
-              <>
-                <Ctl title="Add a lane to this split" onClick={() => apply(templateAddLane(template, lane.key, uid))}>
-                  ＋
-                </Ctl>
-                {!isTop && (
-                  <Ctl
-                    title="Flip columns ↔ rows"
-                    onClick={() => apply(templateSetOrientation(template, lane.key, rows ? 'columns' : 'rows'))}
-                  >
-                    ⟷
-                  </Ctl>
-                )}
-              </>
-            ) : (
-              <>
-                <Ctl title="Split into columns" onClick={() => apply(templateSplitLane(template, lane.key, 'columns', uid))}>
-                  ▤
-                </Ctl>
-                <Ctl title="Split into rows" onClick={() => apply(templateSplitLane(template, lane.key, 'rows', uid))}>
-                  ▥
-                </Ctl>
-              </>
-            )}
-            {!isTop && (
-              <>
-                {rows ? (
-                  <>
-                    <Ctl title="Move up" disabled={idx <= 0} onClick={() => apply(templateMoveLane(template, lane.key, -1))}>
-                      ▲
-                    </Ctl>
-                    <Ctl
-                      title="Move down"
-                      disabled={idx >= siblings.length - 1}
-                      onClick={() => apply(templateMoveLane(template, lane.key, 1))}
-                    >
-                      ▼
-                    </Ctl>
-                  </>
-                ) : (
-                  <>
-                    <Ctl title="Move left" disabled={idx <= 0} onClick={() => apply(templateMoveLane(template, lane.key, -1))}>
-                      ◀
-                    </Ctl>
-                    <Ctl
-                      title="Move right"
-                      disabled={idx >= siblings.length - 1}
-                      onClick={() => apply(templateMoveLane(template, lane.key, 1))}
-                    >
-                      ▶
-                    </Ctl>
-                  </>
-                )}
-                <Ctl title="Remove this lane" danger onClick={() => apply(templateRemoveLane(template, lane.key))}>
-                  ×
-                </Ctl>
-              </>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1 border-b border-slate-200 bg-white px-1 py-0.5">
-            <span className="text-micro font-bold uppercase tracking-wide text-slate-600">WIP</span>
-            <input
-              type="number"
-              min={1}
-              value={lane.wipLimit ?? ''}
-              onChange={(e) =>
-                apply(templateSetLaneWip(template, lane.key, e.target.value === '' ? undefined : Number(e.target.value)))
-              }
-              placeholder="—"
-              aria-label={`WIP limit: ${lane.name}`}
-              className="w-10 rounded border border-slate-200 px-1 py-px text-micro outline-none focus:border-indigo-300"
-            />
-          </div>
-
-          <div className="border-b border-slate-200 bg-white px-1 py-0.5">
-            <input
-              value={lane.description ?? ''}
-              onChange={(e) =>
-                apply(templateSetLanePolicy(template, lane.key, e.target.value.trim() ? e.target.value : undefined))
-              }
-              placeholder="Policy…"
-              aria-label={`Lane policy: ${lane.name}`}
-              className="w-full rounded border border-slate-200 px-1 py-px text-micro outline-none focus:border-indigo-300"
-            />
-          </div>
-        </>
+        <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-white px-1 py-0.5">
+          {/* The board's own edit cluster, over the template's lanes — the same
+              capabilities, the same icons, the same refusals, from one component and
+              one set of kernels, so the two never drift again. */}
+          <LaneEditControls
+            isLeafCell={!isContainer}
+            top={isTop}
+            orientation={lane.orientation}
+            horizontal={(siblings.find((s) => s.key === lane.parentKey)?.orientation ?? 'columns') !== 'rows'}
+            canMovePrev={idx > 0}
+            canMoveNext={idx < siblings.length - 1}
+            onMove={(d) => apply(templateMoveLane(template, lane.key, d))}
+            onSplit={(o) => apply(templateSplitLane(template, lane.key, o, uid))}
+            onAdd={() => apply(templateAddLane(template, lane.key, uid))}
+            onFlip={() => apply(templateSetOrientation(template, lane.key, rows ? 'columns' : 'rows'))}
+            onInsert={() => apply(templateInsertLaneAfter(template, lane.key, uid))}
+            onDuplicate={() => apply(templateDuplicateLane(template, lane.key, uid))}
+            onSettings={() => setSettingsOpen((o) => !o)}
+            settingsActive={settingsOpen}
+            settingsBtnRef={settingsBtnRef}
+          />
+        </div>
       )}
 
-      {lane.description && !editing && (
+      {lane.description && (
         <p className="px-1.5 pt-1 text-micro leading-snug text-slate-600">{lane.description}</p>
       )}
 
-      <div className="flex-1 p-1.5">
+      <div className="relative flex-1 p-1.5">
         {isContainer ? (
           <Lanes template={template} parentKey={lane.key} editing={editing} />
         ) : (
           <div className="h-10 rounded border border-dashed border-slate-200 bg-white" />
+        )}
+        {settingsOpen && (
+          <LaneSettings
+            lane={lane}
+            top={isTop}
+            anchorRef={settingsBtnRef}
+            onClose={() => setSettingsOpen(false)}
+            rename={(name) => apply(templateRenameLane(template, lane.key, name))}
+            setWip={(w) => apply(templateSetLaneWip(template, lane.key, w))}
+            setPolicy={(text) => apply(templateSetLanePolicy(template, lane.key, text))}
+            remove={() => {
+              setSettingsOpen(false)
+              apply(templateRemoveLane(template, lane.key))
+            }}
+          />
         )}
       </div>
     </div>
   )
 }
 
-function Ctl({
-  children,
-  onClick,
-  title,
-  disabled,
-  danger,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  title: string
-  disabled?: boolean
-  danger?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={cn(
-        'rounded px-1 py-px text-micro font-semibold transition',
-        disabled
-          ? 'cursor-not-allowed bg-slate-100 text-slate-600'
-          : danger
-            ? 'bg-slate-100 text-slate-600 hover:bg-rose-100 hover:text-rose-600'
-            : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-      )}
-    >
-      {children}
-    </button>
-  )
-}

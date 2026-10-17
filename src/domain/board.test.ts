@@ -7,6 +7,8 @@ import {
   lanesFromTemplate,
   templateAddLane,
   templateChildren,
+  templateDuplicateLane,
+  templateInsertLaneAfter,
   templateFromBoard,
   templateMoveLane,
   templateRemoveLane,
@@ -296,6 +298,45 @@ describe('editing a template’s design', () => {
   it('keeps every key unique through the edits', () => {
     const next = templateSplitLane(scrum(), 'k0', 'rows', keys())
     expect(new Set(next.map((l) => l.key)).size).toBe(next.length)
+  })
+
+  it('inserts a sub-lane after a sibling, renumbering the rest', () => {
+    const t = scrum()
+    const next = templateInsertLaneAfter(t, 'k5', keys())
+    expect(childNames(next, 'k4')).toEqual(['Working on', 'Column 4', 'Ready for Review', 'Review'])
+    expect(templateChildren({ ...t, lanes: next }, 'k4').map((l) => l.order)).toEqual([0, 1, 2, 3])
+    // A typed (top-level) column refuses, exactly as the board refuses.
+    expect(templateInsertLaneAfter(t, 'k0', keys())).toEqual(t.lanes)
+  })
+
+  it('duplicates a sub-lane and its subtree as "copy"', () => {
+    const t = scrum()
+    expect(childNames(templateDuplicateLane(t, 'k5', keys()), 'k4')).toEqual([
+      'Working on',
+      'Working on copy',
+      'Ready for Review',
+      'Review',
+    ])
+    // A nested split comes across whole, under fresh keys.
+    const nested = templateSplitLane(t, 'k5', 'rows', keys())
+    expect(childNames(templateDuplicateLane({ ...t, lanes: nested }, 'new1', keys()), 'k5')).toEqual([
+      'Row 1',
+      'Row 1 copy',
+      'Row 2',
+    ])
+    // A typed (top-level) column refuses, exactly as the board refuses.
+    expect(templateDuplicateLane(t, 'k4', keys())).toEqual(t.lanes)
+  })
+
+  it('folds a split left with one child, exactly as the board folds it', () => {
+    const t = scrum()
+    const once = templateRemoveLane(t, 'k7')
+    const twice = templateRemoveLane({ ...t, lanes: once }, 'k6')
+    // Two removals leave one child, and that is not a split: the last child folds
+    // away and the parent becomes the cell its (would-be) cards live in.
+    expect(childNames(twice, 'k4')).toEqual([])
+    expect(twice.some((l) => l.key === 'k5')).toBe(false) // the folded child is gone
+    expect(twice.some((l) => l.key === 'k4')).toBe(true) // the parent stays, now a cell
   })
 })
 
