@@ -29,14 +29,14 @@ import {
   waitsOn,
   type Graph,
 } from '@/domain/derive'
-import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
+import { boardCardTypeId, buildRefs, externalDependenciesOnBoard, tagsOf } from '@/domain/board'
 import { childrenOf, effectiveStage, inheritedWipState, isTopLevel, lanePath, leavesUnder, rootLane, strongestWip, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
-import type { IssueType, Item, Lane, User } from '@/domain/types'
+import type { Board, IssueType, Item, Lane, User } from '@/domain/types'
 import type { ConfirmRequest } from '@/store'
 
 export interface BoardCanvasProps {
@@ -54,6 +54,8 @@ interface Ctx {
   graph: Graph
   /** The people directory (to resolve card assignees). */
   users: User[]
+  /** The boards, to resolve a card's tags wherever they are defined. */
+  boards: Board[]
   editMode: boolean
   filters: CardFilters
   /** External dependency (boundary lane) whose local dependents are highlighted. */
@@ -438,6 +440,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
               onOpen={ctx.openCard}
+              tags={tagsOf(ctx.boards, c)}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
                 dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
@@ -706,7 +709,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const lifting = lift !== null
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, users, editMode, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
+    lanes, items, issueTypes, refs, graph, users, boards, editMode, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     initiativeScope: initiativeScope(filters, graph),
     interactive,

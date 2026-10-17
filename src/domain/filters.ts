@@ -22,6 +22,8 @@ export interface CardFilters {
   assigneeIds: string[]
   /** Selected priorities. Empty = any priority. */
   priorities: string[]
+  /** Selected tag ids. Empty = any tag; several are a union, like every other category. */
+  tagIds: string[]
   /**
    * Only the work under this initiative — itself and everything the decomposition puts below it.
    * Undefined = any. A card's place under an initiative is derived from the edges, not stored on
@@ -42,6 +44,7 @@ export const NO_FILTERS: CardFilters = {
   unassigned: false,
   assigneeIds: [],
   priorities: [],
+  tagIds: [],
 }
 
 /**
@@ -132,6 +135,7 @@ export function activeFilterCount(f: CardFilters): number {
     (f.unassigned ? 1 : 0) +
     (f.assigneeIds.length > 0 ? 1 : 0) +
     (f.priorities.length > 0 ? 1 : 0) +
+    (f.tagIds.length > 0 ? 1 : 0) +
     (f.initiativeId !== undefined ? 1 : 0) +
     (f.minAgeDays !== undefined ? 1 : 0) +
     // An all-whitespace query narrows nothing, so it counts as nothing either.
@@ -171,6 +175,8 @@ export function matchesFilters(
   }
   // Within the remaining categories the filter is a union: any selected priority.
   if (f.priorities.length > 0 && (!item.priority || !f.priorities.includes(item.priority))) return false
+  // Tags are a set on the item, so the filter is a union: any of the selected tags is enough.
+  if (f.tagIds.length > 0 && !f.tagIds.some((id) => (item.tagIds ?? []).includes(id))) return false
   // An age filter excludes cards whose age is unknown, rather than pretending they are old.
   if (f.minAgeDays !== undefined && (age === undefined || age < f.minAgeDays)) return false
   // Text looks in the title and the description, case-insensitively. Whitespace alone
@@ -243,6 +249,7 @@ export function sameFilters(a: CardFilters, b: CardFilters): boolean {
     a.initiativeId === b.initiativeId &&
     set(a.typeIds) === set(b.typeIds) &&
     set(a.assigneeIds) === set(b.assigneeIds) &&
-    set(a.priorities) === set(b.priorities)
+    set(a.priorities) === set(b.priorities) &&
+    set(a.tagIds) === set(b.tagIds)
   )
 }

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
 import { initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
-import type { InitiativeType } from '@/domain/types'
+import type { InitiativeType, Tag } from '@/domain/types'
 import { PriorityBadge } from './PriorityBadge'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
 
@@ -70,6 +70,8 @@ interface Props {
   kind?: InitiativeType
   kinds?: InitiativeType[]
   onSetKind?: (kindId: string | undefined) => void
+  /** This item's tags, already resolved. A set, so the footer shows a few and counts the rest. */
+  tags?: Tag[]
   /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
   lens?: 'self' | 'in' | 'out'
   onLens?: (id: string) => void
@@ -161,7 +163,7 @@ const cardKeyboard = (
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kinds, onSetKind, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kinds, onSetKind, tags, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
       ? onLift
@@ -369,6 +371,7 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
           {/* meta row — secondary detail appears only once the column is wide enough to
               hold it (container queries on the card root). Warnings never hide. */}
           <div className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-micro text-slate-600">
+            <TagChips tags={tags} />
             {boundary && (
               <span
                 className="flex items-center gap-0.5 font-semibold text-amber-600"
@@ -552,6 +555,7 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
           </button>
         )}
         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-micro text-slate-600">
+          <TagChips tags={tags} />
           {boundary && (
             <span
               className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"
@@ -652,6 +656,8 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   // store replaces only when it changes — `onSetKind` is ignored like the other callbacks.
   if (a.kind?.id !== b.kind?.id || a.kind?.name !== b.kind?.name || a.kind?.color !== b.kind?.color) return false
   if (a.kinds !== b.kinds) return false
+  if (a.tags?.length !== b.tags?.length) return false
+  if (a.tags && b.tags && a.tags.some((t, i) => t.id !== b.tags![i].id || t.name !== b.tags![i].name || t.color !== b.tags![i].color)) return false
   if (a.symbols?.length !== b.symbols?.length) return false
   if (a.symbols && b.symbols && a.symbols.some((sym, i) => sym.bucket !== b.symbols![i].bucket || sym.title !== b.symbols![i].title)) return false
   return summaryEqual(a.summary, b.summary)
@@ -738,6 +744,40 @@ function KindChip({ kind, kinds, onSet }: { kind: InitiativeType; kinds: Initiat
         </span>
       )}
     </span>
+  )
+}
+
+/**
+ * An item's tags, in the footer with the other quiet metadata.
+ *
+ * A set, not a choice, so it is capped: three chips and a count of the rest, with the whole list
+ * in the title. A card wearing eight tags is a card with nothing readable on it.
+ */
+function TagChips({ tags }: { tags?: Tag[] }) {
+  if (!tags || tags.length === 0) return null
+  const shown = tags.slice(0, 3)
+  const rest = tags.length - shown.length
+  return (
+    <>
+      {shown.map((t) => {
+        const chip = chipColors(t.color)
+        return (
+          <span
+            key={t.id}
+            className="shrink-0 rounded px-1 py-px text-micro font-semibold uppercase tracking-wide"
+            style={{ backgroundColor: chip.background, color: chip.color }}
+            title={`Tag: ${t.name}`}
+          >
+            {t.name}
+          </span>
+        )
+      })}
+      {rest > 0 && (
+        <span className="shrink-0 text-micro font-semibold text-slate-600" title={tags.map((t) => t.name).join(', ')}>
+          +{rest}
+        </span>
+      )}
+    </>
   )
 }
 

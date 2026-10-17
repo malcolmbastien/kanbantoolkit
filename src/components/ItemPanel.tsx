@@ -40,7 +40,7 @@ import {
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiativeTypes, buildRefs, cardTypes, initiativeTypeById, isInitiativeItem, placementOn } from '@/domain/board'
+import { boardInitiativeTypes, boardTags, buildRefs, cardTypes, initiativeTypeById, isInitiativeItem, placementOn, tagsOf } from '@/domain/board'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
@@ -101,6 +101,7 @@ export function ItemPanel({ itemId }: Props) {
   const deleteItem = useStore((s) => s.deleteItem)
   const duplicateCard = useStore((s) => s.duplicateCard)
   const setInitiativeKind = useStore((s) => s.setInitiativeKind)
+  const toggleItemTag = useStore((s) => s.toggleItemTag)
   const askConfirm = useStore((s) => s.askConfirm)
   const boardSurface = useStore(isBoardSurface)
   const addAssignee = useStore((s) => s.addAssignee)
@@ -179,6 +180,9 @@ export function ItemPanel({ itemId }: Props) {
   // The kinds this board offers, and the one this initiative carries — which may come from
   // another board, since an initiative can be placed on more than one.
   const kinds = boardInitiativeTypes(boards.find((b) => b.id === boardId))
+  // Tags are the board's, and a board that defines none offers none — the select then says so.
+  const boardTagList = boardTags(boards.find((b) => b.id === boardId))
+  const itemTags = tagsOf(boards, item)
   const kind = initiativeTypeById(boards, item.initiativeTypeId)
   const typeName = (id: string) => issueTypes.find((t) => t.id === id)?.name ?? 'Item'
   const typeColor = (id: string) => issueTypes.find((t) => t.id === id)?.color ?? '#64748b'
@@ -639,6 +643,51 @@ export function ItemPanel({ itemId }: Props) {
                       <option key={u.id} value={u.name} />
                     ))}
                   </datalist>
+                </div>
+              </Field>
+
+              {/* Tags — a set, on a card or an initiative alike. Adding offers this board's tags
+                  (the board whose surface the panel is beside); removing always works, so an item
+                  can be cleared whatever happened to a definition. */}
+              <Field label="Tags">
+                <div className="flex flex-wrap items-center gap-1">
+                  {itemTags.map((t) => {
+                    const chip = chipColors(t.color)
+                    return (
+                      <span
+                        key={t.id}
+                        className="flex items-center gap-1 rounded py-0.5 pl-1.5 pr-1 text-meta font-medium"
+                        style={{ backgroundColor: chip.background, color: chip.color }}
+                      >
+                        {t.name}
+                        <button
+                          onClick={() => toggleItemTag(boardId, item.id, t.id)}
+                          className="opacity-60 transition hover:opacity-100"
+                          title={`Remove ${t.name}`}
+                          aria-label={`Remove ${t.name}`}
+                        >
+                          <X size={11} />
+                        </button>
+                      </span>
+                    )
+                  })}
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) toggleItemTag(boardId, item.id, e.target.value)
+                    }}
+                    title="Add a tag this board defines"
+                    className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-600"
+                  >
+                    <option value="">{itemTags.length === 0 ? 'No tags' : 'Add a tag…'}</option>
+                    {boardTagList
+                      .filter((t) => !(item.tagIds ?? []).includes(t.id))
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                  </select>
                 </div>
               </Field>
 

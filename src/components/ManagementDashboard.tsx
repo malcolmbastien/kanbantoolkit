@@ -1,7 +1,7 @@
 import { CalendarClock, Download, Layers, Target } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
-import { boardInitiatives, buildRefs, initiativeTypeById } from '@/domain/board'
+import { boardInitiatives, buildRefs, initiativeTypeById, tagsOf } from '@/domain/board'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
 import { csvFilename, dashboardCsv } from '@/domain/csv'
 import { childrenOf, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
@@ -94,6 +94,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
       // The kind is the board's own label, resolved wherever it is defined — and "None" is the
       // absence of one, so the column is never blank in a way that needs explaining.
       kind: initiativeTypeById(boards, item.initiativeTypeId)?.name ?? 'None',
+      tags: tagsOf(boards, item).map((t) => t.name).join('; '),
     }
   })
 

@@ -172,6 +172,26 @@ describe('the demo dataset', () => {
     expect(boards.flatMap((b) => b.initiativeTypes ?? []).every((k) => !/^none$/i.test(k.name))).toBe(true)
   })
 
+  it('tags its work with the board’s own labels, on cards and initiatives alike', () => {
+    const tags = (boardId: string) => boards.find((b) => b.id === boardId)!.tags ?? []
+    expect(tags('b-atlas').map((t) => t.name)).toEqual(['security', 'tech-debt', 'customer-facing'])
+    expect(tags('b-nova').map((t) => t.name)).toEqual(['security', 'data'])
+    // The same word on two boards is two different tags — the point of them being per board.
+    expect(tags('b-atlas')[0].id).not.toBe(tags('b-nova')[0].id)
+
+    const tagged = items.filter((i) => (i.tagIds ?? []).length > 0)
+    expect(tagged.length).toBeGreaterThanOrEqual(8)
+    // A tag belongs to the board that defines it, and no item carries one twice.
+    for (const item of tagged) {
+      const board = boards.find((b) => b.id === at(item.id).boardId)!
+      expect(new Set(item.tagIds).size, item.title).toBe(item.tagIds!.length)
+      for (const id of item.tagIds!) expect(tags(board.id).some((t) => t.id === id), item.title).toBe(true)
+    }
+    // Both shapes carry them: cards and initiatives.
+    expect(tagged.some((i) => i.typeId === initiativeType)).toBe(true)
+    expect(tagged.some((i) => i.typeId !== initiativeType)).toBe(true)
+  })
+
   it('has a history old enough for Flow to have a shape', () => {
     const delivered = cards.filter((c) => c.resolvedAt)
     expect(delivered.length).toBeGreaterThanOrEqual(4)

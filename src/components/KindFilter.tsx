@@ -12,7 +12,10 @@ import { useStore } from '@/store'
  * initiatives flow of unlabelled work has no kinds in it.
  */
 export function KindFilter({ boardId }: { boardId: string }) {
-  const kinds = useStore((s) => s.boards.find((b) => b.id === boardId)?.initiativeTypes ?? [])
+  // Select the boards array — a stable reference — and derive outside the selector: a `?? []`
+  // inside one hands React a new snapshot on every call, which is an infinite re-render loop.
+  const boards = useStore((s) => s.boards)
+  const kinds = boards.find((b) => b.id === boardId)?.initiativeTypes ?? []
   const kindFilter = useStore((s) => s.initiativeKindFilter)
   const setInitiativeKindFilter = useStore((s) => s.setInitiativeKindFilter)
 

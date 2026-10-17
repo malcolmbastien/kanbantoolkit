@@ -3,7 +3,7 @@ import { LayoutTemplate, Pencil, Plus, Settings, Target, Trash2, X } from 'lucid
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
-import { initiativesCarrying } from '@/domain/board'
+import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 
@@ -29,6 +29,9 @@ export function BoardSettings() {
   const addInitiativeType = useStore((s) => s.addInitiativeType)
   const updateInitiativeType = useStore((s) => s.updateInitiativeType)
   const removeInitiativeType = useStore((s) => s.removeInitiativeType)
+  const addTag = useStore((s) => s.addTag)
+  const updateTag = useStore((s) => s.updateTag)
+  const removeTag = useStore((s) => s.removeTag)
   const updateIssueType = useStore((s) => s.updateIssueType)
   const removeIssueType = useStore((s) => s.removeIssueType)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -39,6 +42,8 @@ export function BoardSettings() {
   const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
   const [newKindName, setNewKindName] = useState('')
   const [newKindColor, setNewKindColor] = useState('#0ea5e9')
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState('#64748b')
   const [savedTemplate, setSavedTemplate] = useState(false)
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -60,6 +65,7 @@ export function BoardSettings() {
 
   const types = cardTypes(issueTypes)
   const kinds = board.initiativeTypes ?? []
+  const tags = board.tags ?? []
   const linked = board.linkedBoardIds ?? []
   const isAggregatingBoard = isAggregating(board)
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
@@ -72,6 +78,13 @@ export function BoardSettings() {
     updateIssueType(id, { name, color: editColor })
     setEditingTypeId(null)
   }
+  const addTagToBoard = () => {
+    const name = newTagName.trim()
+    if (!name) return
+    addTag(board.id, name, newTagColor)
+    setNewTagName('')
+  }
+
   const addKind = () => {
     const name = newKindName.trim()
     if (!name) return
@@ -388,6 +401,85 @@ export function BoardSettings() {
                 title="Create this kind for this board"
               >
                 <Plus size={11} /> Add kind
+              </button>
+            </div>
+          </div>
+
+          {/* Tags — this board's own labels, like its kinds. A set rather than a choice, so
+              there is no None to protect: an item with no tags simply has none. */}
+          <div>
+            <div className={label}>Tags</div>
+            <p className="mb-1.5 text-micro text-slate-600">
+              This board's own labels for its work — a card or an initiative can carry several, and
+              they are labels and nothing more. The only thing that reads them is a filter.
+            </p>
+            <div className="space-y-1">
+              {tags.length === 0 && <p className="text-meta text-slate-600">No tags yet.</p>}
+              {tags.map((t) => {
+                const used = itemsCarryingTag(items, t.id)
+                return (
+                  <div key={t.id} className={row}>
+                    <input
+                      type="color"
+                      value={t.color}
+                      onChange={(e) => updateTag(board.id, t.id, { color: e.target.value })}
+                      title={`${t.name} colour`}
+                      className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                    />
+                    <input
+                      value={t.name}
+                      onChange={(e) => updateTag(board.id, t.id, { name: e.target.value })}
+                      aria-label={`${t.name} name`}
+                      className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-200 focus:border-indigo-300"
+                    />
+                    {used > 0 && (
+                      <span className="shrink-0 text-micro text-slate-600">
+                        {used} item{used === 1 ? '' : 's'}
+                      </span>
+                    )}
+                    <button
+                      disabled={used > 0}
+                      onClick={() => removeTag(board.id, t.id)}
+                      title={
+                        used > 0
+                          ? `${used} item${used === 1 ? ' still carries' : 's still carry'} this tag — clear ${used === 1 ? 'it' : 'those'} first`
+                          : `Remove ${t.name}`
+                      }
+                      className="shrink-0 rounded p-0.5 text-slate-600 transition enabled:hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-2 flex items-center gap-1">
+              <input
+                type="color"
+                value={newTagColor}
+                onChange={(e) => setNewTagColor(e.target.value)}
+                title="New tag colour"
+                className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+              />
+              <input
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addTagToBoard()
+                  }
+                }}
+                placeholder="Define a new tag…"
+                className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+              <button
+                disabled={!newTagName.trim()}
+                onClick={addTagToBoard}
+                className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-meta font-medium text-white disabled:opacity-40"
+                title="Create this tag for this board"
+              >
+                <Plus size={11} /> Add tag
               </button>
             </div>
           </div>

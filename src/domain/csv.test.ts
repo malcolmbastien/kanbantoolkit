@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { boardCsv, BOARD_CSV_HEADER, csvField, csvFilename, dashboardCsv, toCsv } from './csv'
 import { blockedBelow, rollupOf, type Graph } from './derive'
-import { boardInitiatives, buildRefs, initiativeTypeById } from './board'
+import { boardInitiatives, buildRefs, initiativeTypeById, tagsOf } from './board'
 import { initiativeHealth } from './health'
 import { HEALTH_META } from './health'
 import { createFixture } from './fixture'
@@ -112,6 +112,7 @@ describe('csv', () => {
       overdue: false,
       health: initiativeHealth(item.id, graph),
       kind: initiativeTypeById(seed.boards, item.initiativeTypeId)?.name ?? 'None',
+      tags: tagsOf(seed.boards, item).map((t) => t.name).join('; '),
     }))
     const parsed = parseCsv(dashboardCsv(rows, seed.items, seed.issueTypes))
     expect(parsed[0][1]).toBe('Initiative')
@@ -149,6 +150,7 @@ describe('csv', () => {
           overdue: false,
           health: initiativeHealth(item.id, graph),
           kind: 'None',
+          tags: '',
         })),
         seed.items,
         seed.issueTypes,

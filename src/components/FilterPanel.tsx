@@ -1,8 +1,9 @@
 import { X, Plus } from 'lucide-react'
-import { cardTypes, initiativeTypeId } from '@/domain/board'
+import { cardTypes, initiativeTypeId, tagsOf } from '@/domain/board'
 import { lineageOf, statusOf, type Graph } from '@/domain/derive'
 import { activeFilterCount, ageDays, hasActiveFilters, initiativeScope, matchesFilters, sameFilters, type SavedFilter } from '@/domain/filters'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
+import { chipColors } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { useState } from 'react'
@@ -15,6 +16,7 @@ import type { Item } from '@/domain/types'
  */
 export function FilterPanel() {
   const boardId = useStore((s) => s.boardId)
+  const boards = useStore((s) => s.boards)
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
   const links = useStore((s) => s.links)
@@ -69,6 +71,12 @@ export function FilterPanel() {
       .map(([id, count]) => ({ id, count, name: items.find((i) => i.id === id)?.title ?? 'Initiative' }))
       .sort((a, b) => a.name.localeCompare(b.name))
   })()
+
+  // Only the tags actually on this board's work: a list of every tag a board defines would be
+  // noise, the same rule the assignee list follows.
+  const tagsHere = [...new Map(boardCards.flatMap((c) => tagsOf(boards, c)).map((t) => [t.id, t])).values()].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  )
 
   const [saveName, setSaveName] = useState('')
 
@@ -220,6 +228,33 @@ export function FilterPanel() {
             })}
           </div>
           <p className="mt-1 text-micro text-slate-600">Cards with no priority are shown by any selection.</p>
+        </section>
+
+        <section>
+          <SectionLabel>Tag</SectionLabel>
+          {tagsHere.length === 0 ? (
+            <p className="text-micro text-slate-600">No tags on this board's work yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {tagsHere.map((t) => {
+                const on = filters.tagIds.includes(t.id)
+                return (
+                  <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() =>
+                        setFilters({ tagIds: on ? filters.tagIds.filter((x) => x !== t.id) : [...filters.tagIds, t.id] })
+                      }
+                    />
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chipColors(t.color).background }} />
+                    <span className="flex-1 text-slate-700">{t.name}</span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+          <p className="mt-1 text-micro text-slate-600">Nothing checked shows every card; several combine as “any of”.</p>
         </section>
 
         <section>

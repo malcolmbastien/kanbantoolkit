@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, descendants, openDependenciesOf, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, searchItems } from './domain/board'
+import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, itemsCarryingTag, searchItems, tagsOf } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
-import { hasActiveFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
+import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
 import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
@@ -1565,6 +1565,108 @@ describe('store actions', () => {
     expect(persistedSlice(s())).not.toHaveProperty('initiativeKindFilter')
     s().selectBoard('b-nova')
     expect(s().initiativeKindFilter).toBe(null)
+  })
+
+  it('tags are the board’s own labels, a set on any item, and none of them is None', () => {
+    s().selectBoard('b-atlas')
+    const tags = () => s().boards.find((b) => b.id === 'b-atlas')!.tags ?? []
+    const item = (id: string) => s().items.find((i) => i.id === id)!
+
+    expect(tags()).toEqual([])
+    s().addTag('b-atlas', '  security  ', '#f43f5e')
+    s().addTag('b-atlas', 'customer-facing', '#0ea5e9')
+    expect(tags().map((t) => t.name)).toEqual(['security', 'customer-facing']) // trimmed on the way in
+    const [security, customer] = tags()
+
+    // A set on a card and on an initiative alike — and never twice.
+    s().toggleItemTag('b-atlas', 'st-email', security.id)
+    s().toggleItemTag('b-atlas', 'st-email', customer.id)
+    s().toggleItemTag('b-atlas', 'init-signup', security.id)
+    expect(item('st-email').tagIds).toEqual([security.id, customer.id])
+    expect(item('init-signup').tagIds).toEqual([security.id])
+    s().toggleItemTag('b-atlas', 'st-email', security.id) // the same one again takes it off
+    expect(item('st-email').tagIds).toEqual([customer.id])
+
+    // A tag from another board cannot be applied — the picker offers this board's, and so does
+    // the model.
+    s().addTag('b-nova', 'nova-only', '#22c55e')
+    const novaTag = s().boards.find((b) => b.id === 'b-nova')!.tags![0].id
+    s().toggleItemTag('b-atlas', 'st-email', novaTag)
+    expect(item('st-email').tagIds).toEqual([customer.id])
+
+    // Renaming and recolouring show everywhere at once: nothing is copied onto the item.
+    s().updateTag('b-atlas', customer.id, { name: 'customer facing', color: '#8b5cf6' })
+    expect(tagsOf(s().boards, item('st-email')).map((t) => t.name)).toEqual(['customer facing'])
+
+    // Removing a tag in use is refused, with the count; clearing the item first lets it go.
+    expect(itemsCarryingTag(s().items, customer.id)).toBe(1)
+    s().removeTag('b-atlas', customer.id)
+    expect(tags().map((t) => t.name)).toEqual(['security', 'customer facing'])
+    s().toggleItemTag('b-atlas', 'st-email', customer.id)
+    s().removeTag('b-atlas', customer.id)
+    expect(tags().map((t) => t.name)).toEqual(['security'])
+
+    // A tag id nothing defines renders as nothing, never as an id — the defensive half of the
+    // rule, reachable through the panel's generic field setter.
+    s().setItemFields('st-email', { tagIds: ['gone'] })
+    expect(tagsOf(s().boards, item('st-email'))).toEqual([])
+  })
+
+  it('tags change nothing else: the same rollup, WIP, health and flow either way', () => {
+    const snapshot = () => {
+      const g = graph()
+      return JSON.stringify({
+        rollup: rollupOf('init-signup', g),
+        lane: laneCardCount(s().lanes, s().placements, laneByName('b-atlas', 'Not Started').id),
+        health: initiativeHealth('init-signup', g),
+        deps: openDependenciesOf('st-email', g).map((d) => d.state),
+      })
+    }
+    s().selectBoard('b-atlas')
+    const before = snapshot()
+    s().addTag('b-atlas', 'security', '#f43f5e')
+    s().toggleItemTag('b-atlas', 'st-email', s().boards.find((b) => b.id === 'b-atlas')!.tags![0].id)
+    s().toggleItemTag('b-atlas', 'init-signup', s().boards.find((b) => b.id === 'b-atlas')!.tags![0].id)
+    expect(snapshot()).toBe(before)
+  })
+
+  it('the Tag filter is a union within the category, and view state like the rest', () => {
+    s().selectBoard('b-atlas')
+    s().addTag('b-atlas', 'security', '#f43f5e')
+    s().addTag('b-atlas', 'customer-facing', '#0ea5e9')
+    const [security, customer] = s().boards.find((b) => b.id === 'b-atlas')!.tags!
+    s().toggleItemTag('b-atlas', 'st-email', security.id)
+    s().toggleItemTag('b-atlas', 'st-sso', customer.id)
+
+    const matches = (id: string) => {
+      const placement = s().placements.find((p) => p.itemId === id && p.boardId === 'b-atlas')!
+      return matchesFilters(
+        s().items.find((i) => i.id === id)!,
+        s().filters,
+        statusOf(id, graph()).resolved,
+        Date.now(),
+        ageDays(placement),
+      )
+    }
+    s().setFilters({ tagIds: [security.id] })
+    expect(matches('st-email')).toBe(true)
+    expect(matches('st-sso')).toBe(false)
+    expect(matches('df-signup')).toBe(false)
+    // Several are a union, like every other category, and they count as one filter.
+    s().setFilters({ tagIds: [security.id, customer.id] })
+    expect(matches('st-email')).toBe(true)
+    expect(matches('st-sso')).toBe(true)
+    expect(activeFilterCount(s().filters)).toBe(1)
+    // A saved set copies the array, so editing afterwards cannot rewrite the past.
+    s().saveFilter('Tagged')
+    const saved = s().savedFilters.at(-1)!
+    s().setFilters({ tagIds: [] })
+    expect(saved.filters.tagIds).toEqual([security.id, customer.id])
+    // Narrowing what you see never moves a lane's count.
+    const before = laneCardCount(s().lanes, s().placements, laneByName('b-atlas', 'Not Started').id)
+    s().setFilters({ tagIds: [customer.id] })
+    expect(laneCardCount(s().lanes, s().placements, laneByName('b-atlas', 'Not Started').id)).toBe(before)
+    s().clearFilters()
   })
 
   it('a filter narrows what you see, never the load a column carries', () => {

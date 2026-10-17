@@ -1,9 +1,9 @@
-import { buildRefs, isInitiativeItem } from './board'
+import { buildRefs, isInitiativeItem, tagsOf } from './board'
 import { HEALTH_META, type InitiativeHealth } from './health'
 import { decompositionParent } from './derive'
 import type { Graph } from './derive'
 import { childrenOf, effectiveStage, lanePath, placementsInOrder, rootLane, STAGE_LABELS } from './lanes'
-import type { IssueType, Item, Stage, User } from './types'
+import type { Board, IssueType, Item, Stage, User } from './types'
 
 /**
  * CSV — the cheapest expression of data ownership there is: no server, no account, no queue, just
@@ -60,6 +60,7 @@ export const BOARD_CSV_HEADER = [
   'Target start',
   'Target end',
   'Parent',
+  'Tags',
 ]
 
 /**
@@ -69,7 +70,7 @@ export const BOARD_CSV_HEADER = [
  * Assignees are joined with semicolons so a comma in someone's name cannot break the column, and
  * the column is the lane's full path, because a cell's own name ("Test") rarely says enough.
  */
-export function boardCsv(boardId: string, graph: Graph, types: IssueType[], users: User[]): string {
+export function boardCsv(boardId: string, graph: Graph, types: IssueType[], users: User[], boards: Board[] = []): string {
   const refs = buildRefs(graph.items, types)
   const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? 'Item'
   const nameOfUser = (id: string) => users.find((u) => u.id === id)?.name ?? id
@@ -90,6 +91,8 @@ export function boardCsv(boardId: string, graph: Graph, types: IssueType[], user
         item.targetStartDate ?? '',
         item.targetEndDate ?? '',
         parentId ? graph.items.find((i) => i.id === parentId)?.title ?? '' : '',
+        // Semicolons, like assignees: a comma in a tag name must not break the column.
+        tagsOf(boards, item).map((t) => t.name).join('; '),
       ]
     })
   return toCsv([BOARD_CSV_HEADER, ...rows])
@@ -104,6 +107,8 @@ export interface DashboardCsvRow {
   health: InitiativeHealth
   /** The board's own label for the initiative, or "None" — which is the absence of one. */
   kind: string
+  /** The item's tags, joined the way assignees are. */
+  tags: string
 }
 
 export const DASHBOARD_CSV_HEADER = [
@@ -123,6 +128,7 @@ export const DASHBOARD_CSV_HEADER = [
   'Blocked below',
   'Health',
   'Flags',
+  'Tags',
 ]
 
 /** The dashboard's rows as CSV text — the same rows, the same numbers, as a file. */
@@ -131,7 +137,7 @@ export function dashboardCsv(rows: DashboardCsvRow[], items: Item[], types: Issu
   const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? 'Item'
   return toCsv([
     DASHBOARD_CSV_HEADER,
-    ...rows.map(({ item, roll, blocked, overdue, health, kind }) => [
+    ...rows.map(({ item, roll, blocked, overdue, health, kind, tags }) => [
       refs.get(item.id) ?? '',
       item.title,
       nameOf(item.typeId),
@@ -148,6 +154,7 @@ export function dashboardCsv(rows: DashboardCsvRow[], items: Item[], types: Issu
       blocked,
       HEALTH_META[health.level].label,
       health.flags.map((f) => f.label).join('; '),
+      tags,
     ]),
   ])
 }

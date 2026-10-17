@@ -1,13 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
+import { boardTags, canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
 import { canPlaceInSection, decompositionParent, descendants, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { uid as makeUid } from '@/lib/utils'
-import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, TemplateLane, User } from '@/domain/types'
+import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -295,6 +295,17 @@ export interface Actions {
   removeInitiativeType: (boardId: string, id: string) => void
   /** Narrow the initiatives flow to one kind, or all of them. View state: never persisted. */
   setInitiativeKindFilter: (kindId: string | null) => void
+  /**
+   * Add or remove one of a board's tags on an item — a card or an initiative alike. Adding is
+   * refused for a tag that board does not define; removing is always allowed, so an item can
+   * always be cleared even if its tag is long gone.
+   */
+  toggleItemTag: (boardId: string, itemId: string, tagId: string) => void
+  /** A board's own tags, like its kinds and for the same reason. */
+  addTag: (boardId: string, name: string, color: string) => void
+  updateTag: (boardId: string, id: string, patch: Partial<Tag>) => void
+  /** Refused while any item still carries it, and the settings say how many do. */
+  removeTag: (boardId: string, id: string) => void
   /**
    * Build the load-test board (see `stressBoard`) and open it. Asking again *replaces* it, so the
    * size can be changed without piling boards up, and everything it made is recognised by the
@@ -992,6 +1003,7 @@ export const useStore = create<Store>()(
           typeIds: [...f.typeIds],
           assigneeIds: [...f.assigneeIds],
           priorities: [...f.priorities],
+          tagIds: [...f.tagIds],
         }
         // Saved against the board it was built on: a preset is one board's way of reading itself.
         set({ savedFilters: [...get().savedFilters, { id: uid(), name: trimmed, boardId: get().boardId, filters }] })
@@ -1565,6 +1577,49 @@ export const useStore = create<Store>()(
       },
 
       setInitiativeKindFilter: (initiativeKindFilter) => set({ initiativeKindFilter }),
+
+      toggleItemTag: (boardId, itemId, tagId) => {
+        const state = get()
+        const item = state.items.find((i) => i.id === itemId)
+        if (!item) return
+        const carried = item.tagIds ?? []
+        if (carried.includes(tagId)) {
+          // Always allowed: an item can be cleared whatever happened to the definition.
+          set({ items: state.items.map((i) => (i.id === itemId ? { ...i, tagIds: carried.filter((t) => t !== tagId) } : i)) })
+          return
+        }
+        // Adding needs the tag to belong to *this* board: the picker offers that board's tags, and
+        // the model does not take labels from nowhere.
+        if (!boardTags(state.boards.find((b) => b.id === boardId)).some((t) => t.id === tagId)) return
+        set({ items: state.items.map((i) => (i.id === itemId ? { ...i, tagIds: [...carried, tagId] } : i)) })
+      },
+
+      addTag: (boardId, name, color) => {
+        const trimmed = name.trim()
+        if (!trimmed) return
+        set({
+          boards: get().boards.map((b) => (b.id === boardId ? { ...b, tags: [...(b.tags ?? []), { id: uid(), name: trimmed, color }] } : b)),
+        })
+      },
+
+      updateTag: (boardId, id, patch) => {
+        const next = patch.name === undefined ? patch : { ...patch, name: patch.name.trim() }
+        if (next.name !== undefined && !next.name) return
+        set({
+          boards: get().boards.map((b) =>
+            b.id === boardId ? { ...b, tags: (b.tags ?? []).map((t) => (t.id === id ? { ...t, ...next } : t)) } : b,
+          ),
+        })
+      },
+
+      removeTag: (boardId, id) => {
+        const state = get()
+        // In use: refused, with the count the settings panel shows. Never a silent blanking.
+        if (itemsCarryingTag(state.items, id) > 0) return
+        set({
+          boards: state.boards.map((b) => (b.id === boardId ? { ...b, tags: (b.tags ?? []).filter((t) => t.id !== id) } : b)),
+        })
+      },
 
       addStressBoard: (cards) => {
         const state = get()

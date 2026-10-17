@@ -59,6 +59,24 @@ export function createSeed(): FlowState {
     ['Enabler', '#64748b'],
   ])
 
+  // Tags, the other half of a board's own vocabulary: a set on any item rather than a choice, and
+  // the same word on two boards is two different tags — which is the point of them being per board.
+  const tagsFor = (boardId: string, defs: [string, string][]) => {
+    const made = defs.map(([name, color]) => ({ id: `tag-${boardId}-${name.toLowerCase()}`, name, color }))
+    const board = boards.find((b) => b.id === boardId)!
+    board.tags = made
+    return new Map(made.map((t) => [t.name, t.id]))
+  }
+  const atlasTags = tagsFor('b-atlas', [
+    ['security', '#f43f5e'],
+    ['tech-debt', '#64748b'],
+    ['customer-facing', '#0ea5e9'],
+  ])
+  const novaTags = tagsFor('b-nova', [
+    ['security', '#f43f5e'],
+    ['data', '#8b5cf6'],
+  ])
+
   const items: Item[] = []
   const placements: Placement[] = []
   const edges: Edge[] = []
@@ -416,6 +434,28 @@ export function createSeed(): FlowState {
   kindOf('init-journey', streamKinds.get('Workstream'))
   kindOf('init-reliability', streamKinds.get('Workstream'))
   kindOf('init-sso', streamKinds.get('Workstream'))
+
+  /* ---------------------------------------------------------------- *
+   * What each piece of work is about. A set, on cards and initiatives
+   * alike — and only where the board that owns it defines the tag.
+   * ---------------------------------------------------------------- */
+
+  const tagWith = (id: string, ...tagIds: (string | undefined)[]) => {
+    const item = items.find((i) => i.id === id)
+    const carried = tagIds.filter((t): t is string => Boolean(t))
+    if (item && carried.length > 0) item.tagIds = carried
+  }
+  tagWith('st-enterprise-sso', atlasTags.get('security'), atlasTags.get('customer-facing'))
+  tagWith('st-signup-validation', atlasTags.get('customer-facing'))
+  tagWith('st-pricing-cache', atlasTags.get('tech-debt'))
+  tagWith('st-coupon-retire', atlasTags.get('tech-debt'))
+  tagWith('st-auth-retire', novaTags.get('security'))
+  tagWith('st-lakehouse-ingest', novaTags.get('data'))
+  tagWith('st-audit-retention', novaTags.get('data'))
+  tagWith('st-audit-backfill', novaTags.get('data'))
+  // An initiative carries them too: a tag is about what the work is, at any altitude.
+  tagWith('init-identity', novaTags.get('security'))
+  tagWith('init-audit', novaTags.get('security'))
 
   /* ---------------------------------------------------------------- *
    * Objectives & Key Results — commitment-limited, never in columns.

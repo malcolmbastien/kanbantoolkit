@@ -28,6 +28,18 @@ export interface InitiativeType {
 }
 
 /**
+ * A board's own tag: a name and a colour, and nothing else. Where an initiative *kind* says what
+ * sort of initiative something is (one per initiative, from a short list), a tag says what it is
+ * *about* — and an item carries several, added freely. Like a kind it is a label: no lifecycle, no
+ * columns, no WIP, nothing derived from it. The only thing that reads a tag is a filter.
+ */
+export interface Tag {
+  id: string
+  name: string
+  color: string
+}
+
+/**
  * A person. Items reference users by id; surfaces show the full name (dropdowns)
  * or the initials / photo (cards).
  */
@@ -117,6 +129,13 @@ export interface Board {
    * and old state reads as None with no backfill.
    */
   initiativeTypes?: InitiativeType[]
+  /**
+   * The tags this board's work can carry: its own vocabulary, like `initiativeTypes` and for the
+   * same reason — a team board's "tech-debt" means nothing on a portfolio board. Absent or empty
+   * means no tags at all, which is the empty state rather than an option: a set of tags is a set,
+   * so there is no "None" entry here to protect.
+   */
+  tags?: Tag[]
   /**
    * The board's own voice: what it is and how to read it, in the team's words. The board
    * legend opens with it, and board settings edits it in place.
@@ -267,6 +286,11 @@ export interface Item {
    * is what makes an item an initiative in the first place.
    */
   initiativeTypeId?: string
+  /**
+   * The tags this item carries (see `Tag`), on a card or an initiative alike. Ids, never copies:
+   * a tag renamed renames everywhere at once. Absent or empty is no tags.
+   */
+  tagIds?: string[]
   /** Assignee user ids (see `User`). A card or initiative can have several. */
   assignees?: string[]
   /**

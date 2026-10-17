@@ -98,7 +98,7 @@ export function BoardView({ requestMove }: Props) {
             onClick={() =>
               downloadText(
                 csvFilename(board?.name ?? 'board', 'cards'),
-                boardCsv(boardId, { items, edges, links, placements, lanes }, issueTypes, users),
+                boardCsv(boardId, { items, edges, links, placements, lanes }, issueTypes, users, boards),
               )
             }
             disabled={editMode}

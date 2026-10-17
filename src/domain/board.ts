@@ -15,7 +15,7 @@ import {
   WORKFLOWS,
   type LaneNode,
 } from './lanes'
-import type { Board, BoardBand, BoardTemplate, InitiativeType, IssueType, Item, Lane, Placement, SplitOrientation, TemplateLane } from './types'
+import type { Board, BoardBand, BoardTemplate, InitiativeType, IssueType, Item, Lane, Placement, SplitOrientation, Tag, TemplateLane } from './types'
 
 /** The kinds a board offers, in the order it lists them. An absent list is simply empty. */
 export function boardInitiativeTypes(board: Board | undefined): InitiativeType[] {
@@ -23,26 +23,56 @@ export function boardInitiativeTypes(board: Board | undefined): InitiativeType[]
 }
 
 /**
- * A kind by id, wherever it is defined.
+ * A label by id, wherever it is defined.
  *
- * An initiative can be placed on more than one board while its kind is item-level, so a kind
+ * An item can be placed on more than one board while its label is item-level, so a kind or a tag
  * defined on one board can be read on another: resolve by id across all of them. Nothing is
  * returned when the definition is gone — a board deleted while items placed on it live on — so a
  * surface renders nothing rather than a raw id. The name and colour are never copied onto the
- * item, because a kind renamed has to rename everywhere at once.
+ * item, because a label renamed has to rename everywhere at once.
+ *
+ * Kinds and tags share this rule exactly; only the lists they are read from differ.
  */
-export function initiativeTypeById(boards: Board[], id: string | undefined): InitiativeType | undefined {
+function labelById<T extends { id: string }>(lists: (T[] | undefined)[], id: string | undefined): T | undefined {
   if (!id) return undefined
-  for (const board of boards) {
-    const found = board.initiativeTypes?.find((t) => t.id === id)
+  for (const list of lists) {
+    const found = list?.find((l) => l.id === id)
     if (found) return found
   }
   return undefined
 }
 
+/** An initiative kind by id — see `labelById`. */
+export function initiativeTypeById(boards: Board[], id: string | undefined): InitiativeType | undefined {
+  return labelById(boards.map((b) => b.initiativeTypes), id)
+}
+
+/** A tag by id — see `labelById`. */
+export function tagById(boards: Board[], id: string | undefined): Tag | undefined {
+  return labelById(boards.map((b) => b.tags), id)
+}
+
+/** The tags a board offers, in the order it lists them. */
+export function boardTags(board: Board | undefined): Tag[] {
+  return board?.tags ?? []
+}
+
 /** How many items carry a kind — what a refusal has to be able to say out loud. */
 export function initiativesCarrying(items: Item[], kindId: string): number {
   return items.filter((i) => i.initiativeTypeId === kindId).length
+}
+
+/** An item's tags, resolved wherever they are defined and in the order it carries them. */
+export function tagsOf(boards: Board[], item: Item): Tag[] {
+  return (item.tagIds ?? []).flatMap((id) => {
+    const tag = tagById(boards, id)
+    return tag ? [tag] : []
+  })
+}
+
+/** The same count for a tag, which any item can carry. */
+export function itemsCarryingTag(items: Item[], tagId: string): number {
+  return items.filter((i) => (i.tagIds ?? []).includes(tagId)).length
 }
 
 /** Items placed on a board (via explicit placement records). */
@@ -369,6 +399,7 @@ export function duplicateBoard(
   // The kinds come across with the design, with fresh ids: two boards may each have a "Bet", and
   // renaming one must not rename the other. (No item comes across, so nothing has to be remapped.)
   const kindIds = new Map((board.initiativeTypes ?? []).map((t) => [t.id, uid()] as const))
+  const tagIds = new Map((board.tags ?? []).map((t) => [t.id, uid()] as const))
   return {
     board: {
       ...rest,
@@ -378,6 +409,7 @@ export function duplicateBoard(
       ...(board.initiativeTypes
         ? { initiativeTypes: board.initiativeTypes.map((t) => ({ ...t, id: kindIds.get(t.id)! })) }
         : {}),
+      ...(board.tags ? { tags: board.tags.map((t) => ({ ...t, id: tagIds.get(t.id)! })) } : {}),
       },
     lanes: subtree.map((lane) => ({
       ...lane,

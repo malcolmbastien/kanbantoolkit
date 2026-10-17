@@ -22,7 +22,7 @@ import {
   uncommittedBelow,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks, initiativeTypeById } from '@/domain/board'
+import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks, initiativeTypeById, tagsOf } from '@/domain/board'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -253,6 +253,7 @@ export function BoardSummary({
         // owns them — its own initiatives flow, not the bands another board's flow shows through.
         kind={isInitiatives ? initiativeTypeById(boards, c.initiativeTypeId) : undefined}
         kinds={isInitiatives ? boardKinds : undefined}
+        tags={tagsOf(boards, c)}
         onSetKind={interactive && !editMode ? (kindId) => setInitiativeKind(c.id, kindId) : undefined}
         selected={selectedItemId === c.id}
         lens={lensRole(c.id, lensId, graph)}
