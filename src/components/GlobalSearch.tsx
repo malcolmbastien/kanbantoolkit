@@ -23,6 +23,22 @@ export function GlobalSearch() {
   const [open, setOpen] = useState(true)
   const [active, setActive] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // "/" focuses the box, for anyone who does not know ⌘K yet. It never steals a keystroke
+  // from a field — typing a slash into a title stays typing a slash into a title.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = document.activeElement as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      e.preventDefault()
+      inputRef.current?.focus()
+      setOpen(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const refs = useMemo(() => buildRefs(items, issueTypes), [items, issueTypes])
 
@@ -81,6 +97,7 @@ export function GlobalSearch() {
     <div className="relative" ref={boxRef}>
       <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
       <input
+        ref={inputRef}
         value={search}
         onChange={(e) => { setSearch(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}

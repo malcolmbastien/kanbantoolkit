@@ -286,6 +286,7 @@ export function ItemPanel({ itemId }: Props) {
   return (
     <aside
       data-item-panel
+      aria-label={`Card details: ${item.title}`}
       className="flex h-full w-[460px] shrink-0 flex-col border-l border-slate-300 bg-slate-50 shadow-[-10px_0_24px_-14px_rgba(15,23,42,0.25)]"
     >
       {/* ---- Header: breadcrumb, actions, title, tabs ------------------------------ */}

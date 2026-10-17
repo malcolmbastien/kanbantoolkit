@@ -30,7 +30,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, buildRefs, externalDependenciesOnBoard } from '@/domain/board'
-import { childrenOf, effectiveStage, inheritedWipState, isTopLevel, leavesUnder, rootLane, strongestWip, subtreeIds, wipState } from '@/domain/lanes'
+import { childrenOf, effectiveStage, inheritedWipState, isTopLevel, lanePath, leavesUnder, rootLane, strongestWip, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_HEADER } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -395,6 +395,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   return (
     <div
+      // A lane is a named region: a screen reader announces "In Progress / Dev, 2 cards" and
+      // the cards inside it are its contents, rather than one undifferentiated board.
+      role="region"
+      aria-label={`${lanePath(lanes, lane.id).join(' / ') || 'Board'} — ${countInLane(lane.id)} card${countInLane(lane.id) === 1 ? '' : 's'}`}
       className={cn('flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col', fullWip === 'over' ? 'bg-rose-50' : fullWip === 'at' ? 'bg-amber-50' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100')}
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
@@ -482,7 +486,11 @@ function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: La
   }
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col">
+    <div
+      role="region"
+      aria-label={`${lane.name || 'Board'} — swim lanes across ${columns.length} columns`}
+      className="flex min-h-0 w-full flex-1 flex-col"
+    >
       {(editMode || lane.name) && (
         <div className="border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-center text-slate-800">
           {/* This band is the only header a transposed container gets — its lane tree is

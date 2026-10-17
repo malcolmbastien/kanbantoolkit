@@ -22,7 +22,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks } from '@/domain/board'
-import { childrenOf, isLeaf, leavesUnder, topLevelLanes } from '@/domain/lanes'
+import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import {
@@ -589,6 +589,8 @@ function Cell({
       <div
         data-cell-id={lane.id}
         data-section-id={sectionId}
+        role="region"
+        aria-label={`${lanePath(lanes, lane.id).join(' / ') || lane.name || 'Cell'} — ${count} initiative${count === 1 ? '' : 's'}`}
         className="flex min-h-[96px] min-w-0 flex-1 flex-col gap-1 p-1"
       >
         {children}

@@ -60,6 +60,45 @@ describe('legibility', () => {
     }
   })
 
+  it('keeps the chips and hints added since readable on their own grounds', () => {
+    // Contrast is not a property of a theme, it is a property of each pair — so every pair a
+    // later round introduced is listed here: a health badge, a palette row, a metrics figure.
+    const pairs: [string, string, string][] = [
+      ['at-risk chip', '#be123c', '#ffe4e6'], // rose-700 on rose-100
+      ['watch chip', '#92400e', '#fef3c7'], // amber-800 on amber-100
+      ['on-track chip', '#047857', '#ecfdf5'], // emerald-700 on emerald-50
+      ['risk flag', '#be123c', '#fff1f2'], // rose-700 on rose-50
+      ['watch flag', '#92400e', '#fffbeb'], // amber-800 on amber-50
+      ['delivered figure', '#047857', '#ffffff'], // emerald-700 on white
+      ['palette row, active', '#1e293b', '#eef2ff'], // slate-800 on indigo-50
+      ['palette hint', '#475569', '#ffffff'],
+      ['palette footer', '#475569', '#f8fafc'],
+      ['metrics note', '#475569', '#ffffff'],
+    ]
+    for (const [name, color, background] of pairs) {
+      expect(contrastRatio(color, background), name).toBeGreaterThanOrEqual(CONTRAST_FLOOR)
+    }
+  })
+
+  it('gives every dialog and region a name', () => {
+    // A region with no name is a landmark a screen reader cannot announce; a dialog with no
+    // name is a question with no question in it. The check reads the element's own tag, so a
+    // label on the element *next* to it cannot stand in for the one that is missing.
+    const offenders: string[] = []
+    for (const [file, text] of Object.entries(SOURCES)) {
+      for (const role of ['dialog', 'region']) {
+        const needle = `role="${role}"`
+        for (let i = text.indexOf(needle); i !== -1; i = text.indexOf(needle, i + 1)) {
+          const open = text.lastIndexOf('<', i)
+          const close = text.indexOf('>', i)
+          const element = open === -1 || close === -1 ? '' : text.slice(open, close + 1)
+          if (!/aria-label|aria-labelledby/.test(element)) offenders.push(`${file}: role="${role}"`)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
   it('keeps a type chip readable on every type colour', () => {
     // White on sky-500 is 2.8:1 and on amber-500 it is 2.2:1 — the chips were picked by a
     // brightness guess rather than by contrast, and the guess was wrong for both.

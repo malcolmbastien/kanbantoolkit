@@ -362,14 +362,15 @@
         "id": "15",
         "title": "Add comments and activity log per item",
         "description": "P2 comments and activity log per item.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "11"
         ],
         "priority": "low",
         "details": "Add a chronological activity log to each item. Support adding comments and automatically record meaningful changes such as title, assignee, status, type, size, dependency changes, and rollup changes. Render markdown in comments.",
         "testStrategy": "Add a comment and confirm it appears. Trigger several item changes and verify the activity log records them in order. Confirm activity log is scoped to the correct item.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-17T17:56:46.244Z"
       },
       {
         "id": "16",
@@ -1172,9 +1173,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T17:52:01.508Z",
+      "lastModified": "2026-10-17T17:56:46.244Z",
       "taskCount": 74,
-      "completedCount": 59,
+      "completedCount": 60,
       "tags": [
         "backlog"
       ]

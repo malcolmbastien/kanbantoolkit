@@ -117,6 +117,40 @@ function DoneStamp() {
 
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
+/**
+ * The keyboard half of a card.
+ *
+ * A card is a **group**, not a button: it holds its own controls (the actions menu, the parent
+ * chip, the lens), and ARIA forbids interactive children inside a button. So it is a focusable
+ * group with a name — Enter or Space opens it, Shift+F10 (or the Menu key) opens its menu, which
+ * is exactly what those two gestures do with a mouse.
+ */
+const cardKeyboard = (
+  item: Item,
+  locked: boolean | undefined,
+  onOpen: (id: string) => void,
+  onContextMenu: ((id: string, x: number, y: number) => void) | undefined,
+) => ({
+  role: 'group' as const,
+  'aria-label': item.title,
+  tabIndex: locked ? -1 : 0,
+  onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (locked) return
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onOpen(item.id)
+    } else if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+      if (!onContextMenu) return
+      e.preventDefault()
+      const r = e.currentTarget.getBoundingClientRect()
+      onContextMenu(item.id, Math.round(r.left + 24), Math.round(r.top + 24))
+    }
+  },
+})
+
+/** The ring a focused card wears — inside, so the board's geometry does not move. */
+const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
+
 export function Card({ item, type, ref_, summary, parent, wide, symbols, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
@@ -237,6 +271,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       return (
       <div
         {...dragProps}
+        {...cardKeyboard(item, locked, onOpen, onContextMenu)}
         data-card-id={item.id}
         // The wide card is the initiative, and it never had a context menu — the narrow one has
         // had one all along.
@@ -256,6 +291,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
           // `@container` lets the card shed detail as its column narrows (see the
           // `@[Npx]:` variants below) instead of overflowing a customised flow.
           '@container group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
+          FOCUS_RING,
           locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
           lensCls,
           lockCls,
@@ -385,6 +421,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
   return (
     <div
       {...dragProps}
+      {...cardKeyboard(item, locked, onOpen, onContextMenu)}
       data-card-id={item.id}
       style={{
         backgroundColor: tintOn(type.color, 0.1),
@@ -413,6 +450,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
       }}
       className={cn(
         'group relative flex min-h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
+        FOCUS_RING,
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
         lensCls,
         lockCls,
@@ -466,7 +504,7 @@ export function Card({ item, type, ref_, summary, parent, wide, symbols, blocked
                   const r = e.currentTarget.getBoundingClientRect()
                   onContextMenu(item.id, r.right - 4, r.bottom + 4)
                 }}
-                className="shrink-0 rounded text-slate-600 opacity-0 transition group-hover:opacity-100 hover:text-slate-700"
+                className="shrink-0 rounded text-slate-600 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:text-slate-700"
                 title="More actions"
                 aria-label="Card actions"
               >
