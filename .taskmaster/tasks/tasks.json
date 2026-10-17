@@ -966,13 +966,13 @@
         "id": "59",
         "title": "Flow metrics — a board view derived from movement history",
         "description": "P2, and the biggest item here: a read-only analytics view per board — cycle time, lead time, throughput and a cumulative flow diagram — built from recorded lane transitions. All three competitors have this and Flowline has none of it.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "The enabler first: `ItemLogKind` gains a `moved` event carrying the destination lane id, written on every card transition (`moveCard`, `moveCardsToLane`, and the paths that relocate a card as a side effect). Then derive, never store: lead time (created to resolved), cycle time (first committed to resolved), throughput per period, and a cumulative flow diagram of items per stage over time. Record the *stage* the card moved into, not the lane id alone, so a team renaming or splitting its columns cannot corrupt its own history — the two-workflow rule paying off again, since the cards workflow is free to change shape while the four stages stay fixed. A new view alongside Dashboard and Objectives, addressable as `?board=<id>&view=metrics`, read-only and derived: no manual reporting, no targets to maintain, no AI summary. Scope the first slice to the cards workflow; the initiatives view can come later from the same history. History starts the day this ships, so back-date a set of transitions in the demo seed, otherwise the view is empty and proves nothing. Monte Carlo forecasting is explicitly out of scope. Persist bump: additive log kind, no backfill.",
         "testStrategy": "Pure derivation tests over synthetic histories: lead and cycle time including the never-resolved and moved-back cases, throughput buckets, and a CFD series where one card skipped a stage, one moved backwards and one was archived mid-flight. Store test that every move path writes exactly one `moved` event and that a same-lane move writes none. Regression test that renaming or splitting a lane after the fact leaves historical stage untouched. Migration test for the new log kind. Run npm test.",
         "subtasks": [],
-        "updatedAt": "2026-10-13T12:00:00.000Z"
+        "updatedAt": "2026-10-17T17:24:44.672Z"
       },
       {
         "id": "60",
@@ -1168,9 +1168,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-17T17:13:19.079Z",
+      "lastModified": "2026-10-17T17:24:44.672Z",
       "taskCount": 74,
-      "completedCount": 54,
+      "completedCount": 55,
       "tags": [
         "backlog"
       ]

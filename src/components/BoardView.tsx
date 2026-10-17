@@ -1,12 +1,14 @@
-import { Archive, Info, SlidersHorizontal } from 'lucide-react'
+import { Archive, Download, Info, SlidersHorizontal } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
 import { isAggregating } from '@/domain/board'
+import { boardCsv, csvFilename } from '@/domain/csv'
 import { activeFilterCount } from '@/domain/filters'
 import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
+import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -29,6 +31,10 @@ export function BoardView({ requestMove }: Props) {
   const toggleFilters = useStore((s) => s.toggleFilters)
   const showLegend = useStore((s) => s.showLegend)
   const toggleLegend = useStore((s) => s.toggleLegend)
+  const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
+  const issueTypes = useStore((s) => s.issueTypes)
+  const users = useStore((s) => s.users)
 
   const board = boards.find((b) => b.id === boardId)
   // Drag empty workflow space to move the board. See usePanScroll.
@@ -84,6 +90,20 @@ export function BoardView({ requestMove }: Props) {
               <Archive size={11} /> Archive done ({doneCount})
             </button>
           )}
+          {/* One explicit action, one file: the board as it reads, columns and all. */}
+          <button
+            onClick={() =>
+              downloadText(
+                csvFilename(board?.name ?? 'board', 'cards'),
+                boardCsv(boardId, { items, edges, links, placements, lanes }, issueTypes, users),
+              )
+            }
+            disabled={editMode}
+            className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-meta font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
+            title="Export this board's cards as a CSV file — ref, title, type, column, stage, people, dates and parent"
+          >
+            <Download size={11} /> Export CSV
+          </button>
           <button
             onClick={toggleFilters}
             disabled={editMode}

@@ -1,10 +1,12 @@
-import { Ban, CalendarClock, Layers, Target } from 'lucide-react'
+import { Ban, CalendarClock, Download, Layers, Target } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
 import { boardInitiatives, buildRefs } from '@/domain/board'
+import { csvFilename, dashboardCsv } from '@/domain/csv'
 import { childrenOf, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { laneAges, medianOf, STALE_AFTER_DAYS } from '@/domain/filters'
 import { BAND_ACCENT, stageChip } from '@/lib/colors'
+import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Stage } from '@/domain/types'
@@ -109,6 +111,14 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             <Stat label="Initiatives" value={rows.length} />
             <Stat label="Done" value={doneInitiatives} tone="emerald" />
             <Stat label="With blocked work" value={blockedInitiatives} tone={blockedInitiatives > 0 ? 'rose' : undefined} />
+            {/* One explicit action, one file — the rows above, as a spreadsheet. */}
+            <button
+              onClick={() => downloadText(csvFilename(board?.name ?? 'board', 'initiatives'), dashboardCsv(rows, items, issueTypes))}
+              className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+              title="Export these initiative rows as a CSV file — progress, target dates, status and blocked work"
+            >
+              <Download size={11} /> Export CSV
+            </button>
           </div>
         </div>
 
