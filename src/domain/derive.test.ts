@@ -38,6 +38,63 @@ describe('generic hierarchy — parent / child', () => {
   const s = createFixture()
   const g = graphOf(s)
 
+  it('weighs progress by size, so a big leaf counts for more than a small one', () => {
+    const item = (id: string, size: number | undefined, extra: Partial<Item> = {}): Item => ({
+      id,
+      title: id,
+      typeId: 't-story',
+      createdAt: 0,
+      ...(size === undefined ? {} : { size }),
+      ...extra,
+    })
+    const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
+    const lane = (id: string, stage: 'done' | 'inProgress' | 'backlog'): Lane => ({
+      id,
+      boardId: 'b',
+      parentId: 'root',
+      order: 0,
+      name: id,
+      stage,
+      workflow: 'cards',
+    })
+    const at = (itemId: string, laneId: string) => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId })
+    /** One delivered leaf and two under way, with the given sizes — `undefined` is unsized. */
+    const g = (sizes: [number | undefined, number | undefined, number | undefined], backlog = false): Graph => ({
+      items: [item('init', undefined, { typeId: 't-initiative' }), item('a', sizes[0], { resolvedAt: 1 }), item('b', sizes[1]), item('c', sizes[2])],
+      edges: [edge('init', 'a'), edge('init', 'b'), edge('init', 'c')],
+      links: [],
+      placements: [at('a', 'done'), at('b', 'ip'), at('c', backlog ? 'backlog' : 'ip')],
+      lanes: [lane('done', 'done'), lane('ip', 'inProgress'), lane('backlog', 'backlog')],
+    })
+
+    // Equal pieces — unsized, so one point each — are the old count exactly: 1 of 3.
+    const even = rollupOf('init', g([undefined, undefined, undefined]))
+    expect(even.percent).toBe(33)
+    expect([even.done, even.total]).toEqual([1, 3]) // the counts stay counts, beside it
+
+    // Finish the big one and it counts for most of the work: 13 of 13 + 2 + 2.
+    expect(rollupOf('init', g([13, 2, 2])).percent).toBe(76)
+    // The same three pieces with the *small* one finished read far lower — the count cannot see
+    // the difference, which is the whole reason for weighting.
+    expect(rollupOf('init', g([2, 13, 13])).percent).toBe(7)
+
+    // Backlog leaves are out of both halves, so a partly-planned initiative is not dragged to 0%.
+    const withBacklog = rollupOf('init', g([13, 2, 2], true))
+    expect(withBacklog.percent).toBe(87) // 13 of 15, the queued 2 ignored
+    expect(withBacklog.uncommitted).toBe(1)
+
+    // Every committed leaf done is 100% — and still not done, because one is unplanned.
+    const nearly = rollupOf('init', {
+      ...g([2, 3, 5], true),
+      placements: [at('a', 'done'), at('b', 'done'), at('c', 'backlog')],
+    })
+    expect(nearly.percent).toBe(100)
+    expect(nearly.bucket).not.toBe('done')
+
+    // The bucket reads the leaves' stages and not the percentage: sizes never move a status.
+    expect(rollupOf('init', g([1, 1, 1])).bucket).toBe(rollupOf('init', g([13, 2, 2])).bucket)
+  })
+
   it('adds up the work below, counting an unsized leaf as one point', () => {
     const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-story', createdAt: 0, ...extra })
     const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })

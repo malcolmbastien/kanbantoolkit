@@ -300,7 +300,12 @@ export interface Rollup {
   notStarted: number
   /** Leaves still in Backlog — uncommitted inventory, excluded from `percent`. */
   uncommitted: number
-  /** Done leaves as a percentage of countable (committed) leaves. */
+  /**
+   * The done work as a percentage of the committed work, **weighted by size** — an unsized leaf
+   * counts as one point, so a 13 beside a 2 is not two equal pieces of work. Backlog leaves are
+   * out of both halves: a partly-planned initiative does not read 0% because of work nobody has
+   * committed to yet.
+   */
   percent: number
   /**
    * The work *below*, in points: the sum of the leaf descendants' sizes, with an unsized leaf
@@ -319,8 +324,13 @@ export function rollupOf(id: string, graph: Graph): Rollup {
   const committed = total - backlog
   const done = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).resolved).length
   const started = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).started).length
-  const countable = Math.max(1, committed)
-  const percent = total === 0 ? 0 : Math.round((done / countable) * 100)
+  // Progress is the size of the delivered work over the size of the committed work, so finishing
+  // a 13-point epic moves it more than finishing a 2-point task. The counts above stay counts:
+  // they are what says how many pieces there are, and the two never have to agree.
+  const points = (l: Item) => l.size ?? 1
+  const committedPoints = leaves.reduce((sum, l) => (isBacklog(l) ? sum : sum + points(l)), 0)
+  const donePoints = leaves.reduce((sum, l) => (!isBacklog(l) && statusOf(l.id, graph).resolved ? sum + points(l) : sum), 0)
+  const percent = total === 0 || committedPoints === 0 ? 0 : Math.round((donePoints / committedPoints) * 100)
   // `leafItems` answers with the item itself when it has no children, so the sum is taken over
   // the leaves *other* than the item: what is below, not what is here.
   const size = leaves.reduce((sum, l) => (l.id === id ? sum : sum + (l.size ?? 1)), 0)
