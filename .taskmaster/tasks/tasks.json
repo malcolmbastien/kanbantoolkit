@@ -1349,13 +1349,27 @@
         "testStrategy": "No component tests exist (the vitest environment is node), so this is verified in the browser. On the Growth value stream (which defines Workstream and Enabler): the band reads WORKSTREAM in the kind's colour with white text; a new initiative's band reads NO KIND in neutral slate and lists None | Workstream | Enabler when clicked; picking Enabler turns the band slate, retitles it ENABLER and writes `kind-b-portfolio-enabler` to the item; Escape closes the list rather than the board. On Team Atlas (which defines no kinds) there is no band, and the shape still reads as an initiative: 15px title, status pips, full-width bar, quiet footer — beside the cards workflow's small tinted notes with their type chip and left rail. `npm test` (312), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T03:20:00.000Z"
+      },
+      {
+        "id": "90",
+        "title": "One badge set for every warning, in one place, and bigger child indicators",
+        "description": "Asked for: larger initiative child indicators, and blocked / uncommitted / other warnings as a consistently positioned set of badges.",
+        "status": "done",
+        "dependencies": [
+          "89"
+        ],
+        "priority": "medium",
+        "details": "**The child indicators are 16px** (were 12), with a 4px radius, still sorted into the columns' order and still capped at twelve with a `+N`.\\n\\n**The warnings are now one set of badges in one place**: a row between the progress bar and the quiet footer, so a reader scanning a column knows where to look and a card with nothing to say says nothing. The set is `initiativeHealth`'s own flags — the same rules, the same words and the same tones the dashboard's Health column reads, so an initiative cannot be at risk in one place and quiet in another.\\n\\n**One shape, two weights.** Every badge is the same size, radius and type scale; the tone carries the domain's own distinction. A hard stop is solid (`bg-rose-600`, bold) — the card has always drawn a blockage that way, \\\"so a blockage anywhere beneath it reads at a glance rather than as another piece of metadata\\\" — and something to watch is pale, ringed and lighter in weight, so a card carrying four watches does not shout the way a card carrying a blockage does. The words and the titles are the domain's: a badge never invents its own vocabulary.\\n\\n**Two exceptions the card owns**, both commented at the site: \\\"nothing below\\\" is not repeated as a badge because the children row already says it where the pips would be; and a blockage rolled up from team cards keeps the softer tone and the \\\"blocked below\\\" wording the card has always given it, so a programme reader is not shouted at with a fact three levels down. \\\"Waiting on\\\" moved out of the footer into the set: it is the one warning the health rules do not own, because it is about the item itself rather than the work below it. The dependents signal joined the set too, in the same shape and tone as the other watches.\\n\\n**Cost, measured, because health is the one derivation on this surface that is not linear in the size of the board** — the waiting rule walks the links once per open descendant and the staleness rule looks up a placement for each of them. On `?stress=300` (298 cards, nine initiatives) it is worth about 33ms per change to the work. So it is computed once per change to the work rather than once per render, in a `useMemo` keyed on the store's own arrays plus the day (one rule counts days, and a board left open overnight must not go on saying \\\"still 12d\\\"). Measured A/B against the previous commit: a selection on the stress board costs 118.5ms before and 114-122ms after — the memo holds, and the interactive path pays nothing. The residual is a domain-side characteristic the dashboard has always had (O(open × links)); a links-by-endpoint index in `derive` would fix it for both surfaces, and is not done here.",
+        "testStrategy": "No component tests exist (the vitest environment is node), so this is verified in the browser. On the Growth value stream: `1 blocked below` renders pale with the softened wording on the board's own flow while `1 blocked` renders solid in the Linked boards band beneath it; `1 waiting` is solid and `still 7d` / `21 pts below` / `2 backlog` / `1 due later` are pale; all of them sit in one row under the bar. On Team Atlas the pips are visibly larger, and the cards workflow's narrow cards are unchanged. `npm test` (312), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T04:30:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T03:20:00.000Z",
-      "taskCount": 88,
-      "completedCount": 75,
+      "lastModified": "2026-10-18T04:30:00.000Z",
+      "taskCount": 89,
+      "completedCount": 76,
       "tags": [
         "backlog"
       ]

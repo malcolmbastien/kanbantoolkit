@@ -1,10 +1,11 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ArrowUp, Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { ArrowUp, Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
+import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
 import { PriorityBadge } from './PriorityBadge'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
@@ -57,6 +58,12 @@ interface Props {
   /** Wide "summary" card for management/initiative boards: progress bar + symbols. */
   wide?: boolean
   symbols?: CardSymbol[]
+  /**
+   * The initiative's health flags, as `initiativeHealth` finds them — the same rules, the same
+   * words and the same tones the dashboard's Health column reads. Given only on the initiatives
+   * surface: a card has no rollup, and the flags are all about what is below it.
+   */
+  flags?: HealthFlagInfo[]
   /**
    * How blocked descendants roll up onto this card:
    * - `detail`   — precise, red (team initiative: "N blocked")
@@ -131,6 +138,22 @@ function DoneStamp() {
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
 /**
+ * The shape of a warning badge.
+ *
+ * One shape for every warning on an initiative, so the eye learns where they are and what they
+ * look like; the *weight* carries the domain's own distinction between the two tones. A hard stop
+ * is solid — the card has always drawn a blockage that way, "so a blockage anywhere beneath it
+ * reads at a glance rather than as another piece of metadata" — and something to watch is pale
+ * with a ring. The words are `initiativeHealth`'s, and so is the title: a badge is never asked to
+ * explain itself in its own vocabulary.
+ */
+const BADGE = 'shrink-0 rounded px-1.5 py-0.5 text-micro'
+const badgeTone = (tone: 'risk' | 'watch') =>
+  // The hard stop is solid and bold; something to watch is pale, ringed and lighter in weight, so
+  // a card carrying four watches does not shout the way a card carrying a blockage does.
+  tone === 'risk' ? 'bg-rose-600 font-semibold text-white' : 'bg-amber-100 font-medium text-amber-800 ring-1 ring-amber-300'
+
+/**
  * The keyboard half of a card.
  *
  * A card is a **group**, not a button: it holds its own controls (the actions menu, the parent
@@ -164,7 +187,7 @@ const cardKeyboard = (
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kinds, onSetKind, tags, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
       ? onLift
@@ -291,7 +314,45 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
       .map((s) => `${s.n} ${STAGE_LABELS[s.stage].toLowerCase()}`)
       .join(', ')
     const MAX_PIPS = 12
-    const warn = Boolean(blockedChip) || summary.dependentsCount > 0 || (summary.uncommittedBelow ?? 0) > 0
+    // One set, one place. The health rules are the source — the same words and tones the
+    // dashboard reads — with the two exceptions the card is responsible for: "nothing below" is
+    // already said where the pips would be, and a blockage rolled up from team cards keeps the
+    // softer tone the card has always given it, so a programme reader is not shouted at with a
+    // fact three levels down. "Waiting on" joins them: it is the one warning the health rules do
+    // not own, because it is about the item itself rather than the work below it.
+    const badges: { key: string; label: string; why: string; tone: 'risk' | 'watch' }[] = [
+      ...(flags ?? [])
+        .filter((f) => f.flag !== 'unplanned')
+        .map((f) => {
+          const soft = f.flag === 'blocked' && blockedTone === 'aggregate'
+          return {
+            key: f.flag,
+            label: soft ? `${summary.blockedBelow} blocked below` : f.label,
+            why: soft ? `${summary.blockedBelow} blocked below — rolled up from team cards` : f.why,
+            tone: soft ? ('watch' as const) : f.tone,
+          }
+        }),
+      ...(summary.dependentsCount > 0
+        ? [
+            {
+              key: 'dependents',
+              label: `${summary.dependentsCount} ${summary.dependentsCount === 1 ? 'depends' : 'depend'} on it`,
+              why: `${summary.dependentsCount} item${summary.dependentsCount === 1 ? '' : 's'} depend on this — if it slips, they are blocked`,
+              tone: 'watch' as const,
+            },
+          ]
+        : []),
+      ...(boundary
+        ? [
+            {
+              key: 'boundary',
+              label: 'waiting on',
+              why: 'Waiting on an external dependency — see the boundary lane',
+              tone: 'watch' as const,
+            },
+          ]
+        : []),
+    ]
 
     return (
       <div
@@ -354,7 +415,7 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
                 {pips.slice(0, MAX_PIPS).map((p, i) => (
                   <span
                     key={i}
-                    className={cn('h-3 w-3 shrink-0 rounded-[3px]', BUCKET_DOT[p.bucket])}
+                    className={cn('h-4 w-4 shrink-0 rounded', BUCKET_DOT[p.bucket])}
                     title={`${p.title} — ${STAGE_LABELS[p.bucket]}`}
                   />
                 ))}
@@ -390,27 +451,16 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
             <div className="h-full transition-all" style={{ width: `${pct ?? 0}%`, backgroundColor: barColor(pct) }} />
           </div>
 
-          {/* Warnings, and the only other thing on the card allowed colour. Never hidden. */}
-          {warn && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro">
-              {blockedChip}
-              {summary.dependentsCount > 0 && (
-                <span
-                  className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px font-bold text-white"
-                  title={`${summary.dependentsCount} depend on this`}
-                >
-                  <ShieldAlert size={9} /> {summary.dependentsCount}
+          {/* The warnings, as one set of badges in one place — always here, between the work and
+              the quiet footer, so a reader scanning a column knows where to look. Never hidden,
+              and never softened into the metadata around them. */}
+          {badges.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              {badges.map((b) => (
+                <span key={b.key} className={cn(BADGE, badgeTone(b.tone))} title={b.why}>
+                  {b.label}
                 </span>
-              )}
-              {(summary.uncommittedBelow ?? 0) > 0 && (
-                <span
-                  className="flex items-center gap-0.5 rounded bg-amber-100 px-1 py-px font-semibold text-amber-800 ring-1 ring-amber-300"
-                  title={`${summary.uncommittedBelow} card${summary.uncommittedBelow === 1 ? '' : 's'} below are still in Backlog — this initiative is committed, so its work should be too`}
-                >
-                  <TriangleAlert size={11} /> {summary.uncommittedBelow}
-                  <span className="hidden @[300px]:inline">uncommitted below</span>
-                </span>
-              )}
+              ))}
             </div>
           )}
 
@@ -430,14 +480,6 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
               </button>
             )}
             <TagChips tags={tags} />
-            {boundary && (
-              <span
-                className="flex items-center gap-0.5 font-semibold text-amber-600"
-                title="Waiting on an external dependency — see the boundary lane"
-              >
-                <Link2 size={11} /> waiting on
-              </span>
-            )}
             {summary.linksCount > 0 && (
               <span className="flex items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
                 <Link2 size={11} /> {summary.linksCount}
@@ -680,6 +722,8 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.tags && b.tags && a.tags.some((t, i) => t.id !== b.tags![i].id || t.name !== b.tags![i].name || t.color !== b.tags![i].color)) return false
   if (a.symbols?.length !== b.symbols?.length) return false
   if (a.symbols && b.symbols && a.symbols.some((sym, i) => sym.bucket !== b.symbols![i].bucket || sym.title !== b.symbols![i].title)) return false
+  if (a.flags?.length !== b.flags?.length) return false
+  if (a.flags && b.flags && a.flags.some((f, i) => f.flag !== b.flags![i].flag || f.label !== b.flags![i].label || f.tone !== b.flags![i].tone)) return false
   return summaryEqual(a.summary, b.summary)
 }
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Card, type CardParent } from './Card'
 import { DragLayer } from './DragLayer'
 import { DropGap } from './DropGap'
@@ -22,7 +22,8 @@ import {
   uncommittedBelow,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks, initiativeTypeById, tagsOf } from '@/domain/board'
+import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
+import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks, initiativeTypeById, isInitiativeItem, tagsOf } from '@/domain/board'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -93,6 +94,29 @@ export function BoardSummary({
   const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
 
   const graph: Graph = { items, edges, links, placements, lanes }
+
+  /**
+   * Every initiative's health, found once per change to the work rather than once per render.
+   *
+   * This is the one derivation on this surface that is not linear in the size of the board: the
+   * waiting rule walks the links once for each open descendant, and the staleness rule looks up a
+   * placement for each of them, so a programme of three hundred cards costs more than a card
+   * does by more than three hundred times. A re-render for a selection, a filter or a lens — which
+   * is most of them — does not touch the work, so it does not recompute this.
+   *
+   * The day is part of the key because one of the rules counts days: without it a board left open
+   * overnight would go on saying "still 12d".
+   */
+  const today = Math.floor(Date.now() / 86_400_000)
+  const health = useMemo(() => {
+    const now = Date.now()
+    const found = new Map<string, HealthFlagInfo[]>()
+    for (const c of items) {
+      if (!isInitiativeItem(c, issueTypes)) continue
+      found.set(c.id, initiativeHealth(c.id, { items, edges, links, placements, lanes }, now).flags)
+    }
+    return found
+  }, [items, edges, links, placements, lanes, issueTypes, today])
   const refs = buildRefs(items, issueTypes)
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
@@ -250,6 +274,9 @@ export function BoardSummary({
         wide
         users={users}
         symbols={symbols}
+        // The same health rules the dashboard's Health column reads, in the same words — so an
+        // initiative cannot be "at risk" in one place and quiet in another.
+        flags={health.get(c.id)}
         blockedTone={isInitiatives ? 'aggregate' : 'detail'}
         // A kind is a board's own label for its own outcomes, so it is offered where the board
         // owns them — its own initiatives flow, not the bands another board's flow shows through.
