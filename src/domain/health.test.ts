@@ -164,7 +164,7 @@ describe('initiative health', () => {
     graph.items[0] = { ...graph.items[0], size: 1 }
     graph.placements = graph.placements.map((p) => ({ ...p, laneEnteredAt: NOW - 9 * DAY }))
     const shaped = initiativeHealth('init', graph, NOW).flags
-    expect(shaped.map((f) => f.flag)).toEqual(['stale', 'oversized'])
+    expect(shaped.map((f) => f.flag)).toEqual(['stale'])
     for (const f of shaped) expect(f.items).toBeUndefined()
 
     const empty = initiativeHealth('init', { ...healthy(), edges: [], placements: [] }, NOW).flags
@@ -172,21 +172,11 @@ describe('initiative health', () => {
     expect(empty[0].items).toBeUndefined()
   })
 
-  it('says when the work below is bigger than the initiative claims, or due after it is due', () => {
+  it('says when the work below is due after the initiative is due', () => {
     const graph = healthy()
-    // The initiative claims 2 points; the three unsized cards below it add up to 3.
-    graph.items[0] = { ...graph.items[0], size: 2, targetEndDate: '2026-10-30' }
-    const big = initiativeHealth('init', graph, NOW)
-    expect(big.flags.map((f) => f.flag)).toEqual(['oversized'])
-    expect(big.flags[0].label).toBe('3 pts below')
-    expect(big.flags[0].why).toBe('The work below adds up to 3 points; this initiative estimates 2')
-    expect(big.flags[0].tone).toBe('watch') // a watch: the numbers are surfaced, never enforced
-
-    // Raise the claim to cover the work and it clears.
-    graph.items[0] = { ...graph.items[0], size: 3 }
-    expect(initiativeHealth('init', graph, NOW).flags).toEqual([])
-
-    // A card due after the initiative is due.
+    // An initiative has no estimate of its own, so there is nothing to compare the work below
+    // against: the size warning has no input and no rule. The date warning is the one left.
+    graph.items[0] = { ...graph.items[0], targetEndDate: '2026-10-30' }
     graph.items[1] = { ...graph.items[1], targetEndDate: '2026-11-15' }
     const late = initiativeHealth('init', graph, NOW)
     expect(late.flags.map((f) => f.flag)).toEqual(['outlasted'])
@@ -197,13 +187,12 @@ describe('initiative health', () => {
     expect(initiativeHealth('init', graph, NOW).flags).toEqual([])
 
     // Work that is already delivered is not "due after" anything — even when it is the only
-    // dated card below. The size warning is unaffected: it is about the work, not the claim.
-    graph.items[0] = { ...graph.items[0], size: 2, targetEndDate: '2026-10-30' }
+    // dated card below.
     graph.items[1] = { ...graph.items[1], resolvedAt: NOW - DAY }
     graph.placements = graph.placements.map((p) => (p.itemId === 'a' ? { ...p, laneId: 'done' } : p))
-    expect(initiativeHealth('init', graph, NOW).flags.map((f) => f.flag)).toEqual(['oversized'])
+    expect(initiativeHealth('init', graph, NOW).flags).toEqual([])
 
-    // Neither fires on an initiative with nothing below it, whatever it claims.
+    // Neither rule fires on an initiative with nothing below it.
     const empty: Graph = { ...graph, edges: [], placements: [] }
     expect(initiativeHealth('init', empty, NOW).flags.map((f) => f.flag)).toEqual(['unplanned'])
   })

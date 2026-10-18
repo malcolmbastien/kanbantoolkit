@@ -823,30 +823,35 @@ export function ItemPanel({ itemId }: Props) {
                 </div>
               </Field>
 
-              <Field label="Estimate">
-                <div className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm">
-                  <input
-                    type="number"
-                    min={0}
-                    value={item.size ?? ''}
-                    onChange={(e) => setItemFields(item.id, { size: e.target.value === '' ? undefined : Number(e.target.value) })}
-                    placeholder="—"
-                    className="w-12 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
-                  />
-                  <span className="text-meta text-slate-600">pts</span>
-                </div>
-                {/* An initiative's estimate is a claim about work that is not here yet; the work
-                    below is the reality. Both numbers, so a claim that is too small can be seen to
-                    be too small — the health flag says so too, in words. */}
-                {isInitiative && roll.size > 0 && (
-                  <span
-                    className="text-micro text-slate-600"
+              {isInitiative ? (
+                /* An initiative has no estimate: its size is the sum of the sizes of the items
+                   below it. So the field reads rather than writes, and says why. */
+                <Field label="Size below">
+                  <div
+                    className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm"
                     title="The sizes of the leaf work below this initiative, unsized work counting as 1"
                   >
-                    {roll.size} pts below
-                  </span>
-                )}
-              </Field>
+                    <span className="min-w-0 flex-1 truncate text-meta font-semibold tabular-nums text-slate-700">
+                      {roll.size} pts
+                    </span>
+                  </div>
+                  <span className="text-micro text-slate-600">Derived from the work below, never entered.</span>
+                </Field>
+              ) : (
+                <Field label="Estimate">
+                  <div className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm">
+                    <input
+                      type="number"
+                      min={0}
+                      value={item.size ?? ''}
+                      onChange={(e) => setItemFields(item.id, { size: e.target.value === '' ? undefined : Number(e.target.value) })}
+                      placeholder="—"
+                      className="w-12 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
+                    />
+                    <span className="text-meta text-slate-600">pts</span>
+                  </div>
+                </Field>
+              )}
 
               <Field label="Target start">
                 <div className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm">

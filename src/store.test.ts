@@ -552,6 +552,21 @@ describe('store actions', () => {
     expect('status' in migrated.links[0]).toBe(false)
   })
 
+  it('migrateState drops an estimate on an initiative and keeps one on a card', () => {
+    const migrated = migrateState({
+      issueTypes: [
+        { id: 't-initiative', name: 'Initiative', color: '#6366f1' },
+        { id: 't-story', name: 'User Story', color: '#0ea5e9' },
+      ],
+      items: [
+        { id: 'init', title: 'An initiative', typeId: 't-initiative', createdAt: 0, size: 8 },
+        { id: 'card', title: 'A card', typeId: 't-story', createdAt: 0, size: 3 },
+      ],
+    }) as { items: { id: string; size?: number }[] }
+    expect(migrated.items.find((i) => i.id === 'init')!.size).toBeUndefined()
+    expect(migrated.items.find((i) => i.id === 'card')!.size).toBe(3)
+  })
+
   it('migrateState keeps one objective per initiative, dropping the rest', () => {
     // State from before the rule: one initiative mapped to two objectives. The first is kept —
     // the choice that was made first — and the others were choices the model no longer offers.
@@ -781,6 +796,21 @@ describe('store actions', () => {
     // …but a strategic initiative (an Initiative on a portfolio board) can.
     s().setAttribution('init-explore', 'obj-efficiency', true)
     expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-explore')).toBe(true)
+  })
+
+  it('an estimate belongs to a card: an initiative refuses one', () => {
+    const sizeOf = (id: string) => s().items.find((i) => i.id === id)!.size
+
+    s().setItemFields('st-email', { size: 8 })
+    expect(sizeOf('st-email')).toBe(8)
+    // An initiative's size is the sum of the sizes of the items below it, so the field is refused
+    // by the model rather than only hidden by the panel — the same shape as the type guard.
+    s().setItemFields('init-signup', { size: 8 })
+    expect(sizeOf('init-signup')).toBeUndefined()
+    // A patch that carries a size *and* something else keeps the something else.
+    s().setItemFields('init-signup', { size: 8, priority: 'high' })
+    expect(sizeOf('init-signup')).toBeUndefined()
+    expect(s().items.find((i) => i.id === 'init-signup')!.priority).toBe('high')
   })
 
   it('an initiative serves one objective: mapping it to a second moves it', () => {
@@ -1349,19 +1379,17 @@ describe('store actions', () => {
 
     // Team Atlas' initiative: a blocked card below it, a card waiting on work that is not done
     // (both risks — someone else can see them), nothing moved below for twelve days, one committed
-    // card nobody owns, and work that adds up to more than the initiative estimates (15 points
-    // below against a claim of 13).
+    // card nobody owns. An initiative has no estimate, so the size warning is not among them.
     const before = health()
     expect(before.level).toBe('atRisk')
-    expect(before.flags.map((f) => f.flag)).toEqual(['blocked', 'waiting', 'stale', 'unowned', 'oversized'])
-    expect(before.flags.at(-1)!.why).toContain('15 points')
+    expect(before.flags.map((f) => f.flag)).toEqual(['blocked', 'waiting', 'stale', 'unowned'])
     expect(before.flags[0].label).toBe('1 blocked')
     expect(before.flags[1].why).toContain('wait on work that is not done')
     expect(before.flags[2].tone).toBe('watch')
 
     // Unblocking one card clears one flag and no more: each rule answers for itself.
     s().unblockItem('st-sso')
-    expect(health().flags.map((f) => f.flag)).toEqual(['waiting', 'stale', 'unowned', 'oversized'])
+    expect(health().flags.map((f) => f.flag)).toEqual(['waiting', 'stale', 'unowned'])
 
     // Deliver the two cards that were waiting (the seed links the gateway to both): the
     // dependency risk goes with them. The staleness is still there — nothing *else* below has
@@ -1369,12 +1397,12 @@ describe('store actions', () => {
     const done = laneByName('b-atlas', 'Done').id
     s().moveCard('st-email', 'b-atlas', done)
     s().moveCard('st-sso', 'b-atlas', done)
-    expect(health().flags.map((f) => f.flag)).toEqual(['stale', 'unowned', 'oversized'])
+    expect(health().flags.map((f) => f.flag)).toEqual(['stale', 'unowned'])
 
     // Move the last card still sitting there, and the stale flag clears too.
     s().moveCard('st-signup-form', 'b-atlas', done)
     const after = health()
-    expect(after.flags.map((f) => f.flag)).toEqual(['unowned', 'oversized'])
+    expect(after.flags.map((f) => f.flag)).toEqual(['unowned'])
     expect(after.level).toBe('watch')
 
     // And an initiative with nothing under it has nothing to roll up.

@@ -331,13 +331,13 @@ export function rollupOf(id: string, graph: Graph): Rollup {
   const committed = total - backlog
   const done = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).resolved).length
   const started = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).started).length
-  // Progress is the size of the delivered work over the size of the committed work, so finishing
-  // a 13-point epic moves it more than finishing a 2-point task. The counts above stay counts:
-  // they are what says how many pieces there are, and the two never have to agree.
+  // Progress is the size of the delivered work over the size of *all* the work below it, the
+  // Backlog included: unplanned work is still work, so adding a card moves the number back. The
+  // counts above stay counts — they say how many pieces there are, and the two never have to agree.
   const points = (l: Item) => l.size ?? 1
-  const committedPoints = leaves.reduce((sum, l) => (isBacklog(l) ? sum : sum + points(l)), 0)
+  const allPoints = leaves.reduce((sum, l) => sum + points(l), 0)
   const donePoints = leaves.reduce((sum, l) => (!isBacklog(l) && statusOf(l.id, graph).resolved ? sum + points(l) : sum), 0)
-  const percent = total === 0 || committedPoints === 0 ? 0 : Math.round((donePoints / committedPoints) * 100)
+  const percent = allPoints === 0 ? 0 : Math.round((donePoints / allPoints) * 100)
   // `leafItems` answers with the item itself when it has no children, so the sum is taken over
   // the leaves *other* than the item: what is below, not what is here.
   const size = leaves.reduce((sum, l) => (l.id === id ? sum : sum + (l.size ?? 1)), 0)

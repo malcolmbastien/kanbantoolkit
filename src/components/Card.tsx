@@ -482,7 +482,6 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
                 <ListChecks size={11} /> {summary.checklist.done}/{summary.checklist.total}
               </span>
             )}
-            {item.size ? <span title="This initiative's own estimate — the work below is what rolls up">{item.size} pts</span> : null}
             <span className="ml-auto flex items-center gap-2">
               {assignees.length > 0 && (
                 <span className="flex items-center gap-0.5">

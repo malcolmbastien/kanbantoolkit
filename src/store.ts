@@ -891,6 +891,19 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return true
     })
   }
+  // v32: an initiative has no estimate — its size is the sum of the sizes of the items below it.
+  // State from before the rule loses the estimate on an initiative and keeps it on a card, so a
+  // number the model would refuse cannot come back through a reload or an import.
+  if (Array.isArray(p.items) && Array.isArray(p.issueTypes)) {
+    const initiativeType = (p.issueTypes as { id: string; name: string }[]).find((t) => t.name === 'Initiative')?.id
+    if (initiativeType) {
+      p.items = (p.items as (Item & { size?: number })[]).map((i) => {
+        if (i.typeId !== initiativeType || !('size' in i)) return i
+        const { size: _gone, ...rest } = i
+        return rest
+      })
+    }
+  }
   // v29: a board carries its own description — the legend opens with it. Backfill with the
   // empty string, which the legend then prompts about.
   if (Array.isArray(p.boards)) {
@@ -924,7 +937,7 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
  * Exported for testing.
  */
 /** The current persisted workspace shape — every schema change bumps it with a migrate. */
-export const PERSIST_VERSION = 31
+export const PERSIST_VERSION = 32
 
 export function persistedSlice(s: Store): Partial<Store> {
   const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
@@ -1882,7 +1895,12 @@ export const useStore = create<Store>()(
             // here too: the rule is the model's, not the UI's.
             const allowed = !patch.typeId || canRetype(i, patch.typeId, state.issueTypes)
             const { typeId: _reserved, ...rest } = patch
-            const next: Item = { ...i, ...(allowed ? patch : rest) }
+            // An initiative has no estimate — its size is the sum of the sizes of the items below
+            // it — so the field is dropped for one, the same way the type is. The panel's control
+            // is hidden for an initiative too; this is the rule rather than the courtesy.
+            const { size: _noEstimate, ...noSize } = allowed ? patch : rest
+            const fields = isInitiativeItem(i, state.issueTypes) ? noSize : allowed ? patch : rest
+            const next: Item = { ...i, ...fields }
             // What changed is part of the record — and a change the model refused changed
             // nothing, so it says nothing.
             const entries = fieldEditEntries(i, next, state)

@@ -147,24 +147,23 @@ export function createSeed(): FlowState {
    * ---------------------------------------------------------------- */
 
   item('init-revenue', 'Recurring revenue engine', 't-initiative', {
-    size: 89,
     assignees: ['u-mb'],
     targetStartDate: '2026-10-01',
     targetEndDate: '2027-03-31',
   })
-  item('init-margin', 'Gross margin programme', 't-initiative', { size: 55, assignees: ['u-ds'], targetEndDate: '2027-06-30' })
+  item('init-margin', 'Gross margin programme', 't-initiative', { assignees: ['u-ds'], targetEndDate: '2027-06-30' })
   // Serves no OKR on purpose: the coverage gap a strategy map is for.
-  item('init-trust', 'Enterprise trust', 't-initiative', { size: 34, assignees: ['u-jt'], targetEndDate: '2027-01-31' })
+  item('init-trust', 'Enterprise trust', 't-initiative', { assignees: ['u-jt'], targetEndDate: '2027-01-31' })
 
-  item('init-selfserve', 'Self-serve growth', 't-initiative', { size: 55, assignees: ['u-mb'], targetEndDate: '2027-02-28' })
-  item('init-consolidation', 'Platform consolidation', 't-initiative', { size: 34, assignees: ['u-ds'], targetEndDate: '2027-05-31' })
+  item('init-selfserve', 'Self-serve growth', 't-initiative', { assignees: ['u-mb'], targetEndDate: '2027-02-28' })
+  item('init-consolidation', 'Platform consolidation', 't-initiative', { assignees: ['u-ds'], targetEndDate: '2027-05-31' })
 
-  item('init-checkout', 'Checkout & billing', 't-initiative', { size: 34, assignees: ['u-ds'], targetEndDate: '2027-01-31' })
-  item('init-data', 'Data platform', 't-initiative', { size: 21, assignees: ['u-lm'], targetEndDate: '2027-04-30' })
+  item('init-checkout', 'Checkout & billing', 't-initiative', { assignees: ['u-ds'], targetEndDate: '2027-01-31' })
+  item('init-data', 'Data platform', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2027-04-30' })
 
-  item('init-journey', 'Onboarding journey', 't-initiative', { size: 34, assignees: ['u-mb'], targetEndDate: '2026-12-31' })
-  item('init-reliability', 'Reliability programme', 't-initiative', { size: 21, assignees: ['u-rk'], targetEndDate: '2027-02-28' })
-  item('init-sso', 'Enterprise SSO', 't-initiative', { size: 13, assignees: ['u-jt'], targetEndDate: '2026-12-15' })
+  item('init-journey', 'Onboarding journey', 't-initiative', { assignees: ['u-mb'], targetEndDate: '2026-12-31' })
+  item('init-reliability', 'Reliability programme', 't-initiative', { assignees: ['u-rk'], targetEndDate: '2027-02-28' })
+  item('init-sso', 'Enterprise SSO', 't-initiative', { assignees: ['u-jt'], targetEndDate: '2026-12-15' })
 
   decompose('init-revenue', ['init-selfserve'])
   decompose('init-margin', ['init-consolidation'])
@@ -177,10 +176,10 @@ export function createSeed(): FlowState {
    * that reaches across to Team Nova.
    * ---------------------------------------------------------------- */
 
-  item('init-signup-redesign', 'Signup redesign', 't-initiative', { size: 13, assignees: ['u-mb', 'u-rk'], targetEndDate: '2026-12-31' })
-  item('init-trial', 'Trial experience', 't-initiative', { size: 8, assignees: ['u-lm'], targetEndDate: '2027-01-31' })
-  item('init-billing', 'Billing migration', 't-initiative', { size: 21, assignees: ['u-ds'], targetEndDate: '2027-02-28' })
-  item('init-slo', 'SLOs & error budgets', 't-initiative', { size: 5, assignees: ['u-rk'] })
+  item('init-signup-redesign', 'Signup redesign', 't-initiative', { assignees: ['u-mb', 'u-rk'], targetEndDate: '2026-12-31' })
+  item('init-trial', 'Trial experience', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2027-01-31' })
+  item('init-billing', 'Billing migration', 't-initiative', { assignees: ['u-ds'], targetEndDate: '2027-02-28' })
+  item('init-slo', 'SLOs & error budgets', 't-initiative', { assignees: ['u-rk'] })
 
   decompose('init-journey', ['init-signup-redesign', 'init-trial'])
   decompose('init-checkout', ['init-billing'])
@@ -279,12 +278,12 @@ export function createSeed(): FlowState {
    * data work underneath the margin programme.
    * ---------------------------------------------------------------- */
 
-  item('init-identity', 'Identity platform', 't-initiative', { size: 21, assignees: ['u-jt', 'u-ds'], targetEndDate: '2026-12-15' })
-  item('init-audit', 'Audit & compliance', 't-initiative', { size: 13, assignees: ['u-lm'], targetEndDate: '2027-01-31' })
-  item('init-lakehouse', 'Lakehouse cutover', 't-initiative', { size: 21, assignees: ['u-ds'], targetEndDate: '2027-03-31' })
-  item('init-observability', 'Observability', 't-initiative', { size: 8, assignees: ['u-rk'], targetEndDate: '2027-02-28' })
+  item('init-identity', 'Identity platform', 't-initiative', { assignees: ['u-jt', 'u-ds'], targetEndDate: '2026-12-15' })
+  item('init-audit', 'Audit & compliance', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2027-01-31' })
+  item('init-lakehouse', 'Lakehouse cutover', 't-initiative', { assignees: ['u-ds'], targetEndDate: '2027-03-31' })
+  item('init-observability', 'Observability', 't-initiative', { assignees: ['u-rk'], targetEndDate: '2027-02-28' })
   // Nothing under it yet — the "nothing below" health rule, on purpose.
-  item('init-data-quality', 'Data quality guardrails', 't-initiative', { size: 5, assignees: ['u-lm'], targetEndDate: '2027-04-30' })
+  item('init-data-quality', 'Data quality guardrails', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2027-04-30' })
 
   decompose('init-sso', ['init-identity'])
   decompose('init-trust', ['init-audit'])

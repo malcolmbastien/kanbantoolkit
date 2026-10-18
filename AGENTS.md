@@ -75,10 +75,17 @@ task-master list            # terminal 2
   program board has no cards workflow to edit from.
 - **Rollup reads leaves only, and never claims completion early.** All done → `done`; anything
   under way → `inProgress`; anything committed → `notStarted`; every leaf uncommitted →
-  `backlog`. A Backlog leaf does **not** drag its parent backwards — a partly-planned
-  initiative is still in progress. The inconsistency is surfaced, not enforced: when a
-  committed item (Not Started / In Progress) sits over Backlog leaves, `uncommittedBelow`
-  raises a **warning** on the card. Never a block, never an auto-correction.
+  `backlog`. A Backlog leaf does **not** drag its parent's *status* backwards — a partly-planned
+  initiative is still in progress — but it does count in `Rollup.percent`, which is the size of
+  the delivered leaves over the size of **all** the leaves below an item, unsized counting as 1.
+  Unplanned work is work, so adding it moves the number back; the counts stay counts, beside it.
+  The inconsistency is surfaced, not enforced: when a committed item (Not Started / In Progress)
+  sits over Backlog leaves, `uncommittedBelow` raises a **warning** on the card. Never a block,
+  never an auto-correction.
+- **An initiative has no estimate.** Its size is the sum of the sizes of the items below it, and
+  the field is refused for one the way a kind is refused for a card — a card keeps its estimate.
+  The health rules that read an initiative's own numbers therefore lose their input: the size
+  warning is gone, the date warning (`outlasted`) stays.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
   placed by rollup (card children are drill-in). **Only a board that renders a cards workflow makes

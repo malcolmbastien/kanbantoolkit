@@ -38,7 +38,7 @@ describe('generic hierarchy — parent / child', () => {
   const s = createFixture()
   const g = graphOf(s)
 
-  it('weighs progress by size, so a big leaf counts for more than a small one', () => {
+  it('weighs progress by size, and counts every leaf in the denominator', () => {
     const item = (id: string, size: number | undefined, extra: Partial<Item> = {}): Item => ({
       id,
       title: id,
@@ -78,18 +78,45 @@ describe('generic hierarchy — parent / child', () => {
     // the difference, which is the whole reason for weighting.
     expect(rollupOf('init', g([2, 13, 13])).percent).toBe(7)
 
-    // Backlog leaves are out of both halves, so a partly-planned initiative is not dragged to 0%.
+    // A Backlog leaf counts in the denominator: unplanned work is work, so it drags the number
+    // back rather than flattering it.
     const withBacklog = rollupOf('init', g([13, 2, 2], true))
-    expect(withBacklog.percent).toBe(87) // 13 of 15, the queued 2 ignored
+    expect(withBacklog.percent).toBe(76) // 13 of 17 — the queued 2 counts
     expect(withBacklog.uncommitted).toBe(1)
 
-    // Every committed leaf done is 100% — and still not done, because one is unplanned.
+    // Two of five delivered is 50, whatever the commitment of the rest: the number is the work.
     const nearly = rollupOf('init', {
       ...g([2, 3, 5], true),
       placements: [at('a', 'done'), at('b', 'done'), at('c', 'backlog')],
     })
-    expect(nearly.percent).toBe(100)
+    expect(nearly.percent).toBe(50)
     expect(nearly.bucket).not.toBe('done')
+
+    // Three equal unsized pieces, one of them still in Backlog: 1 of 3.
+    expect(rollupOf('init', g([undefined, undefined, undefined], true)).percent).toBe(33)
+
+    // A two-leaf initiative, so the arithmetic is plain: `a` is delivered, `b` is not.
+    const two = (delivered: number | undefined, left: number | undefined, leftStage: 'backlog' | 'ip' = 'ip'): Graph => ({
+      items: [item('init', undefined, { typeId: 't-initiative' }), item('a', delivered, { resolvedAt: 1 }), item('b', left)],
+      edges: [edge('init', 'a'), edge('init', 'b')],
+      links: [],
+      placements: [at('a', 'done'), at('b', leftStage)],
+      lanes: [lane('done', 'done'), lane('ip', 'inProgress'), lane('backlog', 'backlog')],
+    })
+    expect(rollupOf('init', two(8, 2, 'backlog')).percent).toBe(80) // 8 of 10
+    expect(rollupOf('init', two(undefined, undefined, 'backlog')).percent).toBe(50) // unsized = 1
+    expect(rollupOf('init', two(undefined, 1, 'backlog')).percent).toBe(50) // …and a sized 1 is the same
+    // The value is a whole number in the range 0 to 100, in every shape.
+    for (const p of [
+      rollupOf('init', two(8, 2, 'backlog')).percent,
+      rollupOf('init', two(undefined, undefined)).percent,
+      rollupOf('init', two(1, undefined, 'backlog')).percent,
+      rollupOf('init', g([13, 2, 2], true)).percent,
+    ]) {
+      expect(Number.isInteger(p)).toBe(true)
+      expect(p).toBeGreaterThanOrEqual(0)
+      expect(p).toBeLessThanOrEqual(100)
+    }
 
     // The bucket reads the leaves' stages and not the percentage: sizes never move a status.
     expect(rollupOf('init', g([1, 1, 1])).bucket).toBe(rollupOf('init', g([13, 2, 2])).bucket)
@@ -358,10 +385,10 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
     expect(roll.percent).toBe(100)
   })
 
-  it('reads 100% without being done when one leaf is still unplanned', () => {
-    // The Done stamp is `bucket === 'done'`, so this is the case that would make it lie:
-    // every committed leaf finished, so the percentage reads 100, while one leaf sits in
-    // Backlog. Completion is counted against every leaf, not against the committed ones.
+  it('the percentage agrees with the bucket when one leaf is still unplanned', () => {
+    // This used to be the case that made the number and the bucket disagree: every committed leaf
+    // finished, so the percentage read 100 while one leaf sat in Backlog and the bucket refused to
+    // say done. The denominator is every leaf now, so the number says what the bucket says.
     const s2 = createFixture()
     const done = laneByName(s2, 'b-atlas', 'Done')
     const backlog = laneByName(s2, 'b-atlas', 'Backlog')
@@ -373,7 +400,7 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
       return p
     })
     const roll = rollupOf('init-signup', graphOf(s2))
-    expect(roll.percent).toBe(100)
+    expect(roll.percent).toBe(87) // four of five leaves delivered, weighted by size
     expect(roll.bucket).not.toBe('done')
   })
 })

@@ -25,7 +25,7 @@ import { parseDay, STALE_AFTER_DAYS } from './filters'
  * moving, nobody on it, nothing underneath, committed over uncommitted).
  */
 
-export type HealthFlag = 'blocked' | 'waiting' | 'stale' | 'unowned' | 'unplanned' | 'uncommitted' | 'oversized' | 'outlasted'
+export type HealthFlag = 'blocked' | 'waiting' | 'stale' | 'unowned' | 'unplanned' | 'uncommitted' | 'outlasted'
 
 export interface HealthFlagInfo {
   flag: HealthFlag
@@ -39,7 +39,7 @@ export interface HealthFlagInfo {
    * reader *to* the work rather than only tell them it exists.
    *
    * Absent where the rule is about the shape of the whole subtree rather than about particular
-   * cards (`stale`, `oversized`) or about there being none at all (`unplanned`): listing the
+   * cards (`stale`) or about there being none at all (`unplanned`): listing the
    * entire work below under "nothing has moved" would be a list of everything, which is not
    * navigation. The count in the label is always this list's length when it is here, so a badge
    * and the cards it points at can never disagree.
@@ -137,18 +137,11 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
     })
   }
 
-  // The work below, against what the initiative itself says. Two arithmetic warnings — the same
-  // two Businessmap raises an exclamation mark for: the work is bigger than the initiative
-  // claims, or it is due after the initiative is. Both are watches: the numbers are surfaced,
-  // never enforced, and an initiative with nothing below it raises neither.
-  if (item?.size !== undefined && roll.size > item.size) {
-    flags.push({
-      flag: 'oversized',
-      label: `${roll.size} pts below`,
-      why: `The work below adds up to ${roll.size} points; this initiative estimates ${item.size}`,
-      tone: 'watch',
-    })
-  }
+  // The work below, against what the initiative itself says. One arithmetic warning, and the
+  // smaller half of the pair Businessmap raises an exclamation mark for: the work is due after the
+  // initiative is. Its sibling — the work being bigger than the initiative estimates — has no
+  // input left, because an initiative has no estimate: its size is the sum of the items below it.
+  // A watch, never a block, and an initiative with nothing below it raises nothing.
   const ownEnd = parseDay(item?.targetEndDate)?.getTime()
   if (ownEnd !== undefined) {
     const later = open.filter((i) => {

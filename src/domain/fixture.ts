@@ -57,22 +57,22 @@ export function createFixture(): FlowState {
 
   // Strategic initiatives (company strategy) — the top of the chain. OKRs attach
   // here and everything below inherits through the decomposition.
-  item('init-activation', 'Activation Programme', 't-initiative', { size: 74, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
-  item('init-efficiency', 'Operating Efficiency', 't-initiative', { size: 62, assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
+  item('init-activation', 'Activation Programme', 't-initiative', { assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
+  item('init-efficiency', 'Operating Efficiency', 't-initiative', { assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-03-31' })
   // Deliberately carries no OKR — an L3 coverage gap to demonstrate.
-  item('init-explore', 'Exploration Portfolio', 't-initiative', { size: 12, assignees: ['u-jt'], targetEndDate: '2027-06-30' })
+  item('init-explore', 'Exploration Portfolio', 't-initiative', { assignees: ['u-jt'], targetEndDate: '2027-06-30' })
   // Line-of-business initiative.
-  item('init-growth', 'Customer Growth', 't-initiative', { size: 55, assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-01-31' })
+  item('init-growth', 'Customer Growth', 't-initiative', { assignees: ['u-ds'], targetStartDate: '2026-10-01', targetEndDate: '2027-01-31' })
   // Program initiative (Product Delivery) — bridges the teams to the portfolio.
-  item('init-delivery', 'Delivery Excellence', 't-initiative', { size: 24, assignees: ['u-lm'], targetEndDate: '2027-02-28' })
+  item('init-delivery', 'Delivery Excellence', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2027-02-28' })
   // Value-stream initiatives.
-  item('init-onboarding', 'Onboarding Redesign', 't-initiative', { size: 34, assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2026-12-15' })
-  item('init-platform', 'Platform Consolidation', 't-initiative', { size: 40, assignees: ['u-ds'], targetStartDate: '2026-11-01', targetEndDate: '2027-03-31' })
+  item('init-onboarding', 'Onboarding Redesign', 't-initiative', { assignees: ['u-mb'], targetStartDate: '2026-10-01', targetEndDate: '2026-12-15' })
+  item('init-platform', 'Platform Consolidation', 't-initiative', { assignees: ['u-ds'], targetStartDate: '2026-11-01', targetEndDate: '2027-03-31' })
 
   // Team-level initiatives.
-  item('init-signup', 'New signup flow', 't-initiative', { size: 13, assignees: ['u-rk'], targetEndDate: '2026-11-30' })
-  item('init-welcome', 'Welcome experience', 't-initiative', { size: 8, assignees: ['u-lm'], targetEndDate: '2026-11-15' })
-  item('init-gateway', 'API gateway', 't-initiative', { size: 21, assignees: ['u-jt'], targetEndDate: '2027-02-28' })
+  item('init-signup', 'New signup flow', 't-initiative', { assignees: ['u-rk'], targetEndDate: '2026-11-30' })
+  item('init-welcome', 'Welcome experience', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2026-11-15' })
+  item('init-gateway', 'API gateway', 't-initiative', { assignees: ['u-jt'], targetEndDate: '2027-02-28' })
 
   // Cards — Team Atlas.
   item('st-signup-design', 'Design signup screens', 't-story', {
@@ -186,7 +186,6 @@ export function createFixture(): FlowState {
 
   // A filed-away initiative: off the boards, but still linked and searchable.
   item('init-legacy', 'Legacy SSO migration', 't-initiative', {
-    size: 13,
     assignees: ['u-jt'],
     archived: true,
     archivedAt: T + 86_400_000,

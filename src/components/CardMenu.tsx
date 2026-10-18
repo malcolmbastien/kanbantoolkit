@@ -435,7 +435,9 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
             initiatives workflow reads it. */}
         {!selectionHasInitiative && header('type', <Tag size={13} />, 'Type')}
         {selectionAllInitiatives && header('kind', <Shapes size={13} />, 'Kind')}
-        {header('size', <Ruler size={13} />, 'Size', single ? String(only?.size ?? '') : '')}
+        {/* An initiative has no estimate of its own: its size is the sum of the sizes of the
+            items below it, so there is nothing here to set. */}
+        {!selectionHasInitiative && header('size', <Ruler size={13} />, 'Size', single ? String(only?.size ?? '') : '')}
         {header('start', <CalendarClock size={13} />, 'Target start', single ? only?.targetStartDate ?? '' : '')}
         {header('end', <CalendarClock size={13} />, 'Target end', single ? only?.targetEndDate ?? '' : '')}
         {!allBlocked && header('block', <Ban size={13} />, 'Block…')}
