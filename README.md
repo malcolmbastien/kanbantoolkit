@@ -139,7 +139,9 @@ Things to try:
 4. **Initiatives roll up** — open *Onboarding Redesign*: its children are team initiatives (one per team board), never cards; each team initiative's cards roll up into its %.
 5. **Dependency self-cleans** — set "API decision" to Done; the blocked story flips to
    Satisfied with nobody touching it.
-6. **Attribution never inflates** — "Build signup form" serves 2 objectives; WIP stays 1.
+6. **Attribution never inflates** — map *Build signup form* to an objective and the WIP count
+   does not move; map it to a second and it *moves* there instead, because an initiative serves
+   one objective.
 7. **WIP limits are visible, not enforced** — a lane over its limit shows red; moves are never blocked.
 
 ## Architecture

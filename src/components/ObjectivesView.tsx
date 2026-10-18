@@ -241,9 +241,16 @@ export function ObjectivesView() {
                         className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
                       >
                         <option value="">Map an initiative…</option>
-                        {initiatives.map((i) => (
-                          <option key={i.id} value={i.id}>{refs.get(i.id)} {i.title}</option>
-                        ))}
+                        {initiatives.map((i) => {
+                          // One objective per initiative: mapping one that already serves another
+                          // moves it, which the option says before it is chosen.
+                          const from = objectives.find((x) => x.id !== o.id && edges.some((e) => e.kind === 'attribution' && e.from === x.id && e.to === i.id))
+                          return (
+                            <option key={i.id} value={i.id}>
+                              {refs.get(i.id)} {i.title}{from ? ` — moves from ${from.title}` : ''}
+                            </option>
+                          )
+                        })}
                       </select>
                       <button
                         disabled={!attrPick[o.id]}

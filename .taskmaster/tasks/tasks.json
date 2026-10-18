@@ -1431,13 +1431,27 @@
         "testStrategy": "In the browser, per band: a **portfolio** offers `Initiative` alone in the toolbar and `New initiative` alone in the palette; a **programme** the same; a **team** board offers both, in both places. `npm test` (315), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T09:10:00.000Z"
+      },
+      {
+        "id": "96",
+        "title": "An initiative serves one objective",
+        "description": "Reported: the same strategic initiative could be mapped to several OKRs. Restricted to one.",
+        "status": "done",
+        "dependencies": [
+          "93"
+        ],
+        "priority": "high",
+        "details": "Attribution was a relation — many initiatives to many objectives — and the app made a feature of it (\\\"Serves 2 OKRs — still 1 unit of WIP\\\"). It is now **one objective per initiative**, and the shape is the one the rest of the model already uses for a single choice: **choosing again moves it**, the way `setParent` moves a card and a kind replaces a kind. Nothing accumulates, nothing is refused — the choice replaces the choice.\\n\\n`setAttribution` is the one door and keeps the rule: mapping to an objective the initiative already serves changes nothing (rather than adding a second edge), mapping to a new one drops whatever it served before, and unmapping leaves it serving none.\\n\\n**Persistence version 31**, with a migration: state from before the rule keeps the first objective each initiative was mapped to and drops the rest. The same reasoning as v12, which dropped attributions pointing at non-initiatives — an edge the model would refuse is not an edge. Without the bump the normalisation would never run, because zustand only calls `migrate` when the stored version differs.\\n\\n**The panel's control became a choice.** It was a list of checkboxes under \\\"Map an OKR\\\" — a multi-select, which is what the model no longer is, so the control would have been lying about it. It is now the select the kind and the type use, reading \\\"No OKR\\\" or the objective it serves, with that objective's key results under it. The \\\"Serves N OKRs\\\" line is gone with the rule it described.\\n\\n**Both mapping selects say when a choice will move something**: an initiative that already serves another objective is offered as \\\"… — moves from <objective>\\\", so the move is visible before it happens rather than discovered afterwards.\\n\\nThe README's \\\"What to try\\\" bullet made the old rule its example (\\\"serves 2 objectives; WIP stays 1\\\") and now says what happens instead.",
+        "testStrategy": "Two new tests. Store: mapping to a second objective moves it (one edge, the first gone), choosing what it already serves changes nothing, and clearing leaves none. Migration: state carrying two attributions for one initiative keeps the first and drops the second, while other edges are untouched. In the browser: the map's select offers \\\"INIT1 Recurring revenue engine — moves from Grow activation\\\"; mapping it left Grow activation at 0 serving with its coverage note and the gap count at 3, and put it in Reduce cost to serve at 2 serving, in its column; the drawer's control is a select reading \\\"Reduce cost to serve · FY26 Q4\\\", and choosing Grow activation moved it back, one attribution per initiative throughout. `npm test` (317), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T10:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T09:10:00.000Z",
-      "taskCount": 94,
-      "completedCount": 81,
+      "lastModified": "2026-10-18T10:00:00.000Z",
+      "taskCount": 95,
+      "completedCount": 82,
       "tags": [
         "backlog"
       ]

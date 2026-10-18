@@ -878,27 +878,51 @@ export function ItemPanel({ itemId }: Props) {
                 initiative's job, and asking a team to do it card by card is the thing
                 initiatives exist to save them from. */}
             {isInitiative && (
-                <section className="rounded-lg bg-indigo-50/70 p-2.5 ring-1 ring-indigo-100">
+              <section className="rounded-lg bg-indigo-50/70 p-2.5 ring-1 ring-indigo-100">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1 text-micro font-semibold uppercase tracking-wide text-indigo-700">
                     <TrendingUp size={12} /> Strategic impact
                   </span>
                 </div>
 
-                {attributed.length === 0 && isStrategic ? (
-                  <p className="mt-1 text-meta text-indigo-700/70">No OKR maps to this initiative yet.</p>
-                ) : attributed.length === 0 ? null : (
-                  <div className="mt-1.5 space-y-2">
-                    {attributed.map((o) => {
-                      const krs = keyResults.filter((k) => k.objectiveId === o.id)
-                      return (
-                        <div key={o.id} className="space-y-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="min-w-0 truncate text-meta font-medium text-slate-700">{o.title}</span>
-                            <span className="shrink-0 text-meta text-slate-600">{o.period}</span>
-                          </div>
-                          {krs.length === 0 && <p className="text-meta text-slate-600">No key results yet.</p>}
-                          {krs.map((k) => (
+                {!isStrategic ? (
+                  <p className="mt-1 text-meta text-indigo-700/70">
+                    OKRs attach to strategic initiatives — the ones a portfolio board owns — and this one
+                    inherits the OKRs it serves from the strategic initiative above it. Map them there.
+                  </p>
+                ) : (
+                  <>
+                    {/* One choice, not a set — the shape the kind and the type already have, and the
+                        shape the model keeps. Choosing another objective moves the initiative, so
+                        there is nothing here to tick twice and nothing that could serve two. */}
+                    <select
+                      value={attributed[0]?.id ?? ''}
+                      onChange={(e) => {
+                        const next = e.target.value
+                        if (next) setAttribution(item.id, next, true)
+                        else if (attributed[0]) setAttribution(item.id, attributed[0].id, false)
+                      }}
+                      className="mt-1.5 w-full rounded border border-indigo-200 bg-white px-2 py-1.5 text-meta font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                      title="The objective this initiative serves — at most one, so choosing another moves it"
+                    >
+                      <option value="">No OKR</option>
+                      {objectives.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.title} · {o.period}
+                        </option>
+                      ))}
+                    </select>
+
+                    {attributed.length === 0 ? (
+                      <p className="mt-1.5 text-meta text-indigo-700/70">No OKR maps to this initiative yet.</p>
+                    ) : (
+                      <div className="mt-1.5 space-y-1">
+                        {keyResults.filter((k) => k.objectiveId === attributed[0].id).length === 0 && (
+                          <p className="text-meta text-slate-600">No key results yet.</p>
+                        )}
+                        {keyResults
+                          .filter((k) => k.objectiveId === attributed[0].id)
+                          .map((k) => (
                             <div key={k.id} className="space-y-0.5">
                               <div className="flex items-center justify-between gap-2 text-meta">
                                 <span className="min-w-0 truncate text-slate-600">{k.title}</span>
@@ -916,45 +940,11 @@ export function ItemPanel({ itemId }: Props) {
                               )}
                             </div>
                           ))}
-                          <button
-                            onClick={() => setAttribution(item.id, o.id, false)}
-                            className="text-meta text-indigo-500 hover:text-indigo-700"
-                            title="Unlink this OKR"
-                          >
-                            unlink
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {!isStrategic ? (
-                  <p className="mt-1 text-meta text-indigo-700/70">
-                    OKRs attach to strategic initiatives — the ones a portfolio board owns — and this one
-                    inherits the OKRs it serves from the strategic initiative above it. Map them there.
-                  </p>
-                ) : (
-                <div className="mt-2 border-t border-indigo-100 pt-1.5">
-                    <span className="text-micro uppercase tracking-wide text-indigo-500">Map an OKR</span>
-                    <div className="mt-1 space-y-0.5">
-                      {objectives.map((o) => {
-                        const on = attributed.some((a) => a.id === o.id)
-                        return (
-                          <label key={o.id} className="flex items-center gap-2 rounded bg-white/70 px-2 py-1">
-                            <input type="checkbox" checked={on} onChange={(e) => setAttribution(item.id, o.id, e.target.checked)} />
-                            <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{o.title}</span>
-                            <span className="shrink-0 text-meta text-slate-600">{o.period}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                    {attributed.length > 1 && (
-                      <p className="mt-1 text-meta text-emerald-700">Serves {attributed.length} OKRs — still 1 unit of WIP.</p>
+                      </div>
                     )}
-                </div>
+                  </>
                 )}
-                </section>
+              </section>
             )}
 
             {/* Product specification — the description, rendered as markdown */}

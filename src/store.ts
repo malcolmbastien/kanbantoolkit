@@ -877,6 +877,20 @@ export function migrateState(persisted: unknown): Partial<Store> {
   // v28: named filter sets became persisted data — the deliberate exception to filters
   // being view state. Older state simply has none.
   if (!Array.isArray(p.savedFilters)) p.savedFilters = []
+  // v31: an initiative serves one objective, not several — attribution is a choice, not a set.
+  // State from before the rule keeps the first objective each initiative was mapped to; the rest
+  // were choices the model no longer offers, and keeping them would make the map, the OKR view and
+  // the panel disagree with the rule they now keep. (v12 dropped attributions that pointed at
+  // non-initiatives for the same reason: an edge the model would refuse is not an edge.)
+  if (Array.isArray(p.edges)) {
+    const mapped = new Set<string>()
+    p.edges = (p.edges as Edge[]).filter((e) => {
+      if (e.kind !== 'attribution') return true
+      if (mapped.has(e.to)) return false
+      mapped.add(e.to)
+      return true
+    })
+  }
   // v29: a board carries its own description — the legend opens with it. Backfill with the
   // empty string, which the legend then prompts about.
   if (Array.isArray(p.boards)) {
@@ -910,7 +924,7 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
  * Exported for testing.
  */
 /** The current persisted workspace shape — every schema change bumps it with a migrate. */
-export const PERSIST_VERSION = 30
+export const PERSIST_VERSION = 31
 
 export function persistedSlice(s: Store): Partial<Store> {
   const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
@@ -2081,9 +2095,21 @@ export const useStore = create<Store>()(
         // OKRs attach to strategic initiatives only — an Initiative placed on a
         // portfolio-band board. Everything below inherits through the decomposition.
         if (on && !isStrategicInitiative(itemId, state)) return
-        const existing = state.edges.find((e) => e.kind === 'attribution' && e.from === objectiveId && e.to === itemId)
-        if (on && !existing) set({ edges: [...state.edges, { id: uid(), kind: 'attribution', from: objectiveId, to: itemId }] })
-        else if (!on && existing) set({ edges: state.edges.filter((e) => e.id !== existing.id) })
+        const serves = state.edges.filter((e) => e.kind === 'attribution' && e.to === itemId)
+        if (!on) {
+          set({ edges: state.edges.filter((e) => !(e.kind === 'attribution' && e.from === objectiveId && e.to === itemId)) })
+          return
+        }
+        // An initiative serves **one** objective, so mapping it to a second *moves* it — the same
+        // shape as `setParent`, where at most one and choosing again is how you change your mind.
+        // Nothing accumulates, and nothing is refused: the choice replaces the choice.
+        if (serves.some((e) => e.from === objectiveId)) return
+        set({
+          edges: [
+            ...state.edges.filter((e) => !(e.kind === 'attribution' && e.to === itemId)),
+            { id: uid(), kind: 'attribution', from: objectiveId, to: itemId },
+          ],
+        })
       },
 
       blockItem: (itemId, reason) => {

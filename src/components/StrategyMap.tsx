@@ -167,11 +167,16 @@ export function StrategyMap({ boardId }: { boardId: string }) {
                 className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
               >
                 <option value="">Map a strategic initiative…</option>
-                {candidates.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {refs.get(i.id)} {i.title}
-                  </option>
-                ))}
+                {candidates.map((i) => {
+                  // An initiative serves one objective, so mapping one that already serves another
+                  // moves it. Said here rather than discovered after the fact.
+                  const from = ordered.find((x) => attribution.some((e) => e.from === x.id && e.to === i.id))
+                  return (
+                    <option key={i.id} value={i.id}>
+                      {refs.get(i.id)} {i.title}{from ? ` — moves from ${from.title}` : ''}
+                    </option>
+                  )
+                })}
               </select>
               {mapButton('Map', !pick[o.id], () => {
                 setAttribution(pick[o.id], o.id, true)

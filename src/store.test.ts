@@ -552,6 +552,21 @@ describe('store actions', () => {
     expect('status' in migrated.links[0]).toBe(false)
   })
 
+  it('migrateState keeps one objective per initiative, dropping the rest', () => {
+    // State from before the rule: one initiative mapped to two objectives. The first is kept —
+    // the choice that was made first — and the others were choices the model no longer offers.
+    const migrated = migrateState({
+      boards: [],
+      edges: [
+        { id: 'a', kind: 'attribution', from: 'obj-1', to: 'init-1' },
+        { id: 'b', kind: 'attribution', from: 'obj-2', to: 'init-1' },
+        { id: 'c', kind: 'attribution', from: 'obj-2', to: 'init-2' },
+        { id: 'd', kind: 'decomposition', from: 'init-1', to: 'st-1' },
+      ],
+    }) as { edges: { id: string }[] }
+    expect(migrated.edges.map((e) => e.id)).toEqual(['a', 'c', 'd'])
+  })
+
   it('migrateState strips the removed link status from existing links', () => {
     const state = {
       links: [
@@ -766,6 +781,25 @@ describe('store actions', () => {
     // …but a strategic initiative (an Initiative on a portfolio board) can.
     s().setAttribution('init-explore', 'obj-efficiency', true)
     expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-explore')).toBe(true)
+  })
+
+  it('an initiative serves one objective: mapping it to a second moves it', () => {
+    const serves = (itemId: string) =>
+      s().edges.filter((e) => e.kind === 'attribution' && e.to === itemId).map((e) => e.from)
+
+    s().setAttribution('init-explore', 'obj-efficiency', true)
+    expect(serves('init-explore')).toEqual(['obj-efficiency'])
+    // Choosing again replaces the choice — the same shape as `setParent`: at most one, and
+    // nothing accumulates. The one it leaves is no longer served by it.
+    s().setAttribution('init-explore', 'obj-activation', true)
+    expect(serves('init-explore')).toEqual(['obj-activation'])
+    expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-explore')).toBe(false)
+    // Choosing what it already serves changes nothing, rather than adding a second edge.
+    s().setAttribution('init-explore', 'obj-activation', true)
+    expect(serves('init-explore')).toEqual(['obj-activation'])
+    // …and clearing leaves it serving none.
+    s().setAttribution('init-explore', 'obj-activation', false)
+    expect(serves('init-explore')).toEqual([])
   })
 
   it('deleting a card removes its placements, parent edge, links and attribution', () => {
