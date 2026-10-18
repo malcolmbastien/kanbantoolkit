@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CONTRAST_FLOOR, chipColors, contrastRatio, tintOn } from './colors'
+import { CONTRAST_FLOOR, chipColors, contrastRatio, softChipColors, TAG_PALETTE, tintOn } from './colors'
 import { cn } from './utils'
 import { createFixture } from '../domain/fixture'
 
@@ -114,6 +114,19 @@ describe('legibility', () => {
       }
     }
     expect(offenders).toEqual([])
+  })
+
+  it('keeps a tag readable on every tag colour, including the ones nobody would choose', () => {
+    // A tag's colour comes from the palette, from board settings, or from whatever somebody typed
+    // into the field — so the soft chip cannot assume a sensible hue. These are the cases that
+    // break a formula which assumed a mid-tone: white and yellow are both far too light to carry
+    // their own words, and each has to be taken down until it can.
+    for (const hex of [...TAG_PALETTE, '#ffffff', '#ffff00', '#000000']) {
+      const { background, color } = softChipColors(hex)
+      expect(contrastRatio(color, background), hex).toBeGreaterThanOrEqual(CONTRAST_FLOOR)
+    }
+    // …and it is the soft one: a wash, not the solid ground `chipColors` gives the same colour.
+    expect(softChipColors('#f43f5e').background).not.toBe(chipColors('#f43f5e').background)
   })
 
   it('keeps a type chip readable on every type colour', () => {

@@ -89,6 +89,26 @@ export function chipColors(hex: string): { background: string; color: string } {
 }
 
 /**
+ * The same colour as a *soft* chip: a wash of it, with the hue taken down until its own words are
+ * readable on the wash.
+ *
+ * `chipColors` is the loud version — a solid ground, for a chip that is the subject (a type, a
+ * status, the thing a control is about). This is the quiet one, for a chip that is only a mention
+ * of something: it keeps the colour, so the vocabulary is still recognisable at a glance, and
+ * gives up the weight, so it cannot compete with what the surface is actually saying. The walk is
+ * `chipColors`' own — the first shade that reaches the floor — because a colour nobody chose for a
+ * background must not decide whether a word can be read.
+ */
+export function softChipColors(hex: string): { background: string; color: string } {
+  const background = tintOn(hex, 0.16)
+  for (let alpha = 0.5; alpha >= 0.05; alpha -= 0.05) {
+    const color = tintOn(hex, alpha, INK)
+    if (contrastRatio(background, color) >= CONTRAST_FLOOR) return { background, color }
+  }
+  return { background, color: INK }
+}
+
+/**
  * The colours a tag is given when it is created from an item rather than from board settings.
  *
  * Somebody who types a new tag is mid-thought and should not have to choose a colour; but every

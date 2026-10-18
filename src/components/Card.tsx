@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, tintOn } from '@/lib/colors'
+import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, tintOn } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
@@ -866,7 +866,12 @@ function KindBand({
 }
 
 /**
- * An item's tags, in the footer with the other quiet metadata.
+ * An item's tags, on the card face.
+ *
+ * Quieter than everything else a card says, on purpose. A tag is the board's own vocabulary rather
+ * than a fact about the work: it is not the type — the solid chip that says what this is — and it
+ * is never a blockage, so it wears the soft chip and sentence case, and gives the loud chip to the
+ * two things that have earned it.
  *
  * A set, not a choice, so it is capped: three chips and a count of the rest, with the whole list
  * in the title. A card wearing eight tags is a card with nothing readable on it.
@@ -878,11 +883,11 @@ function TagChips({ tags }: { tags?: Tag[] }) {
   return (
     <>
       {shown.map((t) => {
-        const chip = chipColors(t.color)
+        const chip = softChipColors(t.color)
         return (
           <span
             key={t.id}
-            className="shrink-0 rounded px-1 py-px text-micro font-semibold uppercase tracking-wide"
+            className="shrink-0 rounded px-1.5 py-px text-micro font-medium"
             style={{ backgroundColor: chip.background, color: chip.color }}
             title={`Tag: ${t.name}`}
           >
@@ -891,7 +896,7 @@ function TagChips({ tags }: { tags?: Tag[] }) {
         )
       })}
       {rest > 0 && (
-        <span className="shrink-0 text-micro font-semibold text-slate-600" title={tags.map((t) => t.name).join(', ')}>
+        <span className="shrink-0 text-micro font-medium text-slate-600" title={tags.map((t) => t.name).join(', ')}>
           +{rest}
         </span>
       )}
