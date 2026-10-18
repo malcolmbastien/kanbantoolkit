@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Archive, CheckSquare, Trash2, TriangleAlert, X } from 'lucide-react'
 import { canSetParent, cardTypes, defaultDropLane, isInitiativeItem } from '@/domain/board'
 import type { Graph } from '@/domain/derive'
@@ -43,6 +43,9 @@ export function BulkActions() {
   const [targetBoard, setTargetBoard] = useState('')
   const [parentTarget, setParentTarget] = useState('')
   const [parentRefused, setParentRefused] = useState(false)
+
+  // A refusal is about the selection it was judged against, so it does not outlive it.
+  useEffect(() => setParentRefused(false), [multiSelect])
 
   if (multiSelect.length === 0) return null
 
