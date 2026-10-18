@@ -1445,13 +1445,27 @@
         "testStrategy": "Two new tests. Store: mapping to a second objective moves it (one edge, the first gone), choosing what it already serves changes nothing, and clearing leaves none. Migration: state carrying two attributions for one initiative keeps the first and drops the second, while other edges are untouched. In the browser: the map's select offers \\\"INIT1 Recurring revenue engine — moves from Grow activation\\\"; mapping it left Grow activation at 0 serving with its coverage note and the gap count at 3, and put it in Reduce cost to serve at 2 serving, in its column; the drawer's control is a select reading \\\"Reduce cost to serve · FY26 Q4\\\", and choosing Grow activation moved it back, one attribution per initiative throughout. `npm test` (317), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T10:00:00.000Z"
+      },
+      {
+        "id": "97",
+        "title": "A header is drawn only when there is something to put in it",
+        "description": "Reported: an initiative with kind None showed a band saying \"No kind\". It now shows no band at all.",
+        "status": "done",
+        "dependencies": [
+          "93"
+        ],
+        "priority": "medium",
+        "details": "The initiative card's kind band rendered whenever the item wore a kind **or the board defined any** — the second half was mine, from task 89, on the argument that the empty slot is how a person discovers kinds exist and is the slot they click to fill. That argument loses to the better one: a header for an absence is a header for nothing. It is also what the card did before the redesign (\\\"Unset means absent, so nothing renders without one\\\") and what the app says everywhere else about a label nobody set.\\n\\nSo the band is drawn only when there is a kind to draw, and `KindBand` takes a required kind instead of an optional one. Everything the empty slot was doing for discovery is done elsewhere and better: the board's **Kind filter** sits in the initiatives-flow heading whenever the board defines kinds, and setting one has two homes — the drawer's Kind field and the card menu's Kind.\\n\\n**What was not changed, and why**: a *card* always has a type — `typeId` is required in the model, so there is no such thing as a card with no type, and its chip is never a header for nothing. The one adjacent case is a type id the workspace does not define, which renders the label \\\"Item\\\" — on the board, the dashboard, the timeline, the archive and in the drawer alike. Making only the card render nothing there would put the board out of step with every other surface, so it is left consistent and flagged rather than changed.",
+        "testStrategy": "In the browser on the Growth value stream (which defines kinds): an initiative with no kind — Onboarding journey, with its kind cleared from the drawer's Kind field — renders **no band at all**, while Reliability programme and Enterprise SSO keep their WORKSTREAM bands in the same column. The card menu still offers Kind, and the drawer still shows it as a field, so the label remains settable from both. `npm test` (317), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T11:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T10:00:00.000Z",
-      "taskCount": 95,
-      "completedCount": 82,
+      "lastModified": "2026-10-18T11:00:00.000Z",
+      "taskCount": 96,
+      "completedCount": 83,
       "tags": [
         "backlog"
       ]

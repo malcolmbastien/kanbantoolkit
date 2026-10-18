@@ -380,9 +380,7 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
       >
         {/* The kind, as a band across the top — the initiative's identity, and the one thing a
             card never has. */}
-        {(kind !== undefined || (kinds?.length ?? 0) > 0) && (
-          <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />
-        )}
+        {kind && <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />}
 
         <div className="flex flex-1 flex-col gap-2 p-2.5">
           {/* The title, at the size the reading happens at. Beside it the two small judgements:
@@ -744,9 +742,10 @@ const summaryEqual = (a: CardSummary, b: CardSummary) =>
  * already carries if that came from another board, so the control never lies about what the item
  * says.
  *
- * A board that defines no kinds shows no band: there is nothing to say and nothing to choose. A
- * board that defines some shows it even on an initiative wearing none — the empty slot is how a
- * person discovers that kinds exist, and it is the slot they click to fill.
+ * **A header is drawn only when there is something to put in it.** An initiative wearing no kind
+ * has no band — not a band saying "No kind" — because a header for an absence is a header for
+ * nothing, and the app says the same thing everywhere else about a label nobody set. Setting one
+ * has two homes already, both the app's normal ones: the drawer's Kind field and the card menu.
  */
 function KindBand({
   kind,
@@ -754,8 +753,8 @@ function KindBand({
   onSet,
   locked,
 }: {
-  /** The kind it wears. Absent is None. */
-  kind?: InitiativeType
+  /** The kind it wears. A card without one does not render this at all. */
+  kind: InitiativeType
   kinds: InitiativeType[]
   /** Absent on a surface that does not own the vocabulary — a Linked boards band. */
   onSet?: (kindId: string | undefined) => void
@@ -777,8 +776,10 @@ function KindBand({
   // A locked band is not a disabled button: a disabled button shows no tooltip, and this one has
   // something to say.
   const canSet = Boolean(onSet) && !locked
-  const options = kind && !kinds.some((k) => k.id === kind.id) ? [...kinds, kind] : kinds
-  const chip = kind ? chipColors(kind.color) : undefined
+  // The board's own list, plus the kind this initiative already carries if that came from another
+  // board — so the control never lies about what the item says.
+  const options = kinds.some((k) => k.id === kind.id) ? kinds : [...kinds, kind]
+  const chip = chipColors(kind.color)
   const choose = (id: string | undefined) => {
     onSet?.(id)
     setOpen(false)
@@ -803,24 +804,17 @@ function KindBand({
           e.stopPropagation()
           setOpen(false)
         }}
-        style={chip ? { backgroundColor: chip.background, color: chip.color } : undefined}
+        style={{ backgroundColor: chip.background, color: chip.color }}
         className={cn(
-          'flex w-full items-center gap-1.5 px-2.5 py-1 text-left text-micro font-bold uppercase tracking-wide transition',
-          chip ? 'hover:brightness-95' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+          'flex w-full items-center gap-1.5 px-2.5 py-1 text-left text-micro font-bold uppercase tracking-wide transition hover:brightness-95',
           !canSet && 'cursor-default',
         )}
-        title={
-          kind
-            ? `Kind: ${kind.name}${canSet ? ' — click to change it' : ''}`
-            : canSet
-              ? 'No kind — click to give this initiative one of this board’s kinds'
-              : 'No kind'
-        }
-        aria-label={kind ? `Kind: ${kind.name}` : 'No kind'}
+        title={`Kind: ${kind.name}${canSet ? ' — click to change it' : ''}`}
+        aria-label={`Kind: ${kind.name}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="min-w-0 flex-1 truncate">{kind?.name ?? 'No kind'}</span>
+        <span className="min-w-0 flex-1 truncate">{kind.name}</span>
         {canSet && <ChevronDown size={11} className="shrink-0 opacity-70" />}
       </button>
       {open && (
