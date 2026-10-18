@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ArrowUp, Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
+import { Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, tintOn } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
@@ -373,14 +373,14 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         className={cn(
           // `@container` lets the card shed detail as its column narrows (see the `@[Npx]:`
           // variants below) instead of overflowing a customised flow.
-          '@container group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
+          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white text-left transition',
           FOCUS_RING,
           // On touch: a vertical swipe still scrolls the board (the browser takes it, and the
           // lift aborts on `pointercancel`), while a horizontal swipe is the drag. Both axes ours
           // would make the board unscrollable from a card; both the browser's would make a card
           // undraggable.
           draggable && !locked && 'touch-pan-y',
-          locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
+          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-300',
           lensCls,
           lockCls,
           dimCls,
@@ -394,6 +394,21 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         {kind && <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />}
 
         <div className="flex flex-1 flex-col gap-2 p-2.5">
+          {/* What it rolls up to, above the title — the same place a card puts it. */}
+          {parent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpen(parent.id)
+              }}
+              title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open`}
+              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-indigo-600 transition hover:text-indigo-700"
+            >
+              <CornerDownRight size={11} className="shrink-0 text-indigo-400" />
+              <span className="min-w-0 truncate">{parent.title}</span>
+            </button>
+          )}
+
           {/* The title, at the size the reading happens at. Beside it the one small judgement it
               carries: priority. */}
           <div className="flex items-start gap-2">
@@ -481,21 +496,8 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             </div>
           )}
 
-          {/* Everything else, quiet: lineage, tags, links, the checklist, the size, the people. */}
+          {/* Everything else, quiet: tags, links, the checklist, the people. */}
           <div className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-micro text-slate-600">
-            {parent && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onOpen(parent.id)
-                }}
-                title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open`}
-                className="flex w-fit max-w-full items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-left transition hover:border-indigo-300 hover:bg-indigo-100"
-              >
-                <ArrowUp size={11} className="shrink-0 text-indigo-400" />
-                <span className="min-w-0 truncate text-micro font-medium text-indigo-700">{parent.title}</span>
-              </button>
-            )}
             <TagChips tags={tags} />
             {summary.linksCount > 0 && (
               <span className="flex items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
@@ -562,83 +564,88 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         onContextMenu(item.id, e.clientX, e.clientY)
       }}
       className={cn(
-        'group relative flex min-h-[112px] w-[180px] shrink-0 flex-col overflow-hidden rounded-md border border-t-2 border-slate-300/80 border-l-[4px] text-left shadow-sm transition',
+        // Flat and quiet: a hairline border, the type as a rail down the left, and no shadow to
+        // compete with the lane's own tint. What is loud on a card is its warnings, not its box.
+        'group relative flex min-h-[104px] w-[180px] shrink-0 flex-col overflow-hidden rounded-lg border border-slate-200 border-l-[4px] text-left transition',
         FOCUS_RING,
         draggable && !locked && 'touch-pan-y',
-        locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
+        locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-300',
         lensCls,
         lockCls,
         dimCls,
       )}
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-1.5 py-1.5">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 px-2 py-1.5">
+        {/* What it belongs to, and what it is. The lineage reads first and the type sits at the
+            edge — the two facts a card is placed by before it is read. */}
         <div className="flex items-center gap-1.5">
-          <span className="shrink-0 whitespace-nowrap rounded px-1 py-px text-micro font-bold uppercase tracking-wide shadow-sm" style={{ ...(() => { const c = chipColors(type.color); return { backgroundColor: c.background, color: c.color } })() }}>
+          {parent ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                // Shift+click still selects the card — the lineage is part of it.
+                if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
+                else onOpen(parent.id)
+              }}
+              title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
+              className="flex min-w-0 flex-1 items-center gap-1 text-left text-micro font-medium text-indigo-600 transition hover:text-indigo-700"
+            >
+              <CornerDownRight size={11} className="shrink-0 text-indigo-400" />
+              <span className="min-w-0 truncate">{parent.title}</span>
+            </button>
+          ) : (
+            <span className="min-w-0 flex-1" />
+          )}
+          <span
+            className="shrink-0 whitespace-nowrap rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide"
+            style={{ ...(() => { const c = chipColors(type.color); return { backgroundColor: c.background, color: c.color } })() }}
+          >
             {type.name}
           </span>
-          {item.size ? (
-            <span className="shrink-0 whitespace-nowrap text-micro font-semibold tabular-nums text-slate-600">{item.size}</span>
-          ) : null}
-          <span className="ml-auto flex shrink-0 items-center gap-1">
-            {summary.done && <DoneStamp />}
-            {summary.ageDays !== undefined && summary.ageDays >= STALE_AFTER_DAYS && (
-              <span
-                className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"
-                title={`${summary.ageDays} days in this lane`}
-              >
-                <Clock size={11} /> {summary.ageDays}d
-              </span>
-            )}
-            <PriorityBadge priority={item.priority} />
-            {summary.rollupPercent !== undefined && (
-              <span className="rounded bg-slate-700 px-1 py-px text-micro font-bold text-white" title="Rollup — share of leaf work done">
-                {summary.rollupPercent}%
-              </span>
-            )}
-            {summary.dependentsCount > 0 && (
-              <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-micro font-bold text-white shadow-sm" title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}>
-                <ShieldAlert size={9} />
-                {summary.dependentsCount}
-              </span>
-            )}
-            {multi && (
-              <span
-                className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-indigo-600 text-white shadow-sm"
-                title="Selected"
-              >
-                <Check size={10} strokeWidth={3} />
-              </span>
-            )}
-            {lensButton}
-          </span>
         </div>
-        <div className="mt-1 line-clamp-2 text-meta font-semibold leading-snug text-slate-900">{item.title}</div>
-        {parent && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              // Shift+click still selects the card — the chip is part of it.
-              if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
-              else onOpen(parent.id)
-            }}
-            title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
-            className="mt-1 flex w-full items-center gap-1 rounded border border-slate-300/70 bg-white/60 px-1 py-0.5 text-left transition hover:border-slate-400 hover:bg-white"
-          >
-            {/* The arrow says what the chip is; the title says which initiative. The type, its
-                colour dot and the reference all used to sit here too, and between them they
-                left the title too little room to be read — so they moved into the tooltip. */}
-            <CornerDownRight size={10} className="shrink-0 text-slate-400" />
-            <span className="min-w-0 truncate text-micro font-medium text-slate-600">{parent.title}</span>
-          </button>
+
+        {/* The title, at the size the reading happens at. */}
+        <div className="line-clamp-2 text-meta font-semibold leading-snug text-slate-900">{item.title}</div>
+
+        {/* What it carries: the board's own words, and the size. */}
+        {(Boolean(tags?.length) || item.size) && (
+          <div className="flex flex-wrap items-center gap-1">
+            <TagChips tags={tags} />
+            {item.size ? (
+              <span
+                className="shrink-0 rounded bg-slate-200/70 px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
+                title={`Estimate — ${item.size} point${item.size === 1 ? '' : 's'}`}
+              >
+                {item.size} pts
+              </span>
+            ) : null}
+          </div>
         )}
+
+        {/* The loud facts, together and above the quiet ones: a blockage, and the work that is
+            waiting on this card. */}
+        {blockedChip}
+        {summary.dependentsCount > 0 && (
+          <span
+            className="flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
+            title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}
+          >
+            <ShieldAlert size={11} /> {summary.dependentsCount} depend on it
+          </span>
+        )}
+
+        {/* The quiet footer: how long it has been here, how it is judged, what it is tied to, and
+            who has it. */}
         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-micro text-slate-600">
-          <TagChips tags={tags} />
-          {boundary && (
-            <span
-              className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600"
-              title="Waiting on an external dependency — see the boundary lane"
-            >
-              <Link2 size={11} /> waiting on
+          {summary.ageDays !== undefined && summary.ageDays >= STALE_AFTER_DAYS && (
+            <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title={`${summary.ageDays} days in this lane`}>
+              <Clock size={11} /> {summary.ageDays}d
+            </span>
+          )}
+          <PriorityBadge priority={item.priority} />
+          {summary.linksCount > 0 && (
+            <span className="flex shrink-0 items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
+              <Link2 size={11} /> {summary.linksCount}
             </span>
           )}
           {hasChecklist && (
@@ -646,38 +653,26 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               className={cn('flex shrink-0 items-center gap-0.5', checklistDone === checklistTotal && 'font-semibold text-emerald-600')}
               title={`Checklist — ${checklistDone} of ${checklistTotal} done`}
             >
-              <ListChecks size={11} />
-              {checklistDone}/{checklistTotal}
+              <ListChecks size={11} /> {checklistDone}/{checklistTotal}
             </span>
           )}
-          {summary.linksCount > 0 && (
-            <span className="flex shrink-0 items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
-              <Link2 size={11} />
-              {summary.linksCount}
+          {boundary && (
+            <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title="Waiting on an external dependency — see the boundary lane">
+              <Link2 size={11} /> waiting on
             </span>
           )}
-          {summary.childCount > 0 && (
-            <span
-              className="flex shrink-0 items-center gap-0.5"
-              title={`${summary.childCount} children${summary.openDescendants > 0 ? ` · ${summary.openDescendants} open` : ''}`}
-            >
-              <Layers size={11} />
-              {summary.childCount}
-            </span>
-          )}
-          {blockedChip}
-          {assignees.length > 0 && (
-            <span className="ml-auto flex shrink-0 items-center gap-0.5">
-              {assignees.slice(0, 3).map((u) => (
-                <Avatar key={u.id} user={u} />
-              ))}
-              {assignees.length > 3 && (
-                <span className="text-micro font-semibold text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
-                  +{assignees.length - 3}
-                </span>
-              )}
-            </span>
-          )}
+          {summary.done && <DoneStamp />}
+          <span className="ml-auto flex shrink-0 items-center gap-0.5">
+            {assignees.slice(0, 3).map((u) => (
+              <Avatar key={u.id} user={u} />
+            ))}
+            {assignees.length > 3 && (
+              <span className="text-micro font-semibold text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
+                +{assignees.length - 3}
+              </span>
+            )}
+            {lensButton}
+          </span>
         </div>
       </div>
       {multi && <span className="pointer-events-none absolute inset-0 bg-indigo-500/15" aria-hidden />}
