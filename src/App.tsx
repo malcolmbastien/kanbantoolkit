@@ -18,7 +18,7 @@ import { MetricsView } from './components/MetricsView'
 import { ObjectivesView } from './components/ObjectivesView'
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
-import { boardCardTypeId, defaultDropLane, initiativeTypeId } from './domain/board'
+import { boardCardTypeId, defaultDropLane, initiativeTypeId, isAggregating } from './domain/board'
 import { leafLanes } from './domain/lanes'
 import { useUrl } from './lib/useUrl'
 import { isBoardSurface, useStore } from './store'
@@ -118,6 +118,9 @@ export default function App() {
     }
   }, [])
 
+  // A card belongs to a board that renders a cards workflow; a coordination board does not.
+  const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
+
   const requestMove = (itemId: string, bId: string, laneId: string) => moveCard(itemId, bId, laneId)
 
   const onAddCard = (laneId: string) => {
@@ -158,8 +161,10 @@ export default function App() {
       {/* One host for the menu and the pick chips, so every surface has them — an aggregating
           board renders no BoardCanvas, and used to get neither. */}
       <Overlays />
-      {/* One palette for the whole app: boards, cards and the app's own verbs. */}
-      <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} />
+      {/* One palette for the whole app: boards, cards and the app's own verbs. It answers to the
+          same rule the toolbar's buttons do — a board that renders no cards workflow does not make
+          cards — so the two ways in cannot disagree. */}
+      <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} makesCards={makesCards} />
       <TopBar
         boards={boards}
         boardId={boardId}

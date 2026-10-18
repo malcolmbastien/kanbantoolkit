@@ -8,6 +8,8 @@ import { useStore } from '@/store'
 interface Props {
   onNewCard: () => void
   onNewInitiative: () => void
+  /** False on a board that renders no cards workflow — the same rule the toolbar's button keeps. */
+  makesCards: boolean
 }
 
 /**
@@ -21,7 +23,7 @@ interface Props {
  * An empty palette is not blank: it leads with the cards opened lately, then the boards, then the
  * actions. That list is view state — it is about this session, not about the work.
  */
-export function CommandPalette({ onNewCard, onNewInitiative }: Props) {
+export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props) {
   const items = useStore((s) => s.items)
   const boards = useStore((s) => s.boards)
   const placements = useStore((s) => s.placements)
@@ -96,7 +98,9 @@ export function CommandPalette({ onNewCard, onNewInitiative }: Props) {
   /** The app's own verbs, each one the same call the button makes. */
   const actions: (PaletteEntry & { run: () => void })[] = useMemo(
     () => [
-      { id: 'action:new-card', kind: 'action', label: 'New card', hint: 'Add a card to this board', keywords: 'create add task story bug', run: onNewCard },
+      ...(makesCards
+        ? [{ id: 'action:new-card', kind: 'action' as PaletteKind, label: 'New card', hint: 'Add a card to this board', keywords: 'create add task story bug', run: onNewCard }]
+        : []),
       { id: 'action:new-initiative', kind: 'action', label: 'New initiative', hint: 'Add an initiative to this board', keywords: 'create outcome', run: onNewInitiative },
       ...(editMode
         ? []
@@ -113,7 +117,7 @@ export function CommandPalette({ onNewCard, onNewInitiative }: Props) {
       { id: 'action:objectives', kind: 'action', label: 'Objectives & KRs', hint: 'Where objectives and their coverage live', keywords: 'okr goals', run: () => setObjectives(true) },
       { id: 'action:boards', kind: 'action', label: 'All boards', hint: 'The board workspace', keywords: 'workspace switch', run: () => setBoards(true) },
     ],
-    [beginEdit, editMode, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setObjectives, setTimeline, toggleBoardSettings, toggleFilters, toggleLegend],
+    [beginEdit, editMode, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setObjectives, setTimeline, toggleBoardSettings, toggleFilters, toggleLegend],
   )
 
   const liveBoards = boards.filter((b) => !b.archived)

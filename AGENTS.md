@@ -81,7 +81,11 @@ task-master list            # terminal 2
   raises a **warning** on the card. Never a block, never an auto-correction.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
-  placed by rollup (card children are drill-in). A board has a **flight-level band**
+  placed by rollup (card children are drill-in). **Only a board that renders a cards workflow makes
+  cards** — a coordination board (programme or portfolio) shows bands or objective-grouped flows
+  and no cards workflow, so neither the toolbar's *Card* nor the palette's *New card* is offered
+  there. *Initiative* is, because an initiative is what such a board is read for. A board has a
+  **flight-level band**
   (`band: 'team' | 'program' | 'portfolio'`) that picks its lens: a
   **team** board renders work, while a **program** board aggregates other boards — its own
   initiatives plus a band per `linkedBoardIds`. Bands are

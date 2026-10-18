@@ -2,6 +2,7 @@ import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, 
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
+import { isAggregating } from '@/domain/board'
 import { isBoardSurface } from '@/store'
 import type { Board } from '@/domain/types'
 
@@ -44,6 +45,11 @@ export function TopBar(props: Props) {
   // the organisation workspace is open, because that is not a board either. One definition of
   // "the board is the surface", shared with the panels that read it.
   const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMyWork, showMetrics })
+  // A card belongs to a board that renders a cards workflow. A coordination board — a programme or
+  // a portfolio — shows bands or objective-grouped flows and no cards workflow at all, so a card
+  // made here would be one nobody could see on the board that made it. An initiative still can be:
+  // on a portfolio it arrives in the map, with its coverage gap, until an objective carries it.
+  const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
@@ -176,13 +182,15 @@ export function TopBar(props: Props) {
         {/* Making work is the board's business, so these show on the board and nowhere else. */}
         {boardActive && (
           <>
-            <button
-              onClick={onAddCard}
-            disabled={editMode}
-              className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
-            >
-              <Plus size={13} /> Card
-            </button>
+            {makesCards && (
+              <button
+                onClick={onAddCard}
+                disabled={editMode}
+                className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Plus size={13} /> Card
+              </button>
+            )}
             <button
               onClick={onAddInitiative}
               disabled={editMode}

@@ -1417,13 +1417,27 @@
         "testStrategy": "In the browser: on Company Strategy the page reads STRATEGY MAP with three objective groups, no 'Linked boards', no 'roll up here' and no band note; on the Growth value stream the section is still there ('2 boards roll up here'). Board settings on a portfolio still lists its links and carries the new note; on a programme it carries the general note and not the portfolio one. `npm test` (315), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T08:20:00.000Z"
+      },
+      {
+        "id": "95",
+        "title": "A board that renders no cards workflow does not make cards",
+        "description": "Asked for: remove the + Card button from a portfolio board.",
+        "status": "done",
+        "dependencies": [
+          "94"
+        ],
+        "priority": "low",
+        "details": "The toolbar's **Card** button and the palette's **New card** verb are now offered only on a board that renders a cards workflow. Both asked the domain the same question — `isAggregating` — so the two ways in cannot disagree, the same way `isBoardSurface` already answers the toolbar and the side panels.\\n\\nIt is stated as that rule rather than as \\\"not on a portfolio\\\" because a **programme** board has the same property: it shows the initiatives workflow and its linked bands, and no cards workflow either, so a card made there was equally one nobody could see on the board that made it. If a programme board should keep the button, it is one line.\\n\\n**Initiative stays on both.** It is what a coordination board is read for: on a portfolio the new initiative arrives in the strategy map with its coverage gap, waiting for an objective to carry it — which is the flow the map was built around.\\n\\nThe card still exists as a model fact on such a board (the store will take one, and it reads in My work, the Archive and the Flow metrics) — this is the UI declining to offer something it cannot show, not the model refusing it.",
+        "testStrategy": "In the browser, per band: a **portfolio** offers `Initiative` alone in the toolbar and `New initiative` alone in the palette; a **programme** the same; a **team** board offers both, in both places. `npm test` (315), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T09:10:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T08:20:00.000Z",
-      "taskCount": 93,
-      "completedCount": 80,
+      "lastModified": "2026-10-18T09:10:00.000Z",
+      "taskCount": 94,
+      "completedCount": 81,
       "tags": [
         "backlog"
       ]
