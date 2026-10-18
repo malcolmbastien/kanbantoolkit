@@ -290,6 +290,9 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
     </button>
   ) : null
 
+  // How long it has sat where it is, when that is long enough to be worth saying. Shown on the
+  // card's own values line, beside the size and the people.
+  const aged = summary.ageDays !== undefined && summary.ageDays >= STALE_AFTER_DAYS
   const checklist = summary.checklist
   const hasChecklist = Boolean(checklist && checklist.total > 0)
   const checklistDone = checklist?.done ?? 0
@@ -627,11 +630,16 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </div>
         )}
 
-        {/* What it carries and who has it, on one line: the board's words, what it is worth,
-            and the people — the quiet values, read together rather than stacked. */}
-        {(Boolean(tags?.length) || item.size || assignees.length > 0) && (
-          <div className="flex flex-wrap items-center gap-1">
-            <TagChips tags={tags} />
+        {/* The card's own values, on one line at the foot of it, in the order they are read: how
+            long it has been sitting, what it is worth, the board's words for it, and who has it.
+            Nothing here is a warning — those are above, where they cannot be mistaken for this. */}
+        {(aged || Boolean(tags?.length) || item.size || assignees.length > 0) && (
+          <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-micro text-slate-600">
+            {aged && (
+              <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title={`${summary.ageDays} days in this lane`}>
+                <Clock size={11} /> {summary.ageDays}d
+              </span>
+            )}
             {item.size ? (
               <span
                 className="shrink-0 rounded bg-slate-200/70 px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
@@ -640,6 +648,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 {item.size} pts
               </span>
             ) : null}
+            <TagChips tags={tags} />
             <span className="ml-auto flex shrink-0 items-center gap-0.5">
               {assignees.slice(0, 3).map((u) => (
                 <Avatar key={u.id} user={u} />
@@ -666,21 +675,18 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </span>
         )}
 
-        {/* The quiet footer: how long it has been here, how it is judged, what it is tied to, and
-            who has it. */}
-        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-micro text-slate-600">
-          {summary.ageDays !== undefined && summary.ageDays >= STALE_AFTER_DAYS && (
-            <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title={`${summary.ageDays} days in this lane`}>
-              <Clock size={11} /> {summary.ageDays}d
-            </span>
-          )}
-          {boundary && (
-            <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title="Waiting on an external dependency — see the boundary lane">
-              <Link2 size={11} /> waiting on
-            </span>
-          )}
-          {summary.done && <DoneStamp />}
-        </div>
+        {/* Below the values, the two marks that are not values: a card waiting on something
+            outside the board, and one that is finished. */}
+        {(boundary || summary.done) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
+            {boundary && (
+              <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title="Waiting on an external dependency — see the boundary lane">
+                <Link2 size={11} /> waiting on
+              </span>
+            )}
+            {summary.done && <DoneStamp />}
+          </div>
+        )}
       </div>
       {multi && <span className="pointer-events-none absolute inset-0 bg-indigo-500/15" aria-hidden />}
     </div>
