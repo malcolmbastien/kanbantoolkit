@@ -88,9 +88,11 @@ task-master list            # terminal 2
   lenses, not depths: the aggregation graph may be any depth and mix teams with other
   coordination boards, so long as it stays **acyclic** (`canLinkBoard`). The current
   "portfolio" surface is a coordination board; there is no separate portfolio entity.
-  A **portfolio** board leads with a **strategy map** (`StrategyMap`): its strategic
-  initiatives grouped under the **objective** they serve, with both coverage gaps inline.
-  There it replaces the initiatives workflow and the separate OKR-coverage section.
+  A **portfolio** board leads with a **strategy map** (`StrategyMap`): each **objective** heads
+  the board's own **initiatives workflow** (`BoardSummary` narrowed with `onlyIds`) holding the
+  strategic initiatives attributed to it, with both coverage gaps inline — an objective nothing
+  serves says so in words, and an initiative serving nothing gets a flow of its own. The map is
+  therefore the portfolio's flow *and* the OKR-coverage section, grouped by what the work is for.
   `linkTeamInitiative` creates a team initiative as a decomposition child of a management
   initiative so it rolls up.
 - Dependency state is derived from the two endpoints' cells; never store a dependency

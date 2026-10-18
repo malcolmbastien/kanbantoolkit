@@ -67,6 +67,7 @@ export function BoardSummary({
   rootsOnly,
   variant = 'team',
   interactive = false,
+  onlyIds,
 }: {
   boardId: string
   /** The board the person is looking at, when this is a band inside another board. */
@@ -75,6 +76,17 @@ export function BoardSummary({
   variant?: 'initiatives' | 'team'
   /** Own surface: drag initiatives between cells and edit the flow. Linked bands set this false. */
   interactive?: boolean
+  /**
+   * Show only these initiatives — when a surface groups the same flow by something other than the
+   * flow itself. A portfolio groups it by the objective each initiative serves, so each group is
+   * this board's own columns narrowed to its own members.
+   *
+   * Everything downstream follows from that one narrowing: a cell's badge counts the group's
+   * initiatives, and the health is found for them alone — which matters, because the health rules
+   * are not linear in the size of a board and N groups must not each pay for the whole board.
+   * `[]` means none, which is a real answer: an objective nobody serves still shows its columns.
+   */
+  onlyIds?: string[]
 }) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
@@ -108,15 +120,20 @@ export function BoardSummary({
    * overnight would go on saying "still 12d".
    */
   const today = Math.floor(Date.now() / 86_400_000)
+  // The ids as one string, because the array is rebuilt on every render by whoever passes it and
+  // a memo keyed on the array would never hold.
+  const onlyKey = onlyIds ? onlyIds.join(',') : null
   const health = useMemo(() => {
     const now = Date.now()
+    const only = onlyKey === null ? null : new Set(onlyKey.split(',').filter(Boolean))
     const found = new Map<string, HealthFlagInfo[]>()
     for (const c of items) {
       if (!isInitiativeItem(c, issueTypes)) continue
+      if (only && !only.has(c.id)) continue
       found.set(c.id, initiativeHealth(c.id, { items, edges, links, placements, lanes }, now).flags)
     }
     return found
-  }, [items, edges, links, placements, lanes, issueTypes, today])
+  }, [items, edges, links, placements, lanes, issueTypes, today, onlyKey])
   const refs = buildRefs(items, issueTypes)
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
@@ -126,7 +143,11 @@ export function BoardSummary({
   // to the board's *local* top-level initiatives: ones whose parent is not on this same board,
   // so an initiative can roll up to a top-level initiative on another management board and
   // still appear as top-level on its own board.
-  const allInitiatives = boardInitiatives(graph, boardId, issueTypes, { rootsOnly })
+  // The group's own members, if this instance is a group. `null` is "everything", `[]` is "none".
+  const only = onlyKey === null ? null : new Set(onlyKey.split(',').filter(Boolean))
+  const allInitiatives = boardInitiatives(graph, boardId, issueTypes, { rootsOnly }).filter(
+    (i) => only === null || only.has(i.id),
+  )
   // The kind filter narrows *this board's* flow and nothing else. Not the bands — another board's
   // flow shown through this one, with its own vocabulary and its own reading — and not the cards
   // workflow, the dashboard, the timeline or the strategy map. It never moves a count either: a

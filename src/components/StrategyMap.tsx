@@ -1,53 +1,48 @@
 import { Fragment, useState } from 'react'
-import { Plus, Target, TriangleAlert, X } from 'lucide-react'
-import { buildRefs, initiativeTypeById, initiativeTypeId } from '@/domain/board'
-import { decompositionParent, okrCoverage, rollupOf, type Graph } from '@/domain/derive'
-import { HEALTH_META, initiativeHealth } from '@/domain/health'
-import { STAGE_LABELS } from '@/domain/lanes'
-import { OBJECTIVE_STATUS_STYLES, chipColors, stageChip } from '@/lib/colors'
+import { Plus, Target, TriangleAlert } from 'lucide-react'
+import { BoardSummary } from './BoardSummary'
+import { buildRefs, initiativeTypeId } from '@/domain/board'
+import { decompositionParent, okrCoverage } from '@/domain/derive'
+import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { Item, Objective, Stage } from '@/domain/types'
+import type { Objective } from '@/domain/types'
 
 /**
- * The Strategy map — a portfolio board's L3 surface. Objectives and the strategic
- * initiatives that serve them on one page, so the connection is *containment*
- * rather than a report.
+ * The Strategy map — a portfolio board's surface, and the portfolio's own initiatives flow.
  *
- * Both coverage gaps are first-class and inline: an objective no initiative serves,
- * and an initiative no objective carries. That replaces the separate "OKR coverage"
- * section — the gaps are visible exactly where they occur.
+ * An objective is not a report on the work; it is *where the work is read from*. So each objective
+ * heads its own **initiatives workflow** — this board's own typed columns, exactly the flow the
+ * team boards show, narrowed to the strategic initiatives that serve it. The connection is
+ * containment: an initiative appears under the objective it is attributed to, in the column its
+ * own work puts it in, with the progress and health it has everywhere else. Move it between cells
+ * on its own board and it moves here; map it to another objective and it appears there too, because
+ * attribution is a relation and not a container.
  *
- * Laid out as a card grid, like the Objectives view: a full-width row puts a metric
- * far from its label, which reads as a table rather than a map.
+ * Both coverage gaps are first-class and inline: an objective no initiative serves — which shows as
+ * four empty columns with the reason said out loud — and an initiative no objective carries, which
+ * gets a flow of its own at the end. That replaces the separate "OKR coverage" section: the gaps
+ * are visible exactly where they occur.
  *
- * Attribution edges are the same ones the Objectives view edits ("one relation, two
- * homes"). Editing the OKR itself (title, KRs, score) stays in the Objectives view,
- * which this links out to.
+ * Attribution edges are the same ones the Objectives view edits ("one relation, two homes").
+ * Editing the OKR itself (title, KRs, score) stays in the Objectives view, which this links out to.
  */
 export function StrategyMap({ boardId }: { boardId: string }) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
-  const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
-  const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
   const objectives = useStore((s) => s.objectives)
-  const boards = useStore((s) => s.boards)
   const keyResults = useStore((s) => s.keyResults)
   const setAttribution = useStore((s) => s.setAttribution)
-  const openItem = useStore((s) => s.openItem)
   const setObjectives = useStore((s) => s.setObjectives)
   const addObjective = useStore((s) => s.addObjective)
 
   /** objectiveId → initiativeId, for the per-objective "map an initiative" select. */
   const [pick, setPick] = useState<Record<string, string>>({})
-  /** initiativeId → objectiveId, for the per-initiative "map to an objective" select. */
-  const [mapTo, setMapTo] = useState<Record<string, string>>({})
   /** The draft for a new objective, made here rather than sent to another page for. */
   const [newObjective, setNewObjective] = useState('')
 
-  const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
   const initId = initiativeTypeId(issueTypes)
 
@@ -85,63 +80,6 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const serving = (objectiveId: string) =>
     mine.filter((i) => attribution.some((e) => e.from === objectiveId && e.to === i.id))
 
-  /**
-   * One strategic initiative: ref, title, rolled-up progress and status. No type chip —
-   * on this surface every row is a strategic initiative, so it would be pure noise.
-   */
-  const initiativeRow = (it: Item, objectiveId?: string) => {
-    const roll = rollupOf(it.id, graph)
-    const bucket = roll.bucket as Stage
-    // The same rules the dashboard reads, from the same derivation — a portfolio and a
-    // programme cannot disagree about whether an initiative is in trouble.
-    const health = initiativeHealth(it.id, graph)
-    const kind = initiativeTypeById(boards, it.initiativeTypeId)
-    return (
-      <div key={it.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-1.5 py-1">
-        <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{refs.get(it.id)}</span>
-        <button
-          onClick={() => openItem(it.id)}
-          className="min-w-0 flex-1 truncate text-left text-meta font-medium text-slate-700 hover:text-violet-700"
-          title="Open this initiative"
-        >
-          {it.title}
-        </button>
-        {/* A kind is a label and nothing more, so it reads beside the title rather than in the
-            health cluster: it says what sort of bet this is, not whether it is in trouble. */}
-        {kind && (
-          <span
-            className="shrink-0 rounded px-1 py-px text-micro font-bold uppercase tracking-wide"
-            style={{ backgroundColor: chipColors(kind.color).background, color: chipColors(kind.color).color }}
-            title={`Kind: ${kind.name}`}
-          >
-            {kind.name}
-          </span>
-        )}
-        {health.flags.length > 0 && (
-          <span
-            className={cn('flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-micro font-semibold ring-1', HEALTH_META[health.level].chip)}
-            title={health.flags.map((f) => f.why).join(' · ')}
-          >
-            <TriangleAlert size={10} /> {HEALTH_META[health.level].label}
-          </span>
-        )}
-        <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{roll.percent}%</span>
-        <span className={cn('shrink-0 rounded px-1 py-px text-micro font-bold', stageChip(bucket))}>
-          {STAGE_LABELS[bucket]}
-        </span>
-        {objectiveId && (
-          <button
-            onClick={() => setAttribution(it.id, objectiveId, false)}
-            className="shrink-0 text-slate-600 hover:text-rose-500"
-            title="Unmap from this objective"
-          >
-            <X size={12} />
-          </button>
-        )}
-      </div>
-    )
-  }
-
   const mapButton = (label: string, disabled: boolean, onMap: () => void) => (
     <button
       disabled={disabled}
@@ -159,7 +97,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     const rows = serving(o.id)
     const candidates = mine.filter((i) => !rows.some((r) => r.id === i.id))
     return (
-      <div key={o.id} className="flex flex-col rounded-md border border-slate-300 bg-white shadow-sm">
+      <div key={o.id} data-objective-group={o.title} className="flex flex-col rounded-md border border-slate-300 bg-white shadow-sm">
         <div className="flex items-center gap-2 rounded-t-md border-b border-slate-200 bg-slate-50 px-2.5 py-1.5">
           <Target size={12} className="shrink-0 text-violet-500" />
           <button
@@ -169,6 +107,10 @@ export function StrategyMap({ boardId }: { boardId: string }) {
           >
             {o.title}
           </button>
+          {/* What is connected, in one number, before the columns say it in detail. */}
+          <span className="shrink-0 text-micro text-slate-600" title="Strategic initiatives attributed to this objective">
+            {rows.length} serving
+          </span>
           {o.score !== undefined && (
             <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600" title="Objective score">
               score {o.score}
@@ -195,21 +137,23 @@ export function StrategyMap({ boardId }: { boardId: string }) {
             </div>
           )}
 
+          {/* The objective's own flow: this board's typed columns, the same ones a team board
+              shows, narrowed to the initiatives attributed to this objective. The columns appear
+              when there is something to read in them — an objective nobody serves says so in
+              words instead of drawing four empty boxes, because "nothing yet" and "served from
+              somewhere else" are different facts and neither is a workflow. */}
+          {rows.length === 0 && !unservedIds.has(o.id) && (
+            <p className="px-1 text-meta text-slate-600">Served by a strategic initiative on another board.</p>
+          )}
+          {unservedIds.has(o.id) && (
+            <div className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-meta text-amber-800">
+              <TriangleAlert size={11} className="shrink-0" /> No strategic initiative serves this OKR.
+            </div>
+          )}
+
+          {rows.length > 0 && <BoardSummary boardId={boardId} onlyIds={rows.map((r) => r.id)} variant="initiatives" />}
+
           <div className="mt-auto">
-            <div className={subLabel}>
-              Initiatives serving this <span className="rounded bg-slate-100 px-1 text-slate-600">{rows.length}</span>
-            </div>
-            <div className="space-y-1">
-              {rows.length > 0 ? (
-                rows.map((it) => initiativeRow(it, o.id))
-              ) : !unservedIds.has(o.id) ? (
-                <p className="px-1 text-meta text-slate-600">Served by a strategic initiative on another board.</p>
-              ) : (
-                <div className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-meta text-amber-800">
-                  <TriangleAlert size={11} className="shrink-0" /> No strategic initiative serves this OKR.
-                </div>
-              )}
-            </div>
             <div className="mt-1 flex items-center gap-1">
               <select
                 value={pick[o.id] ?? ''}
@@ -274,7 +218,9 @@ export function StrategyMap({ boardId }: { boardId: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+      {/* One objective per row. A flow needs the width: three objectives side by side gave each
+          column a twelfth of the page, which is narrower than the card it has to hold. */}
+      <div className="space-y-3">
         {ordered.map((o, i) => (
           <Fragment key={o.id}>
             {periodCount > 1 && (i === 0 || ordered[i - 1].period !== o.period) && (
@@ -288,37 +234,19 @@ export function StrategyMap({ boardId }: { boardId: string }) {
 
         {unmapped.length > 0 && (
           <div className="flex flex-col rounded-md border border-amber-300 bg-amber-50/70 shadow-sm">
-            <div className="flex items-center gap-2 rounded-t-md border-b border-amber-200 px-2.5 py-1.5">
+            <div className="flex flex-wrap items-center gap-2 rounded-t-md border-b border-amber-200 px-2.5 py-1.5">
               <TriangleAlert size={12} className="shrink-0 text-amber-600" />
               <span className="min-w-0 flex-1 truncate text-meta font-bold uppercase tracking-wide text-amber-800">
-                Unmapped strategic initiatives
+                No objective yet
               </span>
-              <span className="shrink-0 text-micro text-amber-700">no OKR carries this</span>
+              <span className="shrink-0 text-micro text-amber-700">
+                {count(unmapped.length, 'strategic initiative')} serving no objective — map one from the objective it belongs to
+              </span>
             </div>
-            <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-              {unmapped.map((it) => (
-                <div key={it.id} className="space-y-1">
-                  {initiativeRow(it)}
-                  <div className="flex items-center gap-1">
-                    <select
-                      value={mapTo[it.id] ?? ''}
-                      onChange={(e) => setMapTo((m) => ({ ...m, [it.id]: e.target.value }))}
-                      className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
-                    >
-                      <option value="">Map to an objective…</option>
-                      {ordered.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.title}
-                        </option>
-                      ))}
-                    </select>
-                    {mapButton('Map', !mapTo[it.id], () => {
-                      setAttribution(it.id, mapTo[it.id], true)
-                      setMapTo((m) => ({ ...m, [it.id]: '' }))
-                    })}
-                  </div>
-                </div>
-              ))}
+            <div className="p-2.5">
+              {/* The same flow again, so the gap is read in the same language as the work: an
+                  initiative waiting to be claimed, in the column its own progress puts it in. */}
+              <BoardSummary boardId={boardId} onlyIds={unmapped.map((i) => i.id)} variant="initiatives" />
             </div>
           </div>
         )}

@@ -1389,13 +1389,27 @@
         "testStrategy": "A new legibility test: the header's three pairs clear the floor on violet-50, and slate-600 on slate-800 does not — the measurement that made the case. In the browser: the nav's Objectives button lands on `?board=b-atlas&view=objectives`; the workspace block reads its counts and lands on the same place; the header reads 3 of 5 this period with the explanation line legible; naming an objective on the page creates it (3 → 4, and the heading follows); and on Company Strategy, naming one in the map creates it (4 → 5) as a card reading \\\"No strategic initiative serves this OKR\\\" with its map control. `npm test` (315), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T06:30:00.000Z"
+      },
+      {
+        "id": "93",
+        "title": "A portfolio reads its objectives through its own initiative workflow",
+        "description": "Asked for: users connect OKRs to initiatives, and the initiatives appear under that objective in a consistent initiative workflow — the connection and the progress read together.",
+        "status": "done",
+        "dependencies": [
+          "92"
+        ],
+        "priority": "high",
+        "details": "The strategy map used to list each objective with its serving initiatives as compact rows: ref, title, kind chip, health chip, percent, stage chip. That said everything and showed nothing — the stage was a chip rather than the column it is everywhere else, and the map was a report *about* the flow rather than the flow.\\n\\nNow each objective heads **its own initiatives workflow**: this board's own typed columns, the same ones a team board shows, narrowed to the strategic initiatives attributed to it. The initiative sits in the column its own work puts it in, wearing the same card it wears everywhere — kind band, title, children pips, rollup, warnings — so the connection and the progress are read in one place, in the language the rest of the app already speaks.\\n\\n**The mechanism is one prop.** `BoardSummary` gained `onlyIds`, and everything downstream follows from that single narrowing: a cell's badge counts the group's initiatives, and the health is found for them alone. That last part matters — the health rules are not linear in the size of a board (the waiting rule walks the links once per open descendant), and N groups must not each pay for the whole board. The memo is keyed on the ids as one string, because whoever passes the array rebuilds it every render.\\n\\n**One objective per row.** The first cut kept the three-across grid and gave every column a twelfth of the page — narrower than the card it had to hold, so titles broke mid-word and the column names truncated. A flow needs the width; the groups stack.\\n\\n**The gaps stay first-class.** An objective nobody serves says so in words instead of drawing four empty boxes — 'nothing yet' and 'served from somewhere else' are different facts and neither is a workflow. An initiative serving no objective gets a flow of its own at the end, with the instruction that maps it: 'map one from the objective it belongs to', which is the direction the per-objective *Map a strategic initiative…* control already works in.\\n\\n**The flow here is read-only, deliberately.** An initiative may serve several objectives — attribution is a relation, not a container — so the same card can appear in more than one flow, and a lift/drop would not know which group it was rearranging. Making it draggable means answering that first.\\n\\nAlso fixed, found by clicking around in it: a **read-only kind band swallowed the click** — it stopped propagation before checking whether it was a control, so on a surface that only reads another board's flow, clicking the band did nothing instead of opening the card.\\n\\nAGENTS.md and the README said the map 'replaces the initiatives workflow'; both now say it *is* the workflow, grouped by what the work is for.",
+        "testStrategy": "No component tests exist (the vitest environment is node), so this is verified in the browser. On Company Strategy: each objective heads four typed columns; Recurring revenue engine sits in In Progress (1) with the other columns empty, wearing its kind band, its children pips, 10% and its four warnings; Improve reliability reads '0 serving' with the coverage note and no empty columns; the unmapped initiative has a flow of its own. Mapping INIT3 from an objective's control wrote `obj-activation→init-trust` and moved it into that objective's flow ('1 serving' → '2 serving'). Clicking a card in a group opens the drawer, and so does clicking its read-only kind band. A team board's own flow is unchanged. `npm test` (315), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T07:30:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T06:30:00.000Z",
-      "taskCount": 91,
-      "completedCount": 78,
+      "lastModified": "2026-10-18T07:30:00.000Z",
+      "taskCount": 92,
+      "completedCount": 79,
       "tags": [
         "backlog"
       ]

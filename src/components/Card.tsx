@@ -788,8 +788,12 @@ function KindBand({
     <div ref={ref} className="relative">
       <button
         onClick={(e) => {
+          // A band that is not a control lets the click through: on a surface that only reads
+          // another board's flow the band still says what the kind is, and clicking the card
+          // should open the card.
+          if (!canSet) return
           e.stopPropagation()
-          if (canSet) setOpen((o) => !o)
+          setOpen((o) => !o)
         }}
         onKeyDown={(e) => {
           // The list is the topmost layer, so Escape closes it rather than the panel or the board

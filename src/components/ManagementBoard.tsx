@@ -97,7 +97,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
               `${board.id}-strategy`,
               <>
                 <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Strategy map</span>
-                <span className="truncate text-meta text-slate-600">objectives and the strategic initiatives that serve them</span>
+                <span className="truncate text-meta text-slate-600">each objective with the initiatives that serve it, in this board’s own flow</span>
               </>,
               <StrategyMap boardId={board.id} />,
               <button
