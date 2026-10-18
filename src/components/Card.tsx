@@ -105,6 +105,11 @@ interface Props {
   boundary?: boolean
   /** Part of the multi-select group (shift+click). */
   multi?: boolean
+  /**
+   * The initiative a card in the air would become a child of. Drawn as a ring, and drawn *over*
+   * every other highlight: it is the thing about to happen, not the state the card is in.
+   */
+  dropTarget?: boolean
   /** Dimmed because another card is part of the active multi-select group. */
   dimmed?: boolean
   onOpen: (id: string) => void
@@ -180,7 +185,7 @@ const cardKeyboard = (
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
       ? onLift
@@ -352,6 +357,9 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
         {...dragProps}
         {...cardKeyboard(item, locked, onOpen, onContextMenu)}
         data-card-id={item.id}
+        // The wide card is the initiative, and an initiative is what a card can roll up to — so
+        // the marker is how a drop finds the cards that could be its target. A card is not one.
+        data-card-initiative=""
         onContextMenu={(e) => {
           if (locked || !onContextMenu) return
           e.preventDefault()
@@ -378,6 +386,9 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
           lensCls,
           lockCls,
           dimCls,
+          // Last, so it wins: `cn` keeps the last ring of the group, and the target is what the
+          // gesture is about to do rather than what the card is.
+          dropTarget && 'ring-2 ring-indigo-500',
         )}
       >
         {/* The kind, as a band across the top — the initiative's identity, and the one thing a
@@ -722,6 +733,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.ref_ !== b.ref_ || a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
   if (a.draggable !== b.draggable || a.locked !== b.locked || a.lens !== b.lens) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
+  if (a.dropTarget !== b.dropTarget) return false
   if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title || a.parent?.ref_ !== b.parent?.ref_) return false
   // The kind is drawn, so a change to it re-renders. The list is the board's own array, which the
   // store replaces only when it changes — `onSetKind` is ignored like the other callbacks.

@@ -12,6 +12,7 @@ import { LaneEditControls } from './LaneCtl'
 import { DragLayer } from './DragLayer'
 import { InlineEdit } from './InlineEdit'
 import { useCardLift } from '@/lib/useCardLift'
+import { parentTargetUnder } from '@/lib/dropTarget'
 import { DropColumn } from './DropColumn'
 import { LanePolicy, LaneSettings } from './LaneSettings'
 import {
@@ -87,6 +88,8 @@ interface Ctx {
     index: number | null
     /** The lifted card's measurements, so the gap it leaves is the card's own shape. */
     size: { width: number; height: number } | null
+    /** The initiative the card in the air would become a child of, if one is under the pointer. */
+    dropTargetId: string | null
     /** Begin a lift from a press on a card. */
     start: (e: React.PointerEvent, itemId: string) => void
   }
@@ -425,6 +428,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               ref_={refs.get(c.id) ?? ''}
               parent={parent}
               selected={ctx.selectedItemId === c.id}
+              dropTarget={ctx.drag.dropTargetId === c.id}
               boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}
               multi={ctx.multiSelect.includes(c.id)}
               dimmed={
@@ -617,6 +621,8 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const cancelParentPick = useStore((s) => s.cancelParentPick)
   const childPickId = useStore((s) => s.childPickId)
   const cancelChildPick = useStore((s) => s.cancelChildPick)
+  const dropTargetId = useStore((s) => s.dropTargetId)
+  const setDropTarget = useStore((s) => s.setDropTarget)
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
@@ -697,9 +703,22 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     // The lifted card's id arrives from the gesture itself. `gapUnder` reads the DOM, so it
     // never needed the id — but the parameter is the shape now, so no caller is tempted to
     // read `lift` through a closure that predates the lift.
-    onMove: (_itemId, x, y) => setDropAt(gapUnder(x, y)),
+    onMove: (itemId, x, y) => {
+      // An initiative card under the pointer takes the drop, and the lane gives way to it: one
+      // gesture, one meaning. The lane's gap is cleared so the two can never both be showing.
+      const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
+      setDropTarget(parent)
+      setDropAt(parent ? null : gapUnder(x, y))
+    },
     onDrop: (itemId, x, y) => {
       setDropAt(null)
+      setDropTarget(null)
+      const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
+      if (parent) {
+        // A hierarchy edit, not a move: the card stays in the lane it was in.
+        setParent(itemId, parent)
+        return
+      }
       const gap = gapUnder(x, y)
       if (gap) dropCardAt(itemId, gap.laneId, gap.index)
     },
@@ -722,6 +741,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       laneId: lifting ? (dropAt?.laneId ?? null) : null,
       index: lifting ? (dropAt?.index ?? null) : null,
       size: lifting && lift ? { width: lift.width, height: lift.height } : null,
+      dropTargetId: lifting ? dropTargetId : null,
       start: startLift,
     },
     openCard: (itemId) => {

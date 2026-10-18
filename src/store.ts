@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
-import { boardTags, canLinkBoard, canRetype, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
+import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
 import { canPlaceInSection, decompositionParent, descendants, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
@@ -123,6 +123,12 @@ export interface ViewState {
    * and shows the bulk-action bar. View-only.
    */
   multiSelect: string[]
+  /**
+   * The initiative card a card in the air would become a child of. View state, and the one piece
+   * of the drag that has to be shared: the card is lifted by the surface it came from and dropped
+   * on a card another surface drew, so neither of them can hold it alone.
+   */
+  dropTargetId: string | null
   /** Pending confirmation (destructive actions) — rendered by ConfirmDialog. */
   confirm: ConfirmRequest | null
   /** A move held back by a `justify` WIP limit — rendered by ReasonDialog. */
@@ -204,6 +210,8 @@ export interface Actions {
   /** Open/close the card context menu. */
   openCardMenu: (itemId: string, x: number, y: number) => void
   closeCardMenu: () => void
+  /** The initiative a card in the air would become a child of — see `dropTargetId`. */
+  setDropTarget: (dropTargetId: string | null) => void
 
   addObjective: (title: string, period: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -655,6 +663,7 @@ const initialView: ViewState = {
   parentPickId: null,
   childPickId: null,
   multiSelect: [],
+  dropTargetId: null,
   confirm: null,
   wipPrompt: null,
   cardMenu: null,
@@ -1005,7 +1014,7 @@ export const useStore = create<Store>()(
       selectBoard: (boardId) =>
         // The kind filter goes with the board it was set on: a kind from another board would
         // narrow the flow to nothing, which reads as a broken board rather than a stale filter.
-        set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null, initiativeKindFilter: null }),
+        set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null, initiativeKindFilter: null, dropTargetId: null }),
       openItem: (selectedItemId) =>
         set({
           selectedItemId,
@@ -1098,6 +1107,12 @@ export const useStore = create<Store>()(
       cancelWipPrompt: () => set({ wipPrompt: null }),
       openCardMenu: (itemId, x, y) => set({ cardMenu: { itemId, x, y } }),
       closeCardMenu: () => set({ cardMenu: null }),
+      // Called on every pointer move while a card is in the air, so it writes only on a change:
+      // a store write re-renders the board, and the pointer moves many times per second.
+      setDropTarget: (dropTargetId) => {
+        if (get().dropTargetId === dropTargetId) return
+        set({ dropTargetId })
+      },
 
       moveCardsToBoard: (itemIds, targetBoardId) => {
         const state = get()
@@ -2048,15 +2063,31 @@ export const useStore = create<Store>()(
 
       setParent: (childId, parentId) => {
         const state = get()
-        // A parent is always an initiative. A card rolls up to an outcome, and an initiative's
-        // parent is another initiative, so connections run one way and the type can only fall
-        // going down the tree — which means nothing can ever be its own ancestor. That is a
-        // stronger answer than refusing a subtree, and a simpler one: a loop is not something to
-        // detect, it is something that cannot be written down.
-        if (parentId && !isInitiativeItem(state.items.find((i) => i.id === parentId), state.issueTypes)) return
-        let edges = state.edges.filter((e) => !(e.kind === 'decomposition' && e.to === childId))
-        if (parentId && parentId !== childId) edges = [...edges, { id: uid(), kind: 'decomposition', from: parentId, to: childId }]
-        set({ edges })
+        const before = decompositionParent(childId, state.edges)
+        // A parent is always an initiative, and an item is never its own ancestor — the rule
+        // lives in `canSetParent`, where a drop preview reads it too. Refused rather than
+        // corrected, and refused *before* the old parent is dropped: asking for something
+        // impossible must not quietly detach the item instead.
+        const after = parentId && canSetParent(childId, parentId, state, state.issueTypes) ? parentId : undefined
+        if (parentId && !after) return
+        // Nothing changed, nothing to say: the log records decisions, not gestures.
+        if ((before ?? undefined) === after) return
+        const title = (id: string | undefined) => state.items.find((i) => i.id === id)?.title ?? id
+        const edges = state.edges.filter((e) => !(e.kind === 'decomposition' && e.to === childId))
+        set({
+          edges: after ? [...edges, { id: uid(), kind: 'decomposition', from: after, to: childId }] : edges,
+          items: state.items.map((i) =>
+            i.id === childId
+              ? {
+                  ...i,
+                  log: [
+                    ...(i.log ?? []),
+                    logEntry('edited', after ? `Rolls up to ${title(after)}` : `No longer rolls up to ${title(before)}`),
+                  ],
+                }
+              : i,
+          ),
+        })
       },
 
       addChecklistEntry: (itemId, text) => {

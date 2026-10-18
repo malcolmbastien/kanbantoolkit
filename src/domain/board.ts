@@ -1,4 +1,4 @@
-import { decompositionChildren, decompositionParent, isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
+import { decompositionChildren, decompositionParent, descendants, isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
 import {
   addLaneNode,
   childrenOf,
@@ -617,6 +617,19 @@ export function initiativeTypeId(types: IssueType[]): string | undefined {
 export function isInitiativeItem(item: Item | undefined, types: IssueType[]): boolean {
   const id = initiativeTypeId(types)
   return Boolean(id && item?.typeId === id)
+}
+
+/**
+ * Would `setParent` accept this? One rule, so a drop preview and the store cannot disagree.
+ *
+ * A parent is always an initiative, and an item is never its own ancestor. The drawer's picker
+ * excludes an item's descendants, which is why the ancestor rule could be left to the interface;
+ * a drop target excludes nothing, so the rule has to live where both of them can read it.
+ */
+export function canSetParent(childId: string, parentId: string, graph: Graph, issueTypes: IssueType[]): boolean {
+  if (childId === parentId) return false
+  if (!isInitiativeItem(graph.items.find((i) => i.id === parentId), issueTypes)) return false
+  return !descendants(childId, graph).includes(parentId)
 }
 
 /**

@@ -1514,13 +1514,13 @@
         "id": "102",
         "title": "A card dropped on an initiative card becomes a child of that initiative.",
         "description": "This task adds a drop target to an initiative card. A user drags a card onto an initiative card to set the parent of the card.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The card lift in `lib/useCardLift.ts`.\n2. The drop resolution in `components/BoardCanvas.tsx` and `components/BoardSummary.tsx`.\n3. The `setParent` action in the store.\n\nDEFINITIONS\n- Lift: the gesture that picks a card up. The card is in the air between the pointer down and the pointer up.\n- Drop target: the element below the pointer that accepts the card.\n- Parent: the initiative above an item in the decomposition. An item has one parent at most.\n- Cycle: a state in which an item is an ancestor of the item itself.\n\nREQUIREMENTS\n\nR1 — Parent assignment\nWhen a user drops a card on an initiative card, the application shall set the parent of the dropped card to that initiative.\n\nR2 — Replacement\nWhen the dropped card has a parent, the application shall replace the parent.\n\nR3 — Placement\nWhen a user drops a card on an initiative card, the application shall not change the lane or the cell of the card.\n\nR4 — Target type\nIf the drop target is not an initiative, then the application shall not set a parent.\n\nR5 — Cycle prevention\nIf the assignment would make the dropped card an ancestor of the initiative, then the application shall not set a parent.\n\nR6 — Self-parent\nIf the dropped card is the initiative, then the application shall not set a parent.\n\nR7 — Drop preview\nWhile a card is in the air over an initiative that can accept the card, the application shall mark that initiative as the drop target.\n\nR8 — Refused preview\nIf the store would refuse the assignment, then the application shall not mark the initiative as the drop target.\n\nR9 — Log entry\nWhen the application changes the parent of an item, the application shall add an entry to the log of the item.\n\nR10 — Target resolution\nThe application shall resolve the card below the pointer from the rectangles of the rendered cards. The application shall not use `document.elementFromPoint` for a card target.\n\nCONSTRAINTS\n- The existing drop targets (lanes and cells) shall not change.\n- A drop on empty space shall not change the hierarchy.\n- The lift shall move a card between lanes and cells after this change.\n- The drawer parent control shall not change.\n\nRATIONALE\nA user who wants to set a parent opens the card, opens the menu, and finds the initiative in a list. The initiative is usually on the board. A drag is a shorter operation.\n`setParent` replaces the parent. It does not refuse a second parent. This is the model rule: an item has one parent at most.\n`setParent` refuses a parent that is not an initiative. The comment in the store states that a cycle cannot occur. The argument is that a parent is an initiative, and the type cannot increase down the tree. That argument depends on the drawer picker, which excludes the descendants of an item. A card target does not exclude the descendants. Therefore the store requires a cycle guard.\nCards are `pointer-events-none` while a card is in the air. This rule lets the lane below the card answer the pointer. Therefore `document.elementFromPoint` cannot find a card. The application resolves the card from the rectangle of the card.\n\nOUT OF SCOPE\n- A drop target on a card in the cards workflow.\n- Multi-select drag. See task 103.",
         "testStrategy": "VERIFICATION\n\nV1 — R1: In a store test, call `setParent` for a card and an initiative. Assert the edge exists.\nV2 — R2: Call `setParent` for an item that has a parent. Assert the item has one parent.\nV3 — R4: Call `setParent` with a card as the parent. Assert no edge is added.\nV4 — R5: Make item A the parent of item B. Call `setParent` for A with B as the parent. Assert no edge is added. Assert no cycle exists in the graph.\nV5 — R6: Call `setParent` for item A with A as the parent. Assert no edge is added.\nV6 — R9: Assert the log of the item contains one entry for the change.\nV7 — R1, R3: In the browser, open a team board. Drag a card from the cards workflow onto an initiative card. Assert the parent chip appears on the card. Assert the card is in the same lane.\nV8 — R2: Drop the card on a second initiative. Assert the parent chip shows the second initiative.\nV9 — R7: While the card is in the air, assert the initiative is marked.\nV10 — R8: Move the card over an initiative that would cause a cycle. Assert the initiative is not marked.\nV11 — The constraints: Drag a card to a different lane. Assert the card moves.",
         "subtasks": [],
-        "updatedAt": "2026-10-18T13:30:00.000Z"
+        "updatedAt": "2026-10-18T17:40:00.000Z"
       },
       {
         "id": "103",
@@ -1537,9 +1537,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T16:40:00.000Z",
+      "lastModified": "2026-10-18T17:40:00.000Z",
       "taskCount": 102,
-      "completedCount": 87,
+      "completedCount": 88,
       "tags": [
         "backlog"
       ]

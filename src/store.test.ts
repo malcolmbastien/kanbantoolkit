@@ -47,6 +47,51 @@ describe('store actions', () => {
     expect(decompositionParent('st-signup-form', s().edges)).toBe('init-signup')
   })
 
+  it('a parent is never the item itself nor one of its descendants — and a refusal changes nothing', () => {
+    const parentOf = (id: string) => decompositionParent(id, s().edges)
+
+    // A card rolls up to an initiative, and moving it to another one replaces the first.
+    expect(parentOf('st-email')).toBe('init-signup')
+    s().setParent('st-email', 'init-welcome')
+    expect(parentOf('st-email')).toBe('init-welcome')
+
+    // A parent is an initiative: a card is not one, so it is refused.
+    s().setParent('st-email', 'st-signup-form')
+    expect(parentOf('st-email')).toBe('init-welcome')
+
+    // Itself — refused *before* the old parent is dropped, because asking for something
+    // impossible must not quietly detach the item instead.
+    s().setParent('st-email', 'st-email')
+    expect(parentOf('st-email')).toBe('init-welcome')
+
+    // A descendant. The fixture runs strategic → line of business → value stream → team, so
+    // `init-signup` sits two levels below `init-onboarding` — a cycle the drawer's picker would
+    // have excluded and a drop target does not.
+    expect(parentOf('init-onboarding')).toBe('init-growth')
+    s().setParent('init-onboarding', 'init-signup')
+    expect(parentOf('init-onboarding')).toBe('init-growth')
+    s().setParent('init-onboarding', 'init-onboarding')
+    expect(parentOf('init-onboarding')).toBe('init-growth')
+  })
+
+  it('a parent change is written to the log, and a call that changes nothing says nothing', () => {
+    const logs = (id: string) => s().items.find((i) => i.id === id)!.log ?? []
+
+    s().setParent('st-email', 'init-welcome')
+    expect(logs('st-email').at(-1)).toMatchObject({ kind: 'edited' })
+    expect(logs('st-email').at(-1)!.note).toContain(s().items.find((i) => i.id === 'init-welcome')!.title)
+
+    // The same call again changes nothing, so it records nothing: the log is decisions, not
+    // gestures.
+    const before = logs('st-email').length
+    s().setParent('st-email', 'init-welcome')
+    expect(logs('st-email')).toHaveLength(before)
+
+    // Clearing it says what it left.
+    s().setParent('st-email', null)
+    expect(logs('st-email').at(-1)!.note).toContain('No longer rolls up to')
+  })
+
   it('splitting a leaf into a container moves its cards into the first sub-lane', () => {
     const ns = laneByName('b-atlas', 'Not Started')
     const before = s().placements.filter((p) => p.laneId === ns.id).length

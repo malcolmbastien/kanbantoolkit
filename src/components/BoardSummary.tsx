@@ -4,6 +4,7 @@ import { DragLayer } from './DragLayer'
 import { DropGap } from './DropGap'
 import { InlineEdit } from './InlineEdit'
 import { useCardLift } from '@/lib/useCardLift'
+import { parentTargetUnder } from '@/lib/dropTarget'
 import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
 import {
@@ -99,6 +100,8 @@ export function BoardSummary({
   const users = useStore((s) => s.users)
   const links = useStore((s) => s.links)
   const selectedItemId = useStore((s) => s.selectedItemId)
+  const dropTargetId = useStore((s) => s.dropTargetId)
+  const setDropTarget = useStore((s) => s.setDropTarget)
   const openItem = useStore((s) => s.openItem)
   const lensId = useStore((s) => s.lensId)
   const toggleLens = useStore((s) => s.toggleLens)
@@ -190,9 +193,23 @@ export function BoardSummary({
     // registered once at pointerdown, when lift is still null, so reading it through this
     // closure made the cell preview dead for the whole drag. This was the bug: drops worked
     // (onDrop is handed the id) while the target cell never lit up.
-    onMove: (itemId, x, y) => setDropCell(cellUnder(x, y, itemId)),
+    onMove: (itemId, x, y) => {
+      // An initiative card under the pointer takes the drop and the cells give way: the gesture
+      // is a hierarchy edit there, and a rearrangement here, and never both at once.
+      const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
+      setDropTarget(parent)
+      setDropCell(parent ? null : cellUnder(x, y, itemId))
+    },
     onDrop: (itemId, x, y) => {
       setDropCell(null)
+      setDropTarget(null)
+      const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
+      if (parent) {
+        // An initiative rolls up to another initiative. It stays in its own cell: the section is
+        // derived from the work, and this changes whose work it is, not where it sits.
+        setParent(itemId, parent)
+        return
+      }
       const target = cellUnder(x, y, itemId)
       if (target) moveInitiativeToIndex(itemId, boardId, target.cellId, target.index)
     },
@@ -306,6 +323,7 @@ export function BoardSummary({
         tags={tagsOf(boards, c)}
         onSetKind={interactive && !editMode ? (kindId) => setInitiativeKind(c.id, kindId) : undefined}
         selected={selectedItemId === c.id}
+        dropTarget={dropTargetId === c.id}
         lens={lensRole(c.id, lensId, graph)}
         // Focus belongs to the board's own initiatives workflow. A Linked boards band is
         // another board's flow shown as a rollup, so its rows are read-only here — its
