@@ -47,7 +47,10 @@ task-master list            # terminal 2
   is never its own ancestor — and it is read by both the store and the preview, so a target that
   lights up is a target the drop accepts. `setParent` refuses *before* dropping the old parent, so
   asking for something impossible cannot quietly detach the item instead, and it writes the change
-  to the item's log.
+  to the item's log. The bulk bar's **Roll up to** is the same act for a whole selection, in one
+  write (`setParents`): the same rule is judged for every item *before* anything is written, so a
+  selection that would cycle refuses as a whole rather than half-applying, and it offers only the
+  candidates it would accept — a target that is listed is a target the operation takes.
 - **Hierarchy is generic and structural.** A card has at most one parent (`setParent`
   enforces it). `depth` is derived — never add a `level` field.
 - **Issue types are labels + colour.** Columns come from a board's lane tree, never from

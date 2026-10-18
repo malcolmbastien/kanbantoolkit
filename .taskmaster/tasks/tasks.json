@@ -1526,20 +1526,20 @@
         "id": "103",
         "title": "A user can set the parent of several items in one operation.",
         "description": "This task adds a parent control to the bulk bar. A user selects several items and sets one initiative as the parent of all of them.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The bulk bar in `components/BulkActions.tsx`.\n2. The store action `setParents`.\n\nDEFINITIONS\n- Selection: the set of items that the user selected. The bulk bar acts on the selection.\n- Parent: the initiative above an item in the decomposition. An item has one parent at most.\n- Candidate: an initiative that the operation accepts as a parent for the whole selection.\n- Cycle: a state in which an item is an ancestor of the item itself.\n\nREQUIREMENTS\n\nR1 — Control\nThe application shall provide a control in the bulk bar that sets the parent of the selected items.\n\nR2 — Candidate list\nThe application shall list the same candidates as the parent control in the drawer.\n\nR3 — Single operation\nWhen a user confirms the control, the application shall set the parent of each selected item in one operation.\n\nR4 — Replacement\nWhen a selected item has a parent, the application shall replace the parent.\n\nR5 — Initiative in the selection\nWhen an initiative is in the selection, the application shall set the parent of that initiative.\n\nR6 — Cycle prevention\nIf the operation would make a selected item an ancestor of the parent, then the application shall not set any parent.\n\nR7 — Atomicity\nIf the application refuses the operation, then the application shall not change any item.\n\nR8 — Reason\nIf the application refuses the operation, then the application shall show the reason to the user.\n\nR9 — Log entry\nWhen the application changes the parent of an item, the application shall add an entry to the log of that item.\n\nR10 — Candidate exclusion\nThe application shall not list an initiative that the operation would refuse for the current selection.\n\nCONSTRAINTS\n- The single-item parent control in the drawer shall not change.\n- The card menu shall not change.\n- The bulk bar shall continue to act on the whole selection.\n\nRATIONALE\nA user who breaks down an initiative usually links several cards. The application has a selection and a bulk bar. The bulk bar is the correct place for an operation on a group.\nThe cycle rule applies to the selection as a group. A user can set item A as the parent of item B. A user can set item B as the parent of item A. A user cannot do both in one operation.\n\nOUT OF SCOPE\n- Drag operations. See task 102.\n- A parent control on the cards workflow.",
         "testStrategy": "VERIFICATION\n\nV1 — R1, R3: In a store test, call `setParents` for three cards and one initiative. Assert each card has the parent.\nV2 — R4: Call `setParents` for items that have parents. Assert each item has one parent.\nV3 — R5: Include an initiative in the selection. Assert the parent of the initiative is set.\nV4 — R6, R7: Select two items where the operation would create a cycle. Assert no item changes.\nV5 — R9: Assert the log of each item contains one entry for the change.\nV6 — R2, R10: In a browser test, select three cards. Assert the control lists an initiative that can accept the selection. Assert the control does not list an initiative that would create a cycle.\nV7 — R3: Use the control. Assert each selected card shows the parent chip.\nV8 — R8: Force a refusal. Assert the user sees the reason.",
         "subtasks": [],
-        "updatedAt": "2026-10-18T13:30:00.000Z"
+        "updatedAt": "2026-10-18T20:26:53.789Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T17:40:00.000Z",
+      "lastModified": "2026-10-18T20:26:53.789Z",
       "taskCount": 102,
-      "completedCount": 88,
+      "completedCount": 89,
       "tags": [
         "backlog"
       ]

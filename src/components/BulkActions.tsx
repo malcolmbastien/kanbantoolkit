@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Archive, CheckSquare, Trash2, X } from 'lucide-react'
-import { cardTypes, defaultDropLane, isInitiativeItem } from '@/domain/board'
+import { Archive, CheckSquare, Trash2, TriangleAlert, X } from 'lucide-react'
+import { canSetParent, cardTypes, defaultDropLane, isInitiativeItem } from '@/domain/board'
+import type { Graph } from '@/domain/derive'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { useStore } from '@/store'
 
@@ -33,8 +34,15 @@ export function BulkActions() {
   const askConfirm = useStore((s) => s.askConfirm)
   const clearMultiSelect = useStore((s) => s.clearMultiSelect)
 
+  const setParents = useStore((s) => s.setParents)
+  const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
+  const placements = useStore((s) => s.placements)
+
   const [assignee, setAssignee] = useState('')
   const [targetBoard, setTargetBoard] = useState('')
+  const [parentTarget, setParentTarget] = useState('')
+  const [parentRefused, setParentRefused] = useState(false)
 
   if (multiSelect.length === 0) return null
 
@@ -46,6 +54,23 @@ export function BulkActions() {
     .map((b) => ({ board: b, lane: defaultDropLane(b, lanes, b.id) }))
   const types = cardTypes(issueTypes)
   const count = multiSelect.length
+
+  // The initiatives that could take every one of them: the list the drawer's parent control
+  // offers for one item, narrowed to what the whole selection accepts — so a choice that is
+  // offered is a choice the store takes.
+  const graph: Graph = { items, edges, links, placements, lanes }
+  const parentCandidates = items.filter(
+    (i) => isInitiativeItem(i, issueTypes) && multiSelect.every((id) => canSetParent(id, i.id, graph, issueTypes)),
+  )
+
+  const applyParent = () => {
+    if (!parentTarget) return
+    // The whole selection is judged before anything is written, so a refusal changes nothing —
+    // and says why.
+    const applied = setParents(multiSelect, parentTarget)
+    setParentRefused(!applied)
+    if (applied) setParentTarget('')
+  }
 
   const applyAssignee = () => {
     const name = assignee.trim()
@@ -131,6 +156,43 @@ export function BulkActions() {
             ))}
           </select>
         </label>
+      )}
+
+      {/* Hierarchy is not retyping: an initiative can be a child of another, so this control
+          is offered for every selection, initiatives included. */}
+      {parentCandidates.length > 0 && (
+        <label className="flex items-center gap-1 text-slate-600">
+          Roll up to
+          <select
+            value={parentTarget}
+            onChange={(e) => {
+              setParentTarget(e.target.value)
+              setParentRefused(false)
+            }}
+            className={SELECT_CLS}
+            title="Make every selected item a child of one initiative"
+          >
+            <option value="">initiative…</option>
+            {parentCandidates.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.title}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={!parentTarget}
+            onClick={applyParent}
+            className="rounded bg-indigo-600 px-2 py-1 font-medium text-white disabled:opacity-40"
+          >
+            Set
+          </button>
+        </label>
+      )}
+
+      {parentRefused && (
+        <span role="status" className="flex items-center gap-1 text-amber-300">
+          <TriangleAlert size={12} /> Nothing changed: one of the selection sits above that initiative.
+        </span>
       )}
 
       <label className="flex items-center gap-1 text-slate-600">

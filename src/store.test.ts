@@ -74,6 +74,44 @@ describe('store actions', () => {
     expect(parentOf('init-onboarding')).toBe('init-growth')
   })
 
+  it('a selection rolls up to one initiative in one operation, and refuses as a whole', () => {
+    const parentOf = (id: string) => decompositionParent(id, s().edges)
+    const logs = (id: string) => s().items.find((i) => i.id === id)!.log ?? []
+    const selection = ['st-email', 'st-sso', 'init-signup']
+    const counts = selection.map((id) => logs(id).length)
+
+    // V1, V3: three cards and an initiative, one parent, one write. An initiative can be a child
+    // of another — it is the *parent* that must be an initiative, not the child.
+    expect(s().setParents(selection, 'init-welcome')).toBe(true)
+    selection.forEach((id, i) => {
+      expect(parentOf(id)).toBe('init-welcome')
+      // V5: each one that changed says so once.
+      expect(logs(id)).toHaveLength(counts[i] + 1)
+      expect(logs(id).at(-1)!.note).toContain('Welcome experience')
+    })
+
+    // V2: the same call again replaces what is there with itself — no change, no entry.
+    const again = selection.map((id) => logs(id).length)
+    expect(s().setParents(selection, 'init-welcome')).toBe(true)
+    selection.forEach((id, i) => expect(logs(id)).toHaveLength(again[i]))
+
+    // V4, R7: half-applying is worse than refusing. `init-onboarding` sits above `init-signup`,
+    // so this pair cannot both roll up to it — and the items that could have are left exactly as
+    // they were.
+    const edges = s().edges.length
+    const parents = selection.map(parentOf)
+    expect(s().setParents(['st-email', 'st-sso', 'init-onboarding'], 'init-signup')).toBe(false)
+    expect(s().edges).toHaveLength(edges)
+    selection.forEach((id, i) => expect(parentOf(id)).toBe(parents[i]))
+
+    // The same for a selection that names itself as the parent.
+    expect(s().setParents(['init-signup'], 'init-signup')).toBe(false)
+    expect(parentOf('init-signup')).toBe('init-welcome')
+
+    // An empty selection is nothing to do, not a success.
+    expect(s().setParents([], 'init-welcome')).toBe(false)
+  })
+
   it('a parent change is written to the log, and a call that changes nothing says nothing', () => {
     const logs = (id: string) => s().items.find((i) => i.id === id)!.log ?? []
 

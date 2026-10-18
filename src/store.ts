@@ -374,6 +374,11 @@ export interface Actions {
   setLaneDescription: (laneId: string, description: string | undefined) => void
 
   setParent: (childId: string, parentId: string | null) => void
+  /**
+   * The same for a whole selection, in one write. `false` when the rule refuses any of it — and
+   * nothing is written then, so a refused gesture changes no item.
+   */
+  setParents: (itemIds: string[], parentId: string) => boolean
   /** The card waiting for a parent, if one is. See `parentPickId` in the view state. */
   startParentPick: (itemId: string) => void
   cancelParentPick: () => void
@@ -2088,6 +2093,31 @@ export const useStore = create<Store>()(
               : i,
           ),
         })
+      },
+
+      setParents: (itemIds, parentId) => {
+        const state = get()
+        if (itemIds.length === 0) return false
+        // One rule, judged for the whole selection *before* anything is written: a gesture that
+        // half-applies is worse than one that refuses. The list the user chose from excludes what
+        // this would refuse, so a refusal here means the hierarchy moved under them.
+        if (!itemIds.every((id) => canSetParent(id, parentId, state, state.issueTypes))) return false
+        const ids = new Set(itemIds)
+        const parent = state.items.find((i) => i.id === parentId)
+        set({
+          edges: [
+            // The old parent goes with the new one in a single write: an item has one at most.
+            ...state.edges.filter((e) => !(e.kind === 'decomposition' && ids.has(e.to))),
+            ...itemIds.map((id) => ({ id: uid(), kind: 'decomposition' as const, from: parentId, to: id })),
+          ],
+          items: state.items.map((i) =>
+            // Only what changed is recorded: the log is decisions, not gestures.
+            ids.has(i.id) && decompositionParent(i.id, state.edges) !== parentId
+              ? { ...i, log: [...(i.log ?? []), logEntry('edited', `Rolls up to ${parent?.title ?? parentId}`)] }
+              : i,
+          ),
+        })
+        return true
       },
 
       addChecklistEntry: (itemId, text) => {
