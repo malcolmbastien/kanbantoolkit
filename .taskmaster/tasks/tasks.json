@@ -1403,13 +1403,27 @@
         "testStrategy": "No component tests exist (the vitest environment is node), so this is verified in the browser. On Company Strategy: each objective heads four typed columns; Recurring revenue engine sits in In Progress (1) with the other columns empty, wearing its kind band, its children pips, 10% and its four warnings; Improve reliability reads '0 serving' with the coverage note and no empty columns; the unmapped initiative has a flow of its own. Mapping INIT3 from an objective's control wrote `obj-activation→init-trust` and moved it into that objective's flow ('1 serving' → '2 serving'). Clicking a card in a group opens the drawer, and so does clicking its read-only kind band. A team board's own flow is unchanged. `npm test` (315), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T07:30:00.000Z"
+      },
+      {
+        "id": "94",
+        "title": "A portfolio shows its objectives and nothing else",
+        "description": "Asked for: no Linked boards on portfolio boards — just the objectives, their key results, and the initiatives attributed to them in their grouped flows.",
+        "status": "done",
+        "dependencies": [
+          "93"
+        ],
+        "priority": "medium",
+        "details": "The Linked boards section — and the line under it explaining what a band is — now renders on a **program** board only. A portfolio's surface is its strategy map and nothing else, which is the reading it exists for: what the work is *for*, and the initiatives that serve it, grouped by the objective they answer to.\\n\\nThe links themselves stay in the model, so this is a decision about one surface and not about the data — a programme under a portfolio still rolls up. They are still manageable: **Board settings** has carried the linked-boards list for every aggregating board all along, and a portfolio now says there why its own surface will not show them: \\\"A portfolio shows no bands: these roll up on the programme boards beneath it.\\\" Said where the link is made, because that is where somebody would otherwise wonder why nothing happened.\\n\\nOne correctness fix alongside it, in the spirit of the ask: an objective's flow now holds **any** of the board's initiatives attributed to it, not only the local top-level ones. `serving()` read from `mine` — which exists to keep a nested initiative from being a second row the map *heads* — but the OKR page will happily attribute a nested one, and then it belonged in that objective's flow and was missing from it. Coverage still reads `mine`: an outcome is committed or it is not, and a piece of one is not a separate commitment.",
+        "testStrategy": "In the browser: on Company Strategy the page reads STRATEGY MAP with three objective groups, no 'Linked boards', no 'roll up here' and no band note; on the Growth value stream the section is still there ('2 boards roll up here'). Board settings on a portfolio still lists its links and carries the new note; on a programme it carries the general note and not the portfolio one. `npm test` (315), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T08:20:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T07:30:00.000Z",
-      "taskCount": 92,
-      "completedCount": 79,
+      "lastModified": "2026-10-18T08:20:00.000Z",
+      "taskCount": 93,
+      "completedCount": 80,
       "tags": [
         "backlog"
       ]

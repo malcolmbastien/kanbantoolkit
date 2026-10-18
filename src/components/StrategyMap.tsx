@@ -46,11 +46,16 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const refs = buildRefs(items, issueTypes)
   const initId = initiativeTypeId(issueTypes)
 
-  // This board's own strategic initiatives: Initiative-typed, placed here, and local
-  // top-level — an initiative whose parent is also on this board isn't a separate row.
   const onBoardIds = new Set(placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
-  const mine = items
-    .filter((i) => onBoardIds.has(i.id) && i.typeId === initId && !i.archived)
+  // Everything of this board's that could serve an objective: Initiative-typed, placed here, not
+  // filed away — nested ones included, because an initiative under another on this board can be
+  // attributed to an objective just as the OKR page will let you, and then it belongs in that
+  // objective's flow like any other.
+  const boardInits = items.filter((i) => onBoardIds.has(i.id) && i.typeId === initId && !i.archived)
+  // The ones the map *heads*: local top-level, so an initiative whose parent is also on this board
+  // is not a second row. Coverage is read over these — an outcome is committed or it is not, and a
+  // piece of one is not a separate commitment.
+  const mine = boardInits
     .filter((i) => {
       const parent = decompositionParent(i.id, edges)
       return !parent || !onBoardIds.has(parent)
@@ -77,8 +82,9 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     setNewObjective('')
   }
 
+  /** Everything attributed to an objective — what its flow holds, nested initiatives included. */
   const serving = (objectiveId: string) =>
-    mine.filter((i) => attribution.some((e) => e.from === objectiveId && e.to === i.id))
+    boardInits.filter((i) => attribution.some((e) => e.from === objectiveId && e.to === i.id))
 
   const mapButton = (label: string, disabled: boolean, onMap: () => void) => (
     <button

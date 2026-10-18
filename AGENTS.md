@@ -83,16 +83,20 @@ task-master list            # terminal 2
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
   placed by rollup (card children are drill-in). A board has a **flight-level band**
   (`band: 'team' | 'program' | 'portfolio'`) that picks its lens: a
-  **team** board renders work, while a **program** or **portfolio** board
-  aggregates other boards — its own initiatives plus a band per `linkedBoardIds`. Bands are
+  **team** board renders work, while a **program** board aggregates other boards — its own
+  initiatives plus a band per `linkedBoardIds`. Bands are
   lenses, not depths: the aggregation graph may be any depth and mix teams with other
   coordination boards, so long as it stays **acyclic** (`canLinkBoard`). The current
   "portfolio" surface is a coordination board; there is no separate portfolio entity.
-  A **portfolio** board leads with a **strategy map** (`StrategyMap`): each **objective** heads
-  the board's own **initiatives workflow** (`BoardSummary` narrowed with `onlyIds`) holding the
-  strategic initiatives attributed to it, with both coverage gaps inline — an objective nothing
-  serves says so in words, and an initiative serving nothing gets a flow of its own. The map is
-  therefore the portfolio's flow *and* the OKR-coverage section, grouped by what the work is for.
+  A **portfolio** board leads with a **strategy map** (`StrategyMap`) and nothing else: each
+  **objective** heads the board's own **initiatives workflow** (`BoardSummary` narrowed with
+  `onlyIds`) holding the strategic initiatives attributed to it, with both coverage gaps inline —
+  an objective nothing serves says so in words, and an initiative serving nothing gets a flow of
+  its own. The map is therefore the portfolio's flow *and* the OKR-coverage section, grouped by
+  what the work is for, and it carries **no bands**: a portfolio is read for what the work is
+  *for*, and the rollups of the boards beneath it belong to the programme boards. The links stay
+  in the model — a programme under a portfolio still rolls up — so this is one surface's choice,
+  not a rule about the data.
   `linkTeamInitiative` creates a team initiative as a decomposition child of a management
   initiative so it rolls up.
 - Dependency state is derived from the two endpoints' cells; never store a dependency

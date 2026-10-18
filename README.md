@@ -25,11 +25,12 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
   renders work: an **Initiatives workflow** (its initiatives, positioned by rollup) over the
   **Cards workflow**. A **program** board aggregates: the same **Initiatives workflow** plus
   **Linked boards** — a rollup band per board it aggregates. A **portfolio** board leads with
-  a **Strategy map**: each **objective** heads the board's own **initiatives workflow**, holding
-  the strategic initiatives attributed to it in the columns their own work puts them in — so the
-  connection and the progress read together. Both coverage gaps are inline (an objective no
-  initiative serves, an initiative no objective carries, which gets a flow of its own), then
-  **Linked boards**. Pick a board from the **Board** menu.
+  a **Strategy map**, and with nothing else: each **objective** heads the board's own
+  **initiatives workflow**, holding the strategic initiatives attributed to it in the columns
+  their own work puts them in — so the connection and the progress read together. Both coverage
+  gaps are inline (an objective no initiative serves, an initiative no objective carries, which
+  gets a flow of its own). A portfolio shows no bands — what the work is *for* is its reading, and
+  the rollups beneath it belong to the programme boards. Pick a board from the **Board** menu.
 - **Custom initiative flows.** A typed column can be **split** into cells, and an initiative
   can be moved between the cells of its own column — so a board can define its own flow. The
   *column* stays derived from the work (that's the rollup), the *cell* is the user's

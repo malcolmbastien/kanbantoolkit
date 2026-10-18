@@ -561,6 +561,14 @@ export function BoardSettings() {
                 <Target size={10} /> Teams or other coordination boards, any depth — their initiatives appear as bands. A board
                 can’t be linked under one of its own descendants.
               </p>
+              {/* Said here because this is where the link is made, and a portfolio is the one board
+                  whose surface will not show it. */}
+              {board.band === 'portfolio' && (
+                <p className="mt-1 text-micro text-slate-600">
+                  A portfolio shows no bands: these roll up on the programme boards beneath it. Its own surface is its
+                  objectives and the initiatives that serve them.
+                </p>
+              )}
             </div>
           )}
         </div>

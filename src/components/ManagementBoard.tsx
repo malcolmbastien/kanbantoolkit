@@ -122,8 +122,12 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
               'band',
             )}
 
-        {/* Linked boards — teams or other coordination boards */}
-        {section(
+        {/* Linked boards — teams or other coordination boards. A portfolio does not show them:
+            its job is the objectives and the initiatives that serve them, and a band of another
+            board's flow is a different reading of the same work. The links themselves stay in the
+            model (a programme beneath it still rolls up), so this is a decision about one surface
+            and not about the data. */}
+        {!isPortfolio && section(
           `${board.id}-linked`,
           <>
             <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Linked boards</span>
@@ -198,9 +202,11 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           false,
         )}
 
-        <div className="flex items-center gap-1 px-1 text-micro text-slate-600">
-          <Layers size={11} /> Each band is a rollup of that board’s initiatives — Not Started / In Progress / Done. Card symbols show linked initiatives.
-        </div>
+        {!isPortfolio && (
+          <div className="flex items-center gap-1 px-1 text-micro text-slate-600">
+            <Layers size={11} /> Each band is a rollup of that board’s initiatives — Not Started / In Progress / Done. Card symbols show linked initiatives.
+          </div>
+        )}
       </div>
     </div>
   )
