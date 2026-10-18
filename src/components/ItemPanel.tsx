@@ -9,7 +9,6 @@ import {
   Copy,
   Eye,
   Flag,
-  GitBranch,
   Minus,
   MoreHorizontal,
   Plus,
@@ -27,10 +26,7 @@ import {
   decompositionParent,
   dependenciesOf,
   dependentsOf,
-  depth as depthOf,
   descendants,
-  dependencyState,
-  dependentSummary,
   lineageOf,
   objectiveRollup,
   openDescendants,
@@ -44,11 +40,11 @@ import { initiativeHealth } from '@/domain/health'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
-import { chipColors, DEP_STATE_STYLES, FLAG_BADGE, FLAG_BADGE_SHAPE, stageChip, TAG_PALETTE } from '@/lib/colors'
+import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
-import type { Item } from '@/domain/types'
+import type { Item, Stage } from '@/domain/types'
 
 interface Props {
   itemId: string
@@ -73,6 +69,9 @@ const CHIP = 'flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-1.5 text-met
 
 type Tab = 'overview' | 'hierarchy' | 'activity'
 
+/** The stages in the order a board reads them, which is the order the work below is listed in. */
+const STAGE_ORDER: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
+
 export function ItemPanel({ itemId }: Props) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
@@ -91,7 +90,6 @@ export function ItemPanel({ itemId }: Props) {
   const toggleChecklistEntry = useStore((s) => s.toggleChecklistEntry)
   const setChecklistEntryText = useStore((s) => s.setChecklistEntryText)
   const removeChecklistEntry = useStore((s) => s.removeChecklistEntry)
-  const linkTeamInitiative = useStore((s) => s.linkTeamInitiative)
   const addDependency = useStore((s) => s.addDependency)
   const setAttribution = useStore((s) => s.setAttribution)
   const blockItem = useStore((s) => s.blockItem)
@@ -126,8 +124,6 @@ export function ItemPanel({ itemId }: Props) {
   // Which warning's affected work is open. Closed by default: the chip row is the summary, and
   // the cards behind a chip are what you ask for, not what you are given.
   const [openWarning, setOpenWarning] = useState<string | null>(null)
-  const [linkBoardId, setLinkBoardId] = useState('')
-  const [linkTitle, setLinkTitle] = useState('')
   const [showPreview, setShowPreview] = useState(false)
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
@@ -156,7 +152,6 @@ export function ItemPanel({ itemId }: Props) {
   if (!item) return null
 
   const type = issueTypes.find((t) => t.id === item.typeId) ?? { id: item.typeId, name: 'Item', color: '#64748b' }
-  const d = depthOf(item.id, graph)
   const parentId = decompositionParent(item.id, edges)
   const parent = parentId ? items.find((i) => i.id === parentId) : undefined
   const children = decompositionChildren(item.id, edges)
@@ -165,7 +160,6 @@ export function ItemPanel({ itemId }: Props) {
   const dependencies = dependenciesOf(item.id, graph)
   const dependents = dependentsOf(item.id, graph)
   const exposure = openDescendants(item.id, graph)
-  const badge = dependentSummary(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
   const status = statusOf(item.id, graph)
   const roll = rollupOf(item.id, graph)
@@ -259,6 +253,17 @@ export function ItemPanel({ itemId }: Props) {
   }
 
   /**
+   * Open an item where it actually lives: in place when it is on the board in front of us, and on
+   * its own board when it is not. A row that leads somewhere must not leave the reader on one
+   * board reading a card from another.
+   */
+  const openOrGo = (id: string) => {
+    const there = boardOf(id)
+    if (there && there.id !== boardId) goTo(id)
+    else close(id)
+  }
+
+  /**
    * The initiative's health, as warnings a reader can act on.
    *
    * The rules and the words are `initiativeHealth`'s — the same the card's badge row and the
@@ -311,8 +316,6 @@ export function ItemPanel({ itemId }: Props) {
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   // Every card type is offered; the item's current type is always among them.
   const typeOptions = cardTypes(issueTypes)
-  const teamBoards = boards.filter((b) => b.band === 'team')
-  const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const relatedCount = children.length + dependencies.length + dependents.length + itemPlacements.length
   const doneBelow = children.length > 0 ? `${roll.done} of ${roll.total} done` : undefined
 
@@ -324,6 +327,44 @@ export function ItemPanel({ itemId }: Props) {
     { id: 'hierarchy', label: 'Hierarchy', count: relatedCount },
     { id: 'activity', label: 'Activity', count: log.length },
   ]
+
+  /**
+   * One item as a row in a list: how it stands, what it is called, and where it lives — the three
+   * things a reader needs before deciding to go there. The name is the way in; a row that carries
+   * an action of its own keeps that action beside the name rather than making the row a button.
+   */
+  const itemRow = (c: Item, onOpen: () => void, opts: { onRemove?: () => void; stage?: boolean } = {}) => {
+    const cStatus = statusOf(c.id, graph)
+    const bucket = rollupOf(c.id, graph).bucket
+    return (
+      <div
+        key={c.id}
+        className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+      >
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
+        <button onClick={onOpen} title={`Open ${c.title}`} className="min-w-0 flex-1 truncate text-left text-slate-700 transition hover:text-indigo-600">
+          {c.title}
+        </button>
+        {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
+        <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
+        {/* Where a heading already says the stage — the groups under "Items below" — the row does
+            not say it again. */}
+        {opts.stage !== false && (
+          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold', stageChip(bucket))}>{STAGE_LABELS[bucket]}</span>
+        )}
+        {opts.onRemove && (
+          <button
+            onClick={opts.onRemove}
+            className="shrink-0 text-slate-500 transition hover:text-rose-600"
+            title="Remove this link — the other item is untouched"
+            aria-label={`Remove the link to ${c.title}`}
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <aside
@@ -859,15 +900,9 @@ export function ItemPanel({ itemId }: Props) {
                 not shown its initiative's OKRs either: relating work to strategy is the
                 initiative's job, and asking a team to do it card by card is the thing
                 initiatives exist to save them from. */}
-            {isInitiative && (
+            {isStrategic && (
               <Section label="Strategic impact">
-                {!isStrategic ? (
-                  <p className="rounded-xl bg-slate-50 p-3 text-meta leading-relaxed text-slate-600 ring-1 ring-slate-200">
-                    Objectives attach to strategic initiatives — the ones a portfolio board owns. This one
-                    is not on a portfolio board, so its objective is set on the initiative above it.
-                  </p>
-                ) : (
-                  <div className="space-y-2 rounded-xl bg-indigo-50/60 p-3 ring-1 ring-indigo-100">
+                <div className="space-y-2 rounded-xl bg-indigo-50/60 p-3 ring-1 ring-indigo-100">
                     {/* One choice, not a set — the shape the kind and the type already have, and the
                         shape the model keeps. Choosing another objective moves the initiative, so
                         there is nothing here to tick twice and nothing that could serve two. */}
@@ -911,11 +946,10 @@ export function ItemPanel({ itemId }: Props) {
                               ))}
                           </ul>
                         )}
-                        <ObjectiveProgress objectiveId={attributed[0].id} />
-                      </>
-                    )}
-                  </div>
-                )}
+                      <ObjectiveProgress objectiveId={attributed[0].id} />
+                    </>
+                  )}
+                </div>
               </Section>
             )}
 
@@ -1055,7 +1089,6 @@ export function ItemPanel({ itemId }: Props) {
                 thing you can change about it. */}
             <Section
               label="How this rolls up"
-              aside={<span className="text-micro text-slate-600">Depth {d}</span>}
               action={
                 <button
                   onClick={() => {
@@ -1124,9 +1157,6 @@ export function ItemPanel({ itemId }: Props) {
                       <div key={node.id} className="flex items-center gap-2 bg-slate-50 px-2.5 py-2">
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
                         <span className="min-w-0 flex-1 truncate text-meta font-semibold text-slate-800">{node.title}</span>
-                        <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-slate-200">
-                          Depth {d}
-                        </span>
                       </div>
                     ) : (
                       <button
@@ -1156,23 +1186,22 @@ export function ItemPanel({ itemId }: Props) {
                   Nothing below this yet. An initiative below it is made with <span className="font-medium">+ Initiative</span> on the board.
                 </p>
               ) : (
-                <div className="space-y-1">
-                  {children.map((c) => {
-                    const cStatus = statusOf(c.id, graph)
+                /* Grouped by stage, in the order a board reads them: the list and the board can be
+                   read against each other, and a reader looking for what has not started is not
+                   hunting through what is done. */
+                <div className="space-y-3">
+                  {STAGE_ORDER.map((stage) => {
+                    const group = children.filter((c) => rollupOf(c.id, graph).bucket === stage)
+                    if (group.length === 0) return null
                     return (
-                      <button
-                        key={c.id}
-                        onClick={() => close(c.id)}
-                        className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                      >
-                        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
-                        <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                        {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
-                        <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
-                        <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
-                          {STAGE_LABELS[rollupOf(c.id, graph).bucket]}
-                        </span>
-                      </button>
+                      <div key={stage} className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn('h-1.5 w-1.5 rounded-full', STAGE_DOT[stage])} />
+                          <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">{STAGE_LABELS[stage]}</span>
+                          <span className="text-micro tabular-nums text-slate-600">{group.length}</span>
+                        </div>
+                        {group.map((c) => itemRow(c, () => close(c.id), { stage: false }))}
+                      </div>
                     )
                   })}
                 </div>
@@ -1182,50 +1211,23 @@ export function ItemPanel({ itemId }: Props) {
 
             {/* Dependencies — a link between two items. */}
             <Section label="Dependencies" count={dependencies.length + dependents.length}>
-              {badge.count > 0 && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-meta text-amber-800 ring-1 ring-amber-200">
-                  <GitBranch size={12} className="shrink-0" />
-                  {badge.count} card{badge.count > 1 ? 's' : ''} depend{badge.count > 1 ? '' : 's'} on this, across {badge.boards} board{badge.boards > 1 ? 's' : ''}
+              {dependencies.length === 0 && dependents.length === 0 && (
+                <p className="text-meta text-slate-600">No links yet. Add one below.</p>
+              )}
+              {dependencies.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-slate-600">Depends on</p>
+                  {dependencies.map((dep) =>
+                    itemRow(dep.dependency, () => openOrGo(dep.dependency.id), {
+                      onRemove: () => removeDependency(dep.dependency.id, dep.dependent.id),
+                    }),
+                  )}
                 </div>
               )}
-              {dependencies.length === 0 && dependents.length === 0 ? (
-                <p className="text-meta text-slate-600">No links yet. Add one below.</p>
-              ) : (
+              {dependents.length > 0 && (
                 <div className="space-y-1">
-                  {dependencies.map((dep) => {
-                    const state = DEP_STATE_STYLES[dep.state]
-                    return (
-                      <div key={dep.link.id} className="rounded-lg border border-slate-200 px-2.5 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="shrink-0 text-micro text-slate-600">Depends on</span>
-                          <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependency.title}</span>
-                          {dep.dependency.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
-                          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold ring-1', state.className)}>{state.label}</span>
-                          <button
-                            onClick={() => removeDependency(dep.dependency.id, dep.dependent.id)}
-                            className="shrink-0 text-slate-500 transition hover:text-rose-600"
-                            title="Remove this link — the other item is untouched"
-                            aria-label={`Remove the link to ${dep.dependency.title}`}
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                        <p className="mt-0.5 text-micro text-slate-600">{dependencyState(dep.dependency.id, dep.dependent.id, graph)}</p>
-                      </div>
-                    )
-                  })}
-                  {dependents.map((dep) => (
-                    <div key={dep.link.id} className="rounded-lg border border-slate-200 px-2.5 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0 text-micro text-slate-600">Depends on this</span>
-                        <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependent.title}</span>
-                        {dep.dependent.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
-                      </div>
-                      <p className="mt-0.5 text-micro text-slate-600">
-                        {statusOf(dep.dependent.id, graph).resolved ? 'Done' : DEP_STATE_STYLES[dep.state].label}
-                      </p>
-                    </div>
-                  ))}
+                  <p className="text-micro font-semibold uppercase tracking-wide text-slate-600">Depends on this</p>
+                  {dependents.map((dep) => itemRow(dep.dependent, () => openOrGo(dep.dependent.id)))}
                 </div>
               )}
               <div className="flex items-center gap-1.5">
@@ -1249,58 +1251,6 @@ export function ItemPanel({ itemId }: Props) {
               </div>
               <p className="text-micro text-slate-600">A link says one item depends on another. It never blocks anything by itself.</p>
             </Section>
-
-            {/* Team initiatives — a management initiative decomposed onto a team board. */}
-            {isInitiative && (
-              <Section label="Team initiatives" count={linkedInitiatives.length}>
-                {linkedInitiatives.length === 0 ? (
-                  <p className="text-meta text-slate-600">No team initiatives yet.</p>
-                ) : (
-                  <div className="space-y-1">
-                    {linkedInitiatives.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => close(c.id)}
-                        className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                      >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
-                        <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                        <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={linkBoardId}
-                    onChange={(e) => setLinkBoardId(e.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
-                  >
-                    <option value="">On a team board…</option>
-                    {teamBoards.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                  <input
-                    value={linkTitle}
-                    onChange={(e) => setLinkTitle(e.target.value)}
-                    placeholder="Its name"
-                    className="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
-                  />
-                  <button
-                    disabled={!linkBoardId || linkTitle.trim().length < 2}
-                    onClick={() => {
-                      linkTeamInitiative(item.id, linkBoardId, linkTitle.trim())
-                      setLinkTitle('')
-                    }}
-                    className="shrink-0 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
-                  >
-                    Create
-                  </button>
-                </div>
-                <p className="text-micro text-slate-600">Makes a team initiative on that board, below this one. Its cards roll up here.</p>
-              </Section>
-            )}
 
             {/* Placements — the boards this item is on, and the cell in each. */}
             <Section label="On these boards" count={itemPlacements.length}>
