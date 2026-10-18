@@ -627,8 +627,9 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </div>
         )}
 
-        {/* What it carries: the board's own words, and the size. */}
-        {(Boolean(tags?.length) || item.size) && (
+        {/* What it carries and who has it, on one line: the board's words, what it is worth,
+            and the people — the quiet values, read together rather than stacked. */}
+        {(Boolean(tags?.length) || item.size || assignees.length > 0) && (
           <div className="flex flex-wrap items-center gap-1">
             <TagChips tags={tags} />
             {item.size ? (
@@ -639,6 +640,17 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 {item.size} pts
               </span>
             ) : null}
+            <span className="ml-auto flex shrink-0 items-center gap-0.5">
+              {assignees.slice(0, 3).map((u) => (
+                <Avatar key={u.id} user={u} />
+              ))}
+              {assignees.length > 3 && (
+                <span className="text-micro font-medium text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
+                  +{assignees.length - 3}
+                </span>
+              )}
+              {lensButton}
+            </span>
           </div>
         )}
 
@@ -668,17 +680,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             </span>
           )}
           {summary.done && <DoneStamp />}
-          <span className="ml-auto flex shrink-0 items-center gap-0.5">
-            {assignees.slice(0, 3).map((u) => (
-              <Avatar key={u.id} user={u} />
-            ))}
-            {assignees.length > 3 && (
-              <span className="text-micro font-semibold text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
-                +{assignees.length - 3}
-              </span>
-            )}
-            {lensButton}
-          </span>
         </div>
       </div>
       {multi && <span className="pointer-events-none absolute inset-0 bg-indigo-500/15" aria-hidden />}

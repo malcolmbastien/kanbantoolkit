@@ -678,7 +678,7 @@ function Cell({
         data-section-id={sectionId}
         role="region"
         aria-label={`${lanePath(lanes, lane.id).join(' / ') || lane.name || 'Cell'} — ${count} initiative${count === 1 ? '' : 's'}`}
-        className="flex min-h-[96px] min-w-0 flex-1 flex-col gap-1 p-1"
+        className="flex min-h-[96px] min-w-0 flex-1 flex-col gap-2 p-1"
       >
         {children}
       </div>

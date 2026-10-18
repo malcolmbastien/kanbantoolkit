@@ -45,7 +45,7 @@ export function DropColumn({
   const placeholder = <DropGap width={draggingSize?.width} height={draggingSize?.height} />
 
   return (
-    <div data-lane-id={laneId} className="flex min-h-[96px] flex-1 flex-col gap-1 p-1 transition">
+    <div data-lane-id={laneId} className="flex min-h-[96px] flex-1 flex-col gap-2 p-1 transition">
       {remaining.map((item, i) => (
         <Fragment key={item.id}>
           {at === i ? placeholder : null}
