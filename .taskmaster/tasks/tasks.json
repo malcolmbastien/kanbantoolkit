@@ -1377,13 +1377,25 @@
         "testStrategy": "Two new domain tests: each flag's `items` is exactly the cards the rule counted and the number in the label is that list's length; and the shape-of-the-whole and nothing-below rules name no cards. In the browser, on Billing migration (six warnings): the drawer opens on Details with the section, each warning carrying its cards; clicking \\\"Retire the legacy coupon service\\\" lands on `?board=b-atlas&item=st-coupon-retire` with that card's drawer open and the initiative in its lineage. On the Growth value stream's own Onboarding journey, whose backlog cards live on Team Atlas, the rows name the board and clicking one lands on `?board=b-atlas&item=init-trial`. From the Timeline, the section offers \\\"Go to Team Atlas with this initiative open\\\" and it does. `npm test` (314), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T05:30:00.000Z"
+      },
+      {
+        "id": "92",
+        "title": "Objectives are reachable, readable, and can be made where they are read",
+        "description": "Three reports: the OKR page had no way in but a portfolio board's corner; its dark header was hard to read and did not say what to do; and a portfolio offered no way to add an objective.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "**A way in, in the navigation.** `Objectives` is now a tab beside Archive and My work — it is organisation-level, not any one board's, so it sits with the other organisation-level views. It goes through `setView`, so it is addressable like everything else: clicking it lands on `?board=b-atlas&view=objectives`, which is a link somebody can send. The Boards workspace hides the nav (it always has), so the workspace carries its own block — *Objectives & Key Results · N objectives · M key results — what the work is for, and the strategic initiatives that serve it* — above the board grid.\\n\\n**A header that can be read.** The page's header was a dark strip: `text-slate-600` on `bg-slate-800`, which is **1.9:1** against this app's own 4.5 floor — the legibility rule it tests for in `lib/legibility.test.ts`. It is now the light, tinted panel the other views use (Archive's amber, Boards' indigo, this one violet): an eyebrow, a heading that says how many objectives this period and whether that is over the commitment limit, and a line saying what the page is for. The primary action is a named button — *New objective* — beside the period it will land in, instead of a bare `Objective` at the far end of a dark bar. A new test pins the pairs (and the old strip, as the reason it went).\\n\\n**Making one where it is read.** The strategy map now has the same control: name an objective in the header and it is created in the latest period the map already shows, arriving as a card with its coverage gap inline — *No strategic initiative serves this OKR* — and the *Map a strategic initiative* control right there, which is the next thing to fix. The empty state no longer sends you to another page to do it.\\n\\nThe objectives button in the strategy map's section header stays: it goes to the *editing* view (period, key results, scores), which is a different errand from making one.",
+        "testStrategy": "A new legibility test: the header's three pairs clear the floor on violet-50, and slate-600 on slate-800 does not — the measurement that made the case. In the browser: the nav's Objectives button lands on `?board=b-atlas&view=objectives`; the workspace block reads its counts and lands on the same place; the header reads 3 of 5 this period with the explanation line legible; naming an objective on the page creates it (3 → 4, and the heading follows); and on Company Strategy, naming one in the map creates it (4 → 5) as a card reading \\\"No strategic initiative serves this OKR\\\" with its map control. `npm test` (315), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T06:30:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T05:30:00.000Z",
-      "taskCount": 90,
-      "completedCount": 77,
+      "lastModified": "2026-10-18T06:30:00.000Z",
+      "taskCount": 91,
+      "completedCount": 78,
       "tags": [
         "backlog"
       ]

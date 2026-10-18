@@ -54,50 +54,72 @@ export function ObjectivesView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-950/40 bg-slate-800 px-3 py-1.5 text-meta text-slate-300">
-        <Target size={14} className="text-indigo-300" />
-        <span className="text-body font-bold text-white">Objectives &amp; Key Results</span>
-        <span className="text-slate-600">— how work maps to organizational priorities</span>
-        <label className="ml-2 flex items-center gap-1 text-slate-600">
-          Period
-          <select value={period} onChange={(e) => setPeriod(e.target.value)} className="rounded-md border border-slate-600 bg-slate-700 px-1.5 py-1 text-meta text-slate-100 outline-none">
-            {periods.length === 0 && <option value={period}>{period}</option>}
-            {periods.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </label>
-        <span
-          className={cn('rounded px-1.5 py-px font-semibold', shown.length > COMMITMENT_LIMIT ? 'bg-rose-500 text-white' : 'bg-slate-700 text-slate-200')}
-          title={`Commitment limit: ${COMMITMENT_LIMIT} objectives per period`}
-        >
-          {shown.length} / {COMMITMENT_LIMIT} objectives
-        </span>
-
-        <div className="ml-auto flex items-center gap-1">
-          <input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="New objective…"
-            className="w-44 rounded-md border border-slate-600 bg-slate-700 px-2 py-1 text-meta text-slate-100 placeholder:text-slate-400 outline-none"
-          />
-          <button
-            disabled={newTitle.trim().length < 2}
-            onClick={() => {
-              addObjective(newTitle.trim(), period)
-              setNewTitle('')
-            }}
-            className="flex items-center gap-1 rounded-md bg-indigo-500 px-2 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
-          >
-            <Plus size={12} /> Objective
-          </button>
-        </div>
-      </div>
-
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {/* A light header, like every other view's: the dark strip this used to be put grey text on
+            a slate ground — about 2:1, against this app's own 4.5 floor — and left the one action
+            the page is for at the far end of it. The action is now a button with a name, and the
+            line under the title says what the page is for. */}
+        <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-violet-300 bg-violet-50/70 px-4 py-3">
+          <div>
+            <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-violet-700">
+              <Target size={12} /> Objectives &amp; Key Results
+            </div>
+            <div className="text-heading font-semibold text-slate-800">
+              {shown.length} of {COMMITMENT_LIMIT} this period
+              {shown.length > COMMITMENT_LIMIT && (
+                <span className="ml-2 rounded bg-rose-100 px-1.5 py-px text-meta font-semibold text-rose-700 ring-1 ring-rose-300" title={`Commitment limit: ${COMMITMENT_LIMIT} objectives per period`}>
+                  over the commitment limit
+                </span>
+              )}
+            </div>
+            <div className="text-meta text-slate-600">
+              What the work is for: each objective carries the key results that measure it and the strategic initiatives that serve it. Mapping an initiative here is attribution — it never counts as WIP.
+            </div>
+          </div>
+
+          <div className="ml-auto flex flex-wrap items-end gap-3">
+            <label className="flex items-center gap-1.5 text-meta text-slate-600">
+              Period
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none"
+              >
+                {periods.length === 0 && <option value={period}>{period}</option>}
+                {periods.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-center gap-1">
+              <input
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' || newTitle.trim().length < 2) return
+                  addObjective(newTitle.trim(), period)
+                  setNewTitle('')
+                }}
+                placeholder={`New objective in ${period}…`}
+                className="w-48 rounded border border-slate-200 bg-white px-2 py-1 text-meta text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300"
+              />
+              <button
+                disabled={newTitle.trim().length < 2}
+                onClick={() => {
+                  addObjective(newTitle.trim(), period)
+                  setNewTitle('')
+                }}
+                className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+              >
+                <Plus size={12} /> New objective
+              </button>
+            </div>
+          </div>
+        </div>
+
         {shown.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
-            No objectives for {period}. Add one above.
+            No objectives in {period} yet. Name one above and press <span className="font-semibold text-slate-700">New objective</span>.
           </div>
         )}
 

@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, TrendingUp, UserRound, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Target, TrendingUp, UserRound, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -25,6 +25,7 @@ interface Props {
   onShowArchive: () => void
   onShowMetrics: () => void
   onShowMyWork: () => void
+  onShowObjectives: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
   onEditBoard: () => void
@@ -37,7 +38,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onShowObjectives, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
@@ -138,6 +139,20 @@ export function TopBar(props: Props) {
             title="Archive — filed-away items (still searchable, still in links)"
           >
             <Archive size={12} /> Archive
+          </button>
+
+          {/* Strategy sits with the other organisation-level views rather than inside a board: an
+              objective is not any one board's, and a portfolio is only one way to reach it. */}
+          <button
+            onClick={onShowObjectives}
+            disabled={editMode}
+            className={cn(
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+              showObjectives ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+            )}
+            title="Objectives & Key Results — every objective, the key results that measure it, and the strategic initiatives that serve it"
+          >
+            <Target size={12} /> Objectives
           </button>
 
           <button

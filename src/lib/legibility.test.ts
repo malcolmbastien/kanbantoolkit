@@ -24,6 +24,23 @@ describe('legibility', () => {
     expect(offenders).toEqual([])
   })
 
+  it('keeps a view header readable: its own ink on its own ground', () => {
+    // The Objectives header was a dark strip with grey text on it. Slate-600 on slate-800 is
+    // 1.9:1, against this app's own 4.5 floor — which is what "hard to read" meant. The light
+    // header it became reads at the pairs below, checked rather than assumed.
+    const VIOLET_50 = '#f5f3ff'
+    const pairs = [
+      ['the title', '#1e293b'],
+      ['the eyebrow', '#6d28d9'],
+      ['the explanation', '#475569'],
+    ] as const
+    for (const [what, ink] of pairs) {
+      expect(contrastRatio(ink, VIOLET_50), what).toBeGreaterThanOrEqual(CONTRAST_FLOOR)
+    }
+    // …and the strip it replaced, kept here as the reason it went.
+    expect(contrastRatio('#475569', '#1e293b')).toBeLessThan(CONTRAST_FLOOR)
+  })
+
   it('composites a card tint to a colour, not a filter', () => {
     // The card face was the type colour at 10% alpha, so it took the colour of whatever column
     // it sat in — the same card read slate in Backlog, indigo in In Progress and emerald in

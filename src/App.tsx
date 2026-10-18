@@ -178,6 +178,7 @@ export default function App() {
         onShowMetrics={() => setView('flow')}
         onShowArchive={() => setView('archive')}
         onShowMyWork={() => setView('mywork')}
+        onShowObjectives={() => setView('objectives')}
         onGoToBoards={() => setView('boards')}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}

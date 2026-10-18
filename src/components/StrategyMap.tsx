@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { Target, TriangleAlert, X } from 'lucide-react'
+import { Plus, Target, TriangleAlert, X } from 'lucide-react'
 import { buildRefs, initiativeTypeById, initiativeTypeId } from '@/domain/board'
 import { decompositionParent, okrCoverage, rollupOf, type Graph } from '@/domain/derive'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
@@ -38,11 +38,14 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const setAttribution = useStore((s) => s.setAttribution)
   const openItem = useStore((s) => s.openItem)
   const setObjectives = useStore((s) => s.setObjectives)
+  const addObjective = useStore((s) => s.addObjective)
 
   /** objectiveId → initiativeId, for the per-objective "map an initiative" select. */
   const [pick, setPick] = useState<Record<string, string>>({})
   /** initiativeId → objectiveId, for the per-initiative "map to an objective" select. */
   const [mapTo, setMapTo] = useState<Record<string, string>>({})
+  /** The draft for a new objective, made here rather than sent to another page for. */
+  const [newObjective, setNewObjective] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
@@ -70,6 +73,14 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     (a, b) => a.period.localeCompare(b.period) || a.title.localeCompare(b.title),
   )
   const periodCount = new Set(ordered.map((o) => o.period)).size
+  // Where an objective made here lands: the latest period the map already shows, so it appears
+  // under a heading a reader recognises rather than inventing one.
+  const latestPeriod = ordered[ordered.length - 1]?.period ?? 'FY26 Q1'
+  const makeObjective = () => {
+    if (newObjective.trim().length < 2) return
+    addObjective(newObjective.trim(), latestPeriod)
+    setNewObjective('')
+  }
 
   const serving = (objectiveId: string) =>
     mine.filter((i) => attribution.some((e) => e.from === objectiveId && e.to === i.id))
@@ -231,15 +242,35 @@ export function StrategyMap({ boardId }: { boardId: string }) {
         <span>{count(objectives.length, 'objective')}</span>
         <span>{count(mine.length, 'strategic initiative')}</span>
         <span className={cn(gapCount > 0 && 'font-semibold text-amber-700')}>{count(gapCount, 'gap')}</span>
+
+        {/* Making an objective is the board's business too: a portfolio is where a reader notices
+            that something the organisation is committed to has no initiative serving it. The new
+            one arrives as a card with its coverage gap inline — which is the next thing to fix. */}
+        <div className="ml-auto flex items-center gap-1">
+          <input
+            value={newObjective}
+            onChange={(e) => setNewObjective(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') makeObjective()
+            }}
+            placeholder={`New objective in ${latestPeriod}…`}
+            className="w-48 rounded border border-slate-200 bg-white px-2 py-1 text-meta text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300"
+          />
+          <button
+            disabled={newObjective.trim().length < 2}
+            onClick={makeObjective}
+            title={`Add an objective to ${latestPeriod} — it appears here with its coverage gap until a strategic initiative serves it`}
+            className="flex items-center gap-1 rounded-md bg-violet-600 px-2 py-1 text-meta font-medium text-white hover:bg-violet-500 disabled:opacity-40"
+          >
+            <Plus size={12} /> New objective
+          </button>
+        </div>
       </div>
 
       {objectives.length === 0 && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-meta text-slate-600">
-          No objectives yet.{' '}
-          <button onClick={() => setObjectives(true)} className="font-medium text-violet-700 hover:underline">
-            Add one in Objectives
-          </button>
-          .
+          No objectives yet — name one above and press{' '}
+          <span className="font-semibold text-slate-700">New objective</span>.
         </div>
       )}
 

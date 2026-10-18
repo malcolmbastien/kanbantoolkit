@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { TemplateEditor } from './TemplateEditor'
@@ -34,6 +34,9 @@ export function BoardWorkspace() {
   const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
   const askConfirm = useStore((s) => s.askConfirm)
   const importWorkspace = useStore((s) => s.importWorkspace)
+  const setObjectives = useStore((s) => s.setObjectives)
+  const objectives = useStore((s) => s.objectives)
+  const keyResults = useStore((s) => s.keyResults)
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -163,6 +166,23 @@ export function BoardWorkspace() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
       <div className="mx-auto w-full max-w-6xl">
+        {/* The other thing at this altitude. Boards are where work is arranged; objectives are
+            what it is for, and until now the only way in was a portfolio board's corner. */}
+        <button
+          onClick={() => setObjectives(true)}
+          className="mb-3 flex w-full items-center gap-3 rounded-lg border border-violet-300 bg-violet-50/70 px-4 py-2.5 text-left transition hover:border-violet-400 hover:bg-violet-50"
+          title="Open Objectives & Key Results"
+        >
+          <Target size={16} className="shrink-0 text-violet-600" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-meta font-bold uppercase tracking-wide text-violet-700">Objectives &amp; Key Results</span>
+            <span className="block text-meta text-slate-600">
+              {objectives.length} objective{objectives.length === 1 ? '' : 's'} · {keyResults.length} key result{keyResults.length === 1 ? '' : 's'} — what the work is for, and the strategic initiatives that serve it
+            </span>
+          </span>
+          <ArrowRight size={14} className="shrink-0 text-violet-500" />
+        </button>
+
         <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-slate-300 bg-white px-4 py-3">
           <div>
             <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-indigo-600">
