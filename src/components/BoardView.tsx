@@ -137,7 +137,11 @@ export function BoardView({ requestMove }: Props) {
             </div>
             <KindFilter boardId={boardId} />
           </div>
-          <BoardSummary boardId={boardId} interactive />
+          {/* `variant` says this surface is the board's *own* initiatives flow — the one that owns
+              the board's kinds, and the one its kind filter narrows. Without it a team board's
+              initiatives were read as somebody else's band: a kind could be set and stored, and
+              the card never grew the header that says so. */}
+          <BoardSummary boardId={boardId} variant="initiatives" interactive />
         </section>
 
         {/* Cards workflow — the team's customizable flow */}

@@ -26,6 +26,11 @@ export interface CardSummary {
   openDescendants: number
   /** For parents: % of leaf descendants done (derived rollup). */
   rollupPercent?: number
+  /**
+   * For parents: the size of the work below, in points — what an initiative has instead of an
+   * estimate of its own. Never entered; the same number the panel's "Size below" reads.
+   */
+  sizeBelow?: number
   /** Checklist progress inside the card (sub-tasks). */
   checklist?: { done: number; total: number }
   /** Every leaf below is done — the card, or the initiative, is finished. See `DoneStamp`. */
@@ -484,9 +489,46 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             <div className="h-full transition-all" style={{ width: `${pct ?? 0}%`, backgroundColor: barColor(pct) }} />
           </div>
 
-          {/* The warnings, as one set of badges in one place — always here, between the work and
-              the quiet footer, so a reader scanning a column knows where to look. Never hidden,
-              and never softened into the metadata around them. */}
+          {/* The board's own words for it, above the rule. */}
+          {Boolean(tags?.length) && (
+            <div className="flex flex-wrap items-center gap-1">
+              <TagChips tags={tags} />
+            </div>
+          )}
+
+          {/* A checklist, if this initiative carries one — the same row, in the same place, a card
+              gives it. */}
+          {summary.checklist && summary.checklist.total > 0 && (
+            <div className="flex items-center gap-2">
+              <span
+                className="flex shrink-0 items-center gap-1 text-meta font-semibold text-slate-700"
+                title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} sub-tasks done`}
+              >
+                <ListChecks size={13} className="shrink-0 text-slate-600" />
+                {summary.checklist.done} / {summary.checklist.total} sub-tasks
+              </span>
+              <span
+                className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200"
+                title={`${Math.round((summary.checklist.done / summary.checklist.total) * 100)}% of the checklist done`}
+              >
+                <span
+                  className="block h-full transition-all"
+                  style={{
+                    width: `${Math.round((summary.checklist.done / summary.checklist.total) * 100)}%`,
+                    backgroundColor: summary.checklist.done === summary.checklist.total ? '#10b981' : '#6366f1',
+                  }}
+                />
+              </span>
+            </div>
+          )}
+
+          {/* What the card is asking a reader to look at: its own blockage, then the warnings. The
+              rollup of blockages below is one of the warnings, so it is not also a chip of its own. */}
+          {item.blocked && blockedChip}
+
+          {/* The warnings, as one set of badges in one place — always here, above the rule, so a
+              reader scanning a column knows where to look. Never hidden, and never softened into
+              the values around them. */}
           {badges.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               {badges.map((b) => (
@@ -497,40 +539,32 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             </div>
           )}
 
-          {/* Everything else, quiet: tags, links, the checklist, the people. */}
-          <div className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-micro text-slate-600">
-            <TagChips tags={tags} />
-            {summary.checklist && summary.checklist.total > 0 && (
-              <span className="flex items-center gap-1.5" title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} sub-tasks done`}>
-                <ListChecks size={11} />
-                {summary.checklist.done} / {summary.checklist.total} sub-tasks
-                <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
-                  <span
-                    className="block h-full transition-all"
-                    style={{
-                      width: `${Math.round((summary.checklist.done / summary.checklist.total) * 100)}%`,
-                      backgroundColor: summary.checklist.done === summary.checklist.total ? '#10b981' : '#6366f1',
-                    }}
-                  />
-                </span>
-              </span>
-            )}
-            <span className="ml-auto flex items-center gap-2">
-              {assignees.length > 0 && (
-                <span className="flex items-center gap-0.5">
-                  {assignees.slice(0, 3).map((u) => (
-                    <Avatar key={u.id} user={u} />
-                  ))}
-                  {assignees.length > 3 && (
-                    <span className="text-micro font-semibold text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
-                      +{assignees.length - 3}
-                    </span>
-                  )}
+          {/* Under the rule at the foot of it: what the work below it is worth, and who has it.
+              An initiative has no estimate of its own, so its size is the one under it. */}
+          {(summary.sizeBelow !== undefined || assignees.length > 0) && (
+            <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
+              {summary.sizeBelow !== undefined && (
+                <span
+                  className="shrink-0 rounded border bg-white px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
+                  style={{ borderColor: tintOn(type.color, 0.6) }}
+                  title={`Size below — ${summary.sizeBelow} point${summary.sizeBelow === 1 ? '' : 's'}, from the work under this initiative`}
+                >
+                  {summary.sizeBelow} pts
                 </span>
               )}
-              {lensButton}
-            </span>
-          </div>
+              <span className="ml-auto flex shrink-0 items-center gap-0.5">
+                {assignees.slice(0, 3).map((u) => (
+                  <Avatar key={u.id} user={u} />
+                ))}
+                {assignees.length > 3 && (
+                  <span className="text-micro font-medium text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
+                    +{assignees.length - 3}
+                  </span>
+                )}
+                {lensButton}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     )

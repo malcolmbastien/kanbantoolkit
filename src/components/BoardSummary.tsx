@@ -180,6 +180,8 @@ export function BoardSummary({
   if (sections.length === 0) return <p className="p-3 text-meta text-slate-600">This board has no typed columns.</p>
 
   const isInitiatives = variant === 'initiatives'
+  // The board the person is actually reading — the band's host when this is a band.
+  const readBoard = boards.find((b) => b.id === (viewedBoardId ?? boardId))
   const collapsedLanes = useStore((s) => s.collapsedLanes)
 
   /** The initiative currently in flight, if any. */
@@ -312,7 +314,11 @@ export function BoardSummary({
         // The same health rules the dashboard's Health column reads, in the same words — so an
         // initiative cannot be "at risk" in one place and quiet in another.
         flags={health.get(c.id)}
-        blockedTone={isInitiatives ? 'aggregate' : 'detail'}
+        // How far the reader is from the work decides the tone, not which surface this is: a team
+        // board's own initiatives sit one level above its cards, so a blockage there is a fact
+        // about this board. A coordination board is reading work several levels down and says so
+        // more quietly — which is what the softer tone was always for.
+        blockedTone={readBoard?.band === 'team' ? 'detail' : 'aggregate'}
         // A kind is a board's own label for its own outcomes, so it is offered where the board
         // owns them — its own initiatives flow, not the bands another board's flow shows through.
         kind={isInitiatives ? initiativeTypeById(boards, c.initiativeTypeId) : undefined}
@@ -366,6 +372,7 @@ export function BoardSummary({
           uncommittedBelow: uncommittedBelow(c.id, graph),
           openDescendants: openDescendants(c.id, graph).length,
           rollupPercent: rollupOf(c.id, graph).percent,
+          sizeBelow: rollupOf(c.id, graph).size,
           done: isComplete(c.id, graph),
           checklist: checklistProgress(c),
         }}
