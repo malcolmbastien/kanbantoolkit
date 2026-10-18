@@ -70,22 +70,40 @@ export const CONTRAST_FLOOR = 4.5
 export const INK = '#0f172a'
 
 /**
+ * How much of its lightness a colour may lose to carry a white label.
+ *
+ * A mid-tone needs a little — sky-500 takes 25%, amber-500 takes 35% — and a pale one would need
+ * most of it: white and lemon both take 55%. That gap is what tells a colour that can be a chip
+ * from a colour that has to keep its ground.
+ */
+const PALE = 0.4
+
+/**
  * A chip's ground and the colour of the words on it.
  *
- * Picking between white and near-black by a brightness threshold is what put white text on
- * sky-500 at 2.8:1: a mid colour is bright enough to be guessed light and still far too light
- * for white. So the choice is made by contrast ratio, and the ground only gives way when
- * neither extreme reaches the floor — the one case a mid-tone brand colour cannot solve by
- * itself.
+ * White first, and the ground gives way to get it. A chip is a label, and white on a saturated
+ * colour is what a label looks like — but on a strong hue it is also the more legible of the two:
+ * near-black on sky-500 measures 6:1 and still reads badly, because the eye cannot focus a blue
+ * ground and black words at the same distance, so the letters fizz at the edges. Contrast ratio
+ * alone chose black there, which is what "hard to read" was.
+ *
+ * A colour that would have to lose more than `PALE` of its lightness to carry white is a *pale*
+ * colour, and a pale colour is a dark-text one: taking a cream or a lemon down to a mid brown to
+ * keep a white label would throw the colour away to keep the convention. Where neither works at
+ * that price, the ground keeps giving way until the words are readable — a chip nobody can read is
+ * not a chip.
  */
 export function chipColors(hex: string): { background: string; color: string } {
-  const best = contrastRatio('#ffffff', hex) >= contrastRatio(INK, hex) ? '#ffffff' : INK
-  if (contrastRatio(best, hex) >= CONTRAST_FLOOR) return { background: hex, color: best }
-  for (let amount = 0.05; amount < 0.65; amount += 0.05) {
+  for (let amount = 0; amount <= PALE; amount += 0.05) {
+    const background = amount === 0 ? hex : mix(hex, '#000000', amount)
+    if (contrastRatio('#ffffff', background) >= CONTRAST_FLOOR) return { background, color: '#ffffff' }
+  }
+  if (contrastRatio(INK, hex) >= CONTRAST_FLOOR) return { background: hex, color: INK }
+  for (let amount = PALE; amount < 0.95; amount += 0.05) {
     const background = mix(hex, '#000000', amount)
     if (contrastRatio('#ffffff', background) >= CONTRAST_FLOOR) return { background, color: '#ffffff' }
   }
-  return { background: mix(hex, '#000000', 0.65), color: '#ffffff' }
+  return { background: mix(hex, '#000000', 0.95), color: '#ffffff' }
 }
 
 /**

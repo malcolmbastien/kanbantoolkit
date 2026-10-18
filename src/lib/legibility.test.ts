@@ -129,6 +129,32 @@ describe('legibility', () => {
     expect(softChipColors('#f43f5e').background).not.toBe(chipColors('#f43f5e').background)
   })
 
+  it('keeps a chip readable on any colour at all, and prefers white on a strong one', () => {
+    // The walk down to white is a rule about every colour, not about this palette — a board can be
+    // given any colour somebody likes — so the guard is the whole space, sampled.
+    const offenders: string[] = []
+    for (let r = 0; r <= 255; r += 17) {
+      for (let g = 0; g <= 255; g += 17) {
+        for (let b = 0; b <= 255; b += 17) {
+          const hex = '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')
+          const { background, color } = chipColors(hex)
+          if (contrastRatio(color, background) < CONTRAST_FLOOR) offenders.push(`${hex} → ${color} on ${background}`)
+        }
+      }
+    }
+    expect(offenders.slice(0, 5)).toEqual([])
+
+    // The case that started this: near-black on sky-500 measured 6:1 and still read badly, because
+    // a blue ground and black words cannot be focused at the same distance. A strong colour takes
+    // white, and the ground gives way to get it.
+    expect(chipColors('#0ea5e9').color).toBe('#ffffff')
+    expect(chipColors('#0ea5e9').background).not.toBe('#0ea5e9')
+    expect(chipColors('#f59e0b').color).toBe('#ffffff')
+    // A pale one keeps its own ground, because the price of white is the colour itself.
+    expect(chipColors('#ffff00').color).not.toBe('#ffffff')
+    expect(chipColors('#ffff00').background).toBe('#ffff00')
+  })
+
   it('keeps a type chip readable on every type colour', () => {
     // White on sky-500 is 2.8:1 and on amber-500 it is 2.2:1 — the chips were picked by a
     // brightness guess rather than by contrast, and the guess was wrong for both.

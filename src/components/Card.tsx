@@ -403,9 +403,9 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 onOpen(parent.id)
               }}
               title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open`}
-              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-indigo-600 transition hover:text-indigo-700"
+              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-700 transition hover:text-slate-900"
             >
-              <CornerDownRight size={11} className="shrink-0 text-indigo-400" />
+              <CornerDownRight size={11} className="shrink-0 text-slate-400" />
               <span className="min-w-0 truncate">{parent.title}</span>
             </button>
           )}
@@ -597,9 +597,9 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 else onOpen(parent.id)
               }}
               title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
-              className="flex min-w-0 flex-1 items-center gap-1 text-left text-micro font-medium text-indigo-600 transition hover:text-indigo-700"
+              className="flex min-w-0 flex-1 items-center gap-1 text-left text-micro font-medium text-slate-700 transition hover:text-slate-900"
             >
-              <CornerDownRight size={11} className="shrink-0 text-indigo-400" />
+              <CornerDownRight size={11} className="shrink-0 text-slate-400" />
               <span className="min-w-0 truncate">{parent.title}</span>
             </button>
           ) : (
