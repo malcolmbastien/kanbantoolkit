@@ -233,9 +233,11 @@ export function ItemPanel({ itemId }: Props) {
   const focusOn = lensId === item.id
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
-  // Where this item actually sits. The board in front of us is the fallback, not the answer: an
-  // item read from another board's band still belongs to its own.
-  const homeBoard = boardOf(item.id) ?? boards.find((b) => b.id === boardId)
+  // Where this item actually sits — its own board, never the one behind the panel. The two differ
+  // whenever the panel was opened from somewhere that is not a board: a dashboard row, a band on
+  // another board, a search result. That difference is the only thing the header has to say about
+  // it, so it is the only time it says anything.
+  const itemBoard = boardOf(item.id)
   // The parent reads as what it is and what its board calls it: "Initiative · Bet" says more about
   // the thing above this one than its title alone can.
   const parentKind = parent
@@ -501,12 +503,16 @@ export function ItemPanel({ itemId }: Props) {
           >
             {type.name}
           </span>
-          <span
-            className="rounded-full bg-slate-100 px-2 py-0.5 text-micro font-medium text-slate-600"
-            title={homeBoard ? `The board this sits on: ${homeBoard.name}` : 'Not on a board'}
-          >
-            {homeBoard?.name ?? 'Not on a board'}
-          </span>
+          {/* A chip that repeats the board behind the panel says nothing, so it is not drawn.
+              When the card is somewhere else, it is the first thing worth saying. */}
+          {itemBoard && itemBoard.id !== boardId && (
+            <span
+              className="rounded-full bg-slate-100 px-2 py-0.5 text-micro font-medium text-slate-600"
+              title={`This card sits on ${itemBoard.name}, not on the board behind this panel`}
+            >
+              On {itemBoard.name}
+            </span>
+          )}
           {item.blocked ? (
             <button
               onClick={() => unblockItem(item.id)}
