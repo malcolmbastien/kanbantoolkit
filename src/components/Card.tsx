@@ -636,10 +636,40 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </div>
         )}
 
-        {/* The card's own values, on one line at the foot of it, in the order they are read: how
-            long it has been sitting, what it is worth, the board's words for it, and who has it.
-            Nothing here is a warning — those are above, where they cannot be mistaken for this. */}
-        {(aged || Boolean(tags?.length) || item.size || assignees.length > 0) && (
+        {/* The board's own words for it. Above the rule, with what the card is saying rather than
+            with what it is worth. */}
+        {Boolean(tags?.length) && (
+          <div className="flex flex-wrap items-center gap-1">
+            <TagChips tags={tags} />
+          </div>
+        )}
+
+        {/* What the card is asking a reader to look at: a blockage, the work waiting on it, a card
+            waiting on something outside the board, and one that is finished. All of it above the
+            rule, so that nothing under the rule can be read as one of these. */}
+        {blockedChip}
+        {summary.dependentsCount > 0 && (
+          <span
+            className="flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
+            title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}
+          >
+            <ShieldAlert size={11} /> {summary.dependentsCount} depend on it
+          </span>
+        )}
+        {(boundary || summary.done) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
+            {boundary && (
+              <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title="Waiting on an external dependency — see the boundary lane">
+                <Link2 size={11} /> waiting on
+              </span>
+            )}
+            {summary.done && <DoneStamp />}
+          </div>
+        )}
+
+        {/* The card's own values, under the rule at the foot of it, in the order they are read:
+            how long it has been sitting, what it is worth, and who has it. */}
+        {(aged || item.size || assignees.length > 0) && (
           <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
             {/* Both of these are outlined rather than filled: a light ground with the tone in the
                 border keeps the row quiet while still saying which chip is which — a filled chip
@@ -661,7 +691,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 {item.size} pts
               </span>
             ) : null}
-            <TagChips tags={tags} />
             <span className="ml-auto flex shrink-0 items-center gap-0.5">
               {assignees.slice(0, 3).map((u) => (
                 <Avatar key={u.id} user={u} />
@@ -673,31 +702,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               )}
               {lensButton}
             </span>
-          </div>
-        )}
-
-        {/* The loud facts, together and above the quiet ones: a blockage, and the work that is
-            waiting on this card. */}
-        {blockedChip}
-        {summary.dependentsCount > 0 && (
-          <span
-            className="flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
-            title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}
-          >
-            <ShieldAlert size={11} /> {summary.dependentsCount} depend on it
-          </span>
-        )}
-
-        {/* Below the values, the two marks that are not values: a card waiting on something
-            outside the board, and one that is finished. */}
-        {(boundary || summary.done) && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
-            {boundary && (
-              <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title="Waiting on an external dependency — see the boundary lane">
-                <Link2 size={11} /> waiting on
-              </span>
-            )}
-            {summary.done && <DoneStamp />}
           </div>
         )}
       </div>
