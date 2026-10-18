@@ -331,7 +331,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
                       .map((id) => items.find((i) => i.id === id))
                       .filter((i): i is Item => Boolean(i))
                       .filter((i) => !i.archived)
-                    const symbols = childItems.map((ci) => ({ bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
+                    const symbols = childItems.map((ci) => ({ id: ci.id, bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
                     return (
                       <div key={u.id} data-timeline-unscheduled={u.id} className="w-56 shrink-0">
                         <Card

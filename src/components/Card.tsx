@@ -43,6 +43,8 @@ export interface CardParent {
 }
 
 export interface CardSymbol {
+  /** The child this pip stands for — a pip is a way in to it, not only a status. */
+  id: string
   bucket: Stage
   title: string
 }
@@ -401,11 +403,30 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
             {pips.length > 0 ? (
               <span className="flex items-center gap-1" title={`${pips.length} directly below: ${spread}`}>
-                {pips.slice(0, MAX_PIPS).map((p, i) => (
-                  <span
-                    key={i}
-                    className={cn('h-4 w-4 shrink-0 rounded', BUCKET_DOT[p.bucket])}
+                {pips.slice(0, MAX_PIPS).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    // A board carries one pip for every child of every initiative on it, so a tab
+                    // stop each would put hundreds of stops between the top of a board and the
+                    // cards below. The pip is a pointer shortcut; the keyboard path to a child is
+                    // the card's own panel, which already lists them.
+                    tabIndex={-1}
+                    aria-label={`${p.title} — ${STAGE_LABELS[p.bucket]}`}
                     title={`${p.title} — ${STAGE_LABELS[p.bucket]}`}
+                    onClick={(e) => {
+                      // The pip is not the card: opening the child must not also open the
+                      // initiative whose face the pip sits on.
+                      e.stopPropagation()
+                      onOpen(p.id)
+                    }}
+                    className={cn(
+                      'h-4 w-4 shrink-0 rounded transition hover:brightness-90',
+                      // A finger needs a bigger square than a pointer does, and the square is the
+                      // hit area — so it grows, and the touch target is what you can see.
+                      'pointer-coarse:h-6 pointer-coarse:w-6',
+                      BUCKET_DOT[p.bucket],
+                    )}
                   />
                 ))}
                 {pips.length > MAX_PIPS && <span className="font-semibold text-slate-600">+{pips.length - MAX_PIPS}</span>}
@@ -709,7 +730,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.tags?.length !== b.tags?.length) return false
   if (a.tags && b.tags && a.tags.some((t, i) => t.id !== b.tags![i].id || t.name !== b.tags![i].name || t.color !== b.tags![i].color)) return false
   if (a.symbols?.length !== b.symbols?.length) return false
-  if (a.symbols && b.symbols && a.symbols.some((sym, i) => sym.bucket !== b.symbols![i].bucket || sym.title !== b.symbols![i].title)) return false
+  if (a.symbols && b.symbols && a.symbols.some((sym, i) => sym.id !== b.symbols![i].id || sym.bucket !== b.symbols![i].bucket || sym.title !== b.symbols![i].title)) return false
   if (a.flags?.length !== b.flags?.length) return false
   if (a.flags && b.flags && a.flags.some((f, i) => f.flag !== b.flags![i].flag || f.label !== b.flags![i].label || f.tone !== b.flags![i].tone)) return false
   return summaryEqual(a.summary, b.summary)

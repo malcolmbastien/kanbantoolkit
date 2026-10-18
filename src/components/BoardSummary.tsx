@@ -284,7 +284,7 @@ export function BoardSummary({
       .filter((i): i is Item => Boolean(i))
     // Symbols summarise the direct children — team initiatives for a top-level
     // initiative, cards for a team-level one — coloured by their status.
-    const symbols = childItems.map((ci) => ({ bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
+    const symbols = childItems.map((ci) => ({ id: ci.id, bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
     return (
       <Card
         key={c.id}
