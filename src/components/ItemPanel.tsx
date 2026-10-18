@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  CornerLeftUp,
   Eye,
   Flag,
   Minus,
@@ -235,6 +236,11 @@ export function ItemPanel({ itemId }: Props) {
   // Where this item actually sits. The board in front of us is the fallback, not the answer: an
   // item read from another board's band still belongs to its own.
   const homeBoard = boardOf(item.id) ?? boards.find((b) => b.id === boardId)
+  // The parent reads as what it is and what its board calls it: "Initiative · Bet" says more about
+  // the thing above this one than its title alone can.
+  const parentKind = parent
+    ? [typeName(parent.typeId), initiativeTypeById(boards, parent.initiativeTypeId)?.name].filter(Boolean).join(' · ')
+    : ''
 
   /**
    * Take the reader to an item where it actually is: its board, the board's own view, then the
@@ -896,6 +902,76 @@ export function ItemPanel({ itemId }: Props) {
               </div>
             </section>
 
+            {/* The direct parent, called out on its own rather than left to be read out of the
+                chain: it is the one relationship a card has, and the one thing about it you can
+                change. The whole chain is a tab away. */}
+            <Section
+              label="Parent"
+              action={
+                <button
+                  onClick={() => {
+                    setParentEditorOpen((o) => !o)
+                    setParentChoice('')
+                  }}
+                  className="text-micro font-medium text-indigo-600 transition hover:text-indigo-500"
+                >
+                  {parentEditorOpen ? 'Cancel' : 'Change parent'}
+                </button>
+              }
+            >
+              {parentEditorOpen ? (
+                <div className="space-y-2 rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200">
+                  <select
+                    value={parentChoice}
+                    onChange={(e) => setParentChoice(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="">Choose an initiative…</option>
+                    {candidates.map((c) => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      disabled={!parentChoice}
+                      onClick={() => { setParent(item.id, parentChoice); setParentChoice(''); setParentEditorOpen(false) }}
+                      className="rounded-lg bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      Set parent
+                    </button>
+                    {parent && (
+                      <button
+                        onClick={() => { setParent(item.id, null); setParentEditorOpen(false) }}
+                        className="rounded-lg px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
+                      >
+                        Remove parent
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-micro text-slate-600">A parent is always an initiative. Everything below it rolls up to it.</p>
+                </div>
+              ) : parent ? (
+                <button
+                  onClick={() => close(parent.id)}
+                  title={`Open ${parent.title}`}
+                  className="flex w-full items-center gap-2.5 rounded-xl bg-slate-50 px-3 py-2.5 text-left ring-1 ring-slate-200 transition hover:bg-slate-100"
+                >
+                  <CornerLeftUp size={15} className="shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-meta font-semibold text-slate-800">{parent.title}</span>
+                    <span className="block truncate text-micro text-slate-600">{parentKind}</span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200">
+                    {boardOf(parent.id)?.name ?? 'Not on a board'}
+                  </span>
+                </button>
+              ) : (
+                <p className="rounded-xl bg-slate-50 p-3 text-meta text-slate-600 ring-1 ring-slate-200">
+                  No parent — this sits on its own.
+                </p>
+              )}
+            </Section>
+
             {/* Strategic impact — OKRs attach to initiatives, and to nothing else. A card is
                 not shown its initiative's OKRs either: relating work to strategy is the
                 initiative's job, and asking a team to do it card by card is the thing
@@ -1085,55 +1161,10 @@ export function ItemPanel({ itemId }: Props) {
 
         {tab === 'hierarchy' && (
           <>
-            {/* How it rolls up — the chain from the objective down to this item, and the one
-                thing you can change about it. */}
-            <Section
-              label="How this rolls up"
-              action={
-                <button
-                  onClick={() => {
-                    setParentEditorOpen((o) => !o)
-                    setParentChoice('')
-                  }}
-                  className="text-micro font-medium text-indigo-600 transition hover:text-indigo-500"
-                >
-                  {parentEditorOpen ? 'Cancel' : 'Change parent'}
-                </button>
-              }
-            >
-              {parentEditorOpen ? (
-                <div className="space-y-2 rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200">
-                  <select
-                    value={parentChoice}
-                    onChange={(e) => setParentChoice(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
-                  >
-                    <option value="">Choose an initiative…</option>
-                    {candidates.map((c) => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      disabled={!parentChoice}
-                      onClick={() => { setParent(item.id, parentChoice); setParentChoice(''); setParentEditorOpen(false) }}
-                      className="rounded-lg bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      Set parent
-                    </button>
-                    {parent && (
-                      <button
-                        onClick={() => { setParent(item.id, null); setParentEditorOpen(false) }}
-                        className="rounded-lg px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
-                      >
-                        Remove parent
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-micro text-slate-600">A parent is always an initiative. Everything below it rolls up to it.</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
+            {/* The whole chain, from the objective down to this item — read here, changed on the
+                Overview. */}
+            <Section label="How this rolls up">
+              <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
                   {/* The objectives this work serves, at the top of the chain — they are the
                       "why" above the "what". */}
                   {lineageObjectives.map((o) => (
@@ -1171,11 +1202,7 @@ export function ItemPanel({ itemId }: Props) {
                       </button>
                     )
                   })}
-                  {lineage.length === 1 && lineageObjectives.length === 0 && (
-                    <p className="px-2.5 py-2 text-meta text-slate-600">Nothing above this — it stands on its own.</p>
-                  )}
-                </div>
-              )}
+              </div>
             </Section>
 
             {/* Children — the items below this one. Real work, with its own status and its
