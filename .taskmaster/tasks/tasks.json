@@ -1308,13 +1308,25 @@
         "testStrategy": "Verified in the browser: no element with `aria-label=\\\"Card actions\\\"` remains on the board; \"\nright-click still opens the card menu, and Shift+F10 on a focused card still opens it. npm \"\ntest, build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T00:30:00.000Z"
+      },
+      {
+        "id": "87",
+        "title": "Everywhere the app can be is a URL: board, card, view",
+        "description": "Asked for: a unique URL for each board, each initiative or card on it, and each view of it. The app now writes the URL as well as reading it, and follows the back button.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Before this the app read about fifteen query parameters on boot and never wrote one: no shareable link, no back button. Now the URL is the app's own state, in both directions.\\n\\n**The place** is three facts and one canonical query — `/?board=b-atlas`, `/?board=b-atlas&view=timeline`, `/?board=b-atlas&item=init-signup`, or both at once. `lib/url.ts` is the pure mapping (`viewOf`, `urlQuery`, `placeFromQuery`); `lib/useUrl.ts` is the one owner of the URL, reading on the way in and writing on the way out, with a `popstate` listener for the back button.\\n\\n**Canonical, not merely faithful**: the query is rebuilt from the state every time and anything unrecognised is dropped, so one place has exactly one URL and two people looking at the same thing hold the same link. The other parameters are *intentions* — read once on arrival and normalised away (`?q=`, `?filters=`, `?collapse=`, `?select=`, `?lens=`, `?boundary=`, `?stress=`, `?edit=`).\\n\\n**History**: a board and a view are journeys, so each is a step the back button undoes; an open card is the same place with something drawn over it, so it rewrites the step it is on. The alternative — a step per card — leaves a duplicate behind on every dismissal, and back then looks broken once before it works.\\n\\n**Three decisions worth recording.** `?edit=` is an intention, not a place: edit mode is a mode, and the back button must never be the thing that throws a board design away. `viewOf`'s order matches App's render order, so a state that somehow held two flags still resolves to the view on screen. And a link naming a board or a card that is not here — from another dataset, or to something since deleted — lands on what is there rather than on a blank surface under a URL claiming otherwise.\\n\\n**Also**: the store gained `setView`, the one name-driven door for all seven views, delegating to the existing tab setters so the rules about which view clears what live in one place; the TopBar's tabs now go through it too, so a tab and a link mean the same thing. `?view=mywork` and `?view=boards` — which the old boot parser did not know — now work. The README's deep-link list, which named boards from two datasets ago, is replaced by the scheme itself.\\n\\nOne bug found by reviewing rather than by probing: an absent `view` was read as \\\"no opinion\\\" when it is written as \\\"the board's own flow\\\", so the back button out of the Timeline left the screen on the Timeline under a URL that no longer mentioned it. The two directions now agree, and that is tested.",
+        "testStrategy": "13 new tests in `lib/url.test.ts`: every view named from its flags, precedence, the canonical query per place, one URL per place and no two places sharing one, the round trip, the legacy `view=metrics`, unknown names, and a hand-written link normalising to the same place. Plus a store test that `setView` and `viewOf` agree for all eight names and that exactly one flag is ever set.\\n\\nVerified in a fresh browser tab (so history starts clean): a first visit normalises to `?board=b-portfolio`; switching board through the picker writes `?board=b-atlas` and adds a step; opening a card writes `?board=…&item=…` without adding one; dismissing it drops the item with no duplicate; the Timeline tab writes `?board=…&view=timeline`, back returns to the Board view, forward returns to the Timeline; all six views load from a URL; a link naming a board and a card that are gone lands on a real board with no panel; and `?board=b-atlas&item=init-trial&q=trial&edit=1` opens the card, narrows the board, starts editing, and normalises the URL to `?board=b-atlas&item=init-trial`. npm test, build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T01:30:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T00:30:00.000Z",
-      "taskCount": 85,
-      "completedCount": 72,
+      "lastModified": "2026-10-18T01:30:00.000Z",
+      "taskCount": 86,
+      "completedCount": 73,
       "tags": [
         "backlog"
       ]

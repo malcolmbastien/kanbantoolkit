@@ -7,6 +7,7 @@ import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { uid as makeUid } from '@/lib/utils'
+import type { ViewName } from '@/lib/url'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
 
 export interface Draft {
@@ -142,6 +143,8 @@ export interface Actions {
   setObjectives: (v: boolean) => void
   /** The board itself as the active view — a tab, not a toggle: every view flag clears. */
   setBoard: () => void
+  /** Go to a view by name — the URL's names, and the one door for all seven. */
+  setView: (view: ViewName) => void
   /** Open/close the board settings dialog. */
   toggleBoardSettings: () => void
   setDashboard: (v: boolean) => void
@@ -1269,6 +1272,25 @@ export const useStore = create<Store>()(
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
       // Board tab is the board itself — every view flag clears, the workspace with it.
       setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false }),
+      /**
+       * Go to a view by name — what a URL says, and the one door for all seven.
+       *
+       * It delegates to the tab setters rather than clearing the flags again, so the rules about
+       * which view clears what (the workspace drops a board's side panel) live in one place. The
+       * names are the URL's; `viewOf` in `lib/url` is the other direction, and the round trip
+       * between the two is tested.
+       */
+      setView: (view) => {
+        const s = get()
+        if (view === 'dashboard') s.setDashboard(true)
+        else if (view === 'timeline') s.setTimeline(true)
+        else if (view === 'flow') s.setMetrics(true)
+        else if (view === 'archive') s.setArchive(true)
+        else if (view === 'mywork') s.setMyWork(true)
+        else if (view === 'boards') s.setBoards(true)
+        else if (view === 'objectives') s.setObjectives(true)
+        else s.setBoard()
+      },
       setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
       setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
       setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),

@@ -72,17 +72,54 @@ npm test             # Vitest: derivation + store behaviour
 npm run lint         # oxlint
 ```
 
-### Deep links
+### URLs
+
+**Everywhere the app can be has a URL, and the URL is the app's own state.** Where you are is a
+board, a view of it, and the card or initiative open over it — three facts, one canonical query:
 
 ```
-/?board=b-core                        # Core Experience (nested lanes)
-/?board=b-portfolio                   # Portfolio (row-less board)
-/?board=b-platform                    # Platform Services
-/?board=b-core&item=it-signup         # open a card
-/?board=b-core&edit=1                 # start in board edit mode
-/?board=b-design                      # the seeded sketch layout (nested Doing/Projects)
-/?board=b-team-alpha                  # a team board (its own initiatives)
+/?board=b-atlas                          the board's own flow (the Board tab)
+/?board=b-atlas&view=dashboard           a view of that board
+/?board=b-atlas&item=init-signup         a card or initiative open on it
+/?board=b-atlas&view=timeline&item=…     both at once
 ```
+
+The query is **canonical**: it is rebuilt from the state on every change and anything the app does
+not recognise is dropped, so one place has exactly one URL and two people looking at the same thing
+hold the same link. Switching board or view is a step the back button undoes; opening a card is not
+(it is the same place with something drawn over it, so it rewrites the step it is on rather than
+leaving a duplicate behind).
+
+| `view=` | |
+| --- | --- |
+| *(absent)* | the board's own flow — the Board tab |
+| `dashboard` | the board's initiatives, summarised |
+| `timeline` | the board's initiatives over time |
+| `flow` | the board's delivery metrics, read from each card's history |
+| `archive` | filed-away items |
+| `mywork` | everything assigned to the workspace's person |
+| `boards` | the workspace: every board |
+| `objectives` | objectives and their coverage |
+
+**Intentions.** These are read once, on arrival, and normalised away — they say what to *do* with a
+link rather than where it points, so they are never written back:
+
+```
+?q=signup                     narrow the board to a text query (and seed the finder)
+?filters=1                    open the filter panel
+?filters=blocked,overdue      …and apply those filters
+?collapse=<laneId>            start with that column collapsed (repeatable)
+?select=id1,id2               pre-select cards in the multi-select group
+?lens=<itemId>                focus a lineage
+?boundary=<id>                open a boundary
+?edit=1                       start in board edit mode
+?stress=300                   build a load-test board of 300 cards
+```
+
+`?edit=` is deliberately an intention and not a place: edit mode is a mode, and the back button
+must never be the thing that throws a board design away. A link naming a board or a card that is
+not here — from another dataset, or to something since deleted — lands on what *is* there rather
+than on a blank surface.
 
 ## What to try
 

@@ -19,8 +19,8 @@ import { ObjectivesView } from './components/ObjectivesView'
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
 import { boardCardTypeId, defaultDropLane, initiativeTypeId } from './domain/board'
-import { filtersFromParam } from './domain/filters'
 import { leafLanes } from './domain/lanes'
+import { useUrl } from './lib/useUrl'
 import { isBoardSurface, useStore } from './store'
 
 export default function App() {
@@ -31,21 +31,14 @@ export default function App() {
   const selectedItemId = useStore((s) => s.selectedItemId)
   const editMode = useStore((s) => s.editMode)
   const showObjectives = useStore((s) => s.showObjectives)
-  const setObjectives = useStore((s) => s.setObjectives)
   const showMetrics = useStore((s) => s.showMetrics)
-  const setMetrics = useStore((s) => s.setMetrics)
-  const addStressBoard = useStore((s) => s.addStressBoard)
   const showDashboard = useStore((s) => s.showDashboard)
-  const setBoard = useStore((s) => s.setBoard)
-  const setDashboard = useStore((s) => s.setDashboard)
-  const setTimeline = useStore((s) => s.setTimeline)
   const showArchive = useStore((s) => s.showArchive)
   const showTimeline = useStore((s) => s.showTimeline)
-  const setArchive = useStore((s) => s.setArchive)
   const showBoards = useStore((s) => s.showBoards)
-  const setBoards = useStore((s) => s.setBoards)
   const showMyWork = useStore((s) => s.showMyWork)
-  const setMyWork = useStore((s) => s.setMyWork)
+  // The tabs go through the same door the URL does, so a tab and a link mean the same thing.
+  const setView = useStore((s) => s.setView)
   const showLegend = useStore((s) => s.showLegend)
   const showFilters = useStore((s) => s.showFilters)
   // The side panels belong to the board surface: the legend and the filters narrow or explain
@@ -53,71 +46,21 @@ export default function App() {
   // workspace or My work. Leaving for a view keeps the choice — coming back shows it again.
   const boardSurface = useStore(isBoardSurface)
   const showBoardSettings = useStore((s) => s.showBoardSettings)
-  const toggleCollapse = useStore((s) => s.toggleCollapse)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
   const runAutoArchive = useStore((s) => s.runAutoArchive)
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
 
   const selectBoard = useStore((s) => s.selectBoard)
-  const setSearch = useStore((s) => s.setSearch)
   const resetDemo = useStore((s) => s.resetDemo)
   const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
   const beginEdit = useStore((s) => s.beginEdit)
-  const openItem = useStore((s) => s.openItem)
   const moveCard = useStore((s) => s.moveCard)
   const addCard = useStore((s) => s.addCard)
-  const setLens = useStore((s) => s.setLens)
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const b = params.get('board')
-    const it = params.get('item')
-    if (b) selectBoard(b)
-    if (params.get('edit')) beginEdit()
-    if (it) openItem(it)
-    const lens = params.get('lens')
-    if (lens) setLens(lens)
-    const boundary = params.get('boundary')
-    if (boundary && useStore.getState().boundaryId !== boundary) useStore.getState().toggleBoundary(boundary)
-    // ?select=id1,id2 pre-selects cards in the multi-select group.
-    const select = params.get('select')
-    if (select) {
-      for (const id of select.split(',').map((s) => s.trim()).filter(Boolean)) {
-        if (!useStore.getState().multiSelect.includes(id)) useStore.getState().toggleMultiSelect(id)
-      }
-    }
-    const q = params.get('q')
-    if (q) {
-      setSearch(q)
-      // A deep-linked ?q= meant a narrowed board, and the top-bar search no longer filters
-      // the columns — narrowing by text is the filter panel's criterion now. Both get the
-      // query: the finder keeps its results, the board keeps its narrowing.
-      useStore.getState().setFilters({ text: q })
-    }
-    // ?filters=1 opens the panel; ?filters=blocked,overdue also applies those filters.
-    const filtersParam = params.get('filters')
-    if (filtersParam) {
-      const store = useStore.getState()
-      if (!store.showFilters) store.toggleFilters()
-      const parsed = filtersFromParam(filtersParam)
-      if (parsed) store.setFilters(parsed)
-    }
-    // Idempotent: StrictMode double-invokes this effect, and toggleCollapse would flip twice.
-    for (const id of params.getAll('collapse')) {
-      if (!useStore.getState().collapsedLanes[id]) toggleCollapse(id)
-    }
-    // A load-test board, built on request: `?stress=300` (and `?stress` alone is 300). Asking
-    // again replaces the one it built before, so the size is changed by asking, not by cleaning up.
-    const stress = params.get('stress')
-    if (stress !== null) addStressBoard(Math.max(1, Math.min(2000, Number(stress) || 300)))
-    if (params.get('view') === 'objectives') setObjectives(true)
-    if (params.get('view') === 'dashboard') setDashboard(true)
-    if (params.get('view') === 'timeline') setTimeline(true)
-    if (params.get('view') === 'metrics') setMetrics(true)
-    if (params.get('view') === 'archive') setArchive(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // The URL: read once for what the link asked for, then kept in step with where the app is —
+  // and followed when the back button moves. See `lib/useUrl`.
+  useUrl()
 
   // Auto-archive (a user-set rule): file Done items once they age past the threshold.
   useEffect(() => {
@@ -229,13 +172,13 @@ export default function App() {
         showBoards={showBoards}
         showMyWork={showMyWork}
         onSelectBoard={selectBoard}
-        onShowBoard={setBoard}
-        onShowDashboard={() => setDashboard(true)}
-        onShowTimeline={() => setTimeline(true)}
-        onShowMetrics={() => setMetrics(true)}
-        onShowArchive={() => setArchive(true)}
-        onShowMyWork={() => setMyWork(true)}
-        onGoToBoards={() => setBoards(true)}
+        onShowBoard={() => setView('board')}
+        onShowDashboard={() => setView('dashboard')}
+        onShowTimeline={() => setView('timeline')}
+        onShowMetrics={() => setView('flow')}
+        onShowArchive={() => setView('archive')}
+        onShowMyWork={() => setView('mywork')}
+        onGoToBoards={() => setView('boards')}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}

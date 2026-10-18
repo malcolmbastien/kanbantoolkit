@@ -8,6 +8,7 @@ import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } fr
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
 import { isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
+import { viewOf, type ViewName } from './lib/url'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 import { createFixture } from './domain/fixture'
 
@@ -1433,6 +1434,29 @@ describe('store actions', () => {
     for (const flag of Object.keys(base) as (keyof typeof base)[]) {
       expect(isBoardSurface({ ...base, [flag]: true }), flag).toBe(false)
     }
+  })
+
+  it('every view has one name, and the name is the view: the URL round trip', () => {
+    // The URL says which view the app is in, and `setView` is the door it comes through. A name
+    // that mapped to the wrong flag — or a view with no name — would make a link land somewhere
+    // else, so the two directions are checked against each other rather than each on its own.
+    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'mywork', 'boards', 'objectives']
+    for (const name of names) {
+      s().setView(name)
+      expect(viewOf(s()), name).toBe(name)
+      // And exactly one view at a time: two flags set would make `viewOf`'s precedence — and so
+      // the URL — disagree with what is on screen.
+      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showObjectives, s().showBoards, s().showMyWork]
+      expect(flags.filter(Boolean), name).toHaveLength(name === 'board' ? 0 : 1)
+    }
+    // The workspace is organisation-level: a board's side panel has no place in it.
+    s().setView('boards')
+    expect(s().showFilters).toBe(false)
+    expect(s().selectedItemId).toBe(null)
+    // …and the board's own flow is what an unknown name falls back to.
+    s().setView('boards')
+    s().setView('board')
+    expect(isBoardSurface(s())).toBe(true)
   })
 
   it('an initiative with nothing below it is its own leaf: it can be committed before it is broken down', () => {
