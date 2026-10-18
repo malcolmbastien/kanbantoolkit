@@ -1,11 +1,11 @@
 import {
-  blockedBelow,
+  blockedBelowItems,
   descendants,
+  leafItems,
   openDependenciesOf,
   openDescendants,
   rollupOf,
   stageOf,
-  uncommittedBelow,
   type Graph,
 } from './derive'
 import { parseDay, STALE_AFTER_DAYS } from './filters'
@@ -34,6 +34,17 @@ export interface HealthFlagInfo {
   /** Why the rule raised it, in the rule's own words — the badge's title. */
   why: string
   tone: 'risk' | 'watch'
+  /**
+   * The items the rule found, where it found particular ones — what a surface needs to take a
+   * reader *to* the work rather than only tell them it exists.
+   *
+   * Absent where the rule is about the shape of the whole subtree rather than about particular
+   * cards (`stale`, `oversized`) or about there being none at all (`unplanned`): listing the
+   * entire work below under "nothing has moved" would be a list of everything, which is not
+   * navigation. The count in the label is always this list's length when it is here, so a badge
+   * and the cards it points at can never disagree.
+   */
+  items?: string[]
 }
 
 export type HealthLevel = 'healthy' | 'watch' | 'atRisk'
@@ -67,24 +78,26 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
   const flags: HealthFlagInfo[] = []
 
   // A hard stop, and the one signal that is a person's own word rather than a derivation.
-  const blocked = blockedBelow(id, graph)
-  if (blocked > 0) {
+  const blocked = blockedBelowItems(id, graph)
+  if (blocked.length > 0) {
     flags.push({
       flag: 'blocked',
-      label: `${blocked} blocked`,
-      why: `${blocked} card${plural(blocked)} below ${blocked === 1 ? 'is' : 'are'} explicitly blocked`,
+      label: `${blocked.length} blocked`,
+      why: `${blocked.length} card${plural(blocked.length)} below ${blocked.length === 1 ? 'is' : 'are'} explicitly blocked`,
       tone: 'risk',
+      items: blocked.map((i) => i.id),
     })
   }
 
   // Dependency risk: work below that waits on something still open.
-  const waiting = open.filter((i) => openDependenciesOf(i.id, graph).length > 0).length
-  if (waiting > 0) {
+  const waiting = open.filter((i) => openDependenciesOf(i.id, graph).length > 0)
+  if (waiting.length > 0) {
     flags.push({
       flag: 'waiting',
-      label: `${waiting} waiting`,
-      why: `${waiting} card${plural(waiting)} below wait on work that is not done`,
+      label: `${waiting.length} waiting`,
+      why: `${waiting.length} card${plural(waiting.length)} below ${waiting.length === 1 ? 'waits' : 'wait'} on work that is not done`,
       tone: 'risk',
+      items: waiting.map((i) => i.id),
     })
   }
 
@@ -103,13 +116,14 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
   }
 
   // Uncovered work: committed cards below that nobody owns.
-  const unowned = open.filter((i) => stageOf(i.id, graph) !== 'backlog' && (i.assignees ?? []).length === 0).length
-  if (unowned > 0) {
+  const unowned = open.filter((i) => stageOf(i.id, graph) !== 'backlog' && (i.assignees ?? []).length === 0)
+  if (unowned.length > 0) {
     flags.push({
       flag: 'unowned',
-      label: `${unowned} unowned`,
-      why: `${unowned} committed card${plural(unowned)} below ${unowned === 1 ? 'has' : 'have'} no owner`,
+      label: `${unowned.length} unowned`,
+      why: `${unowned.length} committed card${plural(unowned.length)} below ${unowned.length === 1 ? 'has' : 'have'} no owner`,
       tone: 'watch',
+      items: unowned.map((i) => i.id),
     })
   }
 
@@ -147,18 +161,22 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
         label: `${later.length} due later`,
         why: `${later.length} card${plural(later.length)} below ${later.length === 1 ? 'is' : 'are'} due after this initiative`,
         tone: 'watch',
+        items: later.map((i) => i.id),
       })
     }
   }
 
-  // The rollup anomaly the cards themselves already warn about: committed over uncommitted.
-  const uncommitted = uncommittedBelow(id, graph)
-  if (uncommitted > 0) {
+  // The rollup anomaly the cards themselves already warn about: committed over uncommitted. The
+  // list is taken rather than the count so the badge can point at the cards it means — the same
+  // leaves, in the same order, that `rollupOf` counted.
+  const backlog = committed ? leafItems(id, graph).filter((l) => stageOf(l.id, graph) === 'backlog') : []
+  if (backlog.length > 0) {
     flags.push({
       flag: 'uncommitted',
-      label: `${uncommitted} backlog`,
-      why: `${uncommitted} card${plural(uncommitted)} below ${uncommitted === 1 ? 'is' : 'are'} still in Backlog while this initiative is committed`,
+      label: `${backlog.length} backlog`,
+      why: `${backlog.length} card${plural(backlog.length)} below ${backlog.length === 1 ? 'is' : 'are'} still in Backlog while this initiative is committed`,
       tone: 'watch',
+      items: backlog.map((i) => i.id),
     })
   }
 

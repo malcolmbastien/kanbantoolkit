@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { ArrowUp, Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
+import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, tintOn } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
@@ -138,20 +138,11 @@ function DoneStamp() {
 const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
 /**
- * The shape of a warning badge.
- *
- * One shape for every warning on an initiative, so the eye learns where they are and what they
- * look like; the *weight* carries the domain's own distinction between the two tones. A hard stop
- * is solid — the card has always drawn a blockage that way, "so a blockage anywhere beneath it
- * reads at a glance rather than as another piece of metadata" — and something to watch is pale
- * with a ring. The words are `initiativeHealth`'s, and so is the title: a badge is never asked to
- * explain itself in its own vocabulary.
+ * The badge a warning wears — the same shape and the same two weights the drawer's warnings
+ * section uses, so the row on the card and the section in the drawer are visibly one set. The
+ * words are `initiativeHealth`'s, and so is the title: a badge is never asked to explain itself in
+ * its own vocabulary.
  */
-const BADGE = 'shrink-0 rounded px-1.5 py-0.5 text-micro'
-const badgeTone = (tone: 'risk' | 'watch') =>
-  // The hard stop is solid and bold; something to watch is pale, ringed and lighter in weight, so
-  // a card carrying four watches does not shout the way a card carrying a blockage does.
-  tone === 'risk' ? 'bg-rose-600 font-semibold text-white' : 'bg-amber-100 font-medium text-amber-800 ring-1 ring-amber-300'
 
 /**
  * The keyboard half of a card.
@@ -457,7 +448,7 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
           {badges.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               {badges.map((b) => (
-                <span key={b.key} className={cn(BADGE, badgeTone(b.tone))} title={b.why}>
+                <span key={b.key} className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[b.tone])} title={b.why}>
                   {b.label}
                 </span>
               ))}

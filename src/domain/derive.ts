@@ -204,11 +204,18 @@ export function openDescendants(id: string, graph: Graph): Item[] {
  * to know the individual blocked card.
  */
 export function blockedBelow(id: string, graph: Graph): number {
+  return blockedBelowItems(id, graph).length
+}
+
+/**
+ * The same cards, named — what a surface needs to take a reader to them rather than only tell them
+ * how many there are. The count is this list's length, so the two can never disagree.
+ */
+export function blockedBelowItems(id: string, graph: Graph): Item[] {
   return descendants(id, graph)
     .map((d) => graph.items.find((i) => i.id === d))
     .filter((i): i is Item => Boolean(i))
     .filter((i) => !i.archived && i.blocked === true && !statusOf(i.id, graph).resolved)
-    .length
 }
 
 /**

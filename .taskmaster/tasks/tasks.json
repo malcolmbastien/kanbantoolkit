@@ -1363,13 +1363,27 @@
         "testStrategy": "No component tests exist (the vitest environment is node), so this is verified in the browser. On the Growth value stream: `1 blocked below` renders pale with the softened wording on the board's own flow while `1 blocked` renders solid in the Linked boards band beneath it; `1 waiting` is solid and `still 7d` / `21 pts below` / `2 backlog` / `1 due later` are pale; all of them sit in one row under the bar. On Team Atlas the pips are visibly larger, and the cards workflow's narrow cards are unchanged. `npm test` (312), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T04:30:00.000Z"
+      },
+      {
+        "id": "91",
+        "title": "An initiative's drawer opens with its warnings, and the cards they are about",
+        "description": "Asked for: clicking an initiative that has warnings should open the drawer with a warnings section listing the issues and taking you to the relevant cards and board.",
+        "status": "done",
+        "dependencies": [
+          "90"
+        ],
+        "priority": "high",
+        "details": "The Details tab — which is what the drawer opens on — now leads with a **Warnings** section, for an initiative that has any. Each warning is its badge (the same shape and the same two weights the card's row uses), the rule's own words beside it, and **the cards the rule found** as rows: a type dot, the reference, the title, the board when it is not the one you are looking at, and an arrow. Clicking a row takes you to that board, the board's own view, and that card's drawer — the order matters, because choosing a board clears the selection by design, so the drawer is opened after it. Up to four cards are named, then the rest are counted.\\n\\n**The rules now name their members.** `HealthFlagInfo` gained `items`, and `blockedBelow` was split into `blockedBelowItems` with the count as its length, so a badge and the cards it points at cannot drift. The flags about the *shape* of the whole (`stale`, `oversized`) and the one about there being none (`unplanned`) name no cards, with a comment saying why: listing the entire work below under \\\"nothing has moved\\\" would be a list of everything, which is not navigation. The `uncommitted` rule now takes its list from `leafItems` rather than its count from `uncommittedBelow` — the same leaves `rollupOf` counted — so the badge can point at them.\\n\\nThe dependents signal joins the set, as it does on the card: it is a fact about this item rather than a health rule, and the card already draws it as one of the same badges.\\n\\nAn **Open on the board** action appears only when there is somewhere to go — a view that is not the board, or an item that lives on another board — so it is never a control that does nothing.\\n\\nHealth is memoized on the store's own arrays plus the day, for the same reason the board memoizes it: it is the one derivation here that is not linear in the size of the initiative, and a drawer that recomputed it on every keystroke in the description field would stutter.\\n\\nThe badge grammar moved to `lib/colors` (`FLAG_BADGE_SHAPE` / `FLAG_BADGE`) so the card's row and the drawer's section are visibly one set rather than two lookalikes. Two grammar bugs the new section made visible were fixed: \\\"1 card below wait on work\\\" and \\\"1 item depend on this\\\".",
+        "testStrategy": "Two new domain tests: each flag's `items` is exactly the cards the rule counted and the number in the label is that list's length; and the shape-of-the-whole and nothing-below rules name no cards. In the browser, on Billing migration (six warnings): the drawer opens on Details with the section, each warning carrying its cards; clicking \\\"Retire the legacy coupon service\\\" lands on `?board=b-atlas&item=st-coupon-retire` with that card's drawer open and the initiative in its lineage. On the Growth value stream's own Onboarding journey, whose backlog cards live on Team Atlas, the rows name the board and clicking one lands on `?board=b-atlas&item=init-trial`. From the Timeline, the section offers \\\"Go to Team Atlas with this initiative open\\\" and it does. `npm test` (314), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T05:30:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T04:30:00.000Z",
-      "taskCount": 89,
-      "completedCount": 76,
+      "lastModified": "2026-10-18T05:30:00.000Z",
+      "taskCount": 90,
+      "completedCount": 77,
       "tags": [
         "backlog"
       ]

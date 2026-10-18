@@ -130,6 +130,48 @@ describe('initiative health', () => {
     expect(flags[0].why).toContain('still in Backlog')
   })
 
+  it('names the cards each flag found, and the number in the badge is that list’s length', () => {
+    // One card for each rule that is about particular cards: blocked, waiting, unowned, and still
+    // in Backlog under a committed initiative.
+    const graph = healthy()
+    graph.items.push(card('d', { assignees: ['u-1'] }))
+    graph.edges.push(edge('init', 'd'))
+    graph.placements.push(at('d', 'backlog', NOW - DAY))
+    graph.lanes = [...graph.lanes, lane('backlog', 'backlog')]
+    graph.items[2] = { ...graph.items[2], blocked: true } // b
+    graph.items[3] = { ...graph.items[3], assignees: [] } // c — nobody on it
+    graph.items.push(card('gate', { typeId: 't-initiative' }))
+    graph.placements.push(at('gate', 'ns', NOW - DAY))
+    graph.links = [link('gate', 'a')] // a waits on the gate, which is not done
+
+    const flags = initiativeHealth('init', graph, NOW).flags
+    const by = Object.fromEntries(flags.map((f) => [f.flag, f]))
+    expect(by.blocked.items).toEqual(['b'])
+    expect(by.waiting.items).toEqual(['a'])
+    expect(by.unowned.items).toEqual(['c'])
+    expect(by.uncommitted.items).toEqual(['d'])
+    // The count in the badge and the cards it points at are the same fact, so they cannot drift.
+    for (const f of flags) {
+      if (!f.items) continue
+      expect(f.label.startsWith(String(f.items.length)), f.flag).toBe(true)
+    }
+  })
+
+  it('names no cards for the rules about the shape of the whole, or about there being none', () => {
+    // "Nothing has moved for nine days" is a statement about all the work below, not a list of it;
+    // and an initiative with nothing under it has nothing to point at.
+    const graph = healthy()
+    graph.items[0] = { ...graph.items[0], size: 1 }
+    graph.placements = graph.placements.map((p) => ({ ...p, laneEnteredAt: NOW - 9 * DAY }))
+    const shaped = initiativeHealth('init', graph, NOW).flags
+    expect(shaped.map((f) => f.flag)).toEqual(['stale', 'oversized'])
+    for (const f of shaped) expect(f.items).toBeUndefined()
+
+    const empty = initiativeHealth('init', { ...healthy(), edges: [], placements: [] }, NOW).flags
+    expect(empty.map((f) => f.flag)).toEqual(['unplanned'])
+    expect(empty[0].items).toBeUndefined()
+  })
+
   it('says when the work below is bigger than the initiative claims, or due after it is due', () => {
     const graph = healthy()
     // The initiative claims 2 points; the three unsized cards below it add up to 3.

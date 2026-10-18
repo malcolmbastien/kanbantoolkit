@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Archive,
   ArrowDown,
+  ArrowRight,
   Ban,
   CalendarDays,
   Check,
@@ -18,9 +19,11 @@ import {
   Network,
   Pencil,
   Plus,
+  SquareArrowOutUpRight,
   Target,
   Trash2,
   TrendingUp,
+  TriangleAlert,
   X,
 } from 'lucide-react'
 import {
@@ -42,10 +45,11 @@ import {
 } from '@/domain/derive'
 import { boardInitiativeTypes, boardTags, buildRefs, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
+import { initiativeHealth } from '@/domain/health'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
-import { chipColors, DEP_STATE_STYLES, stageChip, TAG_PALETTE } from '@/lib/colors'
+import { chipColors, DEP_STATE_STYLES, FLAG_BADGE, FLAG_BADGE_SHAPE, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
@@ -102,6 +106,7 @@ export function ItemPanel({ itemId }: Props) {
   const deleteItem = useStore((s) => s.deleteItem)
   const duplicateCard = useStore((s) => s.duplicateCard)
   const setInitiativeKind = useStore((s) => s.setInitiativeKind)
+  const setView = useStore((s) => s.setView)
   const toggleItemTag = useStore((s) => s.toggleItemTag)
   const addTag = useStore((s) => s.addTag)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -285,6 +290,66 @@ export function ItemPanel({ itemId }: Props) {
   const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
+
+  /**
+   * Take the reader to an item where it actually is: its board, the board's own view, then the
+   * drawer on it. The order matters — choosing a board clears the selection by design, so the
+   * drawer is opened after it rather than before.
+   *
+   * This is what makes a warning actionable. A badge says something is wrong; the rows under it
+   * name the cards it is about, and clicking one lands you on the board they sit in with that card
+   * open — including when that board is not the one you were looking at.
+   */
+  const goTo = (id: string) => {
+    const there = boardOf(id)
+    if (there && there.id !== boardId) selectBoard(there.id)
+    setView('board')
+    close(id)
+  }
+
+  /**
+   * The initiative's health, as warnings a reader can act on.
+   *
+   * The rules and the words are `initiativeHealth`'s — the same the card's badge row and the
+   * dashboard's Health column read — and each one brings the cards it found, so the drawer can
+   * point at the work rather than only describe it. The dependents signal joins them: it is a
+   * fact about this item rather than a health rule, and the card already draws it as one of the
+   * same badges.
+   *
+   * Memoized on the store's own arrays, because health is the one derivation here that is not
+   * linear in the size of the initiative — and a drawer that recomputed it on every keystroke in
+   * the description field would be a drawer that stutters.
+   */
+  // One of the rules counts days, so the day is part of the key: a drawer left open overnight must
+  // not go on saying "still 12d".
+  const today = Math.floor(Date.now() / 86_400_000)
+  const warnings = useMemo(() => {
+    if (!isInitiative) return []
+    const g: Graph = { items, edges, links, placements, lanes }
+    const rows = initiativeHealth(item.id, g, Date.now()).flags.map((f) => ({
+      key: f.flag as string,
+      label: f.label,
+      why: f.why,
+      tone: f.tone,
+      cards: (f.items ?? []).map((id) => items.find((i) => i.id === id)).filter((i): i is Item => Boolean(i)),
+    }))
+    const depending = dependentsOf(item.id, g)
+    if (depending.length > 0) {
+      rows.push({
+        key: 'dependents',
+        label: `${depending.length} ${depending.length === 1 ? 'depends' : 'depend'} on it`,
+        why: `${depending.length} item${depending.length === 1 ? '' : 's'} ${depending.length === 1 ? 'depends' : 'depend'} on this — if it slips, they are blocked`,
+        tone: 'watch',
+        cards: depending.map((d) => d.dependent),
+      })
+    }
+    return rows
+  }, [isInitiative, item.id, items, edges, links, placements, lanes, issueTypes, today])
+
+  // A board to go to only when it is not the one already in front of us.
+  const somewhereToGo = boardSurface === false || boardOf(item.id)?.id !== boardId
+  /** How many of a warning's cards are named before the rest are counted. */
+  const WARN_CARDS = 4
 
   // A parent is always an initiative — the same rule the store enforces, offered here so the
   // select cannot propose something that would be refused.
@@ -518,6 +583,68 @@ export function ItemPanel({ itemId }: Props) {
       <div className="min-h-0 flex-1 select-text overflow-y-auto px-3 py-3 text-meta">
         {tab === 'details' && (
           <div className="space-y-4">
+            {/* Warnings — an initiative's health, and the way to the work it is about. It opens
+                with the drawer because that is what a warning is for: a badge on a card says
+                something is wrong, and this says which cards, and takes you to them. */}
+            {isInitiative && warnings.length > 0 && (
+              <section className="rounded-lg bg-amber-50/70 p-2.5 ring-1 ring-amber-100">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1 text-micro font-semibold uppercase tracking-wide text-amber-800">
+                    <TriangleAlert size={12} /> Warnings
+                    <span className="rounded-full bg-amber-200 px-1.5 font-bold tabular-nums text-amber-900">{warnings.length}</span>
+                  </span>
+                  {somewhereToGo && (
+                    <button
+                      onClick={() => goTo(item.id)}
+                      className="flex shrink-0 items-center gap-1 rounded border border-amber-300 bg-white px-1.5 py-0.5 text-micro font-medium text-amber-800 transition hover:bg-amber-100"
+                      title={`Go to ${boardOf(item.id)?.name ?? 'the board'} with this initiative open`}
+                    >
+                      <SquareArrowOutUpRight size={11} /> Open on the board
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-2 space-y-1.5">
+                  {warnings.map((w) => (
+                    <div key={w.key} className="rounded-lg border border-amber-200 bg-white px-2 py-1.5">
+                      <div className="flex items-start gap-1.5">
+                        <span className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[w.tone])}>{w.label}</span>
+                        <span className="min-w-0 flex-1 pt-0.5 text-meta text-slate-600">{w.why}</span>
+                      </div>
+                      {w.cards.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {w.cards.slice(0, WARN_CARDS).map((c) => {
+                            const there = boardOf(c.id)
+                            return (
+                              <button
+                                key={c.id}
+                                onClick={() => goTo(c.id)}
+                                title={`Open ${c.title}${there ? ` — on ${there.name}` : ''}`}
+                                className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-meta transition hover:bg-slate-100"
+                              >
+                                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: chipColors(typeColor(c.typeId)).background }} />
+                                <span className="shrink-0 font-mono text-micro text-slate-500">{refs.get(c.id)}</span>
+                                <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
+                                {/* Which board it is on, when that is not this one — the warning is
+                                    often resolved somewhere else. */}
+                                {there && there.id !== boardId && <span className="shrink-0 text-micro text-slate-500">{there.name}</span>}
+                                <ArrowRight size={11} className="shrink-0 text-slate-400" />
+                              </button>
+                            )
+                          })}
+                          {w.cards.length > WARN_CARDS && (
+                            <p className="px-1 text-micro text-slate-500">
+                              +{w.cards.length - WARN_CARDS} more — {w.cards.length} in all
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Property grid — the four things you set while working */}
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-2.5">
               <Field label="Status">

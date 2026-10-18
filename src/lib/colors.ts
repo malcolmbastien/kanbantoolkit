@@ -97,6 +97,21 @@ export function chipColors(hex: string): { background: string; color: string } {
  */
 export const TAG_PALETTE = ['#0ea5e9', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#64748b']
 
+/**
+ * The shape of a warning badge, and the colour it wears by tone.
+ *
+ * One shape for every warning, wherever it is drawn — a card's badge row and the drawer's warnings
+ * section read as the same set — and the *weight* carries the domain's own distinction: a hard stop
+ * is solid, something to watch is pale and ringed. The palette is `HEALTH_META`'s, so a card, a
+ * drawer and the dashboard say the same thing in the same colour.
+ */
+export const FLAG_BADGE_SHAPE = 'shrink-0 rounded px-1.5 py-0.5 text-micro'
+
+export const FLAG_BADGE: Record<'risk' | 'watch', string> = {
+  risk: 'bg-rose-600 font-semibold text-white',
+  watch: 'bg-amber-100 font-medium text-amber-800 ring-1 ring-amber-300',
+}
+
 /** Solid-ish chip styling for a stage (used on lane headers). */
 export function stageChip(stage: Stage): string {
   switch (stage) {
