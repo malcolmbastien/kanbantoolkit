@@ -1459,13 +1459,25 @@
         "testStrategy": "In the browser on the Growth value stream (which defines kinds): an initiative with no kind — Onboarding journey, with its kind cleared from the drawer's Kind field — renders **no band at all**, while Reliability programme and Enterprise SSO keep their WORKSTREAM bands in the same column. The card menu still offers Kind, and the drawer still shows it as a field, so the label remains settable from both. `npm test` (317), build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T11:00:00.000Z"
+      },
+      {
+        "id": "98",
+        "title": "The cumulative flow diagram stacks the way the board reads",
+        "description": "Asked for: reverse the CFD's columns so Backlog is at the top and Done at the bottom.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "low",
+        "details": "The bands were stacked `flex-col-reverse` over the canonical stage order, which put Done at the top and Backlog at the bottom — the usual CFD convention, where the delivered band grows upward. They now stack in the order the board reads: **Backlog at the top, then Not Started, In Progress, Done at the bottom**, so a column on the board and a band in the chart are the same way round.\\n\\nA side effect worth having: the legend under the chart already listed the stages in that order, so it now reads top-to-bottom with the bands instead of against them.\\n\\nOne word of CSS (`flex-col-reverse` → `flex-col`) and a comment saying why, since the previous order was the convention rather than an accident.",
+        "testStrategy": "In the browser on Team Atlas's Flow view, reading the bands' bounding boxes down the last column: Backlog: 3, Not Started: 2, In Progress: 5, Done: 2 — top to bottom in that order, matching the legend. `npm test` (317), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T11:40:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T11:00:00.000Z",
-      "taskCount": 96,
-      "completedCount": 83,
+      "lastModified": "2026-10-18T11:40:00.000Z",
+      "taskCount": 97,
+      "completedCount": 84,
       "tags": [
         "backlog"
       ]

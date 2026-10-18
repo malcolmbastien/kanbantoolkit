@@ -116,7 +116,11 @@ export function MetricsView({ boardId }: { boardId: string }) {
                     <div key={buckets[i]} className="flex min-w-0 flex-1 flex-col gap-1">
                       <div className="text-center text-micro font-bold tabular-nums text-slate-600">{total}</div>
                       <div className="flex h-36 flex-col justify-end">
-                        <div className="flex flex-col-reverse" style={{ height: `${(total / tallest) * 100}%` }}>
+                        {/* Stacked in the board's own order — Backlog at the top, down through Not
+                            Started and In Progress, to Done at the bottom — so a column on the board
+                            and a band here are read the same way round. The legend below lists them
+                            in that order too. */}
+                        <div className="flex flex-col" style={{ height: `${(total / tallest) * 100}%` }}>
                           {STAGES.map((stage) =>
                             counts[stage] === 0 ? null : (
                               <div
