@@ -803,6 +803,10 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
                 dep={d}
                 dependencyType={typeOf(d.dependency.typeId)}
                 boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.dependency.id)?.boardId)?.name ?? '—'}
+                // The dependency's own stage and standing, read the way a card's are — so the pin
+                // can say how far along the thing outside the board has got.
+                stage={rollupOf(d.dependency.id, graph).bucket}
+                status={statusOf(d.dependency.id, graph)}
                 selected={boundaryId === d.dependency.id}
                 dependentCount={boardItems.filter((i) => waitsOn(i.id, d.dependency.id, graph)).length}
                 onSelect={toggleBoundary}
