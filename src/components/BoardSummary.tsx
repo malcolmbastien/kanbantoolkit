@@ -231,10 +231,12 @@ export function BoardSummary({
     const parent: CardParent | undefined = p
       ? { id: p.id, ref_: refs.get(p.id) ?? '', title: p.title, type: typeOf(p.typeId) }
       : undefined
+    // The direct children — archived ones included, because the rollup counts them and the count
+    // beside the pips has to be the same number the percentage is about. Filtering them out here
+    // is what made a card with one filed-away child read "nothing below" and "1 below" at once.
     const childItems = decompositionChildren(c.id, edges)
       .map((id) => items.find((i) => i.id === id))
       .filter((i): i is Item => Boolean(i))
-      .filter((i) => !i.archived)
     // Symbols summarise the direct children — team initiatives for a top-level
     // initiative, cards for a team-level one — coloured by their status.
     const symbols = childItems.map((ci) => ({ bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))

@@ -1334,13 +1334,28 @@
         "testStrategy": "A store test for `setItemsKind`: a mixed selection sets the kind on its initiatives and nowhere else, clearing is the same gesture, and an id no board defines is refused for the whole selection. Verified in the browser: a card's Details reads Type (User Story|Epic|Bug|Spike|Task) with no Kind, and its context menu has Type and no Kind; an initiative's Details reads Kind with no Type, its ⋮ menu still carries the \\\"type is fixed\\\" note, and its context menu has Kind and no Type; on the Growth value stream the Kind flyout reads None | Workstream | Enabler with the worn one checked, and picking Enabler wrote it to the item. npm test, build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T02:15:00.000Z"
+      },
+      {
+        "id": "89",
+        "title": "The initiative card leads with its kind, its title and what is under it",
+        "description": "Asked for: kinds identifiable at a glance by colour, an initiative shape clearly different from a card, and the focus on the title, the kind and the children's statuses — with the issue codes demoted.",
+        "status": "done",
+        "dependencies": [
+          "76",
+          "88"
+        ],
+        "priority": "high",
+        "details": "The wide card was a card with more on it. It is now a different shape.\\n\\n**The kind is a band across the top**, in the kind's own colour, with the picker behind it. A card is tinted by its type and railed down the left; an initiative wears its kind as a band — so the two are told apart before either is read, and a reader can see what sort of initiative it is without reading a word of the title. `KindChip` became `KindBand`, and it now takes an optional kind and an optional `onSet`, so it can render the empty slot too.\\n\\n**When the band shows**: whenever the item wears a kind, or the board defines any. A board that defines none shows no band — there is nothing to say and nothing to choose, the same rule the Kind filter keeps. A board that defines some shows the band even on an initiative wearing none, reading \\\"No kind\\\" and offering the board's kinds: the empty slot is how a person discovers that kinds exist, and it is the slot they click to fill. In edit mode the band stays and stops being a control — the previous chip vanished there, which lost the initiative's identity exactly when the board was being designed.\\n\\n**The reading order is now the priority order**: the band, then the title at `text-title` (15px — the largest text on the board) with priority and the reference beside it, then the children's own stages as 12px pips sorted into the columns' order, with the counts (`N below`, `N open`) and the rollup percentage, then a full-width progress bar, then the warnings, then everything quiet — lineage, tags, links, checklist, size, people. The pips carry a tooltip naming each child and its stage, and the row's own tooltip sums the spread (\\\"7 directly below: 3 done, 2 in progress, 2 not started\\\").\\n\\n**The reference is demoted**, not removed: `INIT12` is how an initiative is *named* in a standup, not how it is read, so it is 11px, grey, right-aligned and out of the reading path. The size moved to the quiet footer, and the old `Layers N` icon went — the pips say it better.\\n\\n**One contradiction the redesign exposed and fixed**: the pips were built from the children *excluding* archived ones, while `childCount` and the rollup counted all of them — so an initiative whose only child had been filed away read \\\"nothing below\\\" and \\\"1 below\\\" at once. The pips now cover the same set the rollup does, which is the domain rule the tests already state (`archived leaves still count toward rollup but not toward open pressure`).\\n\\nAlso fixed while in there: the kind picker had no keydown handler, so Escape with its list open bubbled to App and closed the whole panel — the same bug the tag field had.",
+        "testStrategy": "No component tests exist (the vitest environment is node), so this is verified in the browser. On the Growth value stream (which defines Workstream and Enabler): the band reads WORKSTREAM in the kind's colour with white text; a new initiative's band reads NO KIND in neutral slate and lists None | Workstream | Enabler when clicked; picking Enabler turns the band slate, retitles it ENABLER and writes `kind-b-portfolio-enabler` to the item; Escape closes the list rather than the board. On Team Atlas (which defines no kinds) there is no band, and the shape still reads as an initiative: 15px title, status pips, full-width bar, quiet footer — beside the cards workflow's small tinted notes with their type chip and left rail. `npm test` (312), build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T03:20:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T02:15:00.000Z",
-      "taskCount": 87,
-      "completedCount": 74,
+      "lastModified": "2026-10-18T03:20:00.000Z",
+      "taskCount": 88,
+      "completedCount": 75,
       "tags": [
         "backlog"
       ]

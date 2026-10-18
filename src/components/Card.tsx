@@ -1,7 +1,8 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ArrowUp, Ban, Check, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { ArrowUp, Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Layers, Link2, ListChecks, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, tintOn } from '@/lib/colors'
+import { STAGE_LABELS } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
 import type { InitiativeType, Tag } from '@/domain/types'
@@ -280,13 +281,23 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
 
   if (wide) {
     const pct = summary.rollupPercent
-      return (
+    // The children's own stages, in the columns' order — so the pips read left to right the way
+    // the board does, and "how much green" is a glance rather than a count.
+    const stageOrder: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
+    const pips = [...(symbols ?? [])].sort((a, b) => stageOrder.indexOf(a.bucket) - stageOrder.indexOf(b.bucket))
+    const spread = stageOrder
+      .map((stage) => ({ stage, n: pips.filter((p) => p.bucket === stage).length }))
+      .filter((s) => s.n > 0)
+      .map((s) => `${s.n} ${STAGE_LABELS[s.stage].toLowerCase()}`)
+      .join(', ')
+    const MAX_PIPS = 12
+    const warn = Boolean(blockedChip) || summary.dependentsCount > 0 || (summary.uncommittedBelow ?? 0) > 0
+
+    return (
       <div
         {...dragProps}
         {...cardKeyboard(item, locked, onOpen, onContextMenu)}
         data-card-id={item.id}
-        // The wide card is the initiative, and it never had a context menu — the narrow one has
-        // had one all along.
         onContextMenu={(e) => {
           if (locked || !onContextMenu) return
           e.preventDefault()
@@ -300,14 +311,14 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
           else onOpen(item.id)
         }}
         className={cn(
-          // `@container` lets the card shed detail as its column narrows (see the
-          // `@[Npx]:` variants below) instead of overflowing a customised flow.
+          // `@container` lets the card shed detail as its column narrows (see the `@[Npx]:`
+          // variants below) instead of overflowing a customised flow.
           '@container group relative flex w-full flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-left shadow-sm transition',
           FOCUS_RING,
           // On touch: a vertical swipe still scrolls the board (the browser takes it, and the
-          // lift aborts on `pointercancel`), while a horizontal swipe is the drag. Both axes
-          // ours would make the board unscrollable from a card; both the browser's would make
-          // a card undraggable.
+          // lift aborts on `pointercancel`), while a horizontal swipe is the drag. Both axes ours
+          // would make the board unscrollable from a card; both the browser's would make a card
+          // undraggable.
           draggable && !locked && 'touch-pan-y',
           locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-slate-400',
           lensCls,
@@ -315,62 +326,109 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
           dimCls,
         )}
       >
-        {/* progress bar */}
-        <div className="h-1.5 w-full bg-slate-200">
-          <div className="h-full transition-all" style={{ width: `${pct ?? 0}%`, backgroundColor: barColor(pct) }} />
-        </div>
+        {/* The kind, as a band across the top — the initiative's identity, and the one thing a
+            card never has. */}
+        {(kind !== undefined || (kinds?.length ?? 0) > 0) && (
+          <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />
+        )}
 
-        <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-          {/* header row — every card on this surface is an initiative, so the *type* chip is
-              redundant; the ref and the rollup % carry the identification. The kind chip is not
-              redundant: it is the board's own label for this initiative, and it reads first
-              because it is a category. Unset means absent, so nothing renders without one. */}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {kind && onSetKind && !locked && <KindChip kind={kind} kinds={kinds ?? []} onSet={onSetKind} />}
-            <span className="text-micro font-semibold tabular-nums text-slate-600">{ref_}</span>
-            {item.size ? <span className="text-micro tabular-nums text-slate-600">· {item.size}</span> : null}
+        <div className="flex flex-1 flex-col gap-2 p-2.5">
+          {/* The title, at the size the reading happens at. Beside it the two small judgements:
+              priority, and the reference — which is how an initiative is *named* (in a standup,
+              in a message) rather than how it is read, so it stays small and out of the way. */}
+          <div className="flex items-start gap-2">
+            <span className="min-w-0 flex-1 line-clamp-3 break-words text-title font-semibold leading-snug text-slate-900">
+              {item.title}
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5 pt-1">
+              <PriorityBadge priority={item.priority} />
+              <span className="font-mono text-micro tabular-nums text-slate-500">{ref_}</span>
+            </span>
+          </div>
+
+          {/* What is below it, and how far along: the children's own stages as pips, then the
+              rollup. The bar underneath is the same number, wider. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
+            {pips.length > 0 ? (
+              <span className="flex items-center gap-1" title={`${pips.length} directly below: ${spread}`}>
+                {pips.slice(0, MAX_PIPS).map((p, i) => (
+                  <span
+                    key={i}
+                    className={cn('h-3 w-3 shrink-0 rounded-[3px]', BUCKET_DOT[p.bucket])}
+                    title={`${p.title} — ${STAGE_LABELS[p.bucket]}`}
+                  />
+                ))}
+                {pips.length > MAX_PIPS && <span className="font-semibold text-slate-600">+{pips.length - MAX_PIPS}</span>}
+              </span>
+            ) : (
+              <span title="Nothing is broken down under this initiative yet">nothing below</span>
+            )}
+            {summary.childCount > 0 && (
+              <span title={`${summary.childCount} item${summary.childCount === 1 ? '' : 's'} directly below`}>
+                {summary.childCount} below
+              </span>
+            )}
+            {summary.openDescendants > 0 && (
+              <span title={`${summary.openDescendants} of the work below is still open — filed-away items aside`}>
+                {summary.openDescendants} open
+              </span>
+            )}
             <span className="ml-auto flex items-center gap-1.5">
               {summary.done && <DoneStamp />}
-              <PriorityBadge priority={item.priority} />
-              {summary.dependentsCount > 0 && (
-                <span className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px text-micro font-bold text-white" title={`${summary.dependentsCount} depend on this`}>
-                  <ShieldAlert size={9} /> {summary.dependentsCount}
-                </span>
-              )}
               {pct !== undefined && (
                 <span
                   className="text-body font-bold tabular-nums"
                   style={{ color: pct >= 100 ? '#059669' : pct > 0 ? '#4f46e5' : '#94a3b8' }}
-                  title="Rollup — share of leaf work done"
+                  title="Rollup — the share of leaf work done, weighted by size"
                 >
                   {pct}%
                 </span>
               )}
             </span>
-            {lensButton}
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="h-full transition-all" style={{ width: `${pct ?? 0}%`, backgroundColor: barColor(pct) }} />
           </div>
 
-          <div className="line-clamp-2 break-words text-body font-semibold leading-snug text-slate-900">{item.title}</div>
-
-          {/* Roll-up: a team initiative linked under a top-level initiative. */}
-          {parent && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onOpen(parent.id)
-              }}
-              title={`Rolls up to ${parent.type.name} ${parent.ref_}: ${parent.title} — click to open`}
-              className="flex w-fit max-w-full items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-left transition hover:border-indigo-300 hover:bg-indigo-100"
-            >
-              <ArrowUp size={11} className="shrink-0 text-indigo-400" />
-              <span className="hidden shrink-0 text-micro font-bold uppercase tracking-wide text-indigo-500 @[340px]:inline">rolls up to</span>
-              <span className="min-w-0 truncate text-micro font-medium text-indigo-700">{parent.title}</span>
-            </button>
+          {/* Warnings, and the only other thing on the card allowed colour. Never hidden. */}
+          {warn && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro">
+              {blockedChip}
+              {summary.dependentsCount > 0 && (
+                <span
+                  className="flex items-center gap-0.5 rounded bg-amber-500 px-1 py-px font-bold text-white"
+                  title={`${summary.dependentsCount} depend on this`}
+                >
+                  <ShieldAlert size={9} /> {summary.dependentsCount}
+                </span>
+              )}
+              {(summary.uncommittedBelow ?? 0) > 0 && (
+                <span
+                  className="flex items-center gap-0.5 rounded bg-amber-100 px-1 py-px font-semibold text-amber-800 ring-1 ring-amber-300"
+                  title={`${summary.uncommittedBelow} card${summary.uncommittedBelow === 1 ? '' : 's'} below are still in Backlog — this initiative is committed, so its work should be too`}
+                >
+                  <TriangleAlert size={11} /> {summary.uncommittedBelow}
+                  <span className="hidden @[300px]:inline">uncommitted below</span>
+                </span>
+              )}
+            </div>
           )}
 
-          {/* meta row — secondary detail appears only once the column is wide enough to
-              hold it (container queries on the card root). Warnings never hide. */}
+          {/* Everything else, quiet: lineage, tags, links, the checklist, the size, the people. */}
           <div className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-micro text-slate-600">
+            {parent && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpen(parent.id)
+                }}
+                title={`Rolls up to ${parent.type.name} ${parent.ref_}: ${parent.title} — click to open`}
+                className="flex w-fit max-w-full items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-left transition hover:border-indigo-300 hover:bg-indigo-100"
+              >
+                <ArrowUp size={11} className="shrink-0 text-indigo-400" />
+                <span className="min-w-0 truncate text-micro font-medium text-indigo-700">{parent.title}</span>
+              </button>
+            )}
             <TagChips tags={tags} />
             {boundary && (
               <span
@@ -380,45 +438,20 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
                 <Link2 size={11} /> waiting on
               </span>
             )}
-            {symbols && symbols.length > 0 && (
-              <span className="hidden items-center gap-1 @[260px]:flex" title={`${symbols.length} linked items`}>
-                {symbols.slice(0, 8).map((s, i) => (
-                  <span key={i} className={cn('h-2.5 w-2.5 rounded-sm', BUCKET_DOT[s.bucket])} title={s.title} />
-                ))}
-                {symbols.length > 8 && <span className="font-semibold text-slate-600">+{symbols.length - 8}</span>}
-              </span>
-            )}
-            {summary.childCount > 0 && (
-              <span className="hidden items-center gap-0.5 @[320px]:flex" title={`${summary.childCount} linked items`}>
-                <Layers size={11} /> {summary.childCount}
-              </span>
-            )}
             {summary.linksCount > 0 && (
-              <span className="hidden items-center gap-0.5 @[320px]:flex" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
+              <span className="flex items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
                 <Link2 size={11} /> {summary.linksCount}
               </span>
             )}
             {summary.checklist && summary.checklist.total > 0 && (
               <span
-                className={cn('hidden items-center gap-0.5 @[300px]:flex', summary.checklist.done === summary.checklist.total && 'font-semibold text-emerald-600')}
+                className={cn('flex items-center gap-0.5', summary.checklist.done === summary.checklist.total && 'font-semibold text-emerald-600')}
                 title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} done`}
               >
                 <ListChecks size={11} /> {summary.checklist.done}/{summary.checklist.total}
               </span>
             )}
-            {blockedChip}
-            {(summary.uncommittedBelow ?? 0) > 0 && (
-              <span
-                className="flex items-center gap-0.5 rounded bg-amber-100 px-1 py-px font-semibold text-amber-800 ring-1 ring-amber-300"
-                title={`${summary.uncommittedBelow} card${summary.uncommittedBelow === 1 ? '' : 's'} below are still in Backlog — this initiative is committed, so its work should be too`}
-              >
-                <TriangleAlert size={11} /> {summary.uncommittedBelow}
-                <span className="hidden @[300px]:inline">uncommitted below</span>
-              </span>
-            )}
-            {summary.openDescendants > 0 && summary.childCount > 0 && (
-              <span className="hidden text-slate-600 @[360px]:inline">{summary.openDescendants} open below</span>
-            )}
+            {item.size ? <span title="This initiative's own estimate — the work below is what rolls up">{item.size} pts</span> : null}
             <span className="ml-auto flex items-center gap-2">
               {assignees.length > 0 && (
                 <span className="flex items-center gap-0.5">
@@ -432,6 +465,7 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, kind, kind
                   )}
                 </span>
               )}
+              {lensButton}
             </span>
           </div>
         </div>
@@ -662,17 +696,39 @@ const summaryEqual = (a: CardSummary, b: CardSummary) =>
   a.checklist?.total === b.checklist?.total
 
 /**
- * An initiative's kind, on its face, with the picker behind it.
+ * An initiative's kind, as a band across the top of its card.
  *
- * Businessmap changes the type by clicking the icon on the card, and that is the better
- * affordance: the label is where the reading happens, so it is where the changing should happen
- * too — no trip to the panel to change a word. The list is the board's own, plus the kind this
- * initiative already carries if that came from another board, so the control never lies about
- * what the item says.
+ * A kind is the board's own label for an outcome — a bet, a programme, an experiment — and it is
+ * the one thing a card never has. So it is drawn as the one thing a card never is: a band across
+ * the top, in the kind's own colour. A card is tinted by its type and railed down the left; an
+ * initiative wears its kind as a band. The two shapes are told apart before either is read.
+ *
+ * The band is also where the kind is *changed* — Businessmap's affordance, and the better one: the
+ * label is where the reading happens, so it is where the changing should happen too, with no trip
+ * to the panel to change a word. The list is the board's own, plus the kind this initiative
+ * already carries if that came from another board, so the control never lies about what the item
+ * says.
+ *
+ * A board that defines no kinds shows no band: there is nothing to say and nothing to choose. A
+ * board that defines some shows it even on an initiative wearing none — the empty slot is how a
+ * person discovers that kinds exist, and it is the slot they click to fill.
  */
-function KindChip({ kind, kinds, onSet }: { kind: InitiativeType; kinds: InitiativeType[]; onSet: (id: string | undefined) => void }) {
+function KindBand({
+  kind,
+  kinds,
+  onSet,
+  locked,
+}: {
+  /** The kind it wears. Absent is None. */
+  kind?: InitiativeType
+  kinds: InitiativeType[]
+  /** Absent on a surface that does not own the vocabulary — a Linked boards band. */
+  onSet?: (kindId: string | undefined) => void
+  /** Board-design mode: the band still says what it is, but it is not a control. */
+  locked?: boolean
+}) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -683,32 +739,56 @@ function KindChip({ kind, kinds, onSet }: { kind: InitiativeType; kinds: Initiat
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
-  const options = kinds.some((k) => k.id === kind.id) ? kinds : [...kinds, kind]
-  const chip = chipColors(kind.color)
+  // A locked band is not a disabled button: a disabled button shows no tooltip, and this one has
+  // something to say.
+  const canSet = Boolean(onSet) && !locked
+  const options = kind && !kinds.some((k) => k.id === kind.id) ? [...kinds, kind] : kinds
+  const chip = kind ? chipColors(kind.color) : undefined
   const choose = (id: string | undefined) => {
-    onSet(id)
+    onSet?.(id)
     setOpen(false)
   }
 
   return (
-    <span ref={ref} className="relative shrink-0">
+    <div ref={ref} className="relative">
       <button
         onClick={(e) => {
           e.stopPropagation()
-          setOpen((o) => !o)
+          if (canSet) setOpen((o) => !o)
         }}
-        style={{ backgroundColor: chip.background, color: chip.color }}
-        className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide shadow-sm transition hover:brightness-95"
-        title={`Kind: ${kind.name} — click to change it`}
-        aria-label={`Kind: ${kind.name}`}
+        onKeyDown={(e) => {
+          // The list is the topmost layer, so Escape closes it rather than the panel or the board
+          // behind it — the same rule the tag field and the card menu keep.
+          if (e.key !== 'Escape' || !open) return
+          e.preventDefault()
+          e.stopPropagation()
+          setOpen(false)
+        }}
+        style={chip ? { backgroundColor: chip.background, color: chip.color } : undefined}
+        className={cn(
+          'flex w-full items-center gap-1.5 px-2.5 py-1 text-left text-micro font-bold uppercase tracking-wide transition',
+          chip ? 'hover:brightness-95' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+          !canSet && 'cursor-default',
+        )}
+        title={
+          kind
+            ? `Kind: ${kind.name}${canSet ? ' — click to change it' : ''}`
+            : canSet
+              ? 'No kind — click to give this initiative one of this board’s kinds'
+              : 'No kind'
+        }
+        aria-label={kind ? `Kind: ${kind.name}` : 'No kind'}
+        aria-haspopup="listbox"
+        aria-expanded={open}
       >
-        {kind.name}
+        <span className="min-w-0 flex-1 truncate">{kind?.name ?? 'No kind'}</span>
+        {canSet && <ChevronDown size={11} className="shrink-0 opacity-70" />}
       </button>
       {open && (
-        <span className="absolute left-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-30 mt-0.5 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg">
           {[undefined, ...options.map((k) => k.id)].map((id) => {
             const option = id === undefined ? undefined : options.find((k) => k.id === id)
-            const on = id === undefined ? false : id === kind.id
+            const on = id === kind?.id
             return (
               <button
                 key={id ?? 'none'}
@@ -727,9 +807,9 @@ function KindChip({ kind, kinds, onSet }: { kind: InitiativeType; kinds: Initiat
               </button>
             )
           })}
-        </span>
+        </div>
       )}
-    </span>
+    </div>
   )
 }
 
