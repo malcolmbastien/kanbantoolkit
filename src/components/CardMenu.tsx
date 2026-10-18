@@ -11,6 +11,7 @@ import {
   Minus,
   MoreHorizontal,
   Ruler,
+  Shapes,
   ShieldCheck,
   Tag,
   Trash2,
@@ -18,7 +19,7 @@ import {
   CornerDownRight,
   Unlink,
 } from 'lucide-react'
-import { cardTypes, isAggregating, isInitiativeItem, placementOn } from '@/domain/board'
+import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isInitiativeItem, placementOn } from '@/domain/board'
 import { decompositionParent } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -35,7 +36,7 @@ interface Props {
   onClose: () => void
 }
 
-type Panel = 'move' | 'priority' | 'assignee' | 'type' | 'size' | 'start' | 'end' | 'block'
+type Panel = 'move' | 'priority' | 'assignee' | 'type' | 'kind' | 'size' | 'start' | 'end' | 'block'
 
 const ITEM = 'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta text-slate-700 transition hover:bg-slate-100'
 const FIELD = 'min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-400'
@@ -64,6 +65,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const startChildPick = useStore((s) => s.startChildPick)
   const edges = useStore((s) => s.edges)
   const setItemsType = useStore((s) => s.setItemsType)
+  const setItemsKind = useStore((s) => s.setItemsKind)
   const addItemsAssignee = useStore((s) => s.addItemsAssignee)
   const removeItemsAssignee = useStore((s) => s.removeItemsAssignee)
   const setItemsSize = useStore((s) => s.setItemsSize)
@@ -88,6 +90,15 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   // The Initiative type is reserved: an initiative is never retyped, so the menu does not
   // offer it — not even as a mixed selection where it would apply to some of the group.
   const selectionHasInitiative = itemIds.some((id) => isInitiativeItem(items.find((i) => i.id === id), issueTypes))
+  // A kind is only ever an initiative's, so the menu offers it only when the whole selection is
+  // initiatives — the mirror of hiding Type whenever any of it is one. Nothing here would apply
+  // to "some of the group".
+  const selectionAllInitiatives = itemIds.length > 0 && itemIds.every((id) => isInitiativeItem(items.find((i) => i.id === id), issueTypes))
+  // The kinds of the board the menu is on, and the one this initiative actually wears — which may
+  // be a kind defined on another board, and is still shown so the menu does not lie about it.
+  const kinds = boardInitiativeTypes(boards.find((b) => b.id === boardId))
+  const kind = initiativeTypeById(boards, only?.initiativeTypeId)
+  const kindElsewhere = kind && !kinds.some((k) => k.id === kind.id)
   const lanesLeaf = leafLanes(lanes, boardId, 'cards')
   const anyBlocked = targets.some((t) => t.blocked)
   const allBlocked = count > 0 && targets.every((t) => t.blocked)
@@ -235,6 +246,35 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
             <span className="flex-1">{t.name}</span>
           </button>
         )),
+      )
+    }
+
+    if (open === 'kind') {
+      const set = (id: string | undefined) => setItemsKind(itemIds, id)
+      const mark = (id: string | undefined) => single && only?.initiativeTypeId === id
+      return wrap(
+        <>
+          <button className={cn(ITEM, 'pl-2.5')} onClick={() => run(() => set(undefined))}>
+            <Minus size={13} className="shrink-0 text-slate-400" />
+            <span className="flex-1">None</span>
+            {mark(undefined) && <Check size={12} className="shrink-0 text-indigo-600" />}
+          </button>
+          {kinds.map((k) => (
+            <button key={k.id} className={cn(ITEM, 'pl-2.5')} onClick={() => run(() => set(k.id))}>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: k.color }} />
+              <span className="flex-1">{k.name}</span>
+              {mark(k.id) && <Check size={12} className="shrink-0 text-indigo-600" />}
+            </button>
+          ))}
+          {kindElsewhere && (
+            <button className={cn(ITEM, 'pl-2.5')} onClick={() => run(() => set(kind.id))}>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: kind.color }} />
+              <span className="flex-1">{kind.name}</span>
+              <span className="shrink-0 text-micro text-slate-500">another board</span>
+              {mark(kind.id) && <Check size={12} className="shrink-0 text-indigo-600" />}
+            </button>
+          )}
+        </>,
       )
     }
 
@@ -394,6 +434,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
         {/* An initiative is not retyped: the type is what makes it one, and the
             initiatives workflow reads it. */}
         {!selectionHasInitiative && header('type', <Tag size={13} />, 'Type')}
+        {selectionAllInitiatives && header('kind', <Shapes size={13} />, 'Kind')}
         {header('size', <Ruler size={13} />, 'Size', single ? String(only?.size ?? '') : '')}
         {header('start', <CalendarClock size={13} />, 'Target start', single ? only?.targetStartDate ?? '' : '')}
         {header('end', <CalendarClock size={13} />, 'Target end', single ? only?.targetEndDate ?? '' : '')}

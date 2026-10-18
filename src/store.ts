@@ -286,6 +286,8 @@ export interface Actions {
    * initiative, and for an id no board defines: the rule is the model's, not the panel's.
    */
   setInitiativeKind: (itemId: string, kindId: string | undefined) => void
+  /** The same for a whole selection — a kind is set on whatever in it is an initiative. */
+  setItemsKind: (itemIds: string[], kindId: string | undefined) => void
   /** A board's own vocabulary for its initiatives. None is not an entry here — it is absence. */
   addInitiativeType: (boardId: string, name: string, color: string) => void
   updateInitiativeType: (boardId: string, id: string, patch: Partial<InitiativeType>) => void
@@ -1545,17 +1547,21 @@ export const useStore = create<Store>()(
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
       },
 
-      setInitiativeKind: (itemId, kindId) => {
+      setInitiativeKind: (itemId, kindId) => get().setItemsKind([itemId], kindId),
+
+      setItemsKind: (itemIds, kindId) => {
         const state = get()
-        const item = state.items.find((i) => i.id === itemId)
-        // Only an initiative carries a kind. Refused here rather than merely hidden by the panel,
-        // because the rule is the model's: a card's label is its `typeId` and nothing else.
-        if (!item || !isInitiativeItem(item, state.issueTypes)) return
-        // An id no board defines is refused too: the panel only offers what exists, and the model
-        // does not keep labels that cannot be read back.
+        // An id no board defines is refused: the panel only offers what exists, and the model does
+        // not keep labels that cannot be read back.
         if (kindId !== undefined && !initiativeTypeById(state.boards, kindId)) return
+        const ids = new Set(itemIds)
         set({
-          items: state.items.map((i) => (i.id === itemId ? { ...i, initiativeTypeId: kindId } : i)),
+          items: state.items.map((i) =>
+            // Only an initiative carries a kind. Refused per item rather than merely hidden by the
+            // callers, because the rule is the model's: a card's label is its `typeId` and nothing
+            // else. A mixed selection sets the kind on the initiatives in it and leaves the rest.
+            ids.has(i.id) && isInitiativeItem(i, state.issueTypes) ? { ...i, initiativeTypeId: kindId } : i,
+          ),
         })
       },
 

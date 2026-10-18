@@ -333,7 +333,7 @@ export function ItemPanel({ itemId }: Props) {
               <Eye size={15} />
             </IconButton>
             <IconButton
-              title="More — card type, duplicate, archive, delete"
+              title="More — duplicate, archive, delete"
               active={moreOpen}
               onClick={() => setMoreOpen((o) => !o)}
             >
@@ -347,51 +347,16 @@ export function ItemPanel({ itemId }: Props) {
 
         {moreOpen && (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-            {typeIsFixed ? (
-              <>
-                <p className="text-meta text-slate-600">
-                  {isInitiative
-                    ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
-                    : 'Type is fixed. Sub-task belongs to the system rather than to you — a card\'s sub-tasks are a checklist, not items.'}
-                </p>
-                {/* The paragraph above explains what is fixed; this is the label that is not. A
-                    kind says what sort of initiative this is and nothing else — and None is the
-                    absence of one, so it is the first option and cannot be removed. */}
-                {isInitiative && (
-                  <label className="flex items-center gap-2">
-                    <span className="w-14 shrink-0 text-micro uppercase tracking-wide text-slate-600">Kind</span>
-                    <select
-                      value={item.initiativeTypeId ?? ''}
-                      onChange={(e) => setInitiativeKind(item.id, e.target.value || undefined)}
-                      className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta font-medium"
-                      title="A kind is this board's own label for an initiative — a bet, a programme, an experiment. Every kind behaves the same."
-                    >
-                      <option value="">None</option>
-                      {kinds.map((k) => (
-                        <option key={k.id} value={k.id}>
-                          {k.name}
-                        </option>
-                      ))}
-                      {/* A kind defined on another board still shows, so the control never lies
-                          about what the item says. */}
-                      {kind && !kinds.some((k) => k.id === kind.id) && <option value={kind.id}>{kind.name}</option>}
-                    </select>
-                  </label>
-                )}
-              </>
-            ) : (
-              <label className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-micro uppercase tracking-wide text-slate-600">Type</span>
-                <select
-                  value={item.typeId}
-                  onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
-                  className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta font-medium"
-                >
-                  {typeOptions.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </label>
+            {/* The type and the kind are properties, so they live in Details with the other
+                properties. What stays here is the note about the type that *cannot* be changed: a
+                menu is where you would look for the missing control, and a missing affordance has
+                to explain itself. */}
+            {typeIsFixed && (
+              <p className="text-meta text-slate-600">
+                {isInitiative
+                  ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
+                  : 'Type is fixed. Sub-task belongs to the system rather than to you — a card\'s sub-tasks are a checklist, not items.'}
+              </p>
             )}
             <div className="flex items-center gap-1.5">
               {/* The "copy me" template: a new card with this one's shape and none of its
@@ -611,6 +576,44 @@ export function ItemPanel({ itemId }: Props) {
                   )}
                 </div>
               </Field>
+
+              {/* Type and Kind — the labels a card or an initiative wears. They used to sit behind
+                  the ⋮ menu, which made a property look like an action. A card's type is the one
+                  you choose; an initiative's type is what makes it one, so it is fixed (the header
+                  says it) and only its kind is a choice. */}
+              {!typeIsFixed && (
+                <Field label="Type">
+                  <select
+                    value={item.typeId}
+                    onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-meta font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                    title="A type is a label and a colour — any type can sit in any column"
+                  >
+                    {typeOptions.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
+              {isInitiative && (
+                <Field label="Kind">
+                  <select
+                    value={item.initiativeTypeId ?? ''}
+                    onChange={(e) => setInitiativeKind(item.id, e.target.value || undefined)}
+                    className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-meta font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                    title="A kind is this board's own label for an initiative — a bet, a programme, an experiment. Every kind behaves the same."
+                  >
+                    <option value="">None</option>
+                    {kinds.map((k) => (
+                      <option key={k.id} value={k.id}>{k.name}</option>
+                    ))}
+                    {/* A kind defined on another board still shows, so the control never lies
+                        about what the item says. */}
+                    {kind && !kinds.some((k) => k.id === kind.id) && <option value={kind.id}>{kind.name}</option>}
+                  </select>
+                </Field>
+              )}
 
               <Field label="Lead">
                 <div className="flex flex-wrap items-center gap-1">

@@ -1320,13 +1320,27 @@
         "testStrategy": "13 new tests in `lib/url.test.ts`: every view named from its flags, precedence, the canonical query per place, one URL per place and no two places sharing one, the round trip, the legacy `view=metrics`, unknown names, and a hand-written link normalising to the same place. Plus a store test that `setView` and `viewOf` agree for all eight names and that exactly one flag is ever set.\\n\\nVerified in a fresh browser tab (so history starts clean): a first visit normalises to `?board=b-portfolio`; switching board through the picker writes `?board=b-atlas` and adds a step; opening a card writes `?board=…&item=…` without adding one; dismissing it drops the item with no duplicate; the Timeline tab writes `?board=…&view=timeline`, back returns to the Board view, forward returns to the Timeline; all six views load from a URL; a link naming a board and a card that are gone lands on a real board with no panel; and `?board=b-atlas&item=init-trial&q=trial&edit=1` opens the card, narrows the board, starts editing, and normalises the URL to `?board=b-atlas&item=init-trial`. npm test, build, lint and the dependency scan are clean.",
         "subtasks": [],
         "updatedAt": "2026-10-18T01:30:00.000Z"
+      },
+      {
+        "id": "88",
+        "title": "Type and Kind are properties in Details, and Kind joins the context menu",
+        "description": "Asked for: move initiative kind and card type out of the panel's ⋮ menu into the Details tab, and add Kind to the context menu for initiatives.",
+        "status": "done",
+        "dependencies": [
+          "76"
+        ],
+        "priority": "medium",
+        "details": "Both controls sat behind the panel's ⋮ menu, which made a property look like an action — you could not read an item's type or kind without opening a menu. They are now cells in the Details property grid, beside Status, Priority, Lead and the rest: **Type** for a card (the card types only, so nothing becomes an initiative), **Kind** for an initiative.\\n\\nAn initiative shows no Type cell and does not need one: the type is what makes it an initiative, it is fixed, and the header already wears the chip. What stays in the ⋮ menu is the note about *why* — a menu is where you would look for the missing control, so the missing affordance still explains itself. A card's ⋮ menu is now purely actions (Duplicate, Archive, Delete); the button's tooltip no longer promises a card type it does not have.\\n\\nThe context menu gained **Kind** for initiatives, next to where a card's Type sits. It is offered only when the *whole* selection is initiatives — the exact mirror of hiding Type whenever any of it is one, so nothing offered applies to \\\"some of the group\\\". The flyout lists None and the board's kinds with the one worn marked, and a kind defined on another board still appears (tagged \\\"another board\\\"), because the menu must not lie about what the item says.\\n\\n`setItemsKind` is new: the menu acts on a selection, so the setter does too, refusing a kind no board defines for the whole selection rather than half-applying it, and setting it only on the initiatives in a mixed one. `setInitiativeKind` now delegates to it, so the rule lives in one place.\\n\\nOne thing left as it was: on a board that defines no kinds, the Kind control offers only None. It is a real control with nothing to choose (the Kind *filter* hides itself in that case), and it could hide itself the same way — left visible for now, since it is also how a person discovers that kinds exist.",
+        "testStrategy": "A store test for `setItemsKind`: a mixed selection sets the kind on its initiatives and nowhere else, clearing is the same gesture, and an id no board defines is refused for the whole selection. Verified in the browser: a card's Details reads Type (User Story|Epic|Bug|Spike|Task) with no Kind, and its context menu has Type and no Kind; an initiative's Details reads Kind with no Type, its ⋮ menu still carries the \\\"type is fixed\\\" note, and its context menu has Kind and no Type; on the Growth value stream the Kind flyout reads None | Workstream | Enabler with the worn one checked, and picking Enabler wrote it to the item. npm test, build, lint and the dependency scan are clean.",
+        "subtasks": [],
+        "updatedAt": "2026-10-18T02:15:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T01:30:00.000Z",
-      "taskCount": 86,
-      "completedCount": 73,
+      "lastModified": "2026-10-18T02:15:00.000Z",
+      "taskCount": 87,
+      "completedCount": 74,
       "tags": [
         "backlog"
       ]

@@ -1542,6 +1542,24 @@ describe('store actions', () => {
     expect(kinds().map((k) => k.name)).toEqual(['Programme'])
   })
 
+  it('a kind set on a selection lands on the initiatives in it and nowhere else', () => {
+    s().selectBoard('b-atlas')
+    s().addInitiativeType('b-atlas', 'Bet', '#0ea5e9')
+    const bet = s().boards.find((b) => b.id === 'b-atlas')!.initiativeTypes![0]
+    const kindOf = (id: string) => s().items.find((i) => i.id === id)!.initiativeTypeId
+
+    // The menu acts on a selection, so the setter does too — and the rule is the same per item.
+    s().setItemsKind(['init-signup', 'st-email'], bet.id)
+    expect(kindOf('init-signup')).toBe(bet.id)
+    expect(kindOf('st-email')).toBeUndefined()
+    // …and clearing is the same gesture.
+    s().setItemsKind(['init-signup'], undefined)
+    expect(kindOf('init-signup')).toBeUndefined()
+    // An id no board defines is refused for the whole selection, not half-applied.
+    s().setItemsKind(['init-signup'], 'kind-that-does-not-exist')
+    expect(kindOf('init-signup')).toBeUndefined()
+  })
+
   it('a kind changes nothing else: the same rollup, WIP, health and flow either way', () => {
     const snapshot = () => {
       const g = graph()
