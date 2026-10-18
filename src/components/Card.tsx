@@ -621,10 +621,10 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         {hasChecklist && (
           <div className="flex items-center gap-2">
             <span
-              className="flex shrink-0 items-center gap-1 text-micro text-slate-600"
+              className="flex shrink-0 items-center gap-1 text-meta font-semibold text-slate-700"
               title={`Checklist — ${checklistDone} of ${checklistTotal} sub-tasks done`}
             >
-              <ListChecks size={12} className="shrink-0 text-slate-500" />
+              <ListChecks size={13} className="shrink-0 text-slate-600" />
               {checklistDone} / {checklistTotal} sub-tasks
             </span>
             <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200" title={`${checklistPct}% of the checklist done`}>
@@ -640,15 +640,22 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             long it has been sitting, what it is worth, the board's words for it, and who has it.
             Nothing here is a warning — those are above, where they cannot be mistaken for this. */}
         {(aged || Boolean(tags?.length) || item.size || assignees.length > 0) && (
-          <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-micro text-slate-600">
+          <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
+            {/* Both of these are outlined rather than filled: a light ground with the tone in the
+                border keeps the row quiet while still saying which chip is which — a filled chip
+                is what a *type* wears, and these are not the type. */}
             {aged && (
-              <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title={`${summary.ageDays} days in this lane`}>
+              <span
+                className="flex shrink-0 items-center gap-1 rounded border border-amber-400 bg-amber-50 px-1.5 py-px font-semibold text-amber-800"
+                title={`${summary.ageDays} days in this lane`}
+              >
                 <Clock size={11} /> {summary.ageDays}d
               </span>
             )}
             {item.size ? (
               <span
-                className="shrink-0 rounded bg-slate-200/70 px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
+                className="shrink-0 rounded border bg-white px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
+                style={{ borderColor: tintOn(type.color, 0.6) }}
                 title={`Estimate — ${item.size} point${item.size === 1 ? '' : 's'}`}
               >
                 {item.size} pts
