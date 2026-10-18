@@ -374,14 +374,14 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         className={cn(
           // `@container` lets the card shed detail as its column narrows (see the `@[Npx]:`
           // variants below) instead of overflowing a customised flow.
-          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white text-left transition',
+          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border border-slate-300 bg-white text-left transition',
           FOCUS_RING,
           // On touch: a vertical swipe still scrolls the board (the browser takes it, and the
           // lift aborts on `pointercancel`), while a horizontal swipe is the drag. Both axes ours
           // would make the board unscrollable from a card; both the browser's would make a card
           // undraggable.
           draggable && !locked && 'touch-pan-y',
-          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-300',
+          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400',
           lensCls,
           lockCls,
           dimCls,
@@ -542,7 +542,13 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
       {...cardKeyboard(item, locked, onOpen, onContextMenu)}
       data-card-id={item.id}
       style={{
-        backgroundColor: tintOn(type.color, 0.1),
+        // A whisper of the type, rather than a wash of it: the card's ground has to stand off a
+        // lane that is tinted too, and half the types are neutrals — a 10% tint of slate on
+        // slate-100 was a grey box on a grey ground.
+        backgroundColor: tintOn(type.color, 0.06),
+        // The outline is the type's own colour. A neutral hairline vanished into the neutral
+        // lanes; this says which card is which before anything on it is read.
+        borderColor: tintOn(type.color, 0.45),
         borderLeftColor: type.color,
         // Lifted: out of the lane's flow, so the cards below close up behind it — but still
         // mounted, because `dragend` has to reach a card that is in the document.
@@ -569,10 +575,10 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
       className={cn(
         // Flat and quiet: a hairline border, the type as a rail down the left, and no shadow to
         // compete with the lane's own tint. What is loud on a card is its warnings, not its box.
-        'group relative flex min-h-[104px] w-full flex-col overflow-hidden rounded-lg border border-slate-200 border-l-[4px] text-left transition',
+        'group relative flex min-h-[104px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] text-left transition',
         FOCUS_RING,
         draggable && !locked && 'touch-pan-y',
-        locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-300',
+        locked ? 'cursor-default' : 'cursor-pointer hover:shadow-sm',
         lensCls,
         lockCls,
         dimCls,
