@@ -14,8 +14,6 @@ export interface CardSummary {
   childCount: number
   /** Cards that depend on this one (unresolved). */
   dependentsCount: number
-  /** Distinct item-to-item links (dependencies + dependents). */
-  linksCount: number
   /** How long the card has sat in its lane, when known. Shown only past a threshold. */
   ageDays?: number
   /** Descendants (any depth) explicitly blocked and still open — rolled up. */
@@ -499,17 +497,19 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           {/* Everything else, quiet: tags, links, the checklist, the people. */}
           <div className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-micro text-slate-600">
             <TagChips tags={tags} />
-            {summary.linksCount > 0 && (
-              <span className="flex items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
-                <Link2 size={11} /> {summary.linksCount}
-              </span>
-            )}
             {summary.checklist && summary.checklist.total > 0 && (
-              <span
-                className={cn('flex items-center gap-0.5', summary.checklist.done === summary.checklist.total && 'font-semibold text-emerald-600')}
-                title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} done`}
-              >
-                <ListChecks size={11} /> {summary.checklist.done}/{summary.checklist.total}
+              <span className="flex items-center gap-1.5" title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} sub-tasks done`}>
+                <ListChecks size={11} />
+                {summary.checklist.done} / {summary.checklist.total} sub-tasks
+                <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
+                  <span
+                    className="block h-full transition-all"
+                    style={{
+                      width: `${Math.round((summary.checklist.done / summary.checklist.total) * 100)}%`,
+                      backgroundColor: summary.checklist.done === summary.checklist.total ? '#10b981' : '#6366f1',
+                    }}
+                  />
+                </span>
               </span>
             )}
             <span className="ml-auto flex items-center gap-2">
@@ -566,7 +566,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
       className={cn(
         // Flat and quiet: a hairline border, the type as a rail down the left, and no shadow to
         // compete with the lane's own tint. What is loud on a card is its warnings, not its box.
-        'group relative flex min-h-[104px] w-[180px] shrink-0 flex-col overflow-hidden rounded-lg border border-slate-200 border-l-[4px] text-left transition',
+        'group relative flex min-h-[104px] w-full flex-col overflow-hidden rounded-lg border border-slate-200 border-l-[4px] text-left transition',
         FOCUS_RING,
         draggable && !locked && 'touch-pan-y',
         locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-300',
@@ -602,10 +602,30 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           >
             {type.name}
           </span>
+          <PriorityBadge priority={item.priority} />
         </div>
 
         {/* The title, at the size the reading happens at. */}
         <div className="line-clamp-2 text-meta font-semibold leading-snug text-slate-900">{item.title}</div>
+
+        {/* How far along the checklist is: the count, then the bar the rest of the row. */}
+        {hasChecklist && (
+          <div className="flex items-center gap-2">
+            <span
+              className="flex shrink-0 items-center gap-1 text-micro text-slate-600"
+              title={`Checklist — ${checklistDone} of ${checklistTotal} sub-tasks done`}
+            >
+              <ListChecks size={12} className="shrink-0 text-slate-500" />
+              {checklistDone} / {checklistTotal} sub-tasks
+            </span>
+            <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200" title={`${checklistPct}% of the checklist done`}>
+              <span
+                className="block h-full transition-all"
+                style={{ width: `${checklistPct}%`, backgroundColor: checklistDone === checklistTotal ? '#10b981' : '#6366f1' }}
+              />
+            </span>
+          </div>
+        )}
 
         {/* What it carries: the board's own words, and the size. */}
         {(Boolean(tags?.length) || item.size) && (
@@ -642,20 +662,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               <Clock size={11} /> {summary.ageDays}d
             </span>
           )}
-          <PriorityBadge priority={item.priority} />
-          {summary.linksCount > 0 && (
-            <span className="flex shrink-0 items-center gap-0.5" title={`${summary.linksCount} linked item${summary.linksCount > 1 ? 's' : ''}`}>
-              <Link2 size={11} /> {summary.linksCount}
-            </span>
-          )}
-          {hasChecklist && (
-            <span
-              className={cn('flex shrink-0 items-center gap-0.5', checklistDone === checklistTotal && 'font-semibold text-emerald-600')}
-              title={`Checklist — ${checklistDone} of ${checklistTotal} done`}
-            >
-              <ListChecks size={11} /> {checklistDone}/{checklistTotal}
-            </span>
-          )}
           {boundary && (
             <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title="Waiting on an external dependency — see the boundary lane">
               <Link2 size={11} /> waiting on
@@ -676,14 +682,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         </div>
       </div>
       {multi && <span className="pointer-events-none absolute inset-0 bg-indigo-500/15" aria-hidden />}
-      {hasChecklist && (
-        <div className="h-[3px] w-full shrink-0 bg-slate-200" title={`Checklist ${checklistDone}/${checklistTotal}`}>
-          <div
-            className="h-full transition-all"
-            style={{ width: `${checklistPct}%`, backgroundColor: checklistDone === checklistTotal ? '#10b981' : '#6366f1' }}
-          />
-        </div>
-      )}
     </div>
   )
 }
@@ -741,7 +739,6 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
 const summaryEqual = (a: CardSummary, b: CardSummary) =>
   a.childCount === b.childCount &&
   a.dependentsCount === b.dependentsCount &&
-  a.linksCount === b.linksCount &&
   a.blockedBelow === b.blockedBelow &&
   a.openDescendants === b.openDescendants &&
   a.rollupPercent === b.rollupPercent &&

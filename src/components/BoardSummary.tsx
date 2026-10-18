@@ -12,7 +12,6 @@ import {
   checklistProgress,
   decompositionChildren,
   decompositionParent,
-  dependenciesOf,
   dependentsOf,
   isComplete,
   lensRole,
@@ -363,7 +362,6 @@ export function BoardSummary({
         summary={{
           childCount: decompositionChildren(c.id, edges).length,
           dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
-          linksCount: dependenciesOf(c.id, graph).length + dependentsOf(c.id, graph).length,
           blockedBelow: blockedBelow(c.id, graph),
           uncommittedBelow: uncommittedBelow(c.id, graph),
           openDescendants: openDescendants(c.id, graph).length,
