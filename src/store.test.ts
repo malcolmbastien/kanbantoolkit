@@ -798,6 +798,29 @@ describe('store actions', () => {
     expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-explore')).toBe(true)
   })
 
+  it('a key result is a statement: an id, an objective and a title, and nothing to measure', () => {
+    s().addKeyResult('obj-efficiency', 'Cut cost per tenant')
+    const kr = s().keyResults.at(-1)!
+    expect(Object.keys(kr).sort()).toEqual(['id', 'objectiveId', 'title'])
+    expect(kr.objectiveId).toBe('obj-efficiency')
+
+    // Rename it and remove it — the two other things a key result supports.
+    s().updateKeyResult(kr.id, { title: 'Cut cost per tenant by a quarter' })
+    expect(s().keyResults.find((k) => k.id === kr.id)!.title).toBe('Cut cost per tenant by a quarter')
+    s().removeKeyResult(kr.id)
+    expect(s().keyResults.some((k) => k.id === kr.id)).toBe(false)
+  })
+
+  it('migrateState drops the measurement fields from a key result and keeps its words', () => {
+    const migrated = migrateState({
+      keyResults: [
+        { id: 'kr-1', objectiveId: 'obj-1', title: 'Signup completion 85%', target: '85%', current: '60%', progress: 60 },
+      ],
+    }) as { keyResults: { id: string; objectiveId: string; title: string; progress?: number; target?: string; current?: string }[] }
+    expect(migrated.keyResults[0]).toEqual({ id: 'kr-1', objectiveId: 'obj-1', title: 'Signup completion 85%' })
+    expect(migrated.keyResults[0].progress).toBeUndefined()
+  })
+
   it('an estimate belongs to a card: an initiative refuses one', () => {
     const sizeOf = (id: string) => s().items.find((i) => i.id === id)!.size
 

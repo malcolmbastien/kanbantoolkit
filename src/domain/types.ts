@@ -386,14 +386,17 @@ export interface Objective {
   score?: number
 }
 
+/**
+ * A key result: what an objective says it means, in the words of the people who set it.
+ *
+ * A line of text and nothing else. A number entered by hand cannot be connected to the work, so
+ * it can disagree with the work and no test can find the disagreement. The completeness of an
+ * objective is read from the initiatives that serve it instead — see `objectiveRollup`.
+ */
 export interface KeyResult {
   id: string
   objectiveId: string
   title: string
-  target?: string
-  current?: string
-  /** 0–100 progress. */
-  progress?: number
 }
 
 export interface FlowState {

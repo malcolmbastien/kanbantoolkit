@@ -324,7 +324,17 @@ export interface Rollup {
 }
 
 export function rollupOf(id: string, graph: Graph): Rollup {
-  const leaves = leafItems(id, graph)
+  return rollupFrom(id, leafItems(id, graph), graph)
+}
+
+/**
+ * The arithmetic of a rollup, over a set of leaves.
+ *
+ * `rollupOf` is this over the leaves below one item; `objectiveRollup` is this over the leaves
+ * below the initiatives that serve one objective. One implementation, so an initiative and an
+ * objective can never disagree about what "how far along" means.
+ */
+function rollupFrom(id: string, leaves: Item[], graph: Graph): Rollup {
   const total = leaves.length
   const isBacklog = (l: Item) => stageOf(l.id, graph) === 'backlog'
   const backlog = leaves.filter(isBacklog).length
@@ -400,6 +410,28 @@ export function uncommittedBelow(id: string, graph: Graph): number {
 export function attributedObjectives(itemId: string, edges: Edge[], objectives: Objective[]): Objective[] {
   const ids = edges.filter((e) => e.kind === 'attribution' && e.to === itemId).map((e) => e.from)
   return objectives.filter((o) => ids.includes(o.id))
+}
+
+/**
+ * How far along an objective is: the same rollup, over the union of the leaves below the
+ * initiatives that are attributed to it.
+ *
+ * `undefined` when nothing serves it. An objective with no work has no completeness, and 0% would
+ * be a worse way of saying so — the coverage gap already says it in words.
+ *
+ * Each leaf counts once, however many attributed initiatives sit above it: an initiative can be
+ * attributed to the same objective as its own parent, and a leaf counted twice would move the
+ * number for a reason nobody could see. `id` is the objective, which is never one of its own
+ * leaves, so the rollup's `size` is the whole of the work below it.
+ */
+export function objectiveRollup(objectiveId: string, graph: Graph): Rollup | undefined {
+  const initiatives = graph.edges.filter((e) => e.kind === 'attribution' && e.from === objectiveId).map((e) => e.to)
+  if (initiatives.length === 0) return undefined
+  const leaves = new Map<string, Item>()
+  for (const initiative of initiatives) {
+    for (const leaf of leafItems(initiative, graph)) leaves.set(leaf.id, leaf)
+  }
+  return rollupFrom(objectiveId, [...leaves.values()], graph)
 }
 
 /**

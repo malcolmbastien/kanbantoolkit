@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   attributedObjectives,
+  objectiveRollup,
   okrCoverage,
   blockedBelow,
   checklistItems,
@@ -28,7 +29,7 @@ import {
 } from './derive'
 import { effectiveStage, inheritedWipState, isLeaf, laneCardCount, leafLanes, rootLane, strongestWip, topLevelLanes, wipState } from './lanes'
 import { createFixture } from './fixture'
-import type { Edge, FlowState, Item, Lane } from './types'
+import type { Edge, FlowState, Item, Lane, Placement, Stage } from './types'
 
 const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes })
 const laneByName = (s: FlowState, boardId: string, name: string) =>
@@ -293,6 +294,77 @@ describe('composition pressure and attribution', () => {
     expect(initiativeOf('init-signup', g, initiativeTypeId)?.id).toBe('init-signup')
     // OKR attribution is initiative-only.
     expect(attributedObjectives('st-signup-form', s.edges, s.objectives)).toEqual([])
+  })
+})
+
+describe('an objective is as far along as the work that serves it', () => {
+  const s = createFixture()
+  const g = graphOf(s)
+
+  // A small graph, so the arithmetic is plain: objectives, the initiatives attributed to them,
+  // and the leaves below those initiatives.
+  const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-story', createdAt: 0, ...extra })
+  const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: 'root', order: 0, name: id, stage, workflow: 'cards' })
+  const at = (itemId: string, laneId: string): Placement => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId })
+  const decomp = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
+  const attr = (from: string, to: string): Edge => ({ id: `a-${from}-${to}`, kind: 'attribution', from, to })
+  const initiative = (id: string): Item => item(id, { typeId: 't-initiative' })
+
+  it('is the rollup of the leaves below the initiatives attributed to it', () => {
+    const graph: Graph = {
+      items: [item('obj'), initiative('one'), item('a', { size: 8, resolvedAt: 1 }), item('b', { size: 2 })],
+      edges: [decomp('one', 'a'), decomp('one', 'b'), attr('obj', 'one')],
+      links: [],
+      placements: [at('a', 'done'), at('b', 'ip')],
+      lanes: [lane('done', 'done'), lane('ip', 'inProgress')],
+    }
+    // The same shape and the same answer an initiative reports, because it is the same function.
+    expect(objectiveRollup('obj', graph)).toEqual(rollupOf('one', graph))
+    expect(objectiveRollup('obj', graph)!.percent).toBe(80)
+  })
+
+  it('aggregates several initiatives instead of averaging them', () => {
+    const graph: Graph = {
+      items: [item('obj'), initiative('one'), initiative('two'), item('a', { size: 2, resolvedAt: 1 }), item('b', { size: 13 })],
+      edges: [decomp('one', 'a'), decomp('two', 'b'), attr('obj', 'one'), attr('obj', 'two')],
+      links: [],
+      placements: [at('a', 'done'), at('b', 'backlog')],
+      lanes: [lane('done', 'done'), lane('backlog', 'backlog')],
+    }
+    // One delivered 2-point leaf against one Backlog 13-point leaf: 2 of 15, not the average of
+    // 100% and 0%.
+    expect(objectiveRollup('obj', graph)!.percent).toBe(13)
+    expect(objectiveRollup('obj', graph)!.size).toBe(15)
+  })
+
+  it('counts a leaf once, however many attributed initiatives sit above it', () => {
+    // A parent initiative and its child are both attributed to the same objective, so the child's
+    // leaves are below both of them. Counting them twice would move the number for a reason
+    // nobody could see.
+    const graph: Graph = {
+      items: [item('obj'), initiative('one'), initiative('two'), item('a', { size: 4, resolvedAt: 1 }), item('b', { size: 4 })],
+      edges: [decomp('one', 'two'), decomp('two', 'a'), decomp('two', 'b'), attr('obj', 'one'), attr('obj', 'two')],
+      links: [],
+      placements: [at('a', 'done'), at('b', 'ip')],
+      lanes: [lane('done', 'done'), lane('ip', 'inProgress')],
+    }
+    expect(objectiveRollup('obj', graph)!.total).toBe(2)
+    expect(objectiveRollup('obj', graph)!.size).toBe(8)
+    expect(objectiveRollup('obj', graph)!.percent).toBe(50)
+  })
+
+  it('has nothing to say about an objective that no initiative serves', () => {
+    // Not 0%: an objective with no work has no completeness, and the coverage gap says so.
+    const graph: Graph = { items: [item('obj')], edges: [], links: [], placements: [], lanes: [] }
+    expect(objectiveRollup('obj', graph)).toBeUndefined()
+  })
+
+  it('agrees with okrCoverage about which objectives are served', () => {
+    expect(objectiveRollup('obj-activation', g)).toBeDefined()
+    expect(objectiveRollup('obj-reliability', g)).toBeUndefined()
+    const strategic = ['init-activation', 'init-efficiency', 'init-explore'].map((id) => s.items.find((i) => i.id === id)!)
+    const { unserved } = okrCoverage(strategic, s.objectives, s.edges)
+    for (const o of unserved) expect(objectiveRollup(o.id, g)).toBeUndefined()
   })
 })
 

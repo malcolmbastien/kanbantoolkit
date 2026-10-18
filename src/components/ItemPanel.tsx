@@ -38,6 +38,7 @@ import {
   dependencyState,
   dependentSummary,
   lineageOf,
+  objectiveRollup,
   openDescendants,
   rollupOf,
   statusOf,
@@ -921,30 +922,23 @@ export function ItemPanel({ itemId }: Props) {
                     {attributed.length === 0 ? (
                       <p className="mt-1.5 text-meta text-indigo-700/70">No OKR maps to this initiative yet.</p>
                     ) : (
-                      <div className="mt-1.5 space-y-1">
-                        {keyResults.filter((k) => k.objectiveId === attributed[0].id).length === 0 && (
+                      <div className="mt-1.5 space-y-1.5">
+                        {/* What the objective means, and how far along the work that serves it is.
+                            The key results are the words; the number comes from the work. */}
+                        {keyResults.filter((k) => k.objectiveId === attributed[0].id).length === 0 ? (
                           <p className="text-meta text-slate-600">No key results yet.</p>
+                        ) : (
+                          <ul className="space-y-0.5 text-meta text-slate-600">
+                            {keyResults
+                              .filter((k) => k.objectiveId === attributed[0].id)
+                              .map((k) => (
+                                <li key={k.id} className="truncate" title={k.title}>
+                                  {k.title}
+                                </li>
+                              ))}
+                          </ul>
                         )}
-                        {keyResults
-                          .filter((k) => k.objectiveId === attributed[0].id)
-                          .map((k) => (
-                            <div key={k.id} className="space-y-0.5">
-                              <div className="flex items-center justify-between gap-2 text-meta">
-                                <span className="min-w-0 truncate text-slate-600">{k.title}</span>
-                                <span className="shrink-0 font-semibold tabular-nums text-slate-600">
-                                  {k.progress !== undefined ? `${k.progress}%` : '—'}
-                                </span>
-                              </div>
-                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
-                                <div className="h-full bg-indigo-500 transition-all" style={{ width: `${k.progress ?? 0}%` }} />
-                              </div>
-                              {(k.target || k.current) && (
-                                <div className="text-meta text-slate-600">
-                                  {k.current ? `now ${k.current}` : ''}{k.current && k.target ? ' · ' : ''}{k.target ? `target ${k.target}` : ''}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                        <ObjectiveProgress objectiveId={attributed[0].id} />
                       </div>
                     )}
                   </>
@@ -1422,6 +1416,37 @@ function IconButton({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * How far along an objective is, wherever an objective is read beside work.
+ *
+ * The number comes from the initiatives attributed to the objective and the leaves below them —
+ * the same rollup an initiative uses, so the two can never disagree. An objective nothing serves
+ * has no number: 0% would be a worse way of saying that nothing serves it.
+ */
+function ObjectiveProgress({ objectiveId }: { objectiveId: string }) {
+  const items = useStore((s) => s.items)
+  const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
+  const placements = useStore((s) => s.placements)
+  const lanes = useStore((s) => s.lanes)
+  const roll = objectiveRollup(objectiveId, { items, edges, links, placements, lanes })
+  if (!roll) return null
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between gap-2 text-meta">
+        <span className="text-slate-600">Work serving it</span>
+        <span className="shrink-0 font-semibold tabular-nums text-slate-600">{roll.percent}%</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
+        <div className="h-full bg-indigo-500 transition-all" style={{ width: `${roll.percent}%` }} />
+      </div>
+      <div className="text-micro text-slate-600">
+        {roll.total} {roll.total === 1 ? 'item' : 'items'} below, {roll.size} pts
+      </div>
+    </div>
   )
 }
 

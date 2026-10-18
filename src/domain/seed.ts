@@ -470,10 +470,10 @@ export function createSeed(): FlowState {
     { id: 'obj-reliability', title: 'Improve reliability', period: 'FY26 Q4', status: 'active' },
   ]
   const keyResults = [
-    { id: 'kr-completion', objectiveId: 'obj-activation', title: 'Signup completion 85%', progress: 60 },
-    { id: 'kr-trial-paid', objectiveId: 'obj-activation', title: 'Trial to paid 12%', progress: 35 },
-    { id: 'kr-margin', objectiveId: 'obj-efficiency', title: 'Gross margin 78%', progress: 52 },
-    { id: 'kr-cost-tenant', objectiveId: 'obj-efficiency', title: 'Cost per tenant −25%', progress: 18 },
+    { id: 'kr-completion', objectiveId: 'obj-activation', title: 'Signup completion 85%' },
+    { id: 'kr-trial-paid', objectiveId: 'obj-activation', title: 'Trial to paid 12%' },
+    { id: 'kr-margin', objectiveId: 'obj-efficiency', title: 'Gross margin 78%' },
+    { id: 'kr-cost-tenant', objectiveId: 'obj-efficiency', title: 'Cost per tenant −25%' },
   ]
 
   // Attribution informs and never counts as WIP. `init-trust` is left unmapped on purpose —

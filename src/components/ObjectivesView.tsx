@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Plus, Target, Trash2, X } from 'lucide-react'
+import { Plus, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import { buildRefs, isStrategicInitiative } from '@/domain/board'
-import { rollupOf, type Graph } from '@/domain/derive'
+import { objectiveRollup, rollupOf, type Graph } from '@/domain/derive'
 import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -73,7 +73,7 @@ export function ObjectivesView() {
               )}
             </div>
             <div className="text-meta text-slate-600">
-              What the work is for: each objective carries the key results that measure it and the strategic initiatives that serve it. Mapping an initiative here is attribution — it never counts as WIP.
+              What the work is for: each objective carries the key results that say what it means, and the strategic initiatives that serve it. The completeness comes from the work below those initiatives, never from a number typed in. Mapping one here is attribution — it never counts as WIP.
             </div>
           </div>
 
@@ -149,6 +149,31 @@ export function ObjectivesView() {
                 </div>
 
                 <div className="flex flex-1 flex-col gap-3 p-2.5 text-meta">
+                  {/* How far along: the rollup of the work below the initiatives that serve
+                      this objective. An objective nothing serves has no number, and the gap says
+                      so in words rather than as a 0%. */}
+                  {(() => {
+                    const roll = objectiveRollup(o.id, graph)
+                    return roll ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-micro font-bold uppercase tracking-wide text-slate-600">Work serving it</span>
+                          <span className="text-body font-bold tabular-nums text-indigo-700">{roll.percent}%</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                          <div className="h-full bg-indigo-500 transition-all" style={{ width: `${roll.percent}%` }} />
+                        </div>
+                        <div className="text-micro text-slate-600">
+                          {roll.total} {roll.total === 1 ? 'item' : 'items'} below, {roll.size} pts
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-meta text-amber-800">
+                        <TriangleAlert size={11} className="shrink-0" /> No strategic initiative serves this OKR.
+                      </div>
+                    )
+                  })()}
+
                   {/* score */}
                   <label className="flex items-center gap-2 text-slate-600">
                     Score
@@ -161,31 +186,25 @@ export function ObjectivesView() {
                     <span className="text-slate-600">/ 100</span>
                   </label>
 
-                  {/* key results */}
+                  {/* key results — what the objective means, in words. The number that says how
+                      far along it is comes from the work that serves it, below. */}
                   <div>
                     <div className="mb-1 text-micro font-bold uppercase tracking-wide text-slate-600">Key results</div>
                     <div className="space-y-1">
                       {krs.map((k) => (
                         <div key={k.id} className="flex items-center gap-2">
                           <input
-                            type="checkbox"
-                            checked={(k.progress ?? 0) >= 100}
-                            onChange={(e) => updateKeyResult(k.id, { progress: e.target.checked ? 100 : 0 })}
-                            title="Mark achieved"
-                          />
-                          <input
                             value={k.title}
                             onChange={(e) => updateKeyResult(k.id, { title: e.target.value })}
                             className="min-w-0 flex-1 rounded border border-transparent px-1 py-px text-meta text-slate-700 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
                           />
-                          <input
-                            type="number" min={0} max={100}
-                            value={k.progress ?? ''}
-                            onChange={(e) => updateKeyResult(k.id, { progress: e.target.value === '' ? undefined : Number(e.target.value) })}
-                            placeholder="%"
-                            className="w-12 rounded border border-slate-200 px-1 py-px text-meta"
-                          />
-                          <button onClick={() => removeKeyResult(k.id)} className="text-slate-300 hover:text-rose-500"><X size={12} /></button>
+                          <button
+                            onClick={() => removeKeyResult(k.id)}
+                            className="text-slate-400 hover:text-rose-500"
+                            title="Remove this key result"
+                          >
+                            <X size={12} />
+                          </button>
                         </div>
                       ))}
                     </div>

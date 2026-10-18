@@ -118,6 +118,15 @@ task-master list            # terminal 2
   `setParent` and a board's kind, and `setAttribution` is the one door that keeps it.
   `okrCoverage` surfaces the two gaps: a strategic initiative with no OKR, and an OKR with no
   strategic initiative.
+- **A key result is a statement, not a measurement.** It is an id, an objective and a line of
+  text — what the objective means, in the words of the people who set it — and nothing else. A
+  number entered by hand cannot be connected to the work, so it can disagree with the work and no
+  test can find the disagreement. **An objective's completeness comes from the work that serves
+  it**: `objectiveRollup` returns the same `Rollup` an item gets, over the union of the leaves
+  below the initiatives attributed to the objective — each leaf once, however many attributed
+  initiatives sit above it. An objective nothing serves has **no** rollup (`undefined`), not 0%:
+  the coverage gap says that in words. The `score` is a different thing and stays — the grade a
+  person gives at the end of a period.
 - Limits are per-lane `wipLimit`s and are **visual only** — a lane over its limit shows red, but moves are never blocked (no prompts). Counts read the **column**, not the view: narrowing what you *see* (search, filters, focus) never changes the load a column carries.
 - Before finishing any task, run the no-Google/Firebase scan above and `npm test`.
 

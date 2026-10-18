@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { Plus, Target, TriangleAlert } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
 import { buildRefs, initiativeTypeId } from '@/domain/board'
-import { decompositionParent, okrCoverage } from '@/domain/derive'
+import { decompositionParent, objectiveRollup, okrCoverage, type Graph } from '@/domain/derive'
 import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -32,6 +32,8 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const edges = useStore((s) => s.edges)
   const placements = useStore((s) => s.placements)
   const issueTypes = useStore((s) => s.issueTypes)
+  const links = useStore((s) => s.links)
+  const lanes = useStore((s) => s.lanes)
   const objectives = useStore((s) => s.objectives)
   const keyResults = useStore((s) => s.keyResults)
   const setAttribution = useStore((s) => s.setAttribution)
@@ -43,6 +45,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   /** The draft for a new objective, made here rather than sent to another page for. */
   const [newObjective, setNewObjective] = useState('')
 
+  const graph: Graph = { items, edges, links, placements, lanes }
   const refs = buildRefs(items, issueTypes)
   const initId = initiativeTypeId(issueTypes)
 
@@ -102,6 +105,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     const krs = keyResults.filter((k) => k.objectiveId === o.id)
     const rows = serving(o.id)
     const candidates = mine.filter((i) => !rows.some((r) => r.id === i.id))
+    const roll = objectiveRollup(o.id, graph)
     return (
       <div key={o.id} data-objective-group={o.title} className="flex flex-col rounded-md border border-slate-300 bg-white shadow-sm">
         <div className="flex items-center gap-2 rounded-t-md border-b border-slate-200 bg-slate-50 px-2.5 py-1.5">
@@ -113,10 +117,19 @@ export function StrategyMap({ boardId }: { boardId: string }) {
           >
             {o.title}
           </button>
-          {/* What is connected, in one number, before the columns say it in detail. */}
+          {/* What is connected, in one number, before the columns say it in detail — and how far
+              along the work that serves it is, from the same rollup an initiative uses. */}
           <span className="shrink-0 text-micro text-slate-600" title="Strategic initiatives attributed to this objective">
             {rows.length} serving
           </span>
+          {roll && (
+            <span
+              className="shrink-0 text-body font-bold tabular-nums text-violet-700"
+              title="The work below the initiatives that serve this objective — the same rollup an initiative uses"
+            >
+              {roll.percent}%
+            </span>
+          )}
           {o.score !== undefined && (
             <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600" title="Objective score">
               score {o.score}
@@ -132,12 +145,8 @@ export function StrategyMap({ boardId }: { boardId: string }) {
             <div className="space-y-1">
               <div className={subLabel}>Key results</div>
               {krs.map((k) => (
-                <div key={k.id} className="flex items-center gap-2 text-meta text-slate-600">
-                  <span className="min-w-0 flex-1 truncate">{k.title}</span>
-                  <div className="h-1 w-14 shrink-0 overflow-hidden rounded-full bg-slate-200">
-                    <div className="h-full bg-violet-500" style={{ width: `${k.progress ?? 0}%` }} />
-                  </div>
-                  <span className="w-8 shrink-0 text-right tabular-nums text-slate-600">{k.progress ?? 0}%</span>
+                <div key={k.id} className="truncate text-meta text-slate-600" title={k.title}>
+                  {k.title}
                 </div>
               ))}
             </div>

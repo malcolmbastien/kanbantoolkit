@@ -891,6 +891,15 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return true
     })
   }
+  // v33: a key result is a statement, not a measurement — its `progress`, `target` and `current`
+  // fields are gone, because a number entered by hand cannot be connected to the work. The title
+  // stays: it is what the objective means, and the numbers in it are the ones a person wrote.
+  if (Array.isArray(p.keyResults)) {
+    p.keyResults = (p.keyResults as (KeyResult & { target?: string; current?: string; progress?: number })[]).map((k) => {
+      const { target: _t, current: _c, progress: _p, ...rest } = k
+      return rest
+    })
+  }
   // v32: an initiative has no estimate — its size is the sum of the sizes of the items below it.
   // State from before the rule loses the estimate on an initiative and keeps it on a card, so a
   // number the model would refuse cannot come back through a reload or an import.
@@ -937,7 +946,7 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
  * Exported for testing.
  */
 /** The current persisted workspace shape — every schema change bumps it with a migrate. */
-export const PERSIST_VERSION = 32
+export const PERSIST_VERSION = 33
 
 export function persistedSlice(s: Store): Partial<Store> {
   const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }

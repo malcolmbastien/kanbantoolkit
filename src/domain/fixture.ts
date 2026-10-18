@@ -26,9 +26,9 @@ export function createFixture(): FlowState {
     { id: 'obj-reliability', title: 'Improve reliability', period: 'FY26 Q1', status: 'active' },
   ]
   const keyResults = [
-    { id: 'kr-activation', objectiveId: 'obj-activation', title: 'Activation rate +10pp', progress: 30 },
-    { id: 'kr-completion', objectiveId: 'obj-activation', title: 'Signup completion 90%', progress: 60 },
-    { id: 'kr-tickets', objectiveId: 'obj-efficiency', title: 'Support tickets −30%', progress: 10 },
+    { id: 'kr-activation', objectiveId: 'obj-activation', title: 'Activation rate +10pp' },
+    { id: 'kr-completion', objectiveId: 'obj-activation', title: 'Signup completion 90%' },
+    { id: 'kr-tickets', objectiveId: 'obj-efficiency', title: 'Support tickets −30%' },
   ]
 
   /* ------------------------------------------------------------------ *
