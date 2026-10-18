@@ -5,8 +5,27 @@ import type { Graph } from '@/domain/derive'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { useStore } from '@/store'
 
+/*
+ * The bar is a floating panel like the card menu and the palette — white, slate-bordered, one
+ * shadow — so it reads as part of the app rather than as a system chrome. Its words are `body`,
+ * not `meta`: it is a row of full sentences beside their controls, and a label you have to lean
+ * in to read is a control you cannot use.
+ */
+const BAR_CLS =
+  'fixed bottom-4 left-1/2 z-40 flex w-max max-w-[95vw] -translate-x-1/2 flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-body text-slate-700 shadow-2xl'
+const LABEL_CLS = 'flex items-center gap-1.5 text-slate-600'
 const SELECT_CLS =
-  'rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-meta text-slate-100 outline-none focus:ring-2 focus:ring-indigo-400'
+  'rounded-md border border-slate-200 bg-white px-1.5 py-1 text-body text-slate-800 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400'
+const FIELD_CLS =
+  'w-28 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-body text-slate-800 placeholder:text-slate-500 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400'
+const PRIMARY_CLS =
+  'rounded-md bg-indigo-600 px-2 py-1 font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40'
+const SECONDARY_CLS =
+  'flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900'
+const GHOST_CLS =
+  'flex items-center gap-1 rounded-md px-2 py-1 font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900'
+const DANGER_CLS =
+  'flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-600 transition hover:bg-rose-50'
 
 /**
  * The multi-select sub-menu: a floating bulk-action bar shown while cards are
@@ -83,17 +102,14 @@ export function BulkActions() {
   }
 
   return (
-    <div
-      data-bulk-actions
-      className="fixed bottom-4 left-1/2 z-40 flex w-max max-w-[95vw] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-meta text-slate-200 shadow-2xl"
-    >
-      <span className="flex items-center gap-1 font-semibold text-white">
-        <CheckSquare size={13} className="text-indigo-300" /> {count} selected
+    <div data-bulk-actions className={BAR_CLS}>
+      <span className="flex items-center gap-1.5 font-semibold text-slate-800">
+        <CheckSquare size={15} className="shrink-0 text-indigo-600" /> {count} selected
       </span>
 
-      <span className="h-5 w-px bg-slate-600" />
+      <span className="h-5 w-px bg-slate-200" />
 
-      <label className="flex items-center gap-1 text-slate-600">
+      <label className={LABEL_CLS}>
         Move to
         <select
           value=""
@@ -113,7 +129,7 @@ export function BulkActions() {
       {/* Handing work to another board, which is a different act from moving it within this
           one: the cards leave, and where they land is that board's own answer. */}
       {elsewhere.length > 0 && (
-        <label className="flex items-center gap-1 text-slate-600">
+        <label className={LABEL_CLS}>
           Move to board
           <select
             value={targetBoard}
@@ -135,7 +151,7 @@ export function BulkActions() {
               moveCardsToBoard(multiSelect, targetBoard)
               setTargetBoard('')
             }}
-            className="rounded bg-indigo-600 px-2 py-1 font-medium text-white disabled:opacity-40"
+            className={PRIMARY_CLS}
           >
             Move
           </button>
@@ -143,7 +159,7 @@ export function BulkActions() {
       )}
 
       {!selectionHasInitiative && (
-        <label className="flex items-center gap-1 text-slate-600">
+        <label className={LABEL_CLS}>
           Type
           <select
             value=""
@@ -164,7 +180,7 @@ export function BulkActions() {
       {/* Hierarchy is not retyping: an initiative can be a child of another, so this control
           is offered for every selection, initiatives included. */}
       {parentCandidates.length > 0 && (
-        <label className="flex items-center gap-1 text-slate-600">
+        <label className={LABEL_CLS}>
           Roll up to
           <select
             value={parentTarget}
@@ -182,23 +198,21 @@ export function BulkActions() {
               </option>
             ))}
           </select>
-          <button
-            disabled={!parentTarget}
-            onClick={applyParent}
-            className="rounded bg-indigo-600 px-2 py-1 font-medium text-white disabled:opacity-40"
-          >
+          <button disabled={!parentTarget} onClick={applyParent} className={PRIMARY_CLS}>
             Set
           </button>
         </label>
       )}
 
+      {/* A refusal is a warning, so it wears the warning's colours — the same amber the drawer's
+          health section uses — rather than a colour of its own. */}
       {parentRefused && (
-        <span role="status" className="flex items-center gap-1 text-amber-300">
-          <TriangleAlert size={12} /> Nothing changed: one of the selection sits above that initiative.
+        <span role="status" className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 font-medium text-amber-800 ring-1 ring-amber-300">
+          <TriangleAlert size={13} className="shrink-0" /> Nothing changed: one of the selection sits above that initiative.
         </span>
       )}
 
-      <label className="flex items-center gap-1 text-slate-600">
+      <label className={LABEL_CLS}>
         Assign
         <input
           list="bulk-assignees"
@@ -208,33 +222,33 @@ export function BulkActions() {
             if (e.key === 'Enter') applyAssignee()
           }}
           placeholder="full name…"
-          className="w-24 rounded border border-slate-600 bg-slate-700 px-1.5 py-1 text-meta text-slate-100 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-400"
+          className={FIELD_CLS}
         />
         <datalist id="bulk-assignees">
           {users.map((u) => (
             <option key={u.id} value={u.name} />
           ))}
         </datalist>
-        <button onClick={applyAssignee} className="rounded bg-slate-700 px-1.5 py-1 font-medium text-slate-100 hover:bg-slate-600" title="Add this person to every selected card">
+        <button onClick={applyAssignee} className={SECONDARY_CLS} title="Add this person to every selected card">
           Add
         </button>
         <button
           onClick={() => clearItemsAssignees(multiSelect)}
-          className="rounded px-1.5 py-1 font-medium text-slate-400 hover:bg-slate-700 hover:text-white"
+          className={GHOST_CLS}
           title="Remove every assignee from the selection"
         >
           Clear
         </button>
       </label>
 
-      <span className="h-5 w-px bg-slate-600" />
+      <span className="h-5 w-px bg-slate-200" />
 
       <button
         onClick={() => archiveItems(multiSelect)}
-        className="flex items-center gap-1 rounded border border-slate-600 px-2 py-1 font-medium text-slate-200 hover:bg-slate-700"
+        className={SECONDARY_CLS}
         title="Archive the selected cards (with their children)"
       >
-        <Archive size={12} /> Archive
+        <Archive size={13} /> Archive
       </button>
       <button
         onClick={() =>
@@ -246,17 +260,13 @@ export function BulkActions() {
             onConfirm: () => deleteItems(multiSelect),
           })
         }
-        className="flex items-center gap-1 rounded border border-rose-500/50 px-2 py-1 font-medium text-rose-300 hover:bg-rose-500/20"
+        className={DANGER_CLS}
         title="Delete the selected cards permanently"
       >
-        <Trash2 size={12} /> Delete
+        <Trash2 size={13} /> Delete
       </button>
-      <button
-        onClick={clearMultiSelect}
-        className="flex items-center gap-1 rounded px-2 py-1 font-medium text-slate-400 hover:bg-slate-700 hover:text-white"
-        title="Clear the selection (Esc)"
-      >
-        <X size={12} /> Clear
+      <button onClick={clearMultiSelect} className={GHOST_CLS} title="Clear the selection (Esc)">
+        <X size={13} /> Clear
       </button>
     </div>
   )
