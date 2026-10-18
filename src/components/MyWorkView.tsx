@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { UserRound } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
-import { buildRefs } from '@/domain/board'
 import { myWork } from '@/domain/mywork'
 import { initialsOf } from '@/domain/users'
 import { cn } from '@/lib/utils'
@@ -26,7 +25,6 @@ export function MyWorkView() {
   const setMyWork = useStore((s) => s.setMyWork)
 
   const groups = useMemo(() => myWork(items, placements, lanes, boards, meUserId), [items, placements, lanes, boards, meUserId])
-  const refs = buildRefs(items, issueTypes)
   const me = users.find((u) => u.id === meUserId)
   const total = groups.reduce((n, g) => n + g.entries.length, 0)
 
@@ -129,7 +127,6 @@ export function MyWorkView() {
                         >
                           {type?.name ?? 'Item'}
                         </span>
-                        <span className="shrink-0 text-micro font-semibold text-slate-600">{refs.get(e.item.id)}</span>
                         <span className="min-w-0 flex-1 truncate text-body font-semibold text-slate-800">{e.item.title}</span>
                         {e.item.blocked && (
                           <span className="shrink-0 rounded bg-rose-50 px-1.5 py-px text-micro font-bold uppercase tracking-wide text-rose-700">

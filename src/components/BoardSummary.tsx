@@ -24,7 +24,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
-import { boardInitiatives, buildRefs, initiativeCellOf, initiativeRanks, initiativeTypeById, isInitiativeItem, tagsOf } from '@/domain/board'
+import { boardInitiatives, initiativeCellOf, initiativeRanks, initiativeTypeById, isInitiativeItem, tagsOf } from '@/domain/board'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -137,7 +137,6 @@ export function BoardSummary({
     }
     return found
   }, [items, edges, links, placements, lanes, issueTypes, today, onlyKey])
-  const refs = buildRefs(items, issueTypes)
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
@@ -291,7 +290,7 @@ export function BoardSummary({
     const pid = decompositionParent(c.id, edges)
     const p = pid ? items.find((i) => i.id === pid) : undefined
     const parent: CardParent | undefined = p
-      ? { id: p.id, ref_: refs.get(p.id) ?? '', title: p.title, type: typeOf(p.typeId) }
+      ? { id: p.id, title: p.title, type: typeOf(p.typeId) }
       : undefined
     // The direct children — archived ones included, because the rollup counts them and the count
     // beside the pips has to be the same number the percentage is about. Filtering them out here
@@ -307,7 +306,6 @@ export function BoardSummary({
         key={c.id}
         item={c}
         type={typeOf(c.typeId)}
-        ref_={refs.get(c.id) ?? ''}
         parent={parent}
         wide
         users={users}

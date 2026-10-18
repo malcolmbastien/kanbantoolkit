@@ -44,7 +44,7 @@ import {
   statusOf,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiativeTypes, boardTags, buildRefs, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
+import { boardInitiativeTypes, boardTags, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
 import { renderMarkdown } from '@/lib/markdown'
@@ -155,7 +155,6 @@ export function ItemPanel({ itemId }: Props) {
   if (!item) return null
 
   const type = issueTypes.find((t) => t.id === item.typeId) ?? { id: item.typeId, name: 'Item', color: '#64748b' }
-  const refs = buildRefs(items, issueTypes)
   const d = depthOf(item.id, graph)
   const parentId = decompositionParent(item.id, edges)
   const parent = parentId ? items.find((i) => i.id === parentId) : undefined
@@ -376,8 +375,9 @@ export function ItemPanel({ itemId }: Props) {
       <div className="shrink-0 space-y-2 border-b border-slate-200 bg-white px-3 py-2.5">
         <div className="flex items-center gap-2">
           <nav className="flex min-w-0 items-center gap-1 text-meta text-slate-600">
-            {[...lineage].reverse().slice(0, 3).map((node) => (
+            {[...lineage].reverse().slice(0, 3).map((node, i) => (
               <span key={node.id} className="flex min-w-0 items-center gap-1">
+                {i > 0 && <span className="text-slate-600">/</span>}
                 <button
                   onClick={() => close(node.id)}
                   title={`Open ${node.title}`}
@@ -385,10 +385,8 @@ export function ItemPanel({ itemId }: Props) {
                 >
                   {node.title}
                 </button>
-                <span className="text-slate-600">/</span>
               </span>
             ))}
-            <span className="shrink-0 font-semibold text-indigo-600">{refs.get(item.id)}</span>
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             <IconButton
@@ -486,9 +484,6 @@ export function ItemPanel({ itemId }: Props) {
               style={{ backgroundColor: chipColors(type.color).background, color: chipColors(type.color).color }}
             >
               {type.name}
-            </span>
-            <span className="rounded bg-slate-100 px-1.5 py-px font-mono text-meta font-semibold text-slate-600">
-              {refs.get(item.id)}
             </span>
             <span className="rounded bg-indigo-50 px-1.5 py-px text-meta font-medium text-indigo-600" title="Where this card sits">
               {boards.find((b) => b.id === boardId)?.name ?? 'Board'}
@@ -624,7 +619,6 @@ export function ItemPanel({ itemId }: Props) {
                                 className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-meta transition hover:bg-slate-100"
                               >
                                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: chipColors(typeColor(c.typeId)).background }} />
-                                <span className="shrink-0 font-mono text-micro text-slate-500">{refs.get(c.id)}</span>
                                 <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
                                 {/* Which board it is on, when that is not this one — the warning is
                                     often resolved somewhere else. */}
@@ -1161,7 +1155,6 @@ export function ItemPanel({ itemId }: Props) {
                       className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left transition hover:bg-slate-50"
                     >
                       <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
-                      <span className="shrink-0 font-mono text-meta font-medium text-indigo-600">{refs.get(c.id)}</span>
                       <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
                       {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-meta font-semibold text-amber-700">archived</span>}
                       <span className="shrink-0 text-meta text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>

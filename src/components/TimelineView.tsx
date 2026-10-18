@@ -1,6 +1,6 @@
 import { ChartNoAxesGantt } from 'lucide-react'
 import { Card } from './Card'
-import { boardInitiatives, buildRefs } from '@/domain/board'
+import { boardInitiatives } from '@/domain/board'
 import { blockedBelow, checklistProgress, decompositionChildren, dependenciesOf, dependentsOf, isComplete, openDescendants, rollupOf, statusOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { layoutTimeline } from '@/domain/timelineLayout'
 import { parseDay } from '@/domain/filters'
@@ -59,7 +59,6 @@ export function TimelineView({ boardId }: { boardId: string }) {
   const openItem = useStore((s) => s.openItem)
 
   const graph: Graph = { items, edges, links, placements, lanes }
-  const refs = buildRefs(items, issueTypes)
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
   const board = boards.find((b) => b.id === boardId)
@@ -337,7 +336,6 @@ export function TimelineView({ boardId }: { boardId: string }) {
                         <Card
                           item={item}
                           type={typeOf(item.typeId)}
-                          ref_={refs.get(item.id) ?? ''}
                           wide
                           users={users}
                           symbols={symbols}

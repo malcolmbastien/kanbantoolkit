@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
-import { buildRefs, searchItems } from '@/domain/board'
+import { searchItems } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item } from '@/domain/types'
@@ -14,7 +14,6 @@ export function GlobalSearch() {
   const items = useStore((s) => s.items)
   const boards = useStore((s) => s.boards)
   const placements = useStore((s) => s.placements)
-  const issueTypes = useStore((s) => s.issueTypes)
   const search = useStore((s) => s.search)
   const setSearch = useStore((s) => s.setSearch)
   const selectBoard = useStore((s) => s.selectBoard)
@@ -40,11 +39,10 @@ export function GlobalSearch() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const refs = useMemo(() => buildRefs(items, issueTypes), [items, issueTypes])
 
   // Group matches by the board the item sits on (first placement).
   const groups = useMemo(() => {
-    const matches = searchItems(items, refs, search)
+    const matches = searchItems(items, search)
     const byBoard = new Map<string, { boardId: string; name: string; items: Item[] }>()
     for (const i of matches) {
       const boardId = placements.find((p) => p.itemId === i.id)?.boardId ?? '__none__'
@@ -54,7 +52,7 @@ export function GlobalSearch() {
       byBoard.get(boardId)!.items.push(i)
     }
     return [...byBoard.values()]
-  }, [search, items, placements, boards, refs])
+  }, [search, items, placements, boards])
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups])
 
@@ -126,7 +124,6 @@ export function GlobalSearch() {
                       idx === active ? 'bg-indigo-50' : 'hover:bg-slate-50',
                     )}
                   >
-                    <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600">{refs.get(i.id)}</span>
                     <span className="min-w-0 flex-1 truncate text-meta text-slate-800">{i.title}</span>
                   </button>
                 )

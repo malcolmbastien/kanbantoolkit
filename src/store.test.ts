@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, descendants, openDependenciesOf, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, buildRefs, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, itemsCarryingTag, searchItems, tagsOf } from './domain/board'
+import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, itemsCarryingTag, searchItems, tagsOf } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
 import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
@@ -974,13 +974,11 @@ describe('store actions', () => {
     expect(s().placements.find((p) => p.itemId === 'st-signup-form')?.laneId).toBe(ns.id)
   })
 
-  it('global search matches by title or ref, and nothing on an empty query', () => {
-    const refs = buildRefs(s().items, s().issueTypes)
-    expect(searchItems(s().items, refs, 'gateway').map((i) => i.id)).toContain('init-gateway')
-    const ref = refs.get('st-email')!
-    expect(searchItems(s().items, refs, ref.toLowerCase()).map((i) => i.id)).toContain('st-email')
-    expect(searchItems(s().items, refs, '   ')).toEqual([])
-    expect(searchItems(s().items, refs, 'zzzzzz')).toEqual([])
+  it('global search matches by title, and nothing on an empty query', () => {
+    expect(searchItems(s().items, 'gateway').map((i) => i.id)).toContain('init-gateway')
+    expect(searchItems(s().items, 'email').map((i) => i.id)).toContain('st-email')
+    expect(searchItems(s().items, '   ')).toEqual([])
+    expect(searchItems(s().items, 'zzzzzz')).toEqual([])
   })
 
   it('filters: the panel and the item panel share one slot; type toggles are additive', () => {

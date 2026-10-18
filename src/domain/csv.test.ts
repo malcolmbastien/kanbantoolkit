@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { boardCsv, BOARD_CSV_HEADER, csvField, csvFilename, dashboardCsv, toCsv } from './csv'
 import { blockedBelow, rollupOf, type Graph } from './derive'
-import { boardInitiatives, buildRefs, initiativeTypeById, tagsOf } from './board'
+import { boardInitiatives, initiativeTypeById, tagsOf } from './board'
 import { initiativeHealth } from './health'
 import { HEALTH_META } from './health'
 import { createFixture } from './fixture'
@@ -75,23 +75,26 @@ describe('csv', () => {
     const rows = parseCsv(text)
     expect(rows[0]).toEqual(BOARD_CSV_HEADER)
 
+    // Read by column name, not by position: a column added or dropped must not silently
+    // re-point every assertion below it.
+    const at = (row: string[], column: string) => row[rows[0].indexOf(column)]
+
     // The seeded Atlas board carries five live cards, column by column.
     expect(rows.length).toBe(6)
-    const titles = rows.slice(1).map((r) => r[1])
+    const titles = rows.slice(1).map((r) => at(r, 'Title'))
     expect(titles).toEqual(['Email verification', 'Build signup form', 'SSO buttons', 'Signup validation on retry', 'Design signup screens'])
 
-    const form = rows.find((r) => r[1] === 'Build signup form')!
-    expect(form[0]).toBe('USER2') // ref
-    expect(form[2]).toBe('User Story')
-    expect(form[3]).toBe('In Progress / Dev') // the cell's full path, not just its own name
-    expect(form[4]).toBe('In Progress') // and the stage, which a rename cannot change
-    expect(form[5]).toBe('Riley Kim; Maya Blake') // joined with semicolons: a name may hold a comma
-    expect(form[6]).toBe('no')
-    expect(form[10]).toBe('New signup flow') // the parent, by title
+    const form = rows.find((r) => at(r, 'Title') === 'Build signup form')!
+    expect(at(form, 'Type')).toBe('User Story')
+    expect(at(form, 'Column')).toBe('In Progress / Dev') // the cell's full path, not just its own name
+    expect(at(form, 'Stage')).toBe('In Progress') // and the stage, which a rename cannot change
+    expect(at(form, 'Assignees')).toBe('Riley Kim; Maya Blake') // joined with semicolons: a name may hold a comma
+    expect(at(form, 'Blocked')).toBe('no')
+    expect(at(form, 'Parent')).toBe('New signup flow') // the parent, by title
 
-    const sso = rows.find((r) => r[1] === 'SSO buttons')!
-    expect(sso[6]).toBe('yes')
-    expect(sso[7]).toBe('Gateway contract not ready')
+    const sso = rows.find((r) => at(r, 'Title') === 'SSO buttons')!
+    expect(at(sso, 'Blocked')).toBe('yes')
+    expect(at(sso, 'Blocked reason')).toBe('Gateway contract not ready')
 
     // Archived cards are off the board, so they are not in the file.
     expect(titles).not.toContain('Import legacy accounts')
@@ -114,23 +117,24 @@ describe('csv', () => {
       kind: initiativeTypeById(seed.boards, item.initiativeTypeId)?.name ?? 'None',
       tags: tagsOf(seed.boards, item).map((t) => t.name).join('; '),
     }))
-    const parsed = parseCsv(dashboardCsv(rows, seed.items, seed.issueTypes))
-    expect(parsed[0][1]).toBe('Initiative')
-    const signup = parsed.find((r) => r[1] === 'New signup flow')!
+    const parsed = parseCsv(dashboardCsv(rows, seed.issueTypes))
+    const at = (row: string[], column: string) => row[parsed[0].indexOf(column)]
+    expect(at(parsed[0], 'Initiative')).toBe('Initiative')
+    const signup = parsed.find((r) => at(r, 'Initiative') === 'New signup flow')!
     const roll = rollupOf('init-signup', graph)
-    expect(signup[2]).toBe('Initiative')
-    expect(signup[3]).toBe('None') // the fixture's initiatives carry no kind
-    expect(signup[4]).toBe(String(roll.percent))
-    expect(signup[5]).toBe(String(roll.done))
-    expect(signup[6]).toBe(String(roll.total))
-    expect(signup[8]).toBe(String(roll.size)) // cumulative size, beside the counts it sits with
-    expect(signup[11]).toBe('In Progress')
-    expect(signup[12]).toBe('no') // overdue
-    expect(signup[13]).toBe(String(blockedBelow('init-signup', graph)))
+    expect(at(signup, 'Type')).toBe('Initiative')
+    expect(at(signup, 'Kind')).toBe('None') // the fixture's initiatives carry no kind
+    expect(at(signup, 'Progress %')).toBe(String(roll.percent))
+    expect(at(signup, 'Done')).toBe(String(roll.done))
+    expect(at(signup, 'Total')).toBe(String(roll.total))
+    expect(at(signup, 'Cumulative size')).toBe(String(roll.size)) // beside the counts it sits with
+    expect(at(signup, 'Status')).toBe('In Progress')
+    expect(at(signup, 'Overdue')).toBe('no')
+    expect(at(signup, 'Blocked below')).toBe(String(blockedBelow('init-signup', graph)))
     // Health is part of the row now, so the file and the table cannot disagree about it.
     const health = initiativeHealth('init-signup', graph)
-    expect(signup[14]).toBe(HEALTH_META[health.level].label)
-    expect(signup[15]).toBe(health.flags.map((f) => f.label).join('; '))
+    expect(at(signup, 'Health')).toBe(HEALTH_META[health.level].label)
+    expect(at(signup, 'Flags')).toBe(health.flags.map((f) => f.label).join('; '))
   })
 
   it('names the file after the board, without punctuation a filesystem minds', () => {
@@ -152,16 +156,18 @@ describe('csv', () => {
           kind: 'None',
           tags: '',
         })),
-        seed.items,
         seed.issueTypes,
       ),
     )
     // A card file answers "what is in each column"; an initiative file answers "how is each
-    // initiative doing". The only thing they share is the ref that links them.
+    // initiative doing". Both lead with the name of the thing — and neither carries a reference:
+    // a card's identity is its id, which the app keeps to itself, so no column pretends to be a
+    // handle that two exports could be joined on.
     expect(board[0]).toContain('Column')
     expect(dash[0]).not.toContain('Column')
-    expect(board[0]).toContain('Ref')
-    expect(dash[0]).toContain('Ref')
-    expect(buildRefs(seed.items, seed.issueTypes).get('init-signup')).toBe(dash[1][0])
+    expect(board[0]).not.toContain('Ref')
+    expect(dash[0]).not.toContain('Ref')
+    expect(board[0][0]).toBe('Title')
+    expect(dash[0][0]).toBe('Initiative')
   })
 })

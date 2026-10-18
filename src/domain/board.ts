@@ -589,22 +589,6 @@ export function externalDependenciesOnBoard(graph: Graph, boardId: string): Depe
   return out
 }
 
-/** Stable display reference per item, prefixed by its type, e.g. FEAT3, BUG1. */
-export function buildRefs(items: Item[], types: IssueType[]): Map<string, string> {
-  const prefix = (typeId: string) => {
-    const name = types.find((t) => t.id === typeId)?.name ?? 'Item'
-    return name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'ITEM'
-  }
-  const counters: Record<string, number> = {}
-  const map = new Map<string, string>()
-  for (const i of items) {
-    const key = prefix(i.typeId)
-    counters[key] = (counters[key] ?? 0) + 1
-    map.set(i.id, `${key}${counters[key]}`)
-  }
-  return map
-}
-
 /**
  * The reserved Initiative type id (identified by name). Initiative is reserved for
  * the Initiatives workflow and is never offered as a card type.
@@ -691,11 +675,14 @@ export function boardCardTypeId(board: Board | undefined, types: IssueType[]): s
 }
 
 /**
- * Global search: items whose title or display ref contains the query
- * (case-insensitive). An empty query returns no matches.
+ * Global search: items whose title contains the query (case-insensitive). An empty query returns
+ * no matches.
+ *
+ * The title alone, deliberately: an item's identity is its id, which is nobody's business but the
+ * app's, and there is no shorter handle to search by — a card is found by the words on it.
  */
-export function searchItems(items: Item[], refs: Map<string, string>, query: string): Item[] {
+export function searchItems(items: Item[], query: string): Item[] {
   const q = query.trim().toLowerCase()
   if (!q) return []
-  return items.filter((i) => i.title.toLowerCase().includes(q) || (refs.get(i.id) ?? '').toLowerCase().includes(q))
+  return items.filter((i) => i.title.toLowerCase().includes(q))
 }

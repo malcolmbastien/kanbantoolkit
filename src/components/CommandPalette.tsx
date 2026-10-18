@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Command, LayoutGrid, Search } from 'lucide-react'
-import { buildRefs, isInitiativeItem } from '@/domain/board'
+import { isInitiativeItem } from '@/domain/board'
 import { KIND_LABEL, rankEntries, type PaletteEntry, type PaletteKind } from '@/domain/palette'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -70,7 +70,6 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
     if (open) inputRef.current?.focus()
   }, [open])
 
-  const refs = useMemo(() => buildRefs(items, issueTypes), [items, issueTypes])
   const boardName = (id: string) => boards.find((b) => b.id === id)?.name
 
   const boardEntry = (id: string): PaletteEntry => {
@@ -90,7 +89,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
       id: `item:${id}`,
       kind,
       label: item?.title ?? 'Card',
-      hint: [refs.get(id), boardName(placements.find((p) => p.itemId === id)?.boardId ?? '')].filter(Boolean).join(' · '),
+      hint: boardName(placements.find((p) => p.itemId === id)?.boardId ?? ''),
       keywords: isInitiativeItem(item, issueTypes) ? 'initiative' : 'card',
     }
   }
@@ -138,7 +137,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
       ...actions,
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, recentItemIds, items, boards, actions, refs])
+  }, [query, recentItemIds, items, boards, actions])
 
   const ranked = useMemo(() => rankEntries(entries, query), [entries, query])
   const flat = query.trim() === '' ? ranked : ranked.slice(0, 24)

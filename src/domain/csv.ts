@@ -1,4 +1,4 @@
-import { buildRefs, isInitiativeItem, tagsOf } from './board'
+import { isInitiativeItem, tagsOf } from './board'
 import { HEALTH_META, type InitiativeHealth } from './health'
 import { decompositionParent } from './derive'
 import type { Graph } from './derive'
@@ -49,7 +49,6 @@ function cardsInBoardOrder(boardId: string, graph: Graph): { item: Item; laneId:
 }
 
 export const BOARD_CSV_HEADER = [
-  'Ref',
   'Title',
   'Type',
   'Column',
@@ -71,7 +70,6 @@ export const BOARD_CSV_HEADER = [
  * the column is the lane's full path, because a cell's own name ("Test") rarely says enough.
  */
 export function boardCsv(boardId: string, graph: Graph, types: IssueType[], users: User[], boards: Board[] = []): string {
-  const refs = buildRefs(graph.items, types)
   const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? 'Item'
   const nameOfUser = (id: string) => users.find((u) => u.id === id)?.name ?? id
   const rows = cardsInBoardOrder(boardId, graph)
@@ -80,7 +78,6 @@ export function boardCsv(boardId: string, graph: Graph, types: IssueType[], user
       const stage = effectiveStage(graph.lanes, laneId)
       const parentId = decompositionParent(item.id, graph.edges)
       return [
-        refs.get(item.id) ?? '',
         item.title,
         nameOf(item.typeId),
         lanePath(graph.lanes, laneId).join(' / '),
@@ -112,7 +109,6 @@ export interface DashboardCsvRow {
 }
 
 export const DASHBOARD_CSV_HEADER = [
-  'Ref',
   'Initiative',
   'Type',
   'Kind',
@@ -132,13 +128,11 @@ export const DASHBOARD_CSV_HEADER = [
 ]
 
 /** The dashboard's rows as CSV text — the same rows, the same numbers, as a file. */
-export function dashboardCsv(rows: DashboardCsvRow[], items: Item[], types: IssueType[]): string {
-  const refs = buildRefs(items, types)
+export function dashboardCsv(rows: DashboardCsvRow[], types: IssueType[]): string {
   const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? 'Item'
   return toCsv([
     DASHBOARD_CSV_HEADER,
     ...rows.map(({ item, roll, blocked, overdue, health, kind, tags }) => [
-      refs.get(item.id) ?? '',
       item.title,
       nameOf(item.typeId),
       kind,

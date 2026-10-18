@@ -53,6 +53,11 @@ task-master list            # terminal 2
   candidates it would accept — a target that is listed is a target the operation takes.
 - **Hierarchy is generic and structural.** A card has at most one parent (`setParent`
   enforces it). `depth` is derived — never add a `level` field.
+- **An item's identity is its `id`, and that is the app's own business.** Edges, placements, the
+  log and the URL all point at it; no surface prints it. There is no derived *display reference*:
+  a `USER6` numbered from an item's position changes when a card is added or a type changes, so it
+  is a name that lies about being one — the words on the card are what a person reads and searches
+  by.
 - **Issue types are labels + colour.** Columns come from a board's lane tree, never from
   the type. Never add a lifecycle to `IssueType`.
 - **Boards are two recursive lane trees.** A lane carries `workflow: 'cards' | 'initiatives'`,

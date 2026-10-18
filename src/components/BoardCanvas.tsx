@@ -30,7 +30,7 @@ import {
   waitsOn,
   type Graph,
 } from '@/domain/derive'
-import { boardCardTypeId, buildRefs, externalDependenciesOnBoard, tagsOf } from '@/domain/board'
+import { boardCardTypeId, externalDependenciesOnBoard, tagsOf } from '@/domain/board'
 import { childrenOf, effectiveStage, inheritedWipState, isTopLevel, lanePath, leavesUnder, rootLane, strongestWip, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_HEADER } from '@/lib/colors'
@@ -51,7 +51,6 @@ interface Ctx {
   lanes: Lane[]
   items: Item[]
   issueTypes: IssueType[]
-  refs: Map<string, string>
   graph: Graph
   /** The people directory (to resolve card assignees). */
   users: User[]
@@ -122,7 +121,7 @@ interface Ctx {
 const HEAD_ROW = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1'
 
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
-  const { lanes, items, issueTypes, refs, graph, editMode, boardItems, effectiveLane } = ctx
+  const { lanes, items, issueTypes, graph, editMode, boardItems, effectiveLane } = ctx
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBtnRef = useRef<HTMLButtonElement>(null)
   const kids = childrenOf(lanes, lane.id)
@@ -416,7 +415,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         items={cards.map((c) => {
           const pid = decompositionParent(c.id, graph.edges)
           const p = pid ? items.find((i) => i.id === pid) : undefined
-          const parent: CardParent | undefined = p ? { id: p.id, ref_: refs.get(p.id) ?? '', title: p.title, type: typeOf(p.typeId) } : undefined
+          const parent: CardParent | undefined = p ? { id: p.id, title: p.title, type: typeOf(p.typeId) } : undefined
           const roll = rollupOf(c.id, graph)
           return {
             id: c.id,
@@ -425,7 +424,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               key={c.id}
               item={c}
               type={typeOf(c.typeId)}
-              ref_={refs.get(c.id) ?? ''}
               parent={parent}
               selected={ctx.selectedItemId === c.id}
               dropTarget={ctx.drag.dropTargetId === c.id}
@@ -625,7 +623,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const setDropTarget = useStore((s) => s.setDropTarget)
 
   const graph: Graph = { items, edges, links, placements, lanes }
-  const refs = buildRefs(items, issueTypes)
   const root = rootLane(lanes, boardId, 'cards')
   const editMode = storeEdit && interactive
   const rowRef = useRef<HTMLDivElement>(null)
@@ -728,7 +725,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const lifting = lift !== null
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, refs, graph, users, boards, editMode, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
+    lanes, items, issueTypes, graph, users, boards, editMode, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     initiativeScope: initiativeScope(filters, graph),
     interactive,

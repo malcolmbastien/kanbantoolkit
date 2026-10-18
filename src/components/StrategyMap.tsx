@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { Plus, Target, TriangleAlert } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
-import { buildRefs, initiativeTypeId } from '@/domain/board'
+import { initiativeTypeId } from '@/domain/board'
 import { decompositionParent, objectiveRollup, okrCoverage, type Graph } from '@/domain/derive'
 import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -46,7 +46,6 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const [newObjective, setNewObjective] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
-  const refs = buildRefs(items, issueTypes)
   const initId = initiativeTypeId(issueTypes)
 
   const onBoardIds = new Set(placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
@@ -182,7 +181,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
                   const from = ordered.find((x) => attribution.some((e) => e.from === x.id && e.to === i.id))
                   return (
                     <option key={i.id} value={i.id}>
-                      {refs.get(i.id)} {i.title}{from ? ` — moves from ${from.title}` : ''}
+                      {i.title}{from ? ` — moves from ${from.title}` : ''}
                     </option>
                   )
                 })}

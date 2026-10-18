@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Target, Trash2, TriangleAlert, X } from 'lucide-react'
-import { buildRefs, isStrategicInitiative } from '@/domain/board'
+import { isStrategicInitiative } from '@/domain/board'
 import { objectiveRollup, rollupOf, type Graph } from '@/domain/derive'
 import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -29,7 +29,6 @@ export function ObjectivesView() {
   const openItem = useStore((s) => s.openItem)
 
   const graph: Graph = { items, edges, links, placements, lanes }
-  const refs = buildRefs(items, issueTypes)
   const typeOf = (id: string): IssueType => issueTypes.find((t) => t.id === id) ?? { id, name: 'Item', color: '#64748b' }
 
   const periods = [...new Set(objectives.map((o) => o.period))]
@@ -243,7 +242,7 @@ export function ObjectivesView() {
                               {typeOf(it.typeId).name}
                             </span>
                             <button onClick={() => openItem(it.id)} className="min-w-0 flex-1 truncate text-left text-meta text-slate-700 hover:text-indigo-600">
-                              <span className="tabular-nums text-slate-600">{refs.get(it.id)}</span> {it.title}
+                              {it.title}
                             </button>
                             <span className="text-micro font-semibold tabular-nums text-slate-600">{r.percent}%</span>
                             <button onClick={() => setAttribution(it.id, o.id, false)} className="text-slate-600 hover:text-rose-500" title="Remove from this objective">
@@ -266,7 +265,7 @@ export function ObjectivesView() {
                           const from = objectives.find((x) => x.id !== o.id && edges.some((e) => e.kind === 'attribution' && e.from === x.id && e.to === i.id))
                           return (
                             <option key={i.id} value={i.id}>
-                              {refs.get(i.id)} {i.title}{from ? ` — moves from ${from.title}` : ''}
+                              {i.title}{from ? ` — moves from ${from.title}` : ''}
                             </option>
                           )
                         })}

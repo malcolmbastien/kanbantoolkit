@@ -9,7 +9,7 @@ import {
   weeklyBuckets,
   type FlowRecord,
 } from '@/domain/metrics'
-import { buildRefs, isInitiativeItem } from '@/domain/board'
+import { isInitiativeItem } from '@/domain/board'
 import { effectiveStage, STAGE_LABELS, STAGES } from '@/domain/lanes'
 import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -45,7 +45,6 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const selectedItemId = useStore((s) => s.selectedItemId)
 
   const board = boards.find((b) => b.id === boardId)
-  const refs = buildRefs(items, issueTypes)
 
   // The cards this board carries in its cards workflow — archived ones included, because filing
   // a delivered card away must not erase it from the board's throughput.
@@ -195,7 +194,6 @@ export function MetricsView({ boardId }: { boardId: string }) {
                           )}
                         >
                           <td className="max-w-[320px] py-2 pr-3">
-                            <span className="mr-1.5 text-micro font-semibold text-slate-600">{refs.get(r.id)}</span>
                             <span className="text-body font-medium text-slate-800">{r.title}</span>
                           </td>
                           <td className="px-3 py-2 text-meta tabular-nums text-slate-600">{days(lead(r))}</td>

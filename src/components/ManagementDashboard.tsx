@@ -1,7 +1,7 @@
 import { CalendarClock, Download, Layers, Target } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
-import { boardInitiatives, buildRefs, initiativeTypeById, tagsOf } from '@/domain/board'
+import { boardInitiatives, initiativeTypeById, tagsOf } from '@/domain/board'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
 import { csvFilename, dashboardCsv } from '@/domain/csv'
 import { childrenOf, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
@@ -58,7 +58,6 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     const ages = laneAges(lanes, boardPlacements, c.id)
     return { lane: c, cards, oldest: ages.length ? Math.max(...ages) : undefined, median: medianOf(ages) }
   })
-  const refs = buildRefs(items, issueTypes)
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
@@ -126,7 +125,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             <Stat label="At risk" value={atRisk} tone={atRisk > 0 ? 'rose' : undefined} />
             {/* One explicit action, one file — the rows above, as a spreadsheet. */}
             <button
-              onClick={() => downloadText(csvFilename(board?.name ?? 'board', 'initiatives'), dashboardCsv(rows, items, issueTypes))}
+              onClick={() => downloadText(csvFilename(board?.name ?? 'board', 'initiatives'), dashboardCsv(rows, issueTypes))}
               className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
               title="Export these initiative rows as a CSV file — progress, target dates, status and blocked work"
             >
@@ -168,7 +167,6 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                         >
                           {type.name}
                         </span>
-                        <span className="text-micro font-semibold text-slate-600">{refs.get(item.id)}</span>
                       </div>
                       <div className="truncate text-body font-semibold text-slate-800">{item.title}</div>
                       {childInits > 0 && (

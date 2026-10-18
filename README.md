@@ -152,7 +152,7 @@ src/
     types.ts     # IssueType, Board, Lane, Item, Placement, Edge  (no board/level field on Item)
     lanes.ts     # lane tree: leaves, depth, spans, per-lane WIP counts
     derive.ts    # depth, statusOf (from the cell), dependencyState, pressure, attribution
-    board.ts     # items on a board (via placements) + display refs
+    board.ts     # items on a board (via placements), types, kinds, tags
     seed.ts      # the demo graph: custom types, two boards, a split column, multi-board placement
   store.ts       # zustand + localStorage; placements, lane splits, type CRUD, single parent
   components/     # TopBar, BoardView (nested lanes), Card, BoundaryPin, ItemPanel, TypeEditor

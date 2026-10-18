@@ -37,7 +37,6 @@ export interface CardSummary {
 /** The decomposition parent of a card, for the on-card lineage label. */
 export interface CardParent {
   id: string
-  ref_: string
   title: string
   type: IssueType
 }
@@ -52,7 +51,6 @@ export interface CardSymbol {
 interface Props {
   item: Item
   type: IssueType
-  ref_: string
   summary: CardSummary
   /** The people directory, to resolve `item.assignees` ids to names / initials. */
   users?: User[]
@@ -185,7 +183,7 @@ const cardKeyboard = (
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
       ? onLift
@@ -396,16 +394,14 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
         {kind && <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />}
 
         <div className="flex flex-1 flex-col gap-2 p-2.5">
-          {/* The title, at the size the reading happens at. Beside it the two small judgements:
-              priority, and the reference — which is how an initiative is *named* (in a standup,
-              in a message) rather than how it is read, so it stays small and out of the way. */}
+          {/* The title, at the size the reading happens at. Beside it the one small judgement it
+              carries: priority. */}
           <div className="flex items-start gap-2">
             <span className="min-w-0 flex-1 line-clamp-3 break-words text-title font-semibold leading-snug text-slate-900">
               {item.title}
             </span>
             <span className="flex shrink-0 items-center gap-1.5 pt-1">
               <PriorityBadge priority={item.priority} />
-              <span className="font-mono text-micro tabular-nums text-slate-500">{ref_}</span>
             </span>
           </div>
 
@@ -493,7 +489,7 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
                   e.stopPropagation()
                   onOpen(parent.id)
                 }}
-                title={`Rolls up to ${parent.type.name} ${parent.ref_}: ${parent.title} — click to open`}
+                title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open`}
                 className="flex w-fit max-w-full items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-left transition hover:border-indigo-300 hover:bg-indigo-100"
               >
                 <ArrowUp size={11} className="shrink-0 text-indigo-400" />
@@ -580,10 +576,9 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
           <span className="shrink-0 whitespace-nowrap rounded px-1 py-px text-micro font-bold uppercase tracking-wide shadow-sm" style={{ ...(() => { const c = chipColors(type.color); return { backgroundColor: c.background, color: c.color } })() }}>
             {type.name}
           </span>
-          <span className="shrink-0 whitespace-nowrap text-micro font-semibold tabular-nums text-slate-600">
-            {ref_}
-            {item.size ? ` · ${item.size}` : ''}
-          </span>
+          {item.size ? (
+            <span className="shrink-0 whitespace-nowrap text-micro font-semibold tabular-nums text-slate-600">{item.size}</span>
+          ) : null}
           <span className="ml-auto flex shrink-0 items-center gap-1">
             {summary.done && <DoneStamp />}
             {summary.ageDays !== undefined && summary.ageDays >= STALE_AFTER_DAYS && (
@@ -626,7 +621,7 @@ function CardBase({ item, type, ref_, summary, parent, wide, symbols, flags, kin
               if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
               else onOpen(parent.id)
             }}
-            title={`Rolls up to ${parent.type.name} ${parent.ref_}: ${parent.title} — click to open, shift+click to select`}
+            title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
             className="mt-1 flex w-full items-center gap-1 rounded border border-slate-300/70 bg-white/60 px-1 py-0.5 text-left transition hover:border-slate-400 hover:bg-white"
           >
             {/* The arrow says what the chip is; the title says which initiative. The type, its
@@ -730,11 +725,11 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   // An item is immutable: the store replaces it rather than mutating it, so a new reference is
   // a real change and the same reference is not.
   if (a.item !== b.item || a.type !== b.type || a.users !== b.users) return false
-  if (a.ref_ !== b.ref_ || a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
+  if (a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
   if (a.draggable !== b.draggable || a.locked !== b.locked || a.lens !== b.lens) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
   if (a.dropTarget !== b.dropTarget) return false
-  if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title || a.parent?.ref_ !== b.parent?.ref_) return false
+  if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title) return false
   // The kind is drawn, so a change to it re-renders. The list is the board's own array, which the
   // store replaces only when it changes — `onSetKind` is ignored like the other callbacks.
   if (a.kind?.id !== b.kind?.id || a.kind?.name !== b.kind?.name || a.kind?.color !== b.kind?.color) return false

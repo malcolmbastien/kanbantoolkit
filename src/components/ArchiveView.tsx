@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Archive, RotateCcw, Search } from 'lucide-react'
-import { buildRefs } from '@/domain/board'
 import { rollupOf, type Graph } from '@/domain/derive'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { stageChip } from '@/lib/colors'
@@ -28,7 +27,6 @@ export function ArchiveView() {
   const [q, setQ] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
-  const refs = buildRefs(items, issueTypes)
   const typeOf = (id: string): IssueType => issueTypes.find((t) => t.id === id) ?? { id, name: 'Item', color: '#64748b' }
 
   const archived = items
@@ -98,7 +96,6 @@ export function ArchiveView() {
                         <span className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide" style={{ backgroundColor: type.color, color: '#fff' }}>
                           {type.name}
                         </span>
-                        <span className="text-micro font-semibold text-slate-600">{refs.get(item.id)}</span>
                       </div>
                       <button
                         onClick={() => openItem(item.id)}
