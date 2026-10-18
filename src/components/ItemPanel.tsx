@@ -1,28 +1,22 @@
 import { useMemo, useRef, useState } from 'react'
 import {
   Archive,
-  ArrowDown,
   ArrowRight,
   Ban,
   CalendarDays,
   Check,
   ChevronDown,
-  CircleDot,
   Copy,
   Eye,
   Flag,
   GitBranch,
-  LayoutGrid,
-  MessageSquare,
   Minus,
   MoreHorizontal,
-  Network,
-  Pencil,
   Plus,
+  Send,
   SquareArrowOutUpRight,
   Target,
   Trash2,
-  TrendingUp,
   TriangleAlert,
   X,
 } from 'lucide-react'
@@ -73,8 +67,11 @@ const LOG_STYLES: Record<string, string> = {
   limit: 'bg-amber-500',
 }
 
+/** The one field style: a white well on the card's grey ground. */
+const WELL = 'flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5'
+const CHIP = 'flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-1.5 text-meta font-medium text-slate-700 ring-1 ring-slate-200'
 
-type Tab = 'details' | 'hierarchy' | 'activity'
+type Tab = 'overview' | 'hierarchy' | 'activity'
 
 export function ItemPanel({ itemId }: Props) {
   const items = useStore((s) => s.items)
@@ -119,12 +116,16 @@ export function ItemPanel({ itemId }: Props) {
   const toggleLens = useStore((s) => s.toggleLens)
   const lensId = useStore((s) => s.lensId)
 
-  const [tab, setTab] = useState<Tab>('details')
+  const [tab, setTab] = useState<Tab>('overview')
   const [moreOpen, setMoreOpen] = useState(false)
   const [priorityOpen, setPriorityOpen] = useState(false)
   const [blockOpen, setBlockOpen] = useState(false)
   const [dependencyId, setDependencyId] = useState('')
   const [parentChoice, setParentChoice] = useState('')
+  const [parentEditorOpen, setParentEditorOpen] = useState(false)
+  // Which warning's affected work is open. Closed by default: the chip row is the summary, and
+  // the cards behind a chip are what you ask for, not what you are given.
+  const [openWarning, setOpenWarning] = useState<string | null>(null)
   const [linkBoardId, setLinkBoardId] = useState('')
   const [linkTitle, setLinkTitle] = useState('')
   const [showPreview, setShowPreview] = useState(false)
@@ -187,8 +188,8 @@ export function ItemPanel({ itemId }: Props) {
   const duplicateCell = placementOn(placements, item.id, boardId)
   const canDuplicate = boardSurface && Boolean(duplicateCell)
   const duplicateReason = boardSurface
-    ? "A copy lands in the original's cell — this card is not in one on this board."
-    : "A copy lands in the original's cell — open this card from its board."
+    ? 'A copy lands in the original’s cell, and this card is not in one here.'
+    : 'A copy lands in the original’s cell — open this card from its board.'
   // The kinds this board offers, and the one this initiative carries — which may come from
   // another board, since an initiative can be placed on more than one.
   const kinds = boardInitiativeTypes(boards.find((b) => b.id === boardId))
@@ -235,61 +236,11 @@ export function ItemPanel({ itemId }: Props) {
     ).values(),
   ]
   const focusOn = lensId === item.id
-
-  // Lineage rows — the OKRs first, then the chain top-down. Rendered with a
-  // centred arrow between rows so depth reads clearly without indentation.
-  const lineageRows = [
-    ...lineageObjectives.map((o) => ({
-      key: `okr-${o.id}`,
-      node: (
-        <button
-          onClick={() => {
-            close(null)
-            setObjectives(true)
-          }}
-          title="Open Objectives & Key Results"
-          className="flex w-full items-center gap-1.5 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-left text-meta font-medium text-indigo-700 transition hover:bg-indigo-100"
-        >
-          <Target size={11} className="shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{o.title}</span>
-          <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-indigo-400">OKR</span>
-        </button>
-      ),
-    })),
-    ...lineage.map((node) => {
-      const self = node.id === item.id
-      const body = (
-        <>
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
-          <span className="min-w-0 flex-1 truncate">{node.title}</span>
-          <span className={cn('shrink-0 text-micro font-semibold uppercase tracking-wide', self ? 'text-slate-600' : 'text-slate-600')}>
-            {typeName(node.typeId)}
-          </span>
-        </>
-      )
-      return {
-        key: node.id,
-        node: self ? (
-          <div className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white">{body}</div>
-        ) : (
-          <button
-            onClick={() => close(node.id)}
-            title={`Open ${node.title}`}
-            className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-left text-meta text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
-          >
-            {body}
-          </button>
-        ),
-      }
-    }),
-  ]
-  // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
-  // Every card type is offered; the item's current type is always among them.
-  const typeOptions = cardTypes(issueTypes)
-  const teamBoards = boards.filter((b) => b.band === 'team')
-  const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
+  // Where this item actually sits. The board in front of us is the fallback, not the answer: an
+  // item read from another board's band still belongs to its own.
+  const homeBoard = boardOf(item.id) ?? boards.find((b) => b.id === boardId)
 
   /**
    * Take the reader to an item where it actually is: its board, the board's own view, then the
@@ -337,7 +288,7 @@ export function ItemPanel({ itemId }: Props) {
     if (depending.length > 0) {
       rows.push({
         key: 'dependents',
-        label: `${depending.length} ${depending.length === 1 ? 'depends' : 'depend'} on it`,
+        label: `${depending.length} depend${depending.length === 1 ? 's' : ''} on it`,
         why: `${depending.length} item${depending.length === 1 ? '' : 's'} ${depending.length === 1 ? 'depends' : 'depend'} on this — if it slips, they are blocked`,
         tone: 'watch',
         cards: depending.map((d) => d.dependent),
@@ -345,6 +296,7 @@ export function ItemPanel({ itemId }: Props) {
     }
     return rows
   }, [isInitiative, item.id, items, edges, links, placements, lanes, issueTypes, today])
+  const openWarningRow = warnings.find((w) => w.key === openWarning)
 
   // A board to go to only when it is not the one already in front of us.
   const somewhereToGo = boardSurface === false || boardOf(item.id)?.id !== boardId
@@ -356,41 +308,61 @@ export function ItemPanel({ itemId }: Props) {
   const candidates = items.filter(
     (i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id) && isInitiativeItem(i, issueTypes),
   )
+  // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
+  // Every card type is offered; the item's current type is always among them.
+  const typeOptions = cardTypes(issueTypes)
+  const teamBoards = boards.filter((b) => b.band === 'team')
+  const linkedInitiatives = children.filter((c) => c.typeId === initiativeTypeId)
   const relatedCount = children.length + dependencies.length + dependents.length + itemPlacements.length
+  const doneBelow = children.length > 0 ? `${roll.done} of ${roll.total} done` : undefined
 
-
-  const tabs: { id: Tab; label: string; icon: typeof LayoutGrid; count?: number }[] = [
-    { id: 'details', label: 'Details', icon: LayoutGrid },
-    { id: 'hierarchy', label: 'Hierarchy & Links', icon: Network, count: relatedCount },
-    { id: 'activity', label: 'Activity', icon: MessageSquare, count: log.length },
+  // The three faces of one item, in the order a reader wants them: what it is, where it sits in
+  // the work, and what has happened to it. The counts are on the tabs so the panel says how much
+  // is behind each one before you open it.
+  const tabs: { id: Tab; label: string; count?: number }[] = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'hierarchy', label: 'Hierarchy', count: relatedCount },
+    { id: 'activity', label: 'Activity', count: log.length },
   ]
 
   return (
     <aside
       data-item-panel
       aria-label={`Card details: ${item.title}`}
-      className="flex h-full w-full max-w-[460px] shrink-0 flex-col border-l border-slate-300 bg-slate-50 shadow-[-10px_0_24px_-14px_rgba(15,23,42,0.25)]"
+      className="flex h-full w-full max-w-[460px] shrink-0 flex-col border-l border-slate-300 bg-white shadow-[-10px_0_24px_-14px_rgba(15,23,42,0.25)]"
     >
-      {/* ---- Header: breadcrumb, actions, title, tabs ------------------------------ */}
-      <div className="shrink-0 space-y-2 border-b border-slate-200 bg-white px-3 py-2.5">
+      {/* ---- Header: where you are, what it is, what it is called, and the three views ---- */}
+      <header className="shrink-0 border-b border-slate-200 px-4 pb-3 pt-3">
         <div className="flex items-center gap-2">
+          {/* The path ends where you are: ancestors as links, this item in ink. */}
           <nav className="flex min-w-0 items-center gap-1 text-meta text-slate-600">
-            {[...lineage].reverse().slice(0, 3).map((node, i) => (
-              <span key={node.id} className="flex min-w-0 items-center gap-1">
-                {i > 0 && <span className="text-slate-600">/</span>}
-                <button
-                  onClick={() => close(node.id)}
-                  title={`Open ${node.title}`}
-                  className="min-w-0 truncate transition hover:text-slate-700"
-                >
-                  {node.title}
-                </button>
-              </span>
-            ))}
+            {lineage.slice(-3).map((node, i, shown) => {
+              const self = node.id === item.id
+              return (
+                <span key={node.id} className="flex min-w-0 items-center gap-1">
+                  {i > 0 && <span className="shrink-0 text-slate-400">/</span>}
+                  {self ? (
+                    // The end of the path keeps the room: where you are matters more than the
+                    // way you came, and the full chain is a tab away.
+                    <span className="min-w-0 flex-1 truncate font-medium text-slate-800" title={node.title}>
+                      {node.title}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => close(node.id)}
+                      title={`Open ${node.title}`}
+                      className={cn('min-w-0 truncate transition hover:text-slate-900', shown.length > 1 && 'max-w-[5rem]')}
+                    >
+                      {node.title}
+                    </button>
+                  )}
+                </span>
+              )
+            })}
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             <IconButton
-              title={focusOn ? 'Clear focus' : 'Focus — highlight this lineage on the board'}
+              title={focusOn ? 'Stop focusing this line' : 'Focus this line on the board'}
               active={focusOn}
               onClick={() => toggleLens(item.id)}
             >
@@ -410,19 +382,8 @@ export function ItemPanel({ itemId }: Props) {
         </div>
 
         {moreOpen && (
-          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-            {/* The type and the kind are properties, so they live in Details with the other
-                properties. What stays here is the note about the type that *cannot* be changed: a
-                menu is where you would look for the missing control, and a missing affordance has
-                to explain itself. */}
-            {typeIsFixed && (
-              <p className="text-meta text-slate-600">
-                {isInitiative
-                  ? 'Type is fixed. An initiative is defined by the Initiative type, and the initiatives workflow reads it — so it is never retyped into a card type.'
-                  : 'Type is fixed. Sub-task belongs to the system rather than to you — a card\'s sub-tasks are a checklist, not items.'}
-              </p>
-            )}
-            <div className="flex items-center gap-1.5">
+          <div className="mt-2 space-y-2 rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200">
+            <div className="flex flex-wrap items-center gap-1.5">
               {/* The "copy me" template: a new card with this one's shape and none of its
                   commitments, landing in the same cell. An initiative and a sub-task belong
                   to the system rather than to you, so for those the row is not there. */}
@@ -430,31 +391,31 @@ export function ItemPanel({ itemId }: Props) {
                 <button
                   onClick={() => duplicateCard(item.id)}
                   disabled={!canDuplicate}
-                  title={canDuplicate ? 'Copy this card into the same cell, directly below the original' : undefined}
+                  title={canDuplicate ? 'Copy this card into the same cell, just below it' : undefined}
                   className={cn(
-                    'flex items-center gap-1 rounded border px-2 py-1 text-meta font-medium transition',
+                    'flex items-center gap-1 rounded-lg border bg-white px-2 py-1 text-meta font-medium transition',
                     canDuplicate
-                      ? 'border-slate-300 text-slate-600 hover:bg-slate-100'
+                      ? 'border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       : 'cursor-not-allowed border-slate-200 text-slate-400',
                   )}
                 >
-                  <Copy size={11} /> Duplicate
+                  <Copy size={12} /> Duplicate
                 </button>
               )}
               {item.archived ? (
                 <button
                   onClick={() => unarchiveItem(item.id)}
-                  className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-meta font-medium text-amber-700 hover:bg-amber-100"
+                  className="flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-meta font-medium text-amber-800 transition hover:bg-amber-100"
                 >
-                  <Archive size={11} /> Restore
+                  <Archive size={12} /> Restore
                 </button>
               ) : (
                 <button
                   onClick={() => archiveItem(item.id)}
-                  title="File this item (and its children) off the boards"
-                  className="flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-meta font-medium text-slate-600 hover:bg-slate-100"
+                  title="File this item and everything below it away"
+                  className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 >
-                  <Archive size={11} /> Archive
+                  <Archive size={12} /> Archive
                 </button>
               )}
               <button
@@ -467,89 +428,105 @@ export function ItemPanel({ itemId }: Props) {
                     onConfirm: () => deleteItem(item.id),
                   })
                 }
-                className="flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-meta font-medium text-rose-600 hover:bg-rose-50"
+                className="flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 py-1 text-meta font-medium text-rose-600 transition hover:bg-rose-50"
               >
-                <Trash2 size={11} /> Delete
+                <Trash2 size={12} /> Delete
               </button>
             </div>
             {/* A disabled button shows no tooltip, so the reason is said in words. */}
             {!typeIsFixed && !canDuplicate && <p className="text-micro text-slate-600">{duplicateReason}</p>}
+            {/* A menu is where you would look for the missing control, so the missing control
+                explains itself. */}
+            {typeIsFixed && (
+              <p className="text-micro text-slate-600">
+                {isInitiative
+                  ? 'An initiative is always an initiative — that type is what the initiatives workflow reads.'
+                  : 'A sub-task is a line on the checklist, not an item, so its type is not yours to change.'}
+              </p>
+            )}
           </div>
         )}
 
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              className="rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide"
-              style={{ backgroundColor: chipColors(type.color).background, color: chipColors(type.color).color }}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <span
+            className="rounded px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide"
+            style={{ backgroundColor: chipColors(type.color).background, color: chipColors(type.color).color }}
+          >
+            {type.name}
+          </span>
+          <span
+            className="rounded-full bg-slate-100 px-2 py-0.5 text-micro font-medium text-slate-600"
+            title={homeBoard ? `The board this sits on: ${homeBoard.name}` : 'Not on a board'}
+          >
+            {homeBoard?.name ?? 'Not on a board'}
+          </span>
+          {item.blocked ? (
+            <button
+              onClick={() => unblockItem(item.id)}
+              className="ml-auto flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 text-meta font-semibold text-white transition hover:bg-rose-700"
             >
-              {type.name}
-            </span>
-            <span className="rounded bg-indigo-50 px-1.5 py-px text-meta font-medium text-indigo-600" title="Where this card sits">
-              {boards.find((b) => b.id === boardId)?.name ?? 'Board'}
-            </span>
-            {item.blocked ? (
-              <button
-                onClick={() => unblockItem(item.id)}
-                className="ml-auto flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-meta font-semibold text-white hover:bg-rose-700"
-              >
-                <Ban size={11} /> Unblock
-              </button>
-            ) : (
-              <button
-                onClick={() => setBlockOpen((o) => !o)}
-                className={cn(
-                  'ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-meta font-semibold transition',
-                  blockOpen ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-600',
-                )}
-              >
-                <Flag size={11} /> Mark Blocked
-              </button>
-            )}
-          </div>
-
-          {item.blocked && item.blockedReason && (
-            <p className="rounded bg-rose-50 px-2 py-1 text-meta text-rose-700">{item.blockedReason}</p>
+              <Ban size={12} /> Unblock
+            </button>
+          ) : (
+            <button
+              onClick={() => setBlockOpen((o) => !o)}
+              className={cn(
+                'ml-auto flex items-center gap-1 rounded-lg border px-2 py-1 text-meta font-medium transition',
+                blockOpen
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-slate-200 text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600',
+              )}
+            >
+              <Flag size={12} /> Mark blocked
+            </button>
           )}
-          {blockOpen && !item.blocked && (
-            <div className="flex items-center gap-1">
-              <input
-                value={blockReason}
-                onChange={(e) => setBlockReason(e.target.value)}
-                placeholder="Reason (optional)…"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    blockItem(item.id, blockReason)
-                    setBlockReason('')
-                    setBlockOpen(false)
-                  }
-                }}
-                className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-rose-300"
-              />
-              <button
-                onClick={() => {
+        </div>
+
+        {item.blocked && item.blockedReason && (
+          <p className="mt-2 rounded-lg bg-rose-50 px-2.5 py-1.5 text-meta text-rose-800 ring-1 ring-rose-200">
+            {item.blockedReason}
+          </p>
+        )}
+        {blockOpen && !item.blocked && (
+          <div className="mt-2 flex items-center gap-1.5">
+            <input
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              placeholder="Why is it blocked? (optional)"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
                   blockItem(item.id, blockReason)
                   setBlockReason('')
                   setBlockOpen(false)
-                }}
-                className="flex items-center gap-1 rounded bg-rose-600 px-2 py-1 text-meta font-medium text-white hover:bg-rose-700"
-              >
-                <Ban size={11} /> Block
-              </button>
-            </div>
-          )}
+                }
+              }}
+              className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-rose-300"
+            />
+            <button
+              onClick={() => {
+                blockItem(item.id, blockReason)
+                setBlockReason('')
+                setBlockOpen(false)
+              }}
+              className="flex shrink-0 items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1.5 text-meta font-semibold text-white transition hover:bg-rose-700"
+            >
+              <Ban size={12} /> Block
+            </button>
+          </div>
+        )}
 
-          <input
-            value={item.title}
-            onFocus={() => startTextEdit(item.id, 'title', item.title)}
-            onBlur={() => endTextEdit('title')}
-            onChange={(e) => setItemFields(item.id, { title: e.target.value })}
-            className="w-full rounded border border-transparent bg-transparent text-title font-semibold leading-snug text-slate-800 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
-          />
-        </div>
+        {/* The title is the panel's heading: the one thing at the size the reading happens at. */}
+        <input
+          value={item.title}
+          onFocus={() => startTextEdit(item.id, 'title', item.title)}
+          onBlur={() => endTextEdit('title')}
+          onChange={(e) => setItemFields(item.id, { title: e.target.value })}
+          aria-label="Title"
+          className="mt-2 w-full rounded-lg border border-transparent bg-transparent text-heading font-semibold leading-snug text-slate-900 transition hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
+        />
 
-        <div className="flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
+        <div className="mt-3 flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
           {tabs.map((t) => {
             const on = tab === t.id
             return (
@@ -557,42 +534,39 @@ export function ItemPanel({ itemId }: Props) {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  'flex flex-1 items-center justify-center gap-1.5 rounded-md px-1.5 py-1 text-meta font-medium transition',
-                  on ? 'bg-white font-semibold text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-800',
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-meta font-medium transition',
+                  on ? 'bg-white font-semibold text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900',
                 )}
               >
-                <t.icon size={13} />
-                <span className="truncate">{t.label}</span>
+                {t.label}
                 {t.count !== undefined && t.count > 0 && (
-                  <span className={cn('rounded-full px-1.5 text-micro font-bold tabular-nums', on ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600')}>
-                    {t.count}
-                  </span>
+                  <span className={cn('text-micro font-semibold tabular-nums', on ? 'text-indigo-500' : 'text-slate-600')}>{t.count}</span>
                 )}
               </button>
             )
           })}
         </div>
-      </div>
+      </header>
 
       {/* ---- Body ---------------------------------------------------------------- */}
       {/* The panel is the one place a card's own words are worth copying, so it opts back in. */}
-      <div className="min-h-0 flex-1 select-text overflow-y-auto px-3 py-3 text-meta">
-        {tab === 'details' && (
-          <div className="space-y-4">
-            {/* Warnings — an initiative's health, and the way to the work it is about. It opens
-                with the drawer because that is what a warning is for: a badge on a card says
-                something is wrong, and this says which cards, and takes you to them. */}
+      <div className="min-h-0 flex-1 select-text space-y-5 overflow-y-auto px-4 py-4 text-meta">
+        {tab === 'overview' && (
+          <>
+            {/* Warnings first, because that is what they are for: the card's badge row says
+                something is wrong, and this says how much and takes you to it. One chip per
+                signal — the summary — and the work behind a chip on request. */}
             {isInitiative && warnings.length > 0 && (
-              <section className="rounded-lg bg-amber-50/70 p-2.5 ring-1 ring-amber-100">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1 text-micro font-semibold uppercase tracking-wide text-amber-800">
-                    <TriangleAlert size={12} /> Warnings
-                    <span className="rounded-full bg-amber-200 px-1.5 font-bold tabular-nums text-amber-900">{warnings.length}</span>
+              <section className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-meta font-semibold text-amber-900">
+                    <TriangleAlert size={14} className="shrink-0" />
+                    {warnings.length} {warnings.length === 1 ? 'warning' : 'warnings'}
                   </span>
                   {somewhereToGo && (
                     <button
                       onClick={() => goTo(item.id)}
-                      className="flex shrink-0 items-center gap-1 rounded border border-amber-300 bg-white px-1.5 py-0.5 text-micro font-medium text-amber-800 transition hover:bg-amber-100"
+                      className="ml-auto flex shrink-0 items-center gap-1 rounded-lg border border-amber-300 bg-white px-2 py-0.5 text-micro font-medium text-amber-800 transition hover:bg-amber-100"
                       title={`Go to ${boardOf(item.id)?.name ?? 'the board'} with this initiative open`}
                     >
                       <SquareArrowOutUpRight size={11} /> Open on the board
@@ -600,369 +574,378 @@ export function ItemPanel({ itemId }: Props) {
                   )}
                 </div>
 
-                <div className="mt-2 space-y-1.5">
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {warnings.map((w) => (
-                    <div key={w.key} className="rounded-lg border border-amber-200 bg-white px-2 py-1.5">
-                      <div className="flex items-start gap-1.5">
-                        <span className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[w.tone])}>{w.label}</span>
-                        <span className="min-w-0 flex-1 pt-0.5 text-meta text-slate-600">{w.why}</span>
-                      </div>
+                    <button
+                      key={w.key}
+                      onClick={() => setOpenWarning(openWarning === w.key ? null : w.key)}
+                      title={w.why}
+                      aria-expanded={openWarning === w.key}
+                      className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[w.tone], 'flex items-center gap-1 transition hover:brightness-95')}
+                    >
+                      {w.label}
                       {w.cards.length > 0 && (
-                        <div className="mt-1 space-y-0.5">
-                          {w.cards.slice(0, WARN_CARDS).map((c) => {
-                            const there = boardOf(c.id)
-                            return (
-                              <button
-                                key={c.id}
-                                onClick={() => goTo(c.id)}
-                                title={`Open ${c.title}${there ? ` — on ${there.name}` : ''}`}
-                                className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-meta transition hover:bg-slate-100"
-                              >
-                                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: chipColors(typeColor(c.typeId)).background }} />
-                                <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                                {/* Which board it is on, when that is not this one — the warning is
-                                    often resolved somewhere else. */}
-                                {there && there.id !== boardId && <span className="shrink-0 text-micro text-slate-500">{there.name}</span>}
-                                <ArrowRight size={11} className="shrink-0 text-slate-400" />
-                              </button>
-                            )
-                          })}
-                          {w.cards.length > WARN_CARDS && (
-                            <p className="px-1 text-micro text-slate-500">
-                              +{w.cards.length - WARN_CARDS} more — {w.cards.length} in all
-                            </p>
-                          )}
-                        </div>
+                        <ChevronDown size={11} className={cn('shrink-0 transition', openWarning === w.key && 'rotate-180')} />
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
+
+                {openWarningRow && (
+                  <div className="mt-2 rounded-lg bg-white/80 p-2 ring-1 ring-amber-200">
+                    <p className="text-meta text-slate-700">{openWarningRow.why}</p>
+                    {openWarningRow.cards.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {openWarningRow.cards.slice(0, WARN_CARDS).map((c) => {
+                          const there = boardOf(c.id)
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => goTo(c.id)}
+                              title={`Open ${c.title}${there ? ` — on ${there.name}` : ''}`}
+                              className="flex w-full items-center gap-1.5 rounded px-1 py-1 text-left transition hover:bg-amber-100/70"
+                            >
+                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: chipColors(typeColor(c.typeId)).background }} />
+                              <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
+                              {/* Which board it is on, when that is not this one — the warning is
+                                  often resolved somewhere else. */}
+                              {there && there.id !== boardId && <span className="shrink-0 text-micro text-slate-600">{there.name}</span>}
+                              <ArrowRight size={11} className="shrink-0 text-slate-400" />
+                            </button>
+                          )
+                        })}
+                        {openWarningRow.cards.length > WARN_CARDS && (
+                          <p className="px-1 text-micro text-slate-600">
+                            +{openWarningRow.cards.length - WARN_CARDS} more
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </section>
             )}
 
-            {/* Property grid — the four things you set while working */}
-            <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-2.5">
-              <Field label="Status">
-                <div
-                  className="flex items-center gap-1.5 rounded bg-white px-2 py-1.5 shadow-sm"
-                  title="Derived from the board cell and the work beneath — never editable"
-                >
-                  <CircleDot size={12} className={cn(status.resolved ? 'text-emerald-500' : status.started ? 'text-indigo-500' : 'text-slate-300')} />
-                  <span className="truncate text-meta font-medium text-slate-700">{STAGE_LABELS[stage]}</span>
-                </div>
-              </Field>
-
-              <Field label="Priority">
-                <div className="relative">
-                  <button
-                    onClick={() => setPriorityOpen((o) => !o)}
-                    className="flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1.5 text-meta font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                    title="Priority — a judgement, stored rather than derived"
-                  >
-                    {item.priority ? (
-                      <>
-                        {(() => {
-                          const Icon = PRIORITY_META[item.priority].icon
-                          return <Icon size={12} className={PRIORITY_META[item.priority].dot} />
-                        })()}
-                        <span>{PRIORITY_META[item.priority].label}</span>
-                      </>
-                    ) : (
-                      <span className="text-slate-600">None</span>
-                    )}
-                    <ChevronDown size={12} className="ml-auto shrink-0 text-slate-400" />
-                  </button>
-                  {priorityOpen && (
-                    <div className="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg">
-                      <button
-                        onClick={() => { setItemFields(item.id, { priority: undefined }); setPriorityOpen(false) }}
-                        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50"
-                      >
-                        <Minus size={12} /> None
-                        {!item.priority && <Check size={11} className="ml-auto text-indigo-600" />}
-                      </button>
-                      {PRIORITY_ORDER.map((p) => {
-                        const { label, icon: Icon, dot } = PRIORITY_META[p]
-                        return (
-                          <button
-                            key={p}
-                            onClick={() => { setItemFields(item.id, { priority: p }); setPriorityOpen(false) }}
-                            className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-meta text-slate-700 hover:bg-slate-50"
-                          >
-                            <Icon size={12} className={dot} /> {label}
-                            {item.priority === p && <Check size={11} className="ml-auto text-indigo-600" />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </Field>
-
-              {/* Type and Kind — the labels a card or an initiative wears. They used to sit behind
-                  the ⋮ menu, which made a property look like an action. A card's type is the one
-                  you choose; an initiative's type is what makes it one, so it is fixed (the header
-                  says it) and only its kind is a choice. */}
-              {!typeIsFixed && (
-                <Field label="Type">
-                  <select
-                    value={item.typeId}
-                    onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
-                    className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-meta font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                    title="A type is a label and a colour — any type can sit in any column"
-                  >
-                    {typeOptions.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-
-              {isInitiative && (
-                <Field label="Kind">
-                  <select
-                    value={item.initiativeTypeId ?? ''}
-                    onChange={(e) => setInitiativeKind(item.id, e.target.value || undefined)}
-                    className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-meta font-medium shadow-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                    title="A kind is this board's own label for an initiative — a bet, a programme, an experiment. Every kind behaves the same."
-                  >
-                    <option value="">None</option>
-                    {kinds.map((k) => (
-                      <option key={k.id} value={k.id}>{k.name}</option>
-                    ))}
-                    {/* A kind defined on another board still shows, so the control never lies
-                        about what the item says. */}
-                    {kind && !kinds.some((k) => k.id === kind.id) && <option value={kind.id}>{kind.name}</option>}
-                  </select>
-                </Field>
-              )}
-
-              <Field label="Lead">
-                <div className="flex flex-wrap items-center gap-1">
-                  {(item.assignees ?? []).map((id) => {
-                    const u = userById(id)
-                    return (
-                      <span key={id} className="flex items-center gap-1 rounded-full bg-slate-700 py-0.5 pl-0.5 pr-1.5 text-meta font-medium text-white">
-                        <span className="grid h-4 w-4 place-items-center rounded-full bg-white/20 text-micro font-bold">
-                          {initialsOf(u?.name ?? id)}
-                        </span>
-                        {u?.name ?? id}
-                        <button
-                          onClick={() => setItemFields(item.id, { assignees: (item.assignees ?? []).filter((x) => x !== id) })}
-                          className="text-slate-300 hover:text-white"
-                          title={`Remove ${u?.name ?? id}`}
-                        >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    )
-                  })}
-                  <input
-                    list="flowline-assignees"
-                    value={assigneeDraft}
-                    onChange={(e) => setAssigneeDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        applyAssignee()
-                      }
-                    }}
-                    placeholder="add…"
-                    className="min-w-[4rem] flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-                  />
-                  <datalist id="flowline-assignees">
-                    {users.map((u) => (
-                      <option key={u.id} value={u.name} />
-                    ))}
-                  </datalist>
-                </div>
-              </Field>
-
-              {/* Tags — a set, on a card or an initiative alike. Adding offers this board's tags
-                  (the board whose surface the panel is beside); removing always works, so an item
-                  can be cleared whatever happened to a definition. */}
-              <Field label="Tags">
-                <div className="flex flex-wrap items-center gap-1">
-                  {itemTags.map((t) => {
-                    const chip = chipColors(t.color)
-                    return (
-                      <span
-                        key={t.id}
-                        className="flex items-center gap-1 rounded py-0.5 pl-1.5 pr-1 text-meta font-medium"
-                        style={{ backgroundColor: chip.background, color: chip.color }}
-                      >
-                        {t.name}
-                        <button
-                          onClick={() => toggleItemTag(boardId, item.id, t.id)}
-                          className="opacity-60 transition hover:opacity-100"
-                          title={`Remove ${t.name}`}
-                          aria-label={`Remove ${t.name}`}
-                        >
-                          <X size={11} />
-                        </button>
-                      </span>
-                    )
-                  })}
-                  {/* Type to find one: the board's vocabulary, filtered as you go — or to make
-                      a new one, which the board settings then owns like any other. */}
-                  <TagInput
-                    tags={boardTagList}
-                    carried={item.tagIds ?? []}
-                    onAdd={(id) => toggleItemTag(boardId, item.id, id)}
-                    onCreate={(name) => {
-                      const id = addTag(boardId, name, TAG_PALETTE[boardTagList.length % TAG_PALETTE.length])
-                      if (id) toggleItemTag(boardId, item.id, id)
-                    }}
-                    className="min-w-[7rem] flex-1"
-                  />
-                </div>
-              </Field>
-
-              {isInitiative ? (
-                /* An initiative has no estimate: its size is the sum of the sizes of the items
-                   below it. So the field reads rather than writes, and says why. */
-                <Field label="Size below">
-                  <div
-                    className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm"
-                    title="The sizes of the leaf work below this initiative, unsized work counting as 1"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-meta font-semibold tabular-nums text-slate-700">
-                      {roll.size} pts
-                    </span>
-                  </div>
-                  <span className="text-micro text-slate-600">Derived from the work below, never entered.</span>
-                </Field>
-              ) : (
-                <Field label="Estimate">
-                  <div className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm">
-                    <input
-                      type="number"
-                      min={0}
-                      value={item.size ?? ''}
-                      onChange={(e) => setItemFields(item.id, { size: e.target.value === '' ? undefined : Number(e.target.value) })}
-                      placeholder="—"
-                      className="w-12 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
+            {/* The properties, grouped the way they are read: what state it is in, who has it,
+                what it is worth, and when it is wanted. */}
+            <section className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                <Field label="Status">
+                  <div className={WELL} title="Derived from its column and the work below — never typed in">
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 shrink-0 rounded-full',
+                        status.resolved ? 'bg-emerald-500' : status.started ? 'bg-indigo-500' : 'bg-slate-300',
+                      )}
                     />
-                    <span className="text-meta text-slate-600">pts</span>
+                    <span className="truncate text-meta font-medium text-slate-700">{STAGE_LABELS[stage]}</span>
+                    <span className="ml-auto shrink-0 text-micro text-slate-600">Derived</span>
                   </div>
                 </Field>
-              )}
 
-              <Field label="Target start">
-                <div className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm">
-                  <CalendarDays size={12} className="shrink-0 text-slate-400" />
-                  <input
-                    type="date"
-                    value={item.targetStartDate ?? ''}
-                    onChange={(e) => setItemFields(item.id, { targetStartDate: e.target.value || undefined })}
-                    className="min-w-0 flex-1 bg-transparent text-meta text-slate-600 outline-none"
-                  />
-                </div>
-              </Field>
+                <Field label="Priority">
+                  <div className="relative">
+                    <button
+                      onClick={() => setPriorityOpen((o) => !o)}
+                      className={cn(WELL, 'w-full text-left font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
+                    >
+                      {item.priority ? (
+                        <>
+                          {(() => {
+                            const Icon = PRIORITY_META[item.priority].icon
+                            return <Icon size={12} className={cn('shrink-0', PRIORITY_META[item.priority].dot)} />
+                          })()}
+                          <span>{PRIORITY_META[item.priority].label}</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-600">None</span>
+                      )}
+                      <ChevronDown size={12} className="ml-auto shrink-0 text-slate-400" />
+                    </button>
+                    {priorityOpen && (
+                      <div className="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg">
+                        <button
+                          onClick={() => { setItemFields(item.id, { priority: undefined }); setPriorityOpen(false) }}
+                          className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50"
+                        >
+                          <Minus size={12} /> None
+                          {!item.priority && <Check size={11} className="ml-auto text-indigo-600" />}
+                        </button>
+                        {PRIORITY_ORDER.map((p) => {
+                          const { label, icon: Icon, dot } = PRIORITY_META[p]
+                          return (
+                            <button
+                              key={p}
+                              onClick={() => { setItemFields(item.id, { priority: p }); setPriorityOpen(false) }}
+                              className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-meta text-slate-700 hover:bg-slate-50"
+                            >
+                              <Icon size={12} className={dot} /> {label}
+                              {item.priority === p && <Check size={11} className="ml-auto text-indigo-600" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </Field>
 
-              <Field label="Target end">
-                <div className="flex items-center gap-1 rounded bg-white px-2 py-1.5 shadow-sm">
-                  <CalendarDays size={12} className="shrink-0 text-slate-400" />
-                  <input
-                    type="date"
-                    value={item.targetEndDate ?? ''}
-                    onChange={(e) => setItemFields(item.id, { targetEndDate: e.target.value || undefined })}
-                    className="min-w-0 flex-1 bg-transparent text-meta text-slate-600 outline-none"
-                  />
-                </div>
-              </Field>
-            </div>
+                {/* Type and Kind — the labels a card or an initiative wears. A card's type is the
+                    one you choose; an initiative's type is what makes it one, so it is fixed (the
+                    ⋯ menu says so) and only its kind is a choice. */}
+                {!typeIsFixed && (
+                  <Field label="Type">
+                    <select
+                      value={item.typeId}
+                      onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
+                      className={cn(WELL, 'w-full font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
+                    >
+                      {typeOptions.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+
+                {isInitiative && (
+                  <Field label="Kind">
+                    <select
+                      value={item.initiativeTypeId ?? ''}
+                      onChange={(e) => setInitiativeKind(item.id, e.target.value || undefined)}
+                      className={cn(WELL, 'w-full font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
+                    >
+                      <option value="">None</option>
+                      {kinds.map((k) => (
+                        <option key={k.id} value={k.id}>{k.name}</option>
+                      ))}
+                      {/* A kind defined on another board still shows, so the control never lies
+                          about what the item says. */}
+                      {kind && !kinds.some((k) => k.id === kind.id) && <option value={kind.id}>{kind.name}</option>}
+                    </select>
+                  </Field>
+                )}
+
+                <Field label="People">
+                  <div className="flex flex-wrap items-center gap-1">
+                    {(item.assignees ?? []).map((id) => {
+                      const u = userById(id)
+                      return (
+                        <span key={id} className={CHIP}>
+                          <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-white text-micro font-bold text-slate-600 ring-1 ring-slate-200">
+                            {initialsOf(u?.name ?? id)}
+                          </span>
+                          {u?.name ?? id}
+                          <button
+                            onClick={() => setItemFields(item.id, { assignees: (item.assignees ?? []).filter((x) => x !== id) })}
+                            className="text-slate-500 transition hover:text-rose-600"
+                            title={`Remove ${u?.name ?? id}`}
+                            aria-label={`Remove ${u?.name ?? id}`}
+                          >
+                            <X size={11} />
+                          </button>
+                        </span>
+                      )
+                    })}
+                    <input
+                      list="flowline-assignees"
+                      value={assigneeDraft}
+                      onChange={(e) => setAssigneeDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          applyAssignee()
+                        }
+                      }}
+                      placeholder="Add a name…"
+                      className="min-w-[6rem] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
+                    />
+                    <datalist id="flowline-assignees">
+                      {users.map((u) => (
+                        <option key={u.id} value={u.name} />
+                      ))}
+                    </datalist>
+                  </div>
+                </Field>
+
+                {/* Tags — a set, on a card or an initiative alike. Adding offers this board's tags
+                    (the board whose surface the panel is beside); removing always works, so an item
+                    can be cleared whatever happened to a definition. */}
+                <Field label="Tags" hint={boardTagList.length === 0 ? 'This board has no tags yet — type one to make it.' : undefined}>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {itemTags.map((t) => {
+                      const chip = chipColors(t.color)
+                      return (
+                        <span
+                          key={t.id}
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-meta font-medium"
+                          style={{ backgroundColor: chip.background, color: chip.color }}
+                        >
+                          {t.name}
+                          <button
+                            onClick={() => toggleItemTag(boardId, item.id, t.id)}
+                            className="opacity-60 transition hover:opacity-100"
+                            title={`Remove ${t.name}`}
+                            aria-label={`Remove ${t.name}`}
+                          >
+                            <X size={11} />
+                          </button>
+                        </span>
+                      )
+                    })}
+                    {/* Type to find one: the board's vocabulary, filtered as you go — or to make
+                        a new one, which the board settings then owns like any other. */}
+                    <TagInput
+                      tags={boardTagList}
+                      carried={item.tagIds ?? []}
+                      onAdd={(id) => toggleItemTag(boardId, item.id, id)}
+                      onCreate={(name) => {
+                        const id = addTag(boardId, name, TAG_PALETTE[boardTagList.length % TAG_PALETTE.length])
+                        if (id) toggleItemTag(boardId, item.id, id)
+                      }}
+                      className="min-w-[7rem] flex-1"
+                    />
+                  </div>
+                </Field>
+
+                {isInitiative ? (
+                  /* An initiative has no estimate: its size is the sum of the sizes of the items
+                     below it. So the field reads rather than writes, and says why. */
+                  <Field label="Size below">
+                    <div className={WELL} title="The sizes of the leaf work below this initiative, unsized work counting as 1 — never entered">
+                      <span className="min-w-0 flex-1 truncate text-meta font-semibold tabular-nums text-slate-700">{roll.size} pts</span>
+                      <span className="shrink-0 text-micro text-slate-600">Derived</span>
+                    </div>
+                  </Field>
+                ) : (
+                  <Field label="Estimate">
+                    <div className={WELL}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={item.size ?? ''}
+                        onChange={(e) => setItemFields(item.id, { size: e.target.value === '' ? undefined : Number(e.target.value) })}
+                        placeholder="—"
+                        aria-label="Estimate in points"
+                        className="w-12 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
+                      />
+                      <span className="text-meta text-slate-600">pts</span>
+                    </div>
+                  </Field>
+                )}
+
+                <Field label="Target dates" className="col-span-2">
+                  <div className={WELL}>
+                    <CalendarDays size={13} className="shrink-0 text-slate-400" />
+                    <input
+                      type="date"
+                      value={item.targetStartDate ?? ''}
+                      onChange={(e) => setItemFields(item.id, { targetStartDate: e.target.value || undefined })}
+                      aria-label="Target start"
+                      className="min-w-0 flex-1 bg-transparent text-meta text-slate-700 outline-none"
+                    />
+                    <ArrowRight size={12} className="shrink-0 text-slate-400" />
+                    <input
+                      type="date"
+                      value={item.targetEndDate ?? ''}
+                      onChange={(e) => setItemFields(item.id, { targetEndDate: e.target.value || undefined })}
+                      aria-label="Target end"
+                      className="min-w-0 flex-1 bg-transparent text-meta text-slate-700 outline-none"
+                    />
+                  </div>
+                </Field>
+              </div>
+            </section>
 
             {/* Strategic impact — OKRs attach to initiatives, and to nothing else. A card is
                 not shown its initiative's OKRs either: relating work to strategy is the
                 initiative's job, and asking a team to do it card by card is the thing
                 initiatives exist to save them from. */}
             {isInitiative && (
-              <section className="rounded-lg bg-indigo-50/70 p-2.5 ring-1 ring-indigo-100">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-micro font-semibold uppercase tracking-wide text-indigo-700">
-                    <TrendingUp size={12} /> Strategic impact
-                  </span>
-                </div>
-
+              <Section label="Strategic impact">
                 {!isStrategic ? (
-                  <p className="mt-1 text-meta text-indigo-700/70">
-                    OKRs attach to strategic initiatives — the ones a portfolio board owns — and this one
-                    inherits the OKRs it serves from the strategic initiative above it. Map them there.
+                  <p className="rounded-xl bg-slate-50 p-3 text-meta leading-relaxed text-slate-600 ring-1 ring-slate-200">
+                    Objectives attach to strategic initiatives — the ones a portfolio board owns. This one
+                    is not on a portfolio board, so its objective is set on the initiative above it.
                   </p>
                 ) : (
-                  <>
+                  <div className="space-y-2 rounded-xl bg-indigo-50/60 p-3 ring-1 ring-indigo-100">
                     {/* One choice, not a set — the shape the kind and the type already have, and the
                         shape the model keeps. Choosing another objective moves the initiative, so
                         there is nothing here to tick twice and nothing that could serve two. */}
-                    <select
-                      value={attributed[0]?.id ?? ''}
-                      onChange={(e) => {
-                        const next = e.target.value
-                        if (next) setAttribution(item.id, next, true)
-                        else if (attributed[0]) setAttribution(item.id, attributed[0].id, false)
-                      }}
-                      className="mt-1.5 w-full rounded border border-indigo-200 bg-white px-2 py-1.5 text-meta font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-                      title="The objective this initiative serves — at most one, so choosing another moves it"
-                    >
-                      <option value="">No OKR</option>
-                      {objectives.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.title} · {o.period}
-                        </option>
-                      ))}
-                    </select>
+                    <Field label="Objective">
+                      <select
+                        value={attributed[0]?.id ?? ''}
+                        onChange={(e) => {
+                          const next = e.target.value
+                          if (next) setAttribution(item.id, next, true)
+                          else if (attributed[0]) setAttribution(item.id, attributed[0].id, false)
+                        }}
+                        title="The objective this initiative serves — at most one, so choosing another moves it"
+                        className="w-full rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-meta font-medium text-slate-700 outline-none transition focus:ring-2 focus:ring-indigo-400"
+                      >
+                        <option value="">No objective</option>
+                        {objectives.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.title} · {o.period}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
 
                     {attributed.length === 0 ? (
-                      <p className="mt-1.5 text-meta text-indigo-700/70">No OKR maps to this initiative yet.</p>
+                      <p className="text-meta text-slate-600">No objective yet.</p>
                     ) : (
-                      <div className="mt-1.5 space-y-1.5">
+                      <>
                         {/* What the objective means, and how far along the work that serves it is.
                             The key results are the words; the number comes from the work. */}
                         {keyResults.filter((k) => k.objectiveId === attributed[0].id).length === 0 ? (
-                          <p className="text-meta text-slate-600">No key results yet.</p>
+                          <p className="text-meta text-slate-600">This objective has no key results yet.</p>
                         ) : (
-                          <ul className="space-y-0.5 text-meta text-slate-600">
+                          <ul className="space-y-0.5">
                             {keyResults
                               .filter((k) => k.objectiveId === attributed[0].id)
                               .map((k) => (
-                                <li key={k.id} className="truncate" title={k.title}>
-                                  {k.title}
+                                <li key={k.id} className="flex items-start gap-1.5 text-meta text-slate-700" title={k.title}>
+                                  <Target size={11} className="mt-0.5 shrink-0 text-indigo-400" />
+                                  <span className="min-w-0 flex-1">{k.title}</span>
                                 </li>
                               ))}
                           </ul>
                         )}
                         <ObjectiveProgress objectiveId={attributed[0].id} />
-                      </div>
+                      </>
                     )}
-                  </>
+                  </div>
                 )}
-              </section>
+              </Section>
             )}
 
-            {/* Product specification — the description, rendered as markdown */}
-            <section>
-              <div className="mb-1.5 flex items-center justify-between">
-                <SectionLabel>Product specification</SectionLabel>
-                <div className="mb-1.5 flex items-center gap-0.5 rounded border border-slate-200 p-0.5">
+            {/* The description — the card's own words, written as markdown. */}
+            <Section
+              label="Description"
+              action={
+                <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 p-0.5">
                   {(['Write', 'Preview'] as const).map((m) => {
                     const on = (m === 'Preview') === showPreview
                     return (
                       <button
                         key={m}
                         onClick={() => setShowPreview(m === 'Preview')}
-                        className={cn('rounded px-1.5 py-px text-meta font-medium', on ? 'bg-slate-800 text-white' : 'text-slate-600 hover:text-slate-700')}
+                        className={cn(
+                          'rounded-md px-2 py-0.5 text-micro font-medium transition',
+                          on ? 'bg-slate-800 text-white' : 'text-slate-600 hover:text-slate-900',
+                        )}
                       >
                         {m}
                       </button>
                     )
                   })}
                 </div>
-              </div>
+              }
+            >
               {showPreview ? (
                 <div
-                  className="min-h-[72px] rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-meta leading-relaxed text-slate-700"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(item.description ?? '') || '<p class="text-slate-600">Nothing to preview.</p>' }}
+                  className="min-h-[72px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-meta leading-relaxed text-slate-700"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(item.description ?? '') || '<p class="text-slate-600">Nothing to preview yet.</p>' }}
                 />
               ) : (
                 <textarea
@@ -971,37 +954,37 @@ export function ItemPanel({ itemId }: Props) {
                   onBlur={() => endTextEdit('description')}
                   onChange={(e) => setItemFields(item.id, { description: e.target.value })}
                   rows={5}
-                  placeholder="Add a description… (supports **bold**, lists, `code`, links)"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
+                  placeholder="Add a description. Markdown is supported — **bold**, lists, `code`, links."
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-meta leading-relaxed outline-none transition focus:ring-2 focus:ring-indigo-400"
                 />
               )}
-            </section>
+            </Section>
 
             {/* Checklist — a card's sub-tasks. They are not work of their own: no
                 placement, no WIP, no status beyond ticked. An initiative has children
-                instead, and they are listed under Hierarchy & Links. */}
+                instead, and they are listed under Hierarchy. */}
             {!isInitiative && (
-              <section>
-                <div className="mb-1.5 flex items-center gap-1.5">
-                  <SectionLabel>Checklist</SectionLabel>
-                  {checklist.length > 0 && (
-                    <span className="rounded-full bg-slate-200 px-1.5 text-micro font-bold tabular-nums text-slate-600">
-                      {checklist.filter((c) => c.done).length}/{checklist.length}
-                    </span>
-                  )}
-                </div>
+              <Section
+                label="Checklist"
+                count={checklist.length}
+                aside={
+                  checklist.length > 0 ? (
+                    <span className="text-micro text-slate-600">{checklist.filter((c) => c.done).length} of {checklist.length} done</span>
+                  ) : undefined
+                }
+              >
                 <div className="space-y-0.5">
-                  {checklist.length === 0 && <p className="text-meta text-slate-600">No sub-tasks yet.</p>}
+                  {checklist.length === 0 && <p className="text-meta text-slate-600">Nothing here yet. Add the first sub-task below.</p>}
                   {checklist.map((entry) => (
-                    <div key={entry.id} className="group flex items-center gap-2 rounded px-1 py-1 transition hover:bg-slate-100">
+                    <div key={entry.id} className="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition hover:bg-slate-50">
                       <button onClick={() => toggleChecklistEntry(item.id, entry.id)} title={entry.done ? 'Untick' : 'Tick'} className="shrink-0">
                         <span
                           className={cn(
-                            'flex h-3.5 w-3.5 items-center justify-center rounded border transition',
+                            'flex h-4 w-4 items-center justify-center rounded border transition',
                             entry.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white',
                           )}
                         >
-                          {entry.done && <Check size={10} />}
+                          {entry.done && <Check size={11} />}
                         </span>
                       </button>
                       {editingEntry === entry.id ? (
@@ -1018,7 +1001,7 @@ export function ItemPanel({ itemId }: Props) {
                             }
                           }}
                           onBlur={() => saveEntry(entry.id)}
-                          className="min-w-0 flex-1 rounded border border-indigo-300 bg-white px-1 py-px text-meta outline-none focus:ring-2 focus:ring-indigo-300"
+                          className="min-w-0 flex-1 rounded border border-indigo-300 bg-white px-1.5 py-0.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
                         />
                       ) : (
                         <button
@@ -1035,14 +1018,15 @@ export function ItemPanel({ itemId }: Props) {
                       <button
                         onClick={() => removeChecklistEntry(item.id, entry.id)}
                         title="Remove"
-                        className="shrink-0 text-slate-600 opacity-0 transition group-hover:opacity-100 hover:text-rose-500"
+                        aria-label={`Remove ${entry.text}`}
+                        className="shrink-0 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-600"
                       >
-                        <X size={12} />
+                        <X size={13} />
                       </button>
                     </div>
                   ))}
                 </div>
-                <div className="mt-1.5 flex items-center gap-1">
+                <div className="mt-2 flex items-center gap-1.5">
                   <input
                     value={newSubtask}
                     onChange={(e) => setNewSubtask(e.target.value)}
@@ -1050,211 +1034,249 @@ export function ItemPanel({ itemId }: Props) {
                       if (e.key === 'Enter') addSubtask()
                     }}
                     placeholder="Add a sub-task…"
-                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
                   />
                   <button
                     disabled={newSubtask.trim().length === 0}
                     onClick={addSubtask}
-                    className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-meta font-medium text-white disabled:opacity-40"
+                    className="flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
                   >
-                    <Plus size={11} /> Add
+                    <Plus size={12} /> Add
                   </button>
                 </div>
-              </section>
+              </Section>
             )}
-
-          </div>
+          </>
         )}
 
         {tab === 'hierarchy' && (
-          <div className="space-y-4">
-            {/* Lineage — OKR → top-level initiative → … → this item */}
-            <section>
-              <SectionLabel>Lineage — how this rolls up</SectionLabel>
-              <ol className="space-y-0.5">
-                {lineageRows.map((row, i) => (
-                  <li key={row.key}>
-                    {row.node}
-                    {i < lineageRows.length - 1 && (
-                      <div className="flex justify-center py-0.5 text-slate-300" aria-hidden>
-                        <ArrowDown size={12} />
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-1 text-meta text-slate-600">
-                {lineageObjectives.length > 0
-                  ? 'Top-down: OKR → initiative → this work. Click any step to jump.'
-                  : 'Click any step to jump. No OKR maps above this item.'}{' '}
-                Depth {d} — derived from the parent chain, not a field.
-              </p>
-            </section>
-
-            {/* Parent */}
-            <section>
-              <SectionLabel>Parent — one parent, any number of children</SectionLabel>
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1">
-                  <span className="text-micro uppercase tracking-wide text-slate-600">Parent</span>
-                  {parent ? (
-                    <>
-                      <button onClick={() => close(parent.id)} className="min-w-0 flex-1 truncate text-left text-slate-700 hover:text-indigo-600">
-                        {typeName(parent.typeId)} · {parent.title}
-                      </button>
-                      <button onClick={() => setParent(item.id, null)} className="text-slate-600 hover:text-rose-500" title="Remove parent">
-                        <X size={12} />
-                      </button>
-                    </>
-                  ) : (
-                    <span className="flex-1 text-meta text-slate-600">none (root)</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
+          <>
+            {/* How it rolls up — the chain from the objective down to this item, and the one
+                thing you can change about it. */}
+            <Section
+              label="How this rolls up"
+              aside={<span className="text-micro text-slate-600">Depth {d}</span>}
+              action={
+                <button
+                  onClick={() => {
+                    setParentEditorOpen((o) => !o)
+                    setParentChoice('')
+                  }}
+                  className="text-micro font-medium text-indigo-600 transition hover:text-indigo-500"
+                >
+                  {parentEditorOpen ? 'Cancel' : 'Change parent'}
+                </button>
+              }
+            >
+              {parentEditorOpen ? (
+                <div className="space-y-2 rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200">
                   <select
                     value={parentChoice}
                     onChange={(e) => setParentChoice(e.target.value)}
-                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
                   >
-                    <option value="">Set parent…</option>
+                    <option value="">Choose an initiative…</option>
                     {candidates.map((c) => (
-                      <option key={c.id} value={c.id}>{typeName(c.typeId)}: {c.title}</option>
+                      <option key={c.id} value={c.id}>{c.title}</option>
                     ))}
                   </select>
-                  <button
-                    disabled={!parentChoice}
-                    onClick={() => { setParent(item.id, parentChoice); setParentChoice('') }}
-                    className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white disabled:opacity-40"
-                  >
-                    Set
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      disabled={!parentChoice}
+                      onClick={() => { setParent(item.id, parentChoice); setParentChoice(''); setParentEditorOpen(false) }}
+                      className="rounded-lg bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      Set parent
+                    </button>
+                    {parent && (
+                      <button
+                        onClick={() => { setParent(item.id, null); setParentEditorOpen(false) }}
+                        className="rounded-lg px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
+                      >
+                        Remove parent
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-micro text-slate-600">A parent is always an initiative. Everything below it rolls up to it.</p>
                 </div>
-              </div>
-            </section>
+              ) : (
+                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
+                  {/* The objectives this work serves, at the top of the chain — they are the
+                      "why" above the "what". */}
+                  {lineageObjectives.map((o) => (
+                    <button
+                      key={`okr-${o.id}`}
+                      onClick={() => {
+                        close(null)
+                        setObjectives(true)
+                      }}
+                      title="Open Objectives & Key Results"
+                      className="flex w-full items-center gap-2 bg-indigo-50/60 px-2.5 py-2 text-left transition hover:bg-indigo-50"
+                    >
+                      <Target size={12} className="shrink-0 text-indigo-500" />
+                      <span className="min-w-0 flex-1 truncate text-meta font-medium text-indigo-700">{o.title}</span>
+                      <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-indigo-500">Objective</span>
+                    </button>
+                  ))}
+                  {lineage.map((node) => {
+                    const self = node.id === item.id
+                    return self ? (
+                      <div key={node.id} className="flex items-center gap-2 bg-slate-50 px-2.5 py-2">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
+                        <span className="min-w-0 flex-1 truncate text-meta font-semibold text-slate-800">{node.title}</span>
+                        <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-slate-200">
+                          Depth {d}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        key={node.id}
+                        onClick={() => close(node.id)}
+                        title={`Open ${node.title}`}
+                        className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition hover:bg-slate-50"
+                      >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
+                        <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{node.title}</span>
+                        <span className="shrink-0 text-micro text-slate-600">{typeName(node.typeId)}</span>
+                      </button>
+                    )
+                  })}
+                  {lineage.length === 1 && lineageObjectives.length === 0 && (
+                    <p className="px-2.5 py-2 text-meta text-slate-600">Nothing above this — it stands on its own.</p>
+                  )}
+                </div>
+              )}
+            </Section>
 
             {/* Children — the items below this one. Real work, with its own status and its
                 own home on a board; a card's own sub-tasks are a checklist, not children. */}
-            <section>
-              <div className="mb-1.5 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <SectionLabel>Children — the items below this one</SectionLabel>
-                  {children.length > 0 && (
-                    <span className="rounded-full bg-slate-200 px-1.5 text-micro font-bold tabular-nums text-slate-600">{children.length}</span>
-                  )}
-                </div>
-                {exposure.length > 0 && <span className="text-meta text-amber-700">{exposure.length} open below</span>}
-              </div>
-              <div className="space-y-1">
-                {children.length === 0 && <p className="text-meta text-slate-600">No children.</p>}
-                {children.map((c) => {
-                  const cStatus = statusOf(c.id, graph)
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => close(c.id)}
-                      className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left transition hover:bg-slate-50"
-                    >
-                      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
-                      <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                      {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1 text-meta font-semibold text-amber-700">archived</span>}
-                      <span className="shrink-0 text-meta text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
-                      <span className={cn('shrink-0 rounded px-1.5 py-px text-meta font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
-                        {STAGE_LABELS[rollupOf(c.id, graph).bucket]}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="mt-1 text-meta text-slate-600">
-                A child is an item of its own — set its parent from its own panel, or link a team initiative below.
-              </p>
-            </section>
-
-            {/* Links — dependencies between two items */}
-            <section>
-              <SectionLabel>Links — dependencies</SectionLabel>
-              {badge.count > 0 && (
-                <div className="mb-2 flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-meta text-amber-800 ring-1 ring-amber-100">
-                  <GitBranch size={11} /> {badge.count} card{badge.count > 1 ? 's' : ''} depend on this across {badge.boards} board{badge.boards > 1 ? 's' : ''}
+            <Section label="Items below" count={children.length} aside={doneBelow && <span className="text-micro text-slate-600">{doneBelow}</span>}>
+              {children.length === 0 ? (
+                <p className="text-meta text-slate-600">
+                  Nothing below this yet. An initiative below it is made with <span className="font-medium">+ Initiative</span> on the board.
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {children.map((c) => {
+                    const cStatus = statusOf(c.id, graph)
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => close(c.id)}
+                        className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
+                        <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
+                        {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
+                        <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
+                        <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold', stageChip(rollupOf(c.id, graph).bucket))}>
+                          {STAGE_LABELS[rollupOf(c.id, graph).bucket]}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
-              <div className="space-y-1">
-                {dependencies.length === 0 && dependents.length === 0 && <p className="text-meta text-slate-600">No links.</p>}
-                {dependencies.map((dep) => {
-                  const state = DEP_STATE_STYLES[dep.state]
-                  return (
-                    <div key={dep.link.id} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                      <div className="flex items-center gap-1 text-meta text-slate-600"><GitBranch size={10} /> depends on</div>
-                      <div className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependency.title}</span>
-                        {dep.dependency.archived && <span className="rounded bg-amber-100 px-1 text-meta font-semibold text-amber-700">archived</span>}
-                        <span className={cn('rounded px-1 text-meta font-semibold ring-1', state.className)}>{state.label}</span>
-                        <button
-                          onClick={() => removeDependency(dep.dependency.id, dep.dependent.id)}
-                          className="shrink-0 text-slate-400 hover:text-rose-500"
-                          title="Remove this link — the dependency itself is untouched"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                      <div className="text-meta text-slate-600">
-                        derived → {dependencyState(dep.dependency.id, dep.dependent.id, graph)}
-                      </div>
-                    </div>
-                  )
-                })}
-                {dependents.map((dep) => (
-                  <div key={dep.link.id} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                    <div className="flex items-center gap-1 text-meta text-slate-600"><GitBranch size={10} /> depended on by</div>
-                    <div className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1 truncate text-slate-700">{dep.dependent.title}</div>
-                      {dep.dependent.archived && <span className="rounded bg-amber-100 px-1 text-meta font-semibold text-amber-700">archived</span>}
-                    </div>
-                    <div className="text-meta text-slate-600">{statusOf(dep.dependent.id, graph).resolved ? 'dependent resolved' : `derived → ${DEP_STATE_STYLES[dep.state].label}`}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-2 flex items-center gap-1">
-                <select value={dependencyId} onChange={(e) => setDependencyId(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta">
-                  <option value="">Add link: this depends on…</option>
-                  {candidates.map((c) => (
-                    <option key={c.id} value={c.id}>{typeName(c.typeId)}: {c.title}</option>
-                  ))}
-                </select>
-                <button disabled={!dependencyId} onClick={() => { addDependency(dependencyId, item.id); setDependencyId('') }} className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white disabled:opacity-40">Add link</button>
-              </div>
-              <p className="mt-1 text-meta text-slate-600">
-                Links connect two items — this one depends on another. They never set the blocked status.
-              </p>
-            </section>
+              {exposure.length > 0 && <p className="text-micro text-amber-700">{exposure.length} still open below.</p>}
+            </Section>
 
-            {/* Team initiatives (link a management initiative down to a team board) */}
-            {isInitiative && (
-              <section>
-                <SectionLabel>Team initiatives — linked</SectionLabel>
+            {/* Dependencies — a link between two items. */}
+            <Section label="Dependencies" count={dependencies.length + dependents.length}>
+              {badge.count > 0 && (
+                <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-meta text-amber-800 ring-1 ring-amber-200">
+                  <GitBranch size={12} className="shrink-0" />
+                  {badge.count} card{badge.count > 1 ? 's' : ''} depend{badge.count > 1 ? '' : 's'} on this, across {badge.boards} board{badge.boards > 1 ? 's' : ''}
+                </div>
+              )}
+              {dependencies.length === 0 && dependents.length === 0 ? (
+                <p className="text-meta text-slate-600">No links yet. Add one below.</p>
+              ) : (
                 <div className="space-y-1">
-                  {linkedInitiatives.length === 0 && (
-                    <p className="text-meta text-slate-600">No linked team initiatives yet.</p>
-                  )}
-                  {linkedInitiatives.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => close(c.id)}
-                      className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-left hover:bg-slate-50"
-                    >
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
-                      <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
-                      <span className="text-meta text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
-                    </button>
+                  {dependencies.map((dep) => {
+                    const state = DEP_STATE_STYLES[dep.state]
+                    return (
+                      <div key={dep.link.id} className="rounded-lg border border-slate-200 px-2.5 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="shrink-0 text-micro text-slate-600">Depends on</span>
+                          <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependency.title}</span>
+                          {dep.dependency.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
+                          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold ring-1', state.className)}>{state.label}</span>
+                          <button
+                            onClick={() => removeDependency(dep.dependency.id, dep.dependent.id)}
+                            className="shrink-0 text-slate-500 transition hover:text-rose-600"
+                            title="Remove this link — the other item is untouched"
+                            aria-label={`Remove the link to ${dep.dependency.title}`}
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                        <p className="mt-0.5 text-micro text-slate-600">{dependencyState(dep.dependency.id, dep.dependent.id, graph)}</p>
+                      </div>
+                    )
+                  })}
+                  {dependents.map((dep) => (
+                    <div key={dep.link.id} className="rounded-lg border border-slate-200 px-2.5 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-micro text-slate-600">Depends on this</span>
+                        <span className="min-w-0 flex-1 truncate text-slate-700">{dep.dependent.title}</span>
+                        {dep.dependent.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
+                      </div>
+                      <p className="mt-0.5 text-micro text-slate-600">
+                        {statusOf(dep.dependent.id, graph).resolved ? 'Done' : DEP_STATE_STYLES[dep.state].label}
+                      </p>
+                    </div>
                   ))}
                 </div>
-                <div className="mt-2 flex items-center gap-1">
+              )}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={dependencyId}
+                  onChange={(e) => setDependencyId(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
+                >
+                  <option value="">This depends on…</option>
+                  {candidates.map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+                <button
+                  disabled={!dependencyId}
+                  onClick={() => { addDependency(dependencyId, item.id); setDependencyId('') }}
+                  className="shrink-0 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+                >
+                  Add link
+                </button>
+              </div>
+              <p className="text-micro text-slate-600">A link says one item depends on another. It never blocks anything by itself.</p>
+            </Section>
+
+            {/* Team initiatives — a management initiative decomposed onto a team board. */}
+            {isInitiative && (
+              <Section label="Team initiatives" count={linkedInitiatives.length}>
+                {linkedInitiatives.length === 0 ? (
+                  <p className="text-meta text-slate-600">No team initiatives yet.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {linkedInitiatives.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => close(c.id)}
+                        className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
+                        <span className="min-w-0 flex-1 truncate text-slate-700">{c.title}</span>
+                        <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
                   <select
                     value={linkBoardId}
                     onChange={(e) => setLinkBoardId(e.target.value)}
-                    className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
                   >
-                    <option value="">Link to a team board…</option>
+                    <option value="">On a team board…</option>
                     {teamBoards.map((b) => (
                       <option key={b.id} value={b.id}>{b.name}</option>
                     ))}
@@ -1262,8 +1284,8 @@ export function ItemPanel({ itemId }: Props) {
                   <input
                     value={linkTitle}
                     onChange={(e) => setLinkTitle(e.target.value)}
-                    placeholder="New initiative"
-                    className="w-28 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta"
+                    placeholder="Its name"
+                    className="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
                   />
                   <button
                     disabled={!linkBoardId || linkTitle.trim().length < 2}
@@ -1271,82 +1293,81 @@ export function ItemPanel({ itemId }: Props) {
                       linkTeamInitiative(item.id, linkBoardId, linkTitle.trim())
                       setLinkTitle('')
                     }}
-                    className="rounded bg-indigo-600 px-2 py-1 text-meta font-medium text-white disabled:opacity-40"
+                    className="shrink-0 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
                   >
                     Create
                   </button>
                 </div>
-                <p className="mt-1 text-meta text-slate-600">
-                  Creates a team initiative on that board, beneath this one — its cards roll up here.
-                </p>
-              </section>
+                <p className="text-micro text-slate-600">Makes a team initiative on that board, below this one. Its cards roll up here.</p>
+              </Section>
             )}
 
-            {/* Placements — board + cell (click to jump there) */}
-            <section>
-              <SectionLabel>On these boards ({itemPlacements.length})</SectionLabel>
-              <div className="space-y-1">
-                {itemPlacements.length === 0 && <p className="text-meta text-slate-600">Not placed on any board.</p>}
-                {itemPlacements.map((p) => {
-                  const b = boards.find((bb) => bb.id === p.boardId)
-                  const here = p.boardId === boardId
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        selectBoard(p.boardId)
-                        close(item.id)
-                      }}
-                      title={here ? 'This board' : `Go to ${b?.name ?? 'board'}`}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-lg border px-2 py-1 text-left transition',
-                        here ? 'border-slate-200 bg-slate-100' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50',
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-slate-700">{b?.name ?? '—'}</span>
-                      <span className="min-w-0 max-w-[55%] truncate text-meta text-slate-600">{lanePath(lanes, p.laneId).join(' / ')}</span>
-                      {!here && <span className="shrink-0 text-meta text-indigo-500">↗</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            </section>
-          </div>
+            {/* Placements — the boards this item is on, and the cell in each. */}
+            <Section label="On these boards" count={itemPlacements.length}>
+              {itemPlacements.length === 0 ? (
+                <p className="text-meta text-slate-600">Not on any board yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {itemPlacements.map((p) => {
+                    const b = boards.find((bb) => bb.id === p.boardId)
+                    const here = p.boardId === boardId
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          selectBoard(p.boardId)
+                          close(item.id)
+                        }}
+                        title={here ? 'This is the board in front of you' : `Go to ${b?.name ?? 'board'}`}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition',
+                          here ? 'border-slate-200 bg-slate-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50',
+                        )}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-slate-700">{b?.name ?? '—'}</span>
+                        <span className="min-w-0 max-w-[55%] truncate text-micro text-slate-600">{lanePath(lanes, p.laneId).join(' / ')}</span>
+                        {!here && <ArrowRight size={12} className="shrink-0 text-indigo-500" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </Section>
+          </>
         )}
 
         {tab === 'activity' && (
-          <section>
-            <div className="mb-1.5 flex items-center justify-between">
-              <SectionLabel>Activity ({log.length})</SectionLabel>
-              <span className="text-meta text-slate-600">append-only</span>
-            </div>
-            <div className="space-y-1">
-              {log.length === 0 && <p className="text-meta text-slate-600">No events yet.</p>}
-              {[...log].reverse().map((e) => (
-                <div key={e.id} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                  <span className={cn('mt-1 h-1.5 w-1.5 shrink-0 rounded-full', LOG_STYLES[e.kind] ?? 'bg-slate-300')} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-meta text-slate-700">
-                      <span className="font-semibold capitalize">{e.kind}</span>
-                      {e.kind === 'noted' && e.note ? (
-                        // A comment is markdown, like a description — the composer promises it.
-                        <div className="mt-0.5" dangerouslySetInnerHTML={{ __html: renderMarkdown(e.note) }} />
-                      ) : (
-                        e.note ? ` — ${e.note}` : ''
-                      )}
+          <Section label="Activity" count={log.length} aside={<span className="text-micro text-slate-600">Newest first</span>}>
+            {log.length === 0 ? (
+              <p className="text-meta text-slate-600">Nothing has happened to this yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {[...log].reverse().map((e) => (
+                  <div key={e.id} className="flex items-start gap-2 rounded-lg border border-slate-200 px-2.5 py-2">
+                    <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', LOG_STYLES[e.kind] ?? 'bg-slate-300')} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-meta text-slate-700">
+                        <span className="font-medium capitalize">{e.kind}</span>
+                        {e.kind === 'noted' && e.note ? (
+                          // A comment is markdown, like a description — the composer promises it.
+                          <div className="mt-0.5" dangerouslySetInnerHTML={{ __html: renderMarkdown(e.note) }} />
+                        ) : (
+                          e.note ? ` — ${e.note}` : ''
+                        )}
+                      </div>
+                      <div className="text-micro text-slate-600">{whenLabel(e.at)}</div>
                     </div>
-                    <div className="text-meta text-slate-600">{new Date(e.at).toLocaleString()}</div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            )}
+          </Section>
         )}
       </div>
 
-      {/* ---- Sticky composer ------------------------------------------------------ */}
-      <div className="shrink-0 space-y-1 border-t border-slate-200 bg-white px-3 py-2">
-        <div className="relative flex items-center">
+      {/* ---- The composer: one line, and what it will do ------------------------- */}
+      <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-2.5">
+        <div className="flex items-center gap-2">
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -1357,28 +1378,44 @@ export function ItemPanel({ itemId }: Props) {
               }
             }}
             placeholder="Leave a note or mention @teammate…"
-            className="w-full rounded-lg bg-slate-100 py-2 pl-3 pr-20 text-meta outline-none transition focus:bg-slate-50 focus:ring-2 focus:ring-indigo-300"
+            aria-label="Leave a note"
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
           />
-          <div className="absolute right-1.5 flex items-center gap-1">
-            <button
-              disabled={note.trim().length === 0}
-              onClick={() => {
-                addLogNote(item.id, note.trim())
-                setNote('')
-              }}
-              className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-meta font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-40"
-            >
-              <Pencil size={11} /> Send
-            </button>
-          </div>
+          <button
+            disabled={note.trim().length === 0}
+            onClick={() => {
+              addLogNote(item.id, note.trim())
+              setNote('')
+            }}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-meta font-semibold text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+          >
+            <Send size={13} /> Send
+          </button>
         </div>
-        <div className="flex items-center justify-between px-1 text-meta text-slate-600">
-          <span>Enter to send</span>
+        <div className="mt-1.5 flex items-center justify-between px-0.5 text-micro text-slate-600">
+          <span>Press Enter to send</span>
           <span>Markdown supported</span>
         </div>
       </div>
     </aside>
   )
+}
+
+/**
+ * When something happened, as a person says it: today, yesterday, or the date.
+ *
+ * The full timestamp is what the log holds; a drawer read at a glance wants the day, and the time
+ * only when it is the same day — where "14:32" is the useful part and the date is noise.
+ */
+function whenLabel(at: number): string {
+  const then = new Date(at)
+  const now = new Date()
+  const day = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+  const time = then.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (day(then) === day(now)) return `Today at ${time}`
+  const yesterday = new Date(now.getTime() - 86_400_000)
+  if (day(then) === day(yesterday)) return `Yesterday at ${time}`
+  return then.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function IconButton({
@@ -1399,16 +1436,53 @@ function IconButton({
       onClick={onClick}
       title={title}
       className={cn(
-        'grid h-7 w-7 place-items-center rounded transition',
+        'grid h-7 w-7 place-items-center rounded-lg transition',
         danger
-          ? 'text-slate-400 hover:bg-rose-50 hover:text-rose-600'
+          ? 'text-slate-500 hover:bg-rose-50 hover:text-rose-600'
           : active
             ? 'bg-indigo-50 text-indigo-600'
-            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-700',
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
       )}
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * A named part of the panel: a small heading, the count of what is in it, and — where there is
+ * one — the action or the summary that belongs at the heading's right edge. One shape for every
+ * section, so the eye can find the next one without reading.
+ */
+function Section({
+  label,
+  count,
+  aside,
+  action,
+  children,
+}: {
+  label: string
+  count?: number
+  aside?: React.ReactNode
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-2">
+      <div className="flex min-h-6 items-center gap-2">
+        <h3 className="text-micro font-semibold uppercase tracking-wide text-slate-600">{label}</h3>
+        {count !== undefined && count > 0 && (
+          <span className="rounded-full bg-slate-100 px-1.5 text-micro font-semibold tabular-nums text-slate-600">{count}</span>
+        )}
+        {(aside || action) && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {aside}
+            {action}
+          </div>
+        )}
+      </div>
+      {children}
+    </section>
   )
 }
 
@@ -1428,10 +1502,10 @@ function ObjectiveProgress({ objectiveId }: { objectiveId: string }) {
   const roll = objectiveRollup(objectiveId, { items, edges, links, placements, lanes })
   if (!roll) return null
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       <div className="flex items-center justify-between gap-2 text-meta">
         <span className="text-slate-600">Work serving it</span>
-        <span className="shrink-0 font-semibold tabular-nums text-slate-600">{roll.percent}%</span>
+        <span className="shrink-0 font-semibold tabular-nums text-slate-700">{roll.percent}%</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
         <div className="h-full bg-indigo-500 transition-all" style={{ width: `${roll.percent}%` }} />
@@ -1443,15 +1517,23 @@ function ObjectiveProgress({ objectiveId }: { objectiveId: string }) {
   )
 }
 
-function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+/** A field: what it is called, the value, and — where it helps — why the value is what it is. */
+function Field({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: string
+  hint?: string
+  children: React.ReactNode
+  className?: string
+}) {
   return (
     <label className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">{label}</span>
+      <span className="text-meta font-medium text-slate-600">{label}</span>
       {children}
+      {hint && <span className="text-micro leading-snug text-slate-600">{hint}</span>}
     </label>
   )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-slate-600">{children}</div>
 }
