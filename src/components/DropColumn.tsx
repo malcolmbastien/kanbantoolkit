@@ -20,7 +20,7 @@ export function DropColumn({
   laneId,
   items,
   draggingId,
-  draggingSize,
+  draggingHeight,
   at,
   footer,
 }: {
@@ -29,8 +29,11 @@ export function DropColumn({
   items: Array<{ id: string; node: React.ReactNode }>
   /** The card in the air, if any — lifted out, so the lane previews where the drop lands. */
   draggingId?: string | null
-  /** The lifted card's measurements, so the gap is its shape rather than a guess at one. */
-  draggingSize?: { width: number; height: number } | null
+  /**
+   * The lifted card's height, so the gap is its shape rather than a guess at one. Its width is
+   * not needed: a card fills whatever lane it lands in, and the gap does the same.
+   */
+  draggingHeight?: number | null
   /** The gap currently shown in this lane, if any. */
   at?: number | null
   footer?: React.ReactNode
@@ -42,7 +45,7 @@ export function DropColumn({
   // A shadow, not a box: the lifted card is the thing you are holding, so what it leaves
   // behind is the shape it will occupy — recessed, the way a shadow is, and the card's own
   // size, so a tall card does not leave a short shadow.
-  const placeholder = <DropGap width={draggingSize?.width} height={draggingSize?.height} />
+  const placeholder = <DropGap height={draggingHeight ?? undefined} />
 
   return (
     <div data-lane-id={laneId} className="flex min-h-[96px] flex-1 flex-col gap-2 p-1 transition">

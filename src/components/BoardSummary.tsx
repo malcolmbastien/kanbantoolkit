@@ -280,7 +280,7 @@ export function BoardSummary({
       0,
       // The card's own measurements, so the shadow is the shape that will land there — an
       // initiative carrying a parent chip and a blocked row is taller than a plain card.
-      <DropGap key="drop-gap" width={lift?.width} height={lift?.height} full />,
+      <DropGap key="drop-gap" height={lift?.height} />,
     )
     return out
   }

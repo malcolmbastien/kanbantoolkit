@@ -84,8 +84,9 @@ interface Ctx {
     itemId: string | null
     laneId: string | null
     index: number | null
-    /** The lifted card's measurements, so the gap it leaves is the card's own shape. */
-    size: { width: number; height: number } | null
+    /** The lifted card's height, so the gap it leaves is the card's own shape. Its width is the
+      lane's: a card fills the lane it lands in. */
+    height: number | null
     /** The initiative the card in the air would become a child of, if one is under the pointer. */
     dropTargetId: string | null
     /** Begin a lift from a press on a card. */
@@ -409,7 +410,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       <DropColumn
         laneId={lane.id}
         draggingId={ctx.drag.itemId}
-        draggingSize={ctx.drag.size}
+        draggingHeight={ctx.drag.height}
         at={ctx.drag.laneId === lane.id ? ctx.drag.index : null}
         items={cards.map((c) => {
           const pid = decompositionParent(c.id, graph.edges)
@@ -735,7 +736,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       // gesture is the only thing that may show it.
       laneId: lifting ? (dropAt?.laneId ?? null) : null,
       index: lifting ? (dropAt?.index ?? null) : null,
-      size: lifting && lift ? { width: lift.width, height: lift.height } : null,
+      height: lifting && lift ? lift.height : null,
       dropTargetId: lifting ? dropTargetId : null,
       start: startLift,
     },
