@@ -324,16 +324,15 @@ export function ItemPanel({ itemId }: Props) {
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   // Every card type is offered; the item's current type is always among them.
   const typeOptions = cardTypes(issueTypes)
-  const relatedCount = children.length + dependencies.length + dependents.length + itemPlacements.length
   const doneBelow = children.length > 0 ? `${roll.done} of ${roll.total} done` : undefined
 
   // The three faces of one item, in the order a reader wants them: what it is, where it sits in
-  // the work, and what has happened to it. The counts are on the tabs so the panel says how much
-  // is behind each one before you open it.
-  const tabs: { id: Tab; label: string; count?: number }[] = [
+  // the work, and what has happened to it. The tabs carry no counts: each view counts what it
+  // holds in its own headings, and a number repeated on the tab only makes the tab read as one.
+  const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
-    { id: 'hierarchy', label: 'Hierarchy', count: relatedCount },
-    { id: 'activity', label: 'Activity', count: log.length },
+    { id: 'hierarchy', label: 'Hierarchy' },
+    { id: 'activity', label: 'Activity' },
   ]
 
   /**
@@ -592,9 +591,6 @@ export function ItemPanel({ itemId }: Props) {
                 )}
               >
                 {t.label}
-                {t.count !== undefined && t.count > 0 && (
-                  <span className={cn('text-micro font-semibold tabular-nums', on ? 'text-indigo-500' : 'text-slate-600')}>{t.count}</span>
-                )}
               </button>
             )
           })}
@@ -684,12 +680,15 @@ export function ItemPanel({ itemId }: Props) {
             <section className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
               <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                 <Field label="Status">
-                  <div className={WELL} title="Derived from its column and the work below — never typed in">
-                    <span
-                      className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(status))}
-                    />
+                  {/* Nothing here is typed in, so it wears no box and no chevron: a box means a
+                      control everywhere else in this panel, and this is a fact about the work.
+                      The dot and the word say it; the reason sits on the title. */}
+                  <div
+                    className="flex min-h-[30px] items-center gap-1.5"
+                    title="Derived from its column and the work below — never typed in"
+                  >
+                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(status))} />
                     <span className="truncate text-meta font-medium text-slate-700">{STAGE_LABELS[stage]}</span>
-                    <span className="ml-auto shrink-0 text-micro text-slate-600">Derived</span>
                   </div>
                 </Field>
 
@@ -774,8 +773,25 @@ export function ItemPanel({ itemId }: Props) {
                   </Field>
                 )}
 
-                <Field label="People">
+                <Field label="People" className="col-span-2">
+                  {/* The way in comes first and the names follow it. A list grows downward, and
+                      the one thing in this field that must not move is the box you type in —
+                      with the tags after it, the box was pushed down the panel as they arrived.
+                      Full width, because a name is not a half-column's worth of room. */}
                   <div className="flex flex-wrap items-center gap-1">
+                    <input
+                      list="flowline-assignees"
+                      value={assigneeDraft}
+                      onChange={(e) => setAssigneeDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          applyAssignee()
+                        }
+                      }}
+                      placeholder="Add a name…"
+                      className="min-w-[6rem] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
+                    />
                     {(item.assignees ?? []).map((id) => {
                       const u = userById(id)
                       return (
@@ -795,19 +811,6 @@ export function ItemPanel({ itemId }: Props) {
                         </span>
                       )
                     })}
-                    <input
-                      list="flowline-assignees"
-                      value={assigneeDraft}
-                      onChange={(e) => setAssigneeDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          applyAssignee()
-                        }
-                      }}
-                      placeholder="Add a name…"
-                      className="min-w-[6rem] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
-                    />
                     <datalist id="flowline-assignees">
                       {users.map((u) => (
                         <option key={u.id} value={u.name} />
@@ -819,8 +822,25 @@ export function ItemPanel({ itemId }: Props) {
                 {/* Tags — a set, on a card or an initiative alike. Adding offers this board's tags
                     (the board whose surface the panel is beside); removing always works, so an item
                     can be cleared whatever happened to a definition. */}
-                <Field label="Tags" hint={boardTagList.length === 0 ? 'This board has no tags yet — type one to make it.' : undefined}>
+                <Field
+                  label="Tags"
+                  className="col-span-2"
+                  hint={boardTagList.length === 0 ? 'This board has no tags yet — type one to make it.' : undefined}
+                >
+                  {/* The way in comes first, the tags after it — the shape People wears, for the
+                      same reason. Type to find one: the board's vocabulary, filtered as you go —
+                      or to make a new one, which the board settings then owns like any other. */}
                   <div className="flex flex-wrap items-center gap-1">
+                    <TagInput
+                      tags={boardTagList}
+                      carried={item.tagIds ?? []}
+                      onAdd={(id) => toggleItemTag(boardId, item.id, id)}
+                      onCreate={(name) => {
+                        const id = addTag(boardId, name, TAG_PALETTE[boardTagList.length % TAG_PALETTE.length])
+                        if (id) toggleItemTag(boardId, item.id, id)
+                      }}
+                      className="min-w-[7rem] flex-1"
+                    />
                     {itemTags.map((t) => {
                       const chip = chipColors(t.color)
                       return (
@@ -841,18 +861,6 @@ export function ItemPanel({ itemId }: Props) {
                         </span>
                       )
                     })}
-                    {/* Type to find one: the board's vocabulary, filtered as you go — or to make
-                        a new one, which the board settings then owns like any other. */}
-                    <TagInput
-                      tags={boardTagList}
-                      carried={item.tagIds ?? []}
-                      onAdd={(id) => toggleItemTag(boardId, item.id, id)}
-                      onCreate={(name) => {
-                        const id = addTag(boardId, name, TAG_PALETTE[boardTagList.length % TAG_PALETTE.length])
-                        if (id) toggleItemTag(boardId, item.id, id)
-                      }}
-                      className="min-w-[7rem] flex-1"
-                    />
                   </div>
                 </Field>
 
@@ -860,9 +868,12 @@ export function ItemPanel({ itemId }: Props) {
                   /* An initiative has no estimate: its size is the sum of the sizes of the items
                      below it. So the field reads rather than writes, and says why. */
                   <Field label="Size below">
-                    <div className={WELL} title="The sizes of the leaf work below this initiative, unsized work counting as 1 — never entered">
-                      <span className="min-w-0 flex-1 truncate text-meta font-semibold tabular-nums text-slate-700">{roll.size} pts</span>
-                      <span className="shrink-0 text-micro text-slate-600">Derived</span>
+                    {/* Read, not written — the shape Status wears, for the same reason. */}
+                    <div
+                      className="flex min-h-[30px] items-center"
+                      title="The sizes of the leaf work below this initiative, unsized work counting as 1 — never entered"
+                    >
+                      <span className="text-meta font-semibold tabular-nums text-slate-700">{roll.size} pts</span>
                     </div>
                   </Field>
                 ) : (
