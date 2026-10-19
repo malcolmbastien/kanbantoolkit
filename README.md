@@ -51,9 +51,11 @@ generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replace
 And the derived facts that don't go away: **dependency state** is computed from both
 endpoints' cells, and **attribution never counts as work**.
 
-## No Google, no Firebase
+## No Firebase, no tracking
 
-This app has **zero Google or Firebase dependencies**, by design.
+This app has **no Firebase and no Google tracking or analytics**, by design. Optional Google
+Sign-In and Google Fonts are permitted by policy (see `AGENTS.md`); the current build uses
+neither, and makes no external requests at all.
 
 - Runtime: a static Vite + React SPA. All state is in the browser (`localStorage`).
   No backend, no auth, no cloud services of any kind.

@@ -1,22 +1,38 @@
 # AGENTS.md — Flowline
 
-## Hard rule: no Google, no Firebase
+## Hard rule: no Firebase, no Google tracking
 
-This project must contain **no Google or Firebase services or dependencies** — runtime,
-build, or tooling. Do not add Firebase, Firestore, Google Auth, Google Fonts, gstatic
-assets, Gemini, Vertex, or `gemini-cli`. The app is a static Vite + React SPA deployed
-to Vercel; all state lives in `localStorage`.
+Firebase and Google's tracking and cloud-AI services stay out of this project — runtime, build or
+tooling. **Not allowed:** Firebase or Firestore; Google Analytics, Tag Manager, or any other
+Google tracking or ads tag; Google Cloud (`gcloud`) and Vertex; Gemini and `gemini-cli`.
+
+**Allowed, because they serve the end user and nothing else leans on them:**
+
+- **Google Sign-In** as *one* way in, never the only one. Someone without a Google account must be
+  able to use the app, so email (a one-time code) is the baseline and Google is additive. The
+  OAuth client is optional in development too: the app must run with it unset.
+- **Google Fonts**, linked or self-hosted. Self-hosting (e.g. `@fontsource`) is preferred where the
+  same face is available — one fewer third-party origin on first paint — but linking
+  `fonts.googleapis.com` is allowed, and `fonts.gstatic.com` with it. Either way the fallback
+  stack stays real: the app stays readable if the font host cannot be reached.
+
+Federating with a *customer's* identity provider (even a Google Workspace one) is a deliberate
+enterprise decision, and not something this rule forbids by itself.
+
+The app is a static Vite + React SPA deployed to Vercel; all state lives in `localStorage`.
 
 Before finishing any task, run:
 
 ```bash
-grep -rinE 'google|firebase|gemini|gcloud|gstatic|firestore' . \
+grep -rinE 'firebase|firestore|gcloud|gemini|vertexai|vertex-ai|aiplatform|generativelanguage|googletagmanager|google-analytics|gtag/js' . \
   --exclude-dir=node_modules --exclude-dir=.git \
   --exclude=README.md --exclude=AGENTS.md
 ```
 
-It must return nothing. (`README.md`/`AGENTS.md` mention the rule itself; the PRD/docs
-should stay free of service names too.)
+It must return nothing. A bare `google` is no longer a violation, which is why the scan names the
+forbidden things instead. (`README.md`/`AGENTS.md` may mention this rule; the PRD and `docs/` may
+name the allowed services — a user-facing "Sign in with Google" is legitimate — but never the
+forbidden ones.)
 
 ## Taskmaster
 
@@ -157,7 +173,7 @@ task-master list            # terminal 2
   was dropped rather than at the end. WIP is the cards workflow's own — an initiatives lane neither
   shows a limit nor enforces one. Counts read the **column**, not the view: narrowing what you
   *see* (search, filters, focus) never changes the load a column carries.
-- Before finishing any task, run the no-Google/Firebase scan above and `npm test`.
+- Before finishing any task, run the no-Firebase/tracking scan above and `npm test`.
 
 ## Persisted state (localStorage)
 
