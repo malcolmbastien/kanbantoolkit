@@ -38,6 +38,12 @@ export interface WipPrompt {
   /** The lane whose limit would be exceeded. */
   laneName: string
   limit: number
+  /**
+   * The place the card was dropped at, when the gesture had one. A drop is a move *and* a
+   * position, and the prompt interrupts the gesture: held without this, answering it later
+   * landed the card at the end of the lane rather than where it was put.
+   */
+  index?: number
 }
 
 /** The open card context menu, anchored at a viewport position. */
@@ -336,7 +342,26 @@ export interface Actions {
    * says why rather than the copy landing somewhere nobody chose.
    */
   duplicateCard: (itemId: string) => string | undefined
-  moveCard: (itemId: string, boardId: string, laneId: string, reason?: string) => void
+  /**
+   * Move a card between lanes — the one seam a board's WIP policy can intercept, because every
+   * path into a lane goes through it: a drop, the card menu, the bulk bar.
+   *
+   * It answers whether the card is now in `laneId`. `true` when it moved, and when it was
+   * already there — nothing to do, but that is the caller's business and not the policy's.
+   * `false` when the move did not happen: a `block` limit refused it, or a `justify` limit held
+   * it until a reason arrives (`wipPrompt`). A caller that also has a position to write must
+   * write nothing on `false` — a drop that wrote it anyway landed the card the policy had just
+   * stopped, with no reason recorded and nothing to answer.
+   *
+   * `opts.index` is the place the gesture offered. It is read only when the move is held, so
+   * that answering the prompt lands the card where it was dropped rather than at the end.
+   */
+  moveCard: (
+    itemId: string,
+    boardId: string,
+    laneId: string,
+    opts?: { reason?: string; index?: number },
+  ) => boolean
   /**
    * Move an initiative between the cells of its section. The section itself is
    * derived from the work below, so a move that would cross it is refused — only
@@ -1107,7 +1132,15 @@ export const useStore = create<Store>()(
       confirmWipPrompt: (reason) => {
         const prompt = get().wipPrompt
         set({ wipPrompt: null })
-        if (prompt) get().moveCard(prompt.itemId, prompt.boardId, prompt.laneId, reason.trim())
+        if (!prompt) return
+        // The move the prompt held back, now allowed — carrying the place the gesture offered, so
+        // a drop interrupted by the prompt still lands where it was dropped.
+        const took = get().moveCard(prompt.itemId, prompt.boardId, prompt.laneId, {
+          reason: reason.trim(),
+          index: prompt.index,
+        })
+        if (!took || prompt.index === undefined) return
+        get().moveCardToIndex(prompt.itemId, prompt.boardId, prompt.laneId, prompt.index)
       },
       cancelWipPrompt: () => set({ wipPrompt: null }),
       openCardMenu: (itemId, x, y) => set({ cardMenu: { itemId, x, y } }),
@@ -1794,25 +1827,36 @@ export const useStore = create<Store>()(
         return item.id
       },
 
-      moveCard: (itemId, boardId, laneId, reason) => {
+      moveCard: (itemId, boardId, laneId, opts) => {
+        const reason = opts?.reason
         const state = get()
         // Cards live in the cards workflow; an initiative cell is never a destination.
-        if (state.lanes.find((l) => l.id === laneId)?.workflow !== 'cards') return
+        if (state.lanes.find((l) => l.id === laneId)?.workflow !== 'cards') return false
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
-        if (existing && existing.laneId === laneId) return
+        // Already there: nothing to move, and the answer is yes — a caller with a position of its
+        // own may still write it.
+        if (existing && existing.laneId === laneId) return true
         // WIP enforcement on the target lane (or any limited ancestor).
         const board = state.boards.find((b) => b.id === boardId)
         const mode = board?.wipEnforcement ?? 'visualize'
         if (mode !== 'visualize') {
           const breached = exceededLane(state, boardId, laneId, existing?.laneId)
           if (breached) {
-            if (mode === 'block') return
-            // 'justify': hold the move until the user supplies a reason.
+            if (mode === 'block') return false
+            // 'justify': hold the move until the user supplies a reason. The place the gesture
+            // offered is held with it, so the card lands where it was put when the answer comes.
             if (reason === undefined) {
               set({
-                wipPrompt: { itemId, boardId, laneId, laneName: breached.name || 'lane', limit: breached.wipLimit ?? 0 },
+                wipPrompt: {
+                  itemId,
+                  boardId,
+                  laneId,
+                  laneName: breached.name || 'lane',
+                  limit: breached.wipLimit ?? 0,
+                  ...(opts?.index === undefined ? {} : { index: opts.index }),
+                },
               })
-              return
+              return false
             }
           }
         }
@@ -1838,6 +1882,7 @@ export const useStore = create<Store>()(
           return next
         })
         set({ placements, items })
+        return true
       },
 
 

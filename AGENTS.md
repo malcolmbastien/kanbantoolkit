@@ -147,7 +147,16 @@ task-master list            # terminal 2
   initiatives sit above it. An objective nothing serves has **no** rollup (`undefined`), not 0%:
   the coverage gap says that in words. The `score` is a different thing and stays — the grade a
   person gives at the end of a period.
-- Limits are per-lane `wipLimit`s and are **visual only** — a lane over its limit shows red, but moves are never blocked (no prompts). Counts read the **column**, not the view: narrowing what you *see* (search, filters, focus) never changes the load a column carries.
+- Limits are per-lane `wipLimit`s, and a board's `wipEnforcement` says what they do: **visualize**
+  (the default) tints a lane at or over its limit and lets moves through, **justify** holds a move
+  that would breach until a reason is given — recorded on the card — and **block** refuses it. The
+  rule lives in `moveCard` alone, the one seam every path into a lane goes through, and it
+  **answers** whether the card is now in the lane, because a drop is a move *and* a position: the
+  caller writes the position only when the answer is yes, or it lands the card the policy just
+  stopped. A held move carries the place the gesture offered, so answering lands the card where it
+  was dropped rather than at the end. WIP is the cards workflow's own — an initiatives lane neither
+  shows a limit nor enforces one. Counts read the **column**, not the view: narrowing what you
+  *see* (search, filters, focus) never changes the load a column carries.
 - Before finishing any task, run the no-Google/Firebase scan above and `npm test`.
 
 ## Persisted state (localStorage)

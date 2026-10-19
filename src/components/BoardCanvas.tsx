@@ -43,7 +43,13 @@ export interface BoardCanvasProps {
   boardId: string
   /** Read-only bands (management view) set this false. */
   interactive: boolean
-  onMove?: (itemId: string, boardId: string, laneId: string) => void
+  /**
+   * The move seam: a change of lane goes through it, so a board's WIP policy can intercept. It
+   * answers whether the card is now in that lane — `false` when the policy refused the move or
+   * held it for a reason — and a caller with a position to write must then write nothing.
+   * `index` is the place the gesture offered, for a policy that holds the move.
+   */
+  onMove?: (itemId: string, boardId: string, laneId: string, index?: number) => boolean
 }
 
 interface Ctx {
@@ -664,10 +670,13 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const dragRef = useRef({ onMove, boardId, moveCardToIndex, effectiveLane })
   dragRef.current = { onMove, boardId, moveCardToIndex, effectiveLane }
   const dropCardAt = useCallback((itemId: string, laneId: string, index: number) => {
-    // Changing lane goes through the move seam first — that is the path a board can intercept.
+    // Changing lane goes through the move seam first — that is the path a board's WIP policy
+    // intercepts, and it can decline: `block` refuses the move outright, `justify` holds it until
+    // a reason arrives. The place is written only when the move actually happened; writing it
+    // regardless landed the card the policy had just stopped, which is what a drop did before.
     // Landing at a position is then a plain reorder inside the target lane.
     const { onMove: move, boardId: board, moveCardToIndex: place, effectiveLane: lanes } = dragRef.current
-    if (lanes.get(itemId) !== laneId) move?.(itemId, board, laneId)
+    if (lanes.get(itemId) !== laneId && !move?.(itemId, board, laneId, index)) return
     place(itemId, board, laneId, index)
   }, [])
 

@@ -15,7 +15,11 @@ import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
 
 interface Props {
-  requestMove: (itemId: string, boardId: string, laneId: string) => void
+  /**
+   * Ask for a card to change lane. It answers whether the card is now there — false when a WIP
+   * policy refused or held the move — and takes the place a drop offered, which a held move keeps.
+   */
+  requestMove: (itemId: string, boardId: string, laneId: string, index?: number) => boolean
 }
 
 export function BoardView({ requestMove }: Props) {

@@ -2198,6 +2198,51 @@ describe('store actions', () => {
     expect(s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId).toBe(before)
   })
 
+  /**
+   * A drop is a move *and* a position, and the two used to be written independently: the seam
+   * was asked first and the position written regardless, so a card landed in a lane the policy
+   * had just refused it, with no reason recorded and nothing to answer. The seam's answer is what
+   * the caller reads now.
+   */
+  it('a refused move answers false, so a caller with a position writes none', () => {
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().setBoardWipEnforcement('b-atlas', 'block')
+    const before = s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId
+    expect(s().moveCard('st-signup-form', 'b-atlas', ns.id, { index: 0 })).toBe(false)
+    expect(s().wipPrompt).toBe(null)
+    expect(s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId).toBe(before)
+  })
+
+  it('a held move answers false and keeps the place, so answering lands the card there', () => {
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().setBoardWipEnforcement('b-atlas', 'justify')
+    const before = s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId
+    expect(s().moveCard('st-signup-form', 'b-atlas', ns.id, { index: 0 })).toBe(false)
+    expect(s().wipPrompt?.index).toBe(0)
+    // Held means held: nothing moved while the question is open.
+    expect(s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')?.laneId).toBe(before)
+
+    s().confirmWipPrompt('Signed off by the PO')
+    const landed = s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')!
+    expect(landed.laneId).toBe(ns.id)
+    // Where the gesture put it, not at the end of the lane.
+    expect(landed.rank).toBe(0)
+    expect(s().items.find((i) => i.id === 'st-signup-form')?.lastMoveReason).toBe('Signed off by the PO')
+  })
+
+  it('cancelling a held drop leaves the card exactly where it was', () => {
+    const ns = laneByName('b-atlas', 'Not Started')
+    s().setBoardWipEnforcement('b-atlas', 'justify')
+    const before = s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')!
+    expect(s().moveCard('st-signup-form', 'b-atlas', ns.id, { index: 0 })).toBe(false)
+    s().cancelWipPrompt()
+    expect(s().wipPrompt).toBe(null)
+    const now = s().placements.find((p) => p.itemId === 'st-signup-form' && p.boardId === 'b-atlas')!
+    expect(now.laneId).toBe(before.laneId)
+    expect(now.rank).toBe(before.rank)
+    expect(s().items.find((i) => i.id === 'st-signup-form')?.lastMoveReason).toBeUndefined()
+  })
+
   it('bulk size, target dates, block/unblock and assignee removal', () => {
     s().setItemsSize(['st-email', 'st-sso'], 8)
     expect(s().items.find((i) => i.id === 'st-email')?.size).toBe(8)

@@ -121,7 +121,13 @@ export default function App() {
   // A card belongs to a board that renders a cards workflow; a coordination board does not.
   const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
 
-  const requestMove = (itemId: string, bId: string, laneId: string) => moveCard(itemId, bId, laneId)
+  /**
+   * The seam a board's WIP policy intercepts. The place a drop offered travels with it, because
+   * a drop is a move *and* a position: a `justify` board holds the move until a reason arrives,
+   * and the card must land where it was dropped when the answer comes.
+   */
+  const requestMove = (itemId: string, bId: string, laneId: string, index?: number) =>
+    moveCard(itemId, bId, laneId, { index })
 
   const onAddCard = (laneId: string) => {
     const typeId = boardCardTypeId(boards.find((b) => b.id === boardId), issueTypes)
