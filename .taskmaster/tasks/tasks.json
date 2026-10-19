@@ -1533,12 +1533,303 @@
         "testStrategy": "VERIFICATION\n\nV1 — R1, R3: In a store test, call `setParents` for three cards and one initiative. Assert each card has the parent.\nV2 — R4: Call `setParents` for items that have parents. Assert each item has one parent.\nV3 — R5: Include an initiative in the selection. Assert the parent of the initiative is set.\nV4 — R6, R7: Select two items where the operation would create a cycle. Assert no item changes.\nV5 — R9: Assert the log of each item contains one entry for the change.\nV6 — R2, R10: In a browser test, select three cards. Assert the control lists an initiative that can accept the selection. Assert the control does not list an initiative that would create a cycle.\nV7 — R3: Use the control. Assert each selected card shows the parent chip.\nV8 — R8: Force a refusal. Assert the user sees the reason.",
         "subtasks": [],
         "updatedAt": "2026-10-18T20:26:53.789Z"
+      },
+      {
+        "id": "104",
+        "title": "The app has one permanent origin, chosen before the first real user.",
+        "description": "This task fixes the address the product will live at. Browser storage belongs to the origin, so the choice is made once, before anyone has a workspace to lose.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The deploy target (README, `Deploy target`).\n2. `AGENTS.md` (the persisted-state section).\n3. The host's domain settings.\n\nDEFINITIONS\n- Origin: scheme + host + port. `https://flowline.example` and `https://app.flowline.example` are different origins and do not share storage.\n- Workspace: the slice persisted under `flowline-state-v3`.\n\nREQUIREMENTS\n\nR1 — One origin\nThe team shall choose the final production origin and record it in the README.\n\nR2 — No second origin\nThe product shall be announced at that origin only. Preview hosts are not presented as the product.\n\nR3 — Migration path\nWhere an earlier origin holds workspaces, the team shall publish export/import guidance before announcing the new one.\n\nR4 — The rule is written down\n`AGENTS.md` shall state that moving the app to a new origin abandons the `localStorage` of the old one.\n\nR5 — Previews are recognisable\nA preview deployment shall be distinguishable from production without opening the app.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: The README names the origin; the link resolves to the deployed app.\nV2 — R2: The production host and the preview host are different, and only production is linked from the README.\nV3 — R4: The rule is present in `AGENTS.md`.\nV4 — R5: A pull-request preview URL is distinguishable by hostname.",
+        "subtasks": []
+      },
+      {
+        "id": "105",
+        "title": "Every push is typechecked, linted, tested and built.",
+        "description": "This task adds continuous integration running the repository's own checks, so a green local run means something.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new workflow in `.github/workflows/`.\n2. The `package.json` scripts (`typecheck`, `lint`, `test`, `build`).\n3. The no-Firebase/tracking scan in `AGENTS.md`.\n\nDEFINITIONS\n- Green: every step of the workflow succeeds.\n- Required check: a branch-protection check that blocks merging to `main`.\n\nREQUIREMENTS\n\nR1 — Trigger\nThe workflow shall run on every push to `main` and on every pull request.\n\nR2 — Checks\nThe workflow shall run typecheck, lint, tests, the production build, and the scan from `AGENTS.md`.\n\nR3 — Failures are visible\nA failing step shall fail the workflow, and the step shall be named in the summary.\n\nR4 — Cache\nNode modules and the build cache shall be cached against the lockfile.\n\nR5 — Required\nThe workflow's check shall be required on `main`.\n\nR6 — Pinned\nThe Node version shall be pinned in the workflow and recorded in the README.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Push a branch; the workflow runs.\nV2 — R3: Break a test on a branch; the workflow fails at the test step and names it.\nV3 — R2: The workflow file contains the five steps.\nV4 — R5: Branch protection lists the check.\nV5 — R6: The Node version in the workflow matches the README.",
+        "subtasks": []
+      },
+      {
+        "id": "106",
+        "title": "The production build is served from a host, with a preview for every pull request.",
+        "description": "This task puts the static build behind a CDN host and gives each pull request its own URL.",
+        "status": "pending",
+        "dependencies": [
+          "105"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. Host configuration (Cloudflare Pages or Vercel — one, recorded in the README).\n2. `npm run build` producing `dist/`.\n3. The URL contract in `src/lib/url.ts`.\n\nDEFINITIONS\n- Preview: a deployment of one branch at its own URL.\n- Place: a URL the app reads. A place is a query string, never a path.\n\nREQUIREMENTS\n\nR1 — Production\nA push to `main` shall deploy `dist/` to the production origin.\n\nR2 — Previews\nEvery pull request shall receive a preview URL, shown on the pull request.\n\nR3 — Deep links\nThe app shall open correctly at a cold load of any place (`/?board=…&item=…`), with no server rewrite rule required.\n\nR4 — Caching\nHashed assets shall be cacheable indefinitely; the document shall be revalidated.\n\nR5 — Headers\nThe document response shall carry a content-security policy and `X-Content-Type-Options: nosniff`.\n\nR6 — Rollback\nA previous deployment shall be restorable in one action.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Load production; the build hash matches `main`.\nV2 — R3: Open a deep link in a private window; the board and the open card are correct.\nV3 — R4: `curl -I` an asset and the document; the cache headers differ.\nV4 — R5: `curl -I` the document; the two headers are present.\nV5 — R6: Roll back to the previous deployment; the app loads.",
+        "subtasks": []
+      },
+      {
+        "id": "107",
+        "title": "A failure in the field is reported with a readable stack, and without personal data.",
+        "description": "This task connects the existing error boundary and global handlers to an error service, with source maps and release tags.",
+        "status": "pending",
+        "dependencies": [
+          "106"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `src/components/ErrorBoundary.tsx` and `src/main.tsx`.\n2. A reporting service (Sentry, or self-hosted GlitchTip).\n3. The build pipeline (source-map upload).\n\nDEFINITIONS\n- Event: one reported error.\n- Release: the identifier of the build the event came from.\n\nREQUIREMENTS\n\nR1 — Capture\nUncaught errors and unhandled promise rejections shall be reported, together with the boundary's caught errors.\n\nR2 — Readable\nSource maps shall be uploaded per release, so a stack names the original files.\n\nR3 — Release tag\nEvery event shall carry the release identifier.\n\nR4 — No personal data\nThe report shall not contain item titles, descriptions, names, board names or workspace content.\n\nR5 — Optional in development\nThe app shall run with no reporting configured, and shall not fail when the service is unreachable.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Throw from a control in a preview build; the event appears.\nV2 — R2: The stack names `src/components/…` rather than the minified bundle.\nV3 — R4: Inspect the payload; no workspace content is present.\nV4 — R5: Run the dev server with no service configured; the app works and the error is logged locally.",
+        "subtasks": []
+      },
+      {
+        "id": "108",
+        "title": "The team can see which parts of the app are used, without tracking anyone.",
+        "description": "This task adds cookieless, aggregate measurement of views and the handful of actions that matter.",
+        "status": "pending",
+        "dependencies": [
+          "106"
+        ],
+        "priority": "medium",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A cookieless analytics script (Plausible, or self-hosted Umami).\n2. The view switch and the drawer.\n\nDEFINITIONS\n- Event: a named action carrying no identifier.\n- Cookieless: nothing is stored in the browser and no fingerprint is computed.\n\nREQUIREMENTS\n\nR1 — Views\nA pageview shall be recorded per view change: board, dashboard, timeline, archive, my work, boards, objectives.\n\nR2 — Actions\nOpening a card, creating a card, completing a drag, and entering board design shall be counted.\n\nR3 — No identifiers\nNo cookie, no local identifier and no fingerprint shall be used.\n\nR4 — Not Google\nThe measurement shall not be Google Analytics or Tag Manager; the `AGENTS.md` scan shall stay clean.\n\nR5 — Optional\nThe app shall run with measurement disabled and send nothing.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Move between views; the events arrive with the view names.\nV2 — R3: Inspect storage and requests; no cookie is set.\nV3 — R4: Run the scan in `AGENTS.md`.\nV4 — R5: Run with the script removed; the app works and sends nothing.",
+        "subtasks": []
+      },
+      {
+        "id": "109",
+        "title": "Every place has a title, and a shared link previews the board it points at.",
+        "description": "This task makes the document title follow the place and gives a link the metadata a reader needs.",
+        "status": "pending",
+        "dependencies": [
+          "106"
+        ],
+        "priority": "low",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The place in `src/lib/url.ts`.\n2. The title in `src/App.tsx`.\n3. The static head in `index.html`.\n\nDEFINITIONS\n- Place: board, view and open item, as defined in `src/lib/url.ts`.\n\nREQUIREMENTS\n\nR1 — Title\nThe document title shall name the open card, otherwise the view, otherwise the product.\n\nR2 — History\nThe title shall update on back and forward, as well as on navigation inside the app.\n\nR3 — Metadata\nThe document shall carry a description, Open Graph and Twitter card tags, and a theme colour.\n\nR4 — Shareable, not leaky\nA link's preview shall name the board and the product. It shall not reproduce a card's description or its history.\n\nR5 — Without JavaScript\nA crawler that does not execute the app shall still read a useful title and description.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Open a board, then a card; the title changes at each step.\nV2 — R2: Press back; the title returns to the board.\nV3 — R5: `curl` the document; the static tags are present.\nV4 — R4: Fetch the page as a crawler; no card body appears.",
+        "subtasks": []
+      },
+      {
+        "id": "110",
+        "title": "The first paint carries only what the first view needs.",
+        "description": "This task splits the views out of the initial bundle and puts a recorded budget in CI.",
+        "status": "pending",
+        "dependencies": [
+          "105"
+        ],
+        "priority": "medium",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The view switch in `src/App.tsx`.\n2. The build configuration in `vite.config.ts`.\n3. The workflow from the CI task.\n\nDEFINITIONS\n- Initial bundle: the JavaScript and CSS needed to render the board a person lands on.\n- Budget: the recorded gzip size the initial bundle may not exceed.\n\nREQUIREMENTS\n\nR1 — Lazy views\nDashboard, timeline, archive, boards, objectives and the drawer shall load on demand.\n\nR2 — Budget\nThe initial JavaScript shall stay within a recorded gzip budget (proposed 90 KB, to be set from a measured run).\n\nR3 — No collapse\nA lazy view shall render its own loading surface, with no layout jump when it arrives.\n\nR4 — Enforced\nExceeding the budget shall fail the CI workflow.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Open each view with the network panel; each chunk loads on first use, and not before.\nV2 — R2: `gzip -c` the initial chunk from a production build; it is within budget.\nV3 — R4: Add 100 KB of code to the initial path; CI fails.\nV4 — R3: Throttle the network; the view's loading surface does not move the layout.",
+        "subtasks": []
+      },
+      {
+        "id": "111",
+        "title": "A workspace survives a crash, a mistake, and a browser that clears its storage.",
+        "description": "This task keeps a ring of recent workspace snapshots outside `localStorage` and lets a person restore one.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new `src/lib/snapshots.ts`.\n2. The persist configuration in `src/store.ts`.\n3. The workspace panel in `src/components/BoardWorkspace.tsx`.\n\nDEFINITIONS\n- Snapshot: the persisted slice, serialised with a timestamp and the schema version.\n- Ring: a fixed-size list; the oldest entry is dropped when a new one is written.\n\nREQUIREMENTS\n\nR1 — Written\nA snapshot shall be written at most once a minute during activity, and on `pagehide`.\n\nR2 — Kept\nThe most recent 20 snapshots shall be kept, pruned oldest first.\n\nR3 — Restored\nThe workspace panel shall list snapshots by time and offer to restore one, behind the existing confirmation.\n\nR4 — Complete\nA snapshot shall contain the persisted slice — boards, lanes, items, placements, edges, links, users, objectives, types and tags — and no view state.\n\nR5 — Tolerant\nA corrupt or unreadable snapshot shall be skipped, and the list shall still render.\n\nR6 — Separate\nA failed snapshot write shall not disturb the live workspace.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1, R2: Make 25 edits; assert 20 snapshots exist and the newest holds the newest title.\nV2 — R3: Restore an older snapshot; the board matches it.\nV3 — R4: Inspect a snapshot; no selection, filter or panel state is present.\nV4 — R5: Corrupt one entry; the list renders and the app loads.\nV5 — R6: Make the snapshot store throw; edits still save to the workspace.",
+        "subtasks": []
+      },
+      {
+        "id": "112",
+        "title": "The app says when it cannot save, and asks the browser to keep the workspace.",
+        "description": "This task makes storage honest: a failed write is surfaced with a way out, and the browser's own promise to keep the data is shown.",
+        "status": "pending",
+        "dependencies": [
+          "111"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The persist storage adapter in `src/store.ts`.\n2. The snapshot store from the previous task.\n3. The toolbar and the workspace panel.\n\nDEFINITIONS\n- Quota failure: a write rejected with `QuotaExceededError`, or a `setItem` that does not store the value.\n- Persisted storage: the browser's promise not to evict the origin's storage under pressure.\n\nREQUIREMENTS\n\nR1 — Detected\nA failed write shall be detected rather than assumed to have succeeded.\n\nR2 — Declared\nWhile a write is failing, a persistent banner shall say that changes are not being saved.\n\nR3 — Rescued\nThe banner shall offer the workspace export in one action.\n\nR4 — Cleared\nWhen a later write succeeds, the banner shall clear when the data is safe again.\n\nR5 — Requested\n`navigator.storage.persist()` shall be requested after the first successful save.\n\nR6 — Reported\nThe workspace panel shall show the storage used and whether it is persistent.\n\nR7 — No false calm\nNo surface shall indicate a saved state while writes are failing.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1–R3: Mock the storage write to throw; make an edit; the banner appears and the export downloads.\nV2 — R4: Restore the write; edit again; the banner clears.\nV3 — R5: After the first save, `navigator.storage.persisted()` is true where the browser grants it.\nV4 — R6: The panel shows a use figure and the persistence state.\nV5 — R7: With the write failing, no saved indicator is shown.",
+        "subtasks": []
+      },
+      {
+        "id": "113",
+        "title": "Two tabs show one workspace, and neither silently overwrites the other.",
+        "description": "This task makes tabs share their changes and refuse to clobber a newer one.",
+        "status": "pending",
+        "dependencies": [
+          "111"
+        ],
+        "priority": "medium",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The persist layer in `src/store.ts`.\n2. A revision guard on the persisted slice.\n3. A channel between tabs (`BroadcastChannel`, with the `storage` event as the fallback).\n\nDEFINITIONS\n- Revision: a monotonically increasing identifier of the persisted slice.\n- Stale tab: a tab holding a revision older than the stored one.\n\nREQUIREMENTS\n\nR1 — Propagated\nA write in one tab shall reach another tab within a second.\n\nR2 — Checked\nA tab shall compare its revision with the stored one before writing.\n\nR3 — Refused\nA stale tab shall not overwrite the newer slice.\n\nR4 — Explained\nA stale tab shall say that the workspace changed elsewhere, and shall offer to reload.\n\nR5 — View state stays local\nThe reconciliation shall not merge selection, filters, multi-select or panel state between tabs.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Two tabs; rename a board in one; the other shows the new name.\nV2 — R2, R3: Hold a stale copy in one tab; edit; the newer workspace is unchanged.\nV3 — R4: The stale tab shows the notice, and reload brings it up to date.\nV4 — R5: Different views in two tabs; changing the view in one does not move the other.",
+        "subtasks": []
+      },
+      {
+        "id": "114",
+        "title": "A schema change never replaces someone's workspace with the demo.",
+        "description": "This task changes the migration policy from reseeding to preserving and refusing, so an unmigratable workspace is never silently replaced.",
+        "status": "pending",
+        "dependencies": [
+          "111"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `migratePersisted` and `migrateState` in `src/store.ts`.\n2. The import and restore surfaces.\n\nDEFINITIONS\n- Known version: a persisted version this build can migrate.\n- Unknown or corrupt state: a version or shape this build cannot read.\n\nREQUIREMENTS\n\nR1 — Migrated\nA workspace at a known older version shall be migrated, never reseeded.\n\nR2 — Preserved\nA workspace that cannot be migrated shall be copied, unmodified, to a named backup key before anything else happens.\n\nR3 — Refused\nThe app shall not present an unmigratable slice as the person's workspace.\n\nR4 — Offered\nThe person shall be offered the preserved data as a download.\n\nR5 — No silent seed\nThe demo workspace shall not replace existing persisted data.\n\nR6 — Explained\nThe refusal shall name the version found and the version this build reads.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Load a fixture stamped with an older known version; the boards match after load.\nV2 — R2, R3, R5: Load a corrupt slice; the backup key exists and the demo is not shown as their workspace.\nV3 — R4: The download action produces the preserved slice.\nV4 — R6: The message names both versions.",
+        "subtasks": []
+      },
+      {
+        "id": "115",
+        "title": "Every change to an item goes through one write path, and each item carries a revision.",
+        "description": "This task introduces the seam that a lock and a sync will need, without changing behaviour.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The item mutators in `src/store.ts` (about twenty).\n2. `Item` in `src/domain/types.ts`.\n\nDEFINITIONS\n- Seam: the single helper through which item changes are written.\n- Revision: a counter on an item, incremented once per accepted change.\n\nREQUIREMENTS\n\nR1 — One path\nEvery item mutation shall write through one helper.\n\nR2 — Revision\nAn accepted change to an item shall increment that item's `rev` exactly once.\n\nR3 — Optional\n`rev` shall be optional, so existing persisted items read without a migration.\n\nR4 — No behaviour change\nThe existing tests shall pass unchanged.\n\nR5 — Enumerated\nA test shall enumerate the item mutators and assert that each goes through the seam and bumps `rev`.\n\nR6 — Placements excluded\nA placement change shall not bump the item's `rev`.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1, R2: Edit a title twice; `rev` is 2.\nV2 — R3: Load an item with no `rev`; the app renders and an edit sets it.\nV3 — R4: `npm test`.\nV4 — R5: Add a mutator that bypasses the seam; the enumeration test fails.\nV5 — R6: Move a card between lanes; its `rev` is unchanged.",
+        "subtasks": []
+      },
+      {
+        "id": "116",
+        "title": "A change says who made it.",
+        "description": "This task records the author on every new log entry and shows it in the Activity tab.",
+        "status": "pending",
+        "dependencies": [
+          "115"
+        ],
+        "priority": "medium",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `ItemLogEntry` in `src/domain/types.ts`.\n2. The log helper in `src/store.ts`.\n3. The Activity rows in `src/components/ItemPanel.tsx`.\n\nDEFINITIONS\n- Author: the identity that made the change.\n- Unknown identity: no author recorded, rather than a guess.\n\nREQUIREMENTS\n\nR1 — Recorded\nA new log entry shall carry the author.\n\nR2 — Optional\nAn entry written before this change shall render unchanged.\n\nR3 — Shown\nThe Activity row shall name the author beside the time.\n\nR4 — Not invented\nWhere the identity is unknown, the entry shall omit the author.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Make an edit; the newest entry carries the author.\nV2 — R2: Load a fixture with older entries; the panel renders.\nV3 — R4: Clear the identity; the new entry has no author.",
+        "subtasks": []
+      },
+      {
+        "id": "117",
+        "title": "A person signs in with a code sent to their email, and nothing else is required.",
+        "description": "This task adds accounts: an emailed one-time code, a session, invitations and sign-out.",
+        "status": "pending",
+        "dependencies": [
+          "106"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. An identity provider, chosen with the database (Supabase Auth, or Better Auth).\n2. `meUserId` in `src/store.ts`.\n3. Transactional email with SPF, DKIM and DMARC on a dedicated subdomain.\n\nDEFINITIONS\n- Code: the six-digit value, and the link carrying the same intent.\n- Session: the credential that survives a reload.\n\nREQUIREMENTS\n\nR1 — Sign in\nA person shall sign in by entering an email address and then the code sent to it.\n\nR2 — Across devices\nThe code shall be entered in the tab that requested it, including when the mail is opened elsewhere.\n\nR3 — No password\nThe product shall not store a password.\n\nR4 — Session\nA session shall survive a reload, expire after a recorded period, and end on sign-out.\n\nR5 — Invitation\nAn invited address shall become a pending member, accepted on first sign-in.\n\nR6 — Google is additive\nGoogle shall be at most one way in. The app shall run with the OAuth client unset and shall never require a Google account.\n\nR7 — Limited\nRequests shall be rate limited per address and per network origin.\n\nR8 — Spent codes refused\nA used or expired code shall be refused.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1, R2: Sign in on a laptop using a code read on a phone.\nV2 — R6: Run with no OAuth client configured; email sign-in works.\nV3 — R7: Request ten codes in a minute; the limit responds.\nV4 — R4: Reload; still signed in. Sign out; the session is gone.\nV5 — R8: Reuse a code; refused.\nV6 — R5: Invite an address; sign in; the membership is active.",
+        "subtasks": []
+      },
+      {
+        "id": "118",
+        "title": "The workspace lives on the server, and the browser holds a cache of it.",
+        "description": "This task moves the record of truth to the server behind one boundary, with an offline queue and a first-sign-in import.",
+        "status": "pending",
+        "dependencies": [
+          "117",
+          "115"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A database schema for boards, lanes, items, placements, edges, links, users, types, tags, objectives and logs.\n2. An API over that schema.\n3. A repository adapter behind `src/store.ts`.\n4. First-sign-in import of the local workspace.\n\nDEFINITIONS\n- Authority: the copy that survives a cleared browser.\n- Queue: accepted writes not yet acknowledged by the server.\n\nREQUIREMENTS\n\nR1 — Server is the record\nThe server shall be authoritative; the browser shall hold a cache.\n\nR2 — One boundary\nThe store shall read and write through one adapter, so that the local and server builds differ only there.\n\nR3 — Optimistic\nA write shall apply locally at once, and reconcile with the server's answer.\n\nR4 — Offline\nAccepted writes made offline shall queue and be sent once, in order, on reconnect.\n\nR5 — Import\nFirst sign-in shall offer to import the local workspace, without losing items, edges, placements, logs, types, tags or objectives.\n\nR6 — Live\nA change on one device shall reach another without a reload.\n\nR7 — Refused, not dropped\nA write the server cannot apply shall be refused and surfaced.\n\nR8 — Migrated\nThe server schema shall be migrated with the discipline `PERSIST_VERSION` uses.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1, R6: Two devices; edit on one; the other updates.\nV2 — R3: The local edit appears before the server answers.\nV3 — R4: Disconnect; make three edits; reconnect; three writes, applied once each.\nV4 — R5: Import the demo workspace; counts match for every entity and the logs are intact.\nV5 — R7: Force a stale write; it is refused and reported.\nV6 — R8: Apply a migration; rows written before it still read.",
+        "subtasks": []
+      },
+      {
+        "id": "119",
+        "title": "A backup exists, and someone has restored from it.",
+        "description": "This task sets up automated backups and proves a restore works, rather than assuming it does.",
+        "status": "pending",
+        "dependencies": [
+          "118"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The database provider's backup or point-in-time facility.\n2. A restore runbook in `docs/`.\n3. The workspace export.\n\nDEFINITIONS\n- Backup: a copy from which the workspace can be reproduced.\n- Restore drill: an actual restore into a scratch environment, compared against a known workspace.\n\nREQUIREMENTS\n\nR1 — Daily\nA full backup shall be taken at least daily.\n\nR2 — Retained\nBackups shall be kept for a recorded period, including a copy with another provider.\n\nR3 — Drilled\nThe team shall restore a backup into a scratch environment and compare it with a known workspace.\n\nR4 — Written down\nThe runbook shall name the steps, the owner and the date of the last drill.\n\nR5 — Exported\nA workspace export shall be available to the person who owns it, on demand.",
+        "testStrategy": "VERIFICATION\n\nV1 — R3: Restore yesterday's backup; the workspace matches the export taken at the same time.\nV2 — R4: `docs/` names the runbook and a recent drill date.\nV3 — R1: The provider's schedule is visible and non-zero.\nV4 — R5: Export a workspace; the file opens and contains every entity.",
+        "subtasks": []
+      },
+      {
+        "id": "120",
+        "title": "One person holds a card's pen at a time.",
+        "description": "This task implements the edit lease described in `docs/collaboration.md`: acquisition, heartbeat, expiry, and a read-only drawer for everyone else.",
+        "status": "pending",
+        "dependencies": [
+          "118",
+          "116"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `docs/collaboration.md` (the design).\n2. A lock table and its endpoints, plus a workspace channel.\n3. `src/components/ItemPanel.tsx`, `src/components/Card.tsx`, the card menu and the bulk bar.\n4. `AGENTS.md`.\n\nDEFINITIONS\n- Lease: the right to edit one card, held for a limited time and renewed while in use.\n- Edit intent: focus into an editable control, or the first change to a discrete control.\n- Arrangement: a card's board and cell, held in a `Placement`.\n\nREQUIREMENTS\n\nR1 — Scope\nThe lease shall guard content and relationships. It shall not guard arrangement.\n\nR2 — Acquired on intent\nThe lease shall be taken on the first edit intent, not on opening the card.\n\nR3 — Leased\nThe lease shall last 45 to 60 seconds, be renewed about every 15 seconds while the drawer is open and visible, and be taken over on expiry.\n\nR4 — Per session\nThe lease shall be keyed by user and session. A second tab of the holder shall be told, not locked out.\n\nR5 — Read-only\nWhere another holds the card, the drawer shall be readable and not editable, and shall name the holder.\n\nR6 — Marked\nThe card shall show that someone holds it, in a way that cannot be mistaken for an assignee.\n\nR7 — Bulk\nA bulk action touching a held card shall refuse as a whole and name the card.\n\nR8 — Arrangement unaffected\nA held card shall still be movable between lanes and reorderable.\n\nR9 — Released\nClosing the drawer, blur or `pagehide` shall release the lease; the expiry shall cover the rest.\n\nR10 — Rule recorded\nThe scope rule shall be recorded in `AGENTS.md`.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1, R8: Hold a card in one client; drag it in another; the move lands.\nV2 — R5, R6: The second client opens the card; it is read-only and names the holder, and the board marks it.\nV3 — R3, R9: Close the holder's tab; the second client can edit within a minute.\nV4 — R4: Two tabs of the same person; the second says so rather than blocking.\nV5 — R7: Select a held card and another; the bulk action is refused for the whole selection.\nV6 — R2: Open a card without focusing a field; no lease is taken.",
+        "subtasks": []
+      },
+      {
+        "id": "121",
+        "title": "A refused write keeps the words and says what happened.",
+        "description": "This task handles the two refusals a lease produces — someone else holds the card, or it changed while you were typing — without losing text.",
+        "status": "pending",
+        "dependencies": [
+          "120"
+        ],
+        "priority": "medium",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The field writes in `src/components/ItemPanel.tsx`.\n2. The write adapter's error surface.\n\nDEFINITIONS\n- Held (423): another person holds the lease.\n- Changed (409): the card moved on under the write.\n\nREQUIREMENTS\n\nR1 — Distinguishable\nA held card and a changed card shall produce different messages.\n\nR2 — Kept\nThe local text shall stay visible after a refusal.\n\nR3 — Explained\nThe message shall name the holder, or the change that occurred.\n\nR4 — Offered\nThe drawer shall offer to copy the local text and to reload the card.\n\nR5 — Stopped\nFurther writes to that card shall be refused until the person reloads or the lease is released.\n\nR6 — Never replayed\nA refused write shall not be retried automatically.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1, R3: Force a 423; the holder is named. Force a 409; the change is named.\nV2 — R2, R4: The text remains, and copy and reload both work.\nV3 — R5: Keep typing; no further write is sent.\nV4 — R6: Wait; no retry is attempted.",
+        "subtasks": []
+      },
+      {
+        "id": "122",
+        "title": "A workspace has members, and a member's role decides what they may do.",
+        "description": "This task adds workspaces, invitations, roles and removal.",
+        "status": "pending",
+        "dependencies": [
+          "118"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A workspace entity and the scoping of every persisted entity.\n2. Membership and roles.\n3. The invitation flow from the auth task.\n\nDEFINITIONS\n- Workspace: the container of boards, lanes, items, types, tags and objectives.\n- Role: the recorded set of actions a member may take.\n\nREQUIREMENTS\n\nR1 — Scoped\nEvery board, lane, item, placement, edge, link, type, tag, objective and log entry shall belong to one workspace.\n\nR2 — Sealed\nA person shall see only the workspaces they are a member of.\n\nR3 — Roles\nAt least owner, editor and viewer shall exist, with a recorded permission table.\n\nR4 — Invitation\nAn invitation shall be accepted once, by the invited address.\n\nR5 — Removal\nRemoving a member shall take effect on their next request.\n\nR6 — No escalation\nA member shall not grant themselves a higher role.\n\nR7 — Ownership\nThe last owner shall not be removable while members remain.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1, R2: Two workspaces; each member sees only their own, in the UI and the API.\nV2 — R3: A viewer attempts an edit; refused.\nV3 — R5: Remove a member; their session loses access on the next request.\nV4 — R6: Attempt to raise your own role; refused.\nV5 — R7: Attempt to remove the last owner; refused.",
+        "subtasks": []
+      },
+      {
+        "id": "123",
+        "title": "A board can be shared as a read-only link, and the link can be revoked.",
+        "description": "This task adds signed, revocable links that show a board without an account.",
+        "status": "pending",
+        "dependencies": [
+          "122"
+        ],
+        "priority": "low",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A share token bound to a board.\n2. The read-only mode of the board view.\n\nDEFINITIONS\n- Share token: an unguessable value naming one board.\n- Revoked: a token that no longer resolves.\n\nREQUIREMENTS\n\nR1 — Token\nA share link shall carry an unguessable token bound to one board.\n\nR2 — Read-only\nThe link shall render the board and its cards, and shall offer no editing control.\n\nR3 — No writes\nThe API shall refuse every write reached with a share token.\n\nR4 — Revoked\nRevoking shall stop the link at once.\n\nR5 — Expiry\nA link may carry an expiry, after which it shall refuse.\n\nR6 — No account\nOpening the link shall not create an account or a session.",
+        "testStrategy": "VERIFICATION\n\nV1 — R2: Open the link in a private window; the board renders and no editing control appears.\nV2 — R3: Attempt a write with the token; refused.\nV3 — R4: Revoke; the link no longer resolves.\nV4 — R5: Expire a link; refused.\nV5 — R6: Check that no user or session was created.",
+        "subtasks": []
+      },
+      {
+        "id": "124",
+        "title": "The flows that make the product work are tested end to end.",
+        "description": "This task adds a browser suite over the seams that unit tests cannot see — drag and drop, the drawer, board design and import.",
+        "status": "pending",
+        "dependencies": [
+          "106"
+        ],
+        "priority": "high",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new end-to-end suite (Playwright), run in the CI workflow.\n2. The preview deployment.\n\nDEFINITIONS\n- Seam: a place where two store actions are composed by a component, which unit tests do not reach.\n- Deterministic: the suite seeds its own workspace and does not depend on the clock.\n\nREQUIREMENTS\n\nR1 — Drag and drop\nA card shall be dragged between lanes and keep the position it was dropped at.\n\nR2 — WIP\nOn a justify board, cancelling the reason prompt shall leave the card where it was, and answering shall land it where it was dropped.\n\nR3 — Drawer\nA test shall edit a title, add a tag, add a person and set a parent.\n\nR4 — Board design\nA test shall split a lane, add a cell and remove it, in edit mode.\n\nR5 — Import and export\nA test shall export a workspace, import it into a clean state, and compare the boards.\n\nR6 — Deterministic\nThe suite shall not depend on wall-clock time or on the demo's current contents.\n\nR7 — Gated\nThe suite shall run on every pull request and fail the workflow.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1–R5: The suite passes locally and in CI.\nV2 — R2: The cancel case fails when the drop is made to write its position regardless of the seam's answer.\nV3 — R7: The workflow runs the suite and blocks on failure.\nV4 — R6: Run the suite twice; the results are identical.",
+        "subtasks": []
+      },
+      {
+        "id": "125",
+        "title": "The app is usable with a keyboard and a screen reader.",
+        "description": "This task closes the accessibility gaps left by the visual work: focus, announcements, keyboard paths and motion.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The drawer and dialogs.\n2. The board, its lanes and the drag gesture.\n3. The CI workflow.\n\nDEFINITIONS\n- Focus trap: focus may not leave an open modal surface until it closes.\n- Live region: a polite announcement of a change a sighted user sees.\n\nREQUIREMENTS\n\nR1 — Focus\nAn open drawer or dialog shall contain focus, and Escape shall return it to the control that opened it.\n\nR2 — Announced\nA completed drag, a refused drop and a raised warning shall be announced.\n\nR3 — Keyboard paths\nEvery action available by drag shall have a keyboard path: move to lane, set parent, reorder.\n\nR4 — Motion\n`prefers-reduced-motion` shall be respected.\n\nR5 — Names\nEvery control shall have an accessible name, and the lane tree shall read as a tree.\n\nR6 — Contrast\nThe legibility tests shall remain green.\n\nR7 — Automated\nAn axe check shall run over the key views in CI.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Tab through the drawer; focus does not escape, and Escape returns it.\nV2 — R2: With a screen reader, complete a drag; it is announced.\nV3 — R3: Move a card using only the keyboard.\nV4 — R7: The axe job runs and passes.\nV5 — R4: With reduced motion enabled, transitions do not run.",
+        "subtasks": []
+      },
+      {
+        "id": "126",
+        "title": "The product says what it does with your data, and can delete it.",
+        "description": "This task adds the terms, the privacy notice, a real account deletion, and a support channel.",
+        "status": "pending",
+        "dependencies": [
+          "122"
+        ],
+        "priority": "medium",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The public pages of the site.\n2. The data model and a deletion endpoint.\n3. A support address and a changelog.\n\nDEFINITIONS\n- Processor: a service that handles personal data on the product's behalf.\n- Deletion: removal of every row belonging to an account, verified.\n\nREQUIREMENTS\n\nR1 — Notice\nA privacy notice shall name the processors actually used.\n\nR2 — Terms\nTerms shall be published and linked at sign-in.\n\nR3 — Export\nA person shall be able to export every workspace they own.\n\nR4 — Deletion\nDeleting an account shall remove its rows, and the removal shall be verified.\n\nR5 — Support\nA support address and a response expectation shall be published.\n\nR6 — Changes recorded\nA changelog shall record user-visible changes.",
+        "testStrategy": "VERIFICATION\n\nV1 — R3: Export an account's workspaces; the file opens and contains every entity.\nV2 — R4: Delete an account; a query finds no rows, and a second sign-in creates a fresh account.\nV3 — R1: The notice's processor list matches the vendors actually configured.\nV4 — R2: The sign-in surface links the terms.",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-18T20:26:53.789Z",
-      "taskCount": 102,
+      "lastModified": "2026-10-19T23:53:26.394Z",
+      "taskCount": 125,
       "completedCount": 89,
       "tags": [
         "backlog"
