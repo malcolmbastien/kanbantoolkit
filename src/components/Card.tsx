@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Link2, ListChecks, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, tintOn } from '@/lib/colors'
+import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
@@ -135,7 +135,7 @@ interface Props {
 function DoneStamp() {
   return (
     <span
-      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-600/30"
+      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-700/30"
       title="Done — every leaf below this is finished"
     >
       <Check size={11} strokeWidth={3} />
@@ -143,7 +143,7 @@ function DoneStamp() {
   )
 }
 
-const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
+const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ? STAGE_COLOR.done : pct > 0 ? STAGE_COLOR.inProgress : '#cbd5e1')
 
 /**
  * The badge a warning wears — the same shape and the same two weights the drawer's warnings
@@ -515,7 +515,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                   className="block h-full transition-all"
                   style={{
                     width: `${Math.round((summary.checklist.done / summary.checklist.total) * 100)}%`,
-                    backgroundColor: summary.checklist.done === summary.checklist.total ? '#10b981' : '#6366f1',
+                    backgroundColor: summary.checklist.done === summary.checklist.total ? STAGE_COLOR.done : STAGE_COLOR.inProgress,
                   }}
                 />
               </span>
@@ -664,7 +664,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200" title={`${checklistPct}% of the checklist done`}>
               <span
                 className="block h-full transition-all"
-                style={{ width: `${checklistPct}%`, backgroundColor: checklistDone === checklistTotal ? '#10b981' : '#6366f1' }}
+                style={{ width: `${checklistPct}%`, backgroundColor: checklistDone === checklistTotal ? STAGE_COLOR.done : STAGE_COLOR.inProgress }}
               />
             </span>
           </div>

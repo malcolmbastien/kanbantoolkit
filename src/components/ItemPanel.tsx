@@ -41,7 +41,7 @@ import { initiativeHealth } from '@/domain/health'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
-import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PALETTE } from '@/lib/colors'
+import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, statusDot, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
@@ -349,7 +349,7 @@ export function ItemPanel({ itemId }: Props) {
         key={c.id}
         className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 transition hover:border-slate-300 hover:bg-slate-50"
       >
-        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cStatus.resolved ? 'bg-emerald-500' : cStatus.started ? 'bg-indigo-500' : 'bg-slate-300')} />
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(cStatus))} />
         <button onClick={onOpen} title={`Open ${c.title}`} className="min-w-0 flex-1 truncate text-left text-slate-700 transition hover:text-indigo-600">
           {c.title}
         </button>
@@ -686,10 +686,7 @@ export function ItemPanel({ itemId }: Props) {
                 <Field label="Status">
                   <div className={WELL} title="Derived from its column and the work below — never typed in">
                     <span
-                      className={cn(
-                        'h-1.5 w-1.5 shrink-0 rounded-full',
-                        status.resolved ? 'bg-emerald-500' : status.started ? 'bg-indigo-500' : 'bg-slate-300',
-                      )}
+                      className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(status))}
                     />
                     <span className="truncate text-meta font-medium text-slate-700">{STAGE_LABELS[stage]}</span>
                     <span className="ml-auto shrink-0 text-micro text-slate-600">Derived</span>
@@ -1097,7 +1094,7 @@ export function ItemPanel({ itemId }: Props) {
                         <span
                           className={cn(
                             'flex h-4 w-4 items-center justify-center rounded border transition',
-                            entry.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white',
+                            entry.done ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white',
                           )}
                         >
                           {entry.done && <Check size={11} />}

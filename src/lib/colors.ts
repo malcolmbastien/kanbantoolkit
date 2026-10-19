@@ -150,35 +150,49 @@ export const FLAG_BADGE: Record<'risk' | 'watch', string> = {
   watch: 'bg-amber-100 font-medium text-amber-800 ring-1 ring-amber-300',
 }
 
-/** Solid-ish chip styling for a stage (used on lane headers). */
+/**
+ * The four stages, as colours.
+ *
+ * One source, because a stage is a colour everywhere it appears — the column's accent, its tint,
+ * its count, its dot, a card's pips, a chip on a row — and four maps each picking their own shade
+ * is four chances for the board to disagree with itself about what "in progress" looks like.
+ *
+ * The meaning is the ramp's: an unstarted pair that are greys and blues (nothing has happened
+ * yet), a violet for work under way, and a green for work delivered. Backlog and Not Started are
+ * deliberately *not* two shades of one grey: a lane's tint is how the app says which stage the
+ * lane is, so two lanes a shade apart would stop being tellable apart at a glance.
+ */
+export const STAGE_COLOR: Record<Stage, string> = {
+  backlog: '#64748b',
+  notStarted: '#3b82f6',
+  inProgress: '#7c3aed',
+  done: '#059669',
+}
+
+/** Solid-ish chip styling for a stage (used on rows and in the legend). */
 export function stageChip(stage: Stage): string {
   switch (stage) {
     case 'done':
       return 'bg-emerald-400/80 text-emerald-950'
     case 'inProgress':
-      return 'bg-indigo-400/80 text-indigo-950'
+      return 'bg-violet-400/80 text-violet-950'
     case 'notStarted':
-      return 'bg-slate-400/80 text-slate-900'
+      return 'bg-blue-400/80 text-blue-950'
     case 'backlog':
-      return 'bg-amber-300/90 text-amber-950'
+      return 'bg-slate-400/80 text-slate-900'
   }
 }
 
 /** Small card-symbol dot colour by rollup bucket. */
 export const BUCKET_DOT: Record<Stage, string> = {
-  backlog: 'bg-amber-400',
-  notStarted: 'bg-slate-300',
-  inProgress: 'bg-indigo-400',
+  backlog: 'bg-slate-400',
+  notStarted: 'bg-blue-400',
+  inProgress: 'bg-violet-500',
   done: 'bg-emerald-500',
 }
 
 /** Top accent colour for a top-level column, by workflow stage. */
-export const STAGE_ACCENT: Record<Stage, string> = {
-  backlog: '#fbbf24',
-  notStarted: '#94a3b8',
-  inProgress: '#818cf8',
-  done: '#34d399',
-}
+export const STAGE_ACCENT: Record<Stage, string> = STAGE_COLOR
 
 /**
  * A lane body, tinted by the stage it belongs to. The stage is then legible from the
@@ -187,25 +201,36 @@ export const STAGE_ACCENT: Record<Stage, string> = {
  */
 export const STAGE_SURFACE: Record<Stage, string> = {
   backlog: 'bg-slate-100',
-  notStarted: 'bg-slate-100',
-  inProgress: 'bg-indigo-50',
+  notStarted: 'bg-blue-50',
+  inProgress: 'bg-violet-50',
   done: 'bg-emerald-50',
 }
 
-/** The lane's count, as a pill at the header's right edge. */
+/**
+ * The lane's count, as a pill at the header's right edge — the stage colour, taken a shade deeper
+ * where white on it would fall under the floor (blue-500 carries white at 3.7:1; blue-600 at 5.2).
+ */
 export const STAGE_PILL: Record<Stage, string> = {
-  backlog: 'bg-slate-700 text-white',
-  notStarted: 'bg-slate-700 text-white',
-  inProgress: 'bg-indigo-600 text-white',
+  backlog: 'bg-slate-500 text-white',
+  notStarted: 'bg-blue-600 text-white',
+  inProgress: 'bg-violet-600 text-white',
   done: 'bg-emerald-600 text-white',
 }
 
 /** The dot that marks a lane's stage in its header. */
 export const STAGE_DOT: Record<Stage, string> = {
-  backlog: 'bg-amber-500',
-  notStarted: 'bg-slate-400',
-  inProgress: 'bg-indigo-600',
+  backlog: 'bg-slate-500',
+  notStarted: 'bg-blue-500',
+  inProgress: 'bg-violet-600',
   done: 'bg-emerald-600',
+}
+
+/**
+ * The dot a row wears for an item's standing — done, under way, or not yet. `statusOf`'s three
+ * answers, in the two colours the ramp gives them and the grey it starts from.
+ */
+export function statusDot(status: { resolved: boolean; started: boolean }): string {
+  return status.resolved ? 'bg-emerald-600' : status.started ? 'bg-violet-600' : 'bg-slate-400'
 }
 
 /** A lane header when the column is at or over its WIP limit — the tint always wins. */

@@ -1,5 +1,5 @@
 import { ArrowUpRight } from 'lucide-react'
-import { chipColors, DEP_STATE_STYLES } from '@/lib/colors'
+import { chipColors, DEP_STATE_STYLES, statusDot } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
 import type { DependencyInfo } from '@/domain/derive'
@@ -97,12 +97,7 @@ export function BoundaryPin({
 
       {/* Under the rule, what a card puts under its rule: where it has got to, and where it lives. */}
       <div className="mt-1.5 flex items-center gap-1.5 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
-        <span
-          className={cn(
-            'h-1.5 w-1.5 shrink-0 rounded-full',
-            status.resolved ? 'bg-emerald-500' : status.started ? 'bg-indigo-500' : 'bg-slate-300',
-          )}
-        />
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(status))} />
         <span className="shrink-0 font-semibold text-slate-700">{STAGE_LABELS[stage]}</span>
         <span className="ml-auto min-w-0 truncate rounded-full bg-slate-100 px-2 py-0.5 font-medium" title={`This dependency sits on ${boardName}`}>
           {boardName}
