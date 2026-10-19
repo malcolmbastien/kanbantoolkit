@@ -3,18 +3,15 @@
 ## Hard rule: no Firebase, no Google tracking
 
 Firebase and Google's tracking and cloud-AI services stay out of this project — runtime, build or
-tooling. **Not allowed:** Firebase or Firestore; Google Analytics, Tag Manager, or any other
-Google tracking or ads tag; Google Cloud (`gcloud`) and Vertex; Gemini and `gemini-cli`.
+tooling. **Not allowed:** Firebase or Firestore; Google Analytics, Tag Manager, or any other Google
+tracking or ads tag; Google Cloud (`gcloud`) and Vertex; Gemini and `gemini-cli`. Google Fonts
+stays out too — the app sets its type with its own stack, so a third-party font host buys it
+nothing.
 
-**Allowed, because they serve the end user and nothing else leans on them:**
-
-- **Google Sign-In** as *one* way in, never the only one. Someone without a Google account must be
-  able to use the app, so email (a one-time code) is the baseline and Google is additive. The
-  OAuth client is optional in development too: the app must run with it unset.
-- **Google Fonts**, linked or self-hosted. Self-hosting (e.g. `@fontsource`) is preferred where the
-  same face is available — one fewer third-party origin on first paint — but linking
-  `fonts.googleapis.com` is allowed, and `fonts.gstatic.com` with it. Either way the fallback
-  stack stays real: the app stays readable if the font host cannot be reached.
+**Allowed, because it serves the end user and nothing else leans on it:** **Google Sign-In**, as
+*one* way in and never the only one. Someone without a Google account must be able to use the app,
+so email (a one-time code) is the baseline and Google is additive. The OAuth client is optional in
+development too: the app must run with it unset.
 
 Federating with a *customer's* identity provider (even a Google Workspace one) is a deliberate
 enterprise decision, and not something this rule forbids by itself.
@@ -24,7 +21,7 @@ The app is a static Vite + React SPA deployed to Vercel; all state lives in `loc
 Before finishing any task, run:
 
 ```bash
-grep -rinE 'firebase|firestore|gcloud|gemini|vertexai|vertex-ai|aiplatform|generativelanguage|googletagmanager|google-analytics|gtag/js' . \
+grep -rinE 'firebase|firestore|gcloud|gemini|vertexai|vertex-ai|aiplatform|generativelanguage|googletagmanager|google-analytics|gtag/js|fonts\.googleapis\.com|fonts\.gstatic\.com' . \
   --exclude-dir=node_modules --exclude-dir=.git \
   --exclude=README.md --exclude=AGENTS.md
 ```

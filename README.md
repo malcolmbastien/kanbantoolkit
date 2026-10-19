@@ -53,9 +53,9 @@ endpoints' cells, and **attribution never counts as work**.
 
 ## No Firebase, no tracking
 
-This app has **no Firebase and no Google tracking or analytics**, by design. Optional Google
-Sign-In and Google Fonts are permitted by policy (see `AGENTS.md`); the current build uses
-neither, and makes no external requests at all.
+This app has **no Firebase, no Google tracking, and no third-party font host**, by design.
+Optional Google Sign-In is permitted by policy (see `AGENTS.md`); the current build makes no
+external requests at all.
 
 - Runtime: a static Vite + React SPA. All state is in the browser (`localStorage`).
   No backend, no auth, no cloud services of any kind.
