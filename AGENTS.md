@@ -38,9 +38,11 @@ task-master list            # terminal 2
 - TypeScript strict; path alias `@/*` → `src/*`.
 - Domain logic lives in `src/domain/` and must stay pure and framework-free; it is unit
   tested in `*.test.ts` (`npm test`).
-- **A parent is set by dropping, and the rule is the model's.** A card dragged onto an initiative
-  card becomes its child, and so does an initiative dragged onto another — the same gesture in
-  either flow, and a hierarchy edit rather than a move: the item stays in its own lane or cell.
+- **A parent is set by dropping, and the rule is the model's.** A **card** dragged onto an
+  initiative card becomes its child — a hierarchy edit rather than a move: the card stays in its own
+  lane. An **initiative** dragged onto another is a *move*, not a hierarchy edit: dragging one
+  initiative onto another means "put it with that one", so it lands in that cell, and its parent is
+  set from its own panel or the card menu.
   The target is resolved from the **rectangles** of the initiative cards (`parentTargetUnder`),
   because a card is `pointer-events-none` while one is in the air, which is what lets the lane
   beneath it answer. `canSetParent` is the one rule — the parent must be an initiative, and an item

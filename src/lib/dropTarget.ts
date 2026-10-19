@@ -1,4 +1,4 @@
-import { canSetParent } from '@/domain/board'
+import { canSetParent, isInitiativeItem } from '@/domain/board'
 import type { Graph } from '@/domain/derive'
 import type { IssueType } from '@/domain/types'
 
@@ -14,6 +14,13 @@ import type { IssueType } from '@/domain/types'
  *
  * The rule is `canSetParent`, the same one the store keeps, so a target that lights up is a target
  * the drop would accept.
+ *
+ * **A card, and only a card.** An initiative dragged onto another is a *move* — the gesture that
+ * puts work in a column, and what the eye reads it as. Resolving it as a hierarchy edit instead
+ * merged two initiatives into a parent and a child while the dragged card stayed exactly where it
+ * was, which is not what anybody dragging one onto another means. A card dragged onto an
+ * initiative still becomes its child: that gesture has no other meaning, and no other way to say
+ * it with a mouse.
  */
 export function parentTargetUnder(
   x: number,
@@ -22,6 +29,7 @@ export function parentTargetUnder(
   graph: Graph,
   issueTypes: IssueType[],
 ): string | null {
+  if (isInitiativeItem(graph.items.find((i) => i.id === itemId), issueTypes)) return null
   for (const el of document.querySelectorAll<HTMLElement>('[data-card-initiative]')) {
     const id = el.dataset.cardId
     if (!id || id === itemId) continue
