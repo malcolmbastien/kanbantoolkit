@@ -460,11 +460,16 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         })}
         footer={
           ctx.interactive && !ctx.editMode ? (
+            /* The way to make work in this column, and the largest target in it: a full-width
+               dashed block rather than a hairline of text, because "add a card here" is the one
+               thing a reader does to a lane that has nothing in it. */
             <button
               onClick={() => ctx.onAddCard(lane.id)}
-              className="flex items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-0.5 text-micro text-slate-600 hover:border-indigo-400 hover:text-indigo-600 pointer-coarse:py-1.5"
+              title={`Add a card to ${lane.name || 'this column'}`}
+              aria-label={`Add a card to ${lane.name || 'this column'}`}
+              className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white text-meta font-semibold text-slate-800 transition hover:border-indigo-400 hover:bg-indigo-50/60 hover:text-indigo-700 pointer-coarse:min-h-[48px]"
             >
-              <Plus size={10} /> card
+              <Plus size={16} strokeWidth={2.5} className="shrink-0" /> Add card
             </button>
           ) : null
         }
