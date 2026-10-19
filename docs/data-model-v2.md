@@ -37,8 +37,10 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
   - attribution never counts as work.
 - **Placement is explicit but many-to-many.** One placement record per board, so an item
   can sit on several boards with one identity.
-- **WIP limits** are per-lane `wipLimit`s and are **visual only** — a lane over its limit
-  shows red; moves are never blocked.
+- **WIP limits** are per-lane `wipLimit`s, and a board's `wipEnforcement` decides what they do:
+  `visualize` tints a lane at or over its limit and lets moves through, `justify` holds a move
+  until a reason is given, `block` refuses it. The rule lives in `moveCard`, which answers
+  whether the move happened.
 
 ## What changed from v1
 

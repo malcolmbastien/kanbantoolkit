@@ -168,6 +168,14 @@ src/
   Dependency state is arithmetic over two cells.
 - **`setParent`** drops any existing decomposition parent, enforcing one parent.
 
+### Collaboration (designed, not built)
+
+The app is local-first and single-user today. A team deployment needs one person to hold a
+card's pen at a time; [`docs/collaboration.md`](./docs/collaboration.md) sets out the lease, the
+revision check that makes a lapsed lease safe, what is locked (content and relationships) and
+what is deliberately not (arrangement), and the groundwork the store needs first. None of it is
+implemented.
+
 ## Taskmaster (authoring workflow)
 
 Task generation uses [Task Master](https://github.com/eyaltoledano/claude-task-master)
