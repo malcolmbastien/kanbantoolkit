@@ -8,8 +8,12 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   // The commit an error report came from. CI passes the sha; a local build says `dev`.
   define: { __RELEASE__: JSON.stringify((process.env.GITHUB_SHA ?? 'dev').slice(0, 7)) },
-  // A reported stack says `at dropCardAt (index-abc.js:1:4821)` rather than `at t (...)`.
-  esbuild: { keepNames: true },
+  build: {
+    // A reported stack says `at dropCardAt (index-abc.js:1:4821)` rather than `at t (...)`, and
+    // `keepNames` has to be set where the minifier reads it: this Vite minifies with oxc, so an
+    // `esbuild` option would be ignored.
+    rolldownOptions: { output: { keepNames: true } },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

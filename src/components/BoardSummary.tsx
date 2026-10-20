@@ -382,7 +382,7 @@ export function BoardSummary({
 
 
   return (
-    <div className="flex gap-2 p-2">
+    <div data-workflow="initiatives" className="flex gap-2 p-2">
       {lift && (
         <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
       )}

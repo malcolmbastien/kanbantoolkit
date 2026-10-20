@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "taskmaster:proxy": "node scripts/opencode-go-proxy.mjs",
-    "scan": "bash scripts/scan-deps.sh"
+    "scan": "bash scripts/scan-deps.sh",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261019.1",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.1.0",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",

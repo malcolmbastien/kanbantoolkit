@@ -788,7 +788,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   }
 
   const canvas = (
-    <div ref={rowRef} className="relative flex min-h-0 flex-1">
+    <div ref={rowRef} data-workflow="cards" className="relative flex min-h-0 flex-1">
       <div
         ref={pan.ref}
         {...pan.handlers}

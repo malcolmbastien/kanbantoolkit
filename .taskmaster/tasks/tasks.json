@@ -1593,14 +1593,14 @@
           "106"
         ],
         "priority": "high",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `src/components/ErrorBoundary.tsx` and `src/main.tsx`.\n2. A reporting service (Sentry, or self-hosted GlitchTip).\n3. The build pipeline (source-map upload).\n\nDEFINITIONS\n- Event: one reported error.\n- Release: the identifier of the build the event came from.\n\nREQUIREMENTS\n\nR1 — Capture\nUncaught errors and unhandled promise rejections shall be reported, together with the boundary's caught errors.\n\nR2 — Readable\nSource maps shall be uploaded per release, so a stack names the original files.\n\nR3 — Release tag\nEvery event shall carry the release identifier.\n\nR4 — No personal data\nThe report shall not contain item titles, descriptions, names, board names or workspace content.\n\nR5 — Optional in development\nThe app shall run with no reporting configured, and shall not fail when the service is unreachable.\n\nDELIVERED — 2026-10-20\nCloudflare-native: `POST /api/errors` on the app's own Worker, stored in D1 (`flowline-errors`),\nread in the Cloudflare dashboard until the app has accounts. The endpoint validates and caps every\nfield, drops a place's query, stores only a salted hash of the address, and refuses more than 30\nreports an hour from one. Verified end to end: a thrown error in the built app reached D1 with its\npath and view and nothing else.\n\nR2 IS ONLY PARTLY MET. Buffers carry the message and a stack with function names preserved\n(esbuild `keepNames`), so a report says `at dropCardAt (index-abc.js:1:4821)` — searchable, but not\na line. Resolving to original lines needs source maps plus a symbolication step; that is a\nfollow-up if the frames prove limiting, and Sentry (whose Vite plugin does exactly that) is the\ncheap route to it.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `src/components/ErrorBoundary.tsx` and `src/main.tsx`.\n2. A reporting service (Sentry, or self-hosted GlitchTip).\n3. The build pipeline (source-map upload).\n\nDEFINITIONS\n- Event: one reported error.\n- Release: the identifier of the build the event came from.\n\nREQUIREMENTS\n\nR1 — Capture\nUncaught errors and unhandled promise rejections shall be reported, together with the boundary's caught errors.\n\nR2 — Readable\nSource maps shall be uploaded per release, so a stack names the original files.\n\nR3 — Release tag\nEvery event shall carry the release identifier.\n\nR4 — No personal data\nThe report shall not contain item titles, descriptions, names, board names or workspace content.\n\nR5 — Optional in development\nThe app shall run with no reporting configured, and shall not fail when the service is unreachable.\n\nDELIVERED — 2026-10-20\nCloudflare-native: `POST /api/errors` on the app's own Worker, stored in D1 (`flowline-errors`),\nread in the Cloudflare dashboard until the app has accounts. The endpoint validates and caps every\nfield, drops a place's query, stores only a salted hash of the address, and refuses more than 30\nreports an hour from one. Verified end to end: a thrown error in the built app reached D1 with its\npath and view and nothing else.\n\nR2 IS ONLY PARTLY MET. Buffers carry the message and a stack with function names preserved\n(`keepNames`, set on `build.rolldownOptions.output` — Vite 8 minifies with oxc, so an `esbuild`\noption is silently ignored), so a report says `at dropCardAt (index-abc.js:1:4821)` — searchable, but not\na line. Resolving to original lines needs source maps plus a symbolication step; that is a\nfollow-up if the frames prove limiting, and Sentry (whose Vite plugin does exactly that) is the\ncheap route to it.",
         "testStrategy": "VERIFICATION\n\nV1 — R1: Throw from a control in a preview build; the event appears.\nV2 — R2: The stack names `src/components/…` rather than the minified bundle.\nV3 — R4: Inspect the payload; no workspace content is present.\nV4 — R5: Run the dev server with no service configured; the app works and the error is logged locally.",
         "subtasks": [],
         "complexity": 3,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
         "complexityReasoning": "SDK wiring, source maps and payload scrubbing; the no-personal-data rule is the part that needs care.",
-        "updatedAt": "2026-10-20T21:38:01.063Z"
+        "updatedAt": "2026-10-20T22:10:33.543Z"
       },
       {
         "id": 108,
@@ -1960,7 +1960,7 @@
             "title": "The harness: each test starts from an empty origin, against the built app.",
             "description": "This subtask adds Playwright, a config, a seeded workspace and one command that builds, serves and runs.",
             "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `e2e/` — a Playwright suite, its config, and a fixture that seeds a workspace.\n2. `package.json` — a `test:e2e` script.\n\nDEFINITIONS\n- Seeded workspace: the demo the app creates for a fresh origin — deterministic, and free of the wall clock.\n- Fresh context: Playwright's per-test browser context, so storage starts empty every time.\n\nREQUIREMENTS\n\nR1 — Isolated\nEach test shall start from an empty origin, so the app seeds its own workspace and no test sees another's edits.\n\nR2 — The shipped build\nThe suite shall run against the production build (`vite preview`), not the dev server, so what it tests is what ships.\n\nR3 — No clock\nNo assertion shall depend on the current date. The demo's dates are relative, so tests read titles, positions and counts.\n\nR4 — One command\n`npm run test:e2e` shall build, serve and run, and answer non-zero on failure.\n\nR5 — No false green\nA failing assertion shall fail the run, and a server that cannot start shall fail it too rather than skipping silently.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 124
           },
@@ -2039,7 +2039,7 @@
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) harness, seeded state and CI wiring; (2) drag and drop, WIP cancel/resume, drawer edits, board design, import and export; (3) the two-client lease flow once the server exists.",
         "complexityReasoning": "Six flows, one of which needs the server to exist. The risk is flakiness rather than difficulty.",
-        "updatedAt": "2026-10-20T22:04:16.963Z"
+        "updatedAt": "2026-10-20T22:10:33.543Z"
       },
       {
         "id": 125,
