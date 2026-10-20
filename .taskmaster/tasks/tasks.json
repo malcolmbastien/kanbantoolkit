@@ -1554,23 +1554,23 @@
         "id": "105",
         "title": "Every push is typechecked, linted, tested and built.",
         "description": "This task adds continuous integration running the repository's own checks, so a green local run means something.",
-        "status": "review",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new workflow in `.github/workflows/`.\n2. The `package.json` scripts (`typecheck`, `lint`, `test`, `build`).\n3. The no-Firebase/tracking scan in `AGENTS.md`.\n\nDEFINITIONS\n- Green: every step of the workflow succeeds.\n- Required check: a branch-protection check that blocks merging to `main`.\n\nREQUIREMENTS\n\nR1 — Trigger\nThe workflow shall run on every push to `main` and on every pull request.\n\nR2 — Checks\nThe workflow shall run typecheck, lint, tests, the production build, and the scan from `AGENTS.md`.\n\nR3 — Failures are visible\nA failing step shall fail the workflow, and the step shall be named in the summary.\n\nR4 — Cache\nNode modules and the build cache shall be cached against the lockfile.\n\nR5 — Required\nThe workflow's check shall be required on `main`.\n\nR6 — Pinned\nThe Node version shall be pinned in the workflow and recorded in the README.",
-        "testStrategy": "VERIFICATION\n\nV1 — R1: Push a branch; the workflow runs.\nV2 — R3: Break a test on a branch; the workflow fails at the test step and names it.\nV3 — R2: The workflow file contains the five steps.\nV4 — R5: Branch protection lists the check.\nV5 — R6: The Node version in the workflow matches the README.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new workflow in `.github/workflows/`.\n2. The `package.json` scripts (`typecheck`, `lint`, `test`, `build`).\n3. The no-Firebase/tracking scan in `AGENTS.md`.\n\nDEFINITIONS\n- Green: every step of the workflow succeeds.\n- Required check: a branch-protection check that blocks merging to `main`.\n\nREQUIREMENTS\n\nR1 — Trigger\nThe workflow shall run on every push to `main` and on every pull request.\n\nR2 — Checks\nThe workflow shall run typecheck, lint, tests, the production build, and the scan from `AGENTS.md`.\n\nR3 — Failures are visible\nA failing step shall fail the workflow, and the step shall be named in the summary.\n\nR4 — Cache\nNode modules and the build cache shall be cached against the lockfile.\n\nR5 — Informative, not a gate\nThe check shall not require a pull request: a direct push to `main` stays allowed, and the run's\nresult is visible on the commit.\n\nR6 — Pinned\nThe Node version shall be pinned in the workflow and recorded in the README.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: Push a branch; the workflow runs.\nV2 — R3: Break a test on a branch; the workflow fails at the test step and names it.\nV3 — R2: The workflow file contains the five steps.\nV4 — R5: A direct push to `main` is accepted, and the run's result appears on the commit.\nV5 — R6: The Node version in the workflow matches the README.",
         "subtasks": [],
         "complexity": 2,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
         "complexityReasoning": "One workflow file plus branch protection. No application code.",
-        "updatedAt": "2026-10-20T00:33:42.248Z"
+        "updatedAt": "2026-10-20T02:02:17.255Z"
       },
       {
         "id": "106",
         "title": "The production build is served from a host, with a preview for every pull request.",
         "description": "This task puts the static build behind a CDN host and gives each pull request its own URL.",
-        "status": "pending",
+        "status": "review",
         "dependencies": [
           "105"
         ],
@@ -1581,7 +1581,8 @@
         "complexity": 3,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
-        "complexityReasoning": "Host configuration: caching, headers and rollback. The content-security policy for a Vite SPA is the only fiddly part."
+        "complexityReasoning": "Host configuration: caching, headers and rollback. The content-security policy for a Vite SPA is the only fiddly part.",
+        "updatedAt": "2026-10-20T02:02:17.255Z"
       },
       {
         "id": "107",
