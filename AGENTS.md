@@ -21,15 +21,13 @@ The app is a static Vite + React SPA deployed to Vercel; all state lives in `loc
 Before finishing any task, run:
 
 ```bash
-grep -rinE 'firebase|firestore|gcloud|gemini|vertexai|vertex-ai|aiplatform|generativelanguage|googletagmanager|google-analytics|gtag/js|fonts\.googleapis\.com|fonts\.gstatic\.com' . \
-  --exclude-dir=node_modules --exclude-dir=.git \
-  --exclude=README.md --exclude=AGENTS.md
+npm run scan      # scripts/scan-deps.sh — the same command CI runs
 ```
 
-It must return nothing. A bare `google` is no longer a violation, which is why the scan names the
-forbidden things instead. (`README.md`/`AGENTS.md` may mention this rule; the PRD and `docs/` may
-name the allowed services — a user-facing "Sign in with Google" is legitimate — but never the
-forbidden ones.)
+It must pass. A bare `google` is no longer a violation, which is why the scan names the forbidden
+things instead. (`README.md`, `AGENTS.md`, the script itself and the task backlog quote the rule by
+name; `docs/` may name the allowed services — a user-facing "Sign in with Google" is legitimate —
+but the app itself never names a forbidden one.)
 
 ## Taskmaster
 
@@ -170,7 +168,7 @@ task-master list            # terminal 2
   was dropped rather than at the end. WIP is the cards workflow's own — an initiatives lane neither
   shows a limit nor enforces one. Counts read the **column**, not the view: narrowing what you
   *see* (search, filters, focus) never changes the load a column carries.
-- Before finishing any task, run the no-Firebase/tracking scan above and `npm test`.
+- Before finishing any task, run `npm run scan` and `npm test`.
 
 ## Persisted state (localStorage)
 

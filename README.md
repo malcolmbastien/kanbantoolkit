@@ -65,6 +65,8 @@ external requests at all.
 
 ## Quick start
 
+Node **26** (the version CI runs). Install, then dev:
+
 ```bash
 npm install
 npm run dev          # http://localhost:5173
@@ -75,7 +77,12 @@ npm run build        # tsc -b && vite build  ->  dist/
 npm run preview      # serve the production build
 npm test             # Vitest: derivation + store behaviour
 npm run lint         # oxlint
+npm run scan         # the AGENTS.md dependency rule (no Firebase, no Google tracking)
 ```
+
+Every push to `main` and every pull request runs `.github/workflows/ci.yml` on Node 26: typecheck,
+lint, tests, the `AGENTS.md` dependency scan, and the production build. The job is named `checks`,
+and it is the check to require on `main`.
 
 ### URLs
 
