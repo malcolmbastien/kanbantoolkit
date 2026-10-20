@@ -1991,7 +1991,7 @@
             "title": "The drawer edits: title, tag, person, parent.",
             "description": "This subtask covers the four edits the drawer is opened for, and that each reaches the card.",
             "details": "SYSTEM\nFlowline, the application in this repository.\n\nREQUIREMENTS\n\nR1 — Title\nEditing the title shall change the card's title on the board once the drawer closes.\n\nR2 — Tag\nAdding a tag from the board's vocabulary shall show that tag on the card.\n\nR3 — Person\nAdding a name shall show the person's initials on the card.\n\nR4 — Parent\nSetting a parent shall show the lineage on the card.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
@@ -2039,7 +2039,7 @@
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) harness, seeded state and CI wiring; (2) drag and drop, WIP cancel/resume, drawer edits, board design, import and export; (3) the two-client lease flow once the server exists.",
         "complexityReasoning": "Six flows, one of which needs the server to exist. The risk is flakiness rather than difficulty.",
-        "updatedAt": "2026-10-20T22:39:25.058Z"
+        "updatedAt": "2026-10-20T23:09:28.954Z"
       },
       {
         "id": 125,
