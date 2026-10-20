@@ -30,7 +30,6 @@ import {
   descendants,
   lineageOf,
   objectiveRollup,
-  openDescendants,
   rollupOf,
   type Graph,
 } from '@/domain/derive'
@@ -159,7 +158,6 @@ export function ItemPanel({ itemId }: Props) {
     .filter((i): i is Item => Boolean(i))
   const dependencies = dependenciesOf(item.id, graph)
   const dependents = dependentsOf(item.id, graph)
-  const exposure = openDescendants(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
   const roll = rollupOf(item.id, graph)
   const stage = roll.bucket
@@ -1175,11 +1173,14 @@ export function ItemPanel({ itemId }: Props) {
         {tab === 'hierarchy' && (
           <>
             {/* The whole chain, from the objective down to this item — read here, changed on the
-                Overview. */}
+                Overview. Each row names the board the item sits on rather than what kind of thing
+                it is: the type is already the dot's colour, while the board is where the reader
+                has to go, and clicking the row takes them there. */}
             <Section label="How this rolls up">
               <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
                   {/* The objectives this work serves, at the top of the chain — they are the
-                      "why" above the "what". */}
+                      "why" above the "what". An objective is not on a board, so its row names the
+                      surface it opens instead. */}
                   {lineageObjectives.map((o) => (
                     <button
                       key={`okr-${o.id}`}
@@ -1192,11 +1193,12 @@ export function ItemPanel({ itemId }: Props) {
                     >
                       <Target size={12} className="shrink-0 text-indigo-500" />
                       <span className="min-w-0 flex-1 truncate text-meta font-medium text-indigo-700">{o.title}</span>
-                      <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-indigo-500">Objective</span>
+                      <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-indigo-500">Objectives</span>
                     </button>
                   ))}
                   {lineage.map((node) => {
                     const self = node.id === item.id
+                    const there = boardOf(node.id)
                     return self ? (
                       <div key={node.id} className="flex items-center gap-2 bg-slate-50 px-2.5 py-2">
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
@@ -1205,13 +1207,24 @@ export function ItemPanel({ itemId }: Props) {
                     ) : (
                       <button
                         key={node.id}
-                        onClick={() => close(node.id)}
-                        title={`Open ${node.title}`}
-                        className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition hover:bg-slate-50"
+                        onClick={() => openOrGo(node.id)}
+                        title={`Open ${node.title}${there ? ` — on ${there.name}` : ''}`}
+                        className="group flex w-full items-center gap-2 px-2.5 py-2 text-left transition hover:bg-slate-50"
                       >
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
                         <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{node.title}</span>
-                        <span className="shrink-0 text-micro text-slate-600">{typeName(node.typeId)}</span>
+                        {/* Where it is, not what it is. A board other than the one in front is a
+                            link out, so it reads as one: a tinted chip with an arrow, the same
+                            shape the warning rows and the placement list use. On this board the
+                            row opens in place, and the name stays quiet text. */}
+                        {there && there.id !== boardId ? (
+                          <span className="flex min-w-0 max-w-[45%] shrink-0 items-center gap-1 rounded-md bg-indigo-50 px-1.5 py-0.5 text-micro font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200 transition group-hover:bg-indigo-100 group-hover:ring-indigo-300">
+                            <span className="min-w-0 truncate">{there.name}</span>
+                            <ArrowRight size={11} className="shrink-0" />
+                          </span>
+                        ) : (
+                          <span className="shrink-0 max-w-[45%] truncate text-micro text-slate-600">{there?.name ?? '—'}</span>
+                        )}
                       </button>
                     )
                   })}
@@ -1246,7 +1259,6 @@ export function ItemPanel({ itemId }: Props) {
                   })}
                 </div>
               )}
-              {exposure.length > 0 && <p className="text-micro text-amber-700">{exposure.length} still open below.</p>}
             </Section>
 
             {/* Dependencies — a link between two items. */}

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Database, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { NewBoardDialog } from './NewBoardDialog'
@@ -38,6 +38,7 @@ export function BoardWorkspace() {
   const askConfirm = useStore((s) => s.askConfirm)
   const importWorkspace = useStore((s) => s.importWorkspace)
   const setObjectives = useStore((s) => s.setObjectives)
+  const setView = useStore((s) => s.setView)
   const objectives = useStore((s) => s.objectives)
   const keyResults = useStore((s) => s.keyResults)
   // The ring of workspace copies, read on open and after a restore. The ring is written by the
@@ -225,6 +226,15 @@ export function BoardWorkspace() {
                 <Archive size={13} /> {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
               </button>
             )}
+            {/* The way into Admin, and the only one: it belongs to the organisation, not to a
+                board, so a board's toolbar does not offer it. */}
+            <button
+              onClick={() => setView('admin')}
+              className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+              title="Admin — the copies of this workspace this browser keeps, and its storage"
+            >
+              <Database size={13} /> Admin
+            </button>
           </div>
         </div>
 

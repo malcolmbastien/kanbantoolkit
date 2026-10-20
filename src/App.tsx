@@ -195,7 +195,6 @@ export default function App() {
         onShowMyWork={() => setView('mywork')}
         onShowObjectives={() => setView('objectives')}
         onGoToBoards={() => setView('boards')}
-        onGoToAdmin={() => setView('admin')}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}

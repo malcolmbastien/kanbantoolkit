@@ -1,4 +1,4 @@
-import { Archive, Database, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Target, TrendingUp, UserRound, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Target, TrendingUp, UserRound, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
@@ -31,7 +31,6 @@ interface Props {
   onShowObjectives: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
-  onGoToAdmin: () => void
   onEditBoard: () => void
   onSaveEdit: () => void
   onCancelEdit: () => void
@@ -42,7 +41,7 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onShowObjectives, onGoToBoards, onGoToAdmin, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onShowObjectives, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
@@ -176,19 +175,6 @@ export function TopBar(props: Props) {
             <UserRound size={12} /> My work
           </button>
 
-          {/* Administration sits at the end of the organisation-level tabs: it is about the
-              workspace itself — the copies this browser keeps — not about any board's work. */}
-          <button
-            onClick={onGoToAdmin}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showAdmin ? 'border-slate-400 bg-slate-100 text-slate-800' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-            )}
-            title="Admin — the copies of this workspace this browser keeps, and its storage"
-          >
-            <Database size={12} /> Admin
-          </button>
 
           </div>
 

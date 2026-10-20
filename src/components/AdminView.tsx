@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { History } from 'lucide-react'
+import { ArrowLeft, History } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
 import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
 
@@ -13,6 +13,7 @@ import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
  */
 export function AdminView() {
   const importWorkspace = useStore((s) => s.importWorkspace)
+  const setView = useStore((s) => s.setView)
   const askConfirm = useStore((s) => s.askConfirm)
   const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([])
   const [snapshotError, setSnapshotError] = useState<string | null>(null)
@@ -45,7 +46,15 @@ export function AdminView() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
       <div className="mx-auto w-full max-w-4xl">
-        <h1 className="text-title font-semibold tracking-tight text-slate-900">Admin</h1>
+        {/* Admin is entered from the workspace and only from there, so it says how to get back. */}
+        <button
+          onClick={() => setView('boards')}
+          className="flex items-center gap-1 text-meta font-medium text-slate-600 transition hover:text-indigo-700"
+          title="Back to every board in the organisation"
+        >
+          <ArrowLeft size={13} /> Boards
+        </button>
+        <h1 className="mt-1 text-title font-semibold tracking-tight text-slate-900">Admin</h1>
         <p className="mt-0.5 text-meta text-slate-600">
           This workspace lives in this browser. The copies below are what it keeps of itself, so a
           mistake is a moment rather than a loss.
