@@ -875,7 +875,9 @@ export function ItemPanel({ itemId }: Props) {
                   </Field>
                 ) : (
                   <Field label="Estimate">
-                    <div className={WELL}>
+                    {/* A number and its unit, so the well is only as wide as the value — a
+                        half-column field with a two-character answer in it reads as empty. */}
+                    <div className={cn(WELL, 'w-fit')}>
                       <input
                         type="number"
                         min={0}
@@ -883,7 +885,7 @@ export function ItemPanel({ itemId }: Props) {
                         onChange={(e) => setItemFields(item.id, { size: e.target.value === '' ? undefined : Number(e.target.value) })}
                         placeholder="—"
                         aria-label="Estimate in points"
-                        className="w-12 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
+                        className="w-14 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
                       />
                       <span className="text-meta text-slate-600">pts</span>
                     </div>

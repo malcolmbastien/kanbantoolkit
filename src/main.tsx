@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { startSnapshotSchedule } from './lib/snapshots'
+import { measureStorage, verifyStorage } from './lib/storage'
 import { PERSIST_VERSION, persistedSlice, useStore } from './store'
 import './index.css'
 
@@ -15,6 +16,14 @@ startSnapshotSchedule({
   subscribe: (listener) => useStore.subscribe(listener),
   version: PERSIST_VERSION,
 })
+
+// A write is only known to have landed when it is read back, and the storage figures the panel
+// shows are only as good as their last reading. Both are cheap, and neither belongs on a keystroke.
+void measureStorage()
+window.setInterval(() => {
+  verifyStorage()
+  void measureStorage()
+}, 30_000)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

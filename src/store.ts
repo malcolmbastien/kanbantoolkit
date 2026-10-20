@@ -1,11 +1,12 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
 import { canPlaceInSection, decompositionParent, descendants, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
+import { guardedStorage } from '@/lib/storage'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
@@ -2377,6 +2378,9 @@ export const useStore = create<Store>()(
     {
       name: 'flowline-state-v3',
       version: PERSIST_VERSION,
+      // A write that fails must be *known*: `guardedStorage` swallows the throw — the app keeps
+      // working with a full disk — and publishes the failure for the banner. See `lib/storage.ts`.
+      storage: createJSONStorage(guardedStorage),
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

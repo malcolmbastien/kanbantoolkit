@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Download, Eye, History, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
+import { NewBoardDialog } from './NewBoardDialog'
 import { TemplateEditor } from './TemplateEditor'
 import { boardsByBand } from '@/domain/board'
 import { readWorkspaceFile } from '@/domain/workspace'
+import { downloadWorkspace } from '@/lib/exportWorkspace'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
+import { formatBytes, requestPersistence, useStorageStatus } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
 import type { Board, BoardBand, BoardTemplate } from '@/domain/types'
@@ -40,6 +43,9 @@ export function BoardWorkspace() {
   const keyResults = useStore((s) => s.keyResults)
   // The ring of workspace copies, read on open and after a restore. The ring is written by the
   // schedule in `main.tsx`; this panel is where a person reaches for one.
+  const storageUsage = useStorageStatus((s) => s.usage)
+  const storageQuota = useStorageStatus((s) => s.quota)
+  const storagePersisted = useStorageStatus((s) => s.persisted)
   const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([])
   const [snapshotError, setSnapshotError] = useState<string | null>(null)
   useEffect(() => {
@@ -68,10 +74,7 @@ export function BoardWorkspace() {
   }
 
   const [q, setQ] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [name, setName] = useState('')
-  const [band, setBand] = useState<BoardBand>('team')
-  const [templateId, setTemplateId] = useState('')
+  const [showNewBoard, setShowNewBoard] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   // The browser's primary cut is the flight level, so it is a filter rather than a
   // section header you scroll past.
@@ -95,24 +98,12 @@ export function BoardWorkspace() {
   const archivedCount = boards.filter((b) => b.archived).length
   const lastBoard = boards.length <= 1
 
-  const create = () => {
-    const trimmed = name.trim()
-    if (!trimmed) return
+  const createBoard = (name: string, band: BoardBand, templateId?: string) => {
     // `open: false` — creating here is browsing, so the board lands in the list rather
     // than switching to it in edit mode the way the TopBar's create does.
-    addBoard(trimmed, band, false, templateId || undefined)
-    setName('')
-    setBand('team')
-    setTemplateId('')
-    setCreating(false)
+    addBoard(name, band, false, templateId)
+    setShowNewBoard(false)
     setQ('')
-  }
-
-  const cancelCreate = () => {
-    setName('')
-    setBand('team')
-    setTemplateId('')
-    setCreating(false)
   }
 
   const createTemplate = () => {
@@ -141,22 +132,8 @@ export function BoardWorkspace() {
 
   const preview = boardTemplates.find((t) => t.id === previewId)
 
-  /** Download the workspace: exactly what the app persists, plus the shape it was written in. */
-  const exportWorkspace = () => {
-    const backup = {
-      app: 'flowline',
-      exportedAt: new Date().toISOString(),
-      version: PERSIST_VERSION,
-      state: persistedSlice(useStore.getState()),
-    }
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `flowline-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  /** Download the workspace — the same file the banner offers when saving has stopped. */
+  const exportWorkspace = () => downloadWorkspace()
 
   const onImportFile = async (file: File | undefined) => {
     if (!file) return
@@ -246,13 +223,8 @@ export function BoardWorkspace() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
-              onClick={() => (creating ? cancelCreate() : setCreating(true))}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-2.5 py-1 text-meta font-medium transition',
-                creating
-                  ? 'border-indigo-400/60 bg-indigo-50 text-indigo-700'
-                  : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
-              )}
+              onClick={() => setShowNewBoard(true)}
+              className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
               title="Create a board in this organisation"
             >
               <Plus size={13} /> New board
@@ -282,72 +254,6 @@ export function BoardWorkspace() {
               </button>
             )}
           </div>
-
-          {creating && (
-            <div className="flex w-full flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') create()
-                  else if (e.key === 'Escape') cancelCreate()
-                }}
-                placeholder="Board name…"
-                aria-label="New board name"
-                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-              <select
-                value={band}
-                onChange={(e) => setBand(e.target.value as BoardBand)}
-                aria-label="New board flight level"
-                className="rounded-md border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-              >
-                {BOARD_BANDS.map((b) => (
-                  <option key={b} value={b}>
-                    {BAND_STYLES[b].label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={templateId}
-                onChange={(e) => {
-                  const id = e.target.value
-                  setTemplateId(id)
-                  // A template carries a flight level, so offer it as the default.
-                  const chosen = boardTemplates.find((t) => t.id === id)
-                  if (chosen) setBand(chosen.band)
-                }}
-                aria-label="New board template"
-                className="rounded-md border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-              >
-                <option value="">Standard columns</option>
-                {boardTemplates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={create}
-                disabled={!name.trim()}
-                className="rounded-md bg-indigo-500 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
-              >
-                Create
-              </button>
-              <button
-                onClick={cancelCreate}
-                className="rounded-md border border-slate-300 px-2.5 py-1 text-meta font-medium text-slate-600 hover:text-slate-800"
-              >
-                Cancel
-              </button>
-              <span className="text-meta text-slate-600">
-                {templateId
-                  ? 'Uses that template’s columns, card types and WIP policy.'
-                  : 'Starts as the standard Backlog → Done columns; shape it after.'}
-              </span>
-            </div>
-          )}
         </div>
 
         {groups.length === 0 && (
@@ -620,6 +526,27 @@ export function BoardWorkspace() {
                 Export downloads every board, card and initiative as a JSON file; importing one replaces this workspace
                 with what the file carries.
               </p>
+              {/* What the browser says about the space, and whether it has promised to keep it.
+                  A browser that will not promise may evict the workspace after a quiet week. */}
+              <p data-storage-figures className="mt-1 text-micro text-slate-600">
+                Storage: <span className="tabular-nums">{formatBytes(storageUsage)}</span> used
+                {storageQuota !== null && <> of {formatBytes(storageQuota)}</>}
+                {' · '}
+                {storagePersisted === true
+                  ? 'the browser will keep it'
+                  : storagePersisted === false
+                    ? 'the browser may evict it'
+                    : 'persistence not yet requested'}
+                {storagePersisted === false && (
+                  <button
+                    onClick={() => void requestPersistence(true)}
+                    className="ml-1.5 rounded border border-slate-300 px-1.5 py-0.5 font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                    title="Ask the browser to keep this workspace instead of evicting it under pressure"
+                  >
+                    Ask the browser to keep it
+                  </button>
+                )}
+              </p>
               {importError && <p className="mt-1 text-meta font-medium text-rose-600">{importError}</p>}
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -688,6 +615,14 @@ export function BoardWorkspace() {
           )}
         </section>
       </div>
+
+      {showNewBoard && (
+        <NewBoardDialog
+          templates={boardTemplates}
+          onCreate={createBoard}
+          onClose={() => setShowNewBoard(false)}
+        />
+      )}
 
       {preview && <TemplateEditor template={preview} onClose={() => setPreviewId(null)} />}
     </div>

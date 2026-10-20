@@ -9,6 +9,7 @@ import { BoardSettings } from './components/BoardSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ReasonDialog } from './components/ReasonDialog'
 import { FilterPanel } from './components/FilterPanel'
+import { StorageBanner } from './components/StorageBanner'
 import { BoardLegend } from './components/BoardLegend'
 import { ItemPanel } from './components/ItemPanel'
 import { FocusChip } from './components/FocusChip'
@@ -199,6 +200,8 @@ export default function App() {
         onAddInitiative={quickAddInitiative}
         onReset={resetDemo}
       />
+
+      <StorageBanner />
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">

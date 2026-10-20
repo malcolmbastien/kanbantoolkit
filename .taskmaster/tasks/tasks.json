@@ -1738,7 +1738,7 @@
         "id": "112",
         "title": "The app says when it cannot save, and asks the browser to keep the workspace.",
         "description": "This task makes storage honest: a failed write is surfaced with a way out, and the browser's own promise to keep the data is shown.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "111"
         ],
@@ -1749,7 +1749,8 @@
         "complexity": 5,
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) the storage adapter that detects and reports a failed write; (2) the banner — appears while failing, clears when safe — and its export action; (3) persist()/estimate() and the workspace-panel read-out; (4) mock-driven tests for each state.",
-        "complexityReasoning": "Detecting a rejected write is subtler than it looks: `setItem` can fail at quota, so the adapter must verify. Then a banner state machine, persist()/estimate(), and mocks."
+        "complexityReasoning": "Detecting a rejected write is subtler than it looks: `setItem` can fail at quota, so the adapter must verify. Then a banner state machine, persist()/estimate(), and mocks.",
+        "updatedAt": "2026-10-20T12:15:27.613Z"
       },
       {
         "id": "113",
@@ -1990,9 +1991,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-20T03:23:47.609Z",
+      "lastModified": "2026-10-20T12:15:27.613Z",
       "taskCount": 125,
-      "completedCount": 91,
+      "completedCount": 92,
       "tags": [
         "backlog"
       ]
