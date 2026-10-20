@@ -42,3 +42,43 @@ export async function cardsIn(page: Page, name: string): Promise<string[]> {
 export async function addCardTo(page: Page, name: string): Promise<void> {
   await laneRegion(page, name).getByRole('button', { name: `Add a card to ${name}` }).click()
 }
+
+/** A locator's visible box, for a pointer to aim at. */
+async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('There is nothing to drag: the element has no box.')
+  return box
+}
+
+/**
+ * Drag a card to a point the way a person does: press, move in steps, release.
+ *
+ * The app's lift is pointer-driven and starts after a few pixels, so a press that never moves is a
+ * click, and a single jump is not a gesture. `steps` is what makes the pointer travel.
+ */
+export async function dragCardTo(page: Page, cardId: string, to: { x: number; y: number }): Promise<void> {
+  const box = await boxOf(page.locator(`[data-card-id="${cardId}"]`))
+  const from = { x: box.x + box.width / 2, y: box.y + 18 }
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move(to.x, to.y, { steps: 12 })
+  await page.mouse.up()
+}
+
+/** Drop a card just above another: above its middle, which is where the lane reads "before it". */
+export async function dropAbove(page: Page, cardId: string, targetId: string): Promise<void> {
+  const target = await boxOf(page.locator(`[data-card-id="${targetId}"]`))
+  await dragCardTo(page, cardId, { x: target.x + target.width / 2, y: target.y + 6 })
+}
+
+/** Drop a card just below another: past its middle, which is where the lane reads "after it". */
+export async function dropBelow(page: Page, cardId: string, targetId: string): Promise<void> {
+  const target = await boxOf(page.locator(`[data-card-id="${targetId}"]`))
+  await dragCardTo(page, cardId, { x: target.x + target.width / 2, y: target.y + target.height - 6 })
+}
+
+/** Drop a card at the foot of a lane, past its last card. */
+export async function dropAtEnd(page: Page, cardId: string, laneName: string): Promise<void> {
+  const box = await boxOf(lane(page, laneName))
+  await dragCardTo(page, cardId, { x: box.x + box.width / 2, y: box.y + box.height - 10 })
+}

@@ -1969,7 +1969,7 @@
             "title": "A card dragged between lanes lands where it was dropped.",
             "description": "This subtask covers the drag: across lanes and within one, asserting the position rather than just the lane.",
             "details": "SYSTEM\nFlowline, the application in this repository.\n\nREQUIREMENTS\n\nR1 — Between lanes\nA card dragged from one lane to another shall appear in the target lane.\n\nR2 — Where it was dropped\nThe card shall sit at the dropped position: above the card it was dropped above, below the one it was dropped below.\n\nR3 — Within a lane\nA card dragged within its own lane shall reorder, and the order shall survive a reload.\n\nR4 — The real gesture\nThe test shall drive the pointer the way a person does — press, several moves, release — because the app's lift is pointer-driven and a synthetic drag drops the lift.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
@@ -2039,7 +2039,7 @@
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) harness, seeded state and CI wiring; (2) drag and drop, WIP cancel/resume, drawer edits, board design, import and export; (3) the two-client lease flow once the server exists.",
         "complexityReasoning": "Six flows, one of which needs the server to exist. The risk is flakiness rather than difficulty.",
-        "updatedAt": "2026-10-20T22:10:33.543Z"
+        "updatedAt": "2026-10-20T22:37:48.707Z"
       },
       {
         "id": 125,
