@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { reportError } from '@/lib/errors'
 
 interface Props {
   children: ReactNode
@@ -20,6 +21,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: unknown) {
     console.error('[Flowline] render error:', error, info)
+    // A render failure is the one people see and never report; this does it for them.
+    reportError(error)
   }
 
   render() {

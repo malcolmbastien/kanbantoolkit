@@ -5,8 +5,14 @@
 
   // The static build, served from the edge. When the workspace gets a server, this file gains
   // `main` and `run_worker_first` for /api and /ws: one Worker, one origin, no CORS.
+  "main": "./worker/index.ts",
+
   "assets": {
     "directory": "./dist",
+    // The API is the only path the script answers; everything else is served by the asset router
+    // without it running at all.
+    "run_worker_first": ["/api/*"],
+    "binding": "ASSETS",
     // A place is a query string, so the fallback is not strictly needed — it keeps a mistyped
     // path from being a naked 404 rather than the app.
     "not_found_handling": "single-page-application"
@@ -16,4 +22,17 @@
   "preview_urls": true,
   "previews": {},
   "observability": { "enabled": true }
+
+  // The error log. Create it once, then uncomment this block with the id the command prints:
+  //   npx wrangler d1 create flowline-errors
+  //   npx wrangler d1 migrations apply flowline-errors --remote
+  //
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "flowline-errors",
+  //     "database_id": "<the id from wrangler d1 create>",
+  //     "migrations_dir": "migrations"
+  //   }
+  // ]
 }

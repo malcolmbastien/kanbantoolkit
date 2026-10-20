@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": [
+      "ES2023"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [
+      "@cloudflare/workers-types"
+    ],
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "tsBuildInfoFile": "../node_modules/.tmp/worker.tsbuildinfo"
+  },
+  "include": [
+    "."
+  ]
+}

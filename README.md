@@ -202,6 +202,26 @@ revision check that makes a lapsed lease safe, what is locked (content and relat
 what is deliberately not (arrangement), and the groundwork the store needs first. None of it is
 implemented.
 
+## Error reports
+
+The app reports uncaught errors and rejected promises to `POST /api/errors` — the one server-side
+route; everything else is static. A report carries the message, the stack, the path, the view, the
+build and the browser. It never carries a place's **query**, which is where board and item ids
+live, and the address is stored only as a salted hash, at most thirty reports an hour.
+
+To turn it on, once:
+
+```bash
+npx wrangler d1 create flowline-errors       # prints a database id
+# paste the id into the d1_databases block in wrangler.jsonc, uncomment it, then:
+npx wrangler d1 migrations apply flowline-errors --remote
+npm run deploy
+```
+
+Until then the endpoint answers `503`, the app is unaffected, and development sends nothing at all.
+Read the log in the Cloudflare dashboard — D1 → `flowline-errors` → Console — or add a screen to
+Admin once there are accounts.
+
 ## Taskmaster (authoring workflow)
 
 Task generation uses [Task Master](https://github.com/eyaltoledano/claude-task-master)

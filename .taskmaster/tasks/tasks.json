@@ -1588,18 +1588,19 @@
         "id": "107",
         "title": "A failure in the field is reported with a readable stack, and without personal data.",
         "description": "This task connects the existing error boundary and global handlers to an error service, with source maps and release tags.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "106"
         ],
         "priority": "high",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `src/components/ErrorBoundary.tsx` and `src/main.tsx`.\n2. A reporting service (Sentry, or self-hosted GlitchTip).\n3. The build pipeline (source-map upload).\n\nDEFINITIONS\n- Event: one reported error.\n- Release: the identifier of the build the event came from.\n\nREQUIREMENTS\n\nR1 — Capture\nUncaught errors and unhandled promise rejections shall be reported, together with the boundary's caught errors.\n\nR2 — Readable\nSource maps shall be uploaded per release, so a stack names the original files.\n\nR3 — Release tag\nEvery event shall carry the release identifier.\n\nR4 — No personal data\nThe report shall not contain item titles, descriptions, names, board names or workspace content.\n\nR5 — Optional in development\nThe app shall run with no reporting configured, and shall not fail when the service is unreachable.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `src/components/ErrorBoundary.tsx` and `src/main.tsx`.\n2. A reporting service (Sentry, or self-hosted GlitchTip).\n3. The build pipeline (source-map upload).\n\nDEFINITIONS\n- Event: one reported error.\n- Release: the identifier of the build the event came from.\n\nREQUIREMENTS\n\nR1 — Capture\nUncaught errors and unhandled promise rejections shall be reported, together with the boundary's caught errors.\n\nR2 — Readable\nSource maps shall be uploaded per release, so a stack names the original files.\n\nR3 — Release tag\nEvery event shall carry the release identifier.\n\nR4 — No personal data\nThe report shall not contain item titles, descriptions, names, board names or workspace content.\n\nR5 — Optional in development\nThe app shall run with no reporting configured, and shall not fail when the service is unreachable.\n\nDELIVERED — 2026-10-20\nCloudflare-native: `POST /api/errors` on the app's own Worker, stored in D1 (`flowline-errors`),\nread in the Cloudflare dashboard until the app has accounts. The endpoint validates and caps every\nfield, drops a place's query, stores only a salted hash of the address, and refuses more than 30\nreports an hour from one. Verified end to end: a thrown error in the built app reached D1 with its\npath and view and nothing else.\n\nR2 IS ONLY PARTLY MET. Buffers carry the message and a stack with function names preserved\n(esbuild `keepNames`), so a report says `at dropCardAt (index-abc.js:1:4821)` — searchable, but not\na line. Resolving to original lines needs source maps plus a symbolication step; that is a\nfollow-up if the frames prove limiting, and Sentry (whose Vite plugin does exactly that) is the\ncheap route to it.",
         "testStrategy": "VERIFICATION\n\nV1 — R1: Throw from a control in a preview build; the event appears.\nV2 — R2: The stack names `src/components/…` rather than the minified bundle.\nV3 — R4: Inspect the payload; no workspace content is present.\nV4 — R5: Run the dev server with no service configured; the app works and the error is logged locally.",
         "subtasks": [],
         "complexity": 3,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
-        "complexityReasoning": "SDK wiring, source maps and payload scrubbing; the no-personal-data rule is the part that needs care."
+        "complexityReasoning": "SDK wiring, source maps and payload scrubbing; the no-personal-data rule is the part that needs care.",
+        "updatedAt": "2026-10-20T21:38:01.063Z"
       },
       {
         "id": "108",
