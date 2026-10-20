@@ -11,6 +11,7 @@ node_modules
 .wrangler
 dist
 test-results/
+*.tsbuildinfo
 playwright-report/
 blob-report/
 dist-ssr

@@ -1,16 +1,26 @@
 {
   "compilerOptions": {
     "target": "es2023",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
     "strict": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "tsBuildInfoFile": "../node_modules/.tmp/e2e.tsbuildinfo"
   },
-  "include": [".", "../playwright.config.ts"]
+  "include": [
+    ".",
+    "../playwright.config.ts"
+  ]
 }
