@@ -9,6 +9,9 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Cross-Origin-Opener-Policy: same-origin
+  # The beta has no accounts and lives on a public workers.dev host. Keep it out of indexes
+  # until the product opens: remove this line with the Access gate, not before.
+  X-Robots-Tag: noindex
 
 # Vite's filenames carry a content hash, so an asset at a given URL never changes.
 /assets/*

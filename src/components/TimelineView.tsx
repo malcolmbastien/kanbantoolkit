@@ -322,14 +322,20 @@ export function TimelineView({ boardId }: { boardId: string }) {
             {layout.unscheduled.length > 0 && (
               <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="text-meta font-semibold uppercase tracking-wide text-slate-600">Unscheduled — no target dates</div>
+                <p className="mt-1 text-micro text-slate-600">
+                  These initiatives have no start or end date, so they are not placed on the chart. Set a target date in
+                  an initiative&rsquo;s panel to schedule it.
+                </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {layout.unscheduled.map((u) => {
                     const item = initiatives.find((i) => i.id === u.id)
                     if (!item) return null
+                    // The direct children — archived ones included, because the rollup counts them and the count
+                    // beside the pips has to be the same number the percentage is about. Filtering them out here is
+                    // what made a card with one filed-away child read "nothing below" and "1 below" at once.
                     const childItems = decompositionChildren(item.id, edges)
                       .map((id) => items.find((i) => i.id === id))
                       .filter((i): i is Item => Boolean(i))
-                      .filter((i) => !i.archived)
                     const symbols = childItems.map((ci) => ({ id: ci.id, bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
                     return (
                       <div key={u.id} data-timeline-unscheduled={u.id} className="w-56 shrink-0">
