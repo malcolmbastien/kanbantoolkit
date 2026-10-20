@@ -2002,7 +2002,7 @@
             "title": "Board design: split a lane, add a cell, remove it.",
             "description": "This subtask covers design mode, and that the controls stay out of the working board.",
             "details": "SYSTEM\nFlowline, the application in this repository.\n\nREQUIREMENTS\n\nR1 — Split\nIn edit mode, splitting a lane shall produce the cells it promised.\n\nR2 — Add\nA cell added to a container shall accept a card.\n\nR3 — Remove\nRemoving that cell shall leave the cards it held somewhere valid, by the store's rule — not lost.\n\nR4 — Outside edit mode\nThe design controls shall not be present on the working board.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
@@ -2039,7 +2039,7 @@
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) harness, seeded state and CI wiring; (2) drag and drop, WIP cancel/resume, drawer edits, board design, import and export; (3) the two-client lease flow once the server exists.",
         "complexityReasoning": "Six flows, one of which needs the server to exist. The risk is flakiness rather than difficulty.",
-        "updatedAt": "2026-10-20T23:09:28.954Z"
+        "updatedAt": "2026-10-20T23:14:46.201Z"
       },
       {
         "id": 125,
