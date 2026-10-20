@@ -9,6 +9,7 @@ const flags = (over: Partial<ViewFlags> = {}): ViewFlags => ({
   showDashboard: false,
   showMetrics: false,
   showTimeline: false,
+  showAdmin: false,
   ...over,
 })
 

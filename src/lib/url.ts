@@ -21,7 +21,7 @@
  */
 
 /** Every view the app can be in. `board` is the board's own flow — the Board tab. */
-export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'mywork' | 'boards' | 'objectives'
+export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'mywork' | 'boards' | 'objectives' | 'admin'
 
 /** The view flags a place is read from. */
 export interface ViewFlags {
@@ -32,6 +32,8 @@ export interface ViewFlags {
   showDashboard: boolean
   showMetrics: boolean
   showTimeline: boolean
+  /** The workspace's own administration: the copies this browser keeps, and its storage. */
+  showAdmin: boolean
 }
 
 /** Where the app is. */
@@ -56,6 +58,7 @@ export function viewOf(flags: ViewFlags): ViewName {
   if (flags.showDashboard) return 'dashboard'
   if (flags.showMetrics) return 'flow'
   if (flags.showTimeline) return 'timeline'
+  if (flags.showAdmin) return 'admin'
   return 'board'
 }
 
@@ -87,6 +90,7 @@ const VIEW_NAMES: Record<string, ViewName> = {
   mywork: 'mywork',
   boards: 'boards',
   objectives: 'objectives',
+  admin: 'admin',
 }
 
 /**

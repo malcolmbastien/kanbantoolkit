@@ -427,7 +427,8 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </div>
 
           {/* What is below it, and how far along: the children's own stages as pips, then the
-              rollup. The bar underneath is the same number, wider. */}
+              rollup. The pips say it on their own — a count beside them only repeated what the
+              colours already show. The bar underneath is the same number, wider. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
             {pips.length > 0 ? (
               <span className="flex items-center gap-1" title={`${pips.length} directly below: ${spread}`}>
@@ -461,16 +462,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               </span>
             ) : (
               <span title="Nothing is broken down under this initiative yet">nothing below</span>
-            )}
-            {summary.childCount > 0 && (
-              <span title={`${summary.childCount} item${summary.childCount === 1 ? '' : 's'} directly below`}>
-                {summary.childCount} below
-              </span>
-            )}
-            {summary.openDescendants > 0 && (
-              <span title={`${summary.openDescendants} of the work below is still open — filed-away items aside`}>
-                {summary.openDescendants} open
-              </span>
             )}
             <span className="ml-auto flex items-center gap-1.5">
               {summary.done && <DoneStamp />}

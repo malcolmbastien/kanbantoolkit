@@ -81,6 +81,7 @@ export interface ViewState {
   showArchive: boolean
   /** Show the board workspace — every board in the organisation — instead of a board. */
   showBoards: boolean
+  showAdmin: boolean
   /** Show My work — everything assigned to the workspace's person, across every board. */
   showMyWork: boolean
   /** Show the flow metrics view for the current board — derived, read-only. */
@@ -167,6 +168,8 @@ export interface Actions {
   setMetrics: (v: boolean) => void
   toggleBoards: () => void
   setBoards: (v: boolean) => void
+  /** The workspace's own administration: copies and storage. Not a board surface. */
+  setAdmin: (v: boolean) => void
   /** Toggle the filters side panel (closes the item panel and the legend when opening). */
   toggleFilters: () => void
   /** Toggle the board legend (closes the item panel and filters when opening). */
@@ -463,7 +466,7 @@ export type Store = FlowState & WorkspaceIdentity & ViewState & Actions
 export const isBoardSurface = (
   s: Pick<
     ViewState,
-    'showDashboard' | 'showTimeline' | 'showArchive' | 'showObjectives' | 'showBoards' | 'showMyWork' | 'showMetrics'
+    'showDashboard' | 'showTimeline' | 'showArchive' | 'showObjectives' | 'showBoards' | 'showMyWork' | 'showMetrics' | 'showAdmin'
   >,
 ): boolean =>
   !s.showDashboard &&
@@ -472,7 +475,8 @@ export const isBoardSurface = (
   !s.showObjectives &&
   !s.showBoards &&
   !s.showMyWork &&
-  !s.showMetrics
+  !s.showMetrics &&
+  !s.showAdmin
 
 const uid = makeUid
 
@@ -680,7 +684,7 @@ const initialView: ViewState = {
   showDashboard: false,
   showTimeline: false,
   showArchive: false,
-  showBoards: false,
+  showBoards: false, showAdmin: false,
   showMyWork: false,
   showMetrics: false,
   recentItemIds: [],
@@ -1045,7 +1049,7 @@ export const useStore = create<Store>()(
       selectBoard: (boardId) =>
         // The kind filter goes with the board it was set on: a kind from another board would
         // narrow the flow to nothing, which reads as a broken board rather than a stale filter.
-        set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, boundaryId: null, multiSelect: [], cardMenu: null, initiativeKindFilter: null, dropTargetId: null }),
+        set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, boundaryId: null, multiSelect: [], cardMenu: null, initiativeKindFilter: null, dropTargetId: null }),
       openItem: (selectedItemId) =>
         set({
           selectedItemId,
@@ -1356,14 +1360,14 @@ export const useStore = create<Store>()(
       setMyWork: (v) =>
         set({
           showMyWork: v,
-          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false } : {}),
+          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}),
         }),
       /** Whose work the My work view shows — no default: the person picks themselves. */
       setUser: (id: string | undefined) => set({ meUserId: id }),
-      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
+      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false } : {}) }),
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
       // Board tab is the board itself — every view flag clears, the workspace with it.
-      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false }),
+      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false }),
       /**
        * Go to a view by name — what a URL says, and the one door for all seven.
        *
@@ -1380,18 +1384,19 @@ export const useStore = create<Store>()(
         else if (view === 'archive') s.setArchive(true)
         else if (view === 'mywork') s.setMyWork(true)
         else if (view === 'boards') s.setBoards(true)
+        else if (view === 'admin') s.setAdmin(true)
         else if (view === 'objectives') s.setObjectives(true)
         else s.setBoard()
       },
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
-      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
-      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showMyWork: false, showMetrics: false } : {}) }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false } : {}) }),
+      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false } : {}) }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false } : {}) }),
       // Flow is a board's own view: derived from its cards, so it sits with the board tabs and
       // clears them like every other view does.
       setMetrics: (v) =>
         set({
           showMetrics: v,
-          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false } : {}),
+          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false } : {}),
         }),
       toggleBoards: () => {
         const on = !get().showBoards
@@ -1410,7 +1415,16 @@ export const useStore = create<Store>()(
         set({
           showBoards: v,
           ...(v
-            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showMyWork: false, showFilters: false, selectedItemId: null }
+            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showMyWork: false, showAdmin: false, showFilters: false, selectedItemId: null }
+            : {}),
+        }),
+
+      // Admin is organisation-level, like the workspace: it closes a board's side panels with it.
+      setAdmin: (v) =>
+        set({
+          showAdmin: v,
+          ...(v
+            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false, showFilters: false, selectedItemId: null }
             : {}),
         }),
 
@@ -1769,7 +1783,7 @@ export const useStore = create<Store>()(
           showDashboard: false,
           showTimeline: false,
           showArchive: false,
-          showBoards: false,
+          showBoards: false, showAdmin: false,
           showMyWork: false,
           showMetrics: false,
         })

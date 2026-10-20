@@ -10,6 +10,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { ReasonDialog } from './components/ReasonDialog'
 import { FilterPanel } from './components/FilterPanel'
 import { StorageBanner } from './components/StorageBanner'
+import { AdminView } from './components/AdminView'
 import { BoardLegend } from './components/BoardLegend'
 import { ItemPanel } from './components/ItemPanel'
 import { FocusChip } from './components/FocusChip'
@@ -37,6 +38,7 @@ export default function App() {
   const showArchive = useStore((s) => s.showArchive)
   const showTimeline = useStore((s) => s.showTimeline)
   const showBoards = useStore((s) => s.showBoards)
+  const showAdmin = useStore((s) => s.showAdmin)
   const showMyWork = useStore((s) => s.showMyWork)
   // The tabs go through the same door the URL does, so a tab and a link mean the same thing.
   const setView = useStore((s) => s.setView)
@@ -182,6 +184,7 @@ export default function App() {
         showObjectives={showObjectives}
         showMetrics={showMetrics}
         showBoards={showBoards}
+        showAdmin={showAdmin}
         showMyWork={showMyWork}
         onSelectBoard={selectBoard}
         onShowBoard={() => setView('board')}
@@ -192,6 +195,7 @@ export default function App() {
         onShowMyWork={() => setView('mywork')}
         onShowObjectives={() => setView('objectives')}
         onGoToBoards={() => setView('boards')}
+        onGoToAdmin={() => setView('admin')}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}
@@ -219,6 +223,8 @@ export default function App() {
             <MetricsView boardId={boardId} />
           ) : showTimeline ? (
             <TimelineView boardId={boardId} />
+          ) : showAdmin ? (
+            <AdminView />
           ) : (
             <BoardView requestMove={requestMove} />
           )}

@@ -1593,7 +1593,7 @@ describe('store actions', () => {
   })
 
   it('the board is the surface only when no view sits over it', () => {
-    const base = { showDashboard: false, showTimeline: false, showArchive: false, showObjectives: false, showBoards: false, showMyWork: false, showMetrics: false }
+    const base = { showDashboard: false, showTimeline: false, showArchive: false, showObjectives: false, showBoards: false, showMyWork: false, showMetrics: false, showAdmin: false }
     expect(isBoardSurface(base)).toBe(true)
     // Every view counts, including the ones added later — a flag this list forgets would put the
     // board's own controls in front of a view that reports on work.
@@ -1606,13 +1606,13 @@ describe('store actions', () => {
     // The URL says which view the app is in, and `setView` is the door it comes through. A name
     // that mapped to the wrong flag — or a view with no name — would make a link land somewhere
     // else, so the two directions are checked against each other rather than each on its own.
-    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'mywork', 'boards', 'objectives']
+    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'mywork', 'boards', 'objectives', 'admin']
     for (const name of names) {
       s().setView(name)
       expect(viewOf(s()), name).toBe(name)
       // And exactly one view at a time: two flags set would make `viewOf`'s precedence — and so
       // the URL — disagree with what is on screen.
-      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showObjectives, s().showBoards, s().showMyWork]
+      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showObjectives, s().showBoards, s().showMyWork, s().showAdmin]
       expect(flags.filter(Boolean), name).toHaveLength(name === 'board' ? 0 : 1)
     }
     // The workspace is organisation-level: a board's side panel has no place in it.
