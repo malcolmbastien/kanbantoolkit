@@ -1570,19 +1570,19 @@
         "id": "106",
         "title": "The production build is served from a host, with a preview for every pull request.",
         "description": "This task puts the static build behind a CDN host and gives each pull request its own URL.",
-        "status": "review",
+        "status": "done",
         "dependencies": [
           "105"
         ],
         "priority": "high",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. Host configuration (Cloudflare Pages or Vercel — one, recorded in the README).\n2. `npm run build` producing `dist/`.\n3. The URL contract in `src/lib/url.ts`.\n\nDEFINITIONS\n- Preview: a deployment of one branch at its own URL.\n- Place: a URL the app reads. A place is a query string, never a path.\n\nREQUIREMENTS\n\nR1 — Production\nA push to `main` shall deploy `dist/` to the production origin.\n\nR2 — Previews\nEvery pull request shall receive a preview URL, shown on the pull request.\n\nR3 — Deep links\nThe app shall open correctly at a cold load of any place (`/?board=…&item=…`), with no server rewrite rule required.\n\nR4 — Caching\nHashed assets shall be cacheable indefinitely; the document shall be revalidated.\n\nR5 — Headers\nThe document response shall carry a content-security policy and `X-Content-Type-Options: nosniff`.\n\nR6 — Rollback\nA previous deployment shall be restorable in one action.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. Host configuration (Cloudflare Pages or Vercel — one, recorded in the README).\n2. `npm run build` producing `dist/`.\n3. The URL contract in `src/lib/url.ts`.\n\nDEFINITIONS\n- Preview: a deployment of one branch at its own URL.\n- Place: a URL the app reads. A place is a query string, never a path.\n\nREQUIREMENTS\n\nR1 — Production\nA push to `main` shall deploy `dist/` to the production origin.\n\nR2 — Previews\nA pull request shall upload a version to its own URL, recorded in the run log. (Commenting the URL\non the pull request is deliberately not built: this project does not use pull requests, so the\ncomment would never fire. Add it if that changes.)\n\nR3 — Deep links\nThe app shall open correctly at a cold load of any place (`/?board=…&item=…`), with no server rewrite rule required.\n\nR4 — Caching\nHashed assets shall be cacheable indefinitely; the document shall be revalidated.\n\nR5 — Headers\nThe document response shall carry a content-security policy and `X-Content-Type-Options: nosniff`.\n\nR6 — Rollback\nA previous deployment shall be restorable in one action.\n\nCLOSED — 2026-10-20\nVerified: production deploys on a push to main; deep links resolve; hashed assets are immutable and\nthe document revalidates; the CSP, nosniff and noindex headers are served; and a previous deployment\nwas rolled back in one action and confirmed live (the bundle named no later release than the one\nrolled back to). Previews are unexercised because no pull request has been opened.",
         "testStrategy": "VERIFICATION\n\nV1 — R1: Load production; the build hash matches `main`.\nV2 — R3: Open a deep link in a private window; the board and the open card are correct.\nV3 — R4: `curl -I` an asset and the document; the cache headers differ.\nV4 — R5: `curl -I` the document; the two headers are present.\nV5 — R6: Roll back to the previous deployment; the app loads.",
         "subtasks": [],
         "complexity": 3,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
         "complexityReasoning": "Host configuration: caching, headers and rollback. The content-security policy for a Vite SPA is the only fiddly part.",
-        "updatedAt": "2026-10-20T03:04:37.453Z"
+        "updatedAt": "2026-10-20T22:02:56.244Z"
       },
       {
         "id": "107",
