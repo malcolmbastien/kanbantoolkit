@@ -1605,18 +1605,19 @@
         "id": "108",
         "title": "The team can see which parts of the app are used, without tracking anyone.",
         "description": "This task adds cookieless, aggregate measurement of views and the handful of actions that matter.",
-        "status": "pending",
+        "status": "deferred",
         "dependencies": [
           "106"
         ],
         "priority": "medium",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A cookieless analytics script (Plausible, or self-hosted Umami).\n2. The view switch and the drawer.\n\nDEFINITIONS\n- Event: a named action carrying no identifier.\n- Cookieless: nothing is stored in the browser and no fingerprint is computed.\n\nREQUIREMENTS\n\nR1 — Views\nA pageview shall be recorded per view change: board, dashboard, timeline, archive, my work, boards, objectives.\n\nR2 — Actions\nOpening a card, creating a card, completing a drag, and entering board design shall be counted.\n\nR3 — No identifiers\nNo cookie, no local identifier and no fingerprint shall be used.\n\nR4 — Not Google\nThe measurement shall not be Google Analytics or Tag Manager; the `AGENTS.md` scan shall stay clean.\n\nR5 — Optional\nThe app shall run with measurement disabled and send nothing.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A cookieless analytics script (Plausible, or self-hosted Umami).\n2. The view switch and the drawer.\n\nDEFINITIONS\n- Event: a named action carrying no identifier.\n- Cookieless: nothing is stored in the browser and no fingerprint is computed.\n\nREQUIREMENTS\n\nR1 — Views\nA pageview shall be recorded per view change: board, dashboard, timeline, archive, my work, boards, objectives.\n\nR2 — Actions\nOpening a card, creating a card, completing a drag, and entering board design shall be counted.\n\nR3 — No identifiers\nNo cookie, no local identifier and no fingerprint shall be used.\n\nR4 — Not Google\nThe measurement shall not be Google Analytics or Tag Manager; the `AGENTS.md` scan shall stay clean.\n\nR5 — Optional\nThe app shall run with measurement disabled and send nothing.\n\nPAUSED — 2026-10-20\nUmami cannot be self-hosted on Cloudflare, which is what this task was waiting on:\n\n- It is Next.js + Prisma over PostgreSQL. D1 is SQLite, so the database rules it out on its own.\n- The Workers build has been tried (umami-software/umami discussion #3170): an OpenNext bundle came\n  out at about 21.7 MB against a 3 MiB free / 10 MiB paid limit; a trimmed attempt then hit Prisma's\n  `fs.readdir`; the pull request that would have added Workers support was closed.\n\nUmami still fits the task — it just needs a home that is not Cloudflare, with a Worker in front of\nit as a first-party proxy (/np/*), which keeps the script same-origin and the CSP at 'self'. The\napp-side work (a no-op tracker, view and event calls, config by environment) is unchanged by the\nchoice of host and can be done whenever a host is picked. Umami Cloud, Docker on a small VPS, and\nVercel + Supabase are the three that work.",
         "testStrategy": "VERIFICATION\n\nV1 — R1: Move between views; the events arrive with the view names.\nV2 — R3: Inspect storage and requests; no cookie is set.\nV3 — R4: Run the scan in `AGENTS.md`.\nV4 — R5: Run with the script removed; the app works and sends nothing.",
         "subtasks": [],
         "complexity": 2,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
-        "complexityReasoning": "A script and a handful of named events, carrying no identifiers."
+        "complexityReasoning": "A script and a handful of named events, carrying no identifiers.",
+        "updatedAt": "2026-10-20T21:20:40.603Z"
       },
       {
         "id": "109",
@@ -1993,9 +1994,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-20T13:03:30.840Z",
+      "lastModified": "2026-10-20T21:20:40.476Z",
       "taskCount": 125,
-      "completedCount": 93,
+      "completedCount": 94,
       "tags": [
         "backlog"
       ]
