@@ -1980,7 +1980,7 @@
             "title": "The WIP prompt: cancelling leaves the card, answering lands it where it was dropped.",
             "description": "This subtask covers the justify policy — the case that once failed while every unit test passed.",
             "details": "SYSTEM\nFlowline, the application in this repository.\n\nDEFINITIONS\n- Justify board: a board whose WIP policy asks for a reason before a move that would exceed a lane's limit.\n\nREQUIREMENTS\n\nR1 — Cancelled\nDropping a card into an over-limit lane shall raise the reason dialog; cancelling shall leave the card exactly where it was.\n\nR2 — Answered\nGiving a reason shall land the card in the target lane, at the position it was dropped.\n\nR3 — Recorded\nThe reason shall be on the card's Activity and on the card itself.\n\nR4 — The regression this exists for\nR1 is the case that once failed while every unit test passed: the drop wrote its position regardless of the policy's answer. The test is named after that, so a future refactor of the drop reads it.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
@@ -2039,7 +2039,7 @@
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) harness, seeded state and CI wiring; (2) drag and drop, WIP cancel/resume, drawer edits, board design, import and export; (3) the two-client lease flow once the server exists.",
         "complexityReasoning": "Six flows, one of which needs the server to exist. The risk is flakiness rather than difficulty.",
-        "updatedAt": "2026-10-20T22:37:48.707Z"
+        "updatedAt": "2026-10-20T22:39:25.058Z"
       },
       {
         "id": 125,
