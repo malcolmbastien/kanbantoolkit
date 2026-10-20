@@ -1582,7 +1582,7 @@
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
         "complexityReasoning": "Host configuration: caching, headers and rollback. The content-security policy for a Vite SPA is the only fiddly part.",
-        "updatedAt": "2026-10-20T02:02:17.255Z"
+        "updatedAt": "2026-10-20T03:04:37.453Z"
       },
       {
         "id": "107",
@@ -1654,18 +1654,19 @@
       },
       {
         "id": "111",
-        "title": "A workspace survives a crash, a mistake, and a browser that clears its storage.",
+        "title": "A workspace survives a bad edit, a crash, and a corrupt save.",
         "description": "This task keeps a ring of recent workspace snapshots outside `localStorage` and lets a person restore one.",
         "status": "pending",
         "dependencies": [],
         "priority": "high",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new `src/lib/snapshots.ts`.\n2. The persist configuration in `src/store.ts`.\n3. The workspace panel in `src/components/BoardWorkspace.tsx`.\n\nDEFINITIONS\n- Snapshot: the persisted slice, serialised with a timestamp and the schema version.\n- Ring: a fixed-size list; the oldest entry is dropped when a new one is written.\n\nREQUIREMENTS\n\nR1 — Written\nA snapshot shall be written at most once a minute during activity, and on `pagehide`.\n\nR2 — Kept\nThe most recent 20 snapshots shall be kept, pruned oldest first.\n\nR3 — Restored\nThe workspace panel shall list snapshots by time and offer to restore one, behind the existing confirmation.\n\nR4 — Complete\nA snapshot shall contain the persisted slice — boards, lanes, items, placements, edges, links, users, objectives, types and tags — and no view state.\n\nR5 — Tolerant\nA corrupt or unreadable snapshot shall be skipped, and the list shall still render.\n\nR6 — Separate\nA failed snapshot write shall not disturb the live workspace.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new `src/lib/snapshots.ts`.\n2. The persist configuration in `src/store.ts`.\n3. The workspace panel in `src/components/BoardWorkspace.tsx`.\n\nDEFINITIONS\n- Snapshot: the persisted slice, serialised with a timestamp and the schema version.\n- Ring: a fixed-size list; the oldest entry is dropped when a new one is written.\n\nA ring is not a backup: clearing the site's data removes it with the workspace, because IndexedDB\nbelongs to the same origin. What it does answer is a bad edit, a save that was interrupted, a\ncorrupt slice, and a migration that went wrong. What stops the browser evicting the workspace is\n`navigator.storage.persist()` in task 112; what survives a cleared browser is the export.\n\nREQUIREMENTS\n\nR1 — Written\nA snapshot shall be written at most once a minute during activity, and on `pagehide`.\n\nR2 — Kept\nThe most recent 20 snapshots shall be kept, pruned oldest first.\n\nR3 — Restored\nThe workspace panel shall list snapshots by time and offer to restore one, behind the existing confirmation.\n\nR4 — Complete\nA snapshot shall contain the persisted slice — boards, lanes, items, placements, edges, links, users, objectives, types and tags — and no view state.\n\nR5 — Tolerant\nA corrupt or unreadable snapshot shall be skipped, and the list shall still render.\n\nR6 — Separate\nA failed snapshot write shall not disturb the live workspace.",
         "testStrategy": "VERIFICATION\n\nV1 — R1, R2: Make 25 edits; assert 20 snapshots exist and the newest holds the newest title.\nV2 — R3: Restore an older snapshot; the board matches it.\nV3 — R4: Inspect a snapshot; no selection, filter or panel state is present.\nV4 — R5: Corrupt one entry; the list renders and the app loads.\nV5 — R6: Make the snapshot store throw; edits still save to the workspace.",
         "subtasks": [],
         "complexity": 6,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Split into: (1) the snapshot store — serialise the persisted slice, write the ring, prune to 20, tolerate corrupt entries; (2) the schedule (trailing minute and pagehide) and isolation from the live workspace; (3) the restore surface in the workspace panel behind the existing confirmation; (4) tests: ring bounds, restore fidelity, a corrupt entry, a failed write.",
-        "complexityReasoning": "IndexedDB, a ring with pruning, a restore surface behind confirmation, tolerance for corrupt entries, and isolation from the live workspace."
+        "complexityReasoning": "IndexedDB, a ring with pruning, a restore surface behind confirmation, tolerance for corrupt entries, and isolation from the live workspace.",
+        "updatedAt": "2026-10-20T03:04:37.453Z"
       },
       {
         "id": "112",
