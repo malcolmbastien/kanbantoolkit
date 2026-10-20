@@ -1754,20 +1754,21 @@
       },
       {
         "id": "113",
-        "title": "Two tabs show one workspace, and neither silently overwrites the other.",
-        "description": "This task makes tabs share their changes and refuse to clobber a newer one.",
-        "status": "pending",
+        "title": "Two browser tabs show one workspace, and neither silently overwrites the other.",
+        "description": "This task makes browser tabs share their changes and refuse to clobber a newer one. A \"tab\" here is a browser tab on the app\\u2019s origin \\u2014 not one of the app\\u2019s own views.",
+        "status": "done",
         "dependencies": [
           "111"
         ],
         "priority": "medium",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The persist layer in `src/store.ts`.\n2. A revision guard on the persisted slice.\n3. A channel between tabs (`BroadcastChannel`, with the `storage` event as the fallback).\n\nDEFINITIONS\n- Revision: a monotonically increasing identifier of the persisted slice.\n- Stale tab: a tab holding a revision older than the stored one.\n\nREQUIREMENTS\n\nR1 — Propagated\nA write in one tab shall reach another tab within a second.\n\nR2 — Checked\nA tab shall compare its revision with the stored one before writing.\n\nR3 — Refused\nA stale tab shall not overwrite the newer slice.\n\nR4 — Explained\nA stale tab shall say that the workspace changed elsewhere, and shall offer to reload.\n\nR5 — View state stays local\nThe reconciliation shall not merge selection, filters, multi-select or panel state between tabs.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The persist layer in `src/store.ts`.\n2. A revision guard on the persisted slice.\n3. A channel between browser tabs: the `storage` event, which the browser fires in every other tab, and `BroadcastChannel` where it exists.\n\nDEFINITIONS\n- Revision: a monotonically increasing identifier of the persisted slice.\n- Stale tab: a tab holding a revision older than the stored one.\n\nREQUIREMENTS\n\nR1 — Propagated\nA write in one tab shall reach another tab within a second.\n\nR2 — Checked\nA tab shall compare its revision with the stored one before writing.\n\nR3 — Refused\nA stale tab shall not overwrite the newer slice.\n\nR4 — Explained\nA stale tab shall say that the workspace changed elsewhere, and shall offer to reload.\n\nR5 — View state stays local\nThe reconciliation shall not merge selection, filters, multi-select or panel state between tabs.",
         "testStrategy": "VERIFICATION\n\nV1 — R1: Two tabs; rename a board in one; the other shows the new name.\nV2 — R2, R3: Hold a stale copy in one tab; edit; the newer workspace is unchanged.\nV3 — R4: The stale tab shows the notice, and reload brings it up to date.\nV4 — R5: Different views in two tabs; changing the view in one does not move the other.",
         "subtasks": [],
         "complexity": 6,
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) the revision in the persisted slice and the guard before a write; (2) the BroadcastChannel/storage channel and reconciliation; (3) the stale-tab notice and reload; (4) two-tab tests.",
-        "complexityReasoning": "A revision guard on every write, two tabs kept coherent, and a stale tab that refuses rather than clobbers, without merging view state."
+        "complexityReasoning": "A revision guard on every write, two tabs kept coherent, and a stale tab that refuses rather than clobbers, without merging view state.",
+        "updatedAt": "2026-10-20T18:27:48.527Z"
       },
       {
         "id": "114",

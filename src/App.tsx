@@ -12,6 +12,7 @@ import { FilterPanel } from './components/FilterPanel'
 import { StorageBanner } from './components/StorageBanner'
 import { AdminView } from './components/AdminView'
 import { QuarantineBanner } from './components/QuarantineBanner'
+import { StaleTabBanner } from './components/StaleTabBanner'
 import { BoardLegend } from './components/BoardLegend'
 import { ItemPanel } from './components/ItemPanel'
 import { FocusChip } from './components/FocusChip'
@@ -207,6 +208,7 @@ export default function App() {
 
       <StorageBanner />
       <QuarantineBanner />
+      <StaleTabBanner />
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">

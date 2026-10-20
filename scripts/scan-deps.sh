@@ -8,7 +8,7 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 if grep -rinE 'firebase|firestore|gcloud|gemini|vertexai|vertex-ai|aiplatform|generativelanguage|googletagmanager|google-analytics|gtag/js|fonts\.googleapis\.com|fonts\.gstatic\.com' . \
   --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=.taskmaster \
-  --exclude=README.md --exclude=AGENTS.md --exclude=scan-deps.sh; then
+  --exclude=README.md --exclude=AGENTS.md --exclude=scan-deps.sh --exclude='*.log'; then
   echo "Found a forbidden dependency. See the hard rule in AGENTS.md." >&2
   exit 1
 fi

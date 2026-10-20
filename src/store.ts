@@ -8,6 +8,7 @@ import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { quarantineUnreadable } from '@/lib/quarantine'
 import { guardedStorage } from '@/lib/storage'
+import { tabSynced } from '@/lib/tabSync'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
@@ -1058,6 +1059,14 @@ export const WORKSPACE_KEYS = [
 // Before the store exists: anything this build cannot read is moved aside, untouched, so the demo
 // that boots in its place is never mistaken for the person's workspace.
 quarantineUnreadable({ build: PERSIST_VERSION, minKnown: MIN_MIGRATABLE_VERSION })
+
+/**
+ * Take another tab's workspace. Used by the tab channel; the persist write it causes is suppressed
+ * by the channel, so adopting a change does not echo it back as a new one.
+ */
+export function adoptWorkspace(state: Record<string, unknown>): void {
+  useStore.setState(state as Partial<Store>)
+}
 
 export const useStore = create<Store>()(
   persist(
@@ -2413,7 +2422,9 @@ export const useStore = create<Store>()(
       version: PERSIST_VERSION,
       // A write that fails must be *known*: `guardedStorage` swallows the throw — the app keeps
       // working with a full disk — and publishes the failure for the banner. See `lib/storage.ts`.
-      storage: createJSONStorage(guardedStorage),
+      // Guarded for the disk, synced for the tabs: a write that fails is reported, and a write
+      // that races another tab's is refused rather than applied over it.
+      storage: createJSONStorage(() => tabSynced(guardedStorage())),
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

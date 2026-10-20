@@ -4,7 +4,8 @@ import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { startSnapshotSchedule } from './lib/snapshots'
 import { measureStorage, verifyStorage } from './lib/storage'
-import { PERSIST_VERSION, persistedSlice, useStore } from './store'
+import { listenForTabs } from './lib/tabSync'
+import { PERSIST_KEY, PERSIST_VERSION, adoptWorkspace, persistedSlice, useStore } from './store'
 import './index.css'
 
 /**
@@ -16,6 +17,10 @@ startSnapshotSchedule({
   subscribe: (listener) => useStore.subscribe(listener),
   version: PERSIST_VERSION,
 })
+
+// Another tab's write is adopted, not raced: the workspace is shared, and the tab that did not
+// write it must see it before its next change.
+listenForTabs(PERSIST_KEY, adoptWorkspace)
 
 // A write is only known to have landed when it is read back, and the storage figures the panel
 // shows are only as good as their last reading. Both are cheap, and neither belongs on a keystroke.
