@@ -349,7 +349,7 @@ export function ItemPanel({ itemId }: Props) {
         </button>
         {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
         <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
-        {/* Where a heading already says the stage — the groups under "Items below" — the row does
+        {/* Where a heading already says the stage — the groups under "Breaks down into" — the row does
             not say it again. */}
         {opts.stage !== false && (
           <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold', stageChip(bucket))}>{STAGE_LABELS[bucket]}</span>
@@ -360,6 +360,51 @@ export function ItemPanel({ itemId }: Props) {
             className="shrink-0 text-slate-500 transition hover:text-rose-600"
             title="Remove this link — the other item is untouched"
             aria-label={`Remove the link to ${c.title}`}
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  /**
+   * One item in a chain of links, drawn the way the chain above it is drawn: a row of the same
+   * box, the whole row the way in, and the board at the right — a chip with an arrow when that
+   * board is not the one in front, and quiet text when it is. A row that leads somewhere must
+   * not leave the reader guessing which part of it is the way.
+   *
+   * The stage dot and the stage chip stay, because a dependency is read to learn whether the
+   * thing being waited on is done. The remove action sits on top at the row's edge: the row is
+   * one target, and the action that takes it away is deliberately not part of it.
+   */
+  const linkRow = (c: Item, opts: { onRemove?: () => void } = {}) => {
+    const there = boardOf(c.id)
+    const bucket = rollupOf(c.id, graph).bucket
+    return (
+      <div key={c.id} className="group relative">
+        <button
+          onClick={() => openOrGo(c.id)}
+          title={`Open ${c.title}${there ? ` — on ${there.name}` : ''}`}
+          className={cn(
+            'flex w-full items-center gap-2 py-2 pl-2.5 text-left transition hover:bg-slate-50',
+            opts.onRemove ? 'pr-8' : 'pr-2.5',
+          )}
+        >
+          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[bucket])} />
+          <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{c.title}</span>
+          {c.archived && (
+            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>
+          )}
+          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold', stageChip(bucket))}>{STAGE_LABELS[bucket]}</span>
+          <BoardTarget name={there?.name} away={Boolean(there && there.id !== boardId)} />
+        </button>
+        {opts.onRemove && (
+          <button
+            onClick={opts.onRemove}
+            title="Remove this link — the other item is untouched"
+            aria-label={`Remove the link to ${c.title}`}
+            className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded p-1 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
           >
             <X size={12} />
           </button>
@@ -1176,7 +1221,7 @@ export function ItemPanel({ itemId }: Props) {
                 Overview. Each row names the board the item sits on rather than what kind of thing
                 it is: the type is already the dot's colour, while the board is where the reader
                 has to go, and clicking the row takes them there. */}
-            <Section label="How this rolls up">
+            <Section label="Rolls up to">
               <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
                   {/* The objectives this work serves, at the top of the chain — they are the
                       "why" above the "what". An objective is not on a board, so its row names the
@@ -1213,18 +1258,9 @@ export function ItemPanel({ itemId }: Props) {
                       >
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: typeColor(node.typeId) }} />
                         <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{node.title}</span>
-                        {/* Where it is, not what it is. A board other than the one in front is a
-                            link out, so it reads as one: a tinted chip with an arrow, the same
-                            shape the warning rows and the placement list use. On this board the
-                            row opens in place, and the name stays quiet text. */}
-                        {there && there.id !== boardId ? (
-                          <span className="flex min-w-0 max-w-[45%] shrink-0 items-center gap-1 rounded-md bg-indigo-50 px-1.5 py-0.5 text-micro font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200 transition group-hover:bg-indigo-100 group-hover:ring-indigo-300">
-                            <span className="min-w-0 truncate">{there.name}</span>
-                            <ArrowRight size={11} className="shrink-0" />
-                          </span>
-                        ) : (
-                          <span className="shrink-0 max-w-[45%] truncate text-micro text-slate-600">{there?.name ?? '—'}</span>
-                        )}
+                        {/* Where it is, not what it is — the same chip the linked rows below use,
+                            because both rows are the same promise: the name leads there. */}
+                        <BoardTarget name={there?.name} away={Boolean(there && there.id !== boardId)} />
                       </button>
                     )
                   })}
@@ -1233,7 +1269,7 @@ export function ItemPanel({ itemId }: Props) {
 
             {/* Children — the items below this one. Real work, with its own status and its
                 own home on a board; a card's own sub-tasks are a checklist, not children. */}
-            <Section label="Items below" count={children.length} aside={doneBelow && <span className="text-micro text-slate-600">{doneBelow}</span>}>
+            <Section label="Breaks down into" count={children.length} aside={doneBelow && <span className="text-micro text-slate-600">{doneBelow}</span>}>
               {children.length === 0 ? (
                 <p className="text-meta text-slate-600">
                   Nothing below this yet. An initiative below it is made with <span className="font-medium">+ Initiative</span> on the board.
@@ -1261,7 +1297,9 @@ export function ItemPanel({ itemId }: Props) {
               )}
             </Section>
 
-            {/* Dependencies — a link between two items. */}
+            {/* Dependencies — a link between two items. Drawn and read like the chain above: each
+                row is one target, and a board that is not this one is a way out rather than a word
+                beside the title. */}
             <Section label="Dependencies" count={dependencies.length + dependents.length}>
               {dependencies.length === 0 && dependents.length === 0 && (
                 <p className="text-meta text-slate-600">No links yet. Add one below.</p>
@@ -1269,17 +1307,21 @@ export function ItemPanel({ itemId }: Props) {
               {dependencies.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-micro font-semibold uppercase tracking-wide text-slate-600">Depends on</p>
-                  {dependencies.map((dep) =>
-                    itemRow(dep.dependency, () => openOrGo(dep.dependency.id), {
-                      onRemove: () => removeDependency(dep.dependency.id, dep.dependent.id),
-                    }),
-                  )}
+                  <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
+                    {dependencies.map((dep) =>
+                      linkRow(dep.dependency, {
+                        onRemove: () => removeDependency(dep.dependency.id, dep.dependent.id),
+                      }),
+                    )}
+                  </div>
                 </div>
               )}
               {dependents.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-micro font-semibold uppercase tracking-wide text-slate-600">Depends on this</p>
-                  {dependents.map((dep) => itemRow(dep.dependent, () => openOrGo(dep.dependent.id)))}
+                  <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
+                    {dependents.map((dep) => linkRow(dep.dependent))}
+                  </div>
                 </div>
               )}
               <div className="flex items-center gap-1.5">
@@ -1448,6 +1490,24 @@ function IconButton({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * Where a linked item lives, as the trailing fact on its row.
+ *
+ * A board other than the one in front is a way out, so it reads as one: a tinted chip with an
+ * arrow, inside the row's own target — clicking the name goes where it says. On the board
+ * already in front the name stays quiet text, because there is nowhere to go. An item with no
+ * board at all says so with the same dash the rest of the panel uses.
+ */
+function BoardTarget({ name, away }: { name?: string; away: boolean }) {
+  if (!away) return <span className="shrink-0 max-w-[45%] truncate text-micro text-slate-600">{name ?? '—'}</span>
+  return (
+    <span className="flex min-w-0 max-w-[45%] shrink-0 items-center gap-1 rounded-md bg-indigo-50 px-1.5 py-0.5 text-micro font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200 transition group-hover:bg-indigo-100 group-hover:ring-indigo-300">
+      <span className="min-w-0 truncate">{name}</span>
+      <ArrowRight size={11} className="shrink-0" />
+    </span>
   )
 }
 

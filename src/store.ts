@@ -6,6 +6,7 @@ import { canPlaceInSection, decompositionParent, descendants, statusOf, withChec
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
+import { quarantineUnreadable } from '@/lib/quarantine'
 import { guardedStorage } from '@/lib/storage'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
@@ -973,9 +974,16 @@ export function migrateState(persisted: unknown): Partial<Store> {
  * state older than v5 is reseeded with the current demo design.
  */
 export function migratePersisted(persisted: unknown, version: number): Partial<Store> {
+  // A workspace below the migration floor is never replaced by the demo: the boot check moves it
+  // aside before the store is created, so reaching here is a bug — and the honest answer to a bug
+  // is to refuse, not to seed over someone's work.
+  if (version < MIN_MIGRATABLE_VERSION) {
+    throw new Error(
+      `Cannot migrate a workspace written at version ${version}; this build migrates ${MIN_MIGRATABLE_VERSION} and later.`,
+    )
+  }
   // v30 added meUserId (whose browser this is): optional, so an old file reads undefined
   // with nothing to backfill — migrateState passes it through untouched.
-  if (version < 9) return createSeed() as unknown as Partial<Store>
   return migrateState(persisted)
 }
 
@@ -989,8 +997,15 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
  *
  * Exported for testing.
  */
+/** The key the workspace lives under. Named once: the boot check reads it before the store does. */
+export const PERSIST_KEY = 'flowline-state-v3'
 /** The current persisted workspace shape — every schema change bumps it with a migrate. */
 export const PERSIST_VERSION = 33
+/**
+ * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
+ * guess is not what a person's workspace gets.
+ */
+export const MIN_MIGRATABLE_VERSION = 9
 
 export function persistedSlice(s: Store): Partial<Store> {
   const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
@@ -1039,6 +1054,10 @@ export const WORKSPACE_KEYS = [
   'lanes',
   'placements',
 ] as const
+
+// Before the store exists: anything this build cannot read is moved aside, untouched, so the demo
+// that boots in its place is never mistaken for the person's workspace.
+quarantineUnreadable({ build: PERSIST_VERSION, minKnown: MIN_MIGRATABLE_VERSION })
 
 export const useStore = create<Store>()(
   persist(
@@ -2390,7 +2409,7 @@ export const useStore = create<Store>()(
       },
     }),
     {
-      name: 'flowline-state-v3',
+      name: PERSIST_KEY,
       version: PERSIST_VERSION,
       // A write that fails must be *known*: `guardedStorage` swallows the throw — the app keeps
       // working with a full disk — and publishes the failure for the banner. See `lib/storage.ts`.

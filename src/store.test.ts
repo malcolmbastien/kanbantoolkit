@@ -2293,15 +2293,15 @@ describe('store actions', () => {
     expect('cardTypeIds' in migrated.boardTemplates[0]).toBe(false)
   })
 
-  it('migratePersisted reseeds boards for a schema change (v<9)', () => {
+  it('migratePersisted never replaces a workspace below the floor with the demo', () => {
     const stale = { boards: [{ id: 'b-portfolio', name: 'P', level: 'portfolio' }], lanes: [], placements: [] }
-    const reseeded = migratePersisted(stale, 8) as { boards: { id: string }[]; lanes: unknown[] }
-    expect(reseeded.boards.length).toBeGreaterThanOrEqual(3)
-    expect(reseeded.boards.some((b) => b.id === 'b-atlas')).toBe(true)
-    expect(reseeded.lanes.length).toBeGreaterThan(0)
-    // v9+ keeps the persisted boards
+    // Below the migration floor there is no migration, only a guess — so it refuses. The boot
+    // check has already moved the slice aside by then; the demo is never offered as the workspace.
+    expect(() => migratePersisted(stale, 8)).toThrow(/version 8/)
+    // And from the floor up, the persisted boards are the ones that come through.
     const kept = migratePersisted(stale, 9) as { boards: { id: string }[] }
     expect(kept.boards.length).toBe(1)
+    expect(kept.boards[0].id).toBe('b-portfolio')
   })
 })
 

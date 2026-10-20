@@ -1773,7 +1773,7 @@
         "id": "114",
         "title": "A schema change never replaces someone's workspace with the demo.",
         "description": "This task changes the migration policy from reseeding to preserving and refusing, so an unmigratable workspace is never silently replaced.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "111"
         ],
@@ -1784,7 +1784,8 @@
         "complexity": 6,
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) preserve to a backup key before any migration is attempted; (2) refuse-and-explain in the boot path; (3) the download offer; (4) tests for a known, an unknown and a corrupt version.",
-        "complexityReasoning": "Small code on the data-loss path: migration must preserve, refuse and offer rather than reseed. High consequence, not high volume."
+        "complexityReasoning": "Small code on the data-loss path: migration must preserve, refuse and offer rather than reseed. High consequence, not high volume.",
+        "updatedAt": "2026-10-20T13:03:30.840Z"
       },
       {
         "id": "115",
@@ -1991,9 +1992,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-20T12:15:27.613Z",
+      "lastModified": "2026-10-20T13:03:30.840Z",
       "taskCount": 125,
-      "completedCount": 92,
+      "completedCount": 93,
       "tags": [
         "backlog"
       ]
