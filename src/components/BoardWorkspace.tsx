@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Download, Eye, History, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { TemplateEditor } from './TemplateEditor'
 import { boardsByBand } from '@/domain/board'
 import { readWorkspaceFile } from '@/domain/workspace'
+import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
 import { cn } from '@/lib/utils'
 import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
 import type { Board, BoardBand, BoardTemplate } from '@/domain/types'
@@ -37,6 +38,35 @@ export function BoardWorkspace() {
   const setObjectives = useStore((s) => s.setObjectives)
   const objectives = useStore((s) => s.objectives)
   const keyResults = useStore((s) => s.keyResults)
+  // The ring of workspace copies, read on open and after a restore. The ring is written by the
+  // schedule in `main.tsx`; this panel is where a person reaches for one.
+  const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([])
+  const [snapshotError, setSnapshotError] = useState<string | null>(null)
+  useEffect(() => {
+    void listSnapshots().then(setSnapshots)
+  }, [])
+
+  const restoreSnapshot = async (meta: SnapshotMeta) => {
+    const snap = await readSnapshot(meta.id)
+    if (!snap) {
+      setSnapshotError('That snapshot cannot be read, so nothing was changed.')
+      return
+    }
+    setSnapshotError(null)
+    askConfirm({
+      title: `Restore the workspace from ${new Date(snap.at).toLocaleString()}?`,
+      body: 'This replaces the current workspace with that copy. A snapshot of the current state is kept first, so the restore can itself be undone.',
+      confirmLabel: 'Restore',
+      danger: true,
+      onConfirm: () => {
+        // The undo point: taken from the workspace as it stands, before the copy replaces it.
+        void writeSnapshot(persistedSlice(useStore.getState()), PERSIST_VERSION)
+        importWorkspace(snap.state, snap.version)
+        void listSnapshots().then(setSnapshots)
+      },
+    })
+  }
+
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -621,11 +651,58 @@ export function BoardWorkspace() {
             </div>
           </div>
         </section>
+
+        {/* Snapshots — the last twenty copies of the workspace, so a mistake is a moment rather
+            than a loss. A copy of the current state is taken before a restore, which is what
+            makes the restore itself undoable. */}
+        <section data-snapshots className="mt-4 rounded-lg border border-slate-300 bg-white px-4 py-3">
+          <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-slate-600">
+            <History size={12} /> Snapshots
+          </div>
+          <p className="mt-0.5 text-meta text-slate-600">
+            A copy is kept every minute while you work — the last 20. They live in this browser,
+            so clearing its data removes them too; use Export for something that travels.
+          </p>
+          {snapshotError && <p className="mt-1 text-meta font-medium text-rose-600">{snapshotError}</p>}
+          {snapshots.length === 0 ? (
+            <p className="mt-1.5 text-meta text-slate-600">
+              No snapshots yet. One is written a minute after you start changing the workspace.
+            </p>
+          ) : (
+            <ul className="mt-1.5 max-h-40 divide-y divide-slate-100 overflow-auto rounded border border-slate-200">
+              {snapshots.map((snap) => (
+                <li key={snap.id} className="flex items-center gap-2 px-2 py-1 text-meta">
+                  <span className="min-w-0 flex-1 truncate text-slate-700" title={new Date(snap.at).toLocaleString()}>
+                    {when(snap.at)}
+                  </span>
+                  <button
+                    onClick={() => void restoreSnapshot(snap)}
+                    className="shrink-0 rounded border border-slate-300 px-1.5 py-0.5 font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                    title={`Restore the workspace as it was at ${new Date(snap.at).toLocaleString()}`}
+                  >
+                    Restore
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       {preview && <TemplateEditor template={preview} onClose={() => setPreviewId(null)} />}
     </div>
   )
+}
+
+/** How long ago a copy was taken, in the words a person uses. The exact time is on the title. */
+function when(at: number): string {
+  const seconds = Math.max(0, Math.round((Date.now() - at) / 1000))
+  if (seconds < 60) return 'just now'
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} h ago`
+  return new Date(at).toLocaleString()
 }
 
 function MenuRow({

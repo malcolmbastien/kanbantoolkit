@@ -32,7 +32,6 @@ import {
   objectiveRollup,
   openDescendants,
   rollupOf,
-  statusOf,
   type Graph,
 } from '@/domain/derive'
 import { boardInitiativeTypes, boardTags, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
@@ -41,7 +40,7 @@ import { initiativeHealth } from '@/domain/health'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
-import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, statusDot, TAG_PALETTE } from '@/lib/colors'
+import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
@@ -162,7 +161,6 @@ export function ItemPanel({ itemId }: Props) {
   const dependents = dependentsOf(item.id, graph)
   const exposure = openDescendants(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
-  const status = statusOf(item.id, graph)
   const roll = rollupOf(item.id, graph)
   const stage = roll.bucket
   const log = item.log ?? []
@@ -341,14 +339,13 @@ export function ItemPanel({ itemId }: Props) {
    * an action of its own keeps that action beside the name rather than making the row a button.
    */
   const itemRow = (c: Item, onOpen: () => void, opts: { onRemove?: () => void; stage?: boolean } = {}) => {
-    const cStatus = statusOf(c.id, graph)
     const bucket = rollupOf(c.id, graph).bucket
     return (
       <div
         key={c.id}
         className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 transition hover:border-slate-300 hover:bg-slate-50"
       >
-        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(cStatus))} />
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[bucket])} />
         <button onClick={onOpen} title={`Open ${c.title}`} className="min-w-0 flex-1 truncate text-left text-slate-700 transition hover:text-indigo-600">
           {c.title}
         </button>
@@ -687,7 +684,7 @@ export function ItemPanel({ itemId }: Props) {
                     className="flex min-h-[30px] items-center gap-1.5"
                     title="Derived from its column and the work below — never typed in"
                   >
-                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(status))} />
+                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[stage])} />
                     <span className="truncate text-meta font-medium text-slate-700">{STAGE_LABELS[stage]}</span>
                   </div>
                 </Field>

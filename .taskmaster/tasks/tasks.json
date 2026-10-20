@@ -1656,17 +1656,83 @@
         "id": "111",
         "title": "A workspace survives a bad edit, a crash, and a corrupt save.",
         "description": "This task keeps a ring of recent workspace snapshots outside `localStorage` and lets a person restore one.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new `src/lib/snapshots.ts`.\n2. The persist configuration in `src/store.ts`.\n3. The workspace panel in `src/components/BoardWorkspace.tsx`.\n\nDEFINITIONS\n- Snapshot: the persisted slice, serialised with a timestamp and the schema version.\n- Ring: a fixed-size list; the oldest entry is dropped when a new one is written.\n\nA ring is not a backup: clearing the site's data removes it with the workspace, because IndexedDB\nbelongs to the same origin. What it does answer is a bad edit, a save that was interrupted, a\ncorrupt slice, and a migration that went wrong. What stops the browser evicting the workspace is\n`navigator.storage.persist()` in task 112; what survives a cleared browser is the export.\n\nREQUIREMENTS\n\nR1 — Written\nA snapshot shall be written at most once a minute during activity, and on `pagehide`.\n\nR2 — Kept\nThe most recent 20 snapshots shall be kept, pruned oldest first.\n\nR3 — Restored\nThe workspace panel shall list snapshots by time and offer to restore one, behind the existing confirmation.\n\nR4 — Complete\nA snapshot shall contain the persisted slice — boards, lanes, items, placements, edges, links, users, objectives, types and tags — and no view state.\n\nR5 — Tolerant\nA corrupt or unreadable snapshot shall be skipped, and the list shall still render.\n\nR6 — Separate\nA failed snapshot write shall not disturb the live workspace.",
         "testStrategy": "VERIFICATION\n\nV1 — R1, R2: Make 25 edits; assert 20 snapshots exist and the newest holds the newest title.\nV2 — R3: Restore an older snapshot; the board matches it.\nV3 — R4: Inspect a snapshot; no selection, filter or panel state is present.\nV4 — R5: Corrupt one entry; the list renders and the app loads.\nV5 — R6: Make the snapshot store throw; edits still save to the workspace.",
-        "subtasks": [],
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "The ring: snapshots are written to IndexedDB, bounded to twenty, and read back safely.",
+            "description": "This subtask adds src/lib/snapshots.ts: the record shape, the IndexedDB store, the ring prune, and a parser that refuses a record it cannot understand.",
+            "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new `src/lib/snapshots.ts`.\n2. A new `src/lib/snapshots.test.ts`.\n\nDEFINITIONS\n- Snapshot: the persisted slice, serialised with a timestamp and the schema version.\n- Ring: a fixed-size list; the oldest entry is dropped when a new one is written.\n\nREQUIREMENTS\n\nR1 — Stored\nA snapshot shall be written to IndexedDB: database `flowline-snapshots`, store `snapshots`, keyed by `id`.\n\nR2 — Complete\nA record shall carry `id`, `at`, `version` and `state`.\n\nR3 — Bounded\nA write shall prune the ring to the twenty newest records.\n\nR4 — Readable\nListing shall answer metadata newest first; reading shall answer the record, or nothing.\n\nR5 — Refused, not half-read\nA record that cannot be understood shall be refused by `parseSnapshot`.\n\nR6 — Quiet failure\nA storage failure shall be answered rather than thrown into the caller.\n\nVERIFICATION\n\nV1 — R1–R3: Write 25 records; the list holds 20 and the oldest five are gone.\nV2 — R5: Parse a record with no `state`, and one whose `at` is a string; both answer null.\nV3 — R3: At 19 records a write leaves 20; at 20 a write leaves 20.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 111,
+            "updatedAt": "2026-10-20T03:23:26.811Z",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "The schedule: one snapshot a minute while working, and one when the tab is hidden.",
+            "description": "This subtask writes snapshots on a trailing minute while the workspace changes, and on visibilitychange or pagehide, without touching the live workspace when a write fails.",
+            "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `src/lib/snapshots.ts` — the scheduler.\n2. `src/main.tsx` — start it, outside React.\n\nDEFINITIONS\n- Dirty: the persisted slice changed since the last snapshot.\n- Trailing minute: a burst writes once, a minute after its first change, so the last change is included.\n\nREQUIREMENTS\n\nR1 — One a minute\nWhile the workspace changes, at most one snapshot shall be written per interval (60 s).\n\nR2 — Trailing\nA burst shall write once, after the interval, carrying the final state.\n\nR3 — Unchanged means unwritten\nA change that leaves the persisted slice unchanged — opening a card, moving a filter — shall not write. The slice's own values are compared by reference, so this costs a handful of comparisons, not a serialisation.\n\nR4 — Hidden means now\nWhen the tab becomes hidden, or the page is being dismissed, a pending change shall be written without waiting for the interval.\n\nR5 — Failure isolated\nA failed write shall leave the workspace untouched and the schedule running.\n\nR6 — Started once\n`main.tsx` shall start the schedule once, outside React, so StrictMode's double render cannot double it.\n\nVERIFICATION\n\nV1 — R1, R2: With an injected one-second interval, five changes in a burst write once, with the fifth state.\nV2 — R3: Change only the selection; nothing is written.\nV3 — R4: Hide the tab with a pending change; it is written immediately.\nV4 — R5: Make the write throw; the app continues and the next change still schedules.",
+            "status": "done",
+            "dependencies": [
+              1
+            ],
+            "parentTaskId": 111,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T03:23:30.464Z"
+          },
+          {
+            "id": 3,
+            "title": "The restore: the workspace panel lists snapshots, and restoring one is confirmed.",
+            "description": "This subtask lists the snapshots in the workspace panel and restores one behind the existing confirmation, keeping a snapshot of the pre-restore state.",
+            "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `src/components/BoardWorkspace.tsx` — a Snapshots card beside Workspace data.\n\nREQUIREMENTS\n\nR1 — Listed\nThe panel shall list snapshots newest first, each with a relative time and the exact time on its title.\n\nR2 — Confirmed\nRestoring shall ask first, naming what is replaced, through the existing confirmation.\n\nR3 — Same path as import\nRestoring shall call `importWorkspace(state, version)` — the path the file import already uses.\n\nR4 — Undoable\nBefore restoring, a snapshot of the current workspace shall be written, so the restore can itself be undone.\n\nR5 — Unreadable is refused\nA snapshot that cannot be read shall be reported, and shall replace nothing.",
+            "status": "done",
+            "dependencies": [
+              1
+            ],
+            "parentTaskId": 111,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T03:23:35.944Z"
+          },
+          {
+            "id": 4,
+            "title": "A snapshot carries the workspace and nothing about the view.",
+            "description": "This subtask proves a snapshot is the persisted slice and no selection, filter, multi-select or panel state.",
+            "details": "SYSTEM\nFlowline, the application in this repository.\n\nREQUIREMENTS\n\nR1 — Slice only\nA snapshot's `state` shall be `persistedSlice`: no selection, filters, multi-select, confirm, panel, menu or drag state.\n\nR2 — Versioned\nThe record shall carry `PERSIST_VERSION`.\n\nR3 — Restorable as it stands\nA slice written at the current version shall be accepted by `importWorkspace` without a migration.\n\nVERIFICATION\n\nV1 — R1: Snapshot the fixture; assert no view key is present and every persisted key is.\nV2 — R3: Import that snapshot into a reset store; the boards, cards and titles match.",
+            "status": "done",
+            "dependencies": [
+              1
+            ],
+            "parentTaskId": 111,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T03:23:41.792Z"
+          },
+          {
+            "id": 5,
+            "title": "The ring is proved in a browser: bounds, restore, corruption, a failed write.",
+            "description": "This subtask exercises the ring in a real browser: twenty-five edits leave twenty snapshots, an older restore matches, a corrupt entry is skipped and the list still renders, and a failing write leaves the app working.",
+            "details": "SYSTEM\nFlowline, the application in this repository.\n\nVERIFICATION\n\nV1 — 25 edits leave 20 snapshots, and the newest holds the newest title.\nV2 — Restoring an older snapshot makes the board match it.\nV3 — A corrupted record is skipped and the list still renders.\nV4 — A failing write leaves the app working, and the next edit still schedules.\nV5 — Hiding the tab writes a pending change without waiting for the interval.",
+            "status": "done",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "parentTaskId": 111,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T03:23:47.609Z"
+          }
+        ],
         "complexity": 6,
         "recommendedSubtasks": 3,
         "expansionPrompt": "Split into: (1) the snapshot store — serialise the persisted slice, write the ring, prune to 20, tolerate corrupt entries; (2) the schedule (trailing minute and pagehide) and isolation from the live workspace; (3) the restore surface in the workspace panel behind the existing confirmation; (4) tests: ring bounds, restore fidelity, a corrupt entry, a failed write.",
         "complexityReasoning": "IndexedDB, a ring with pruning, a restore surface behind confirmation, tolerance for corrupt entries, and isolation from the live workspace.",
-        "updatedAt": "2026-10-20T03:04:37.453Z"
+        "updatedAt": "2026-10-20T03:23:47.609Z"
       },
       {
         "id": "112",
@@ -1924,9 +1990,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-20T00:33:42.248Z",
+      "lastModified": "2026-10-20T03:23:47.609Z",
       "taskCount": 125,
-      "completedCount": 89,
+      "completedCount": 91,
       "tags": [
         "backlog"
       ]
