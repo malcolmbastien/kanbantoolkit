@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flowline",
+  "compatibility_date": "2026-10-19",
+
+  // The static build, served from the edge. When the workspace gets a server, this file gains
+  // `main` and `run_worker_first` for /api and /ws: one Worker, one origin, no CORS.
+  "assets": {
+    "directory": "./dist",
+    // A place is a query string, so the fallback is not strictly needed — it keeps a mistyped
+    // path from being a naked 404 rather than the app.
+    "not_found_handling": "single-page-application"
+  },
+
+  // Preview versions get their own URL, which is what a pull request deploys.
+  "preview_urls": true,
+  "previews": {},
+  "observability": { "enabled": true }
+}

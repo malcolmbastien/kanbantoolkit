@@ -16,7 +16,7 @@ jobs:
   checks:
     name: checks
     # The whole run is under a minute today; a ten-minute ceiling catches a hung step rather than
-    # a slow one. The job name is the branch-protection check, so it is deliberately plain.
+    # a slow one. The job name is what branch protection would require, so it is deliberately plain.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -48,3 +48,48 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # Publishing lives in this workflow rather than a second one so that it can wait on the checks
+  # with `needs`: a green commit publishes, a red one never reaches users, and no pull request is
+  # needed to get there. Both deploy jobs skip rather than fail until the Cloudflare account is
+  # wired up with the two secrets, so a fresh clone still has a green build.
+  deploy:
+    name: deploy
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.CLOUDFLARE_API_TOKEN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  preview:
+    name: preview
+    needs: checks
+    if: github.event_name == 'pull_request' && secrets.CLOUDFLARE_API_TOKEN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Upload a preview version
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: versions upload

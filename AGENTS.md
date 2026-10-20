@@ -16,7 +16,7 @@ development too: the app must run with it unset.
 Federating with a *customer's* identity provider (even a Google Workspace one) is a deliberate
 enterprise decision, and not something this rule forbids by itself.
 
-The app is a static Vite + React SPA deployed to Vercel; all state lives in `localStorage`.
+The app is a static Vite + React SPA deployed to Cloudflare Workers (assets in `dist/`, configured by `wrangler.jsonc`); all state lives in `localStorage`.
 
 Before finishing any task, run:
 

@@ -59,7 +59,8 @@ external requests at all.
 
 - Runtime: a static Vite + React SPA. All state is in the browser (`localStorage`).
   No backend, no auth, no cloud services of any kind.
-- Deploy target: **Vercel** (static build in `dist/`). Runs on any static host.
+- Deploy target: **Cloudflare Workers** with static assets (build in `dist/`, config in
+  `wrangler.jsonc`). Any static host still works: the app is a plain SPA.
 - The only external service is the LLM used **offline at authoring time** by Taskmaster,
   which talks to your **OpenCode Go** subscription.
 
@@ -132,6 +133,22 @@ link rather than where it points, so they are never written back:
 must never be the thing that throws a board design away. A link naming a board or a card that is
 not here — from another dataset, or to something since deleted — lands on what *is* there rather
 than on a blank surface.
+
+## Deploying
+
+```bash
+npm run build
+npm run deploy       # wrangler deploy -> the `flowline` Worker
+```
+
+CI publishes on every push to `main`, after the `checks` job passes, using the
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets. Without them the deploy job
+skips and the build stays green. A pull request uploads a preview version instead of deploying.
+
+`_headers` carries the response policy: a content-security policy with no third-party origins,
+`nosniff`, and a referrer policy. Hashed assets are immutable; the document is revalidated so a
+deploy is visible immediately. Adding a view that calls a host, or a measurement script, means
+adding its origin to the policy in the same change.
 
 ## What to try
 
