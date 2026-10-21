@@ -1947,12 +1947,12 @@
         "id": 124,
         "title": "The flows that make the product work are tested end to end.",
         "description": "This task adds a browser suite over the seams that unit tests cannot see — drag and drop, the drawer, board design and import.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "106"
         ],
         "priority": "high",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new end-to-end suite (Playwright), run in the CI workflow.\n2. The preview deployment.\n\nDEFINITIONS\n- Seam: a place where two store actions are composed by a component, which unit tests do not reach.\n- Deterministic: the suite seeds its own workspace and does not depend on the clock.\n\nREQUIREMENTS\n\nR1 — Drag and drop\nA card shall be dragged between lanes and keep the position it was dropped at.\n\nR2 — WIP\nOn a justify board, cancelling the reason prompt shall leave the card where it was, and answering shall land it where it was dropped.\n\nR3 — Drawer\nA test shall edit a title, add a tag, add a person and set a parent.\n\nR4 — Board design\nA test shall split a lane, add a cell and remove it, in edit mode.\n\nR5 — Import and export\nA test shall export a workspace, import it into a clean state, and compare the boards.\n\nR6 — Deterministic\nThe suite shall not depend on wall-clock time or on the demo's current contents.\n\nR7 — Gated\nThe suite shall run on every pull request and fail the workflow.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. A new end-to-end suite (Playwright), run in the CI workflow.\n2. The preview deployment.\n\nDEFINITIONS\n- Seam: a place where two store actions are composed by a component, which unit tests do not reach.\n- Deterministic: the suite seeds its own workspace and does not depend on the clock.\n\nREQUIREMENTS\n\nR1 — Drag and drop\nA card shall be dragged between lanes and keep the position it was dropped at.\n\nR2 — WIP\nOn a justify board, cancelling the reason prompt shall leave the card where it was, and answering shall land it where it was dropped.\n\nR3 — Drawer\nA test shall edit a title, add a tag, add a person and set a parent.\n\nR4 — Board design\nA test shall split a lane, add a cell and remove it, in edit mode.\n\nR5 — Import and export\nA test shall export a workspace, import it into a clean state, and compare the boards.\n\nR6 — Deterministic\nThe suite shall not depend on wall-clock time or on the demo's current contents.\n\nR7 — Gated\nThe suite shall run on every pull request and fail the workflow.\n\nDELIVERED — 2026-10-21\nSeventeen tests over six flows: drag (three), the WIP prompt (two), the drawer (four), board\ndesign (four), the workspace file (two), and the harness itself (two). They run against the built\napp, each in a fresh origin, and finish in about ten seconds locally and eighty in CI, where the\nbrowser install dominates.\n\nThe job is named `e2e`, waits on `checks`, and publishing waits on it: a red test never reaches\nthe live app. A failure keeps its traces and screenshots for a week. The ceiling is recorded at\nfive minutes — generous against eighty seconds, and to be raised deliberately.\n\nR2's evidence is real: putting the WIP drop bug back made both WIP tests fail, and restoring the\nline made them pass.",
         "testStrategy": "VERIFICATION\n\nV1 — R1–R5: The suite passes locally and in CI.\nV2 — R2: The cancel case fails when the drop is made to write its position regardless of the seam's answer.\nV3 — R7: The workflow runs the suite and blocks on failure.\nV4 — R6: Run the suite twice; the results are identical.",
         "subtasks": [
           {
@@ -2024,7 +2024,7 @@
             "title": "The suite runs in CI and a failure stops the workflow.",
             "description": "This subtask wires the suite into the workflow, with a trace left behind when it fails.",
             "details": "SYSTEM\nFlowline, the application in this repository.\n\nREQUIREMENTS\n\nR1 — Trigger\nThe suite shall run on every push to `main` and every pull request.\n\nR2 — Gate\nA failing test shall fail the workflow, in a job named `e2e`.\n\nR3 — Evidence\nA failure shall leave a trace — screenshot or video — so the run can be read rather than guessed at.\n\nR4 — Ceiling\nThe suite shall finish inside a recorded ceiling (proposed five minutes). If it does not, the ceiling is wrong and shall be raised deliberately.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2,
               3,
@@ -2039,7 +2039,7 @@
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) harness, seeded state and CI wiring; (2) drag and drop, WIP cancel/resume, drawer edits, board design, import and export; (3) the two-client lease flow once the server exists.",
         "complexityReasoning": "Six flows, one of which needs the server to exist. The risk is flakiness rather than difficulty.",
-        "updatedAt": "2026-10-21T00:09:53.802Z"
+        "updatedAt": "2026-10-21T00:18:23.999Z"
       },
       {
         "id": 125,
