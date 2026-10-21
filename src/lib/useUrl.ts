@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { filtersFromParam } from '@/domain/filters'
 import { useStore } from '@/store'
 import { placeFromQuery, urlQuery, viewOf, type Place } from './url'
+import { titleFor } from './title'
 
 /**
  * The URL, read and written.
@@ -27,6 +28,19 @@ export function useUrl() {
   const boardId = useStore((s) => s.boardId)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const view = useStore(viewOf)
+  // The document's name, derived the same way the URL is: the open card, the view, the board.
+  // A scalar, so a rename of the open card reaches the title as it is typed.
+  const title = useStore((s) =>
+    titleFor({
+      card: s.items.find((i) => i.id === s.selectedItemId)?.title,
+      view: viewOf(s),
+      board: s.boards.find((b) => b.id === s.boardId)?.name,
+    }),
+  )
+
+  useEffect(() => {
+    document.title = title
+  }, [title])
 
   // ---- On the way in: what the link asked for ----
   useEffect(() => {
