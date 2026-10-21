@@ -8,6 +8,9 @@ import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } fr
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
 import { isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
+// The seam's guard reads the source it is guarding. `?raw` keeps the test in the browser project
+// rather than reaching for node's filesystem, which the app's own config does not allow.
+import storeSource from './store.ts?raw'
 import { viewOf, type ViewName } from './lib/url'
 import { BUILT_IN_TEMPLATES } from './domain/seed'
 import { createFixture } from './domain/fixture'
@@ -1171,6 +1174,31 @@ describe('store actions', () => {
     expect(s().multiSelect).toEqual([])
   })
 
+  it('focus follows the selection: another card, or nothing, ends it', () => {
+    // Selecting an initiative focuses it, and re-opening that same item keeps the focus.
+    s().setLens('init-signup')
+    s().openItem('init-signup')
+    expect(s().lensId).toBe('init-signup')
+
+    // Clicking a card in the initiative's lineage selects that card and ends the initiative's
+    // focus — the lineage highlight belongs to the initiative, not to the card just opened.
+    s().openItem('st-email')
+    expect(s().selectedItemId).toBe('st-email')
+    expect(s().lensId).toBe(null)
+
+    // Clicking empty space closes the drawer, and the focus goes with it.
+    s().setLens('init-signup')
+    s().openItem(null)
+    expect(s().selectedItemId).toBe(null)
+    expect(s().lensId).toBe(null)
+
+    // Starting a shift+click group is another selection, so it ends the focus too.
+    s().openItem('init-signup')
+    s().setLens('init-signup')
+    s().toggleMultiSelect('st-email')
+    expect(s().lensId).toBe(null)
+  })
+
   it('a lane is ordered by rank, and reordering renumbers it cleanly', () => {
     const dev = laneByName('b-atlas', 'Dev')
     const done = laneByName('b-atlas', 'Done')
@@ -2302,6 +2330,94 @@ describe('store actions', () => {
     const kept = migratePersisted(stale, 9) as { boards: { id: string }[] }
     expect(kept.boards.length).toBe(1)
     expect(kept.boards[0].id).toBe('b-portfolio')
+  })
+})
+
+/**
+ * The revision: one counter per item, bumped by every accepted change to its own content.
+ *
+ * The table below is the point. A new mutator belongs in it — that is the cost of the seam being
+ * a convention rather than a type, and the reason it is written as a list rather than one happy
+ * path: a mutator that stops bumping fails here by name.
+ */
+describe("an item's revision", () => {
+  beforeEach(() => resetToFixture())
+
+  const card = 'st-signup-form'
+  const other = 'st-email'
+  const initiative = 'init-welcome'
+  // A tag and a person the card does not already carry: a mutator that changes nothing is a
+  // refusal, not a revision, and the table is about changes.
+  const freshTag = () => {
+    // The fixture's board defines no tags, so the tag is made for this test: a tag is a label,
+    // and the mutator refuses one the board does not offer.
+    const id = s().addTag('b-atlas', `probe ${revOf(card)}`, '#64748b')
+    if (!id) throw new Error('the board refused the tag')
+    return id
+  }
+  const freshPerson = () => {
+    const item = s().items.find((i) => i.id === card)!
+    return s().users.find((u) => !(item.assignees ?? []).includes(u.id))!.name
+  }
+  const revOf = (id: string) => s().items.find((i) => i.id === id)?.rev ?? 0
+
+  const mutators: { name: string; run: () => void; target: string }[] = [
+    { name: 'setItemFields', run: () => s().setItemFields(card, { title: 'Renamed' }), target: card },
+    { name: 'setItemFields (size)', run: () => s().setItemFields(card, { size: 13 }), target: card },
+    { name: 'toggleItemTag', run: () => s().toggleItemTag('b-atlas', card, freshTag()), target: card },
+    { name: 'addAssignee', run: () => s().addAssignee(card, freshPerson()), target: card },
+    { name: 'addItemsAssignee', run: () => s().addItemsAssignee([card, other], 'Jonah Tran'), target: other },
+    { name: 'clearItemsAssignees', run: () => s().clearItemsAssignees([card]), target: card },
+    { name: 'setItemsType', run: () => s().setItemsType([card], 't-bug'), target: card },
+    { name: 'blockItem', run: () => s().blockItem(card, 'waiting on legal'), target: card },
+    { name: 'unblockItem', run: () => s().unblockItem(card, 'cleared'), target: card },
+    { name: 'addChecklistItem', run: () => s().addChecklistItem(card, 'one thing'), target: card },
+    { name: 'setParent', run: () => s().setParent(card, initiative), target: card },
+    { name: 'setParents', run: () => s().setParents([card, other], initiative), target: other },
+    { name: 'addDependency', run: () => s().addDependency(other, card, 'waits'), target: card },
+    { name: 'logTextEdit', run: () => s().logTextEdit(card, 'title', 'before'), target: card },
+    { name: 'archiveItem', run: () => s().archiveItem(card), target: card },
+    { name: 'archiveItems', run: () => s().archiveItems([card]), target: card },
+  ]
+
+  it.each(mutators)('$name bumps the item it changed', ({ run, target }) => {
+    const before = revOf(target)
+    run()
+    expect(revOf(target)).toBe(before + 1)
+  })
+
+  it('counts every accepted change, and nothing else', () => {
+    const start = revOf(card)
+    s().setItemFields(card, { title: 'Once' })
+    s().setItemFields(card, { title: 'Twice' })
+    expect(revOf(card)).toBe(start + 2)
+  })
+
+  it('reads an item written before revisions existed, and revises it from one', () => {
+    // The fixture is old data: no item carries a revision yet.
+    expect(s().items.every((i) => i.rev === undefined)).toBe(true)
+    s().setItemFields(card, { title: 'First change' })
+    expect(revOf(card)).toBe(1)
+  })
+
+  it('has no content write outside the seam', () => {
+    // The seam is a convention, not a type, so this is what keeps it honest: a raw item map is a
+    // write that skipped the revision. The number is the eight placement actions, the Done stamp
+    // in `placeCard`, and the seam's own map — it is here so that adding a tenth is a decision
+    // someone takes rather than something that slips past.
+    const raw = [...storeSource.matchAll(/state\.items\.map\(/g)].length
+    expect(raw).toBe(10)
+  })
+
+  it('is not moved by a placement: a dragged card keeps its revision', () => {
+    s().setItemFields(card, { title: 'Settled' })
+    const before = revOf(card)
+    const lane = laneByName('b-atlas', 'Not Started').id
+    s().moveCard(card, 'b-atlas', lane)
+    s().moveCardToIndex(card, 'b-atlas', lane, 0)
+    expect(revOf(card)).toBe(before)
+    // The move is still on its history: arrangement is recorded, it just is not a revision.
+    expect(s().items.find((i) => i.id === card)?.log?.some((e) => e.kind === 'moved')).toBe(true)
   })
 })
 

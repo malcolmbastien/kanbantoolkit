@@ -532,6 +532,26 @@ const toLane = (placements: Placement[], p: Placement, laneId: string): Placemen
   rank: nextRank(placements, laneId),
 })
 
+/**
+ * The one write path for an item's own content.
+ *
+ * Every content change — a field, a tag, a parent, a log entry — goes through here, so a change
+ * has one shape: the items whose objects changed get a new revision, and nothing else moves. A
+ * lock and a sync will both want to stand here later, and neither should have to find twenty call
+ * sites to do it.
+ *
+ * Placements are deliberately not routed here. A move writes the item's log and its Done stamp,
+ * but it is arrangement rather than content: a revision that changed every time a card was
+ * dragged would tell a lock nothing useful, and would make a card someone is editing impossible
+ * to rearrange.
+ */
+function writeItems(state: Pick<Store, 'items'>, change: (item: Item) => Item): Item[] {
+  const next = state.items.map(change)
+  // A map hands back the same object for everything it left alone, so "what changed" is a
+  // reference comparison — exact, and cheap.
+  return next.map((item, i) => (item === state.items[i] ? item : { ...item, rev: (item.rev ?? 0) + 1 }))
+}
+
 /** The first lane (target or ancestor) whose WIP limit a move would exceed. */
 function exceededLane(
   state: Pick<FlowState, 'lanes' | 'placements'>,
@@ -1082,6 +1102,12 @@ export const useStore = create<Store>()(
         set({
           selectedItemId,
           multiSelect: [],
+          // Focus follows the selection. Selecting an initiative focuses it (see
+          // `BoardSummary`), so choosing another item — or nothing at all — ends the focus:
+          // closing the drawer or clicking a card must not leave a lineage highlighted with
+          // nothing selected. Re-opening the item that is already focused keeps it, so the
+          // selection that set the focus does not blink it off and on again.
+          lensId: selectedItemId === get().lensId ? get().lensId : null,
           ...(selectedItemId
             ? {
                 showFilters: false,
@@ -1157,7 +1183,10 @@ export const useStore = create<Store>()(
         // Seed from the open card so a shift+click on a second card starts a group.
         const base = s.multiSelect.length > 0 ? s.multiSelect : s.selectedItemId ? [s.selectedItemId] : []
         const group = base.includes(id) ? base.filter((x) => x !== id) : [...base, id]
-        set({ multiSelect: group, selectedItemId: null, showFilters: false })
+        // A group is a different selection from the open card, so the focus the open card may have
+        // set ends with it — a highlighted lineage under a bulk action would read as part of the
+        // group.
+        set({ multiSelect: group, selectedItemId: null, showFilters: false, lensId: null })
       },
       clearMultiSelect: () => set({ multiSelect: [] }),
       askConfirm: (confirm) => set({ confirm }),
@@ -1265,7 +1294,7 @@ export const useStore = create<Store>()(
         // An initiative cannot be retyped into a card type, and nothing becomes an
         // initiative — see `canRetype`. Refused rather than corrected.
         set({
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             ids.has(i.id) && canRetype(i, typeId, state.issueTypes) ? { ...i, typeId } : i,
           ),
         })
@@ -1276,7 +1305,7 @@ export const useStore = create<Store>()(
         const { id, users } = ensureUser(state.users, name)
         set({
           users,
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             i.id === itemId && !(i.assignees ?? []).includes(id) ? { ...i, assignees: [...(i.assignees ?? []), id] } : i,
           ),
         })
@@ -1287,19 +1316,19 @@ export const useStore = create<Store>()(
         const ids = new Set(itemIds)
         set({
           users,
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             ids.has(i.id) && !(i.assignees ?? []).includes(id) ? { ...i, assignees: [...(i.assignees ?? []), id] } : i,
           ),
         })
       },
       clearItemsAssignees: (itemIds) => {
         const ids = new Set(itemIds)
-        set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, assignees: undefined } : i)) })
+        set({ items: writeItems(get(), (i) => (ids.has(i.id) ? { ...i, assignees: undefined } : i)) })
       },
       removeItemsAssignee: (itemIds, userId) => {
         const ids = new Set(itemIds)
         set({
-          items: get().items.map((i) => {
+          items: writeItems(get(), (i) => {
             if (!ids.has(i.id)) return i
             const next = (i.assignees ?? []).filter((a) => a !== userId)
             return { ...i, assignees: next.length > 0 ? next : undefined }
@@ -1308,21 +1337,21 @@ export const useStore = create<Store>()(
       },
       setItemsSize: (itemIds, size) => {
         const ids = new Set(itemIds)
-        set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, size } : i)) })
+        set({ items: writeItems(get(), (i) => (ids.has(i.id) ? { ...i, size } : i)) })
       },
       setItemsTargetStart: (itemIds, targetStartDate) => {
         const ids = new Set(itemIds)
-        set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, targetStartDate } : i)) })
+        set({ items: writeItems(get(), (i) => (ids.has(i.id) ? { ...i, targetStartDate } : i)) })
       },
       setItemsTargetEnd: (itemIds, targetEndDate) => {
         const ids = new Set(itemIds)
-        set({ items: get().items.map((i) => (ids.has(i.id) ? { ...i, targetEndDate } : i)) })
+        set({ items: writeItems(get(), (i) => (ids.has(i.id) ? { ...i, targetEndDate } : i)) })
       },
       blockItems: (itemIds, reason) => {
         const note = reason?.trim() || undefined
         const ids = new Set(itemIds)
         set({
-          items: get().items.map((i) =>
+          items: writeItems(get(), (i) =>
             ids.has(i.id) ? { ...i, blocked: true, blockedReason: note, log: [...(i.log ?? []), logEntry('blocked', note)] } : i,
           ),
         })
@@ -1331,7 +1360,7 @@ export const useStore = create<Store>()(
         const text = note?.trim() || undefined
         const ids = new Set(itemIds)
         set({
-          items: get().items.map((i) =>
+          items: writeItems(get(), (i) =>
             ids.has(i.id) ? { ...i, blocked: false, blockedReason: undefined, log: [...(i.log ?? []), logEntry('unblocked', text)] } : i,
           ),
         })
@@ -1343,7 +1372,7 @@ export const useStore = create<Store>()(
         if (ids.size === 0) return
         const at = Date.now()
         set({
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             ids.has(i.id) && !i.archived ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] } : i,
           ),
           multiSelect: [],
@@ -1688,7 +1717,7 @@ export const useStore = create<Store>()(
         if (kindId !== undefined && !initiativeTypeById(state.boards, kindId)) return
         const ids = new Set(itemIds)
         set({
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             // Only an initiative carries a kind. Refused per item rather than merely hidden by the
             // callers, because the rule is the model's: a card's label is its `typeId` and nothing
             // else. A mixed selection sets the kind on the initiatives in it and leaves the rest.
@@ -1745,13 +1774,13 @@ export const useStore = create<Store>()(
         const carried = item.tagIds ?? []
         if (carried.includes(tagId)) {
           // Always allowed: an item can be cleared whatever happened to the definition.
-          set({ items: state.items.map((i) => (i.id === itemId ? { ...i, tagIds: carried.filter((t) => t !== tagId) } : i)) })
+          set({ items: writeItems(state, (i) => (i.id === itemId ? { ...i, tagIds: carried.filter((t) => t !== tagId) } : i)) })
           return
         }
         // Adding needs the tag to belong to *this* board: the picker offers that board's tags, and
         // the model does not take labels from nowhere.
         if (!boardTags(state.boards.find((b) => b.id === boardId)).some((t) => t.id === tagId)) return
-        set({ items: state.items.map((i) => (i.id === itemId ? { ...i, tagIds: [...carried, tagId] } : i)) })
+        set({ items: writeItems(state, (i) => (i.id === itemId ? { ...i, tagIds: [...carried, tagId] } : i)) })
       },
 
       addTag: (boardId, name, color) => {
@@ -2006,7 +2035,7 @@ export const useStore = create<Store>()(
       setItemFields: (id, patch) => {
         const state = get()
         set({
-          items: state.items.map((i) => {
+          items: writeItems(state, (i) => {
             if (i.id !== id) return i
             // The panel's type control is hidden for an initiative, but the guard lives
             // here too: the rule is the model's, not the UI's.
@@ -2030,14 +2059,14 @@ export const useStore = create<Store>()(
         const t = text.trim()
         if (!t) return
         set({
-          items: get().items.map((i) =>
+          items: writeItems(get(), (i) =>
             i.id === itemId ? { ...i, checklist: [...(i.checklist ?? []), { id: uid(), text: t, done: false }] } : i,
           ),
         })
       },
       toggleChecklistItem: (itemId, entryId) =>
         set({
-          items: get().items.map((i) =>
+          items: writeItems(get(), (i) =>
             i.id === itemId
               ? { ...i, checklist: (i.checklist ?? []).map((c) => (c.id === entryId ? { ...c, done: !c.done } : c)) }
               : i,
@@ -2045,7 +2074,7 @@ export const useStore = create<Store>()(
         }),
       moveChecklistItem: (itemId, entryId, delta) =>
         set({
-          items: get().items.map((i) => {
+          items: writeItems(get(), (i) => {
             if (i.id !== itemId) return i
             const list = [...(i.checklist ?? [])]
             const idx = list.findIndex((c) => c.id === entryId)
@@ -2057,7 +2086,7 @@ export const useStore = create<Store>()(
         }),
       removeChecklistItem: (itemId, entryId) =>
         set({
-          items: get().items.map((i) =>
+          items: writeItems(get(), (i) =>
             i.id === itemId ? { ...i, checklist: (i.checklist ?? []).filter((c) => c.id !== entryId) } : i,
           ),
         }),
@@ -2169,7 +2198,7 @@ export const useStore = create<Store>()(
         const edges = state.edges.filter((e) => !(e.kind === 'decomposition' && e.to === childId))
         set({
           edges: after ? [...edges, { id: uid(), kind: 'decomposition', from: after, to: childId }] : edges,
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             i.id === childId
               ? {
                   ...i,
@@ -2198,7 +2227,7 @@ export const useStore = create<Store>()(
             ...state.edges.filter((e) => !(e.kind === 'decomposition' && ids.has(e.to))),
             ...itemIds.map((id) => ({ id: uid(), kind: 'decomposition' as const, from: parentId, to: id })),
           ],
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             // Only what changed is recorded: the log is decisions, not gestures.
             ids.has(i.id) && decompositionParent(i.id, state.edges) !== parentId
               ? { ...i, log: [...(i.log ?? []), logEntry('edited', `Rolls up to ${parent?.title ?? parentId}`)] }
@@ -2211,19 +2240,19 @@ export const useStore = create<Store>()(
       addChecklistEntry: (itemId, text) => {
         const value = text.trim()
         if (!value) return
-        set({ items: get().items.map((i) => (i.id === itemId ? withChecklistEntry(i, { id: uid(), text: value, done: false }) : i)) })
+        set({ items: writeItems(get(), (i) => (i.id === itemId ? withChecklistEntry(i, { id: uid(), text: value, done: false }) : i)) })
       },
 
       setChecklistEntryText: (itemId, entryId, text) => {
-        set({ items: get().items.map((i) => (i.id === itemId ? withChecklistEntryText(i, entryId, text) : i)) })
+        set({ items: writeItems(get(), (i) => (i.id === itemId ? withChecklistEntryText(i, entryId, text) : i)) })
       },
 
       toggleChecklistEntry: (itemId, entryId) => {
-        set({ items: get().items.map((i) => (i.id === itemId ? withToggledChecklistEntry(i, entryId) : i)) })
+        set({ items: writeItems(get(), (i) => (i.id === itemId ? withToggledChecklistEntry(i, entryId) : i)) })
       },
 
       removeChecklistEntry: (itemId, entryId) => {
-        set({ items: get().items.map((i) => (i.id === itemId ? withoutChecklistEntry(i, entryId) : i)) })
+        set({ items: writeItems(get(), (i) => (i.id === itemId ? withoutChecklistEntry(i, entryId) : i)) })
       },
 
       linkTeamInitiative: (parentId, boardId, title) => {
@@ -2248,7 +2277,7 @@ export const useStore = create<Store>()(
           links: [...state.links, { id: uid(), from: dependencyId, to: dependentId, reason }],
           // The relationship belongs in the dependent's history: it is the card whose plans
           // changed. The other end keeps its own story when someone looks at it.
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             i.id === dependentId ? { ...i, log: [...(i.log ?? []), logEntry('linked', `waits on ${waitsOn}`)] } : i,
           ),
         })
@@ -2260,7 +2289,7 @@ export const useStore = create<Store>()(
         const waited = state.items.find((i) => i.id === dependencyId)?.title ?? 'something'
         set({
           links: state.links.filter((l) => !(l.from === dependencyId && l.to === dependentId)),
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             i.id === dependentId ? { ...i, log: [...(i.log ?? []), logEntry('unlinked', `no longer waits on ${waited}`)] } : i,
           ),
         })
@@ -2291,7 +2320,7 @@ export const useStore = create<Store>()(
       blockItem: (itemId, reason) => {
         const note = reason?.trim() || undefined
         set({
-          items: get().items.map((i) =>
+          items: writeItems(get(), (i) =>
             i.id === itemId
               ? { ...i, blocked: true, blockedReason: note, log: [...(i.log ?? []), logEntry('blocked', note)] }
               : i,
@@ -2302,7 +2331,7 @@ export const useStore = create<Store>()(
       unblockItem: (itemId, note) => {
         const text = note?.trim() || undefined
         set({
-          items: get().items.map((i) =>
+          items: writeItems(get(), (i) =>
             i.id === itemId
               ? { ...i, blocked: false, blockedReason: undefined, log: [...(i.log ?? []), logEntry('unblocked', text)] }
               : i,
@@ -2312,7 +2341,7 @@ export const useStore = create<Store>()(
 
       addLogNote: (itemId, note) =>
         set({
-          items: get().items.map((i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('noted', note)] } : i)),
+          items: writeItems(get(), (i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('noted', note)] } : i)),
         }),
 
       logTextEdit: (itemId, field, before) => {
@@ -2323,7 +2352,7 @@ export const useStore = create<Store>()(
         if (now.trim() === before.trim()) return
         const note = field === 'title' ? `title: "${clip(before.trim())}" → "${clip(now.trim())}"` : 'description edited'
         set({
-          items: state.items.map((i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('edited', note)] } : i)),
+          items: writeItems(state, (i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('edited', note)] } : i)),
         })
       },
 
@@ -2332,7 +2361,7 @@ export const useStore = create<Store>()(
         const at = Date.now()
         const ids = new Set([itemId, ...descendants(itemId, state)])
         set({
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             ids.has(i.id) && !i.archived
               ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
               : i,
@@ -2344,7 +2373,7 @@ export const useStore = create<Store>()(
         const state = get()
         const ids = new Set([itemId, ...descendants(itemId, state)])
         set({
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             ids.has(i.id) && i.archived
               ? { ...i, archived: false, archivedAt: undefined, log: [...(i.log ?? []), logEntry('unarchived')] }
               : i,
@@ -2370,7 +2399,7 @@ export const useStore = create<Store>()(
         if (ids.size === 0) return
         const at = Date.now()
         set({
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             ids.has(i.id) && !i.archived
               ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
               : i,
@@ -2392,7 +2421,7 @@ export const useStore = create<Store>()(
         if (ids.size === 0) return
         const at = Date.now()
         set({
-          items: state.items.map((i) =>
+          items: writeItems(state, (i) =>
             ids.has(i.id) && !i.archived
               ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
               : i,

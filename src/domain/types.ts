@@ -302,6 +302,12 @@ export interface Item {
   targetStartDate?: string
   targetEndDate?: string
   createdAt: number
+  /**
+   * The item's revision: incremented once per accepted change to its own **content**. Optional,
+   * so a workspace written before this existed reads without a migration — absent means "never
+   * revised". A placement is arrangement, not content, and never moves it (see `store.ts`).
+   */
+  rev?: number
   resolvedAt?: number | null
   /** Reason captured when a soft WIP limit was crossed. */
   lastMoveReason?: string
