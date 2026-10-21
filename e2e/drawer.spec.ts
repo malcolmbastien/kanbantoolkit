@@ -52,6 +52,26 @@ test('a person added in the drawer is on the card', async ({ page }) => {
   await expect(card(page, id)).toContainText('MB')
 })
 
+test('a pip on an initiative opens the child and brings it into view', async ({ page }) => {
+  // The board is taller than this viewport, so the child card starts out of sight below it.
+  await page.setViewportSize({ width: 1200, height: 700 })
+  await openBoard(page)
+
+  const initiative = page.locator('[data-card-initiative]').filter({ hasText: 'Signup redesign' }).first()
+  await initiative.getByRole('button', { name: 'Rebuild the signup form — In Progress' }).click()
+
+  await expect(page.locator('[data-item-panel]')).toHaveAttribute('aria-label', 'Card details: Rebuild the signup form')
+
+  // The pip is a way in to a card in the other workflow: the drawer opens, and the board
+  // moves to the card rather than leaving the reader to find it.
+  const child = page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'Rebuild the signup form' }).first()
+  await expect.poll(async () => {
+    const box = await child.boundingBox()
+    const height = page.viewportSize()?.height ?? 0
+    return Boolean(box && box.y >= 0 && box.y + box.height <= height)
+  }).toBe(true)
+})
+
 test('a parent set in the drawer is the card’s lineage', async ({ page }) => {
   await openBoard(page)
   const id = await openFirstBacklogCard(page)
