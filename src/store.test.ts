@@ -2421,6 +2421,46 @@ describe("an item's revision", () => {
   })
 })
 
+describe('who made a change', () => {
+  beforeEach(() => resetToFixture())
+
+  const entryOf = (id: string) => s().items.find((i) => i.id === id)!.log!.at(-1)!
+
+  it('stamps new entries with the identity, and omits it when nobody is named', () => {
+    // Nobody has said who they are: the entry says what happened and stops there.
+    s().logTextEdit('st-signup-form', 'title', 'before')
+    expect(entryOf('st-signup-form').by).toBeUndefined()
+
+    s().setUser('u-mb')
+    s().logTextEdit('st-signup-form', 'title', 'before too')
+    expect(entryOf('st-signup-form').by).toBe('u-mb')
+  })
+
+  it('leaves the history written before identities alone', () => {
+    // The fixture is old data: its entries have no author, and none is invented for them.
+    const before = s().items.flatMap((i) => i.log ?? [])
+    expect(before.length).toBeGreaterThan(0)
+    expect(before.every((e) => e.by === undefined)).toBe(true)
+
+    // A new entry is stamped; the old ones still are not.
+    s().setUser('u-mb')
+    s().logTextEdit('st-signup-form', 'title', 'before')
+    const log = s().items.find((i) => i.id === 'st-signup-form')!.log ?? []
+    expect(log.at(-1)?.by).toBe('u-mb')
+    expect(log.slice(0, -1).every((e) => e.by === undefined)).toBe(true)
+  })
+
+  it('stamps a move, which is a history even though it is not a revision', () => {
+    s().setUser('u-ds')
+    s().moveCard('st-signup-form', 'b-atlas', laneByName('b-atlas', 'Done').id)
+    const moved = s()
+      .items.find((i) => i.id === 'st-signup-form')!
+      .log!.filter((e) => e.kind === 'moved')
+      .at(-1)!
+    expect(moved.by).toBe('u-ds')
+  })
+})
+
 describe('timeline view state', () => {
   beforeEach(() => resetToFixture())
 

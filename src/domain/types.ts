@@ -250,6 +250,12 @@ export interface ItemLogEntry {
   id: string
   at: number
   kind: ItemLogKind
+  /**
+   * Who made the change, as a user id — or absent when nobody was named. Optional because a
+   * history written before identities existed has no author to claim, and inventing one would be
+   * worse than the blank.
+   */
+  by?: string
   /** What happened, in the words of the moment — a move's lane names as they were then. */
   note?: string
   /**

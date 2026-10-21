@@ -579,11 +579,22 @@ function ensureUser(users: User[], name: string): { id: string; users: User[] } 
   return { id, users: [...users, { id, name: trimmed }] }
 }
 
+/**
+ * Whose changes these are: `meUserId`, where a plain helper can see it.
+ *
+ * The store keeps the identity; this is the same value kept in step by a subscription, so a log
+ * entry is stamped at the moment it is written rather than at twenty call sites — and cannot fall
+ * out of step with the store, which a copy set at each door could. Absent when nobody has said who
+ * they are, which is the honest answer and the one the drawer shows as a blank.
+ */
+let currentAuthor: string | undefined
+
 const logEntry = (kind: ItemLogEntry['kind'], note?: string): ItemLogEntry => ({
   id: uid(),
   at: Date.now(),
   kind,
   ...(note ? { note } : {}),
+  ...(currentAuthor ? { by: currentAuthor } : {}),
 })
 
 /**
@@ -629,6 +640,7 @@ const movedEntry = (
     toLaneId,
     ...(fromStage ? { fromStage } : {}),
     ...(toStage ? { toStage } : {}),
+    ...(currentAuthor ? { by: currentAuthor } : {}),
   }
 }
 
@@ -2461,3 +2473,10 @@ export const useStore = create<Store>()(
     },
   ),
 )
+
+// The identity a log entry is stamped with, kept in step with the store rather than at each door:
+// a copy set at every entry point could fall out of step, and a wrong author is worse than none.
+currentAuthor = useStore.getState().meUserId
+useStore.subscribe((state) => {
+  currentAuthor = state.meUserId
+})

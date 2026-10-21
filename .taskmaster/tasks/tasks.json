@@ -1810,18 +1810,19 @@
         "id": 116,
         "title": "A change says who made it.",
         "description": "This task records the author on every new log entry and shows it in the Activity tab.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "115"
         ],
         "priority": "medium",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `ItemLogEntry` in `src/domain/types.ts`.\n2. The log helper in `src/store.ts`.\n3. The Activity rows in `src/components/ItemPanel.tsx`.\n\nDEFINITIONS\n- Author: the identity that made the change.\n- Unknown identity: no author recorded, rather than a guess.\n\nREQUIREMENTS\n\nR1 — Recorded\nA new log entry shall carry the author.\n\nR2 — Optional\nAn entry written before this change shall render unchanged.\n\nR3 — Shown\nThe Activity row shall name the author beside the time.\n\nR4 — Not invented\nWhere the identity is unknown, the entry shall omit the author.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `ItemLogEntry` in `src/domain/types.ts`.\n2. The log helper in `src/store.ts`.\n3. The Activity rows in `src/components/ItemPanel.tsx`.\n\nDEFINITIONS\n- Author: the identity that made the change.\n- Unknown identity: no author recorded, rather than a guess.\n\nREQUIREMENTS\n\nR1 — Recorded\nA new log entry shall carry the author.\n\nR2 — Optional\nAn entry written before this change shall render unchanged.\n\nR3 — Shown\nThe Activity row shall name the author beside the time.\n\nR4 — Not invented\nWhere the identity is unknown, the entry shall omit the author.\n\nDELIVERED — 2026-10-21\n`ItemLogEntry.by` is optional, and every entry is stamped where it is made: `logEntry` and\n`movedEntry` both read a single mirror of `meUserId`, kept in step by a subscription on the store\nrather than set at each door — a copy set at every entry point could fall out of step, and a wrong\nauthor is worse than none. Absent when nobody has said who they are.\n\nThe Activity row names the author beside the time, and says only the time for an entry from before\nidentities existed: a name there would be invented.\n\nThree unit tests (stamped, omitted, a move stamped too, old entries untouched) and one e2e that\ndrives the real control: My work's \"Whose work to show\", then a rename, then the Activity names\nMaya Blake.",
         "testStrategy": "VERIFICATION\n\nV1 — R1: Make an edit; the newest entry carries the author.\nV2 — R2: Load a fixture with older entries; the panel renders.\nV3 — R4: Clear the identity; the new entry has no author.",
         "subtasks": [],
         "complexity": 3,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
-        "complexityReasoning": "A field on the log entry, stamped by the seam, and one row of display."
+        "complexityReasoning": "A field on the log entry, stamped by the seam, and one row of display.",
+        "updatedAt": "2026-10-21T00:37:09.905Z"
       },
       {
         "id": 117,

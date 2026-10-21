@@ -43,7 +43,7 @@ import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PAL
 import { cn } from '@/lib/utils'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
-import type { Item, Stage } from '@/domain/types'
+import type { Item, ItemLogEntry, Stage } from '@/domain/types'
 
 interface Props {
   itemId: string
@@ -331,6 +331,9 @@ export function ItemPanel({ itemId }: Props) {
     { id: 'activity', label: 'Activity' },
   ]
 
+  /** The author of an entry, by name — or nothing when nobody was named or the name is gone. */
+  const authorOf = (entry: ItemLogEntry) => (entry.by ? userById(entry.by)?.name : undefined)
+
   /**
    * One item as a row in a list: how it stands, what it is called, and where it lives — the three
    * things a reader needs before deciding to go there. The name is the way in; a row that carries
@@ -412,6 +415,30 @@ export function ItemPanel({ itemId }: Props) {
       </div>
     )
   }
+
+  /**
+   * One direction of a dependency link, under its own heading.
+   *
+   * Both directions are drawn even when one is empty: "nothing waits on this" is a fact worth
+   * reading, and a group that disappears when it has no rows leaves the reader unsure whether
+   * the panel can say anything about that direction at all. The empty line says where the link
+   * is made, since this side of the relationship is not where it is added.
+   */
+  const dependencyGroup = (label: string, hint: string, empty: string, rows: React.ReactNode[]) => (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        <p className="text-micro font-semibold uppercase tracking-wide text-slate-600" title={hint}>
+          {label}
+        </p>
+        <span className="text-micro tabular-nums text-slate-600">{rows.length}</span>
+      </div>
+      {rows.length > 0 ? (
+        <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">{rows}</div>
+      ) : (
+        <p className="text-meta text-slate-600">{empty}</p>
+      )}
+    </div>
+  )
 
   return (
     <aside
@@ -1297,32 +1324,28 @@ export function ItemPanel({ itemId }: Props) {
               )}
             </Section>
 
-            {/* Dependencies — a link between two items. Drawn and read like the chain above: each
-                row is one target, and a board that is not this one is a way out rather than a word
-                beside the title. */}
+            {/* Dependencies — a link between two items, read both ways: what this card waits for,
+                and what waits for it. Drawn like the chain above — each row is one target, and a
+                board that is not this one is a way out rather than a word beside the title. */}
             <Section label="Dependencies" count={dependencies.length + dependents.length}>
-              {dependencies.length === 0 && dependents.length === 0 && (
-                <p className="text-meta text-slate-600">No links yet. Add one below.</p>
+              {dependencyGroup(
+                'Depends on',
+                'Work this card waits for',
+                'Nothing — this card is not waiting on anything.',
+                dependencies.map((dep) =>
+                  linkRow(dep.dependency, {
+                    onRemove: () => removeDependency(dep.dependency.id, dep.dependent.id),
+                  }),
+                ),
               )}
-              {dependencies.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-micro font-semibold uppercase tracking-wide text-slate-600">Depends on</p>
-                  <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
-                    {dependencies.map((dep) =>
-                      linkRow(dep.dependency, {
-                        onRemove: () => removeDependency(dep.dependency.id, dep.dependent.id),
-                      }),
-                    )}
-                  </div>
-                </div>
-              )}
-              {dependents.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-micro font-semibold uppercase tracking-wide text-slate-600">Depends on this</p>
-                  <div className="divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
-                    {dependents.map((dep) => linkRow(dep.dependent))}
-                  </div>
-                </div>
+              {/* The other direction. Read-only here on purpose: the link belongs to the card
+                  that waits, and that is the card whose plan changes when it goes — including
+                  in the log. */}
+              {dependencyGroup(
+                'Waiting on this',
+                'Work that waits for this card to be done',
+                'Nothing waits on this card yet. The link is added from the card that waits.',
+                dependents.map((dep) => linkRow(dep.dependent)),
               )}
               <div className="flex items-center gap-1.5">
                 <select
@@ -1399,7 +1422,12 @@ export function ItemPanel({ itemId }: Props) {
                           e.note ? ` — ${e.note}` : ''
                         )}
                       </div>
-                      <div className="text-micro text-slate-600">{whenLabel(e.at)}</div>
+                      <div className="text-micro text-slate-600">
+                        {whenLabel(e.at)}
+                        {/* Who, beside when. An entry from before identities says only when: a
+                            name would be invented, and a blank is the honest answer. */}
+                        {authorOf(e) ? ` · ${authorOf(e)}` : ''}
+                      </div>
                     </div>
                   </div>
                 ))}
