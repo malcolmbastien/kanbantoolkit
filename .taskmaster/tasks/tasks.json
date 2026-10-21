@@ -1640,20 +1640,21 @@
       },
       {
         "id": 110,
-        "title": "The first paint carries only what the first view needs.",
-        "description": "This task splits the views out of the initial bundle and puts a recorded budget in CI.",
+        "title": "The app downloads only the code for the screen it starts on, and the rest when it is opened.",
+        "description": "This task splits the app so the first download is smaller, and sets a size limit that CI enforces. Every screen except the board is downloaded the first time someone opens it.",
         "status": "pending",
         "dependencies": [
           "105"
         ],
         "priority": "medium",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The view switch in `src/App.tsx`.\n2. The build configuration in `vite.config.ts`.\n3. The workflow from the CI task.\n\nDEFINITIONS\n- Initial bundle: the JavaScript and CSS needed to render the board a person lands on.\n- Budget: the recorded gzip size the initial bundle may not exceed.\n\nREQUIREMENTS\n\nR1 — Lazy views\nDashboard, timeline, archive, boards, objectives and the drawer shall load on demand.\n\nR2 — Budget\nThe initial JavaScript shall stay within a recorded gzip budget (proposed 90 KB, to be set from a measured run).\n\nR3 — No collapse\nA lazy view shall render its own loading surface, with no layout jump when it arrives.\n\nR4 — Enforced\nExceeding the budget shall fail the CI workflow.",
-        "testStrategy": "VERIFICATION\n\nV1 — R1: Open each view with the network panel; each chunk loads on first use, and not before.\nV2 — R2: `gzip -c` the initial chunk from a production build; it is within budget.\nV3 — R4: Add 100 KB of code to the initial path; CI fails.\nV4 — R3: Throttle the network; the view's loading surface does not move the layout.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nToday every screen is in one JavaScript file. A person opening a board downloads the dashboard, the\ntimeline, the archive, the boards list, the objectives screen and the item drawer as well — code\nthat may not run at all. This task separates them, and puts a number on the size of the first\ndownload so it cannot quietly grow back.\n\nSCOPE\n1. The view switch in `src/App.tsx`.\n2. The build settings in `vite.config.ts`.\n3. The CI workflow in `.github/workflows/ci.yml`.\n\nDEFINITIONS\n- First download: the JavaScript and CSS the browser must fetch before the board is on screen.\n- On demand: downloaded the first time it is needed, and kept afterwards.\n- Compressed size: the size after gzip, which is what the browser actually transfers.\n\nREQUIREMENTS\n\nR1 — The board at start\nThe first download shall contain the board and what it draws. The dashboard, timeline, archive,\nboards list, objectives screen and item drawer shall be downloaded on demand.\n\nR2 — A size limit\nThe first download's JavaScript shall be at most **120 KB compressed**. If the split cannot reach\n120 KB, the task shall record the measured size and why, and use that number as the limit.\n\nR3 — No jump\nWhile an on-demand screen is downloading, it shall show a placeholder of the same height as the\nscreen, so the page does not move when it arrives.\n\nR4 — CI enforces it\nA build whose first download is over the limit shall fail the workflow, and the workflow output\nshall print the size it measured.\n\nTEST STRATEGY\n\nV1 — R1: With the network panel open, load the board. Every on-demand file shall be absent until\nits screen is opened for the first time, and present after.\nV2 — R2: Build for production and measure the JavaScript the board loads before it is drawn, gzipped.\nIt shall be at most 120 KB.\nV3 — R4: Add 100 KB of code to the board's own path and push. The workflow shall fail and print the\nmeasured size.\nV4 — R3: Throttle the network, open the dashboard. The placeholder shall occupy the dashboard's\nheight, and nothing shall move when the dashboard replaces it.",
+        "testStrategy": "VERIFICATION\n\nV1 — R1: In the browser's network panel, load a board. Each on-demand file is absent until its screen\nis opened, and present afterwards.\nV2 — R2: From a production build, take the sum of the JavaScript files the board loads before it is\ndrawn, gzip them, and check it against 120 KB.\nV3 — R4: Add 100 KB of code to the board's path. The workflow fails and prints the measured size.\nV4 — R3: With the network throttled, open the dashboard. The placeholder is the dashboard's height,\nand the page does not move when the dashboard arrives.",
         "subtasks": [],
         "complexity": 3,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
-        "complexityReasoning": "Lazy imports, loading surfaces and a size check in CI."
+        "complexityReasoning": "Lazy imports, loading surfaces and a size check in CI.",
+        "updatedAt": "2026-10-21T11:52:52.920Z"
       },
       {
         "id": 111,
