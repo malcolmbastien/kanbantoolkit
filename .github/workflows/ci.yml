@@ -49,13 +49,42 @@ jobs:
       - name: Build
         run: npm run build
 
+  # The flows unit tests cannot see: the drag, the drawer, board design and the workspace file,
+  # through the built app. It waits on the checks so a broken unit run does not spend two minutes
+  # installing a browser to prove it, and publishing waits on this in turn.
+  e2e:
+    name: e2e
+    needs: checks
+    runs-on: ubuntu-latest
+    # The suite runs in about ten seconds; five minutes is the recorded ceiling, including the
+    # browser install. If it needs more, raise it deliberately rather than letting it creep.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end
+        run: npm run test:e2e
+      # A failed run is only worth having if it can be read: traces, screenshots and video.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e-trace
+          path: test-results/
+          retention-days: 7
+
   # Publishing lives in this workflow rather than a second one so that it can wait on the checks
   # with `needs`: a green commit publishes, a red one never reaches users, and no pull request is
   # needed to get there. Both deploy jobs skip rather than fail until the Cloudflare account is
   # wired up with the two secrets, so a fresh clone still has a green build.
   deploy:
     name: deploy
-    needs: checks
+    needs: [checks, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -85,7 +114,7 @@ jobs:
 
   preview:
     name: preview
-    needs: checks
+    needs: [checks, e2e]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10

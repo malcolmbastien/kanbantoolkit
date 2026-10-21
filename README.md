@@ -83,8 +83,9 @@ npm run test:e2e     # Playwright: builds, serves and drives the real app
 ```
 
 Every push to `main` and every pull request runs `.github/workflows/ci.yml` on Node 26: typecheck,
-lint, tests, the `AGENTS.md` dependency scan, and the production build. The job is named `checks`,
-and it is the check to require on `main`.
+lint, tests, the `AGENTS.md` dependency scan, and the production build in a job named `checks`;
+then the Playwright suite against the built app, in a job named `e2e`, which keeps its traces when
+it fails. Publishing waits on both, so a red test never reaches the live app.
 
 ### URLs
 
