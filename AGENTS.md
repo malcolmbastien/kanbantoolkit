@@ -24,8 +24,9 @@ Flowline is both a service and a project someone can run themselves, so the serv
 handler and nothing more: Hono's `app.fetch`, exported by a Worker on Cloudflare and served by a
 Node process for a self-hosted instance. The two deployments differ in their entry file and their
 bindings — never in a route, a query or a rule. `server/` holds what both run and must not import
-`cloudflare:workers`, `D1Database`, `env.ASSETS` or any Cloudflare-only storage; `worker/` is the
-entry that wires bindings to it and does nothing else.
+`cloudflare:workers`, `D1Database`, `env.ASSETS` or any Cloudflare-only storage. Two entry files are
+the only code that knows which runtime it is on: `worker/index.ts` for Cloudflare, and
+`server/index.node.ts` for a self-hosted machine. Everything else is shared.
 
 The schema is SQLite because D1 is SQLite, so `migrations/` applies unchanged to a file on a
 self-hosted instance. The code reaches it through one `Database` interface, with D1 and a file
@@ -33,7 +34,7 @@ driver behind it.
 
 `src/` stays static and works with no server at all — a self-hoster with no Docker, no SMTP and no
 identity provider still has a board — and a second CI lane boots the Node entry so the second
-runtime cannot rot. `docs/server-runtime.md` is the reasoning.
+runtime cannot rot. `docs/server-runtime.md` is the reasoning, `docs/roadmap.md` is the order.
 
 Before finishing any task, run:
 

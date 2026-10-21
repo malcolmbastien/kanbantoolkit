@@ -13,10 +13,12 @@ where the process runs and where the database lives.
 | **Self-hosted** | `dist/` + the Node entry + a SQLite file | a team that wants its own | Node |
 | **Hosted** | `dist/` + the Worker + D1 | the public instance | Cloudflare |
 
-The tiers are cumulative, not alternatives. The static tier is the whole app — every board, every
-card, every rule — because the workspace lives in the browser. That is not a degraded mode, and it
-must stay true: a person with no Docker, no SMTP and no identity provider still has a working board.
-The server adds accounts, sharing and a second device, and takes nothing away.
+The tiers are cumulative, not alternatives, and they are one artifact at three levels of
+completeness rather than three builds: one client build, one API codebase, and two entry files that
+are the only place code knows where it is running. The static tier is the whole app — every board,
+every card, every rule — because the workspace lives in the browser. That is not a degraded mode,
+and it must stay true: a person with no Docker, no SMTP and no identity provider still has a working
+board. The server adds accounts, sharing and a second device, and takes nothing away.
 
 ## The contract: a `fetch` handler
 
@@ -28,7 +30,9 @@ routes run on both:
 - **Node** — `serve(app.fetch)` from `@hono/node-server`.
 
 Framework choice is therefore an implementation detail, and a reversible one. The contract is the
-decision; Hono is how it is met today (see the note at the end).
+decision; Hono is how it is met today (see the note at the end). Task 129 builds this seam before
+the first route exists, so that 117's callback and 118's tables are written once rather than in the
+Worker and moved later.
 
 ## The boundary
 
@@ -66,6 +70,24 @@ application.
 What this rules out, deliberately: D1-only APIs (batch semantics beyond the interface, `meta`
 fields, the HTTP admin API), Cloudflare-only storage (KV, R2, Durable Objects) in the core, and
 `cf-connecting-ip` outside a single `clientIp(request)` helper.
+
+## Why not an ORM
+
+Drizzle would make `db.select().from(users)` identical on both tiers, and that is a real benefit. It
+is not taken yet, for four reasons.
+
+The schema would live in TypeScript and generate SQL, beside the `migrations/*.sql` that
+`wrangler d1 migrations apply` already runs — two sources of truth and two migrators that have to
+agree. D1 and `better-sqlite3` differ in transactions, batch semantics, prepared-statement reuse and
+error shapes, which is exactly what an ORM hides until it does not. The query surface is small
+enough — twenty to forty statements — that a thirty-line interface costs less than a dependency and
+a codegen step. And the dialect is shared while the server is not: D1 refuses `ATTACH`, extension
+loading and some pragmas, so "plain SQLite" still needs exercising on both.
+
+The cost is honest: types are declared per statement rather than inferred. At twenty to forty
+statements that is affordable; at two hundred it would not be, and Drizzle behind the same
+`Database` interface would be the answer. The interface is the decision; the ORM is an
+implementation detail.
 
 ## What genuinely differs
 
@@ -115,5 +137,7 @@ shape ever chafes; because the contract is web standards, either swap is a weeke
 | 2026-10-21 | One codebase, two runtimes; the API is a `fetch` handler. |
 | 2026-10-21 | Providers are configuration; Google and Microsoft are the hosted defaults. |
 | 2026-10-21 | SQLite-first schema behind a `Database` interface, so D1 and a file share it. |
+| 2026-10-21 | The seam is built before the first route (task 129), not retrofitted after it. |
+| 2026-10-21 | No ORM yet: plain SQLite behind the interface, with Drizzle as a later swap. |
 | 2026-10-21 | Hono for the API; the framework stays reversible. |
 | 2026-10-21 | The static tier stays complete; a server is never required to use the app. |
