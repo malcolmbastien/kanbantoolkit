@@ -16,7 +16,24 @@ Both OAuth clients are optional in development too: the app must run with them u
 Federating with a *customer's* identity provider (even a Google Workspace one) is a deliberate
 enterprise decision, and not something this rule forbids by itself.
 
-The app is a static Vite + React SPA deployed to Cloudflare Workers (assets in `dist/`, configured by `wrangler.jsonc`); all state lives in `localStorage`.
+The app is a static Vite + React SPA: `dist/` runs on any host with no backend at all (all state lives in `localStorage`), and the same build is served by a Cloudflare Worker (configured by `wrangler.jsonc`) or by a self-hosted Node entry once accounts and sharing arrive.
+
+## One application, two places to run it
+
+Flowline is both a service and a project someone can run themselves, so the server is a `fetch`
+handler and nothing more: Hono's `app.fetch`, exported by a Worker on Cloudflare and served by a
+Node process for a self-hosted instance. The two deployments differ in their entry file and their
+bindings — never in a route, a query or a rule. `server/` holds what both run and must not import
+`cloudflare:workers`, `D1Database`, `env.ASSETS` or any Cloudflare-only storage; `worker/` is the
+entry that wires bindings to it and does nothing else.
+
+The schema is SQLite because D1 is SQLite, so `migrations/` applies unchanged to a file on a
+self-hosted instance. The code reaches it through one `Database` interface, with D1 and a file
+driver behind it.
+
+`src/` stays static and works with no server at all — a self-hoster with no Docker, no SMTP and no
+identity provider still has a board — and a second CI lane boots the Node entry so the second
+runtime cannot rot. `docs/server-runtime.md` is the reasoning.
 
 Before finishing any task, run:
 
