@@ -80,6 +80,7 @@ npm test             # Vitest: derivation + store behaviour
 npm run lint         # oxlint
 npm run scan         # the AGENTS.md dependency rule (no Firebase, no Google tracking)
 npm run test:e2e     # Playwright: builds, serves and drives the real app
+npm run size         # the first download's size, measured from the build
 ```
 
 Every push to `main` and every pull request runs `.github/workflows/ci.yml` on Node 26: typecheck,

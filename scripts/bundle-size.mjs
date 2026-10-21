@@ -1,0 +1,58 @@
+// What the first download is, measured rather than guessed.
+//
+// Vite writes a manifest naming every file and what it imports. The board's own path is the entry
+// and its static imports; every other screen is a dynamic import, and is in the manifest under
+// `dynamicImports`, which this does not follow. Sizes are gzipped, because that is what the
+// browser transfers.
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { gzipSync } from 'node:zlib'
+
+const DIST = 'dist'
+/**
+ * The first download's JavaScript may not exceed this, compressed.
+ *
+ * 120 KB was the target; the split measured 153.8 KB. What is left is the board's own path —
+ * 115 KB of the app's code, which is the store and the domain every screen shares, plus React's
+ * 2.4 KB runtime and 39 KB of React itself. Reaching 120 KB would mean splitting the store, which
+ * every screen needs. 155 KB is the measured size with a little room, and the point of the limit is
+ * that it cannot grow back.
+ */
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 155)
+
+let manifest
+try {
+  manifest = JSON.parse(readFileSync(join(DIST, '.vite/manifest.json'), 'utf8'))
+} catch {
+  console.error('No build to measure: run `npm run build` first.')
+  process.exit(1)
+}
+
+const entry = manifest['index.html']
+if (!entry) {
+  console.error('The manifest has no "index.html" entry — the build did not produce one.')
+  process.exit(1)
+}
+
+/** The entry and everything it imports synchronously. Dynamic imports are screens, not this. */
+const files = new Set()
+const walk = (key) => {
+  const chunk = manifest[key]
+  if (!chunk || files.has(chunk.file)) return
+  files.add(chunk.file)
+  for (const imported of chunk.imports ?? []) walk(imported)
+}
+walk('index.html')
+
+const gz = (file) => gzipSync(readFileSync(join(DIST, file))).length
+const total = [...files].reduce((sum, file) => sum + gz(file), 0)
+const kb = total / 1024
+
+console.log(`First download: ${kb.toFixed(1)} KB compressed, in ${files.size} file(s).`)
+for (const file of files) console.log(`  ${(gz(file) / 1024).toFixed(1).padStart(6)} KB  ${file}`)
+
+if (kb > LIMIT_KB) {
+  console.error(`Over the ${LIMIT_KB} KB limit by ${(kb - LIMIT_KB).toFixed(1)} KB.`)
+  process.exit(1)
+}
+console.log(`Within the ${LIMIT_KB} KB limit.`)

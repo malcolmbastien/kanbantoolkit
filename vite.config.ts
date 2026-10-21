@@ -9,6 +9,9 @@ export default defineConfig({
   // The commit an error report came from. CI passes the sha; a local build says `dev`.
   define: { __RELEASE__: JSON.stringify((process.env.GITHUB_SHA ?? 'dev').slice(0, 7)) },
   build: {
+    // The manifest names every file and what it imports, which is how the size check knows what
+    // the board actually downloads before it draws — no guessing from a glob of the output folder.
+    manifest: true,
     // A reported stack says `at dropCardAt (index-abc.js:1:4821)` rather than `at t (...)`, and
     // `keepNames` has to be set where the minifier reads it: this Vite minifies with oxc, so an
     // `esbuild` option would be ignored.

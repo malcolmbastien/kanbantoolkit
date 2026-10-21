@@ -1,31 +1,45 @@
-import { useEffect } from 'react'
-import { ArchiveView } from './components/ArchiveView'
-import { MyWorkView } from './components/MyWorkView'
-import { BoardWorkspace } from './components/BoardWorkspace'
+import { lazy, Suspense, useEffect } from 'react'
 import { BoardView } from './components/BoardView'
-import { CommandPalette } from './components/CommandPalette'
 import { BulkActions } from './components/BulkActions'
-import { BoardSettings } from './components/BoardSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ReasonDialog } from './components/ReasonDialog'
 import { FilterPanel } from './components/FilterPanel'
 import { StorageBanner } from './components/StorageBanner'
-import { AdminView } from './components/AdminView'
 import { QuarantineBanner } from './components/QuarantineBanner'
 import { StaleTabBanner } from './components/StaleTabBanner'
 import { BoardLegend } from './components/BoardLegend'
-import { ItemPanel } from './components/ItemPanel'
+
 import { FocusChip } from './components/FocusChip'
-import { ManagementDashboard } from './components/ManagementDashboard'
-import { TimelineView } from './components/TimelineView'
-import { MetricsView } from './components/MetricsView'
-import { ObjectivesView } from './components/ObjectivesView'
+
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
 import { boardCardTypeId, defaultDropLane, initiativeTypeId, isAggregating } from './domain/board'
 import { leafLanes } from './domain/lanes'
 import { useUrl } from './lib/useUrl'
 import { isBoardSurface, useStore } from './store'
+
+/**
+ * The board is what the app opens on, so it is downloaded with the app. Every other screen is a
+ * file a person may never open: it is fetched the first time they do.
+ *
+ * The placeholder is full height on purpose. It is what the screen will occupy, so a slow
+ * connection shows a gap that is about to fill rather than a page that jumps when it does.
+ */
+const BoardWorkspace = lazy(() => import('./components/BoardWorkspace').then((m) => ({ default: m.BoardWorkspace })))
+const ArchiveView = lazy(() => import('./components/ArchiveView').then((m) => ({ default: m.ArchiveView })))
+const MyWorkView = lazy(() => import('./components/MyWorkView').then((m) => ({ default: m.MyWorkView })))
+const ObjectivesView = lazy(() => import('./components/ObjectivesView').then((m) => ({ default: m.ObjectivesView })))
+const ManagementDashboard = lazy(() => import('./components/ManagementDashboard').then((m) => ({ default: m.ManagementDashboard })))
+const MetricsView = lazy(() => import('./components/MetricsView').then((m) => ({ default: m.MetricsView })))
+const TimelineView = lazy(() => import('./components/TimelineView').then((m) => ({ default: m.TimelineView })))
+const AdminView = lazy(() => import('./components/AdminView').then((m) => ({ default: m.AdminView })))
+const ItemPanel = lazy(() => import('./components/ItemPanel').then((m) => ({ default: m.ItemPanel })))
+const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })))
+const BoardSettings = lazy(() => import('./components/BoardSettings').then((m) => ({ default: m.BoardSettings })))
+
+function ViewLoading() {
+  return <div aria-busy="true" className="h-full w-full" />
+}
 
 export default function App() {
   const boards = useStore((s) => s.boards)
@@ -177,7 +191,9 @@ export default function App() {
       {/* One palette for the whole app: boards, cards and the app's own verbs. It answers to the
           same rule the toolbar's buttons do — a board that renders no cards workflow does not make
           cards — so the two ways in cannot disagree. */}
-      <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} makesCards={makesCards} />
+      <Suspense fallback={null}>
+        <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} makesCards={makesCards} />
+      </Suspense>
       <TopBar
         boards={boards}
         boardId={boardId}
@@ -214,30 +230,46 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          {showBoards ? (
-            <BoardWorkspace />
-          ) : showArchive ? (
-            <ArchiveView />
-          ) : showMyWork ? (
-            <MyWorkView />
-          ) : showObjectives ? (
-            <ObjectivesView />
-          ) : showDashboard ? (
-            <ManagementDashboard boardId={boardId} />
-          ) : showMetrics ? (
-            <MetricsView boardId={boardId} />
-          ) : showTimeline ? (
-            <TimelineView boardId={boardId} />
-          ) : showAdmin ? (
-            <AdminView />
-          ) : (
-            <BoardView requestMove={requestMove} />
-          )}
+          <Suspense fallback={<ViewLoading />}>
+            {showBoards ? (
+              <BoardWorkspace />
+            ) : showArchive ? (
+              <ArchiveView />
+            ) : showMyWork ? (
+              <MyWorkView />
+            ) : showObjectives ? (
+              <ObjectivesView />
+            ) : showDashboard ? (
+              <ManagementDashboard boardId={boardId} />
+            ) : showMetrics ? (
+              <MetricsView boardId={boardId} />
+            ) : showTimeline ? (
+              <TimelineView boardId={boardId} />
+            ) : showAdmin ? (
+              <AdminView />
+            ) : (
+              <BoardView requestMove={requestMove} />
+            )}
+          </Suspense>
         </div>
-        {showLegend && boardSurface ? <BoardLegend /> : showFilters && boardSurface ? <FilterPanel /> : selectedItemId ? <ItemPanel itemId={selectedItemId} /> : null}
+        {showLegend && boardSurface ? (
+          <BoardLegend />
+        ) : showFilters && boardSurface ? (
+          <FilterPanel />
+        ) : selectedItemId ? (
+          <Suspense
+            fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-white" />}
+          >
+            <ItemPanel itemId={selectedItemId} />
+          </Suspense>
+        ) : null}
       </div>
 
-      {showBoardSettings && <BoardSettings />}
+      {showBoardSettings && (
+        <Suspense fallback={null}>
+          <BoardSettings />
+        </Suspense>
+      )}
       <FocusChip />
       <ConfirmDialog />
       <ReasonDialog />

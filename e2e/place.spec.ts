@@ -41,3 +41,18 @@ test('a crawler that runs no JavaScript still reads a useful page, and nothing o
   // Boards and cards live in the browser, so a preview cannot name one — and must not try.
   expect(html).not.toContain('Team Atlas')
 })
+
+test('a screen is downloaded when it is first opened, not before', async ({ page }) => {
+  const scripts: string[] = []
+  page.on('response', (response) => {
+    if (response.url().includes('/assets/') && response.url().endsWith('.js')) scripts.push(response.url())
+  })
+
+  await openBoard(page)
+  const atBoard = new Set(scripts)
+  // The board is the app's own path: a file or two, not one per screen.
+  expect(atBoard.size).toBeLessThan(4)
+
+  await page.getByRole('button', { name: 'Dashboard' }).click()
+  await expect.poll(() => scripts.filter((url) => !atBoard.has(url)).length).toBeGreaterThan(0)
+})
