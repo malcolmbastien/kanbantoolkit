@@ -10,8 +10,8 @@ nothing.
 
 **Allowed, because it serves the end user and nothing else leans on it:** **Google Sign-In**, as
 *one* way in and never the only one. Someone without a Google account must be able to use the app,
-so email (a one-time code) is the baseline and Google is additive. The OAuth client is optional in
-development too: the app must run with it unset.
+so a second provider — Microsoft — stands beside it, and no account is required to be a Google one.
+Both OAuth clients are optional in development too: the app must run with them unset.
 
 Federating with a *customer's* identity provider (even a Google Workspace one) is a deliberate
 enterprise decision, and not something this rule forbids by itself.
