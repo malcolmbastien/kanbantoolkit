@@ -1624,18 +1624,19 @@
         "id": "109",
         "title": "Every place has a title, and a shared link previews the board it points at.",
         "description": "This task makes the document title follow the place and gives a link the metadata a reader needs.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "106"
         ],
         "priority": "low",
-        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The place in `src/lib/url.ts`.\n2. The title in `src/App.tsx`.\n3. The static head in `index.html`.\n\nDEFINITIONS\n- Place: board, view and open item, as defined in `src/lib/url.ts`.\n\nREQUIREMENTS\n\nR1 — Title\nThe document title shall name the open card, otherwise the view, otherwise the product.\n\nR2 — History\nThe title shall update on back and forward, as well as on navigation inside the app.\n\nR3 — Metadata\nThe document shall carry a description, Open Graph and Twitter card tags, and a theme colour.\n\nR4 — Shareable, not leaky\nA link's preview shall name the board and the product. It shall not reproduce a card's description or its history.\n\nR5 — Without JavaScript\nA crawler that does not execute the app shall still read a useful title and description.",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. The place in `src/lib/url.ts`.\n2. The title in `src/App.tsx`.\n3. The static head in `index.html`.\n\nDEFINITIONS\n- Place: board, view and open item, as defined in `src/lib/url.ts`.\n\nREQUIREMENTS\n\nR1 — Title\nThe document title shall name the open card, otherwise the view, otherwise the product.\n\nR2 — History\nThe title shall update on back and forward, as well as on navigation inside the app.\n\nR3 — Metadata\nThe document shall carry a description, Open Graph and Twitter card tags, and a theme colour.\n\nR4 — Shareable, not leaky\nA link's preview shall name the product and what it is. It shall not reproduce a card's description\nor its history.\n\nThe board's *name* cannot appear, and that is a fact rather than a shortfall: boards and cards live\nonly in the browser, so no crawler — and no server — can be told one. A preview that guessed would\nbe the leak this requirement exists to prevent. Per-board previews become possible when the server\nholds the boards (task 118), and this line should be revisited then.\n\nR5 — Without JavaScript\nA crawler that does not execute the app shall still read a useful title and description.\n\nDELIVERED — 2026-10-21\nThe document is named in `lib/useUrl.ts`, from the same place the URL is written: the open card,\nthen the view, then the board, then the product — `titleFor` in `lib/title.ts`, with a repeated name\nsaid once. It is a scalar selector, so renaming the open card reaches the tab as it is typed.\n\nThe head carries the description, `theme-color`, Open Graph and Twitter tags, all naming the product\nand the idea. Verified by three e2e tests: the title on a board, on a view and after a real history\nstep back; the title on an open card and after closing it; and — through a request that runs no\nJavaScript — the static tags, with no board name anywhere in the document.",
         "testStrategy": "VERIFICATION\n\nV1 — R1: Open a board, then a card; the title changes at each step.\nV2 — R2: Press back; the title returns to the board.\nV3 — R5: `curl` the document; the static tags are present.\nV4 — R4: Fetch the page as a crawler; no card body appears.",
         "subtasks": [],
         "complexity": 2,
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
-        "complexityReasoning": "Title from the place, plus static metadata and one social image."
+        "complexityReasoning": "Title from the place, plus static metadata and one social image.",
+        "updatedAt": "2026-10-21T00:54:27.852Z"
       },
       {
         "id": "110",
