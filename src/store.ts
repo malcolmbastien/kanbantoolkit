@@ -1110,26 +1110,37 @@ export const useStore = create<Store>()(
         // The kind filter goes with the board it was set on: a kind from another board would
         // narrow the flow to nothing, which reads as a broken board rather than a stale filter.
         set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, boundaryId: null, multiSelect: [], cardMenu: null, initiativeKindFilter: null, dropTargetId: null }),
-      openItem: (selectedItemId) =>
+      openItem: (selectedItemId) => {
+        const s = get()
+        const opened = selectedItemId ? s.items.find((i) => i.id === selectedItemId) : undefined
+        // The selection is what sets focus. An initiative is read for its lineage — what it rolls
+        // up to and what it is made of — so opening one enters focus, wherever the click came
+        // from: the initiative card itself, a card's parent chip, the drawer's hierarchy, search.
+        // Opening an ordinary card ends it, and so does closing the selection.
+        //
+        // Re-opening the item that is already focused keeps it, so the selection that set the
+        // focus does not blink it off and on again.
+        const lensId =
+          opened && isInitiativeItem(opened, s.issueTypes)
+            ? opened.id
+            : selectedItemId === s.lensId
+              ? s.lensId
+              : null
         set({
           selectedItemId,
           multiSelect: [],
-          // Focus follows the selection. Selecting an initiative focuses it (see
-          // `BoardSummary`), so choosing another item — or nothing at all — ends the focus:
-          // closing the drawer or clicking a card must not leave a lineage highlighted with
-          // nothing selected. Re-opening the item that is already focused keeps it, so the
-          // selection that set the focus does not blink it off and on again.
-          lensId: selectedItemId === get().lensId ? get().lensId : null,
+          lensId,
           ...(selectedItemId
             ? {
                 showFilters: false,
                 showLegend: false,
                 // Opening a card is what "recently" means: the list is the order cards were
                 // opened in, and re-opening one moves it back to the front rather than doubling it.
-                recentItemIds: [selectedItemId, ...get().recentItemIds.filter((id) => id !== selectedItemId)].slice(0, 8),
+                recentItemIds: [selectedItemId, ...s.recentItemIds.filter((id) => id !== selectedItemId)].slice(0, 8),
               }
             : {}),
-        }),
+        })
+      },
       setSearch: (search) => set({ search }),
       toggleFilters: () => {
         const show = !get().showFilters

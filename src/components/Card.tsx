@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { Ban, Check, ChevronDown, Clock, CornerDownRight, Focus, Link2, ListChecks, ShieldAlert } from 'lucide-react'
+import { Ban, Check, ChevronDown, Clock, CornerDownRight, Link2, ListChecks, Lock, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
@@ -85,7 +85,6 @@ interface Props {
   tags?: Tag[]
   /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
   lens?: 'self' | 'in' | 'out'
-  onLens?: (id: string) => void
   /** Native HTML5 drag (cards workflow). */
   draggable?: boolean
   /**
@@ -135,10 +134,10 @@ interface Props {
 function DoneStamp() {
   return (
     <span
-      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-700/30"
+      className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-micro font-bold text-emerald-800 ring-1 ring-emerald-200"
       title="Done — every leaf below this is finished"
     >
-      <Check size={11} strokeWidth={3} />
+      <Check size={11} strokeWidth={3} /> Done
     </span>
   )
 }
@@ -156,7 +155,7 @@ const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ?
  * The keyboard half of a card.
  *
  * A card is a **group**, not a button: it holds its own controls (the actions menu, the parent
- * chip, the lens), and ARIA forbids interactive children inside a button. So it is a focusable
+ * chip), and ARIA forbids interactive children inside a button. So it is a focusable
  * group with a name — Enter or Space opens it, Shift+F10 (or the Menu key) opens its menu, which
  * is exactly what those two gestures do with a mouse.
  */
@@ -186,7 +185,7 @@ const cardKeyboard = (
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, onLens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const dragProps =
     draggable && !locked
       ? onLift
@@ -237,63 +236,41 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
   // Blocked rolls up: the item's own status is precise; a count of blocked
   // descendants is what lets a team blockage surface on its initiative.
   //
-  // A card's *own* blocked state is a full-width bar, not a chip: it is the loudest thing
-  // that can be true of a card, and a chip the size of the link count reads as metadata.
-  // The rolled-up counts stay chips, because they are metadata.
-  const blockedChip = item.blocked ? (
-    // A narrow card has no room for anything but the loudest possible statement, so it is
-    // a bar across the card. A wide card has the room for a badge, and the initiative's
-    // blocked state is what a reader scans for — so it is a solid pill, the same weight of
-    // red either way.
-    wide ? (
-      <span
-        className="flex shrink-0 items-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-white"
-        title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
-      >
-        <Ban size={11} /> blocked
-      </span>
-    ) : (
-      <span
-        className="flex w-full items-center justify-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-white"
-        title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
-      >
-        <Ban size={11} /> blocked{item.blockedReason ? ` · ${item.blockedReason}` : ''}
-      </span>
-    )
-  ) : summary.blockedBelow > 0 ? (
-    // Rolled up: a solid pill on the initiative, so a blockage anywhere beneath it reads
-    // at a glance rather than as another piece of metadata. The aggregate tone stays
-    // softer in colour for a top-level initiative, but keeps the same weight of shape.
+  // A card's *own* blocked state is the loudest thing that can be true of a card, so it is a
+  // full-width alert rather than a chip the size of the link count. The rolled-up count stays a
+  // chip, because it is metadata about the work below rather than a statement about this card.
+  const blockedAlert = item.blocked ? (
     <span
-      className={cn(
-        'flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-micro font-bold text-white',
-        blockedTone === 'aggregate' ? 'bg-amber-500' : 'bg-rose-600',
-      )}
-      title={
-        blockedTone === 'aggregate'
-          ? `${summary.blockedBelow} blocked below — rolled up from team cards`
-          : `${summary.blockedBelow} blocked below`
-      }
+      className="flex w-full items-start gap-1.5 rounded-md bg-rose-50 px-2 py-1.5 text-rose-700 ring-1 ring-rose-200"
+      title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
     >
-      <Ban size={11} /> {summary.blockedBelow} blocked
+      <Lock size={12} className="mt-0.5 shrink-0" />
+      <span className="min-w-0 text-micro font-medium leading-snug">
+        <span className="font-bold uppercase tracking-wide">Blocked</span>
+        {item.blockedReason ? <span> · {item.blockedReason}</span> : null}
+      </span>
     </span>
   ) : null
 
-  const lensButton = onLens && !locked ? (
-    <button
-      onClick={(e) => {
-        e.stopPropagation()
-        onLens(item.id)
-      }}
-      className={cn(
-        'shrink-0 rounded p-0.5 transition',
-        lens ? 'text-indigo-600 opacity-100' : 'text-slate-600 opacity-0 group-hover:opacity-100 hover:text-indigo-600',
-      )}
-      title="Focus — highlight this initiative's lineage"
-    >
-      <Focus size={11} />
-    </button>
-  ) : null
+  const rolledUpBlocked =
+    !item.blocked && summary.blockedBelow > 0 ? (
+      // Rolled up: a solid pill on the initiative, so a blockage anywhere beneath it reads at a
+      // glance rather than as another piece of metadata. The aggregate tone stays softer in colour
+      // for a top-level initiative, but keeps the same weight of shape.
+      <span
+        className={cn(
+          'flex w-fit shrink-0 items-center gap-1 rounded px-2 py-0.5 text-micro font-bold text-white',
+          blockedTone === 'aggregate' ? 'bg-amber-500' : 'bg-rose-600',
+        )}
+        title={
+          blockedTone === 'aggregate'
+            ? `${summary.blockedBelow} blocked below — rolled up from team cards`
+            : `${summary.blockedBelow} blocked below`
+        }
+      >
+        <Ban size={11} /> {summary.blockedBelow} blocked
+      </span>
+    ) : null
 
   // How long it has sat where it is, when that is long enough to be worth saying. Shown on the
   // card's own values line, beside the size and the people.
@@ -379,14 +356,15 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         className={cn(
           // `@container` lets the card shed detail as its column narrows (see the `@[Npx]:`
           // variants below) instead of overflowing a customised flow.
-          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border border-slate-300 bg-white text-left transition',
+          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white text-left shadow-sm transition',
+          summary.done && 'bg-slate-50',
           FOCUS_RING,
           // On touch: a vertical swipe still scrolls the board (the browser takes it, and the
           // lift aborts on `pointercancel`), while a horizontal swipe is the drag. Both axes ours
           // would make the board unscrollable from a card; both the browser's would make a card
           // undraggable.
           draggable && !locked && 'touch-pan-y',
-          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400',
+          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-md',
           lensCls,
           lockCls,
           dimCls,
@@ -399,8 +377,19 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             card never has. */}
         {kind && <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />}
 
-        <div className="flex flex-1 flex-col gap-2 p-2.5">
-          {/* What it rolls up to, above the title — the same place a card puts it. */}
+        <div className="flex flex-1 flex-col gap-2 p-3">
+          {/* The title, at the size the reading happens at. Beside it the one small judgement it
+              carries: priority. */}
+          <div className="flex items-start gap-2">
+            <span className={cn('min-w-0 flex-1 line-clamp-3 break-words text-title font-semibold leading-snug', summary.done ? 'text-slate-700' : 'text-slate-900')}>
+              {item.title}
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5 pt-1">
+              <PriorityBadge priority={item.priority} />
+            </span>
+          </div>
+
+          {/* What it rolls up to, directly under the title — the same place a card puts it. */}
           {parent && (
             <button
               onClick={(e) => {
@@ -408,23 +397,12 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 onOpen(parent.id)
               }}
               title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open`}
-              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-700 transition hover:text-slate-900"
+              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-600 transition hover:text-slate-900"
             >
-              <CornerDownRight size={11} className="shrink-0 text-slate-400" />
+              <CornerDownRight size={12} className="shrink-0 text-slate-400" />
               <span className="min-w-0 truncate">{parent.title}</span>
             </button>
           )}
-
-          {/* The title, at the size the reading happens at. Beside it the one small judgement it
-              carries: priority. */}
-          <div className="flex items-start gap-2">
-            <span className="min-w-0 flex-1 line-clamp-3 break-words text-title font-semibold leading-snug text-slate-900">
-              {item.title}
-            </span>
-            <span className="flex shrink-0 items-center gap-1.5 pt-1">
-              <PriorityBadge priority={item.priority} />
-            </span>
-          </div>
 
           {/* What is below it, and how far along: the children's own stages as pips, then the
               rollup. The pips say it on their own — a count beside them only repeated what the
@@ -515,7 +493,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
 
           {/* What the card is asking a reader to look at: its own blockage, then the warnings. The
               rollup of blockages below is one of the warnings, so it is not also a chip of its own. */}
-          {item.blocked && blockedChip}
+          {blockedAlert}
 
           {/* The warnings, as one set of badges in one place — always here, above the rule, so a
               reader scanning a column knows where to look. Never hidden, and never softened into
@@ -543,16 +521,18 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                   {summary.sizeBelow} pts
                 </span>
               )}
-              <span className="ml-auto flex shrink-0 items-center gap-0.5">
+              <span className="ml-auto flex shrink-0 items-center -space-x-1.5">
                 {assignees.slice(0, 3).map((u) => (
                   <Avatar key={u.id} user={u} />
                 ))}
                 {assignees.length > 3 && (
-                  <span className="text-micro font-medium text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
+                  <span
+                    className="grid h-6 w-6 place-items-center rounded-full bg-slate-200 text-micro font-semibold text-slate-600 ring-2 ring-white"
+                    title={assignees.map((u) => u.name).join(', ')}
+                  >
                     +{assignees.length - 3}
                   </span>
                 )}
-                {lensButton}
               </span>
             </div>
           )}
@@ -567,13 +547,9 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
       {...cardKeyboard(item, locked, onOpen, onContextMenu)}
       data-card-id={item.id}
       style={{
-        // A whisper of the type, rather than a wash of it: the card's ground has to stand off a
-        // lane that is tinted too, and half the types are neutrals — a 10% tint of slate on
-        // slate-100 was a grey box on a grey ground.
-        backgroundColor: tintOn(type.color, 0.06),
-        // The outline is the type's own colour. A neutral hairline vanished into the neutral
-        // lanes; this says which card is which before anything on it is read.
-        borderColor: tintOn(type.color, 0.45),
+        // The type is the rail down the left edge and the badge in the identity row. The rest of
+        // the surface is white, as the board's card spec asks: the lane is already tinted, and a
+        // card that tints itself too is a second, competing answer to "where am I?".
         borderLeftColor: type.color,
         // Lifted: out of the lane's flow, so the cards below close up behind it — but still
         // mounted, because `dragend` has to reach a card that is in the document.
@@ -598,22 +574,50 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         onContextMenu(item.id, e.clientX, e.clientY)
       }}
       className={cn(
-        // Flat and quiet: a hairline border, the type as a rail down the left, and no shadow to
-        // compete with the lane's own tint. What is loud on a card is its warnings, not its box.
-        'group relative flex min-h-[104px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] text-left transition',
+        // Flat and quiet: a hairline border and the type as a rail down the left. The resting
+        // shadow is what makes the card an object on a tinted lane rather than another pale
+        // plane beside it; it deepens on hover, when the card is asked a question. What is loud
+        // on a card is its warnings, not its box.
+        'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] border-slate-200 text-left shadow-sm transition',
+        summary.done ? 'bg-slate-50' : 'bg-white',
         FOCUS_RING,
         draggable && !locked && 'touch-pan-y',
-        locked ? 'cursor-default' : 'cursor-pointer hover:shadow-sm',
+        locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md',
         lensCls,
         lockCls,
         dimCls,
       )}
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 px-2 py-1.5">
-        {/* What it belongs to, and what it is. The lineage reads first and the type sits at the
-            edge — the two facts a card is placed by before it is read. */}
-        <div className="flex items-center gap-1.5">
-          {parent ? (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Tier 1 — identity and weight. The type sits at the leading edge and the two marks a
+            reader weighs it by sit at the trailing edge, on the same line at every card width. */}
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-1.5">
+          <span
+            className="inline-flex min-h-[20px] shrink-0 items-center whitespace-nowrap rounded px-1.5 text-micro font-bold uppercase tracking-wide"
+            style={softChipColors(type.color)}
+          >
+            {type.name}
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            <PriorityBadge priority={item.priority} />
+            {item.size ? (
+              <span
+                className="rounded-full bg-slate-200/70 px-2 py-0.5 text-micro font-semibold tabular-nums text-slate-700"
+                title={`Estimate — ${item.size} point${item.size === 1 ? '' : 's'}`}
+              >
+                {item.size} pts
+              </span>
+            ) : null}
+          </span>
+        </div>
+
+        {/* Tier 2 — the title, then the lineage that places it, then what the card is saying. */}
+        <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
+          <div className={cn('line-clamp-2 break-words text-title font-semibold leading-snug', summary.done ? 'text-slate-700' : 'text-slate-900')}>
+            {item.title}
+          </div>
+
+          {parent && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -622,111 +626,89 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 else onOpen(parent.id)
               }}
               title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
-              className="flex min-w-0 flex-1 items-center gap-1 text-left text-micro font-medium text-slate-700 transition hover:text-slate-900"
+              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-600 transition hover:text-slate-900"
             >
-              <CornerDownRight size={11} className="shrink-0 text-slate-400" />
+              <CornerDownRight size={12} className="shrink-0 text-slate-400" />
               <span className="min-w-0 truncate">{parent.title}</span>
             </button>
-          ) : (
-            <span className="min-w-0 flex-1" />
           )}
-          <span
-            className="shrink-0 whitespace-nowrap rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide"
-            style={{ ...(() => { const c = chipColors(type.color); return { backgroundColor: c.background, color: c.color } })() }}
-          >
-            {type.name}
-          </span>
-          <PriorityBadge priority={item.priority} />
+
+          {/* The board's own words for it — the card's vocabulary, quieter than its facts. */}
+          {Boolean(tags?.length) && (
+            <div className="flex flex-wrap items-center gap-1">
+              <TagChips tags={tags} />
+            </div>
+          )}
+
+          {/* What the card is asking a reader to look at: its own blockage, a rolled-up blockage,
+              the work waiting on it, a card waiting on something outside the board. All of it
+              above the telemetry row, so nothing there can be read as one of these. */}
+          {blockedAlert}
+          {rolledUpBlocked}
+          {summary.dependentsCount > 0 && (
+            <span
+              className="flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
+              title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}
+            >
+              <ShieldAlert size={11} /> {summary.dependentsCount} depend on it
+            </span>
+          )}
         </div>
 
-        {/* The title, at the size the reading happens at. */}
-        <div className="line-clamp-2 text-meta font-semibold leading-snug text-slate-900">{item.title}</div>
-
-        {/* How far along the checklist is: the count, then the bar the rest of the row. */}
-        {hasChecklist && (
-          <div className="flex items-center gap-2">
-            <span
-              className="flex shrink-0 items-center gap-1 text-meta font-semibold text-slate-700"
-              title={`Checklist — ${checklistDone} of ${checklistTotal} sub-tasks done`}
-            >
-              <ListChecks size={13} className="shrink-0 text-slate-600" />
-              {checklistDone} / {checklistTotal} sub-tasks
-            </span>
-            <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200" title={`${checklistPct}% of the checklist done`}>
-              <span
-                className="block h-full transition-all"
-                style={{ width: `${checklistPct}%`, backgroundColor: checklistDone === checklistTotal ? STAGE_COLOR.done : STAGE_COLOR.inProgress }}
-              />
-            </span>
-          </div>
-        )}
-
-        {/* The board's own words for it. Above the rule, with what the card is saying rather than
-            with what it is worth. */}
-        {Boolean(tags?.length) && (
-          <div className="flex flex-wrap items-center gap-1">
-            <TagChips tags={tags} />
-          </div>
-        )}
-
-        {/* What the card is asking a reader to look at: a blockage, the work waiting on it, a card
-            waiting on something outside the board, and one that is finished. All of it above the
-            rule, so that nothing under the rule can be read as one of these. */}
-        {blockedChip}
-        {summary.dependentsCount > 0 && (
-          <span
-            className="flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
-            title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}
-          >
-            <ShieldAlert size={11} /> {summary.dependentsCount} depend on it
-          </span>
-        )}
-        {(boundary || summary.done) && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
-            {boundary && (
-              <span className="flex shrink-0 items-center gap-0.5 font-semibold text-amber-600" title="Waiting on an external dependency — see the boundary lane">
-                <Link2 size={11} /> waiting on
-              </span>
-            )}
-            {summary.done && <DoneStamp />}
-          </div>
-        )}
-
-        {/* The card's own values, under the rule at the foot of it, in the order they are read:
-            how long it has been sitting, what it is worth, and who has it. */}
-        {(aged || item.size || assignees.length > 0) && (
-          <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
-            {/* Both of these are outlined rather than filled: a light ground with the tone in the
-                border keeps the row quiet while still saying which chip is which — a filled chip
-                is what a *type* wears, and these are not the type. */}
-            {aged && (
-              <span
-                className="flex shrink-0 items-center gap-1 rounded border border-amber-400 bg-amber-50 px-1.5 py-px font-semibold text-amber-800"
-                title={`${summary.ageDays} days in this lane`}
-              >
-                <Clock size={11} /> {summary.ageDays}d
-              </span>
-            )}
-            {item.size ? (
-              <span
-                className="shrink-0 rounded border bg-white px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
-                style={{ borderColor: tintOn(type.color, 0.6) }}
-                title={`Estimate — ${item.size} point${item.size === 1 ? '' : 's'}`}
-              >
-                {item.size} pts
-              </span>
-            ) : null}
-            <span className="ml-auto flex shrink-0 items-center gap-0.5">
-              {assignees.slice(0, 3).map((u) => (
-                <Avatar key={u.id} user={u} />
-              ))}
-              {assignees.length > 3 && (
-                <span className="text-micro font-medium text-slate-600" title={assignees.map((u) => u.name).join(', ')}>
-                  +{assignees.length - 3}
+        {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
+        {(hasChecklist || aged || boundary || summary.done || assignees.length > 0) && (
+          <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-1.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              {hasChecklist && (
+                <span
+                  className="flex shrink-0 items-center gap-1 rounded bg-white px-1.5 py-0.5 text-micro text-slate-600 ring-1 ring-slate-200"
+                  title={`Checklist — ${checklistDone} of ${checklistTotal} sub-tasks done`}
+                >
+                  <ListChecks size={12} className="shrink-0 text-indigo-600" />
+                  <span className="font-semibold tabular-nums text-slate-700">
+                    {checklistDone}/{checklistTotal}
+                  </span>
+                  <span className="h-1.5 w-10 overflow-hidden rounded-full bg-slate-200" title={`${checklistPct}% of the checklist done`}>
+                    <span
+                      className="block h-full rounded-full transition-all"
+                      style={{ width: `${checklistPct}%`, backgroundColor: checklistDone === checklistTotal ? STAGE_COLOR.done : STAGE_COLOR.inProgress }}
+                    />
+                  </span>
                 </span>
               )}
-              {lensButton}
-            </span>
+              {aged && (
+                <span
+                  className="flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-700 ring-1 ring-amber-200"
+                  title={`${summary.ageDays} days in this lane`}
+                >
+                  <Clock size={11} /> {summary.ageDays}d in lane
+                </span>
+              )}
+              {boundary && (
+                <span
+                  className="flex shrink-0 items-center gap-0.5 text-micro font-semibold text-amber-600"
+                  title="Waiting on an external dependency — see the boundary lane"
+                >
+                  <Link2 size={11} /> waiting on
+                </span>
+              )}
+              {summary.done && <DoneStamp />}
+            </div>
+            {assignees.length > 0 && (
+              <span className="flex shrink-0 items-center -space-x-1.5">
+                {assignees.slice(0, 3).map((u) => (
+                  <Avatar key={u.id} user={u} />
+                ))}
+                {assignees.length > 3 && (
+                  <span
+                    className="grid h-6 w-6 place-items-center rounded-full bg-slate-200 text-micro font-semibold text-slate-600 ring-2 ring-white"
+                    title={assignees.map((u) => u.name).join(', ')}
+                  >
+                    +{assignees.length - 3}
+                  </span>
+                )}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -738,11 +720,18 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
 /** A user's avatar: their profile photo, or their initials when there is none. */
 function Avatar({ user }: { user: User }) {
   if (user.avatarUrl) {
-    return <img src={user.avatarUrl} alt={user.name} title={user.name} className="h-4 w-4 shrink-0 rounded-full object-cover" />
+    return (
+      <img
+        src={user.avatarUrl}
+        alt={user.name}
+        title={user.name}
+        className="h-6 w-6 shrink-0 rounded-full object-cover ring-2 ring-white"
+      />
+    )
   }
   return (
     <span
-      className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-micro font-bold text-white"
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-700 text-micro font-bold text-white ring-2 ring-white"
       title={user.name}
     >
       {initialsOf(user.name)}

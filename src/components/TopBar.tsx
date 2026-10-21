@@ -54,12 +54,12 @@ export function TopBar(props: Props) {
   const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
 
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm">
+    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 shadow-sm">
       <button
         onClick={onGoToBoards}
         className={cn(
           'flex items-center gap-2 rounded-md px-1.5 py-1 transition',
-          showBoards ? 'bg-slate-100 ring-1 ring-indigo-300' : 'hover:bg-slate-100',
+          showBoards ? 'bg-white ring-1 ring-indigo-300' : 'hover:bg-white',
         )}
         title="Boards — browse and manage every board"
       >

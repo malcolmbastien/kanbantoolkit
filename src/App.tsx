@@ -94,11 +94,11 @@ export default function App() {
         return
       }
       if (s.multiSelect.length > 0) s.clearMultiSelect()
-      else if (s.selectedItemId) s.openItem(null)
+      else if (s.selectedItemId || s.lensId) s.openItem(null)
     }
     const onDown = (e: MouseEvent) => {
       const s = useStore.getState()
-      if (s.multiSelect.length === 0 && !s.selectedItemId) return
+      if (s.multiSelect.length === 0 && !s.selectedItemId && !s.lensId) return
       const target = e.target as HTMLElement | null
       if (
         target?.closest('[data-card-id]') ||
@@ -112,8 +112,10 @@ export default function App() {
       ) {
         return
       }
-      if (s.multiSelect.length > 0) s.clearMultiSelect()
-      else s.openItem(null)
+      if (s.multiSelect.length > 0) {
+        s.clearMultiSelect()
+        s.clearLens()
+      } else s.openItem(null)
     }
     window.addEventListener('keydown', onKey)
     document.addEventListener('mousedown', onDown)

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { Children, useMemo, useRef, useState } from 'react'
 import { Card, type CardParent } from './Card'
 import { DragLayer } from './DragLayer'
 import { DropGap } from './DropGap'
@@ -25,7 +25,7 @@ import {
 import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
 import { boardInitiatives, initiativeCellOf, initiativeRanks, initiativeTypeById, isInitiativeItem, tagsOf } from '@/domain/board'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
-import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import {
   ArrowLeftRight,
@@ -36,6 +36,7 @@ import {
   ChevronUp,
   ChevronsRight,
   Columns3,
+  Hourglass,
   CopyPlus,
   Plus,
   Rows3,
@@ -103,7 +104,6 @@ export function BoardSummary({
   const setDropTarget = useStore((s) => s.setDropTarget)
   const openItem = useStore((s) => s.openItem)
   const lensId = useStore((s) => s.lensId)
-  const toggleLens = useStore((s) => s.toggleLens)
   const editMode = useStore((s) => s.editMode)
   const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
 
@@ -328,11 +328,6 @@ export function BoardSummary({
         selected={selectedItemId === c.id}
         dropTarget={dropTargetId === c.id}
         lens={lensRole(c.id, lensId, graph)}
-        // Focus belongs to the board's own initiatives workflow. A Linked boards band is
-        // another board's flow shown as a rollup, so its rows are read-only here — its
-        // team-level initiatives don't set this board's focus. The lineage highlight still
-        // crosses into the bands, which is the point of it.
-        onLens={interactive ? toggleLens : undefined}
         // `draggable` gates whether a card can be picked up at all; `onLift` is what makes the
         // picking up ours rather than the browser's. A native drag dies the moment its source
         // leaves the document, and lifting the card out of its cell is the point.
@@ -397,7 +392,6 @@ export function BoardSummary({
             lane={section}
             stage={stage}
             isSection
-            primary
             count={total}
             sectionId={section.id}
             interactive={interactive}
@@ -415,7 +409,7 @@ export function BoardSummary({
                 : { flexGrow: split && !rows ? cells.length : 1, flexBasis: 0, flexShrink: 1 }),
             }}
             className={cn(
-              'flex min-w-0 flex-col overflow-hidden rounded-lg border border-slate-300',
+              'flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/90 shadow-sm',
               STAGE_SURFACE[stage],
             )}
           >
@@ -449,7 +443,10 @@ export function BoardSummary({
               </div>
             ) : (() => {
                 const cards = byCell.get(section.id) ?? []
-                return <>{withGap(inCell(cards).map(initiativeCard), gapAt(section.id))}</>
+                // The nodes themselves, not a fragment: `Cell` counts its children to know
+                // whether to show the empty state, and a fragment is one child even when it
+                // holds none.
+                return withGap(inCell(cards).map(initiativeCard), gapAt(section.id))
               })()}
           </Cell>
         )
@@ -467,7 +464,6 @@ function Cell({
   stage,
   sectionId,
   isSection,
-  primary,
   count,
   interactive,
   editMode,
@@ -481,7 +477,6 @@ function Cell({
   /** The section this cell belongs to. An initiative never leaves it. */
   sectionId: string
   isSection?: boolean
-  primary?: boolean
   count: number
   interactive: boolean
   editMode: boolean
@@ -512,11 +507,13 @@ function Cell({
   const at = siblings.findIndex((l) => l.id === lane.id)
   const orientation = lane.orientation ?? 'columns'
 
-  // The same header bar the cards workflow uses: its own ground, a margin on every side,
-  // so a section and its cells are separate labels rather than a continuous band.
-  const head = primary
-    ? cn(HEAD_ROW, 'mx-1 mt-1 mb-0.5 gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-slate-800 shadow-sm')
-    : cn(HEAD_ROW, 'mx-1 mt-0.5 mb-1 gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-700 shadow-sm')
+  // One header at every depth, the same white bar the cards workflow uses: a cell of a split
+  // section is a column of the section above it, not a quieter kind of label.
+  const head = cn(HEAD_ROW, 'mx-1 mt-1 mb-0.5 gap-1.5 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-slate-800 shadow-sm')
+  // A cell with nothing in it still needs to read as a place work can go. The drag gap counts
+  // as content: while an initiative is in the air over an empty cell, the shadow is what the
+  // cell shows.
+  const empty = count === 0 && Children.count(children) === 0
 
   const removeWithConfirm = () => {
     const kids = leavesUnder(lanes, lane.id).filter((l) => l.id !== lane.id)
@@ -549,7 +546,7 @@ function Cell({
           <ChevronsRight size={13} />
         </button>
         <span
-          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-700 px-1 text-micro font-bold tabular-nums text-white"
+          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-white/80 px-1 text-micro font-bold tabular-nums text-slate-700 ring-1 ring-slate-300/70"
           title={`${count} initiative${count === 1 ? '' : 's'}`}
         >
           {count}
@@ -579,7 +576,7 @@ function Cell({
         {/* The same three slots the cards workflow uses: the fold control left, the name
             centred, the count and any edit controls right. The left slot was a spacer, which is
             what put this workflow's fold control over on the right with the editing. */}
-        <span className="flex items-center">
+        <span className="flex items-center gap-1">
           {isSection && (
             <button
               onClick={(e) => {
@@ -612,7 +609,13 @@ function Cell({
           </span>
         )}
         <span className="flex items-center justify-end gap-1">
-          <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums text-white">
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums',
+              stage ? STAGE_PILL[stage] : 'bg-slate-200/80 text-slate-700 ring-1 ring-slate-300/70',
+            )}
+            title={`${count} initiative${count === 1 ? '' : 's'}`}
+          >
             {count}
           </span>
           {editable && (
@@ -685,9 +688,18 @@ function Cell({
         data-section-id={sectionId}
         role="region"
         aria-label={`${lanePath(lanes, lane.id).join(' / ') || lane.name || 'Cell'} — ${count} initiative${count === 1 ? '' : 's'}`}
-        className="flex min-h-[96px] min-w-0 flex-1 flex-col gap-2 p-1"
+        className="flex min-h-[96px] min-w-0 flex-1 flex-col gap-2 p-1.5"
       >
-        {children}
+        {empty ? (
+          // Words, not another box: the column is already a place, and a dashed frame inside
+          // every empty one would be the nested enclosure this surface is trying to shed.
+          <div className="flex flex-1 flex-col items-center justify-center gap-1 p-4 text-center">
+            <Hourglass size={16} className="text-slate-400/80" />
+            <span className="text-micro text-slate-500">No initiatives</span>
+          </div>
+        ) : (
+          children
+        )}
       </div>
 
       {settingsOpen && (

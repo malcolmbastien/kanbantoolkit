@@ -139,14 +139,16 @@ export const TAG_PALETTE = ['#0ea5e9', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981
  * The shape of a warning badge, and the colour it wears by tone.
  *
  * One shape for every warning, wherever it is drawn — a card's badge row and the drawer's warnings
- * section read as the same set — and the *weight* carries the domain's own distinction: a hard stop
- * is solid, something to watch is pale and ringed. The palette is `HEALTH_META`'s, so a card, a
- * drawer and the dashboard say the same thing in the same colour.
+ * section read as the same set. Both tones are pale and ringed, because a warning is a sentence
+ * beside the work rather than a block over it: the difference is the hue the domain gives it, not
+ * the weight of the paint. Risk wears the same rose as a card's own blocked callout; watch wears
+ * amber. The palette is `HEALTH_META`'s, so a card, a drawer and the dashboard say the same thing
+ * in the same colour.
  */
 export const FLAG_BADGE_SHAPE = 'shrink-0 rounded px-1.5 py-0.5 text-micro'
 
 export const FLAG_BADGE: Record<'risk' | 'watch', string> = {
-  risk: 'bg-rose-600 font-semibold text-white',
+  risk: 'bg-rose-50 font-semibold text-rose-700 ring-1 ring-rose-200',
   watch: 'bg-amber-100 font-medium text-amber-800 ring-1 ring-amber-300',
 }
 
@@ -200,21 +202,24 @@ export const STAGE_ACCENT: Record<Stage, string> = STAGE_COLOR
  * splitting a column into cells does not lose it.
  */
 export const STAGE_SURFACE: Record<Stage, string> = {
-  backlog: 'bg-slate-100',
-  notStarted: 'bg-blue-50',
-  inProgress: 'bg-violet-50',
-  done: 'bg-emerald-50',
+  backlog: 'bg-slate-100/70',
+  notStarted: 'bg-blue-50/60',
+  inProgress: 'bg-violet-50/60',
+  done: 'bg-emerald-50/60',
 }
 
 /**
- * The lane's count, as a pill at the header's right edge — the stage colour, taken a shade deeper
- * where white on it would fall under the floor (blue-500 carries white at 3.7:1; blue-600 at 5.2).
+ * The lane's count, as a pill at the header's right edge.
+ *
+ * A count is a label, not an alarm — so it is a soft wash of the stage colour with the stage's own
+ * deep text, rather than a solid block of it. The column's accent bar and tint already say which
+ * stage it is; the pill only says how many are in it.
  */
 export const STAGE_PILL: Record<Stage, string> = {
-  backlog: 'bg-slate-500 text-white',
-  notStarted: 'bg-blue-600 text-white',
-  inProgress: 'bg-violet-600 text-white',
-  done: 'bg-emerald-600 text-white',
+  backlog: 'bg-slate-200/80 text-slate-700 ring-1 ring-slate-300/70',
+  notStarted: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
+  inProgress: 'bg-violet-100 text-violet-700 ring-1 ring-violet-200',
+  done: 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
 }
 
 /** The dot that marks a lane's stage in its header. */
@@ -233,10 +238,17 @@ export function statusDot(status: { resolved: boolean; started: boolean }): stri
   return status.resolved ? 'bg-emerald-600' : status.started ? 'bg-violet-600' : 'bg-slate-400'
 }
 
-/** A lane header when the column is at or over its WIP limit — the tint always wins. */
-export const WIP_HEADER = {
-  over: 'border-rose-300 bg-rose-600 text-white',
-  at: 'border-amber-300 bg-amber-500 text-white',
+/**
+ * A WIP breach, stated rather than shouted.
+ *
+ * The column is still the stage colour it was: flooding the whole lane red made a busy column look
+ * broken and threw away the one colour that tells it apart from the columns beside it. What is over
+ * the limit is the *count*, so the count is what says so — a clean crimson pill beside a warning
+ * glyph. Left, not blocked: the board keeps its colour and the reader keeps their bearings.
+ */
+export const WIP_PILL = {
+  over: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+  at: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
 } as const
 
 /**

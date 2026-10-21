@@ -446,35 +446,9 @@ export function ItemPanel({ itemId }: Props) {
       aria-label={`Card details: ${item.title}`}
       className="flex h-full w-full max-w-[460px] shrink-0 flex-col border-l border-slate-300 bg-white shadow-[-10px_0_24px_-14px_rgba(15,23,42,0.25)]"
     >
-      {/* ---- Header: where you are, what it is, what it is called, and the three views ---- */}
+      {/* ---- Header: the controls, what it is, what it is called, and the three views ---- */}
       <header className="shrink-0 border-b border-slate-200 px-4 pb-3 pt-3">
         <div className="flex items-center gap-2">
-          {/* The path ends where you are: ancestors as links, this item in ink. */}
-          <nav className="flex min-w-0 items-center gap-1 text-meta text-slate-600">
-            {lineage.slice(-3).map((node, i, shown) => {
-              const self = node.id === item.id
-              return (
-                <span key={node.id} className="flex min-w-0 items-center gap-1">
-                  {i > 0 && <span className="shrink-0 text-slate-400">/</span>}
-                  {self ? (
-                    // The end of the path keeps the room: where you are matters more than the
-                    // way you came, and the full chain is a tab away.
-                    <span className="min-w-0 flex-1 truncate font-medium text-slate-800" title={node.title}>
-                      {node.title}
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => close(node.id)}
-                      title={`Open ${node.title}`}
-                      className={cn('min-w-0 truncate transition hover:text-slate-900', shown.length > 1 && 'max-w-[5rem]')}
-                    >
-                      {node.title}
-                    </button>
-                  )}
-                </span>
-              )
-            })}
-          </nav>
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             <IconButton
               title={focusOn ? 'Stop focusing this line' : 'Focus this line on the board'}

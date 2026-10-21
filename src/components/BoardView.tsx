@@ -4,7 +4,7 @@ import { BoardCanvas } from './BoardCanvas'
 import { BoardSummary } from './BoardSummary'
 import { KindFilter } from './KindFilter'
 import { ManagementBoard } from './ManagementBoard'
-import { isAggregating } from '@/domain/board'
+import { isAggregating, isInitiativeItem } from '@/domain/board'
 import { boardCsv, csvFilename } from '@/domain/csv'
 import { activeFilterCount } from '@/domain/filters'
 import { effectiveStage } from '@/domain/lanes'
@@ -13,6 +13,7 @@ import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
+import type { Item } from '@/domain/types'
 
 interface Props {
   /**
@@ -55,14 +56,24 @@ export function BoardView({ requestMove }: Props) {
     (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
   ).length
 
+  // The two workflows, as two populations: an initiative is what the board is read for, and a
+  // card is how it gets done. Saying each surface's size in its own band is the cheapest way to
+  // keep a reader oriented in which one they are looking at — and neither number narrows.
+  const onBoard = placements
+    .filter((p) => p.boardId === boardId)
+    .map((p) => items.find((i) => i.id === p.itemId))
+    .filter((i): i is Item => i !== undefined && !i.archived)
+  const initiativeCount = onBoard.filter((i) => isInitiativeItem(i, issueTypes)).length
+  const cardCount = onBoard.length - initiativeCount
+
   // The board's secondary bar: board-scoped controls live with the board. On the left,
   // the board's state and its explainers — the legend right beside any condition chip.
   // Filters sits at the far right, in the corner where its panel opens: a control belongs
   // against the surface it commands. The bar is always present because the Filters control
   // always is; the rest of it appears only when it has something functional to say.
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-200">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
+    <div className="flex h-full min-h-0 flex-col bg-slate-50">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 py-1.5 text-meta text-slate-600 backdrop-blur-sm">
         <button
           onClick={toggleLegend}
           disabled={editMode}
@@ -130,14 +141,19 @@ export function BoardView({ requestMove }: Props) {
         </div>
       </div>
 
-      <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 space-y-4 overflow-y-auto p-3', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
-        {/* Initiatives workflow — this team's initiatives, by rollup */}
-        <section className="space-y-2">
-          <div className={cn('flex items-center justify-between gap-2 border-b pb-1.5', accent.rule)}>
+      <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 space-y-6 overflow-y-auto p-4', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
+        {/* Initiatives workflow — this team's initiatives, by rollup. The strategic surface:
+            a tinted band of its own, so a reader knows which workflow they are looking at
+            before reading a single column. */}
+        <section className="space-y-2.5">
+          <div className={cn('flex items-center justify-between gap-2 rounded-lg border px-3 py-2', accent.section)}>
             <div className="flex min-w-0 items-center gap-2">
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
-              <h2 className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
-              <span className="truncate text-meta text-slate-600">this team’s initiatives — status rolls up from the cards below</span>
+              <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
+              <span className="hidden shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-micro font-semibold text-slate-500 ring-1 ring-emerald-200/80 sm:inline">
+                {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
+              </span>
+              <span className="truncate text-meta text-slate-500">this team’s initiatives — status rolls up from the cards below</span>
             </div>
             <KindFilter boardId={boardId} />
           </div>
@@ -148,16 +164,20 @@ export function BoardView({ requestMove }: Props) {
           <BoardSummary boardId={boardId} variant="initiatives" interactive />
         </section>
 
-        {/* Cards workflow — the team's customizable flow */}
-        <section className="space-y-2">
-          <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-1.5">
+        {/* Cards workflow — the team's customizable flow. Tactical execution: its own cool
+            band, a step down from the initiatives surface in weight as well as in altitude. */}
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50/50 px-3 py-2">
             <div className="flex min-w-0 items-center gap-2">
               <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-              <h2 className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Cards workflow</h2>
-              <span className="truncate text-meta text-slate-600">
+              <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Cards workflow</h2>
+              <span className="truncate text-meta text-slate-500">
                 {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
               </span>
             </div>
+            <span className="hidden shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-micro font-semibold text-slate-500 ring-1 ring-indigo-200/80 sm:inline">
+              {cardCount} {cardCount === 1 ? 'card' : 'cards'}
+            </span>
           </div>
           <BoardCanvas boardId={boardId} interactive onMove={requestMove} />
         </section>

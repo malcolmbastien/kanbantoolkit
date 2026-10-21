@@ -1,8 +1,10 @@
 import { Fragment, useCallback, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   ChevronsRight,
+  Link2,
   Plus,
 } from 'lucide-react'
 import { BoundaryPin } from './BoundaryPin'
@@ -30,9 +32,9 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, externalDependenciesOnBoard, tagsOf } from '@/domain/board'
-import { childrenOf, effectiveStage, inheritedWipState, isTopLevel, lanePath, leavesUnder, rootLane, strongestWip, subtreeIds, wipState } from '@/domain/lanes'
+import { childrenOf, effectiveStage, isTopLevel, lanePath, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
-import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_HEADER } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_PILL } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -156,12 +158,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     }).length
   }
   const wip = wipState(countInLane(lane.id), lane.wipLimit)
-  // The load above this lane: an ancestor at or over its limit makes the whole column
-  // full — the children only exist inside it, so they read as full too. Only the body
-  // tint travels down; the strong header colour stays on the one lane whose own limit
-  // it is, so "whose limit" never blurs.
-  const inheritedWip = inheritedWipState(lanes, lane.id, countInLane)
-  const fullWip = strongestWip(wip, inheritedWip)
 
   // Confirm before removing a lane that carries cards or sub-lanes.
   const removeWithConfirm = () => {
@@ -182,33 +178,37 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
-    // A header is its own bar rather than a strip flush to the column: it carries a margin
-    // so stacked headers read as separate things, and a white ground so it is not the same
-    // colour as the canvas behind it.
+    // One header, at every depth: a white bar with its own margin and a soft edge. A nested
+    // cell is a column of the column above it, and it should read as the same kind of thing —
+    // the depth is carried by where it sits, not by a lighter header.
+    const over = wip === 'over'
+    const at = wip === 'at'
+    const count = countInLane(lane.id)
+    const pill = over ? WIP_PILL.over : at ? WIP_PILL.at : stage ? STAGE_PILL[stage] : 'bg-slate-200/80 text-slate-700 ring-1 ring-slate-300/70'
     return (
       <div
         className={cn(
-          'mx-1 mt-1 mb-0.5 rounded-md border px-2.5 py-1.5 shadow-sm',
-          // A collapsed row says so in its own right: a dashed edge and a muted ground, so
-          // it reads as folded away rather than as a row that happens to be short.
+          'mx-1 mt-1 mb-0.5 rounded-lg border px-2.5 py-1.5 shadow-sm',
           collapsed
-            ? 'border-dashed border-slate-400 bg-slate-200 text-slate-600 shadow-none'
-            : wip === 'over'
-              ? WIP_HEADER.over
-              : wip === 'at'
-                ? WIP_HEADER.at
-                : 'border-slate-300 bg-white text-slate-800',
+            ? // A collapsed row says so in its own right: a dashed edge and a muted ground, so
+              // it reads as folded away rather than as a row that happens to be short.
+              'border-dashed border-slate-300 bg-slate-100/80 text-slate-500 shadow-none'
+            : over
+              ? 'border-rose-200 bg-white text-slate-800'
+              : at
+                ? 'border-amber-200 bg-white text-slate-800'
+                : 'border-slate-200/90 bg-white text-slate-800',
         )}
       >
         {/* Name truly centred, count and policy pinned right. The side columns are equal
             (1fr each) and the middle sizes to the name, so the centring holds whatever
             the lane's depth and whether the edge controls are present at all. */}
         <div className={HEAD_ROW}>
-          <span className="flex items-center">
+          <span className="flex items-center gap-1">
             {canCollapse ? (
               <button
                 onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
-                className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
+                className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
                 title={collapsed ? 'Expand' : `Collapse ${parentOrientation === 'columns' ? 'column' : 'row'}`}
               >
                 {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
@@ -233,16 +233,24 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
             />
           ) : (
-            <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">{lane.name || 'Board'}</span>
+            <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
+              {lane.name || 'Board'}
+            </span>
           )}
           <span className="flex items-center justify-end gap-1">
+            {over && <AlertTriangle size={12} className="shrink-0 text-rose-600" aria-label="Over its WIP limit" />}
+            {at && <AlertTriangle size={12} className="shrink-0 text-amber-600" aria-label="At its WIP limit" />}
             <span
-              className={cn(
-                'shrink-0 rounded px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums',
-                wip === 'over' ? 'bg-rose-800 text-white' : wip === 'at' ? 'bg-amber-700 text-white' : stage ? STAGE_PILL[stage] : 'bg-slate-700 text-white',
-              )}
+              className={cn('shrink-0 rounded-full px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums', pill)}
+              title={
+                over
+                  ? `Over its WIP limit — ${count} card${count === 1 ? '' : 's'}, limit ${lane.wipLimit}`
+                  : at
+                    ? `At its WIP limit — ${count} card${count === 1 ? '' : 's'}`
+                    : `${count} card${count === 1 ? '' : 's'}${lane.wipLimit !== undefined ? ` of ${lane.wipLimit}` : ''}`
+              }
             >
-              {countInLane(lane.id)}
+              {count}
               {lane.wipLimit !== undefined ? `/${lane.wipLimit}` : ''}
             </span>
             {lane.description && <LanePolicy policy={lane.description} />}
@@ -315,8 +323,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         </button>
         <span
           className={cn(
-            'grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1 text-micro font-bold tabular-nums text-white',
-            wip === 'over' ? 'bg-rose-800' : wip === 'at' ? 'bg-amber-700' : 'bg-slate-700',
+            'grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1 text-micro font-bold tabular-nums',
+            wip === 'over' ? WIP_PILL.over : wip === 'at' ? WIP_PILL.at : 'bg-white/80 text-slate-700 ring-1 ring-slate-300/70',
           )}
           title={`${count} card${count === 1 ? '' : 's'}${wip === 'over' ? ' — over its limit' : wip === 'at' ? ' — at its limit' : ''}`}
         >
@@ -349,19 +357,24 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           'flex h-full min-h-0 w-full flex-1 flex-col',
           // No outer box: each top-level column is its own card, with a gap between them.
           // The stage tints the whole column, so it reads at a glance without a label.
+          top && 'overflow-hidden rounded-xl border border-slate-200/90 shadow-sm',
           top && stage && STAGE_SURFACE[stage],
         )}
         style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
       >
-        {!hideHeader && (editMode || lane.name) && header(false)}
+        {/* The root of the cards workflow is the board's whole flow, not a lane: its name is
+            already the section's, and its count is the section's too. A header here would be a
+            second title over the columns. */}
+        {!hideHeader && !isRoot && (editMode || lane.name) && header(false)}
         {!collapsed && (
         <div
             className={cn(
               'flex w-full flex-1 min-h-0',
-              // Stacked rows get a gap and their own outline; a nested columns split gets a
-              // top gap. Without them, three levels of nested headers — a container header
-              // and a row/child header are the same colour — read as one merged block.
-              stacked ? 'flex-col' : cn('grid', isRoot ? 'gap-3' : 'divide-x divide-slate-400/50'),
+              // Stacked rows get a gap; a nested columns split is divided by one hairline.
+              // The split used to be a heavier rule, with a white header box inside each
+              // cell — two frames for one partition, which is what made a cell look like a
+              // board of its own.
+              stacked ? 'flex-col gap-2' : cn('grid', isRoot ? 'gap-3' : 'divide-x divide-slate-300/70'),
             )}
             style={
               orientation === 'columns'
@@ -384,7 +397,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                     // separates it from the rows beside it, and adding to that is what made it
                     // stand out as different.
                     ? cn('w-full', ctx.collapsedLanes[k.id] ? 'shrink-0' : i === kids.length - 1 && 'grow')
-                    : cn('flex-1', isRoot && 'overflow-hidden rounded-lg border border-slate-300'),
+                    : cn('flex-1', isRoot && 'overflow-hidden rounded-xl'),
                 )}
               >
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />
@@ -409,7 +422,14 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       // the cards inside it are its contents, rather than one undifferentiated board.
       role="region"
       aria-label={`${lanePath(lanes, lane.id).join(' / ') || 'Board'} — ${countInLane(lane.id)} card${countInLane(lane.id) === 1 ? '' : 's'}`}
-      className={cn('flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col', fullWip === 'over' ? 'bg-rose-50' : fullWip === 'at' ? 'bg-amber-50' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100')}
+      className={cn(
+        'flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col',
+        // A top-level column is the object: one edge, one tint, one accent. A nested cell
+        // sits on its section's tint and needs none of the three — the partition line is
+        // enough, and a second frame is what made a cell look like a box inside a box.
+        top && 'overflow-hidden rounded-xl border border-slate-200/90 shadow-sm',
+        top ? (stage ? STAGE_SURFACE[stage] : 'bg-slate-100') : '',
+      )}
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
       {!hideHeader && header(true)}
@@ -680,8 +700,16 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     place(itemId, board, laneId, index)
   }, [])
 
-  /** The lane under the pointer, and the gap in it the card would land in. */
-  const gapUnder = (x: number, y: number) => {
+  /**
+   * The lane under the pointer, and the gap in it the card would land in.
+   *
+   * The gap is drawn among the cards that are *left* — `DropColumn` takes the card in the air out
+   * of the lane — and `placeCard` reads the position in that same list. So the card in the air is
+   * taken out here too. On the move that begins a lift it is still in the DOM, and counting it put
+   * the gap one slot too low: lifting the top card left the card below at the top and showed the
+   * shadow in the second slot, as if the gesture had already moved a place.
+   */
+  const gapUnder = (draggedId: string, x: number, y: number) => {
     let lane = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-lane-id]') ?? null
     if (!lane) {
       // A release just below the last card lands past the lane's own box, and 'put it at the
@@ -697,7 +725,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     }
     const laneId = lane?.dataset.laneId
     if (!lane || !laneId) return null
-    const cards = [...lane.querySelectorAll<HTMLElement>('[data-card-id]')]
+    const cards = [...lane.querySelectorAll<HTMLElement>('[data-card-id]')].filter((el) => el.dataset.cardId !== draggedId)
     let index = cards.length
     for (let i = 0; i < cards.length; i++) {
       const r = cards[i].getBoundingClientRect()
@@ -718,7 +746,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       // gesture, one meaning. The lane's gap is cleared so the two can never both be showing.
       const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
       setDropTarget(parent)
-      setDropAt(parent ? null : gapUnder(x, y))
+      setDropAt(parent ? null : gapUnder(itemId, x, y))
     },
     onDrop: (itemId, x, y) => {
       setDropAt(null)
@@ -729,7 +757,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
         setParent(itemId, parent)
         return
       }
-      const gap = gapUnder(x, y)
+      const gap = gapUnder(itemId, x, y)
       if (gap) dropCardAt(itemId, gap.laneId, gap.index)
     },
   })
@@ -809,9 +837,22 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
         </div>
       </div>
       {external.length > 0 && (
-        <div className="w-[230px] shrink-0 overflow-y-auto border-l border-slate-300 bg-slate-100 p-2">
-          <div className="mb-1 text-meta font-bold uppercase tracking-wide text-slate-600">Boundary · waiting on</div>
-          <div className="flex flex-col gap-1">
+        // The rail sits outside the board's scroller, so it holds its place while the columns
+        // move under it — the dependencies do not scroll away with the work that waits on them.
+        <aside
+          aria-label="Boundary — waiting on"
+          className="sticky top-0 max-h-[calc(100vh-8rem)] w-[248px] shrink-0 self-start overflow-y-auto border-l border-slate-200 bg-slate-50/80 p-2.5"
+        >
+          <div className="mb-2 flex items-center gap-1.5 px-1">
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-700 ring-1 ring-amber-200">
+              <Link2 size={12} />
+            </span>
+            <span className="text-micro font-bold uppercase tracking-wider text-slate-600">Boundary · waiting on</span>
+            <span className="ml-auto rounded-full bg-white px-1.5 py-0.5 text-micro font-bold tabular-nums text-slate-600 ring-1 ring-slate-200">
+              {external.length}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
             {external.map((d) => (
               <BoundaryPin
                 key={d.link.id}
@@ -829,7 +870,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
               />
             ))}
           </div>
-        </div>
+        </aside>
       )}
       <BoundaryConnectors
         containerRef={rowRef}

@@ -22,8 +22,16 @@ interface Props {
   onOpen: (id: string) => void
 }
 
+/** The tone of the link, as the pin's left edge — the one mark read before any words are. */
+const STATE_EDGE: Record<string, string> = {
+  Closed: 'border-l-slate-300',
+  Satisfied: 'border-l-emerald-400',
+  OpenPlanningRisk: 'border-l-amber-400',
+  OpenLiveBlockage: 'border-l-rose-500',
+}
+
 /**
- * A card shown where it does not belong: no column, no WIP count, dashed.
+ * A card shown where it does not belong: no column, no WIP count.
  *
  * It reads in the same order a card does, because it is answering the same questions — what is
  * this, how far along is it, and what is it saying — with one of its own on top: *which of my
@@ -31,6 +39,9 @@ interface Props {
  * the state of the link and the local card that waits on it above the rule, and the dependency's
  * own status and home below it. The lane already says "waiting on"; a pin saying it again, in a
  * heading, in the middle of its own name, was three labels for one fact.
+ *
+ * The left edge carries the link's tone, so a live blockage is visible at the rail's edge before
+ * the card is read, and the card itself stays white — one accent, not a coloured block.
  */
 export function BoundaryPin({
   dep,
@@ -59,8 +70,9 @@ export function BoundaryPin({
       }}
       title={selected ? 'Clear highlight' : 'Highlight the cards on this board that wait on this'}
       className={cn(
-        'w-full cursor-pointer rounded-lg border border-dashed border-slate-400 bg-white px-2 py-1.5 text-left transition hover:border-slate-500 hover:shadow-sm',
-        selected && 'border-solid border-amber-400 bg-amber-50 ring-2 ring-amber-300',
+        'w-full cursor-pointer rounded-xl border border-l-[3px] border-slate-200 bg-white px-2.5 py-2 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md',
+        STATE_EDGE[dep.state] ?? 'border-l-slate-300',
+        selected && 'border-amber-300 bg-amber-50/70 ring-2 ring-amber-300',
       )}
     >
       {/* What it is, and the way to it. */}

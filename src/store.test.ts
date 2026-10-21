@@ -1174,9 +1174,9 @@ describe('store actions', () => {
     expect(s().multiSelect).toEqual([])
   })
 
-  it('focus follows the selection: another card, or nothing, ends it', () => {
-    // Selecting an initiative focuses it, and re-opening that same item keeps the focus.
-    s().setLens('init-signup')
+  it('focus follows the selection: an initiative enters it, another card or nothing ends it', () => {
+    // Opening an initiative — from its card, a card's parent chip, the drawer's hierarchy or
+    // search — is selecting it, and selecting it is focusing its lineage.
     s().openItem('init-signup')
     expect(s().lensId).toBe('init-signup')
 
@@ -1194,7 +1194,6 @@ describe('store actions', () => {
 
     // Starting a shift+click group is another selection, so it ends the focus too.
     s().openItem('init-signup')
-    s().setLens('init-signup')
     s().toggleMultiSelect('st-email')
     expect(s().lensId).toBe(null)
   })
