@@ -2013,7 +2013,7 @@
             "title": "Import and export: a file out, the same workspace back.",
             "description": "This subtask covers the round trip, and the refusal of a file that is not a workspace.",
             "details": "SYSTEM\nFlowline, the application in this repository.\n\nREQUIREMENTS\n\nR1 — Export\nThe Export control shall download a JSON file carrying the workspace's boards and items.\n\nR2 — Round trip\nImporting that file into a clean origin shall reproduce the boards and the item count.\n\nR3 — Refusal\nImporting a file that is not a workspace shall be refused with a message, and change nothing.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
@@ -2039,7 +2039,7 @@
         "recommendedSubtasks": 2,
         "expansionPrompt": "(1) harness, seeded state and CI wiring; (2) drag and drop, WIP cancel/resume, drawer edits, board design, import and export; (3) the two-client lease flow once the server exists.",
         "complexityReasoning": "Six flows, one of which needs the server to exist. The risk is flakiness rather than difficulty.",
-        "updatedAt": "2026-10-20T23:14:46.201Z"
+        "updatedAt": "2026-10-21T00:09:53.802Z"
       },
       {
         "id": 125,
