@@ -2074,13 +2074,26 @@
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
         "complexityReasoning": "Public pages, a verified deletion across every table, and support with a changelog."
+      },
+      {
+        "id": 127,
+        "title": "A board has a history of its own: what moved, what changed, and who.",
+        "description": "This task gives every board a history view, derived from the entries the workspace already holds.",
+        "status": "pending",
+        "dependencies": [
+          116
+        ],
+        "priority": "medium",
+        "details": "SYSTEM\nFlowline, the application in this repository.\n\nTask 116 put an author on every new entry, and a move has always carried the board it happened on.\nBetween them the entries already describe a board's life; what is missing is a screen that reads\nthem, and one honest decision about what a board can and cannot know.\n\nSCOPE\n1. A board view — `components/BoardHistory.tsx`, the view switch, and `view=history` in `lib/url.ts`.\n2. `domain/history.ts` — deriving one board's entries from the items it holds, newest first.\n3. The lane actions in the store, for R4 (board-design events are not recorded today).\n\nDEFINITIONS\n- Board history: the entries that concern one board — its moves, and the changes to the items it\n  holds — newest first.\n- Move entry: a log entry of kind `moved`, which carries the board it happened on, the lanes and\n  the stages as they were.\n- Item change: any other entry on an item. It carries a time, a kind, a note and (since task 116)\n  an author — but not a board.\n\nREQUIREMENTS\n\nR1 — A place\nThe board's history shall be a view of the board, at its own URL (`view=history`), reachable from\nthe board's navigation, and board-specific like every other board view.\n\nR2 — Moves, exactly\nEvery move recorded on this board shall appear, with the lanes and stages as they were. The entry\ncarries them, so a lane renamed or removed later cannot rewrite the past.\n\nR3 — Changes, honestly bounded\nChanges to the items this board holds shall appear too, and the screen shall say what it cannot\nknow: an item can sit on several boards, and an edit records no board. The task shall choose one of\ntwo honest answers and write down why: record the board on new entries (so the future is exact),\nor label changes as the item's own history rather than the board's.\n\nR4 — The board's own design\nSplitting, adding, renaming or removing a lane, and changing a WIP limit, are not recorded at all\ntoday. A board's history that omits them is missing its most consequential events. They shall be\nrecorded, with the same who and when, and shown in the same view.\n\nR5 — Nothing invented\nAn entry from before identities existed shall show no author. A deleted item takes its history\nwith it. The screen shall show what exists rather than filling the gaps.\n\nR6 — Derived, not stored\nThe view shall read the items' logs. It shall not add a second place where history lives: one\nworkspace, one record, however many ways it is read.\n\nVERIFICATION\n\nV1 — R1: A deep link to `view=history` opens it, and the board's navigation names it.\nV2 — R2: Move a card, rename the lane it left, then open the history: the entry names the lane as\nit was, with the person's name beside it.\nV3 — R3: With an item on two boards, a change made while the other board was in front appears —\nand is described in the terms the task chose.\nV4 — R4: Split a lane; the split appears in the history with its author and time.\nV5 — R5: An old entry renders without an author; delete an item and its entries leave with it.\nV6 — R6: `localStorage` gains no history key; the view reads what the workspace already holds.",
+        "testStrategy": "",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-20T21:21:55.267Z",
-      "taskCount": 125,
-      "completedCount": 94,
+      "lastModified": "2026-10-21T00:42:14.042Z",
+      "taskCount": 126,
+      "completedCount": 99,
       "tags": [
         "backlog"
       ],
