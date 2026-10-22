@@ -34,8 +34,13 @@ export interface Repository {
   readonly kind: RepositoryKind
   /** What `persist` writes through — the only persistence detail the store sees. */
   readonly storage: StateStorage
-  /** Send one accepted item change, and answer with the version that is now the truth. */
-  commitItem(item: Item, baseRev: number): Promise<CommitAnswer>
+  /**
+   * Send one accepted item change, and answer with the version that is now the truth.
+   *
+   * `key` names the change rather than the attempt, so a queue that retries after a lost response
+   * is answered rather than applied twice.
+   */
+  commitItem(item: Item, baseRev: number, key?: string): Promise<CommitAnswer>
 }
 
 /** The browser's own storage, behind the interface: nothing to send, because nowhere else has it. */
@@ -58,12 +63,12 @@ export function httpRepository(): Repository {
   }
 }
 
-async function sendItem(item: Item, baseRev: number): Promise<CommitAnswer> {
+async function sendItem(item: Item, baseRev: number, key?: string): Promise<CommitAnswer> {
   try {
     const response = await fetch(`/api/workspace/items/${encodeURIComponent(item.id)}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ baseRev, item }),
+      body: JSON.stringify({ baseRev, item, ...(key ? { key } : {}) }),
     })
 
     if (response.status === 409) {
@@ -94,7 +99,7 @@ export function chooseRepository(): Repository {
       return useAuth.getState().user ? 'http' : 'local'
     },
     storage: tabSynced(guardedStorage()),
-    commitItem: (item, baseRev) =>
-      useAuth.getState().user ? sendItem(item, baseRev) : Promise.resolve({ kind: 'kept', item }),
+    commitItem: (item, baseRev, key) =>
+      useAuth.getState().user ? sendItem(item, baseRev, key) : Promise.resolve({ kind: 'kept', item }),
   }
 }

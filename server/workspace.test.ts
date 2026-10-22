@@ -335,6 +335,21 @@ describe('writing one item', () => {
     expect((await patch('i-other', { baseRev: 0, item: card() })).status).toBe(400)
   })
 
+  it('applies a retried change once, and answers the retry', async () => {
+    const { patch, request, cookie } = await writer()
+    await patch('i-card', { baseRev: 0, item: card() })
+
+    const change = { baseRev: 1, item: card({ title: 'Once', rev: 1 }), key: 'change-1' }
+    expect((await patch('i-card', change)).status).toBe(200)
+    // The same key again is the same change: 200, not 409, and not applied a second time.
+    expect((await patch('i-card', change)).status).toBe(200)
+
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
+    const stored = body.items.find((entry) => entry.id === 'i-card')!
+    expect(stored.rev).toBe(2)
+    expect(stored.title).toBe('Once')
+  })
+
   it('will not write without a session', async () => {
     const { patch } = await writer()
     expect((await patch('i-card', { baseRev: 0, item: card() }, false)).status).toBe(401)

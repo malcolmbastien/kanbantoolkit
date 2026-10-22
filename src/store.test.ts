@@ -8,7 +8,8 @@ import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } fr
 import { SEED_TODAY } from './domain/seed'
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
-import { isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
+import { flushQueue, isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
+import { queue } from './lib/queue'
 import { useAuth } from './lib/auth'
 import { useSync } from './lib/sync'
 // The seam's guard reads the source it is guarding. `?raw` keeps the test in the browser project
@@ -2799,5 +2800,109 @@ describe('a change on its way to the server', () => {
     s().setItemFields(s().items[0].id, { title: 'Local only' })
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('a change that cannot be sent yet', () => {
+  const data = new Map<string, string>()
+  const original = globalThis.localStorage
+  const realFetch = globalThis.fetch
+
+  beforeEach(() => {
+    resetToFixture()
+    data.clear()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        data.set(key, value)
+      },
+      removeItem: (key: string) => {
+        data.delete(key)
+      },
+    })
+    queue.clear()
+    useSync.getState().clear()
+  })
+
+  afterEach(() => {
+    vi.stubGlobal('localStorage', original)
+    vi.stubGlobal('fetch', realFetch)
+    useAuth.setState({ providers: [], user: null, dev: false, loaded: false })
+    queue.clear()
+    useSync.getState().clear()
+  })
+
+  const signedIn = () =>
+    useAuth.setState({
+      providers: [],
+      user: { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'owner' },
+      dev: false,
+      loaded: true,
+    })
+
+  const offline = () =>
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('offline')
+    }))
+
+  it('holds an accepted change, and says how many are waiting', async () => {
+    offline()
+    signedIn()
+
+    s().setItemFields(s().items[0].id, { title: 'Written on a train' })
+    await vi.waitFor(() => expect(useSync.getState().waiting).toBe(1))
+
+    expect(queue.all()[0].item.title).toBe('Written on a train')
+    // The change is in the workspace too, so the person keeps working.
+    expect(s().items[0].title).toBe('Written on a train')
+  })
+
+  it('sends what was held in the order it was made, each with the revision it was based on', async () => {
+    offline()
+    signedIn()
+    const before = s().items[0]
+
+    s().setItemFields(before.id, { title: 'First' })
+    s().setItemFields(before.id, { title: 'Second' })
+    await vi.waitFor(() => expect(queue.size()).toBe(2))
+
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ item: { ...before, rev: (before.rev ?? 0) + 2, title: 'Second' } }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await flushQueue()
+
+    const sent = (fetchMock.mock.calls as unknown as Array<[string, RequestInit]>).map((call) =>
+      JSON.parse(call[1].body as string),
+    )
+    expect(sent.map((body) => body.item.title)).toEqual(['First', 'Second'])
+    expect(sent[1].baseRev).toBe(sent[0].baseRev + 1)
+    expect(queue.size()).toBe(0)
+    expect(useSync.getState().waiting).toBe(0)
+  })
+
+  it('drops a held change the server refuses, rather than retrying it for ever', async () => {
+    offline()
+    signedIn()
+    s().setItemFields(s().items[0].id, { title: 'Refused later' })
+    await vi.waitFor(() => expect(queue.size()).toBe(1))
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'moved past', item: null }), { status: 409 })))
+    await flushQueue()
+
+    expect(queue.size()).toBe(0)
+    expect(useSync.getState().refusals).toHaveLength(1)
+  })
+
+  it('stops at a connection that is still down, so the order is never rearranged around a gap', async () => {
+    offline()
+    signedIn()
+    s().setItemFields(s().items[0].id, { title: 'A' })
+    s().setItemFields(s().items[0].id, { title: 'B' })
+    await vi.waitFor(() => expect(queue.size()).toBe(2))
+
+    await flushQueue()
+    expect(queue.size()).toBe(2)
+    expect(useSync.getState().unreachable).toBe(true)
   })
 })

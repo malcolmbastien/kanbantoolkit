@@ -8,6 +8,9 @@ import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { quarantineUnreadable } from '@/lib/quarantine'
 import { chooseRepository } from '@/lib/repository'
+import { queue, newKey, type QueuedWrite } from '@/lib/queue'
+import type { CommitAnswer } from '@/lib/repository'
+import { useAuth } from '@/lib/auth'
 import { useSync } from '@/lib/sync'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
@@ -590,28 +593,105 @@ function enqueue(sent: Array<{ item: Item; baseRev: number }>): void {
  */
 async function sendChanges(sent: Array<{ item: Item; baseRev: number }>): Promise<void> {
   for (const { item, baseRev } of sent) {
-    const answer = await repository.commitItem(item, baseRev)
+    const key = newKey()
 
-    if (answer.kind === 'unreachable') {
-      useSync.getState().unreachableNow()
+    // While the connection is known to be down, a change is held rather than thrown at a socket
+    // that will not answer. The key is made now so the retry is the same change, not a new one.
+    if (useSync.getState().unreachable) {
+      hold({ key, item, baseRev, at: Date.now() })
       continue
     }
 
-    if (answer.kind === 'refused') {
-      useSync.getState().refuse({ id: item.id, title: item.title, at: Date.now() })
-    } else {
-      useSync.getState().resolve(item.id)
+    const answer = await repository.commitItem(item, baseRev, key)
+
+    if (answer.kind === 'unreachable') {
+      hold({ key, item, baseRev, at: Date.now() })
+      continue
     }
 
-    // The server's version wins, unless this tab has already moved past it — the one case where
-    // keeping the local one is not a second truth but a newer one.
-    const server = answer.item
-    if (server && (server.rev ?? 0) !== (item.rev ?? 0)) {
-      useStore.setState((state) => ({
-        items: state.items.map((local) =>
-          local.id === server.id && (local.rev ?? 0) <= (server.rev ?? 0) ? server : local,
-        ),
-      }))
+    settle(answer, item, item.rev ?? 0)
+  }
+}
+
+/** Put an accepted change where a connection can find it later. */
+function hold(entry: QueuedWrite): void {
+  if (!queue.add(entry)) useSync.getState().full()
+  useSync.getState().setWaiting(queue.size())
+  scheduleRetry()
+}
+
+/** Take the server's answer: it is the version that is kept, or the refusal that is named. */
+type Settled = Exclude<CommitAnswer, { kind: 'unreachable' }>
+
+function settle(answer: Settled, item: Item, sentRev: number): void {
+  if (answer.kind === 'refused') {
+    useSync.getState().refuse({ id: item.id, title: item.title, at: Date.now() })
+  } else if (answer.kind === 'kept') {
+    useSync.getState().resolve(item.id)
+  }
+
+  // The server's version wins unless this tab has already moved past what was sent — the one case
+  // where keeping the local one is not a second truth but a newer one.
+  const server = answer.item
+  if (server && (server.rev ?? 0) !== sentRev) {
+    useStore.setState((state) => ({
+      items: state.items.map((local) =>
+        local.id === server.id && (local.rev ?? 0) === sentRev ? server : local,
+      ),
+    }))
+  }
+}
+
+let flushing = false
+/** How long to wait before trying a held queue again. `online` fires at once when it can. */
+const RETRY_MS = 5_000
+let retry: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * A retry a few seconds from now.
+ *
+ * `online` is the timely signal, but it is a signal about a network interface, not about a server
+ * that went away and came back. Without this, a queue whose flush met a 502 would wait for a person
+ * to reload — which R4 says it must not.
+ */
+function scheduleRetry(): void {
+  if (retry !== undefined) return
+  retry = setTimeout(() => {
+    retry = undefined
+    void flushQueue()
+  }, RETRY_MS)
+}
+
+/**
+ * Send what was held, in the order it was made, once.
+ *
+ * Flushing stops at the first answer that does not arrive, so the order is never rearranged around
+ * a gap. An entry is removed only when the server has answered it — applied or refused — because a
+ * refusal is an answer and must not be retried.
+ */
+export async function flushQueue(): Promise<void> {
+  if (flushing) return
+  flushing = true
+  try {
+    for (const entry of queue.all()) {
+      const answer = await repository.commitItem(entry.item, entry.baseRev, entry.key)
+      if (answer.kind === 'unreachable') {
+        useSync.getState().unreachableNow()
+        scheduleRetry()
+        break
+      }
+
+      useSync.getState().reachable()
+      queue.remove(entry.key)
+      settle(answer, entry.item, entry.item.rev ?? 0)
+    }
+  } finally {
+    flushing = false
+    const left = queue.size()
+    useSync.getState().setWaiting(left)
+    if (left === 0 && retry !== undefined) {
+      clearTimeout(retry)
+      retry = undefined
     }
   }
 }
@@ -2556,4 +2636,20 @@ export const useStore = create<Store>()(
 currentAuthor = useStore.getState().meUserId
 useStore.subscribe((state) => {
   currentAuthor = state.meUserId
+})
+
+// What was held before this page loaded is still held, and the toolbar says so from the first draw.
+useSync.setState({ waiting: queue.size() })
+
+if (typeof window !== 'undefined') {
+  // A connection that comes back is the moment a queue can move; the person does not reload.
+  window.addEventListener('online', () => {
+    useSync.getState().reachable()
+    void flushQueue()
+  })
+}
+
+// Signing in is what makes a held change sendable at all.
+useAuth.subscribe((state) => {
+  if (state.user) void flushQueue()
 })

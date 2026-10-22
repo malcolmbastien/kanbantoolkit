@@ -107,17 +107,27 @@ function addItem(statements: Statement[], item: Item): void {
  * one. The children are cleared first because D1 does not cascade a foreign key by default, and a
  * history that outlived its item would be worse than a slow delete.
  */
-export async function writeItem(db: Database, item: Item): Promise<void> {
-  await db.batch([
+export async function writeItem(db: Database, item: Item, key?: string): Promise<void> {
+  const statements: Statement[] = [
     { sql: 'DELETE FROM item_checklist WHERE item_id = ?1', params: [item.id] },
     { sql: 'DELETE FROM item_log WHERE item_id = ?1', params: [item.id] },
     { sql: 'DELETE FROM items WHERE id = ?1', params: [item.id] },
-    ...(() => {
-      const statements: Statement[] = []
-      addItem(statements, item)
-      return statements
-    })(),
-  ])
+  ]
+  addItem(statements, item)
+
+  if (key) {
+    // The key is recorded in the same batch as the change it names: either both land or neither
+    // does, which is what makes a retry safe rather than merely likely to be safe.
+    statements.push({ sql: 'INSERT OR IGNORE INTO applied_writes (key, item_id, rev) VALUES (?1, ?2, ?3)', params: [key, item.id, item.rev ?? 0] })
+    statements.push({ sql: "DELETE FROM applied_writes WHERE at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day')" })
+  }
+
+  await db.batch(statements)
+}
+
+/** Whether this change has already been applied, so a retry can be answered instead of redone. */
+export async function alreadyApplied(db: Database, key: string): Promise<boolean> {
+  return Boolean(await db.get('SELECT 1 AS applied FROM applied_writes WHERE key = ?1', [key]))
 }
 
 export async function writeWorkspace(db: Database, workspace: Workspace): Promise<void> {

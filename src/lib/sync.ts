@@ -20,11 +20,17 @@ interface SyncStatus {
   refusals: Refusal[]
   /** The server could not be reached at all. */
   unreachable: boolean
+  /** Accepted changes still waiting for a connection. */
+  waiting: number
+  /** The queue is full, so the next change would not be held. */
+  overflow: boolean
   refuse(entry: Refusal): void
   /** A later write for this item landed, so the refusal no longer stands. */
   resolve(id: string): void
   unreachableNow(): void
   reachable(): void
+  setWaiting(count: number): void
+  full(): void
   clear(): void
 }
 
@@ -33,6 +39,8 @@ const LIMIT = 20
 export const useSync = create<SyncStatus>((set) => ({
   refusals: [],
   unreachable: false,
+  waiting: 0,
+  overflow: false,
 
   refuse: (entry) =>
     set((state) => ({
@@ -49,5 +57,7 @@ export const useSync = create<SyncStatus>((set) => ({
 
   unreachableNow: () => set({ unreachable: true }),
   reachable: () => set({ unreachable: false }),
-  clear: () => set({ refusals: [], unreachable: false }),
+  setWaiting: (count) => set({ waiting: count, ...(count > 0 ? {} : { overflow: false }) }),
+  full: () => set({ overflow: true }),
+  clear: () => set({ refusals: [], unreachable: false, waiting: 0, overflow: false }),
 }))

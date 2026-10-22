@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test'
 
+// These three share one instance and its database, and each edits a card; run them in order so a
+// rename in one is never a surprise in another.
+test.describe.configure({ mode: 'serial' })
+
 /**
  * The account control, against the self-hosted entry.
  *
@@ -53,4 +57,40 @@ test('an edit made while signed in reaches the server', async ({ page }) => {
       return body.items.some((item) => item.title === 'This reached the server')
     })
     .toBe(true)
+})
+
+test('an edit made offline waits, and lands when the connection comes back', async ({ page, context }) => {
+  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await page.getByRole('button', { name: 'Sign in as this address' }).click()
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+
+  // A card the server has not seen, so this test is about the queue rather than about a conflict
+  // with the edit the test above made. It is also opened while there is a line: the drawer is its
+  // own chunk (task 110), and a first open with no connection is a different failure.
+  await page.locator('[data-workflow="cards"] [data-card-id]').nth(1).click()
+  await expect(page.getByLabel('Title')).toBeVisible()
+
+  await context.setOffline(true)
+  await page.getByLabel('Title').fill('Written on a train')
+
+  // Held rather than lost, and the toolbar says how much is held. Found by its own explanation,
+  // because "1 waiting" is also a card's own badge for what it waits on.
+  const held = page.getByTitle(/could not be reached/)
+  await expect(held).toContainText('waiting')
+
+  await context.setOffline(false)
+
+  // The queue moves by itself: no reload, no retry button.
+  await expect
+    .poll(async () => {
+      const answer = await page.request.get(`${SELF_HOSTED}/api/workspace`)
+      const body = (await answer.json()) as { items: Array<{ title: string }> }
+      return body.items.some((item) => item.title === 'Written on a train')
+    }, { timeout: 20_000 })
+    .toBe(true)
+
+  await expect(page.getByTitle(/could not be reached/)).toHaveCount(0)
 })

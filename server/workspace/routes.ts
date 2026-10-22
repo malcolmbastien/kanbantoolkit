@@ -11,7 +11,7 @@ import type { Runtime } from '../runtime'
 import { guard } from './guard'
 import { readItem, readWorkspace } from './read'
 import { parseItem } from './validate'
-import { writeItem } from './write'
+import { alreadyApplied, writeItem } from './write'
 
 export function workspaceRoutes(runtime: Runtime) {
   const routes = new Hono<{ Bindings: object }>()
@@ -39,7 +39,7 @@ export function workspaceRoutes(runtime: Runtime) {
     if (allowed instanceof Response) return allowed
 
     const id = c.req.param('id')
-    const body = (await c.req.json().catch(() => null)) as { item?: unknown; baseRev?: unknown } | null
+    const body = (await c.req.json().catch(() => null)) as { item?: unknown; baseRev?: unknown; key?: unknown } | null
 
     const item = parseItem(body?.item)
     if (!item || item.id !== id) return c.json({ error: 'not an item this endpoint can write' }, 400)
@@ -49,6 +49,13 @@ export function workspaceRoutes(runtime: Runtime) {
       return c.json({ error: 'the revision it was based on is required' }, 400)
     }
 
+    // A retry after a lost response carries the key of the change it is retrying. Answering with
+    // what is stored — rather than applying it again — is what makes a queue safe to flush twice.
+    const key = typeof body?.key === 'string' && body.key ? body.key.slice(0, 100) : undefined
+    if (key && (await alreadyApplied(allowed.db, key))) {
+      return c.json({ item: (await readItem(allowed.db, id)) ?? null, applied: true })
+    }
+
     // A conflict is a disagreement about a version, so it only exists when there is one: an item the
     // server has never seen is a creation, whatever revision the browser believes it based it on.
     // That is what lets a workspace that lived only in a browser arrive one card at a time.
@@ -56,7 +63,7 @@ export function workspaceRoutes(runtime: Runtime) {
     if (current && (current.rev ?? 0) !== baseRev) return c.json({ error: 'moved past', item: current }, 409)
 
     const stored = { ...item, rev: baseRev + 1 }
-    await writeItem(allowed.db, stored)
+    await writeItem(allowed.db, stored, key)
     return c.json({ item: stored })
   })
 
