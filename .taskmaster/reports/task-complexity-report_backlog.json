@@ -1,284 +1,237 @@
 {
-  "meta": {
-    "generatedAt": "2026-10-19T23:59:32Z",
-    "tasksAnalyzed": 23,
-    "totalTasks": 23,
-    "analysisCount": 23,
-    "highPriorityTasks": 14,
-    "thresholdScore": 5,
-    "projectName": "Flowline",
-    "usedResearch": false,
-    "analyzer": "agent, by hand — `task-master analyze-complexity` blocked: upstream provider key expired",
-    "tag": "backlog"
-  },
-  "complexityAnalysis": [
-    {
-      "taskId": 104,
-      "taskTitle": "The app has one permanent origin, chosen before the first real user.",
-      "complexityScore": 2,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "A decision plus two documents and a host setting. The weight is that it is irreversible once users exist: the origin owns their storage.",
-      "dependencies": [],
-      "priority": "high"
-    },
-    {
-      "taskId": 105,
-      "taskTitle": "Every push is typechecked, linted, tested and built.",
-      "complexityScore": 2,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "One workflow file plus branch protection. No application code.",
-      "dependencies": [],
-      "priority": "high"
-    },
-    {
-      "taskId": 106,
-      "taskTitle": "The production build is served from a host, with a preview for every pull request.",
-      "complexityScore": 3,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "Host configuration: caching, headers and rollback. The content-security policy for a Vite SPA is the only fiddly part.",
-      "dependencies": [
-        "105"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 107,
-      "taskTitle": "A failure in the field is reported with a readable stack, and without personal data.",
-      "complexityScore": 3,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "SDK wiring, source maps and payload scrubbing; the no-personal-data rule is the part that needs care.",
-      "dependencies": [
-        "106"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 108,
-      "taskTitle": "The team can see which parts of the app are used, without tracking anyone.",
-      "complexityScore": 2,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "A script and a handful of named events, carrying no identifiers.",
-      "dependencies": [
-        "106"
-      ],
-      "priority": "medium"
-    },
-    {
-      "taskId": 109,
-      "taskTitle": "Every place has a title, and a shared link previews the board it points at.",
-      "complexityScore": 2,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "Title from the place, plus static metadata and one social image.",
-      "dependencies": [
-        "106"
-      ],
-      "priority": "low"
-    },
-    {
-      "taskId": 110,
-      "taskTitle": "The first paint carries only what the first view needs.",
-      "complexityScore": 3,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "Lazy imports, loading surfaces and a size check in CI.",
-      "dependencies": [
-        "105"
-      ],
-      "priority": "medium"
-    },
-    {
-      "taskId": 111,
-      "taskTitle": "A workspace survives a crash, a mistake, and a browser that clears its storage.",
-      "complexityScore": 6,
-      "recommendedSubtasks": 3,
-      "expansionPrompt": "Split into: (1) the snapshot store — serialise the persisted slice, write the ring, prune to 20, tolerate corrupt entries; (2) the schedule (trailing minute and pagehide) and isolation from the live workspace; (3) the restore surface in the workspace panel behind the existing confirmation; (4) tests: ring bounds, restore fidelity, a corrupt entry, a failed write.",
-      "complexityReasoning": "IndexedDB, a ring with pruning, a restore surface behind confirmation, tolerance for corrupt entries, and isolation from the live workspace.",
-      "dependencies": [],
-      "priority": "high"
-    },
-    {
-      "taskId": 112,
-      "taskTitle": "The app says when it cannot save, and asks the browser to keep the workspace.",
-      "complexityScore": 5,
-      "recommendedSubtasks": 2,
-      "expansionPrompt": "(1) the storage adapter that detects and reports a failed write; (2) the banner — appears while failing, clears when safe — and its export action; (3) persist()/estimate() and the workspace-panel read-out; (4) mock-driven tests for each state.",
-      "complexityReasoning": "Detecting a rejected write is subtler than it looks: `setItem` can fail at quota, so the adapter must verify. Then a banner state machine, persist()/estimate(), and mocks.",
-      "dependencies": [
-        "111"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 113,
-      "taskTitle": "Two tabs show one workspace, and neither silently overwrites the other.",
-      "complexityScore": 6,
-      "recommendedSubtasks": 2,
-      "expansionPrompt": "(1) the revision in the persisted slice and the guard before a write; (2) the BroadcastChannel/storage channel and reconciliation; (3) the stale-tab notice and reload; (4) two-tab tests.",
-      "complexityReasoning": "A revision guard on every write, two tabs kept coherent, and a stale tab that refuses rather than clobbers, without merging view state.",
-      "dependencies": [
-        "111"
-      ],
-      "priority": "medium"
-    },
-    {
-      "taskId": 114,
-      "taskTitle": "A schema change never replaces someone's workspace with the demo.",
-      "complexityScore": 6,
-      "recommendedSubtasks": 2,
-      "expansionPrompt": "(1) preserve to a backup key before any migration is attempted; (2) refuse-and-explain in the boot path; (3) the download offer; (4) tests for a known, an unknown and a corrupt version.",
-      "complexityReasoning": "Small code on the data-loss path: migration must preserve, refuse and offer rather than reseed. High consequence, not high volume.",
-      "dependencies": [
-        "111"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 115,
-      "taskTitle": "Every change to an item goes through one write path, and each item carries a revision.",
-      "complexityScore": 7,
-      "recommendedSubtasks": 3,
-      "expansionPrompt": "(1) the write helper and `rev` on Item, optional; (2) move every item mutator onto it, one action at a time, with the suite green after each; (3) the enumeration test that fails if a mutator bypasses the seam; (4) confirm placements do not bump `rev`.",
-      "complexityReasoning": "A mechanical refactor of about twenty mutators and twenty-one write sites that must change nothing, plus an enumeration test to keep the seam honest. Regression risk rather than conceptual difficulty.",
-      "dependencies": [],
-      "priority": "high"
-    },
-    {
-      "taskId": 116,
-      "taskTitle": "A change says who made it.",
-      "complexityScore": 3,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "A field on the log entry, stamped by the seam, and one row of display.",
-      "dependencies": [
-        "115"
-      ],
-      "priority": "medium"
-    },
-    {
-      "taskId": 117,
-      "taskTitle": "A person signs in with a code sent to their email, and nothing else is required.",
-      "complexityScore": 6,
-      "recommendedSubtasks": 3,
-      "expansionPrompt": "(1) provider and sending domain — SPF, DKIM, DMARC on a subdomain; (2) the code and link flow with a session; (3) invitations and first-sign-in acceptance; (4) rate limits and spent-code refusal; (5) the optional Google provider, off by default.",
-      "complexityReasoning": "The code is ordinary; the operational surface is not: email deliverability (SPF, DKIM, DMARC), rate limits, invitations, and a provider choice coupled to the database.",
-      "dependencies": [
-        "106"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 118,
-      "taskTitle": "The workspace lives on the server, and the browser holds a cache of it.",
-      "complexityScore": 10,
-      "recommendedSubtasks": 6,
-      "expansionPrompt": "(1) schema and reads for boards, lanes, items, placements, edges, links, users, types, tags, objectives and logs; (2) the repository adapter, with the local build still passing; (3) the write path — optimistic apply, revision, refusal; (4) the offline queue — order, once-only, reconnect; (5) live propagation between clients; (6) the first-sign-in import; (7) server schema migrations.",
-      "complexityReasoning": "The largest task in the backlog by an order of magnitude: a schema for nine entity kinds, an API, a repository adapter, optimistic writes with an offline queue, live propagation, the first-sign-in import and server-side migrations.",
-      "dependencies": [
-        "117",
-        "115"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 119,
-      "taskTitle": "A backup exists, and someone has restored from it.",
-      "complexityScore": 3,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "Configuration plus a runbook, but the drill is the requirement: a backup nobody has restored is a hope.",
-      "dependencies": [
-        "118"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 120,
-      "taskTitle": "One person holds a card's pen at a time.",
-      "complexityScore": 8,
-      "recommendedSubtasks": 4,
-      "expansionPrompt": "(1) the lock table and the conditional-upsert endpoints; (2) the presence channel and client lock state; (3) acquisition on edit intent, heartbeat, release and expiry; (4) the read-only drawer and the card mark; (5) the bulk rule and the arrangement exclusion; (6) two-client tests, including expiry and a second tab of the same person.",
-      "complexityReasoning": "Server-arbitrated leases, a presence channel, client lock state, the read-only drawer, the card mark, the bulk rule and two-client tests, with a UX that must never strand a card.",
-      "dependencies": [
-        "118",
-        "116"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 121,
-      "taskTitle": "A refused write keeps the words and says what happened.",
-      "complexityScore": 4,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "Two refusal states, a field that keeps its text, copy and reload, and no automatic retry.",
-      "dependencies": [
-        "120"
-      ],
-      "priority": "medium"
-    },
-    {
-      "taskId": 122,
-      "taskTitle": "A workspace has members, and a member's role decides what they may do.",
-      "complexityScore": 7,
-      "recommendedSubtasks": 3,
-      "expansionPrompt": "(1) the workspace entity and the scoping change for every table; (2) membership and the invitation acceptance path; (3) the role table and its enforcement at the API; (4) removal, the last-owner guard and tests.",
-      "complexityReasoning": "Workspaces scope every entity already in the schema, which is a schema-wide change, plus roles, invitations, removal and escalation guards.",
-      "dependencies": [
-        "118"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 123,
-      "taskTitle": "A board can be shared as a read-only link, and the link can be revoked.",
-      "complexityScore": 4,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "A signed token, a read-only render, an API guard and revocation.",
-      "dependencies": [
-        "122"
-      ],
-      "priority": "low"
-    },
-    {
-      "taskId": 124,
-      "taskTitle": "The flows that make the product work are tested end to end.",
-      "complexityScore": 6,
-      "recommendedSubtasks": 2,
-      "expansionPrompt": "(1) harness, seeded state and CI wiring; (2) drag and drop, WIP cancel/resume, drawer edits, board design, import and export; (3) the two-client lease flow once the server exists.",
-      "complexityReasoning": "Six flows, one of which needs the server to exist. The risk is flakiness rather than difficulty.",
-      "dependencies": [
-        "106"
-      ],
-      "priority": "high"
-    },
-    {
-      "taskId": 125,
-      "taskTitle": "The app is usable with a keyboard and a screen reader.",
-      "complexityScore": 5,
-      "recommendedSubtasks": 2,
-      "expansionPrompt": "(1) focus trap and Escape return in the drawer and dialogs; (2) live-region announcements for a drag, a refusal and a warning; (3) keyboard paths — move to lane, set parent, reorder; (4) axe in CI and reduced motion.",
-      "complexityReasoning": "Focus traps and announcements are contained; the hard part is a keyboard path for every drag action, which touches the board's whole interaction model.",
-      "dependencies": [],
-      "priority": "medium"
-    },
-    {
-      "taskId": 126,
-      "taskTitle": "The product says what it does with your data, and can delete it.",
-      "complexityScore": 4,
-      "recommendedSubtasks": 0,
-      "expansionPrompt": "",
-      "complexityReasoning": "Public pages, a verified deletion across every table, and support with a changelog.",
-      "dependencies": [
-        "122"
-      ],
-      "priority": "medium"
-    }
-  ]
+	"meta": {
+		"generatedAt": "2026-10-22T12:22:00.430Z",
+		"tasksAnalyzed": 28,
+		"totalTasks": 148,
+		"analysisCount": 28,
+		"thresholdScore": 5,
+		"projectName": "Flowline",
+		"usedResearch": false
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 118,
+			"taskTitle": "The workspace lives on the server, and the browser holds a cache of it.",
+			"complexityScore": 10,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "(1) server schema and read path; (2) local repository adapter; (3) optimistic write path with revision and refusal; (4) offline queue; (5) live multi-client propagation; (6) first-sign-in import; (7) server schema migrations.",
+			"reasoning": "Largest architectural task: server authority, one persistence boundary, optimistic/offline writes, live sync, import and migrations, with multi-device consistency risk."
+		},
+		{
+			"taskId": 119,
+			"taskTitle": "A backup exists, and someone has restored from it.",
+			"complexityScore": 3,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "Mostly provider configuration, retention, export and a restore drill; low technical novelty but operational discipline required."
+		},
+		{
+			"taskId": 120,
+			"taskTitle": "One person holds a card's pen at a time.",
+			"complexityScore": 8,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "(1) lock table and conditional endpoints; (2) presence channel and client lock state; (3) lease acquisition, heartbeat, release and expiry; (4) read-only drawer, card mark, bulk refusal and arrangement exclusion tests.",
+			"reasoning": "Distributed lease requires server arbitration, live presence, heartbeat/expiry, read-only UI states and race-prone two-client behavior."
+		},
+		{
+			"taskId": 121,
+			"taskTitle": "A refused write keeps the words and says what happened.",
+			"complexityScore": 4,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "Contained UX error handling for two refusal states; must preserve local text, explain refusal, and prevent retry loops."
+		},
+		{
+			"taskId": 122,
+			"taskTitle": "A workspace has members, and a member's role decides what they may do.",
+			"complexityScore": 7,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "(1) workspace entity and scoping every persisted entity; (2) membership and invitation acceptance; (3) role table, API enforcement, removal and last-owner guard.",
+			"reasoning": "Schema-wide workspace scoping plus roles, invitations, removal and escalation guards; changes are cross-cutting."
+		},
+		{
+			"taskId": 123,
+			"taskTitle": "A board can be shared as a read-only link, and the link can be revoked.",
+			"complexityScore": 4,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "Bound token, read-only board rendering, API write guard, revocation and optional expiry; clear and contained."
+		},
+		{
+			"taskId": 125,
+			"taskTitle": "The app is usable with a keyboard and a screen reader.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) focus trap, Escape return, live announcements and reduced motion; (2) keyboard alternatives for drag actions, accessible names and axe CI.",
+			"reasoning": "Accessibility pass spans modal focus, announcements, and keyboard parity for drag interactions across the board."
+		},
+		{
+			"taskId": 126,
+			"taskTitle": "The product says what it does with your data, and can delete it.",
+			"complexityScore": 4,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "Public policy pages, export, verified deletion and support/changelog; process-driven with straightforward data removal."
+		},
+		{
+			"taskId": 128,
+			"taskTitle": "The project runs on a machine its owner controls.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "(1) Dockerfile and Node entry; (2) compose file and volumes; (3) first-run migrations and owner bootstrap; (4) health endpoint and self-hoster documentation.",
+			"reasoning": "Packaging work more than product invention; dependable first run, persistence on volumes and honest docs drive the complexity."
+		},
+		{
+			"taskId": 131,
+			"taskTitle": "One permission model decides who may do what.",
+			"complexityScore": 4,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "Pure, isolated domain module with a single role/action matrix and exhaustive tests; no integration surfaces."
+		},
+		{
+			"taskId": 132,
+			"taskTitle": "The schema separates instance access from workspace authority.",
+			"complexityScore": 7,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "(1) migration 0003 and data mapping from existing members; (2) account, session, invitation and audit tables; (3) first-run administrator bootstrap and dual-runtime migration tests.",
+			"reasoning": "High-risk data migration that splits an overloaded table, reissues invitations as hashed tokens, preserves existing authority, and must run unchanged on D1 and file SQLite."
+		},
+		{
+			"taskId": 133,
+			"taskTitle": "Every API write checks the role, and reads it live.",
+			"complexityScore": 6,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "(1) live instance/workspace role resolution and middleware guards; (2) status semantics and session payload hardening; (3) role-change, removal and forged-authority tests.",
+			"reasoning": "Cross-cutting API authorization with live role reads, no client trust, correct status codes, and immediate role-change effect."
+		},
+		{
+			"taskId": 134,
+			"taskTitle": "A new instance is closed by default, and the first person is its administrator.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) instance access setting and identify() refusal rules; (2) admin setting surface, dev-switch warning and no-leak tests.",
+			"reasoning": "Identity admission policy with first-user bootstrap, invitation precedence and enumeration-resistant refusals."
+		},
+		{
+			"taskId": 135,
+			"taskTitle": "Active and inactive mean one thing everywhere.",
+			"complexityScore": 6,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) deactivate/reactivate transaction, session revocation and last-admin self-protection guards; (2) directory/picker treatment, invitation behavior and audit tests.",
+			"reasoning": "Status semantics must be consistent across sign-in, sessions, pickers, assignments and admin guards, with preservation of history."
+		},
+		{
+			"taskId": 136,
+			"taskTitle": "An invitation is a single-use link, not an email row.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) token hashing, create/list/resend/revoke endpoints; (2) public inspection, accept-after-sign-in and enumeration/replay tests.",
+			"reasoning": "Security-sensitive single-use invitations with hashed tokens, expiry, revocation and anti-enumeration behavior."
+		},
+		{
+			"taskId": 137,
+			"taskTitle": "A profile the person owns.",
+			"complexityScore": 3,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "Profile CRUD with read-only email, identity unlinking, avatar limits and soft-failing UI; standard validation work."
+		},
+		{
+			"taskId": 138,
+			"taskTitle": "Sessions are visible, revocable, and expire honestly.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) session metadata, lifetime and throttled last-seen updates; (2) user/admin revocation and cookie hardening tests.",
+			"reasoning": "Session lifecycle security with per-session expiry, cookie flags, multi-session revocation and admin override."
+		},
+		{
+			"taskId": 139,
+			"taskTitle": "Every change to access is in the audit log.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) single record() helper, event vocabulary and payload rules; (2) transactional wiring across access mutations and retention tests.",
+			"reasoning": "Append-only audit across many mutations; key complexity is transactional consistency, safe payloads and retention."
+		},
+		{
+			"taskId": 140,
+			"taskTitle": "The People screen.",
+			"complexityScore": 6,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "(1) admin list with search, filters, sort and server-side pagination; (2) person drawer actions, guardrails and feedback; (3) empty/error states, accessibility and Playwright coverage.",
+			"reasoning": "Admin screen with many actions, self/last-admin guardrails, accessible drawer/table, and server-backed pagination."
+		},
+		{
+			"taskId": 141,
+			"taskTitle": "The Invitations screen.",
+			"complexityScore": 4,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) invitation list and create/copy-once dialog; (2) resend/revoke and accept-through-sign-in test.",
+			"reasoning": "Focused admin UI over existing invitation API; complexity is copy-once secrecy and state coverage."
+		},
+		{
+			"taskId": 142,
+			"taskTitle": "Workspace members and their roles.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) workspace member list, role change, removal and last-admin guard; (2) workspace invitation flow and shared role/guard components with People screen.",
+			"reasoning": "Workspace admin surface that reuses role/guard patterns; key concerns are workspace-level scope, invitation distinction and last-admin rule."
+		},
+		{
+			"taskId": 143,
+			"taskTitle": "Admin -> Audit and Health.",
+			"complexityScore": 4,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) audit list, filters and sentence rendering with authority scoping; (2) health/error inbox, posture banners and count consistency tests.",
+			"reasoning": "Read-only admin screens over existing tables; mostly filtering, pagination, scoped visibility and honest status display."
+		},
+		{
+			"taskId": 144,
+			"taskTitle": "Delete and erase are different promises.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) delete/erase mechanics and history preservation; (2) confirmations, audit safety and re-invitation tests.",
+			"reasoning": "Two erasure semantics that must preserve history and referential anchors while respecting self/last-admin guards and audit privacy."
+		},
+		{
+			"taskId": 145,
+			"taskTitle": "The conveniences: allowed domains, bulk actions and CSV.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) allowed-domain access rule and Admin UI; (2) all-or-nothing bulk actions and RFC 4180 CSV export with server-side scale.",
+			"reasoning": "Access policy convenience plus bulk operations with all-or-nothing judgement and safe CSV export."
+		},
+		{
+			"taskId": 146,
+			"taskTitle": "Groups: a role granted once to many.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) groups, membership and workspace role assignment model; (2) effective role union, last-admin interaction and audit tests.",
+			"reasoning": "Group-based role union changes permission evaluation and last-admin behavior; deferred but nontrivial."
+		},
+		{
+			"taskId": 147,
+			"taskTitle": "A custom role label that grants nothing.",
+			"complexityScore": 2,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "Cosmetic label only; main challenge is enforcing no permission path and deleting labels without impacting roles."
+		},
+		{
+			"taskId": 148,
+			"taskTitle": "API tokens with scopes.",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "(1) token minting, hashing, scope and expiry logic; (2) revocation, admin visibility and scope/role enforcement tests.",
+			"reasoning": "Token lifecycle security with scopes, owner-role caps, secret handling and admin audit."
+		},
+		{
+			"taskId": 149,
+			"taskTitle": "A second factor, if a deployment ever needs one.",
+			"complexityScore": 3,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "",
+			"reasoning": "Deferred WebAuthn second-factor policy; current work is trigger/recording and a safe rollout shape, not implementation."
+		}
+	]
 }
