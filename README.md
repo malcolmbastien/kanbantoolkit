@@ -155,6 +155,31 @@ skips and the build stays green. A pull request uploads a preview version instea
 deploy is visible immediately. Adding a view that calls a host, or a measurement script, means
 adding its origin to the policy in the same change.
 
+## Signing in
+
+The board needs no server and no account: `dist/` on any host is the whole app. Accounts are
+**configuration**, and every provider is optional, so an instance with none configured is a valid
+instance with no sign-in at all.
+
+| Variable | What it is |
+| --- | --- |
+| `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET` | Google |
+| `AUTH_MICROSOFT_CLIENT_ID`, `AUTH_MICROSOFT_CLIENT_SECRET` | Microsoft |
+| `AUTH_MICROSOFT_TENANT` | the tenant id, or `common` (the default) |
+| `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | an identity provider of your own |
+| `AUTH_OIDC_AUTHORIZE_ENDPOINT`, `AUTH_OIDC_TOKEN_ENDPOINT`, `AUTH_OIDC_USERINFO_ENDPOINT` | where it lives |
+| `AUTH_OIDC_LABEL` | what the button calls it |
+| `PUBLIC_URL` | the address the redirect URI is built from, when it differs from the request's |
+| `AUTH_DEV=1` | a development identity switch: an address, no provider, no password |
+
+A provider is offered when both its client id and secret are present; nothing else is needed, and no
+code changes to add one. The first person to arrive owns the instance; everyone after them is a
+member, or arrives with the role an invitation gave their address. The same **verified** address
+through two providers is one account, not two.
+
+The switch is off unless it is asked for by name, because an instance that is merely running locally
+is not an instance anyone should be able to walk into.
+
 ## What to try
 
 Things to try:

@@ -1,5 +1,6 @@
 import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Target, TrendingUp, UserRound, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
+import { AccountMenu } from './AccountMenu'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
 import { isAggregating } from '@/domain/board'
@@ -253,6 +254,9 @@ export function TopBar(props: Props) {
         >
           <RotateCcw size={13} /> Reset
         </button>
+
+        {/* Who you are, when the instance offers a way to be someone. */}
+        <AccountMenu />
       </div>
     </header>
   )

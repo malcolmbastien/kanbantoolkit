@@ -18,8 +18,6 @@ import { openSqlite } from './sqlite'
 const port = Number(process.env.PORT ?? 8787)
 const databasePath = process.env.DB_PATH ?? 'flowline.db'
 const staticDir = process.env.STATIC_DIR ?? './dist'
-const salt = process.env.ERROR_SALT ?? 'flowline'
-
 const db = openSqlite(databasePath)
 
 const app = createApp({
@@ -27,7 +25,6 @@ const app = createApp({
   // The runtime's own header. A self-hoster behind a proxy gets the forwarded address; anyone
   // else gets `unknown` rather than a guess.
   clientIp: (request) => request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
-  salt: () => salt,
 })
 
 // The client, served the way the asset router serves it: files first, and the app for every other
@@ -36,7 +33,7 @@ const app = createApp({
 app.use('*', serveStatic({ root: staticDir }))
 app.get('*', serveStatic({ path: `${staticDir}/index.html` }))
 
-serve({ fetch: app.fetch, port }, (info) => {
+serve({ fetch: (request) => app.fetch(request, process.env), port }, (info) => {
   // The port is printed because a smoke test and a container both need to know it, and `PORT=0`
   // is how a test avoids colliding with whatever else is on the machine.
   console.log(`flowline listening on http://127.0.0.1:${info.port}`)

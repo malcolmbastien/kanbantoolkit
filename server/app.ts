@@ -2,26 +2,21 @@
  * The whole API, as one `fetch` handler.
  *
  * Nothing here knows which machine it is running on. A Worker exports this app; a Node process
- * serves it. The three things that are genuinely per-runtime arrive through `Runtime`, so they are
+ * serves it. The two things that are genuinely per-runtime arrive through `Runtime`, so they are
  * named in one place rather than scattered as conditionals:
  *
  * - the database, which is a binding on Cloudflare and a file on a self-hosted instance;
- * - the client's address, which is a header either way but not the same one;
- * - the salt mixed into the stored hash, which is configuration everywhere.
+ * - the client's address, which is a header either way but not the same one.
+ *
+ * The rest is configuration, read from `env` by `config.ts` — which is a binding object on
+ * Cloudflare and `process.env` on a machine.
  */
 
 import { Hono } from 'hono'
-import type { Database } from './db'
+import { authRoutes } from './auth/routes'
+import { salt } from './config'
+import type { Runtime } from './runtime'
 import { parseReport } from './report'
-
-export interface Runtime {
-  /** The database for this request, or undefined when the deployment has none configured. */
-  database(env: unknown): Database | undefined
-  /** The address that made the request, as the runtime sees it. */
-  clientIp(request: Request): string
-  /** Mixed into the stored hash, so the table holds a hash rather than a person's address. */
-  salt(env: unknown): string
-}
 
 /** A report is a few kilobytes at most; anything larger is not one of ours. */
 const MAX_BODY = 8 * 1024
@@ -72,7 +67,7 @@ export function createApp(runtime: Runtime) {
     if (!report) return c.json({ error: 'invalid report' }, 400)
 
     // The address is hashed with a salt: enough to slow a flood, not enough to identify anyone.
-    const ipHash = await hash(`${runtime.clientIp(c.req.raw)}:${runtime.salt(c.env)}`)
+    const ipHash = await hash(`${runtime.clientIp(c.req.raw)}:${salt(c.env)}`)
     const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
 
     try {
@@ -94,6 +89,9 @@ export function createApp(runtime: Runtime) {
 
     return c.body(null, 204)
   })
+
+  // Accounts, on the same handler: two entries, one set of routes, whichever machine answers.
+  app.route('/api/auth', authRoutes(runtime))
 
   // The endpoint answers POST; anything else is a method it does not have, not a path it does not
   // know — and saying so is what the endpoint did before it moved here.

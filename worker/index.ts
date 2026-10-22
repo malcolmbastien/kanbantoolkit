@@ -25,7 +25,6 @@ const app = createApp({
     return bound ? d1(bound) : undefined
   },
   clientIp: (request) => request.headers.get('cf-connecting-ip') ?? 'unknown',
-  salt: (env) => (env as Env).ERROR_SALT ?? 'flowline',
 })
 
 export default {

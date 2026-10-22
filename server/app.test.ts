@@ -29,7 +29,6 @@ function app(db: Database = database()) {
   return createApp({
     database: () => db,
     clientIp: () => '203.0.113.7',
-    salt: () => 'test',
   })
 }
 
@@ -38,7 +37,6 @@ function unconfigured() {
   return createApp({
     database: () => undefined,
     clientIp: () => '203.0.113.7',
-    salt: () => 'test',
   })
 }
 
