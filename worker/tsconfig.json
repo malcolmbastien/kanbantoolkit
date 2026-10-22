@@ -20,6 +20,13 @@
     "tsBuildInfoFile": "../node_modules/.tmp/worker.tsbuildinfo"
   },
   "include": [
-    "."
+    ".",
+    "../server/**/*.ts"
+  ],
+  /* The Node entry and its driver, and the tests that use them, are the other project. */
+  "exclude": [
+    "../server/index.node.ts",
+    "../server/sqlite.ts",
+    "../server/**/*.test.ts"
   ]
 }

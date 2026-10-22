@@ -46,12 +46,21 @@ jobs:
       - name: Dependency scan
         run: npm run scan
 
+      # The other half of the boundary: no Cloudflare binding may appear in the application.
+      - name: The portable core is portable
+        run: npm run portable
+
       - name: Build
         run: npm run build
 
       # The first download, measured from the build's own manifest. A failure prints the size.
       - name: First download size
         run: npm run size
+
+      # The server exists twice — a Worker and a Node process — and two runtimes drift apart
+      # silently. This boots the Node entry against a real database and uses the API.
+      - name: The Node entry answers
+        run: npm run smoke:node
 
   # The flows unit tests cannot see: the drag, the drawer, board design and the workspace file,
   # through the built app. It waits on the checks so a broken unit run does not spend two minutes
