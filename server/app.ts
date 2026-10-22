@@ -14,6 +14,7 @@
 
 import { Hono } from 'hono'
 import { authRoutes } from './auth/routes'
+import { workspaceRoutes } from './workspace/routes'
 import { salt } from './config'
 import type { Runtime } from './runtime'
 import { parseReport } from './report'
@@ -92,6 +93,7 @@ export function createApp(runtime: Runtime) {
 
   // Accounts, on the same handler: two entries, one set of routes, whichever machine answers.
   app.route('/api/auth', authRoutes(runtime))
+  app.route('/api/workspace', workspaceRoutes(runtime))
 
   // The endpoint answers POST; anything else is a method it does not have, not a path it does not
   // know — and saying so is what the endpoint did before it moved here.

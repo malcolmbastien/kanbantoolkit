@@ -1,0 +1,251 @@
+/**
+ * The workspace schema and the read.
+ *
+ * The strong test is a round trip: a workspace goes in through the writer and comes back through
+ * the endpoint, and the two are the same object. That is what "shaped exactly as `persistedSlice`"
+ * means in practice — not that the columns look plausible, but that nothing is lost or renamed on
+ * the way through.
+ */
+
+import { readFileSync, readdirSync } from 'node:fs'
+import { DatabaseSync } from 'node:sqlite'
+import { describe, expect, it } from 'vitest'
+import { createApp } from './app'
+import { issueSession } from './auth/session'
+import type { Database } from './db'
+import { fromSqlite } from './sqlite'
+import { readWorkspace } from './workspace/read'
+import type { Workspace } from './workspace/types'
+import { writeWorkspace } from './workspace/write'
+
+const MIGRATIONS = new URL('../migrations/', import.meta.url)
+
+function database(): Database {
+  const db = new DatabaseSync(':memory:')
+  for (const file of readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort()) {
+    db.exec(readFileSync(new URL(file, MIGRATIONS), 'utf8'))
+  }
+  return fromSqlite(db)
+}
+
+async function signedIn(db: Database, id = 'u-ada', member = true): Promise<{ cookie: string }> {
+  await db.run('INSERT OR IGNORE INTO users (id, name, email) VALUES (?1, ?2, ?3)', [id, 'Ada', `${id}@example.com`])
+  if (member) await db.run('INSERT OR IGNORE INTO members (user_id, role) VALUES (?1, ?2)', [id, 'owner'])
+  const session = await issueSession(db, id)
+  return { cookie: `fl_session=${session.token}` }
+}
+
+function instance(db: Database) {
+  const app = createApp({ database: () => db, clientIp: () => '203.0.113.7' })
+  return (path: string, init?: RequestInit) => app.request(path, init, {})
+}
+
+/** A workspace that uses every table, most optional fields, and a tree three lanes deep. */
+const workspace: Workspace = {
+  users: [
+    { id: 'u-ada', name: 'Ada' },
+    { id: 'u-grace', name: 'Grace', avatarUrl: 'data:image/png;base64,AAAA' },
+  ],
+  issueTypes: [{ id: 't-card', name: 'Card', color: '#3b82f6' }],
+  boards: [
+    {
+      id: 'b-atlas',
+      name: 'Team Atlas',
+      band: 'team',
+      description: 'What we are doing, and why.',
+      initiativeTypes: [{ id: 'k-bet', name: 'Bet', color: '#7c3aed' }],
+      tags: [{ id: 'g-ux', name: 'UX', color: '#0ea5e9' }],
+      linkedBoardIds: [],
+      archived: false,
+      defaultCardTypeId: 't-card',
+      defaultDropLaneId: 'l-now',
+      wipEnforcement: 'justify',
+    },
+    {
+      id: 'b-port',
+      name: 'Portfolio',
+      band: 'portfolio',
+      description: '',
+      archived: true,
+      archivedAt: 1_700_000_000_000,
+    },
+  ],
+  lanes: [
+    { id: 'l-start', boardId: 'b-atlas', parentId: null, order: 0, name: 'Not Started', workflow: 'cards', stage: 'notStarted' },
+    {
+      id: 'l-ready',
+      boardId: 'b-atlas',
+      parentId: 'l-start',
+      order: 0,
+      name: 'Ready',
+      workflow: 'cards',
+      orientation: 'columns',
+      wipLimit: 2,
+      description: 'Only work that is actually ready.',
+    },
+    { id: 'l-ready-named', boardId: 'b-atlas', parentId: 'l-ready', order: 0, name: 'Named', workflow: 'cards' },
+    { id: 'l-now', boardId: 'b-atlas', parentId: null, order: 0, name: 'Now', workflow: 'initiatives', stage: 'inProgress' },
+    { id: 'l-done', boardId: 'b-port', parentId: null, order: 0, name: 'Done', workflow: 'initiatives', stage: 'done' },
+  ],
+  items: [
+    {
+      id: 'i-signin',
+      title: 'Sign in with a provider',
+      description: 'Google or Microsoft, and no passwords.',
+      typeId: 't-card',
+      size: 3,
+      initiativeTypeId: 'k-bet',
+      tagIds: ['g-ux'],
+      assignees: ['u-ada'],
+      priority: 'high',
+      targetStartDate: '2026-10-01',
+      targetEndDate: '2026-10-31',
+      createdAt: 1_700_000_000_000,
+      rev: 4,
+      lastMoveReason: 'pulled forward',
+      blocked: true,
+      blockedReason: 'waiting on legal',
+      archived: false,
+      archivedAt: 1_700_000_001_000,
+      checklist: [
+        { id: 'c-1', text: 'draft', done: true },
+        { id: 'c-2', text: 'review', done: false },
+      ],
+      log: [
+        { id: 'e-1', at: 1_700_000_000_000, kind: 'created', by: 'u-ada' },
+        {
+          id: 'e-2',
+          at: 1_700_000_001_000,
+          kind: 'moved',
+          by: 'u-ada',
+          note: 'Ready → Now',
+          fromLaneId: 'l-ready-named',
+          toLaneId: 'l-now',
+          fromStage: 'notStarted',
+          toStage: 'inProgress',
+          boardId: 'b-atlas',
+        },
+      ],
+    },
+    { id: 'i-outcome', title: 'A portfolio outcome', typeId: 't-init', createdAt: 1_700_000_002_000 },
+  ],
+  placements: [
+    { id: 'pl-1', boardId: 'b-atlas', itemId: 'i-signin', laneId: 'l-ready-named', laneEnteredAt: 1_700_000_001_000, rank: 2 },
+    { id: 'pl-2', boardId: 'b-atlas', itemId: 'i-outcome', laneId: 'l-now' },
+  ],
+  edges: [
+    { id: 'ed-1', kind: 'decomposition', from: 'i-outcome', to: 'i-signin' },
+    { id: 'ed-2', kind: 'attribution', from: 'o-1', to: 'i-outcome' },
+  ],
+  links: [{ id: 'lk-1', from: 'i-outcome', to: 'i-signin', reason: 'needs it first' }],
+  objectives: [
+    { id: 'o-1', title: 'Ship the server', period: '2026-Q4', status: 'active' },
+    { id: 'o-2', title: 'Grow', period: '2026-Q3', status: 'scored', score: 0.7 },
+  ],
+  keyResults: [{ id: 'kr-1', objectiveId: 'o-1', title: 'Two devices, one board' }],
+  boardTemplates: [
+    {
+      id: 'bt-1',
+      name: 'Standard team',
+      band: 'team',
+      defaultCardTypeId: 't-card',
+      wipEnforcement: 'visualize',
+      lanes: [
+        { key: 'a', parentKey: null, order: 0, name: 'Backlog' },
+        { key: 'b', parentKey: 'a', order: 0, name: 'Ready', orientation: 'rows', stage: 'notStarted', wipLimit: 3, description: 'Groomed.' },
+      ],
+    },
+  ],
+  autoArchiveDays: 30,
+  savedFilters: [
+    {
+      id: 'f-1',
+      name: 'Blocked and mine',
+      boardId: 'b-atlas',
+      filters: {
+        text: 'acme',
+        typeIds: ['t-card'],
+        blocked: true,
+        overdue: false,
+        dueSoon: false,
+        unassigned: false,
+        assigneeIds: ['u-ada'],
+        priorities: ['high'],
+        tagIds: ['g-ux'],
+        minAgeDays: 5,
+        initiativeId: 'i-outcome',
+      },
+    },
+  ],
+  collapsedLanes: { 'l-now': true },
+  boardId: 'b-atlas',
+}
+
+describe('the workspace', () => {
+  it('comes back exactly as it went in', async () => {
+    const db = database()
+    await writeWorkspace(db, workspace)
+
+    // Lanes are compared as a set: a lane carries its own `order`, and the order of the array it
+    // happens to sit in is not part of the contract. Everything else keeps the order it was written
+    // in, because for boards and for lists that order *is* the data.
+    const read = await readWorkspace(db)
+    const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id)
+    expect({ ...read, lanes: [...read.lanes].sort(byId) }).toEqual({
+      ...workspace,
+      lanes: [...workspace.lanes].sort(byId),
+    })
+  })
+
+  it('is empty rather than broken when nothing has been written', async () => {
+    const db = database()
+    expect(await readWorkspace(db)).toEqual({
+      boardId: '',
+      savedFilters: [],
+      collapsedLanes: {},
+      users: [],
+      issueTypes: [],
+      items: [],
+      edges: [],
+      links: [],
+      objectives: [],
+      keyResults: [],
+      boardTemplates: [],
+      boards: [],
+      lanes: [],
+      placements: [],
+    })
+  })
+
+  it('is handed back whole, in one request, to the person signed in', async () => {
+    const db = database()
+    await writeWorkspace(db, workspace)
+    const request = instance(db)
+    const { cookie } = await signedIn(db)
+
+    const response = await request('/api/workspace', { headers: { cookie } })
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as Workspace & { meUserId: string }
+
+    // The session answers "whose workspace", so the browser keeps no pointer of its own.
+    const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id)
+    expect({ ...body, lanes: [...body.lanes].sort(byId) }).toEqual({
+      ...workspace,
+      meUserId: 'u-ada',
+      lanes: [...workspace.lanes].sort(byId),
+    })
+  })
+
+  it('answers nobody who is not signed in', async () => {
+    const db = database()
+    const request = instance(db)
+    expect((await request('/api/workspace')).status).toBe(401)
+  })
+
+  it('answers nobody who is signed in without a membership', async () => {
+    const db = database()
+    const request = instance(db)
+    const { cookie } = await signedIn(db, 'u-stranger', false)
+    expect((await request('/api/workspace', { headers: { cookie } })).status).toBe(403)
+  })
+})
