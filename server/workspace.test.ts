@@ -355,3 +355,62 @@ describe('writing one item', () => {
     expect((await patch('i-card', { baseRev: 0, item: card() }, false)).status).toBe(401)
   })
 })
+
+describe('the change feed', () => {
+  const card = (over: Partial<Item> = {}): Item => ({
+    id: 'i-card',
+    title: 'A card',
+    typeId: 't-card',
+    createdAt: 1_700_000_000_000,
+    ...over,
+  })
+
+  async function feed() {
+    const db = database()
+    const { cookie } = await signedIn(db)
+    const request = instance(db)
+    return {
+      request,
+      cookie,
+      write: (id: string, baseRev: number, item: Item) =>
+        request(`/api/workspace/items/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie },
+          body: JSON.stringify({ baseRev, item: { ...item, id } }),
+        }),
+    }
+  }
+
+  it('answers what changed after a cursor, with the cards themselves', async () => {
+    const { request, cookie, write } = await feed()
+    await write('i-card', 0, card({ title: 'First' }))
+    await write('i-card', 1, card({ title: 'Second', rev: 1 }))
+    await write('i-other', 0, card({ title: 'Another' }))
+
+    const answer = await request('/api/workspace/changes?since=0', { headers: { cookie } })
+    const body = (await answer.json()) as { changes: Array<{ id: number; item: Item }>; cursor: number }
+    // The card written twice is one change, at the revision it is now; the second card is its own.
+    expect(body.changes.map((change) => change.item.title)).toEqual(['Second', 'Another'])
+    expect(body.cursor).toBe(3)
+
+    const later = await request(`/api/workspace/changes?since=${body.cursor}`, { headers: { cookie } })
+    expect(((await later.json()) as { changes: unknown[] }).changes).toEqual([])
+  })
+
+  it('pages rather than answering everything at once', async () => {
+    const { request, cookie, write } = await feed()
+    for (let index = 0; index < 60; index++) {
+      await write(`i-${index}`, 0, card({ title: `Card ${index}` }))
+    }
+
+    const first = await request('/api/workspace/changes?since=0', { headers: { cookie } })
+    const body = (await first.json()) as { changes: unknown[]; cursor: number }
+    expect(body.changes).toHaveLength(50)
+    expect(body.cursor).toBe(50)
+  })
+
+  it('is behind the session', async () => {
+    const { request } = await feed()
+    expect((await request('/api/workspace/changes')).status).toBe(401)
+  })
+})

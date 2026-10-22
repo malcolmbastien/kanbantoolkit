@@ -94,3 +94,35 @@ test('an edit made offline waits, and lands when the connection comes back', asy
 
   await expect(page.getByTitle(/could not be reached/)).toHaveCount(0)
 })
+
+test('a change made on one device arrives on another without a reload', async ({ browser }) => {
+  const one = await browser.newContext()
+  const two = await browser.newContext()
+
+  try {
+    const away = await one.newPage()
+    const here = await two.newPage()
+
+    for (const page of [away, here]) {
+      await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+      await page.getByRole('button', { name: 'Sign in' }).click()
+      await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+      await page.getByRole('button', { name: 'Sign in as this address' }).click()
+      await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+    }
+
+    // The same card in both — the demo seeds the same ids on both origins.
+    const elsewhere = away.locator('[data-workflow="cards"] [data-card-id]').nth(3)
+    const id = await elsewhere.getAttribute('data-card-id')
+    const watch = here.locator(`[data-card-id="${id}"]`)
+
+    await elsewhere.click()
+    await away.getByLabel('Title').fill('Arrived live')
+
+    // No reload: the second page is never navigated, and the card changes under it.
+    await expect(watch).toContainText('Arrived live', { timeout: 15_000 })
+  } finally {
+    await one.close()
+    await two.close()
+  }
+})

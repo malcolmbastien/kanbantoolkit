@@ -9,6 +9,7 @@ import { SEED_TODAY } from './domain/seed'
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
 import { flushQueue, isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
+import { poll, stopLive } from './lib/live'
 import { queue } from './lib/queue'
 import { useAuth } from './lib/auth'
 import { useSync } from './lib/sync'
@@ -2752,6 +2753,7 @@ describe('a change on its way to the server', () => {
   })
 
   afterEach(() => {
+    stopLive()
     vi.stubGlobal('fetch', realFetch)
     useAuth.setState({ providers: [], user: null, dev: false, loaded: false })
     useSync.getState().clear()
@@ -2775,8 +2777,11 @@ describe('a change on its way to the server', () => {
     // Optimistic: the edit is in the store before anything answers.
     expect(s().items.find((item) => item.id === before.id)?.title).toBe('Sent')
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    // The live feed polls too, so only the writes are counted here.
+    const writes = () =>
+      (fetchMock.mock.calls as unknown as Array<[string, RequestInit]>).filter(([url]) => url.includes('/items/'))
+    await vi.waitFor(() => expect(writes()).toHaveLength(1))
+    const [url, init] = writes()[0]
     expect(url).toBe(`/api/workspace/items/${before.id}`)
     expect(JSON.parse(init.body as string)).toMatchObject({ baseRev: before.rev ?? 0 })
   })
@@ -2825,6 +2830,7 @@ describe('a change that cannot be sent yet', () => {
   })
 
   afterEach(() => {
+    stopLive()
     vi.stubGlobal('localStorage', original)
     vi.stubGlobal('fetch', realFetch)
     useAuth.setState({ providers: [], user: null, dev: false, loaded: false })
@@ -2904,5 +2910,55 @@ describe('a change that cannot be sent yet', () => {
     await flushQueue()
     expect(queue.size()).toBe(2)
     expect(useSync.getState().unreachable).toBe(true)
+  })
+})
+
+describe('a change made elsewhere', () => {
+  const realFetch = globalThis.fetch
+
+  beforeEach(() => {
+    resetToFixture()
+  })
+
+  afterEach(() => {
+    stopLive()
+    vi.stubGlobal('fetch', realFetch)
+    useAuth.setState({ providers: [], user: null, dev: false, loaded: false })
+  })
+
+  const signedIn = () => {
+    const user = { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'owner' }
+    useAuth.setState({ providers: [], user, dev: false, loaded: true })
+    return user
+  }
+
+  const serve = (item: Item) =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ changes: [{ id: 1, rev: item.rev, item }], cursor: 1 }), { status: 200 })),
+    )
+
+  it('is adopted when it is newer than what this tab has', async () => {
+    const before = s().items[0]
+    const elsewhere = { ...before, rev: (before.rev ?? 0) + 4, title: 'Changed on another device' }
+    serve(elsewhere)
+    signedIn()
+
+    await poll()
+    expect(s().items.find((item) => item.id === before.id)?.title).toBe('Changed on another device')
+  })
+
+  it('is ignored when it is the revision this tab already has — an echo is not news', async () => {
+    const before = s().items[0]
+    const same = { ...before, rev: 2 }
+    useStore.setState({ items: s().items.map((item) => (item.id === before.id ? same : item)) })
+    serve(same)
+    signedIn()
+
+    const snapshot = s().items
+    await poll()
+    // Nothing changed, not even a new array: writing back what was just received is what makes two
+    // tabs answer each other for ever.
+    expect(s().items).toBe(snapshot)
   })
 })

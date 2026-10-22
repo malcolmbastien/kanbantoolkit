@@ -115,6 +115,10 @@ export async function writeItem(db: Database, item: Item, key?: string): Promise
   ]
   addItem(statements, item)
 
+  // The feed a second device reads. Written with the change, so a change that landed is a change
+  // that is announced, and a batch that failed announced nothing.
+  statements.push({ sql: 'INSERT INTO changes (item_id, rev) VALUES (?1, ?2)', params: [item.id, item.rev ?? 0] })
+
   if (key) {
     // The key is recorded in the same batch as the change it names: either both land or neither
     // does, which is what makes a retry safe rather than merely likely to be safe.
@@ -199,6 +203,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace): Promis
 
   for (const item of workspace.items) {
     addItem(statements, item)
+    statements.push({ sql: 'INSERT INTO changes (item_id, rev) VALUES (?1, ?2)', params: [item.id, item.rev ?? 0] })
   }
 
   for (const placement of workspace.placements) {

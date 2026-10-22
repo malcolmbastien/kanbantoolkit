@@ -225,6 +225,30 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
   return item
 }
 
+/**
+ * Several items, by id — what a client that has been away needs in one request.
+ *
+ * The ids are bounded by the caller (a poll asks for a page, not for everything), because both D1
+ * and the file driver have a limit on how many values one statement may carry.
+ */
+export async function readItemsByIds(db: Database, ids: string[]): Promise<Item[]> {
+  if (!ids.length) return []
+  const marks = ids.map((_, index) => `?${index + 1}`).join(', ')
+  const [items, checklists, logs] = await Promise.all([
+    db.all<Row>(`SELECT * FROM items WHERE id IN (${marks})`, ids),
+    db.all<Row>(`SELECT * FROM item_checklist WHERE item_id IN (${marks}) ORDER BY position`, ids),
+    db.all<Row>(`SELECT * FROM item_log WHERE item_id IN (${marks}) ORDER BY at, id`, ids),
+  ])
+
+  const checklistByItem = group(checklists, (row) => text(row.item_id))
+  const logByItem = group(logs, (row) => text(row.item_id))
+
+  return items.map((row) => {
+    const id = text(row.id)
+    return itemFrom(row, checklistByItem.get(id) ?? [], logByItem.get(id) ?? [])
+  })
+}
+
 /** One item, by id — the version the server holds, which is the one a refusal answers with. */
 export async function readItem(db: Database, id: string): Promise<Item | undefined> {
   const row = await db.get<Row>('SELECT * FROM items WHERE id = ?1', [id])

@@ -12,6 +12,7 @@ import { queue, newKey, type QueuedWrite } from '@/lib/queue'
 import type { CommitAnswer } from '@/lib/repository'
 import { useAuth } from '@/lib/auth'
 import { useSync } from '@/lib/sync'
+import { onLiveItem, startLive, stopLive } from '@/lib/live'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
@@ -2649,7 +2650,38 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// Signing in is what makes a held change sendable at all.
+// Signing in is what makes a held change sendable at all, and what makes a change elsewhere visible.
 useAuth.subscribe((state) => {
-  if (state.user) void flushQueue()
+  if (state.user) {
+    void flushQueue()
+    startLive()
+  } else {
+    stopLive()
+  }
 })
+
+/**
+ * A card that changed elsewhere.
+ *
+ * Adopted only when the revision is greater, which is what makes an echo a no-op: the tab that
+ * wrote already holds that revision, so it has nothing to do and writes nothing back.
+ */
+onLiveItem((item) => {
+  useStore.setState((state) => {
+    const index = state.items.findIndex((local) => local.id === item.id)
+    // Nothing to do when this tab already has it — which is what an echo is, and why answering one
+    // would be writing back what you were just told.
+    if (index < 0 || (item.rev ?? 0) <= (state.items[index].rev ?? 0)) return state
+
+    const items = [...state.items]
+    items[index] = item
+    return { items }
+  })
+})
+
+if (typeof document !== 'undefined') {
+  // A tab that is looked at again catches up before it is read.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) startLive()
+  })
+}

@@ -9,7 +9,7 @@
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { guard } from './guard'
-import { readItem, readWorkspace } from './read'
+import { readItem, readItemsByIds, readWorkspace } from './read'
 import { parseItem } from './validate'
 import { alreadyApplied, writeItem } from './write'
 
@@ -23,6 +23,44 @@ export function workspaceRoutes(runtime: Runtime) {
     const workspace = await readWorkspace(allowed.db)
     // Whose workspace this is, answered by the session rather than by a pointer the browser keeps.
     return c.json({ ...workspace, meUserId: allowed.user.id })
+  })
+
+  /**
+   * What has changed since a cursor, as cards.
+   *
+   * One page at a time, so a client that has been away catches up over a few calls rather than in
+   * one statement with two hundred values in it. The cursor is the change id, which is monotonic:
+   * a client that has read up to 40 asks for everything after 40 and cannot be served something it
+   * has already seen.
+   */
+  routes.get('/changes', async (c) => {
+    const allowed = await guard(c, runtime)
+    if (allowed instanceof Response) return allowed
+
+    const asked = Number(c.req.query('since') ?? '0')
+    const since = Number.isInteger(asked) && asked > 0 ? asked : 0
+
+    const rows = await allowed.db.all<{ id: number; item_id: string; rev: number }>(
+      'SELECT id, item_id, rev FROM changes WHERE id > ?1 ORDER BY id LIMIT 50',
+      [since],
+    )
+    if (!rows.length) return c.json({ changes: [], cursor: since })
+
+    // A card written twice in one page is one card that changed, at its latest revision. The feed
+    // says *what* changed, not every step it took to get there — a client catching up wants the
+    // state, and a client that is live already has the steps.
+    const latest = new Map<string, { id: number; item_id: string; rev: number }>()
+    for (const row of rows) latest.set(row.item_id, row)
+    const picked = [...latest.values()].sort((left, right) => left.id - right.id)
+
+    const items = new Map(
+      (await readItemsByIds(allowed.db, picked.map((row) => row.item_id))).map((item) => [item.id, item]),
+    )
+
+    return c.json({
+      changes: picked.map((row) => ({ id: row.id, rev: row.rev, item: items.get(row.item_id) ?? null })),
+      cursor: rows[rows.length - 1].id,
+    })
   })
 
   /**
