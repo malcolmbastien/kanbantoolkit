@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, descendants, openDependenciesOf, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, itemsCarryingTag, searchItems, tagsOf } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
@@ -9,6 +9,8 @@ import { SEED_TODAY } from './domain/seed'
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
 import { isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
+import { useAuth } from './lib/auth'
+import { useSync } from './lib/sync'
 // The seam's guard reads the source it is guarding. `?raw` keeps the test in the browser project
 // rather than reaching for node's filesystem, which the app's own config does not allow.
 import storeSource from './store.ts?raw'
@@ -2737,5 +2739,65 @@ describe('workspace import', () => {
     }
     s().importWorkspace(legacy, PERSIST_VERSION)
     expect(s().boards[0].description).toBe('')
+  })
+})
+
+describe('a change on its way to the server', () => {
+  const realFetch = globalThis.fetch
+
+  beforeEach(() => {
+    resetToFixture()
+    useSync.getState().clear()
+  })
+
+  afterEach(() => {
+    vi.stubGlobal('fetch', realFetch)
+    useAuth.setState({ providers: [], user: null, dev: false, loaded: false })
+    useSync.getState().clear()
+  })
+
+  const signedIn = () =>
+    useAuth.setState({
+      providers: [],
+      user: { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'owner' },
+      dev: false,
+      loaded: true,
+    })
+
+  it('is applied before it is sent, and carries the revision it was based on', async () => {
+    const before = s().items[0]
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ item: { ...before, rev: (before.rev ?? 0) + 1 } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    signedIn()
+
+    s().setItemFields(before.id, { title: 'Sent' })
+    // Optimistic: the edit is in the store before anything answers.
+    expect(s().items.find((item) => item.id === before.id)?.title).toBe('Sent')
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(`/api/workspace/items/${before.id}`)
+    expect(JSON.parse(init.body as string)).toMatchObject({ baseRev: before.rev ?? 0 })
+  })
+
+  it('keeps the server\'s card, and says so, when the workspace has moved past the change', async () => {
+    const before = s().items[0]
+    const theirs = { ...before, rev: (before.rev ?? 0) + 5, title: 'Theirs' }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'moved past', item: theirs }), { status: 409 })))
+    signedIn()
+
+    s().setItemFields(before.id, { title: 'Mine' })
+    await vi.waitFor(() => expect(s().items.find((item) => item.id === before.id)?.title).toBe('Theirs'))
+
+    // Refused, not dropped: the person is told, and the refusal names the card.
+    expect(useSync.getState().refusals.map((refusal) => refusal.id)).toEqual([before.id])
+  })
+
+  it('sends nothing when nobody is signed in', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    s().setItemFields(s().items[0].id, { title: 'Local only' })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

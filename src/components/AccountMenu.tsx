@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { LogOut, UserRound } from 'lucide-react'
 import { useStore } from '@/store'
-import { devSignIn, loadAuth, signOut, startSignIn } from '@/lib/auth'
-import type { AuthState, AuthUser } from '@/lib/auth'
+import { devSignIn, loadAuth, signOut, startSignIn, useAuth } from '@/lib/auth'
+import type { AuthUser } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
 /**
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
  * additive in this task; the workspace still lives in the browser until task 118 moves it.
  */
 export function AccountMenu() {
-  const [auth, setAuth] = useState<AuthState | null>(null)
+  const auth = useAuth()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
@@ -23,14 +23,9 @@ export function AccountMenu() {
   const users = useStore((s) => s.users)
   const setUser = useStore((s) => s.setUser)
 
+  // Asked once, into the one store the write path also reads.
   useEffect(() => {
-    let live = true
-    loadAuth().then((state) => {
-      if (live) setAuth(state)
-    })
-    return () => {
-      live = false
-    }
+    void loadAuth()
   }, [])
 
   // A popover that stays put while you click inside it, and gets out of the way otherwise.
@@ -43,7 +38,7 @@ export function AccountMenu() {
     return () => document.removeEventListener('pointerdown', away)
   }, [open])
 
-  if (!auth || (auth.providers.length === 0 && !auth.dev)) return null
+  if (!auth.loaded || (auth.providers.length === 0 && !auth.dev)) return null
 
   /**
    * Until the workspace lives on the server, the account and the workspace's own person are two
@@ -52,7 +47,7 @@ export function AccountMenu() {
    * Task 118 replaces the guess with a record.
    */
   function signedIn(user: AuthUser | null) {
-    setAuth((current) => (current ? { ...current, user } : current))
+    useAuth.setState({ user })
     if (!user) {
       setUser(undefined)
       return

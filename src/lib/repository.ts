@@ -1,46 +1,100 @@
 /**
  * Where a workspace lives.
  *
- * The store never learns whether the bytes end up in `localStorage` or on a server: it hands the
- * persisted slice to a `StateStorage` and the adapter decides what that means. Today there is one
- * adapter, and it is the shipped behaviour exactly — guarded against a full disk, revisioned so two
- * tabs cannot overwrite each other, and synced between them.
+ * The store reaches persistence through this interface and nothing else: it hands the persisted
+ * slice to a `StateStorage`, and hands an accepted item change to `commitItem`. Whether either goes
+ * anywhere beyond this browser is the adapter's business.
  *
- * The server's adapter belongs to task 118.3, with the write path it needs. A repository that could
- * read a server workspace but not save one would lose the first edit, so it is not written until it
- * can keep one — and this interface is what it will be written against.
+ * The storage half is the browser's own in both cases, because the browser holds a cache either
+ * way — that was task 118's premise. What changes when someone is signed in is `commitItem`: the
+ * change is sent, and the server's answer is the version the app keeps.
  *
- * The choice is made in `chooseRepository`, once. Nothing else in the app asks where the workspace
- * lives, which is what makes the two deployments one application rather than two.
+ * The choice is still made in one place (`chooseRepository`). It reads the session at call time
+ * rather than at boot, because the same build is both deployments: an instance with no accounts and
+ * no server *is* the local adapter, and nothing needs to be rebuilt to say so.
  */
 
 import type { StateStorage } from 'zustand/middleware'
+import type { Item } from '@/domain/types'
+import { useAuth } from './auth'
 import { guardedStorage } from './storage'
 import { tabSynced } from './tabSync'
 
 export type RepositoryKind = 'local' | 'http'
 
+export type CommitAnswer =
+  /** The change was accepted (or did not need sending). This is the version to keep. */
+  | { kind: 'kept'; item: Item }
+  /** The workspace has moved past the revision the change was based on. */
+  | { kind: 'refused'; item: Item | null }
+  /** Nothing answered. */
+  | { kind: 'unreachable' }
+
 export interface Repository {
   readonly kind: RepositoryKind
   /** What `persist` writes through — the only persistence detail the store sees. */
   readonly storage: StateStorage
+  /** Send one accepted item change, and answer with the version that is now the truth. */
+  commitItem(item: Item, baseRev: number): Promise<CommitAnswer>
 }
 
-/**
- * The browser's own storage, behind the interface: a write that fails is published rather than
- * thrown, and a write based on a revision another tab has moved past is refused.
- */
+/** The browser's own storage, behind the interface: nothing to send, because nowhere else has it. */
 export function localRepository(): Repository {
-  return { kind: 'local', storage: tabSynced(guardedStorage()) }
+  return {
+    kind: 'local',
+    storage: tabSynced(guardedStorage()),
+    async commitItem(item) {
+      return { kind: 'kept', item }
+    },
+  }
+}
+
+/** The same cache, with every accepted change sent to the instance that owns the workspace. */
+export function httpRepository(): Repository {
+  return {
+    kind: 'http',
+    storage: tabSynced(guardedStorage()),
+    commitItem: sendItem,
+  }
+}
+
+async function sendItem(item: Item, baseRev: number): Promise<CommitAnswer> {
+  try {
+    const response = await fetch(`/api/workspace/items/${encodeURIComponent(item.id)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseRev, item }),
+    })
+
+    if (response.status === 409) {
+      const body = (await response.json().catch(() => null)) as { item?: Item | null } | null
+      return { kind: 'refused', item: body?.item ?? null }
+    }
+
+    // A refusal with the reason is still a refusal: 400 and 401 are the server saying no.
+    if (response.status >= 400 && response.status < 500) return { kind: 'refused', item: null }
+    if (!response.ok) return { kind: 'unreachable' }
+
+    const body = (await response.json()) as { item: Item }
+    return { kind: 'kept', item: body.item }
+  } catch {
+    return { kind: 'unreachable' }
+  }
 }
 
 /**
  * The one place an adapter is chosen (R4).
  *
- * It answers the local adapter because there is one to answer with. When the server can accept a
- * write, this becomes the branch — a session, a build flag, or an instance that offers accounts —
- * and every call site stays as it is.
+ * The answer is stable — one storage, one commit function — but what `commitItem` does depends on
+ * whether there is a session *now*, because signing in is a thing that happens to a running app.
  */
 export function chooseRepository(): Repository {
-  return localRepository()
+  return {
+    get kind(): RepositoryKind {
+      return useAuth.getState().user ? 'http' : 'local'
+    },
+    storage: tabSynced(guardedStorage()),
+    commitItem: (item, baseRev) =>
+      useAuth.getState().user ? sendItem(item, baseRev) : Promise.resolve({ kind: 'kept', item }),
+  }
 }

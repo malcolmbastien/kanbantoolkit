@@ -141,7 +141,18 @@ async function readItems(db: Database): Promise<Item[]> {
 
   return items.map((row) => {
     const id = text(row.id)
-    const item: Item = {
+    return itemFrom(row, checklistByItem.get(id) ?? [], logByItem.get(id) ?? [])
+  })
+}
+
+/**
+ * One item, from its row and its two child lists. Extracted so a write can answer with the server's
+ * version of a single card rather than reading the whole table to find it.
+ */
+function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
+  const id = text(row.id)
+  const item: Item = {
+
       id,
       title: text(row.title),
       typeId: text(row.type_id),
@@ -178,8 +189,7 @@ async function readItems(db: Database): Promise<Item[]> {
     const archivedAt = maybeCount(row.archived_at)
     if (archivedAt !== undefined) item.archivedAt = archivedAt
 
-    const checklist = checklistByItem.get(id)
-    if (checklist?.length) {
+    if (checklist.length) {
       item.checklist = checklist.map((entry) => ({
         id: text(entry.id),
         text: text(entry.text),
@@ -187,8 +197,7 @@ async function readItems(db: Database): Promise<Item[]> {
       }))
     }
 
-    const log = logByItem.get(id)
-    if (log?.length) {
+    if (log.length) {
       item.log = log.map((entry) => {
         const line: ItemLogEntry = {
           id: text(entry.id),
@@ -213,9 +222,20 @@ async function readItems(db: Database): Promise<Item[]> {
       })
     }
 
-    return item
-  })
+  return item
 }
+
+/** One item, by id — the version the server holds, which is the one a refusal answers with. */
+export async function readItem(db: Database, id: string): Promise<Item | undefined> {
+  const row = await db.get<Row>('SELECT * FROM items WHERE id = ?1', [id])
+  if (!row) return undefined
+  const [checklist, log] = await Promise.all([
+    db.all<Row>('SELECT * FROM item_checklist WHERE item_id = ?1 ORDER BY position', [id]),
+    db.all<Row>('SELECT * FROM item_log WHERE item_id = ?1 ORDER BY at, id', [id]),
+  ])
+  return itemFrom(row, checklist, log)
+}
+
 
 async function readTemplates(db: Database): Promise<BoardTemplate[]> {
   const [templates, lanes] = await Promise.all([

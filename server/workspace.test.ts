@@ -15,6 +15,7 @@ import { issueSession } from './auth/session'
 import type { Database } from './db'
 import { fromSqlite } from './sqlite'
 import { readWorkspace } from './workspace/read'
+import type { Item } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
 import { writeWorkspace } from './workspace/write'
 
@@ -247,5 +248,95 @@ describe('the workspace', () => {
     const request = instance(db)
     const { cookie } = await signedIn(db, 'u-stranger', false)
     expect((await request('/api/workspace', { headers: { cookie } })).status).toBe(403)
+  })
+})
+
+describe('writing one item', () => {
+  const card = (over: Partial<Item> = {}): Item => ({
+    id: 'i-card',
+    title: 'A card',
+    typeId: 't-card',
+    createdAt: 1_700_000_000_000,
+    ...over,
+  })
+
+  async function writer() {
+    const db = database()
+    const { cookie } = await signedIn(db)
+    const request = instance(db)
+    const patch = (id: string, body: unknown, signed = true) =>
+      request(`/api/workspace/items/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', ...(signed ? { cookie } : {}) },
+        body: JSON.stringify(body),
+      })
+    return { db, request, patch, cookie }
+  }
+
+  it('creates an item based on nothing, and keeps the server\'s revision', async () => {
+    const { request, patch, cookie } = await writer()
+
+    // A field the server does not know is not a field it stores.
+    const response = await patch('i-card', { baseRev: 0, item: { ...card(), extra: 'not a field' } })
+    expect(response.status).toBe(200)
+    const answer = (await response.json()) as { item: Item }
+    expect(answer.item.rev).toBe(1)
+    expect((answer.item as unknown as Record<string, unknown>).extra).toBeUndefined()
+
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
+    expect(body.items.map((entry) => entry.id)).toEqual(['i-card'])
+  })
+
+  it('creates an item the server has never seen, whatever revision the browser based it on', async () => {
+    const { patch } = await writer()
+    // A workspace that has lived only in a browser arrives with revisions of its own; nothing here
+    // has moved past anything, so the first write is a creation.
+    const response = await patch('i-card', { baseRev: 7, item: card({ rev: 7 }) })
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as { item: Item }).item.rev).toBe(8)
+  })
+
+  it('updates an item with the revision it was based on', async () => {
+    const { patch } = await writer()
+    await patch('i-card', { baseRev: 0, item: card() })
+
+    const response = await patch('i-card', { baseRev: 1, item: card({ title: 'Renamed', rev: 1 }) })
+    expect(response.status).toBe(200)
+    const answer = (await response.json()) as { item: Item }
+    expect(answer.item.title).toBe('Renamed')
+    expect(answer.item.rev).toBe(2)
+  })
+
+  it('refuses a write the workspace has moved past, and answers with what is there now', async () => {
+    const { patch, request, cookie } = await writer()
+    await patch('i-card', { baseRev: 0, item: card() })
+    await patch('i-card', { baseRev: 1, item: card({ title: 'Theirs', rev: 1 }) })
+
+    // A tab that still believes the card is at revision 1 tries to write over revision 2.
+    const stale = await patch('i-card', { baseRev: 1, item: card({ title: 'Mine', rev: 1 }) })
+    expect(stale.status).toBe(409)
+    const answer = (await stale.json()) as { item: Item }
+    expect(answer.item.title).toBe('Theirs')
+    expect(answer.item.rev).toBe(2)
+
+    // Refused is not applied: the stored card is still theirs.
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
+    expect(body.items.find((entry) => entry.id === 'i-card')?.title).toBe('Theirs')
+  })
+
+  it('will not write without knowing what it was based on', async () => {
+    const { patch } = await writer()
+    expect((await patch('i-card', { item: card() })).status).toBe(400)
+    expect((await patch('i-card', { baseRev: -1, item: card() })).status).toBe(400)
+  })
+
+  it('will not write a card to a path that names another card', async () => {
+    const { patch } = await writer()
+    expect((await patch('i-other', { baseRev: 0, item: card() })).status).toBe(400)
+  })
+
+  it('will not write without a session', async () => {
+    const { patch } = await writer()
+    expect((await patch('i-card', { baseRev: 0, item: card() }, false)).status).toBe(401)
   })
 })

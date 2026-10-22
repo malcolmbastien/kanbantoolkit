@@ -6,6 +6,8 @@
  * accounts", which is exactly how the app behaved before task 117.
  */
 
+import { create } from 'zustand'
+
 export interface AuthProvider {
   id: string
   label: string
@@ -22,9 +24,19 @@ export interface AuthState {
   providers: AuthProvider[]
   user: AuthUser | null
   dev: boolean
+  /** Whether this instance has been asked what it offers. Until it has, nothing is drawn. */
+  loaded: boolean
 }
 
-const NONE: AuthState = { providers: [], user: null, dev: false }
+const NONE: AuthState = { providers: [], user: null, dev: false, loaded: false }
+
+/**
+ * Who this instance says you are, in one place.
+ *
+ * The write path reads it rather than the account control owning it: whether a change is sent is a
+ * fact about the session, not about a component.
+ */
+export const useAuth = create<AuthState>(() => NONE)
 
 async function read<T>(path: string): Promise<T | null> {
   try {
@@ -41,7 +53,14 @@ export async function loadAuth(): Promise<AuthState> {
   if (!offered?.providers) return NONE
 
   const session = await read<{ user: AuthUser | null }>('/api/auth/session')
-  return { providers: offered.providers, user: session?.user ?? null, dev: offered.dev === true }
+  const next: AuthState = {
+    providers: offered.providers,
+    user: session?.user ?? null,
+    dev: offered.dev === true,
+    loaded: true,
+  }
+  useAuth.setState(next)
+  return next
 }
 
 /** Leaving for the provider, and coming back to the place that asked. */
@@ -58,6 +77,7 @@ export async function signOut(): Promise<void> {
   } catch {
     // A server that is not there holds no session to end.
   }
+  useAuth.setState({ user: null })
 }
 
 /** The development identity switch, for the tests and for an instance with no provider yet. */

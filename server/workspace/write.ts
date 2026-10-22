@@ -9,6 +9,7 @@
  * Everything goes through one transaction, because a half-written workspace is worse than none.
  */
 
+import type { Item } from '../../src/domain/types'
 import type { Database, Statement } from '../db'
 import type { Workspace } from './types'
 import { WORKSPACE_ROW } from './types'
@@ -46,6 +47,77 @@ function add(statements: Statement[], table: string, row: Row): void {
     sql: `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map((_, index) => `?${index + 1}`).join(', ')})`,
     params: Object.values(row),
   })
+}
+
+/** One item's row, checklist and history. Shared by the whole-workspace write and the item write. */
+function addItem(statements: Statement[], item: Item): void {
+    add(statements, 'items', {
+      id: item.id,
+      title: item.title,
+      description: value(item.description),
+      type_id: item.typeId,
+      size: value(item.size),
+      initiative_type_id: value(item.initiativeTypeId),
+      tag_ids: json(item.tagIds),
+      assignees: json(item.assignees),
+      priority: value(item.priority),
+      target_start_date: value(item.targetStartDate),
+      target_end_date: value(item.targetEndDate),
+      created_at: item.createdAt,
+      rev: value(item.rev),
+      resolved_at: item.resolvedAt === undefined ? null : item.resolvedAt,
+      last_move_reason: value(item.lastMoveReason),
+      blocked: flag(item.blocked),
+      blocked_reason: value(item.blockedReason),
+      archived: flag(item.archived),
+      archived_at: value(item.archivedAt),
+    })
+
+    for (const [position, entry] of (item.checklist ?? []).entries()) {
+      add(statements, 'item_checklist', {
+        item_id: item.id,
+        id: entry.id,
+        text: entry.text,
+        done: entry.done ? 1 : 0,
+        position,
+      })
+    }
+
+    for (const entry of item.log ?? []) {
+      add(statements, 'item_log', {
+        item_id: item.id,
+        id: entry.id,
+        at: entry.at,
+        kind: entry.kind,
+        by_user: value(entry.by),
+        note: value(entry.note),
+        from_lane_id: value(entry.fromLaneId),
+        to_lane_id: value(entry.toLaneId),
+        from_stage: value(entry.fromStage),
+        to_stage: value(entry.toStage),
+        board_id: value(entry.boardId),
+      })
+    }
+}
+
+/**
+ * One item, replaced whole.
+ *
+ * The server owns the revision: it is given the one the change was based on, and stores that plus
+ * one. The children are cleared first because D1 does not cascade a foreign key by default, and a
+ * history that outlived its item would be worse than a slow delete.
+ */
+export async function writeItem(db: Database, item: Item): Promise<void> {
+  await db.batch([
+    { sql: 'DELETE FROM item_checklist WHERE item_id = ?1', params: [item.id] },
+    { sql: 'DELETE FROM item_log WHERE item_id = ?1', params: [item.id] },
+    { sql: 'DELETE FROM items WHERE id = ?1', params: [item.id] },
+    ...(() => {
+      const statements: Statement[] = []
+      addItem(statements, item)
+      return statements
+    })(),
+  ])
 }
 
 export async function writeWorkspace(db: Database, workspace: Workspace): Promise<void> {
@@ -116,53 +188,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace): Promis
   }
 
   for (const item of workspace.items) {
-    add(statements, 'items', {
-      id: item.id,
-      title: item.title,
-      description: value(item.description),
-      type_id: item.typeId,
-      size: value(item.size),
-      initiative_type_id: value(item.initiativeTypeId),
-      tag_ids: json(item.tagIds),
-      assignees: json(item.assignees),
-      priority: value(item.priority),
-      target_start_date: value(item.targetStartDate),
-      target_end_date: value(item.targetEndDate),
-      created_at: item.createdAt,
-      rev: value(item.rev),
-      resolved_at: item.resolvedAt === undefined ? null : item.resolvedAt,
-      last_move_reason: value(item.lastMoveReason),
-      blocked: flag(item.blocked),
-      blocked_reason: value(item.blockedReason),
-      archived: flag(item.archived),
-      archived_at: value(item.archivedAt),
-    })
-
-    for (const [position, entry] of (item.checklist ?? []).entries()) {
-      add(statements, 'item_checklist', {
-        item_id: item.id,
-        id: entry.id,
-        text: entry.text,
-        done: entry.done ? 1 : 0,
-        position,
-      })
-    }
-
-    for (const entry of item.log ?? []) {
-      add(statements, 'item_log', {
-        item_id: item.id,
-        id: entry.id,
-        at: entry.at,
-        kind: entry.kind,
-        by_user: value(entry.by),
-        note: value(entry.note),
-        from_lane_id: value(entry.fromLaneId),
-        to_lane_id: value(entry.toLaneId),
-        from_stage: value(entry.fromStage),
-        to_stage: value(entry.toStage),
-        board_id: value(entry.boardId),
-      })
-    }
+    addItem(statements, item)
   }
 
   for (const placement of workspace.placements) {

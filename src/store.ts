@@ -8,6 +8,7 @@ import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { quarantineUnreadable } from '@/lib/quarantine'
 import { chooseRepository } from '@/lib/repository'
+import { useSync } from '@/lib/sync'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
@@ -545,10 +546,74 @@ const toLane = (placements: Placement[], p: Placement, laneId: string): Placemen
  * to rearrange.
  */
 function writeItems(state: Pick<Store, 'items'>, change: (item: Item) => Item): Item[] {
-  const next = state.items.map(change)
+  const base = state.items
+  const next = base.map(change)
+  const sent: Array<{ item: Item; baseRev: number }> = []
+
   // A map hands back the same object for everything it left alone, so "what changed" is a
   // reference comparison — exact, and cheap.
-  return next.map((item, i) => (item === state.items[i] ? item : { ...item, rev: (item.rev ?? 0) + 1 }))
+  const result = next.map((item, index) => {
+    if (item === base[index]) return item
+    const updated = { ...item, rev: (base[index].rev ?? 0) + 1 }
+    sent.push({ item: updated, baseRev: base[index].rev ?? 0 })
+    return updated
+  })
+
+  // Optimistic by construction: the change is in the store before anything is sent, so typing never
+  // waits on a network. The answer arrives later, and it is the version that is kept.
+  if (sent.length) enqueue(sent)
+  return result
+}
+
+/**
+ * One write at a time, in the order the changes were made.
+ *
+ * Typing is many changes, and each is based on the revision the one before it produced. Firing them
+ * at once would let the second overtake the first and be refused by the server — a conflict with
+ * ourselves, which no person could act on. The chain is the smallest thing that cannot happen to.
+ */
+let sending: Promise<void> = Promise.resolve()
+
+function enqueue(sent: Array<{ item: Item; baseRev: number }>): void {
+  sending = sending.then(() => sendChanges(sent)).catch(() => {
+    // `sendChanges` reports per item; a throw here is the chain's own, and it must not stop the next.
+  })
+}
+
+/**
+ * Send accepted changes, and keep whichever version comes back.
+ *
+ * A refusal is not an error to swallow: the server's newer card is adopted (its version is the
+ * truth) and the refusal is published, so the app can say that this edit did not land rather than
+ * pretend it did. A server that cannot be reached says so once, and the local change stands until
+ * the queue in task 118.4 can hold it.
+ */
+async function sendChanges(sent: Array<{ item: Item; baseRev: number }>): Promise<void> {
+  for (const { item, baseRev } of sent) {
+    const answer = await repository.commitItem(item, baseRev)
+
+    if (answer.kind === 'unreachable') {
+      useSync.getState().unreachableNow()
+      continue
+    }
+
+    if (answer.kind === 'refused') {
+      useSync.getState().refuse({ id: item.id, title: item.title, at: Date.now() })
+    } else {
+      useSync.getState().resolve(item.id)
+    }
+
+    // The server's version wins, unless this tab has already moved past it — the one case where
+    // keeping the local one is not a second truth but a newer one.
+    const server = answer.item
+    if (server && (server.rev ?? 0) !== (item.rev ?? 0)) {
+      useStore.setState((state) => ({
+        items: state.items.map((local) =>
+          local.id === server.id && (local.rev ?? 0) <= (server.rev ?? 0) ? server : local,
+        ),
+      }))
+    }
+  }
 }
 
 /** The first lane (target or ancestor) whose WIP limit a move would exceed. */
