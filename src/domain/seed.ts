@@ -28,7 +28,9 @@ export { BUILT_IN_TEMPLATES } from './demo'
  * things delivered and filed away, and a history old enough that Flow has a shape.
  */
 
-const T = Date.UTC(2026, 9, 15, 9, 0, 0)
+/** The demo's own "today". Everything in the demo is placed relative to it, not to the wall clock. */
+export const SEED_TODAY = Date.UTC(2026, 9, 15, 9, 0, 0)
+const T = SEED_TODAY
 const DAY = 86_400_000
 
 /** A day, `n` days before the demo's today. */

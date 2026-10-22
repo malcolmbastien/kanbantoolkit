@@ -7,8 +7,7 @@ import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { quarantineUnreadable } from '@/lib/quarantine'
-import { guardedStorage } from '@/lib/storage'
-import { tabSynced } from '@/lib/tabSync'
+import { chooseRepository } from '@/lib/repository'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
@@ -1032,6 +1031,9 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
  */
 /** The key the workspace lives under. Named once: the boot check reads it before the store does. */
 export const PERSIST_KEY = 'flowline-state-v3'
+
+/** Chosen once (R4): the store is given an adapter and never asks which one it was given. */
+const repository = chooseRepository()
 /** The current persisted workspace shape — every schema change bumps it with a migrate. */
 export const PERSIST_VERSION = 33
 /**
@@ -2472,11 +2474,10 @@ export const useStore = create<Store>()(
     {
       name: PERSIST_KEY,
       version: PERSIST_VERSION,
-      // A write that fails must be *known*: `guardedStorage` swallows the throw — the app keeps
-      // working with a full disk — and publishes the failure for the banner. See `lib/storage.ts`.
-      // Guarded for the disk, synced for the tabs: a write that fails is reported, and a write
-      // that races another tab's is refused rather than applied over it.
-      storage: createJSONStorage(() => tabSynced(guardedStorage())),
+      // Where the workspace lives is the adapter's business, not the store's: `chooseRepository`
+      // answers with the browser's own storage today, and with the server's once the write path
+      // exists (task 118.3). Everything below is unchanged either way.
+      storage: createJSONStorage(() => repository.storage),
       // Reshaped board model; older state is reseeded (see migratePersisted).
       migrate: (persisted, version) => migratePersisted(persisted, version) as Store,
       // While editing, persist the pre-edit (draft) design so a reload reverts to it.

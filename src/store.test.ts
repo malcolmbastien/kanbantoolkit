@@ -5,6 +5,7 @@ import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placement
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
 import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
 import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
+import { SEED_TODAY } from './domain/seed'
 import { STRESS_BOARD_ID, STRESS_PREFIX } from './domain/stressBoard'
 import { initiativeHealth } from './domain/health'
 import { isBoardSurface, migratePersisted, migrateState, persistedSlice, useStore, PERSIST_VERSION } from './store'
@@ -1402,7 +1403,9 @@ describe('store actions', () => {
 
     // And the history is a real shape over weeks, not a flat line: the flow diagram is neither
     // empty at the start of its window nor unchanged from the first week to the last.
-    const buckets = weeklyBuckets(Date.now(), 8)
+    // The demo's window, not the wall clock's: the data is anchored to the demo's today, so a
+    // window measured from the real date falls off the end of its own history as the weeks pass.
+    const buckets = weeklyBuckets(SEED_TODAY, 8)
     const flow = cumulativeFlow(records, buckets)
     expect(flow.every((c) => c.backlog + c.notStarted + c.inProgress + c.done > 0)).toBe(true)
     expect(flow[flow.length - 1].done).toBeGreaterThan(flow[0].done)
