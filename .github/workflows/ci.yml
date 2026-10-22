@@ -69,10 +69,11 @@ jobs:
     name: e2e
     needs: checks
     runs-on: ubuntu-latest
-    # The suite runs in about fifteen seconds. The variable part is the browser, which is cached
-    # between runs — the first run after a Playwright bump pays for the download, the rest do not.
-    # Ten minutes is the ceiling for that first run; five was not enough on a slow runner.
-    timeout-minutes: 10
+    # The suite runs in about thirty seconds. The slow part is not the tests: `--with-deps` installs
+    # the browser's system packages with apt on every run, whether or not the browser itself was
+    # cached, and that has taken nine minutes on a runner. Fifteen is the ceiling for that. If this
+    # creeps again, the fix is the Playwright container image, not a longer clock.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
