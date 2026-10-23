@@ -15,6 +15,7 @@ import { issueSession } from './auth/session'
 import type { Database } from './db'
 import { fromSqlite } from './sqlite'
 import { readWorkspace } from './workspace/read'
+import { acquire, LEASE_MS, lockOf, release } from './workspace/locks'
 import type { Item } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
 import { writeWorkspace } from './workspace/write'
@@ -484,5 +485,119 @@ describe('importing a workspace', () => {
   it('is behind the session', async () => {
     const { import: send } = await importer()
     expect((await send(slice, false)).status).toBe(401)
+  })
+})
+
+describe('the lease on a card', () => {
+  const card = (over: Partial<Item> = {}): Item => ({
+    id: 'i-card',
+    title: 'A card',
+    typeId: 't-card',
+    createdAt: 1_700_000_000_000,
+    ...over,
+  })
+
+  async function holder() {
+    const db = database()
+    const { cookie } = await signedIn(db)
+    const request = instance(db)
+    const as = (tab: string, path: string, init: RequestInit = {}) =>
+      request(path, { ...init, headers: { ...(init.headers ?? {}), cookie, 'x-flowline-tab': tab } })
+    return { db, request, as }
+  }
+
+  it('is won by one session and refused to the other, with the holder named', async () => {
+    const { as } = await holder()
+    await as('tab-a', '/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseRev: 0, item: card() }),
+    })
+
+    expect((await as('tab-a', '/api/workspace/items/i-card/lock', { method: 'POST' })).status).toBe(200)
+
+    const second = await as('tab-b', '/api/workspace/items/i-card/lock', { method: 'POST' })
+    expect(second.status).toBe(423)
+    const body = (await second.json()) as { holder: { holderName: string; sessionId: string } }
+    expect(body.holder.holderName).toBe('Ada')
+    expect(body.holder.sessionId).toBe('tab-a')
+  })
+
+  it('refuses a content change from anyone but the holder, and never a move', async () => {
+    const { as } = await holder()
+    await as('tab-a', '/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseRev: 0, item: card() }),
+    })
+    await as('tab-a', '/api/workspace/items/i-card/lock', { method: 'POST' })
+
+    const theirs = await as('tab-b', '/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseRev: 1, item: card({ title: 'Mine', rev: 1 }) }),
+    })
+    expect(theirs.status).toBe(423)
+    expect(((await theirs.json()) as { holder: { sessionId: string } }).holder.sessionId).toBe('tab-a')
+
+    // The holder is not refused.
+    const mine = await as('tab-a', '/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseRev: 1, item: card({ title: 'Ours', rev: 1 }) }),
+    })
+    expect(mine.status).toBe(200)
+  })
+
+  it('lets go, and refuses a heartbeat that has nothing to renew', async () => {
+    const { as } = await holder()
+    await as('tab-a', '/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseRev: 0, item: card() }),
+    })
+    await as('tab-a', '/api/workspace/items/i-card/lock', { method: 'POST' })
+
+    expect((await as('tab-a', '/api/workspace/items/i-card/heartbeat', { method: 'POST' })).status).toBe(200)
+    expect((await as('tab-a', '/api/workspace/items/i-card/lock', { method: 'DELETE' })).status).toBe(204)
+
+    const lapsed = await as('tab-a', '/api/workspace/items/i-card/heartbeat', { method: 'POST' })
+    expect(lapsed.status).toBe(409)
+    expect((await as('tab-b', '/api/workspace/items/i-card/lock', { method: 'POST' })).status).toBe(200)
+  })
+
+  it('can be taken over once it has lapsed, and never before', async () => {
+    const { db } = await holder()
+    const holderA = { userId: 'u-a', sessionId: 'tab-a', name: 'Ada' }
+    const holderB = { userId: 'u-b', sessionId: 'tab-b', name: 'Grace' }
+    const start = new Date('2026-10-22T10:00:00.000Z')
+
+    expect((await acquire(db, 'i-card', holderA, start)).sessionId).toBe('tab-a')
+
+    // Half a lease later: still hers.
+    const early = new Date(start.getTime() + LEASE_MS / 2)
+    expect((await acquire(db, 'i-card', holderB, early)).sessionId).toBe('tab-a')
+
+    // Past the lease: whoever touches it next takes it, with no steal button.
+    const late = new Date(start.getTime() + LEASE_MS + 1)
+    expect((await acquire(db, 'i-card', holderB, late)).sessionId).toBe('tab-b')
+
+    await release(db, 'i-card', 'tab-b')
+    expect(await lockOf(db, 'i-card')).toBeUndefined()
+  })
+
+  it('is visible to everyone on the same poll as the changes', async () => {
+    const { as } = await holder()
+    await as('tab-a', '/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseRev: 0, item: card() }),
+    })
+    await as('tab-a', '/api/workspace/items/i-card/lock', { method: 'POST' })
+
+    const answer = await as('tab-b', '/api/workspace/changes?since=0')
+    const body = (await answer.json()) as { locks: Array<{ itemId: string; holderName: string }> }
+    expect(body.locks.map((lock) => lock.itemId)).toContain('i-card')
+    expect(body.locks[0].holderName).toBe('Ada')
   })
 })

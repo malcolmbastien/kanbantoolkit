@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Archive,
   ArrowRight,
@@ -41,6 +41,9 @@ import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
 import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { usePresence, heldByOther } from '@/lib/presence'
+import { dropLease, takeLease } from '@/lib/lease'
+import { useAuth } from '@/lib/auth'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
 import type { Item, ItemLogEntry, Stage } from '@/domain/types'
@@ -148,6 +151,10 @@ export function ItemPanel({ itemId }: Props) {
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const item = items.find((i) => i.id === itemId)
+  // The lease: somebody else's pen closes the fields, and this tab's own is taken on intent.
+  const locks = usePresence((s) => s.locks)
+  const held = heldByOther(locks, itemId)
+  const account = useAuth((s) => s.user)
   if (!item) return null
 
   const type = issueTypes.find((t) => t.id === item.typeId) ?? { id: item.typeId, name: 'Item', color: '#64748b' }
@@ -306,6 +313,9 @@ export function ItemPanel({ itemId }: Props) {
     return rows
   }, [isInitiative, item.id, items, edges, links, placements, lanes, issueTypes, today])
   const openWarningRow = warnings.find((w) => w.key === openWarning)
+
+  // Closing the drawer — or opening another card in it — is the moment to let go.
+  useEffect(() => () => void dropLease(itemId), [itemId])
 
   // A board to go to only when it is not the one already in front of us.
   const somewhereToGo = boardSurface === false || boardOf(item.id)?.id !== boardId
@@ -638,8 +648,30 @@ export function ItemPanel({ itemId }: Props) {
         </div>
       </header>
 
+      {held && (
+        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-meta text-amber-900">
+          {held.userId === account?.id
+            ? 'This card is open in another tab.'
+            : `${held.holderName} is editing this card.`}{' '}
+          You can read it, and you can move it; the writing is theirs until they are done.
+        </div>
+      )}
+
       {/* ---- Body ---------------------------------------------------------------- */}
-      {/* The panel is the one place a card's own words are worth copying, so it opts back in. */}
+      {/* The panel is the one place a card's own words are worth copying, so it opts back in.
+          A lease somebody else holds disables every control inside, without hiding a word of it:
+          reading is free, and a reader must never be shown a field that would refuse them. */}
+      <fieldset
+        disabled={Boolean(held)}
+        className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"
+        onFocusCapture={(event) => {
+          const target = event.target as HTMLElement
+          // Edit intent, not opening: a focus into something a person could type in.
+          if (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable) {
+            void takeLease(item.id)
+          }
+        }}
+      >
       <div className="min-h-0 flex-1 select-text space-y-5 overflow-y-auto px-4 py-4 text-meta">
         {tab === 'overview' && (
           <>
@@ -1443,6 +1475,7 @@ export function ItemPanel({ itemId }: Props) {
           <span>Markdown supported</span>
         </div>
       </div>
+      </fieldset>
     </aside>
   )
 }

@@ -14,6 +14,8 @@
 
 import type { Item } from '@/domain/types'
 import { useAuth } from './auth'
+import { usePresence } from './presence'
+import type { Lock } from './presence'
 
 /** Two seconds: quick enough to feel live, slow enough not to be a busy loop on a phone. */
 const INTERVAL = 2_000
@@ -29,6 +31,7 @@ interface Change {
 interface Feed {
   changes: Change[]
   cursor: number
+  locks?: Lock[]
 }
 
 let cursor = 0
@@ -59,6 +62,8 @@ export async function poll(): Promise<Change[]> {
     if (change.item) adopt(change.item)
   }
   cursor = feed.cursor
+  // The leases ride the same poll as the changes: one request, one picture.
+  usePresence.getState().receive(feed.locks ?? [])
   return feed.changes
 }
 

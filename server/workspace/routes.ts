@@ -12,8 +12,15 @@ import { guard } from './guard'
 import { readItem, readItemsByIds, readWorkspace } from './read'
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
 import { schemaVersion } from '../migrate'
+import { acquire, heldByOther, heldLocks, lockOf, release, renew } from './locks'
 import { parseItem, parseWorkspace } from './validate'
 import { alreadyApplied, writeItem, writeWorkspace } from './write'
+
+/** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
+function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
+  const tab = c.req.header('x-flowline-tab')
+  return tab && tab.length <= 100 ? tab : 'tab'
+}
 
 export function workspaceRoutes(runtime: Runtime) {
   const routes = new Hono<{ Bindings: object }>()
@@ -57,6 +64,44 @@ export function workspaceRoutes(runtime: Runtime) {
   })
 
   /**
+   * Take a card's pen. One statement settles the race; whoever loses is told who won.
+   */
+  routes.post('/items/:id/lock', async (c) => {
+    const allowed = await guard(c, runtime)
+    if (allowed instanceof Response) return allowed
+
+    const id = c.req.param('id')
+    if (!(await readItem(allowed.db, id))) return c.json({ error: 'no such card' }, 404)
+
+    const sessionId = tabOf(c)
+    const lock = await acquire(allowed.db, id, { userId: allowed.user.id, sessionId, name: allowed.user.name })
+    if (lock.sessionId !== sessionId) return c.json({ error: 'someone else holds this card', holder: lock }, 423)
+    return c.json({ lock })
+  })
+
+  /** Keep it while somebody is there. Renewal never creates a lease. */
+  routes.post('/items/:id/heartbeat', async (c) => {
+    const allowed = await guard(c, runtime)
+    if (allowed instanceof Response) return allowed
+
+    const id = c.req.param('id')
+    const lock = await renew(allowed.db, id, tabOf(c))
+    if (lock) return c.json({ lock })
+
+    // Lapsed, or taken over: either way this session no longer holds it, and saying so is the point.
+    return c.json({ error: 'this lease has lapsed', holder: (await lockOf(allowed.db, id)) ?? null }, 409)
+  })
+
+  /** Let go. Idempotent, because the tab that closes may already have lost it. */
+  routes.delete('/items/:id/lock', async (c) => {
+    const allowed = await guard(c, runtime)
+    if (allowed instanceof Response) return allowed
+
+    await release(allowed.db, c.req.param('id'), tabOf(c))
+    return c.body(null, 204)
+  })
+
+  /**
    * What has changed since a cursor, as cards.
    *
    * One page at a time, so a client that has been away catches up over a few calls rather than in
@@ -75,7 +120,10 @@ export function workspaceRoutes(runtime: Runtime) {
       'SELECT id, item_id, rev FROM changes WHERE id > ?1 ORDER BY id LIMIT 50',
       [since],
     )
-    if (!rows.length) return c.json({ changes: [], cursor: since })
+    // The leases ride the same poll as the changes: one request, one cursor, one picture of what is
+    // going on in this workspace.
+    const locks = await heldLocks(allowed.db)
+    if (!rows.length) return c.json({ changes: [], cursor: since, locks })
 
     // A card written twice in one page is one card that changed, at its latest revision. The feed
     // says *what* changed, not every step it took to get there — a client catching up wants the
@@ -91,6 +139,7 @@ export function workspaceRoutes(runtime: Runtime) {
     return c.json({
       changes: picked.map((row) => ({ id: row.id, rev: row.rev, item: items.get(row.item_id) ?? null })),
       cursor: rows[rows.length - 1].id,
+      locks,
     })
   })
 
@@ -128,6 +177,10 @@ export function workspaceRoutes(runtime: Runtime) {
     // A conflict is a disagreement about a version, so it only exists when there is one: an item the
     // server has never seen is a creation, whatever revision the browser believes it based it on.
     // That is what lets a workspace that lived only in a browser arrive one card at a time.
+    // Content is the lease's business; arrangement is not, and never comes through here.
+    const held = await heldByOther(allowed.db, id, tabOf(c))
+    if (held) return c.json({ error: 'someone else is editing this card', holder: held }, 423)
+
     const current = await readItem(allowed.db, id)
     if (current && (current.rev ?? 0) !== baseRev) return c.json({ error: 'moved past', item: current }, 409)
 

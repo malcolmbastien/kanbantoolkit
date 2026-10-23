@@ -54,10 +54,10 @@ describe('the server schema', () => {
     const db = fromSqlite(raw)
     const result = await migrate(db, all)
 
-    // A database written before the version table existed has no record of what ran, so the runner
-    // takes the safe road: every file again, in order. They are idempotent by construction — the
-    // rule for anything written before 0006 — and the next run is a no-op.
-    expect(result.applied).toEqual(all.map((migration) => migration.version))
+    // The database is one migration behind, and knows it: only that one runs. (A database older
+    // than the version table at all has no record, so the runner re-runs everything once — the
+    // files before 0006 are idempotent by construction, which is why that is safe.)
+    expect(result.applied).toEqual([all.length])
     expect(result.version).toBe(all.length)
     // Nothing was reseeded: the board and the card are still the ones that were there.
     expect(await db.get('SELECT name FROM boards WHERE id = ?1', ['b-1'])).toEqual({ name: 'Atlas' })
