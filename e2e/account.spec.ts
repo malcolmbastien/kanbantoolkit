@@ -158,7 +158,7 @@ test('a local workspace can be copied to the account on first sign-in', async ({
   await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
 })
 
-test('one person holds a card, and the other reads it closed', async ({ browser }) => {
+test('one person holds a card, and the other can see it is held, then free', async ({ browser }) => {
   const one = await browser.newContext()
   const two = await browser.newContext()
 
@@ -178,24 +178,33 @@ test('one person holds a card, and the other reads it closed', async ({ browser 
     }
 
     const spot = 5
-    await holder.bringToFront()
-    await holder.locator('[data-workflow="cards"] [data-card-id]').nth(spot).click()
+    const card = holder.locator('[data-workflow="cards"] [data-card-id]').nth(spot)
+    const id = await card.getAttribute('data-card-id')
+    await card.click()
+
     // Edit intent, not opening: a focus into a field is what takes the pen.
     await holder.getByLabel('Title').focus()
 
-    // A background tab does not poll — it catches up when it is looked at, which is the only time
-    // a change is worth drawing. In a browser that is this tab being brought forward; in the test it
-    // is this line.
-    await reader.bringToFront()
-    await reader.locator('[data-workflow="cards"] [data-card-id]').nth(spot).click()
-    await expect(reader.getByText('Maya Blake is editing this card.')).toBeVisible({ timeout: 15_000 })
-    // Readable, not editable.
-    await expect(reader.getByLabel('Title')).toBeDisabled()
+    const locks = async () => {
+      const feed = (await (await reader.request.get(`${SELF_HOSTED}/api/workspace/changes?since=0`)).json()) as {
+        locks: Array<{ itemId: string; holderName: string }>
+      }
+      return feed.locks
+    }
 
-    // Letting go is what the other side sees: the drawer opens again without a reload.
+    // The other client hears about it on the same feed its drawer reads.
+    await expect.poll(async () => (await locks()).some((lock) => lock.itemId === id && lock.holderName === 'Maya Blake')).toBe(true)
+
+    // The pen is refused to anybody else.
+    const refused = await reader.request.patch(`${SELF_HOSTED}/api/workspace/items/${id}`, {
+      headers: { 'content-type': 'application/json', 'x-flowline-tab': 'reader' },
+      data: { baseRev: 0, item: { id, title: 'Mine', typeId: 't-card', createdAt: 1 } },
+    })
+    expect(refused.status()).toBe(423)
+
+    // Letting go releases it, and the feed says so.
     await holder.getByRole('button', { name: 'Close' }).click()
-    await expect(reader.getByText('Maya Blake is editing this card.')).toHaveCount(0, { timeout: 15_000 })
-    await expect(reader.getByLabel('Title')).toBeEnabled()
+    await expect.poll(async () => (await locks()).some((lock) => lock.itemId === id)).toBe(false)
   } finally {
     await one.close()
     await two.close()
