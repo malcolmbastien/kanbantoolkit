@@ -25,6 +25,7 @@ import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { cn } from '@/lib/utils'
+import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
 
 interface Props {
@@ -135,7 +136,19 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
     if (open) document.querySelector<HTMLElement>('[data-card-flyout] input, [data-card-flyout] textarea')?.focus()
   }, [open])
 
+  // A content change on a card somebody else holds is refused here as well as on the server: a
+  // menu that offers an action the server will refuse is a menu that lies.
+  const locks = usePresence((state) => state.locks)
+  const held = itemIds.map((id) => heldByOther(locks, id)).find(Boolean)
+
   const run = (fn: () => void) => {
+    if (held) return
+    fn()
+    onClose()
+  }
+
+  /** Arrangement is not the lease's business: a card someone is editing can still be moved. */
+  const runMove = (fn: () => void) => {
     fn()
     onClose()
   }
@@ -208,7 +221,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
     if (open === 'move') {
       return wrap(
         lanesLeaf.map((l) => (
-          <button key={l.id} className={cn(ITEM, 'pl-2.5')} onClick={() => run(() => moveCardsToLane(itemIds, l.id))}>
+          <button key={l.id} className={cn(ITEM, 'pl-2.5')} onClick={() => runMove(() => moveCardsToLane(itemIds, l.id))}>
             {lanePath(lanes, l.id).join(' / ')}
           </button>
         )),
@@ -396,6 +409,13 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
           <MoreHorizontal size={12} />
           {single ? (only?.title ?? 'Card') : `${count} cards`}
         </div>
+
+        {held && (
+          <p className="mx-2.5 mb-1 rounded-md bg-amber-50 px-2 py-1 text-meta text-amber-900">
+            {held.holderName} is editing {single ? 'this card' : 'one of these cards'}. Everything
+            except moving it is theirs until they are done.
+          </p>
+        )}
 
         {/* Lineage, for one card: point at the initiative it rolls up to, rather than hunting
             for it in a list of every item by name. */}

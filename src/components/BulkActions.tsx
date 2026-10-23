@@ -3,6 +3,7 @@ import { Archive, CheckSquare, Trash2, TriangleAlert, X } from 'lucide-react'
 import { canSetParent, cardTypes, defaultDropLane, isInitiativeItem } from '@/domain/board'
 import type { Graph } from '@/domain/derive'
 import { lanePath, leafLanes } from '@/domain/lanes'
+import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
 
 /*
@@ -101,11 +102,22 @@ export function BulkActions() {
     setAssignee('')
   }
 
+  const locks = usePresence((state) => state.locks)
+  // One held card refuses the whole selection: a bulk action that half-applied would be a worse
+  // answer than one that said why it did not run.
+  const held = multiSelect.map((id) => heldByOther(locks, id)).find(Boolean)
+
   return (
     <div data-bulk-actions className={BAR_CLS}>
       <span className="flex items-center gap-1.5 font-semibold text-slate-800">
         <CheckSquare size={15} className="shrink-0 text-indigo-600" /> {count} selected
       </span>
+
+      {held && (
+        <span className="max-w-[280px] truncate text-meta text-amber-900" title="Moving is still allowed; changing what these cards say is not">
+          {held.holderName} is editing one of these — it can still be moved
+        </span>
+      )}
 
       <span className="h-5 w-px bg-slate-200" />
 
@@ -198,7 +210,7 @@ export function BulkActions() {
               </option>
             ))}
           </select>
-          <button disabled={!parentTarget} onClick={applyParent} className={PRIMARY_CLS}>
+          <button disabled={!parentTarget || Boolean(held)} onClick={applyParent} className={PRIMARY_CLS}>
             Set
           </button>
         </label>
@@ -229,7 +241,7 @@ export function BulkActions() {
             <option key={u.id} value={u.name} />
           ))}
         </datalist>
-        <button onClick={applyAssignee} className={SECONDARY_CLS} title="Add this person to every selected card">
+        <button disabled={Boolean(held)} onClick={applyAssignee} className={SECONDARY_CLS} title="Add this person to every selected card">
           Add
         </button>
         <button
@@ -244,6 +256,7 @@ export function BulkActions() {
       <span className="h-5 w-px bg-slate-200" />
 
       <button
+        disabled={Boolean(held)}
         onClick={() => archiveItems(multiSelect)}
         className={SECONDARY_CLS}
         title="Archive the selected cards (with their children)"
@@ -251,6 +264,7 @@ export function BulkActions() {
         <Archive size={13} /> Archive
       </button>
       <button
+        disabled={Boolean(held)}
         onClick={() =>
           askConfirm({
             title: `Delete ${count} card${count === 1 ? '' : 's'}?`,

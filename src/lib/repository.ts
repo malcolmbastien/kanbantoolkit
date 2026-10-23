@@ -17,6 +17,7 @@
 import type { StateStorage } from 'zustand/middleware'
 import type { Item } from '@/domain/types'
 import { useAuth } from './auth'
+import { TAB } from './presence'
 import { guardedStorage } from './storage'
 import { tabSynced } from './tabSync'
 
@@ -67,7 +68,9 @@ async function sendItem(item: Item, baseRev: number, key?: string): Promise<Comm
   try {
     const response = await fetch(`/api/workspace/items/${encodeURIComponent(item.id)}`, {
       method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
+      // The same tab the lease was taken with: without it the server would see a write from
+      // somebody else and refuse the holder their own card.
+      headers: { 'content-type': 'application/json', 'x-flowline-tab': TAB },
       body: JSON.stringify({ baseRev, item, ...(key ? { key } : {}) }),
     })
 

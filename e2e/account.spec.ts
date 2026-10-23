@@ -152,3 +152,46 @@ test('a local workspace can be copied to the account on first sign-in', async ({
   // And the copy here was not taken away: the board still draws.
   await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
 })
+
+test('one person holds a card, and the other reads it closed', async ({ browser }) => {
+  const one = await browser.newContext()
+  const two = await browser.newContext()
+
+  try {
+    const holder = await one.newPage()
+    const reader = await two.newPage()
+
+    for (const [page, who] of [
+      [holder, 'maya.blake@example.com'],
+      [reader, 'grace@example.com'],
+    ] as const) {
+      await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+      await page.getByRole('button', { name: 'Sign in' }).click()
+      await page.getByPlaceholder('you@example.com').fill(who)
+      await page.getByRole('button', { name: 'Sign in as this address' }).click()
+      await expect(page.getByRole('button', { name: /Maya Blake|Grace/ })).toBeVisible()
+    }
+
+    const spot = 5
+    await holder.locator('[data-workflow="cards"] [data-card-id]').nth(spot).click()
+    // Edit intent, not opening: a focus into a field is what takes the pen.
+    await holder.getByLabel('Title').focus()
+
+    // A background tab does not poll — it catches up when it is looked at, which is the only time
+    // a change is worth drawing. In a browser that is this tab being brought forward; in the test it
+    // is this line.
+    await reader.bringToFront()
+    await reader.locator('[data-workflow="cards"] [data-card-id]').nth(spot).click()
+    await expect(reader.getByText('Maya Blake is editing this card.')).toBeVisible({ timeout: 15_000 })
+    // Readable, not editable.
+    await expect(reader.getByLabel('Title')).toBeDisabled()
+
+    // Letting go is what the other side sees: the drawer opens again without a reload.
+    await holder.getByRole('button', { name: 'Close' }).click()
+    await expect(reader.getByText('Maya Blake is editing this card.')).toHaveCount(0, { timeout: 15_000 })
+    await expect(reader.getByLabel('Title')).toBeEnabled()
+  } finally {
+    await one.close()
+    await two.close()
+  }
+})

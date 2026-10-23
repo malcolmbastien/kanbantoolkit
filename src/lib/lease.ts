@@ -66,7 +66,7 @@ export async function dropLease(itemId: string): Promise<void> {
 function start(): void {
   if (timer !== undefined) return
   timer = setInterval(() => {
-    for (const itemId of [...holding]) {
+    for (const itemId of holding) {
       void renew(itemId).then((kept) => {
         // A lease that could not be renewed is gone — taken over or lapsed — and this tab should
         // stop pretending to hold it.
@@ -90,6 +90,6 @@ export function holdingLeases(): string[] {
 if (typeof window !== 'undefined') {
   // A tab being hidden or closed is the last chance to be polite about a lease.
   window.addEventListener('pagehide', () => {
-    for (const itemId of [...holding]) void dropLease(itemId)
+    for (const itemId of holding) void dropLease(itemId)
   })
 }

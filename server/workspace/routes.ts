@@ -70,9 +70,10 @@ export function workspaceRoutes(runtime: Runtime) {
     const allowed = await guard(c, runtime)
     if (allowed instanceof Response) return allowed
 
+    // A lease is a lock on an id, not on a row: the pen is taken on edit intent, which happens
+    // before the first change ever reaches the server. Requiring the card to exist would mean a
+    // card could not be edited for the first time by anybody.
     const id = c.req.param('id')
-    if (!(await readItem(allowed.db, id))) return c.json({ error: 'no such card' }, 404)
-
     const sessionId = tabOf(c)
     const lock = await acquire(allowed.db, id, { userId: allowed.user.id, sessionId, name: allowed.user.name })
     if (lock.sessionId !== sessionId) return c.json({ error: 'someone else holds this card', holder: lock }, 423)

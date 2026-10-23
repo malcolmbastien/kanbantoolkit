@@ -8,6 +8,7 @@ import { STALE_AFTER_DAYS } from '@/domain/filters'
 import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
 import { PriorityBadge } from './PriorityBadge'
+import { heldByOther, usePresence } from '@/lib/presence'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
 
 export interface CardSummary {
@@ -191,6 +192,7 @@ const cardKeyboard = (
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
 function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+  const held = heldByOther(usePresence((state) => state.locks), item.id)
   const dragProps =
     draggable && !locked
       ? onLift
@@ -390,6 +392,15 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               {item.title}
             </span>
             <span className="flex shrink-0 items-center gap-1.5 pt-1">
+              {held && (
+                <span
+                  title={`${held.holderName} is editing this card — you can read it and move it`}
+                  aria-label={`${held.holderName} is editing this card`}
+                  className="text-amber-600"
+                >
+                  <Lock size={12} />
+                </span>
+              )}
               <PriorityBadge priority={item.priority} />
             </span>
           </div>
