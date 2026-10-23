@@ -238,13 +238,38 @@ export function authRoutes(runtime: Runtime) {
     }
   })
 
+  /**
+   * Who you are, and what this instance will let you do.
+   *
+   * The client reads this to hide or disable controls — a courtesy, never the enforcement. The
+   * server asks its own questions on every request and never trusts a value that came from here.
+   */
   auth.get('/session', async (c) => {
     const db = runtime.database(c.env)
-    if (!db) return c.json({ user: null, dev: false })
+    if (!db) return c.json({ user: null, instanceRole: null, workspaces: [], dev: false })
 
     const token = getCookie(c, SESSION_COOKIE)
     const user = token ? await userForToken(db, token) : undefined
-    return c.json({ user: user ?? null, dev: devAuth(c.env) })
+    if (!user) return c.json({ user: null, instanceRole: null, workspaces: [], dev: devAuth(c.env) })
+
+    const member = await db.get<{ workspace_id: string; role: string }>(
+      'SELECT workspace_id, role FROM workspace_members WHERE user_id = ?1 ORDER BY workspace_id LIMIT 1',
+      [user.id],
+    )
+    // An instance administrator can enter any workspace, so the one they are not on is still theirs
+    // to repair — the payload says so, and the server says the same thing when it is asked.
+    const workspaces = member
+      ? [{ id: member.workspace_id, role: member.role }]
+      : user.instanceRole === 'admin'
+        ? [{ id: WORKSPACE_ID, role: 'admin' }]
+        : []
+
+    return c.json({
+      user: { id: user.id, name: user.name, email: user.email },
+      instanceRole: user.instanceRole,
+      workspaces,
+      dev: devAuth(c.env),
+    })
   })
 
   auth.post('/signout', async (c) => {

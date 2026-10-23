@@ -123,12 +123,16 @@ describe('signing in', () => {
     expect(token).toBeTruthy()
 
     const session = await request('/api/auth/session', { headers: { cookie: `fl_session=${token}` } })
-    const body = (await session.json()) as { user: { email: string; name: string; role: string } }
+    const body = (await session.json()) as {
+      user: { email: string; name: string }
+      instanceRole: string
+      workspaces: Array<{ id: string; role: string }>
+    }
     expect(body.user.email).toBe('ada@example.com')
     expect(body.user.name).toBe('Ada')
-    // The first person to arrive owns the instance, on both axes.
-    expect(body.user.role).toBe('admin')
-    expect((body.user as unknown as { instanceRole: string }).instanceRole).toBe('admin')
+    // The payload says what the interface may show, on both axes. The server decides separately.
+    expect(body.instanceRole).toBe('admin')
+    expect(body.workspaces).toEqual([{ id: 'workspace', role: 'admin' }])
   })
 
   it('keeps one person as one account across two doors', async () => {
@@ -212,7 +216,7 @@ describe('invitations', () => {
       })
       const token = cookie(callback, 'fl_session')!
       const session = await request('/api/auth/session', { headers: { cookie: `fl_session=${token}` } })
-      expect(((await session.json()) as { user: { role: string } }).user.role).toBe('admin')
+      expect((((await session.json()) as { workspaces: Array<{ role: string }> }).workspaces[0]).role).toBe('admin')
 
       // The invitation is spent, not left behind for the next arrival — and kept as the record of
       // how this person arrived.

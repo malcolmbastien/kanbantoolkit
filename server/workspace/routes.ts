@@ -8,7 +8,7 @@
 
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
-import { guard } from './guard'
+import { requireWorkspace } from '../access'
 import { readItem, readItemsByIds, readWorkspace } from './read'
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
 import { schemaVersion } from '../migrate'
@@ -26,7 +26,7 @@ export function workspaceRoutes(runtime: Runtime) {
   const routes = new Hono<{ Bindings: object }>()
 
   routes.get('/', async (c) => {
-    const allowed = await guard(c, runtime)
+    const allowed = await requireWorkspace(c, runtime, 'board.read')
     if (allowed instanceof Response) return allowed
 
     // The one read that would otherwise hand back a shape nobody migrated for.
@@ -50,7 +50,7 @@ export function workspaceRoutes(runtime: Runtime) {
    * case rather than trusting it.
    */
   routes.post('/import', async (c) => {
-    const allowed = await guard(c, runtime)
+    const allowed = await requireWorkspace(c, runtime, 'workspace.import')
     if (allowed instanceof Response) return allowed
 
     const existing = await readWorkspace(allowed.db)
@@ -67,7 +67,7 @@ export function workspaceRoutes(runtime: Runtime) {
    * Take a card's pen. One statement settles the race; whoever loses is told who won.
    */
   routes.post('/items/:id/lock', async (c) => {
-    const allowed = await guard(c, runtime)
+    const allowed = await requireWorkspace(c, runtime, 'item.write')
     if (allowed instanceof Response) return allowed
 
     // A lease is a lock on an id, not on a row: the pen is taken on edit intent, which happens
@@ -82,7 +82,7 @@ export function workspaceRoutes(runtime: Runtime) {
 
   /** Keep it while somebody is there. Renewal never creates a lease. */
   routes.post('/items/:id/heartbeat', async (c) => {
-    const allowed = await guard(c, runtime)
+    const allowed = await requireWorkspace(c, runtime, 'item.write')
     if (allowed instanceof Response) return allowed
 
     const id = c.req.param('id')
@@ -95,7 +95,7 @@ export function workspaceRoutes(runtime: Runtime) {
 
   /** Let go. Idempotent, because the tab that closes may already have lost it. */
   routes.delete('/items/:id/lock', async (c) => {
-    const allowed = await guard(c, runtime)
+    const allowed = await requireWorkspace(c, runtime, 'item.write')
     if (allowed instanceof Response) return allowed
 
     await release(allowed.db, c.req.param('id'), tabOf(c))
@@ -111,7 +111,7 @@ export function workspaceRoutes(runtime: Runtime) {
    * has already seen.
    */
   routes.get('/changes', async (c) => {
-    const allowed = await guard(c, runtime)
+    const allowed = await requireWorkspace(c, runtime, 'board.read')
     if (allowed instanceof Response) return allowed
 
     const asked = Number(c.req.query('since') ?? '0')
@@ -154,7 +154,7 @@ export function workspaceRoutes(runtime: Runtime) {
    * asked to merge by hand.
    */
   routes.patch('/items/:id', async (c) => {
-    const allowed = await guard(c, runtime)
+    const allowed = await requireWorkspace(c, runtime, 'item.write')
     if (allowed instanceof Response) return allowed
 
     const id = c.req.param('id')

@@ -621,3 +621,93 @@ describe('the lease on a card', () => {
     expect(body.locks[0].holderName).toBe('Ada')
   })
 })
+
+describe('what a role may do, at the door', () => {
+  const card = (over: Partial<Item> = {}): Item => ({
+    id: 'i-card',
+    title: 'A card',
+    typeId: 't-card',
+    createdAt: 1_700_000_000_000,
+    ...over,
+  })
+
+  /** A signed-in caller with a given role on each axis. */
+  async function caller(db: Database, id: string, role: 'viewer' | 'editor' | 'admin', instance: 'admin' | 'member' = 'member') {
+    await db.run('INSERT OR IGNORE INTO users (id, name, email) VALUES (?1, ?2, ?3)', [id, id, `${id}@example.com`])
+    await db.run('INSERT OR IGNORE INTO instance_members (user_id, role) VALUES (?1, ?2)', [id, instance])
+    await db.run("INSERT OR IGNORE INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', ?1, ?2)", [id, role])
+    const session = await issueSession(db, id)
+    return { id, cookie: `fl_session=${session.token}` }
+  }
+
+  const write = (request: ReturnType<typeof instance>, cookie: string, title: string, baseRev: number) =>
+    request('/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ baseRev, item: card({ title }) }),
+    })
+
+  it('refuses a viewer a write, and changes nothing', async () => {
+    const db = database()
+    const request = instance(db)
+    const admin = await caller(db, 'u-admin', 'admin')
+    const viewer = await caller(db, 'u-view', 'viewer')
+    await write(request, admin.cookie, 'A card', 0)
+
+    expect((await write(request, viewer.cookie, 'Mine', 1)).status).toBe(403)
+
+    const body = (await (await request('/api/workspace', { headers: { cookie: admin.cookie } })).json()) as Workspace
+    expect(body.items[0].title).toBe('A card')
+  })
+
+  it('lets an editor change the work and refuses them the workspace', async () => {
+    const db = database()
+    const request = instance(db)
+    const editor = await caller(db, 'u-edit', 'editor')
+    await write(request, editor.cookie, 'A card', 0)
+
+    expect((await write(request, editor.cookie, 'Renamed', 1)).status).toBe(200)
+    // Importing a whole workspace is the administrator's, not the editor's.
+    const imported = await request('/api/workspace/import', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: editor.cookie },
+      body: JSON.stringify({ boards: [{ id: 'b-x', name: 'X', band: 'team', description: '' }] }),
+    })
+    expect(imported.status).toBe(403)
+  })
+
+  it('takes a demotion on the very next request, with no sign-out', async () => {
+    const db = database()
+    const request = instance(db)
+    const admin = await caller(db, 'u-demote', 'admin')
+    await write(request, admin.cookie, 'A card', 0)
+    expect((await write(request, admin.cookie, 'Still mine', 1)).status).toBe(200)
+
+    await db.run("UPDATE workspace_members SET role = 'viewer' WHERE user_id = 'u-demote'")
+
+    // The cookie is the same one; the role is read again, on this request.
+    expect((await write(request, admin.cookie, 'Not any more', 2)).status).toBe(403)
+  })
+
+  it('gives a removed member nothing to see, rather than a refusal that confirms it', async () => {
+    const db = database()
+    const request = instance(db)
+    const member = await caller(db, 'u-removed', 'editor')
+    expect((await request('/api/workspace', { headers: { cookie: member.cookie } })).status).toBe(200)
+
+    await db.run("DELETE FROM workspace_members WHERE user_id = 'u-removed'")
+
+    // Not 403: a workspace you are not in is one that is not there for you.
+    expect((await request('/api/workspace', { headers: { cookie: member.cookie } })).status).toBe(404)
+  })
+
+  it('lets an instance administrator write to a workspace they are not a member of', async () => {
+    const db = database()
+    const request = instance(db)
+    await db.run("INSERT INTO users (id, name, email) VALUES ('u-root', 'Root', 'root@example.com')")
+    await db.run("INSERT INTO instance_members (user_id, role) VALUES ('u-root', 'admin')")
+    const session = await issueSession(db, 'u-root')
+
+    expect((await write(request, `fl_session=${session.token}`, 'Repaired', 0)).status).toBe(200)
+  })
+})

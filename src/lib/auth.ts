@@ -55,10 +55,22 @@ export async function loadAuth(): Promise<AuthState> {
   const offered = await read<{ providers?: AuthProvider[]; dev?: boolean }>('/api/auth/providers')
   if (!offered?.providers) return NONE
 
-  const session = await read<{ user: AuthUser | null }>('/api/auth/session')
+  const session = await read<{
+    user: { id: string; name: string; email: string; avatarUrl?: string } | null
+    instanceRole: string | null
+    workspaces: Array<{ id: string; role: string }>
+  }>('/api/auth/session')
+
   const next: AuthState = {
     providers: offered.providers,
-    user: session?.user ?? null,
+    user: session?.user
+      ? {
+          ...session.user,
+          instanceRole: session.instanceRole ?? 'member',
+          // The role in the workspace this instance has. Data for the interface; the server decides.
+          role: session.workspaces[0]?.role ?? 'viewer',
+        }
+      : null,
     dev: offered.dev === true,
     loaded: true,
   }
