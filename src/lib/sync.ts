@@ -13,11 +13,16 @@ export interface Refusal {
   id: string
   title: string
   at: number
+  /** Another person's lease, or a revision this write was not based on. */
+  reason: 'held' | 'changed' | 'other'
+  holderName?: string
+  /** The version the server holds — offered, never applied over the local words. */
+  server?: import('@/domain/types').Item
 }
 
 interface SyncStatus {
-  /** Changes the workspace has moved past, most recent last. */
-  refusals: Refusal[]
+  /** Cards whose last write was refused, by id. */
+  refusals: Record<string, Refusal>
   /** The server could not be reached at all. */
   unreachable: boolean
   /** Accepted changes still waiting for a connection. */
@@ -27,6 +32,8 @@ interface SyncStatus {
   refuse(entry: Refusal): void
   /** A later write for this item landed, so the refusal no longer stands. */
   resolve(id: string): void
+  /** Forget one refusal — after the person has copied the words or taken the server's version. */
+  forget(id: string): void
   unreachableNow(): void
   reachable(): void
   setWaiting(count: number): void
@@ -37,27 +44,46 @@ interface SyncStatus {
 const LIMIT = 20
 
 export const useSync = create<SyncStatus>((set) => ({
-  refusals: [],
+  refusals: {},
   unreachable: false,
   waiting: 0,
   overflow: false,
 
   refuse: (entry) =>
     set((state) => ({
-      refusals: [...state.refusals.filter((seen) => seen.id !== entry.id), entry].slice(-LIMIT),
+      // Bounded by card rather than by count: a refusal is a state a card is in, not a log.
+      refusals: { ...Object.fromEntries(Object.entries(state.refusals).slice(-(LIMIT - 1))), [entry.id]: entry },
       unreachable: false,
     })),
 
   resolve: (id) =>
-    set((state) =>
-      state.refusals.some((seen) => seen.id === id)
-        ? { refusals: state.refusals.filter((seen) => seen.id !== id) }
-        : state,
-    ),
+    set((state) => {
+      if (!state.refusals[id]) return state
+      const refusals = { ...state.refusals }
+      delete refusals[id]
+      return { refusals }
+    }),
+
+  forget: (id) =>
+    set((state) => {
+      if (!state.refusals[id]) return state
+      const refusals = { ...state.refusals }
+      delete refusals[id]
+      return { refusals }
+    }),
 
   unreachableNow: () => set({ unreachable: true }),
   reachable: () => set({ unreachable: false }),
   setWaiting: (count) => set({ waiting: count, ...(count > 0 ? {} : { overflow: false }) }),
   full: () => set({ overflow: true }),
-  clear: () => set({ refusals: [], unreachable: false, waiting: 0, overflow: false }),
+  clear: () => set({ refusals: {}, unreachable: false, waiting: 0, overflow: false }),
 }))
+
+/**
+ * Whether this card is frozen: no further writes are sent until the person has dealt with the
+ * refusal. The words stay on screen — losing what somebody typed is the worst outcome — but they
+ * stop travelling, because a refused change replayed is the lost update the revision prevents.
+ */
+export function isFrozen(itemId: string): boolean {
+  return Boolean(useSync.getState().refusals[itemId])
+}

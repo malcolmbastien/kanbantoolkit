@@ -103,12 +103,12 @@ describe('sending a change', () => {
     vi.stubGlobal('fetch', answer(409, { error: 'moved past', item: theirs }))
 
     const result = await httpRepository().commitItem(card, 1)
-    expect(result).toEqual({ kind: 'refused', item: theirs })
+    expect(result).toEqual({ kind: 'refused', reason: 'changed', item: theirs })
   })
 
   it('treats a refusal with no card as a refusal, not a connection problem', async () => {
     vi.stubGlobal('fetch', answer(401, { error: 'sign in to use this workspace' }))
-    expect(await httpRepository().commitItem(card, 1)).toEqual({ kind: 'refused', item: null })
+    expect(await httpRepository().commitItem(card, 1)).toEqual({ kind: 'refused', reason: 'other', item: null })
   })
 
   it('distinguishes a server that cannot be reached from one that said no', async () => {
@@ -133,5 +133,25 @@ describe('sending a change', () => {
 
     await chooseRepository().commitItem(card, 1)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('a refusal says which refusal it was', () => {
+  it('names the holder when the card is taken', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: 'someone else is editing this card', holder: { holderName: 'Grace' } }), {
+          status: 423,
+        }),
+      ),
+    )
+
+    expect(await httpRepository().commitItem(card, 1)).toEqual({
+      kind: 'refused',
+      reason: 'held',
+      item: null,
+      holderName: 'Grace',
+    })
   })
 })

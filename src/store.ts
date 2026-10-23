@@ -11,7 +11,7 @@ import { chooseRepository } from '@/lib/repository'
 import { queue, newKey, type QueuedWrite } from '@/lib/queue'
 import type { CommitAnswer } from '@/lib/repository'
 import { useAuth } from '@/lib/auth'
-import { useSync } from '@/lib/sync'
+import { isFrozen, useSync } from '@/lib/sync'
 import { onLiveItem, startLive, stopLive } from '@/lib/live'
 import { reflectAccount } from '@/lib/workspaceSync'
 import { uid as makeUid } from '@/lib/utils'
@@ -595,6 +595,10 @@ function enqueue(sent: Array<{ item: Item; baseRev: number }>): void {
  */
 async function sendChanges(sent: Array<{ item: Item; baseRev: number }>): Promise<void> {
   for (const { item, baseRev } of sent) {
+    // A card whose write was refused is frozen: the local change stands, but nothing more travels
+    // for it until the person copies the words or takes the server's version.
+    if (isFrozen(item.id)) continue
+
     const key = newKey()
 
     // While the connection is known to be down, a change is held rather than thrown at a socket
@@ -627,10 +631,21 @@ type Settled = Exclude<CommitAnswer, { kind: 'unreachable' }>
 
 function settle(answer: Settled, item: Item, sentRev: number): void {
   if (answer.kind === 'refused') {
-    useSync.getState().refuse({ id: item.id, title: item.title, at: Date.now() })
-  } else if (answer.kind === 'kept') {
-    useSync.getState().resolve(item.id)
+    // The words stay where they were typed. The server's version is *offered* by the drawer, not
+    // written over what the person was in the middle of saying — losing that is the worst outcome,
+    // and a refusal replayed is the lost update the revision exists to prevent.
+    useSync.getState().refuse({
+      id: item.id,
+      title: item.title,
+      at: Date.now(),
+      reason: answer.reason,
+      ...(answer.holderName ? { holderName: answer.holderName } : {}),
+      ...(answer.item ? { server: answer.item } : {}),
+    })
+    return
   }
+
+  useSync.getState().resolve(item.id)
 
   // The server's version wins unless this tab has already moved past what was sent — the one case
   // where keeping the local one is not a second truth but a newer one.

@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils'
 import { usePresence, heldByOther } from '@/lib/presence'
 import { dropLease, takeLease } from '@/lib/lease'
 import { useAuth } from '@/lib/auth'
+import { useSync } from '@/lib/sync'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
 import type { Item, ItemLogEntry, Stage } from '@/domain/types'
@@ -155,6 +156,15 @@ export function ItemPanel({ itemId }: Props) {
   const locks = usePresence((s) => s.locks)
   const held = heldByOther(locks, itemId)
   const account = useAuth((s) => s.user)
+  const refusal = useSync((s) => s.refusals[itemId])
+
+  // A refusal that was only a lease ends when the lease does: the card is editable again without
+  // anybody having to press anything.
+  useEffect(() => {
+    if (refusal?.reason !== 'held') return
+    if (locks[itemId]) return
+    useSync.getState().forget(itemId)
+  }, [refusal?.reason, locks, itemId])
   if (!item) return null
 
   const type = issueTypes.find((t) => t.id === item.typeId) ?? { id: item.typeId, name: 'Item', color: '#64748b' }
@@ -666,6 +676,43 @@ export function ItemPanel({ itemId }: Props) {
           })}
         </div>
       </header>
+
+      {refusal && (
+        <div className="shrink-0 border-b border-rose-200 bg-rose-50 px-4 py-2 text-meta text-rose-900">
+          <p>
+            {refusal.reason === 'held'
+              ? `${refusal.holderName ?? 'Someone else'} is editing this card, so this change was not saved.`
+              : refusal.reason === 'changed'
+                ? 'This card was changed elsewhere while you were editing, so this change was not saved. Your words are still here.'
+                : 'This change could not be saved.'}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => {
+                void navigator.clipboard?.writeText(`${item.title}\n\n${item.description ?? ''}`.trim())
+              }}
+              className="rounded-md border border-rose-300 bg-white px-2 py-0.5 text-meta font-medium text-rose-800 hover:bg-rose-100"
+            >
+              Copy my words
+            </button>
+            <button
+              onClick={() => {
+                // Taking the server's version is the end of the refusal: the card is editable again.
+                if (refusal.server) {
+                  const server = refusal.server
+                  useStore.setState((state) => ({
+                    items: state.items.map((local) => (local.id === server.id ? server : local)),
+                  }))
+                }
+                useSync.getState().forget(item.id)
+              }}
+              className="rounded-md border border-rose-300 bg-white px-2 py-0.5 text-meta font-medium text-rose-800 hover:bg-rose-100"
+            >
+              {refusal.server ? "Take the server's version" : 'Reload the card'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {held && (
         <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-meta text-amber-900">

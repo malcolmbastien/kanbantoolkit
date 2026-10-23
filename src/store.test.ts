@@ -2786,17 +2786,38 @@ describe('a change on its way to the server', () => {
     expect(JSON.parse(init.body as string)).toMatchObject({ baseRev: before.rev ?? 0 })
   })
 
-  it('keeps the server\'s card, and says so, when the workspace has moved past the change', async () => {
+  it('keeps the words, and offers the server\'s card, when the workspace has moved past the change', async () => {
     const before = s().items[0]
     const theirs = { ...before, rev: (before.rev ?? 0) + 5, title: 'Theirs' }
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'moved past', item: theirs }), { status: 409 })))
     signedIn()
 
     s().setItemFields(before.id, { title: 'Mine' })
-    await vi.waitFor(() => expect(s().items.find((item) => item.id === before.id)?.title).toBe('Theirs'))
+    await vi.waitFor(() => expect(useSync.getState().refusals[before.id]).toBeTruthy())
 
-    // Refused, not dropped: the person is told, and the refusal names the card.
-    expect(useSync.getState().refusals.map((refusal) => refusal.id)).toEqual([before.id])
+    // What was typed stays on screen; the server's version is offered, never imposed.
+    expect(s().items.find((item) => item.id === before.id)?.title).toBe('Mine')
+    const refusal = useSync.getState().refusals[before.id]
+    expect(refusal.reason).toBe('changed')
+    expect(refusal.server?.title).toBe('Theirs')
+  })
+
+  it('sends nothing more for a card whose write was refused', async () => {
+    const before = s().items[0]
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'moved past', item: before }), { status: 409 })))
+    signedIn()
+
+    s().setItemFields(before.id, { title: 'First' })
+    await vi.waitFor(() => expect(useSync.getState().refusals[before.id]).toBeTruthy())
+
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    s().setItemFields(before.id, { title: 'Then more' })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // Frozen until the person deals with it: no further request leaves this tab for that card.
+    expect((fetchMock.mock.calls as unknown as Array<[string]>).filter(([url]) => url.includes('/items/'))).toHaveLength(0)
+    expect(s().items.find((item) => item.id === before.id)?.title).toBe('Then more')
   })
 
   it('sends nothing when nobody is signed in', async () => {
@@ -2897,7 +2918,7 @@ describe('a change that cannot be sent yet', () => {
     await flushQueue()
 
     expect(queue.size()).toBe(0)
-    expect(useSync.getState().refusals).toHaveLength(1)
+    expect(Object.keys(useSync.getState().refusals)).toHaveLength(1)
   })
 
   it('stops at a connection that is still down, so the order is never rearranged around a gap', async () => {

@@ -10,7 +10,8 @@ import { useSync } from '@/lib/sync'
  * merged — the words are kept for task 121, which is where a person decides what to do with them.
  */
 export function SyncNotice() {
-  const refusals = useSync((state) => state.refusals)
+  const byCard = useSync((state) => state.refusals)
+  const refusals = Object.values(byCard)
   const unreachable = useSync((state) => state.unreachable)
   const waiting = useSync((state) => state.waiting)
   const overflow = useSync((state) => state.overflow)

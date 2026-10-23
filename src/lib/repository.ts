@@ -26,8 +26,11 @@ export type RepositoryKind = 'local' | 'http'
 export type CommitAnswer =
   /** The change was accepted (or did not need sending). This is the version to keep. */
   | { kind: 'kept'; item: Item }
-  /** The workspace has moved past the revision the change was based on. */
-  | { kind: 'refused'; item: Item | null }
+  /**
+   * The server said no. `held` is another person's lease; `changed` is a revision this write was
+   * not based on. They are different sentences, so they are different answers.
+   */
+  | { kind: 'refused'; reason: 'held' | 'changed' | 'other'; item: Item | null; holderName?: string }
   /** Nothing answered. */
   | { kind: 'unreachable' }
 
@@ -76,11 +79,16 @@ async function sendItem(item: Item, baseRev: number, key?: string): Promise<Comm
 
     if (response.status === 409) {
       const body = (await response.json().catch(() => null)) as { item?: Item | null } | null
-      return { kind: 'refused', item: body?.item ?? null }
+      return { kind: 'refused', reason: 'changed', item: body?.item ?? null }
+    }
+
+    if (response.status === 423) {
+      const body = (await response.json().catch(() => null)) as { holder?: { holderName?: string } | null } | null
+      return { kind: 'refused', reason: 'held', item: null, holderName: body?.holder?.holderName }
     }
 
     // A refusal with the reason is still a refusal: 400 and 401 are the server saying no.
-    if (response.status >= 400 && response.status < 500) return { kind: 'refused', item: null }
+    if (response.status >= 400 && response.status < 500) return { kind: 'refused', reason: 'other', item: null }
     if (!response.ok) return { kind: 'unreachable' }
 
     const body = (await response.json()) as { item: Item }
