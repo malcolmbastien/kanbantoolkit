@@ -10,6 +10,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from './app'
+import { issueSession, revoke, userForToken } from './auth/session'
 import { providers } from './config'
 import type { Database } from './db'
 import { fromSqlite } from './sqlite'
@@ -197,7 +198,9 @@ describe('invitations', () => {
     await db.run("INSERT INTO users (id, name, email) VALUES ('u_owner', 'Owner', 'owner@example.com')")
     await db.run("INSERT INTO instance_members (user_id, role) VALUES ('u_owner', 'admin')")
     await db.run("INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', 'u_owner', 'admin')")
-    await db.run("INSERT INTO invites (email, role) VALUES ('ada@example.com', 'admin')")
+    await db.run("INSERT INTO invites (id, email, role, expires_at) VALUES ('inv-1', 'ada@example.com', 'admin', ?1)", [
+      new Date(Date.now() + 86_400_000).toISOString(),
+    ])
 
     const fetchMock = fakeProvider({ sub: 's1', email: 'ada@example.com', name: 'Ada' })
     vi.stubGlobal('fetch', fetchMock)
@@ -211,8 +214,11 @@ describe('invitations', () => {
       const session = await request('/api/auth/session', { headers: { cookie: `fl_session=${token}` } })
       expect(((await session.json()) as { user: { role: string } }).user.role).toBe('admin')
 
-      // The invitation is spent, not left behind for the next arrival.
-      expect(await db.get('SELECT * FROM invites')).toBeUndefined()
+      // The invitation is spent, not left behind for the next arrival — and kept as the record of
+      // how this person arrived.
+      expect(await db.get("SELECT accepted_at FROM invites WHERE id = 'inv-1'")).toMatchObject({
+        accepted_at: expect.any(String),
+      })
     } finally {
       vi.unstubAllGlobals()
     }
@@ -289,5 +295,53 @@ describe('the two axes', () => {
       "SELECT w.role FROM workspace_members w JOIN users u ON u.id = w.user_id WHERE u.email = 'second@example.com'",
     )
     expect(second?.role).toBe('editor')
+  })
+})
+
+describe('sessions and the trail', () => {
+  it('keeps a revoked session as a record, and refuses it as a credential', async () => {
+    const db = database()
+    await db.run("INSERT INTO users (id, name, email) VALUES ('u-1', 'Ada', 'ada@example.com')")
+    const paused = await issueSession(db, 'u-1', { userAgent: 'a browser', ipHash: 'abc' })
+
+    expect(await userForToken(db, paused.token)).toBeTruthy()
+    await revoke(db, paused.token)
+
+    expect(await userForToken(db, paused.token)).toBeUndefined()
+    // Gone as a credential, still there as a fact — with what it was used from.
+    const row = await db.get<{ revoked_at: string | null; user_agent: string }>(
+      'SELECT revoked_at, user_agent FROM sessions LIMIT 1',
+    )
+    expect(row?.revoked_at).toBeTruthy()
+    expect(row?.user_agent).toBe('a browser')
+  })
+
+  it('records a sign-in, without any of the workspace in it', async () => {
+    const { db, request } = instance({ AUTH_DEV: '1' })
+    await request('/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com', name: 'Ada' }),
+    })
+
+    const events = await db.all<{ action: string; target_id: string; data: string | null }>(
+      'SELECT action, target_id, data FROM audit_events',
+    )
+    expect(events).toHaveLength(1)
+    expect(events[0].action).toBe('signin')
+    expect(events[0].target_id).toBe('dev')
+    expect(events[0].data).toBeNull()
+  })
+
+  it('refuses to change or remove what the trail says', async () => {
+    const { db, request } = instance({ AUTH_DEV: '1' })
+    await request('/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com' }),
+    })
+
+    await expect(db.run("UPDATE audit_events SET action = 'nothing'")).rejects.toThrow(/append-only/)
+    await expect(db.run('DELETE FROM audit_events')).rejects.toThrow(/append-only/)
   })
 })

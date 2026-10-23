@@ -16,6 +16,7 @@ import { devAuth, providers, publicUrl, salt } from '../config'
 import type { Runtime } from '../runtime'
 import { AuthError, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
 import { issueSession, revoke, SESSION_COOKIE, userById, userForToken, WORKSPACE_ID } from './session'
+import { record } from '../audit'
 import type { AuthUser } from './session'
 
 /** How long a sign-in may sit half-finished before it is worthless. */
@@ -47,6 +48,11 @@ function secure(request: Request): boolean {
 function nextPath(value: string | undefined): string {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return '/'
   return value.slice(0, 300)
+}
+
+/** The address, hashed with the instance's salt — the same form the limiter counts. */
+async function addressHash(runtime: Runtime, env: unknown, request: Request): Promise<string> {
+  return sha256(`${runtime.clientIp(request)}:${salt(env)}`)
 }
 
 /** A sign-in attempt, counted so a flood is not free. */
@@ -85,9 +91,11 @@ async function identify(db: Database, providerId: string, who: { subject: string
 
   const door = await db.get<{ user_id: string }>('SELECT user_id FROM instance_members WHERE user_id = ?1', [userId])
   if (!door) {
-    const invite = await db.get<{ role: string; invited_by: string | null }>(
-      'SELECT role, invited_by FROM invites WHERE email = ?1',
-      [who.email],
+    const invite = await db.get<{ id: string; role: string; invited_by: string | null }>(
+      `SELECT id, role, invited_by FROM invites
+       WHERE email = ?1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?2
+       ORDER BY created_at DESC LIMIT 1`,
+      [who.email, new Date().toISOString()],
     )
     // The first person to arrive owns the instance; everyone after them is a member, and the
     // workspace role an invitation names — or the ability everyone can already have today.
@@ -103,7 +111,10 @@ async function identify(db: Database, providerId: string, who: { subject: string
         sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
         params: [WORKSPACE_ID, userId, workspaceRole, invite?.invited_by ?? null],
       },
-      ...(invite ? [{ sql: 'DELETE FROM invites WHERE email = ?1', params: [who.email] }] : []),
+      // Spending it is a fact on the row: an accepted invitation is a record of how somebody arrived.
+      ...(invite
+        ? [{ sql: 'UPDATE invites SET accepted_at = ?1 WHERE id = ?2', params: [new Date().toISOString(), invite.id] }]
+        : []),
     ])
   }
 
@@ -208,7 +219,9 @@ export function authRoutes(runtime: Runtime) {
       })
       const who = await profile(provider, accessToken)
       const user = await identify(db, provider.id, who)
-      const session = await issueSession(db, user.id)
+      const ipHash = await addressHash(runtime, c.env, c.req.raw)
+      const session = await issueSession(db, user.id, { userAgent: c.req.header('user-agent'), ipHash })
+      await record(db, { actorId: user.id, action: 'signin', targetType: 'provider', targetId: provider.id, ipHash })
 
       setCookie(c, SESSION_COOKIE, session.token, {
         httpOnly: true,
@@ -237,7 +250,13 @@ export function authRoutes(runtime: Runtime) {
   auth.post('/signout', async (c) => {
     const db = runtime.database(c.env)
     const token = getCookie(c, SESSION_COOKIE)
-    if (db && token) await revoke(db, token)
+    if (db && token) {
+      const leaving = await userForToken(db, token)
+      await revoke(db, token)
+      if (leaving) {
+        await record(db, { actorId: leaving.id, action: 'signout', ipHash: await addressHash(runtime, c.env, c.req.raw) })
+      }
+    }
     deleteCookie(c, SESSION_COOKIE, { path: '/' })
     return c.body(null, 204)
   })
@@ -260,7 +279,9 @@ export function authRoutes(runtime: Runtime) {
     // plausible one from it — `maya.blake@…` becomes `Maya Blake` rather than `maya.blake`.
     const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim() : humanise(email.split('@')[0])
     const user = await identify(db, 'dev', { subject: email, email, emailVerified: true, name })
-    const session = await issueSession(db, user.id)
+    const ipHash = await addressHash(runtime, c.env, c.req.raw)
+    const session = await issueSession(db, user.id, { userAgent: c.req.header('user-agent'), ipHash })
+    await record(db, { actorId: user.id, action: 'signin', targetType: 'provider', targetId: 'dev', ipHash })
 
     setCookie(c, SESSION_COOKIE, session.token, {
       httpOnly: true,
