@@ -11,6 +11,14 @@
 
 import type { Provider } from '../config'
 
+/** An address the instance will not admit. Deliberately indistinguishable from an unknown one. */
+export class NotAdmitted extends Error {
+  constructor() {
+    super('this instance is closed')
+    this.name = 'NotAdmitted'
+  }
+}
+
 export class AuthError extends Error {
   status: number
 

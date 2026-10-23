@@ -14,9 +14,10 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { Database } from '../db'
 import { devAuth, providers, publicUrl, salt } from '../config'
 import type { Runtime } from '../runtime'
-import { AuthError, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
+import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
 import { issueSession, revoke, SESSION_COOKIE, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
+import { accessMode } from '../instance'
 import type { AuthUser } from './session'
 
 /** How long a sign-in may sit half-finished before it is worthless. */
@@ -86,43 +87,71 @@ async function identify(db: Database, providerId: string, who: { subject: string
     if (user) return user
   }
 
-  const known = await db.get<{ id: string }>('SELECT id FROM users WHERE lower(email) = ?1', [who.email])
+  const known = await db.get<{ id: string; status: string }>(
+    'SELECT id, status FROM users WHERE lower(email) = ?1',
+    [who.email],
+  )
+  // An inactive account and an unknown address are refused with the same silence: the difference
+  // between them is exactly what somebody probing the instance would like to learn.
+  if (known?.status === 'inactive') throw new NotAdmitted()
+
   const userId = known?.id ?? `u_${randomToken(12)}`
-
-  const door = await db.get<{ user_id: string }>('SELECT user_id FROM instance_members WHERE user_id = ?1', [userId])
-  if (!door) {
-    const invite = await db.get<{ id: string; role: string; invited_by: string | null }>(
-      `SELECT id, role, invited_by FROM invites
-       WHERE email = ?1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?2
-       ORDER BY created_at DESC LIMIT 1`,
-      [who.email, new Date().toISOString()],
-    )
-    // The first person to arrive owns the instance; everyone after them is a member, and the
-    // workspace role an invitation names — or the ability everyone can already have today.
-    const first = ((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM instance_members'))?.n ?? 0) === 0
-    const instanceRole = first ? 'admin' : 'member'
-    const workspaceRole = invite?.role === 'admin' ? 'admin' : first ? 'admin' : 'editor'
-
-    // One batch: there must be no moment at which an account exists and nobody administers it.
-    await db.batch([
-      ...(known ? [] : [{ sql: 'INSERT INTO users (id, name, email) VALUES (?1, ?2, ?3)', params: [userId, who.name, who.email] }]),
-      { sql: 'INSERT INTO instance_members (user_id, role) VALUES (?1, ?2)', params: [userId, instanceRole] },
-      {
-        sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
-        params: [WORKSPACE_ID, userId, workspaceRole, invite?.invited_by ?? null],
-      },
-      // Spending it is a fact on the row: an accepted invitation is a record of how somebody arrived.
-      ...(invite
-        ? [{ sql: 'UPDATE invites SET accepted_at = ?1 WHERE id = ?2', params: [new Date().toISOString(), invite.id] }]
-        : []),
-    ])
+  const identity = {
+    sql: 'INSERT OR IGNORE INTO identities (provider, subject, user_id, email) VALUES (?1, ?2, ?3, ?4)',
+    params: [providerId, who.subject, userId, who.email],
   }
 
-  // The same person signing in twice at once should not make two identities.
-  await db.run(
-    'INSERT OR IGNORE INTO identities (provider, subject, user_id, email) VALUES (?1, ?2, ?3, ?4)',
-    [providerId, who.subject, userId, who.email],
+  // Already on the roster: the door is open to them regardless of the posture.
+  const door = known
+    ? await db.get<{ user_id: string }>('SELECT user_id FROM instance_members WHERE user_id = ?1', [userId])
+    : undefined
+
+  if (door) {
+    await db.run(identity.sql, identity.params)
+    const user = await userById(db, userId)
+    if (!user) throw new AuthError('the account could not be read back', 500)
+    return user
+  }
+
+  // An invitation is accepted before the access check: it is the way in when the door is shut.
+  const invite = await db.get<{ id: string; role: string; invited_by: string | null }>(
+    `SELECT id, role, invited_by FROM invites
+     WHERE email = ?1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?2
+     ORDER BY created_at DESC LIMIT 1`,
+    [who.email, new Date().toISOString()],
   )
+
+  // The first person to arrive owns the instance, whatever the setting says — there has to be
+  // somebody who can open the door.
+  const first = ((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM instance_members'))?.n ?? 0) === 0
+  if (!first && !invite && (await accessMode(db)) === 'closed') throw new NotAdmitted()
+
+  // An open door admits a viewer. It never makes anybody an administrator: that is a decision
+  // somebody makes about a person, not a consequence of arriving.
+  const instanceRole = first ? 'admin' : 'member'
+  const workspaceRole = invite
+    ? invite.role === 'admin'
+      ? 'admin'
+      : invite.role === 'viewer'
+        ? 'viewer'
+        : 'editor'
+    : first
+      ? 'admin'
+      : 'viewer'
+
+  // One batch: no moment at which an account exists and nobody administers it.
+  await db.batch([
+    ...(known ? [] : [{ sql: 'INSERT INTO users (id, name, email) VALUES (?1, ?2, ?3)', params: [userId, who.name, who.email] }]),
+    { sql: 'INSERT INTO instance_members (user_id, role) VALUES (?1, ?2)', params: [userId, instanceRole] },
+    {
+      sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
+      params: [WORKSPACE_ID, userId, workspaceRole, invite?.invited_by ?? null],
+    },
+    ...(invite
+      ? [{ sql: 'UPDATE invites SET accepted_at = ?1 WHERE id = ?2', params: [new Date().toISOString(), invite.id] }]
+      : []),
+    identity,
+  ])
 
   const user = await userById(db, userId)
   if (!user) throw new AuthError('the account could not be read back', 500)
@@ -233,6 +262,8 @@ export function authRoutes(runtime: Runtime) {
 
       return c.redirect(`${origin}${nextPath(pending.next)}`, 302)
     } catch (error) {
+      // One answer for an unknown address and for a closed door: no difference to probe.
+      if (error instanceof NotAdmitted) return c.redirect(`${origin}/?auth=denied`, 302)
       if (error instanceof AuthError) return c.json({ error: error.message }, error.status as 400)
       return c.json({ error: 'sign-in failed' }, 502)
     }
@@ -246,11 +277,13 @@ export function authRoutes(runtime: Runtime) {
    */
   auth.get('/session', async (c) => {
     const db = runtime.database(c.env)
-    if (!db) return c.json({ user: null, instanceRole: null, workspaces: [], dev: false })
+    if (!db) return c.json({ user: null, instanceRole: null, workspaces: [], access: 'closed', dev: false })
 
     const token = getCookie(c, SESSION_COOKIE)
     const user = token ? await userForToken(db, token) : undefined
-    if (!user) return c.json({ user: null, instanceRole: null, workspaces: [], dev: devAuth(c.env) })
+    if (!user) {
+      return c.json({ user: null, instanceRole: null, workspaces: [], access: await accessMode(db), dev: devAuth(c.env) })
+    }
 
     const member = await db.get<{ workspace_id: string; role: string }>(
       'SELECT workspace_id, role FROM workspace_members WHERE user_id = ?1 ORDER BY workspace_id LIMIT 1',
@@ -268,6 +301,7 @@ export function authRoutes(runtime: Runtime) {
       user: { id: user.id, name: user.name, email: user.email },
       instanceRole: user.instanceRole,
       workspaces,
+      access: await accessMode(db),
       dev: devAuth(c.env),
     })
   })
@@ -303,7 +337,13 @@ export function authRoutes(runtime: Runtime) {
     // A provider would tell us the person's name; the switch has only an address, so it makes a
     // plausible one from it — `maya.blake@…` becomes `Maya Blake` rather than `maya.blake`.
     const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim() : humanise(email.split('@')[0])
-    const user = await identify(db, 'dev', { subject: email, email, emailVerified: true, name })
+    let user
+    try {
+      user = await identify(db, 'dev', { subject: email, email, emailVerified: true, name })
+    } catch (error) {
+      if (error instanceof NotAdmitted) return c.json({ error: 'this instance is closed' }, 403)
+      throw error
+    }
     const ipHash = await addressHash(runtime, c.env, c.req.raw)
     const session = await issueSession(db, user.id, { userAgent: c.req.header('user-agent'), ipHash })
     await record(db, { actorId: user.id, action: 'signin', targetType: 'provider', targetId: 'dev', ipHash })

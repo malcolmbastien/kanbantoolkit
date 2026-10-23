@@ -26,12 +26,14 @@ export interface AuthUser {
 export interface AuthState {
   providers: AuthProvider[]
   user: AuthUser | null
+  /** Whether this instance lets anybody in, or only the people it invited. */
+  access: 'open' | 'closed'
   dev: boolean
   /** Whether this instance has been asked what it offers. Until it has, nothing is drawn. */
   loaded: boolean
 }
 
-const NONE: AuthState = { providers: [], user: null, dev: false, loaded: false }
+const NONE: AuthState = { providers: [], user: null, access: 'closed', dev: false, loaded: false }
 
 /**
  * Who this instance says you are, in one place.
@@ -59,10 +61,12 @@ export async function loadAuth(): Promise<AuthState> {
     user: { id: string; name: string; email: string; avatarUrl?: string } | null
     instanceRole: string | null
     workspaces: Array<{ id: string; role: string }>
+    access?: string
   }>('/api/auth/session')
 
   const next: AuthState = {
     providers: offered.providers,
+    access: session?.access === 'open' ? 'open' : 'closed',
     user: session?.user
       ? {
           ...session.user,

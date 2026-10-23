@@ -166,15 +166,16 @@ test('one person holds a card, and the other can see it is held, then free', asy
     const holder = await one.newPage()
     const reader = await two.newPage()
 
-    for (const [page, who] of [
-      [holder, 'maya.blake@example.com'],
-      [reader, 'grace@example.com'],
-    ] as const) {
+    // One person, two tabs: the instance closes behind its first account (task 134), and the lease
+    // is keyed by session precisely so that this case — one person with two of them — is told rather
+    // than locked out.
+    for (const page of [holder, reader]) {
+      const who = 'maya.blake@example.com'
       await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
       await page.getByRole('button', { name: 'Sign in' }).click()
       await page.getByPlaceholder('you@example.com').fill(who)
       await page.getByRole('button', { name: 'Sign in as this address' }).click()
-      await expect(page.getByRole('button', { name: /Maya Blake|Grace/ })).toBeVisible()
+      await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
     }
 
     const spot = 5

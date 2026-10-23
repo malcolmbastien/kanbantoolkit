@@ -241,7 +241,9 @@ describe('the development switch', () => {
   })
 
   it('is an identity without a provider, for the tests that need two people', async () => {
-    const { request } = instance({ AUTH_DEV: '1' })
+    const { db, request } = instance({ AUTH_DEV: '1' })
+    // The instance closes behind the first person; a second arrives only because it is open.
+    await db.run("UPDATE instance_settings SET access = 'open'")
 
     const ada = await request('/api/auth/dev', {
       method: 'POST',
@@ -282,6 +284,7 @@ describe('the two axes', () => {
 
   it('makes the first person the administrator of both axes, and the second a member', async () => {
     const { db, request } = instance({ AUTH_DEV: '1' })
+    await db.run("UPDATE instance_settings SET access = 'open'")
 
     for (const email of ['first@example.com', 'second@example.com']) {
       await request('/api/auth/dev', {
@@ -298,7 +301,8 @@ describe('the two axes', () => {
     const second = await db.get<{ role: string }>(
       "SELECT w.role FROM workspace_members w JOIN users u ON u.id = w.user_id WHERE u.email = 'second@example.com'",
     )
-    expect(second?.role).toBe('editor')
+    // An open door admits a viewer, and never an administrator.
+    expect(second?.role).toBe('viewer')
   })
 })
 
@@ -347,5 +351,70 @@ describe('sessions and the trail', () => {
 
     await expect(db.run("UPDATE audit_events SET action = 'nothing'")).rejects.toThrow(/append-only/)
     await expect(db.run('DELETE FROM audit_events')).rejects.toThrow(/append-only/)
+  })
+})
+
+describe('who may come in', () => {
+  const dev = (request: (path: string, init?: RequestInit) => Response | Promise<Response>, email: string) =>
+    request('/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+
+  it('shuts behind the first person, and leaves no trace of a refusal', async () => {
+    const { db, request } = instance({ AUTH_DEV: '1' })
+    expect((await dev(request, 'first@example.com')).status).toBe(200)
+
+    expect((await dev(request, 'second@example.com')).status).toBe(403)
+
+    // A refusal writes nothing: no account, no membership, no session that could be used.
+    expect(await db.get("SELECT 1 FROM users WHERE email = 'second@example.com'")).toBeUndefined()
+    expect(await db.all('SELECT * FROM instance_members')).toHaveLength(1)
+    expect(await db.all('SELECT * FROM sessions')).toHaveLength(1)
+  })
+
+  it('admits a stranger as a viewer when the door is open, and never as an administrator', async () => {
+    const { db, request } = instance({ AUTH_DEV: '1' })
+    await dev(request, 'first@example.com')
+    await db.run("UPDATE instance_settings SET access = 'open'")
+
+    expect((await dev(request, 'second@example.com')).status).toBe(200)
+
+    const second = await db.get<{ role: string; instance: string }>(
+      `SELECT w.role, i.role AS instance FROM workspace_members w
+       JOIN users u ON u.id = w.user_id JOIN instance_members i ON i.user_id = u.id
+       WHERE u.email = 'second@example.com'`,
+    )
+    expect(second).toEqual({ role: 'viewer', instance: 'member' })
+  })
+
+  it('keeps the posture to an administrator, and records the change', async () => {
+    const { db, request } = instance({ AUTH_DEV: '1' })
+    const admin = await dev(request, 'first@example.com')
+    await db.run("UPDATE instance_settings SET access = 'open'")
+    const viewer = await dev(request, 'second@example.com')
+
+    const asViewer = `fl_session=${cookie(viewer, 'fl_session')}`
+    const asAdmin = `fl_session=${cookie(admin, 'fl_session')}`
+
+    const refused = await request('/api/admin/settings', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: asViewer },
+      body: JSON.stringify({ access: 'closed' }),
+    })
+    expect(refused.status).toBe(403)
+
+    const changed = await request('/api/admin/settings', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: asAdmin },
+      body: JSON.stringify({ access: 'closed' }),
+    })
+    expect(changed.status).toBe(200)
+    expect(await db.get("SELECT access FROM instance_settings WHERE id = 'instance'")).toEqual({ access: 'closed' })
+
+    // A door closed is a fact somebody should be able to find later.
+    const event = await db.get<{ data: string }>("SELECT data FROM audit_events WHERE action = 'instance.access'")
+    expect(event?.data).toContain('closed')
   })
 })

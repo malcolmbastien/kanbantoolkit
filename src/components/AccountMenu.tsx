@@ -15,7 +15,11 @@ import { cn } from '@/lib/utils'
  */
 export function AccountMenu() {
   const auth = useAuth()
-  const [open, setOpen] = useState(false)
+  // A sign-in that did not finish lands on `?auth=denied`; the menu opens itself to say why.
+  const [open, setOpen] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied',
+  )
+  const denied = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied'
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -119,6 +123,12 @@ export function AccountMenu() {
             </>
           ) : (
             <>
+              {denied && (
+                <p className="mx-1.5 mb-2 rounded-md bg-rose-50 px-2 py-1 text-meta text-rose-800">
+                  Sign-in was not accepted. This instance only admits the people it invited.
+                </p>
+              )}
+
               <p className="px-1.5 pb-1.5 text-micro uppercase tracking-wide text-slate-400">Sign in with</p>
               {auth.providers.map((provider) => (
                 <button
@@ -132,6 +142,19 @@ export function AccountMenu() {
                   Continue with {provider.label}
                 </button>
               ))}
+
+              {auth.dev && (
+                <p className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-micro text-amber-900">
+                  Development sign-in is on: anybody can be anybody. Never leave it on for an instance
+                  people rely on.
+                </p>
+              )}
+
+              {auth.access === 'open' && !auth.dev && (
+                <p className="mt-1 rounded-md bg-slate-50 px-1.5 py-1 text-micro text-slate-600">
+                  This instance lets anyone with a provider sign in, as a viewer.
+                </p>
+              )}
 
               {auth.dev && (
                 <form onSubmit={onDev} className="mt-1 border-t border-slate-200 pt-2">
