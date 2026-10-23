@@ -78,11 +78,15 @@ async function overLimit(db: Database, address: string, env: unknown): Promise<b
 async function identify(db: Database, providerId: string, who: { subject: string; email: string; emailVerified: boolean; name: string }): Promise<AuthUser> {
   if (!who.emailVerified) throw new AuthError('that address has not been verified')
 
-  const linked = await db.get<{ user_id: string }>(
-    'SELECT user_id FROM identities WHERE provider = ?1 AND subject = ?2',
+  // A known door is not a way past a closed account: the status is read with the identity, so a
+  // deactivated person is refused on the identity they have been using.
+  const linked = await db.get<{ user_id: string; status: string }>(
+    `SELECT l.user_id, u.status FROM identities l JOIN users u ON u.id = l.user_id
+     WHERE l.provider = ?1 AND l.subject = ?2`,
     [providerId, who.subject],
   )
   if (linked) {
+    if (linked.status === 'inactive') throw new NotAdmitted()
     const user = await userById(db, linked.user_id)
     if (user) return user
   }

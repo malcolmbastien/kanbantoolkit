@@ -10,6 +10,10 @@ import { Hono } from 'hono'
 import { requireInstanceAdmin } from './access'
 import { record } from './audit'
 import { accessMode, setAccess } from './instance'
+import { mayAdminister } from '../src/domain/roster'
+import type { Roster, RosterOperation } from '../src/domain/roster'
+import { WORKSPACE_ID } from './auth/session'
+import type { Database } from './db'
 import type { Access } from './instance'
 import type { Runtime } from './runtime'
 
@@ -41,6 +45,119 @@ export function adminRoutes(runtime: Runtime) {
     })
 
     return c.json({ access })
+  })
+
+  /**
+   * The roster, as the judgement needs it.
+   *
+   * Read immediately before the write rather than held from an earlier read: the whole point of
+   * these rules is that the count is the count *now*.
+   */
+  async function personOf(db: Database, id: string) {
+    return db.get<{ id: string; status: string; instance: string | null; workspace: string | null }>(
+      `SELECT u.id, u.status, i.role AS instance, w.role AS workspace
+       FROM users u
+       LEFT JOIN instance_members i ON i.user_id = u.id
+       LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = ?2
+       WHERE u.id = ?1`,
+      [id, WORKSPACE_ID],
+    )
+  }
+
+  async function activeAdmins(db: Database): Promise<{ instance: number; workspace: number }> {
+    const row = await db.get<{ instance: number; workspace: number }>(
+      `SELECT
+         (SELECT COUNT(*) FROM instance_members m JOIN users u ON u.id = m.user_id
+           WHERE m.role = 'admin' AND u.status = 'active') AS instance,
+         (SELECT COUNT(*) FROM workspace_members w JOIN users u ON u.id = w.user_id
+           WHERE w.role = 'admin' AND w.workspace_id = ?1 AND u.status = 'active') AS workspace`,
+      [WORKSPACE_ID],
+    )
+    return { instance: row?.instance ?? 0, workspace: row?.workspace ?? 0 }
+  }
+
+  /** The one judgement, with the roster read for it. Answers a response when it refuses. */
+  async function refuse(
+    c: Parameters<typeof requireInstanceAdmin>[0],
+    caller: { db: Database; user: { id: string; role: string }; instanceRole: string },
+    targetId: string,
+    operation: RosterOperation,
+  ): Promise<Response | undefined> {
+    const target = await personOf(caller.db, targetId)
+    if (!target) return c.json({ error: 'no such person' }, 404) as unknown as Response
+
+    const counts = await activeAdmins(caller.db)
+    const roster: Roster = {
+      actor: {
+        id: caller.user.id,
+        active: true,
+        instanceAdmin: caller.instanceRole === 'admin',
+        workspaceAdmin: caller.user.role === 'admin',
+      },
+      target: {
+        id: target.id,
+        active: target.status === 'active',
+        instanceAdmin: target.instance === 'admin',
+        workspaceAdmin: target.workspace === 'admin',
+      },
+      instanceAdmins: counts.instance,
+      workspaceAdmins: counts.workspace,
+    }
+
+    const verdict = mayAdminister(roster, operation)
+    return verdict.ok ? undefined : (c.json({ error: verdict.reason }, 409) as unknown as Response)
+  }
+
+  /**
+   * Close somebody's door.
+   *
+   * One batch: the status, every live session, and the record of it. A deactivation that left a
+   * session working would be a door that looks shut and is not.
+   */
+  routes.post('/users/:id/deactivate', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const refused = await refuse(c, caller, id, 'deactivate')
+    if (refused) return refused
+
+    const now = new Date().toISOString()
+    await caller.db.batch([
+      { sql: "UPDATE users SET status = 'inactive', updated_at = ?1 WHERE id = ?2", params: [now, id] },
+      {
+        sql: 'UPDATE sessions SET revoked_at = ?1 WHERE user_id = ?2 AND revoked_at IS NULL',
+        params: [now, id],
+      },
+      {
+        sql: 'INSERT INTO audit_events (actor_id, action, target_type, target_id) VALUES (?1, ?2, ?3, ?4)',
+        params: [caller.user.id, 'user.deactivate', 'user', id],
+      },
+    ])
+
+    return c.body(null, 204)
+  })
+
+  /** Open it again. Nothing is restored but the door: the account, its identities and its history
+   *  were never removed, so a new sign-in finds the same person. */
+  routes.post('/users/:id/activate', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const target = await personOf(caller.db, id)
+    if (!target) return c.json({ error: 'no such person' }, 404)
+
+    const now = new Date().toISOString()
+    await caller.db.batch([
+      { sql: "UPDATE users SET status = 'active', updated_at = ?1 WHERE id = ?2", params: [now, id] },
+      {
+        sql: 'INSERT INTO audit_events (actor_id, action, target_type, target_id) VALUES (?1, ?2, ?3, ?4)',
+        params: [caller.user.id, 'user.activate', 'user', id],
+      },
+    ])
+
+    return c.body(null, 204)
   })
 
   return routes
