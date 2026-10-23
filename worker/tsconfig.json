@@ -27,6 +27,8 @@
   "exclude": [
     "../server/index.node.ts",
     "../server/sqlite.ts",
+    "../server/backup.ts",
+    "../server/backup.test.ts",
     "../server/**/*.test.ts"
   ]
 }

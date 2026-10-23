@@ -82,6 +82,8 @@ npm run scan         # the AGENTS.md dependency rule (no Firebase, no Google tra
 npm run test:e2e     # Playwright: builds, serves and drives the real app
 npm run size         # the first download's size, measured from the build
 npm run server       # the self-hosted entry: Node, a SQLite file, the built client
+npm run backup -- backup <db> <dir>   # a consistent copy while the server keeps running
+npm run backup -- restore <file> <db> # put it back, verified (see docs/backup.md)
 npm run smoke:node   # boots that entry and uses the API, so the second runtime cannot rot
 ```
 

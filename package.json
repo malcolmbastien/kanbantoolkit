@@ -10,6 +10,7 @@
     "smoke:node": "node scripts/smoke-node.mjs",
     "preview": "vite preview",
     "server": "tsx server/index.node.ts",
+    "backup": "tsx server/backup.ts",
     "deploy": "npm run build && wrangler deploy",
     "lint": "oxlint",
     "test": "vitest run",
