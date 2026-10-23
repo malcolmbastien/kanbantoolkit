@@ -2762,7 +2762,7 @@ describe('a change on its way to the server', () => {
   const signedIn = () =>
     useAuth.setState({
       providers: [],
-      user: { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'owner' },
+      user: { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'admin', instanceRole: 'admin' },
       dev: false,
       loaded: true,
     })
@@ -2862,7 +2862,7 @@ describe('a change that cannot be sent yet', () => {
   const signedIn = () =>
     useAuth.setState({
       providers: [],
-      user: { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'owner' },
+      user: { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'admin', instanceRole: 'admin' },
       dev: false,
       loaded: true,
     })
@@ -2948,7 +2948,7 @@ describe('a change made elsewhere', () => {
   })
 
   const signedIn = () => {
-    const user = { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'owner' }
+    const user = { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'admin', instanceRole: 'admin' }
     useAuth.setState({ providers: [], user, dev: false, loaded: true })
     return user
   }

@@ -17,7 +17,10 @@ export interface AuthUser {
   id: string
   name: string
   email: string
+  /** What they may do in this workspace: viewer | editor | admin. */
   role: string
+  /** Whether they may sign in here at all: admin | member. */
+  instanceRole: string
 }
 
 export interface AuthState {

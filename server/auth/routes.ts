@@ -15,7 +15,7 @@ import type { Database } from '../db'
 import { devAuth, providers, publicUrl, salt } from '../config'
 import type { Runtime } from '../runtime'
 import { AuthError, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
-import { issueSession, revoke, SESSION_COOKIE, userById, userForToken } from './session'
+import { issueSession, revoke, SESSION_COOKIE, userById, userForToken, WORKSPACE_ID } from './session'
 import type { AuthUser } from './session'
 
 /** How long a sign-in may sit half-finished before it is worthless. */
@@ -82,17 +82,29 @@ async function identify(db: Database, providerId: string, who: { subject: string
 
   const known = await db.get<{ id: string }>('SELECT id FROM users WHERE lower(email) = ?1', [who.email])
   const userId = known?.id ?? `u_${randomToken(12)}`
-  if (!known) {
-    await db.run('INSERT INTO users (id, name, email) VALUES (?1, ?2, ?3)', [userId, who.name, who.email])
-  }
 
-  const member = await db.get<{ user_id: string }>('SELECT user_id FROM members WHERE user_id = ?1', [userId])
-  if (!member) {
-    const invite = await db.get<{ role: string }>('SELECT role FROM invites WHERE email = ?1', [who.email])
-    const count = await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM members')
-    const role = invite?.role ?? ((count?.n ?? 0) === 0 ? 'owner' : 'member')
-    await db.run('INSERT INTO members (user_id, role) VALUES (?1, ?2)', [userId, role])
-    if (invite) await db.run('DELETE FROM invites WHERE email = ?1', [who.email])
+  const door = await db.get<{ user_id: string }>('SELECT user_id FROM instance_members WHERE user_id = ?1', [userId])
+  if (!door) {
+    const invite = await db.get<{ role: string; invited_by: string | null }>(
+      'SELECT role, invited_by FROM invites WHERE email = ?1',
+      [who.email],
+    )
+    // The first person to arrive owns the instance; everyone after them is a member, and the
+    // workspace role an invitation names — or the ability everyone can already have today.
+    const first = ((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM instance_members'))?.n ?? 0) === 0
+    const instanceRole = first ? 'admin' : 'member'
+    const workspaceRole = invite?.role === 'admin' ? 'admin' : first ? 'admin' : 'editor'
+
+    // One batch: there must be no moment at which an account exists and nobody administers it.
+    await db.batch([
+      ...(known ? [] : [{ sql: 'INSERT INTO users (id, name, email) VALUES (?1, ?2, ?3)', params: [userId, who.name, who.email] }]),
+      { sql: 'INSERT INTO instance_members (user_id, role) VALUES (?1, ?2)', params: [userId, instanceRole] },
+      {
+        sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
+        params: [WORKSPACE_ID, userId, workspaceRole, invite?.invited_by ?? null],
+      },
+      ...(invite ? [{ sql: 'DELETE FROM invites WHERE email = ?1', params: [who.email] }] : []),
+    ])
   }
 
   // The same person signing in twice at once should not make two identities.

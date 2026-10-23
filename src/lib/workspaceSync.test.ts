@@ -57,7 +57,7 @@ describe('what this browser should show, given the account', () => {
 
   it('adopts the account’s workspace when it has one', async () => {
     vi.stubGlobal('fetch', answers({ ...slice, schema: WORKSPACE_SCHEMA, meUserId: 'u_account' }))
-    useAuth.setState({ providers: [], user: { id: 'u_account', name: 'Ada', email: 'ada@example.com', role: 'owner' }, dev: false, loaded: true })
+    useAuth.setState({ providers: [], user: { id: 'u_account', name: 'Ada', email: 'ada@example.com', role: 'admin', instanceRole: 'admin' }, dev: false, loaded: true })
 
     expect(await reflectAccount('u_account')).toBe('adopted')
     expect(useStore.getState().boards.map((board) => board.id)).toEqual(['b-server'])

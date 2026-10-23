@@ -3,7 +3,7 @@ import { poll, resetLive } from './live'
 import { useAuth } from './auth'
 
 const realFetch = globalThis.fetch
-const signedIn = { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'owner' }
+const signedIn = { id: 'u-ada', name: 'Ada', email: 'ada@example.com', role: 'admin', instanceRole: 'admin' }
 
 const feed = (cursor: number, changes: unknown[] = []) =>
   vi.fn(async () => new Response(JSON.stringify({ changes, cursor }), { status: 200 }))

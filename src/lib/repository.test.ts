@@ -122,14 +122,14 @@ describe('sending a change', () => {
   it('is the browser\'s own until somebody is signed in', () => {
     expect(chooseRepository().kind).toBe('local')
 
-    useAuth.setState({ providers: [], user: { id: 'u-1', name: 'Ada', email: 'a@example.com', role: 'owner' }, dev: false, loaded: true })
+    useAuth.setState({ providers: [], user: { id: 'u-1', name: 'Ada', email: 'a@example.com', role: 'admin', instanceRole: 'admin' }, dev: false, loaded: true })
     expect(chooseRepository().kind).toBe('http')
   })
 
   it('sends through the chosen adapter once there is a session', async () => {
     const fetchMock = answer(200, { item: card })
     vi.stubGlobal('fetch', fetchMock)
-    useAuth.setState({ providers: [], user: { id: 'u-1', name: 'Ada', email: 'a@example.com', role: 'owner' }, dev: false, loaded: true })
+    useAuth.setState({ providers: [], user: { id: 'u-1', name: 'Ada', email: 'a@example.com', role: 'admin', instanceRole: 'admin' }, dev: false, loaded: true })
 
     await chooseRepository().commitItem(card, 1)
     expect(fetchMock).toHaveBeenCalledTimes(1)

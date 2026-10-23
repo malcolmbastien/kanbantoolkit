@@ -125,8 +125,9 @@ describe('signing in', () => {
     const body = (await session.json()) as { user: { email: string; name: string; role: string } }
     expect(body.user.email).toBe('ada@example.com')
     expect(body.user.name).toBe('Ada')
-    // The first person to arrive owns the instance.
-    expect(body.user.role).toBe('owner')
+    // The first person to arrive owns the instance, on both axes.
+    expect(body.user.role).toBe('admin')
+    expect((body.user as unknown as { instanceRole: string }).instanceRole).toBe('admin')
   })
 
   it('keeps one person as one account across two doors', async () => {
@@ -194,7 +195,8 @@ describe('invitations', () => {
     const { db, request } = instance(OIDC)
     // Somebody has already signed in, so this instance has an owner.
     await db.run("INSERT INTO users (id, name, email) VALUES ('u_owner', 'Owner', 'owner@example.com')")
-    await db.run("INSERT INTO members (user_id, role) VALUES ('u_owner', 'owner')")
+    await db.run("INSERT INTO instance_members (user_id, role) VALUES ('u_owner', 'admin')")
+    await db.run("INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', 'u_owner', 'admin')")
     await db.run("INSERT INTO invites (email, role) VALUES ('ada@example.com', 'admin')")
 
     const fetchMock = fakeProvider({ sub: 's1', email: 'ada@example.com', name: 'Ada' })
@@ -249,5 +251,43 @@ describe('the development switch', () => {
     // With no name given, the address is read as one: this is a person, not a login string.
     const graceSession = await request('/api/auth/session', { headers: { cookie: `fl_session=${cookie(grace, 'fl_session')}` } })
     expect(((await graceSession.json()) as { user: { name: string } }).user.name).toBe('Grace Hopper')
+  })
+})
+
+describe('the two axes', () => {
+  it('refuses an account status the database does not know', async () => {
+    const db = database()
+    await db.run("INSERT INTO users (id, name, email) VALUES ('u-1', 'Ada', 'ada@example.com')")
+    await expect(db.run("UPDATE users SET status = 'banned' WHERE id = 'u-1'")).rejects.toThrow()
+  })
+
+  it('lets somebody be on the roster without being on this workspace', async () => {
+    const db = database()
+    await db.run("INSERT INTO users (id, name, email) VALUES ('u-1', 'Ada', 'ada@example.com')")
+    await db.run("INSERT INTO instance_members (user_id, role) VALUES ('u-1', 'member')")
+
+    expect(await db.get("SELECT 1 AS member FROM instance_members WHERE user_id = 'u-1'")).toEqual({ member: 1 })
+    expect(await db.get("SELECT 1 AS member FROM workspace_members WHERE user_id = 'u-1'")).toBeUndefined()
+  })
+
+  it('makes the first person the administrator of both axes, and the second a member', async () => {
+    const { db, request } = instance({ AUTH_DEV: '1' })
+
+    for (const email of ['first@example.com', 'second@example.com']) {
+      await request('/api/auth/dev', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+    }
+
+    // Exactly one administrator on each axis, and it is the same person.
+    expect(await db.all("SELECT user_id FROM instance_members WHERE role = 'admin'")).toHaveLength(1)
+    expect(await db.all("SELECT user_id FROM workspace_members WHERE role = 'admin'")).toHaveLength(1)
+
+    const second = await db.get<{ role: string }>(
+      "SELECT w.role FROM workspace_members w JOIN users u ON u.id = w.user_id WHERE u.email = 'second@example.com'",
+    )
+    expect(second?.role).toBe('editor')
   })
 })

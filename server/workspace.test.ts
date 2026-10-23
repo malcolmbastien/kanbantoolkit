@@ -32,7 +32,15 @@ function database(): Database {
 
 async function signedIn(db: Database, id = 'u-ada', member = true): Promise<{ cookie: string }> {
   await db.run('INSERT OR IGNORE INTO users (id, name, email) VALUES (?1, ?2, ?3)', [id, 'Ada', `${id}@example.com`])
-  if (member) await db.run('INSERT OR IGNORE INTO members (user_id, role) VALUES (?1, ?2)', [id, 'owner'])
+  if (member) {
+    // The two axes: the door, and the authority inside.
+    await db.run('INSERT OR IGNORE INTO instance_members (user_id, role) VALUES (?1, ?2)', [id, 'admin'])
+    await db.run('INSERT OR IGNORE INTO workspace_members (workspace_id, user_id, role) VALUES (?1, ?2, ?3)', [
+      'workspace',
+      id,
+      'admin',
+    ])
+  }
   const session = await issueSession(db, id)
   return { cookie: `fl_session=${session.token}` }
 }
@@ -250,6 +258,18 @@ describe('the workspace', () => {
     const request = instance(db)
     const { cookie } = await signedIn(db, 'u-stranger', false)
     expect((await request('/api/workspace', { headers: { cookie } })).status).toBe(403)
+  })
+
+  it('lets an instance administrator read a workspace they are not on', async () => {
+    const db = database()
+    const request = instance(db)
+    await db.run("INSERT INTO users (id, name, email) VALUES ('u-admin', 'Ada', 'ada@example.com')")
+    await db.run("INSERT INTO instance_members (user_id, role) VALUES ('u-admin', 'admin')")
+    // Deliberately no workspace_members row: repairing a team you do not belong to is the point.
+    const { cookie } = { cookie: `fl_session=${(await issueSession(db, 'u-admin')).token}` }
+
+    const response = await request('/api/workspace', { headers: { cookie } })
+    expect(response.status).toBe(200)
   })
 })
 

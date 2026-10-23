@@ -17,11 +17,23 @@ export interface AuthUser {
   id: string
   name: string
   email: string
+  /** What they may do in this workspace: viewer | editor | admin. */
   role: string
+  /** Whether they may sign in here at all: admin | member. */
+  instanceRole: string
 }
 
-const USER_QUERY = `SELECT u.id, u.name, u.email, COALESCE(m.role, 'member') AS role
-  FROM users u LEFT JOIN members m ON m.user_id = u.id WHERE u.id = ?1`
+// The two axes, read together: the door from `instance_members`, the authority from
+// `workspace_members`. The workspace id is the settings row's until 122.1 gives it a table.
+export const WORKSPACE_ID = 'workspace'
+
+const USER_QUERY = `SELECT u.id, u.name, u.email,
+    COALESCE(w.role, 'viewer') AS role,
+    COALESCE(i.role, 'member') AS instanceRole
+  FROM users u
+  LEFT JOIN instance_members i ON i.user_id = u.id
+  LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = '${WORKSPACE_ID}'
+  WHERE u.id = ?1`
 
 export async function userById(db: Database, id: string): Promise<AuthUser | undefined> {
   return db.get<AuthUser>(USER_QUERY, [id])

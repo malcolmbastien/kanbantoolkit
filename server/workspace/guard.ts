@@ -8,7 +8,7 @@
 
 import type { Context } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { SESSION_COOKIE, userForToken } from '../auth/session'
+import { SESSION_COOKIE, userForToken, WORKSPACE_ID } from '../auth/session'
 import type { AuthUser } from '../auth/session'
 import type { Database } from '../db'
 import { schemaVersion } from '../migrate'
@@ -30,8 +30,17 @@ export async function guard(c: Context<{ Bindings: object }>, runtime: Runtime):
   const user = await userForToken(db, token)
   if (!user) return c.json({ error: 'sign in to use this workspace' }, 401)
 
-  const member = await db.get('SELECT 1 AS member FROM members WHERE user_id = ?1', [user.id])
-  if (!member) return c.json({ error: 'not a member of this workspace' }, 403)
+  // Two questions, asked separately. The door decides whether they are here at all; the role
+  // decides what they may do. An instance administrator may repair a workspace they are not on,
+  // which is the rule that keeps somebody able to fix a team they do not belong to.
+  const instance = await db.get<{ role: string }>('SELECT role FROM instance_members WHERE user_id = ?1', [user.id])
+  if (!instance) return c.json({ error: 'not a member of this instance' }, 403)
+
+  const member = await db.get('SELECT 1 AS member FROM workspace_members WHERE workspace_id = ?1 AND user_id = ?2', [
+    WORKSPACE_ID,
+    user.id,
+  ])
+  if (!member && instance.role !== 'admin') return c.json({ error: 'not a member of this workspace' }, 403)
 
   // A write into a database this code has not migrated would be a surprise later rather than now.
   // Reads are checked where they read (the full workspace), so the two-second change feed does not
