@@ -10,6 +10,7 @@ import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { guard } from './guard'
 import { readItem, readItemsByIds, readWorkspace } from './read'
+import { WORKSPACE_SCHEMA } from './schema'
 import { parseItem, parseWorkspace } from './validate'
 import { alreadyApplied, writeItem, writeWorkspace } from './write'
 
@@ -21,8 +22,9 @@ export function workspaceRoutes(runtime: Runtime) {
     if (allowed instanceof Response) return allowed
 
     const workspace = await readWorkspace(allowed.db)
-    // Whose workspace this is, answered by the session rather than by a pointer the browser keeps.
-    return c.json({ ...workspace, meUserId: allowed.user.id })
+    // Whose workspace this is, answered by the session rather than by a pointer the browser keeps;
+    // and which shape it is, so a client that cannot read it can say so instead of half-rendering.
+    return c.json({ ...workspace, schema: WORKSPACE_SCHEMA, meUserId: allowed.user.id })
   })
 
   /**

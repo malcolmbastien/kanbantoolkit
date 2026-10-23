@@ -1940,6 +1940,17 @@
             ],
             "parentTaskId": 118,
             "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "The browser loads the account's workspace, once the queue is empty.",
+            "description": "Signing in on a device shows the account's workspace rather than that device's own seed, and never at the cost of a change that has not been sent.",
+            "details": "SYSTEM\nFlowline, the application in this repository.\n\nSCOPE\n1. `reflectAccount` in `src/lib/workspaceSync.ts`.\n2. The session path in `src/store.ts`.\n3. The `schema` the read answers with.\n\nDEFINITIONS\n- Adopt: replace this browser's workspace with the account's, through the file import's own action.\n- Held: the queue has a change in it that the server has not answered.\n\nREQUIREMENTS\n\nR1 — The account wins when it has something\nWhen the account's workspace has a board, signing in shall show that workspace, not the one this\nbrowser happened to be holding.\n\nR2 — Never over unsent work\nAdoption shall not run while the queue holds a change. The queue is the record of work accepted\nhere, and adopting on top of it would write over exactly that.\n\nR3 — Nothing is taken by guessing\nAdopting shall go through the same action as the file import, so validation and the key whitelist\nare the same code, and a workspace the app cannot read changes nothing.\n\nR4 — A shape it cannot read is refused\nThe read shall carry the schema it was written with. A client that does not know that shape shall\nsay so and show nothing new, rather than half of it.\n\nR5 — One trigger\nThe decision shall be made in one place — the session subscription — and the component that draws\nthe offer shall decide nothing.\n\nVERIFICATION\nV1 — R1: an instance with boards; a fresh browser signs in; its boards are the account's.\nV2 — R2: hold an unsent change, sign in; no adoption, and the change is still held.\nV3 — R3: a workspace the parser refuses changes nothing on screen.\nV4 — R4: answer with schema 2; the app says it cannot read it and adopts nothing.\nV5 — R5: signing in fetches the workspace once, not twice.\n\nDELIVERED — 2026-10-22\n`reflectAccount` is one function with one question — what should this browser be showing? — and it\nanswers `adopted`, `offered`, `held`, `empty`, `mismatch` or `failed`, so the choice is visible to a\ntest rather than inferred from the screen.\n\nAdoption reuses `importWorkspace`, the file import's own action, so a workspace enters the store one\nway and is whitelisted on the way in. It is skipped while the queue holds anything, and it runs only\nafter `flushQueue` — flush, then look, which is the order that makes the queue meaningful.\n\n`GET /api/workspace` now answers with `schema`, and the client refuses a number it does not know\nrather than rendering part of a workspace. The two numbers are deliberately separate — one is what\nthe server produces, the other what the app understands — and task 118.7 owns moving them together.\n\nThe component that draws the offer no longer decides anything: one subscription in the store calls\n`reflectAccount`, so signing in makes one request rather than two racing ones.",
+            "status": "done",
+            "dependencies": [
+              6
+            ],
+            "parentTaskId": 118
           }
         ],
         "complexity": 10,

@@ -232,6 +232,7 @@ describe('the workspace', () => {
     const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id)
     expect({ ...body, lanes: [...body.lanes].sort(byId) }).toEqual({
       ...workspace,
+      schema: 1,
       meUserId: 'u-ada',
       lanes: [...workspace.lanes].sort(byId),
     })

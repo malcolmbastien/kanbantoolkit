@@ -1,19 +1,33 @@
 /**
- * The one moment a workspace can move onto the server: the first time somebody signs in here.
+ * What this browser and the account agree about the workspace.
  *
- * Offered, never taken. The browser's workspace is the thing a person has been working in, so a
- * failed import leaves it exactly where it was, and declining is remembered per account rather than
- * asked again on every reload.
+ * Two directions, and they are not the same question:
  *
- * The server refuses an import into a workspace that already has a board, which is the same
- * question this asks before it offers: two half-workspaces are not a merge, and R3 says the account
- * gets the one the person was working in.
+ * - **Down**: if the account has a workspace, this is the one to show. It arrives through the file
+ *   import's own action, so validation and whitelisting are the same code, and it replaces rather
+ *   than merges — a half-merged workspace is worse than either half.
+ * - **Up**: if the account has nothing and this browser has boards, the person is offered a copy
+ *   once. Offered, never taken: the browser's workspace is the one they have been working in.
+ *
+ * Neither direction runs over edits that have not been sent. The queue is the record of work
+ * accepted here, and adopting a server workspace on top of it would write over exactly that.
  */
 
 import { create } from 'zustand'
+import { PERSIST_VERSION, useStore } from '@/store'
+import { useAuth } from './auth'
+import { queue } from './queue'
+
+/**
+ * What this client can render.
+ *
+ * Deliberately its own number rather than the server's: this one says what the app understands, the
+ * server's says what it produces, and the disagreement between them is the thing worth refusing.
+ */
+export const WORKSPACE_SCHEMA = 1
 
 interface WorkspaceSync {
-  /** Whether the offer is on screen. */
+  /** Whether the offer to copy this workspace up is on screen. */
   offer: boolean
   busy: boolean
   error?: string
@@ -39,18 +53,59 @@ function remember(userId: string): void {
   }
 }
 
-/** Ask the server whether this account already has a workspace, and offer if it does not. */
-export async function considerImport(userId: string, localBoards: number): Promise<void> {
-  if (localBoards === 0 || asked(userId)) return
+export type AccountLoad = 'adopted' | 'offered' | 'held' | 'empty' | 'mismatch' | 'failed'
 
+/**
+ * Settle what this browser should be showing, given the account.
+ *
+ * Returns what it decided, so a caller — and a test — can see the choice rather than infer it from
+ * the screen.
+ */
+export async function reflectAccount(userId: string): Promise<AccountLoad> {
+  if (queue.size() > 0) return 'held'
+
+  let body: Record<string, unknown>
   try {
     const response = await fetch('/api/workspace', { headers: { accept: 'application/json' } })
-    if (!response.ok) return
-    const body = (await response.json()) as { boards?: unknown[] }
-    if ((body.boards ?? []).length === 0) useWorkspaceSync.setState({ offer: true })
+    if (!response.ok) return 'failed'
+    body = (await response.json()) as Record<string, unknown>
   } catch {
-    // An instance with no server has nothing to offer.
+    return 'failed'
   }
+
+  if (body.schema !== WORKSPACE_SCHEMA) {
+    useWorkspaceSync.setState({
+      offer: false,
+      error: 'This account’s workspace is a shape this version of the app cannot read.',
+    })
+    return 'mismatch'
+  }
+
+  const boards = Array.isArray(body.boards) ? body.boards : []
+  if (boards.length === 0) {
+    // Nothing to show, and something worth offering.
+    if (useStore.getState().boards.length > 0 && !asked(userId)) {
+      useWorkspaceSync.setState({ offer: true, error: undefined })
+      return 'offered'
+    }
+    return 'empty'
+  }
+
+  // The account's workspace is the one to show. `schema` and `meUserId` are the server's, not the
+  // workspace's: the browser decides who its person is, and the import's whitelist is what decides
+  // which keys the store may take.
+  const { schema: _schema, meUserId: _me, ...slice } = body
+  useStore.getState().importWorkspace(slice, PERSIST_VERSION)
+
+  // Until accounts and workspace people are linked (task 122), the bridge stays a name.
+  const account = useAuth.getState().user
+  const person = account
+    ? useStore.getState().users.find((user) => user.name.toLowerCase() === account.name.toLowerCase())
+    : undefined
+  useStore.getState().setUser(person?.id)
+
+  useWorkspaceSync.setState({ offer: false, error: undefined })
+  return 'adopted'
 }
 
 /** Copy the browser's workspace to the account. `false` means it stayed where it was. */

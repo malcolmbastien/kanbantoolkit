@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { considerImport, copyToAccount, declineImport, useWorkspaceSync } from '@/lib/workspaceSync'
+import { copyToAccount, declineImport, useWorkspaceSync } from '@/lib/workspaceSync'
 import { persistedSlice, useStore } from '@/store'
 
 /**
@@ -19,10 +19,6 @@ export function ImportNotice() {
 
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (user) void considerImport(user.id, useStore.getState().boards.length)
-  }, [user])
 
   useEffect(() => {
     if (!open) return

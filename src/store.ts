@@ -13,6 +13,7 @@ import type { CommitAnswer } from '@/lib/repository'
 import { useAuth } from '@/lib/auth'
 import { useSync } from '@/lib/sync'
 import { onLiveItem, startLive, stopLive } from '@/lib/live'
+import { reflectAccount } from '@/lib/workspaceSync'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
 import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
@@ -2653,7 +2654,10 @@ if (typeof window !== 'undefined') {
 // Signing in is what makes a held change sendable at all, and what makes a change elsewhere visible.
 useAuth.subscribe((state) => {
   if (state.user) {
-    void flushQueue()
+    const userId = state.user.id
+    // What the account holds, once the queue has moved: adopting before the flush would write over
+    // work that was accepted here and has not been sent yet.
+    void flushQueue().then(() => reflectAccount(userId))
     startLive()
   } else {
     stopLive()
