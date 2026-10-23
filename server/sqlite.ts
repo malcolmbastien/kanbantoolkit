@@ -17,7 +17,9 @@ type Value = string | number | bigint | null | Uint8Array
 
 const values = (params: unknown[] = []) => params as Value[]
 
-export function openSqlite(path: string): Database {
+export type SqliteDatabase = Database & { exec(sql: string): void }
+
+export function openSqlite(path: string): SqliteDatabase {
   // A file on a disk is a real database: it should enforce what the schema says.
   const db = new DatabaseSync(path)
   db.exec('PRAGMA foreign_keys = ON')
@@ -28,8 +30,11 @@ export function openSqlite(path: string): Database {
  * The same interface over a connection the caller already holds — a file, or `:memory:` in a test
  * that wants the real schema without a file to clean up.
  */
-export function fromSqlite(db: DatabaseSync): Database {
+export function fromSqlite(db: DatabaseSync): SqliteDatabase {
   return {
+    exec(sql: string) {
+      db.exec(sql)
+    },
     async all<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> {
       return db.prepare(sql).all(...values(params)) as T[]
     },

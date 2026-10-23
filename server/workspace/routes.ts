@@ -10,7 +10,8 @@ import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { guard } from './guard'
 import { readItem, readItemsByIds, readWorkspace } from './read'
-import { WORKSPACE_SCHEMA } from './schema'
+import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
+import { schemaVersion } from '../migrate'
 import { parseItem, parseWorkspace } from './validate'
 import { alreadyApplied, writeItem, writeWorkspace } from './write'
 
@@ -20,6 +21,11 @@ export function workspaceRoutes(runtime: Runtime) {
   routes.get('/', async (c) => {
     const allowed = await guard(c, runtime)
     if (allowed instanceof Response) return allowed
+
+    // The one read that would otherwise hand back a shape nobody migrated for.
+    if ((await schemaVersion(allowed.db)) < REQUIRED_SCHEMA) {
+      return c.json({ error: 'this instance has not finished migrating' }, 503)
+    }
 
     const workspace = await readWorkspace(allowed.db)
     // Whose workspace this is, answered by the session rather than by a pointer the browser keeps;

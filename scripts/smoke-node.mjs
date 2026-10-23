@@ -9,7 +9,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,7 +17,6 @@ import { DatabaseSync } from 'node:sqlite'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dist = join(root, 'dist')
-const migrations = join(root, 'migrations')
 
 if (!existsSync(join(dist, 'index.html'))) fail('run `npm run build` first — the Node entry serves the build')
 
@@ -29,14 +28,6 @@ function fail(message) {
   process.exit(1)
 }
 
-function migrate(path) {
-  const db = new DatabaseSync(path)
-  for (const file of readdirSync(migrations).filter((name) => name.endsWith('.sql')).sort()) {
-    // The migrations are plain SQLite, which is the point: the same files D1 applies.
-    db.exec(readFileSync(join(migrations, file), 'utf8'))
-  }
-  db.close()
-}
 
 /** Wait for the entry to say which port it took, since the test asks for port 0. */
 function listening(child) {
@@ -67,7 +58,6 @@ function check(name, condition, detail = '') {
   if (!condition) console.error(`  not ok — ${name}${detail ? `: ${detail}` : ''}`)
 }
 
-migrate(databasePath)
 
 const child = spawn(join(root, 'node_modules/.bin/tsx'), ['server/index.node.ts'], {
   cwd: root,
