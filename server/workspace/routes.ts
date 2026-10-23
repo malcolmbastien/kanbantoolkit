@@ -10,8 +10,8 @@ import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { guard } from './guard'
 import { readItem, readItemsByIds, readWorkspace } from './read'
-import { parseItem } from './validate'
-import { alreadyApplied, writeItem } from './write'
+import { parseItem, parseWorkspace } from './validate'
+import { alreadyApplied, writeItem, writeWorkspace } from './write'
 
 export function workspaceRoutes(runtime: Runtime) {
   const routes = new Hono<{ Bindings: object }>()
@@ -23,6 +23,29 @@ export function workspaceRoutes(runtime: Runtime) {
     const workspace = await readWorkspace(allowed.db)
     // Whose workspace this is, answered by the session rather than by a pointer the browser keeps.
     return c.json({ ...workspace, meUserId: allowed.user.id })
+  })
+
+  /**
+   * Take a workspace from the browser that has been working in one.
+   *
+   * One transaction, replacing rather than merging: R3 says the account's workspace shall be the one
+   * the person was working in, not two half-workspaces beside each other. The import is the only
+   * place a whole workspace arrives at once, and it is deliberately not offered to a workspace that
+   * already has a board — `GET /api/workspace` is how the client decides, and this refuses the same
+   * case rather than trusting it.
+   */
+  routes.post('/import', async (c) => {
+    const allowed = await guard(c, runtime)
+    if (allowed instanceof Response) return allowed
+
+    const existing = await readWorkspace(allowed.db)
+    if (existing.boards.length) return c.json({ error: 'this workspace already has boards' }, 409)
+
+    const workspace = parseWorkspace(await c.req.json().catch(() => null))
+    if (!workspace) return c.json({ error: 'not a workspace' }, 400)
+
+    await writeWorkspace(allowed.db, workspace)
+    return c.json({ imported: { boards: workspace.boards.length, items: workspace.items.length } })
   })
 
   /**

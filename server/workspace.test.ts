@@ -414,3 +414,74 @@ describe('the change feed', () => {
     expect((await request('/api/workspace/changes')).status).toBe(401)
   })
 })
+
+describe('importing a workspace', () => {
+  const slice = {
+    boards: [{ id: 'b-new', name: 'Team Atlas', band: 'team', description: 'Brought from the browser.' }],
+    lanes: [
+      { id: 'l-new', boardId: 'b-new', parentId: null, order: 0, name: 'Backlog', workflow: 'cards', stage: 'backlog' },
+    ],
+    items: [{ id: 'i-new', title: 'A card from the browser', typeId: 't-card', createdAt: 1_700_000_000_000, rev: 4 }],
+    users: [{ id: 'u-new', name: 'Ada' }],
+    issueTypes: [{ id: 't-card', name: 'Card', color: '#3b82f6' }],
+    edges: [],
+    links: [],
+    objectives: [],
+    keyResults: [],
+    boardTemplates: [],
+    placements: [{ id: 'p-new', boardId: 'b-new', itemId: 'i-new', laneId: 'l-new' }],
+    savedFilters: [],
+    collapsedLanes: {},
+    boardId: 'b-new',
+  }
+
+  async function importer() {
+    const db = database()
+    const { cookie } = await signedIn(db)
+    const request = instance(db)
+    return {
+      db,
+      cookie,
+      import: (body: unknown, signed = true) =>
+        request('/api/workspace/import', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...(signed ? { cookie } : {}) },
+          body: JSON.stringify(body),
+        }),
+      read: () => request('/api/workspace', { headers: { cookie } }),
+    }
+  }
+
+  it('takes the whole workspace, and hands it back', async () => {
+    const { import: send, read } = await importer()
+    expect((await send(slice)).status).toBe(200)
+
+    const body = (await (await read()).json()) as Workspace
+    expect(body.boards.map((board) => board.id)).toEqual(['b-new'])
+    expect(body.items.map((item) => item.title)).toEqual(['A card from the browser'])
+    // The revision comes across too: R2 says every entity and every log, including rev.
+    expect(body.items[0].rev).toBe(4)
+    expect(body.users).toHaveLength(1)
+    expect(body.placements).toHaveLength(1)
+  })
+
+  it('will not replace a workspace that already has a board', async () => {
+    const { import: send } = await importer()
+    await send(slice)
+
+    const again = await send({ ...slice, boards: [{ ...slice.boards[0], id: 'b-other', name: 'Other' }] })
+    expect(again.status).toBe(409)
+  })
+
+  it('refuses what is not a workspace', async () => {
+    const { import: send } = await importer()
+    expect((await send({ boards: [] })).status).toBe(400)
+    expect((await send({ boards: 'not a list' })).status).toBe(400)
+    expect((await send(null)).status).toBe(400)
+  })
+
+  it('is behind the session', async () => {
+    const { import: send } = await importer()
+    expect((await send(slice, false)).status).toBe(401)
+  })
+})

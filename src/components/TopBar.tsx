@@ -2,6 +2,7 @@ import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, 
 import { GlobalSearch } from './GlobalSearch'
 import { AccountMenu } from './AccountMenu'
 import { SyncNotice } from './SyncNotice'
+import { ImportNotice } from './ImportNotice'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
 import { isAggregating } from '@/domain/board'
@@ -256,7 +257,8 @@ export function TopBar(props: Props) {
           <RotateCcw size={13} /> Reset
         </button>
 
-        {/* A change that did not land says so, before anything else in this corner. */}
+        {/* The one moment a workspace can move to the server, and a change that did not land. */}
+        <ImportNotice />
         <SyncNotice />
 
         {/* Who you are, when the instance offers a way to be someone. */}

@@ -6,7 +6,24 @@
  * comes back is *this* function's object, not the caller's, so nothing unlisted can reach a column.
  */
 
-import type { ChecklistEntry, Item, ItemLogEntry, ItemLogKind, Stage } from '../../src/domain/types'
+import type {
+  Board,
+  BoardTemplate,
+  ChecklistEntry,
+  Edge,
+  Item,
+  ItemLink,
+  ItemLogEntry,
+  ItemLogKind,
+  IssueType,
+  KeyResult,
+  Lane,
+  Objective,
+  Placement,
+  Stage,
+  User,
+} from '../../src/domain/types'
+import type { Workspace } from './types'
 
 const LIMITS = { id: 100, title: 300, description: 20_000, text: 2_000, list: 200, log: 2_000 } as const
 
@@ -147,4 +164,52 @@ export function parseItem(input: unknown): Item | null {
   if (history?.length) item.log = history
 
   return item
+}
+
+/**
+ * A whole workspace, as the browser hands it over.
+ *
+ * The rules are the ones the item parser already keeps, applied at the top: every list is a list,
+ * every row is an object with an id, and each list has a ceiling. What the writer then does is read
+ * each column defensively, so a row that survives this cannot make a statement fail. An item the
+ * item parser refuses is dropped rather than failing the import — the person's boards and cards are
+ * worth keeping even if one of them is not shaped as this version expects.
+ */
+export function parseWorkspace(input: unknown): Workspace | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+  const raw = input as Record<string, unknown>
+
+  const isRow = (row: unknown) =>
+    Boolean(row) && typeof row === 'object' && typeof (row as Record<string, unknown>).id === 'string'
+
+  const rows = <T>(value: unknown, limit: number): T[] =>
+    Array.isArray(value) ? (value.filter(isRow).slice(0, limit) as T[]) : []
+
+  const items = (Array.isArray(raw.items) ? raw.items.slice(0, 5_000) : [])
+    .map(parseItem)
+    .filter((item): item is Item => item !== null)
+
+  const boards = rows<Board>(raw.boards, 200)
+  if (!boards.length) return null
+
+  return {
+    users: rows<User>(raw.users, 2_000),
+    issueTypes: rows<IssueType>(raw.issueTypes, 500),
+    items,
+    edges: rows<Edge>(raw.edges, 20_000),
+    links: rows<ItemLink>(raw.links, 20_000),
+    objectives: rows<Objective>(raw.objectives, 2_000),
+    keyResults: rows<KeyResult>(raw.keyResults, 5_000),
+    boardTemplates: rows<BoardTemplate>(raw.boardTemplates, 200),
+    autoArchiveDays: typeof raw.autoArchiveDays === 'number' ? raw.autoArchiveDays : undefined,
+    savedFilters: Array.isArray(raw.savedFilters) ? raw.savedFilters.slice(0, 200) : [],
+    collapsedLanes:
+      raw.collapsedLanes && typeof raw.collapsedLanes === 'object' && !Array.isArray(raw.collapsedLanes)
+        ? (raw.collapsedLanes as Record<string, boolean>)
+        : {},
+    boardId: typeof raw.boardId === 'string' ? raw.boardId : boards[0].id,
+    boards,
+    lanes: rows<Lane>(raw.lanes, 2_000),
+    placements: rows<Placement>(raw.placements, 20_000),
+  }
 }

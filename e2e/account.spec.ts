@@ -126,3 +126,29 @@ test('a change made on one device arrives on another without a reload', async ({
     await two.close()
   }
 })
+
+test('a local workspace can be copied to the account on first sign-in', async ({ page }) => {
+  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await page.getByRole('button', { name: 'Sign in as this address' }).click()
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+
+  // Offered, not taken: the account has no workspace, this browser has one.
+  const offer = page.getByRole('button', { name: 'Copy to account' })
+  await expect(offer).toBeVisible()
+  await offer.click()
+  await page.getByRole('button', { name: 'Copy workspace' }).click()
+
+  // The account now has the workspace the browser was working in.
+  await expect
+    .poll(async () => {
+      const body = (await (await page.request.get(`${SELF_HOSTED}/api/workspace`)).json()) as { boards: unknown[] }
+      return body.boards.length
+    })
+    .toBeGreaterThan(0)
+
+  // And the copy here was not taken away: the board still draws.
+  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+})
