@@ -11,6 +11,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from './app'
 import { issueSession, revoke, userForToken } from './auth/session'
+import { sha256 } from './auth/oauth'
 import { providers } from './config'
 import type { Database } from './db'
 import { fromSqlite } from './sqlite'
@@ -61,11 +62,16 @@ function fakeProvider(profile: Record<string, unknown>) {
 }
 
 /** Walk the whole flow and hand back the session token, the way a browser would. */
-async function signIn(env: Record<string, string>, profile: Record<string, unknown>, fake = instance(env)) {
+async function signIn(
+  env: Record<string, string>,
+  profile: Record<string, unknown>,
+  fake = instance(env),
+  invite?: string,
+) {
   const fetchMock = fakeProvider(profile)
   vi.stubGlobal('fetch', fetchMock)
   try {
-    const start = await fake.request('/api/auth/start?provider=oidc&next=/board')
+    const start = await fake.request(`/api/auth/start?provider=oidc&next=/board${invite ? `&invite=${invite}` : ''}`)
     const state = cookie(start, 'fl_oauth')!
     const callback = await fake.request(`/api/auth/callback?code=code-1&state=${state}`, {
       headers: { cookie: `fl_oauth=${state}` },
@@ -202,21 +208,25 @@ describe('invitations', () => {
     await db.run("INSERT INTO users (id, name, email) VALUES ('u_owner', 'Owner', 'owner@example.com')")
     await db.run("INSERT INTO instance_members (user_id, role) VALUES ('u_owner', 'admin')")
     await db.run("INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', 'u_owner', 'admin')")
-    await db.run("INSERT INTO invites (id, email, role, expires_at) VALUES ('inv-1', 'ada@example.com', 'admin', ?1)", [
-      new Date(Date.now() + 86_400_000).toISOString(),
-    ])
+    // An invitation row is not a door on its own: the link carries the token, and the token is the
+    // only thing that admits an address nobody has seen before.
+    const token = 'ada-invitation-token'
+    await db.run(
+      "INSERT INTO invites (id, email, role, token_hash, expires_at) VALUES ('inv-1', 'ada@example.com', 'admin', ?1, ?2)",
+      [await sha256(token), new Date(Date.now() + 86_400_000).toISOString()],
+    )
 
     const fetchMock = fakeProvider({ sub: 's1', email: 'ada@example.com', name: 'Ada' })
     vi.stubGlobal('fetch', fetchMock)
     try {
-      const start = await request('/api/auth/start?provider=oidc')
+      const start = await request(`/api/auth/start?provider=oidc&invite=${token}`)
       const state = cookie(start, 'fl_oauth')!
       const callback = await request(`/api/auth/callback?code=code-1&state=${state}`, {
         headers: { cookie: `fl_oauth=${state}` },
       })
-      const token = cookie(callback, 'fl_session')!
-      const session = await request('/api/auth/session', { headers: { cookie: `fl_session=${token}` } })
-      expect((((await session.json()) as { workspaces: Array<{ role: string }> }).workspaces[0]).role).toBe('admin')
+      const sessionToken = cookie(callback, 'fl_session')!
+      const answered = await request('/api/auth/session', { headers: { cookie: `fl_session=${sessionToken}` } })
+      expect((((await answered.json()) as { workspaces: Array<{ role: string }> }).workspaces[0]).role).toBe('admin')
 
       // The invitation is spent, not left behind for the next arrival — and kept as the record of
       // how this person arrived.

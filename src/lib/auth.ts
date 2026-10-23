@@ -82,11 +82,18 @@ export async function loadAuth(): Promise<AuthState> {
   return next
 }
 
-/** Leaving for the provider, and coming back to the place that asked. */
+/** The invitation this page was opened with, if it was opened with one. */
+function inviteToken(): string | undefined {
+  return new URLSearchParams(window.location.search).get('invite') ?? undefined
+}
+
+/** Leaving for the provider, and coming back to the place that asked — carrying the link, if any. */
 export function startSignIn(provider: string): void {
   const next = window.location.pathname + window.location.search
+  const invite = inviteToken()
   window.location.assign(
-    `/api/auth/start?provider=${encodeURIComponent(provider)}&next=${encodeURIComponent(next)}`,
+    `/api/auth/start?provider=${encodeURIComponent(provider)}&next=${encodeURIComponent(next)}` +
+      (invite ? `&invite=${encodeURIComponent(invite)}` : ''),
   )
 }
 
@@ -105,7 +112,7 @@ export async function devSignIn(email: string, name?: string): Promise<AuthUser 
     const response = await fetch('/api/auth/dev', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email, name }),
+      body: JSON.stringify({ email, name, ...(inviteToken() ? { invite: inviteToken() } : {}) }),
     })
     if (!response.ok) return null
     return ((await response.json()) as { user: AuthUser }).user

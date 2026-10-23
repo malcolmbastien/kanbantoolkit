@@ -18,6 +18,7 @@ import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, prof
 import { issueSession, revoke, SESSION_COOKIE, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
 import { accessMode } from '../instance'
+import { byToken, stateOf } from '../invites'
 import type { AuthUser } from './session'
 
 /** How long a sign-in may sit half-finished before it is worthless. */
@@ -75,7 +76,12 @@ async function overLimit(db: Database, address: string, env: unknown): Promise<b
  * already known — and the provider vouches for it — the doors are joined rather than a second
  * account being made. A first person owns the instance; an invited address arrives with its role.
  */
-async function identify(db: Database, providerId: string, who: { subject: string; email: string; emailVerified: boolean; name: string }): Promise<AuthUser> {
+async function identify(
+  db: Database,
+  providerId: string,
+  who: { subject: string; email: string; emailVerified: boolean; name: string },
+  inviteToken?: string,
+): Promise<AuthUser> {
   if (!who.emailVerified) throw new AuthError('that address has not been verified')
 
   // A known door is not a way past a closed account: the status is read with the identity, so a
@@ -117,13 +123,14 @@ async function identify(db: Database, providerId: string, who: { subject: string
     return user
   }
 
-  // An invitation is accepted before the access check: it is the way in when the door is shut.
-  const invite = await db.get<{ id: string; role: string; invited_by: string | null }>(
-    `SELECT id, role, invited_by FROM invites
-     WHERE email = ?1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?2
-     ORDER BY created_at DESC LIMIT 1`,
-    [who.email, new Date().toISOString()],
-  )
+  // The link is the door. A token is accepted before the access check — that is what it is for —
+  // but only for the address it was written for: a forwarded link still needs a sign-in as nobody
+  // else. An invitation row on its own admits nobody, which is what makes the token worth having.
+  const offered = inviteToken ? await byToken(db, inviteToken) : undefined
+  const invite =
+    offered && stateOf(offered) === 'valid' && offered.email.toLowerCase() === who.email.toLowerCase()
+      ? offered
+      : undefined
 
   // The first person to arrive owns the instance, whatever the setting says — there has to be
   // somebody who can open the door.
@@ -152,7 +159,13 @@ async function identify(db: Database, providerId: string, who: { subject: string
       params: [WORKSPACE_ID, userId, workspaceRole, invite?.invited_by ?? null],
     },
     ...(invite
-      ? [{ sql: 'UPDATE invites SET accepted_at = ?1 WHERE id = ?2', params: [new Date().toISOString(), invite.id] }]
+      ? [
+          { sql: 'UPDATE invites SET accepted_at = ?1 WHERE id = ?2', params: [new Date().toISOString(), invite.id] },
+          {
+            sql: `INSERT INTO audit_events (actor_id, action, target_type, target_id) VALUES (?1, 'invite.accepted', 'invite', ?2)`,
+            params: [userId, invite.id],
+          },
+        ]
       : []),
     identity,
   ])
@@ -185,11 +198,13 @@ export function authRoutes(runtime: Runtime) {
 
     const state = randomToken(16)
     const verifier = randomToken(32)
-    await db.run('INSERT INTO oauth_states (state, provider, verifier, next) VALUES (?1, ?2, ?3, ?4)', [
+    await db.run('INSERT INTO oauth_states (state, provider, verifier, next, invite) VALUES (?1, ?2, ?3, ?4, ?5)', [
       state,
       provider.id,
       verifier,
       nextPath(c.req.query('next')),
+      // A sign-in that carries an invitation is remembered with it, so the callback can accept it.
+      (c.req.query('invite') ?? '').slice(0, 200) || null,
     ])
 
     setCookie(c, STATE_COOKIE, state, {
@@ -227,8 +242,8 @@ export function authRoutes(runtime: Runtime) {
     // completing a sign-in for somebody else.
     if (!state || !cookie || state !== cookie) return c.json({ error: 'this sign-in did not start here' }, 400)
 
-    const pending = await db.get<{ provider: string; verifier: string; next: string }>(
-      'SELECT provider, verifier, next FROM oauth_states WHERE state = ?1',
+    const pending = await db.get<{ provider: string; verifier: string; next: string; invite: string | null }>(
+      'SELECT provider, verifier, next, invite FROM oauth_states WHERE state = ?1',
       [state],
     )
     // Single use, whether or not it is still valid.
@@ -251,7 +266,7 @@ export function authRoutes(runtime: Runtime) {
         redirectUri: `${origin}/api/auth/callback`,
       })
       const who = await profile(provider, accessToken)
-      const user = await identify(db, provider.id, who)
+      const user = await identify(db, provider.id, who, pending.invite ?? undefined)
       const ipHash = await addressHash(runtime, c.env, c.req.raw)
       const session = await issueSession(db, user.id, { userAgent: c.req.header('user-agent'), ipHash })
       await record(db, { actorId: user.id, action: 'signin', targetType: 'provider', targetId: provider.id, ipHash })
@@ -334,7 +349,7 @@ export function authRoutes(runtime: Runtime) {
     const db = runtime.database(c.env)
     if (!db) return c.json({ error: 'not configured' }, 503)
 
-    const body = (await c.req.json().catch(() => null)) as { email?: unknown; name?: unknown } | null
+    const body = (await c.req.json().catch(() => null)) as { email?: unknown; name?: unknown; invite?: unknown } | null
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     if (!email.includes('@')) return c.json({ error: 'an address is required' }, 400)
 
@@ -343,7 +358,8 @@ export function authRoutes(runtime: Runtime) {
     const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim() : humanise(email.split('@')[0])
     let user
     try {
-      user = await identify(db, 'dev', { subject: email, email, emailVerified: true, name })
+      const invite = typeof body?.invite === 'string' ? body.invite : undefined
+      user = await identify(db, 'dev', { subject: email, email, emailVerified: true, name }, invite)
     } catch (error) {
       if (error instanceof NotAdmitted) return c.json({ error: 'this instance is closed' }, 403)
       throw error
