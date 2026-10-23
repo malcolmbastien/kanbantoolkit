@@ -182,8 +182,8 @@ test('one person holds a card, and the other can see it is held, then free', asy
     const id = await card.getAttribute('data-card-id')
     await card.click()
 
-    // Edit intent, not opening: a focus into a field is what takes the pen.
-    await holder.getByLabel('Title').focus()
+    // Edit intent, not opening: putting the caret in the title is what takes the pen.
+    await holder.getByLabel('Title').click()
 
     const locks = async () => {
       const feed = (await (await reader.request.get(`${SELF_HOSTED}/api/workspace/changes?since=0`)).json()) as {

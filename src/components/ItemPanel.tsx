@@ -314,6 +314,23 @@ export function ItemPanel({ itemId }: Props) {
   }, [isInitiative, item.id, items, edges, links, placements, lanes, issueTypes, today])
   const openWarningRow = warnings.find((w) => w.key === openWarning)
 
+  /**
+   * Edit intent, not opening.
+   *
+   * A focus into something a person could type in, and the pointer press that leads there: a
+   * background tab is not always given the focus event, but a press is always a press.
+   */
+  const editable = (target: HTMLElement) =>
+    /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable
+  const intentHandlers = {
+    onFocusCapture: (event: React.FocusEvent<HTMLElement>) => {
+      if (editable(event.target as HTMLElement)) void takeLease(item.id)
+    },
+    onPointerDownCapture: (event: React.PointerEvent<HTMLElement>) => {
+      if (editable(event.target as HTMLElement)) void takeLease(item.id)
+    },
+  }
+
   // Closing the drawer — or opening another card in it — is the moment to let go.
   useEffect(() => () => void dropLease(itemId), [itemId])
 
@@ -454,6 +471,7 @@ export function ItemPanel({ itemId }: Props) {
     <aside
       data-item-panel
       aria-label={`Card details: ${item.title}`}
+      {...intentHandlers}
       className="flex h-full w-full max-w-[460px] shrink-0 flex-col border-l border-slate-300 bg-white shadow-[-10px_0_24px_-14px_rgba(15,23,42,0.25)]"
     >
       {/* ---- Header: the controls, what it is, what it is called, and the three views ---- */}
@@ -622,6 +640,7 @@ export function ItemPanel({ itemId }: Props) {
         {/* The title is the panel's heading: the one thing at the size the reading happens at. */}
         <input
           value={item.title}
+          disabled={Boolean(held)}
           onFocus={() => startTextEdit(item.id, 'title', item.title)}
           onBlur={() => endTextEdit('title')}
           onChange={(e) => setItemFields(item.id, { title: e.target.value })}
@@ -664,13 +683,6 @@ export function ItemPanel({ itemId }: Props) {
       <fieldset
         disabled={Boolean(held)}
         className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"
-        onFocusCapture={(event) => {
-          const target = event.target as HTMLElement
-          // Edit intent, not opening: a focus into something a person could type in.
-          if (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable) {
-            void takeLease(item.id)
-          }
-        }}
       >
       <div className="min-h-0 flex-1 select-text space-y-5 overflow-y-auto px-4 py-4 text-meta">
         {tab === 'overview' && (
