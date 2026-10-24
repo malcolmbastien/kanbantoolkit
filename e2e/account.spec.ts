@@ -276,7 +276,7 @@ test('an administrator makes an invitation link, and takes it back', async ({ pa
 
 test('a listed domain is a door, the selection is judged whole, and the directory leaves as a file', async ({ page, browser }) => {
   await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
@@ -303,7 +303,7 @@ test('a listed domain is a door, the selection is judged whole, and the director
   try {
     const stranger = await other.newPage()
     await stranger.goto(SELF_HOSTED)
-    await stranger.getByRole('button', { name: 'Sign in' }).click()
+    await stranger.getByRole('button', { name: 'Sign in', exact: true }).click()
     await stranger.getByPlaceholder('you@example.com').fill('robin@trials.example')
     await stranger.getByRole('button', { name: 'Sign in as this address' }).click()
     await expect(stranger.getByRole('button', { name: /Robin/ })).toBeVisible()
@@ -311,10 +311,12 @@ test('a listed domain is a door, the selection is judged whole, and the director
     // A lookalike domain is not that domain: exact, never a suffix.
     await stranger.getByRole('button', { name: /Robin/ }).click()
     await stranger.getByRole('button', { name: 'Sign out' }).click()
-    await stranger.getByRole('button', { name: 'Sign in' }).click()
+    await stranger.getByRole('button', { name: 'Sign in', exact: true }).click()
     await stranger.getByPlaceholder('you@example.com').fill('eve@nottrials.example')
     await stranger.getByRole('button', { name: 'Sign in as this address' }).click()
-    await expect(stranger.getByRole('button', { name: 'Sign in' })).toBeVisible()
+    // Still nobody signed in: the lookalike is not that domain.
+    await expect(stranger.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+    await expect(stranger.getByPlaceholder('you@example.com')).toBeVisible()
   } finally {
     await other.close()
   }
