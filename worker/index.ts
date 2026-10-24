@@ -79,6 +79,14 @@ const app = createApp(
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // The app, under `/app` and only there (task 151). Every path beneath it is the same document,
+    // because a place in the board is a query string. `_redirects` cannot express this — a rewrite
+    // onto `/app/index.html` matches its own rule and Cloudflare refuses it — so the shell is
+    // handed over here, which is also the only place that knows this deployment's routing.
+    const url = new URL(request.url)
+    if (url.pathname === '/app' || url.pathname.startsWith('/app/')) {
+      return (env as Env & { ASSETS: Fetcher }).ASSETS.fetch(new URL('/app/index.html', url))
+    }
     return app.fetch(request, env, ctx)
   },
 }
