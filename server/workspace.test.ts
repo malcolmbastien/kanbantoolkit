@@ -194,7 +194,7 @@ const workspace: Workspace = {
 describe('the workspace', () => {
   it('comes back exactly as it went in', async () => {
     const db = database()
-    await writeWorkspace(db, workspace)
+    await writeWorkspace(db, workspace, 'workspace')
 
     // Lanes are compared as a set: a lane carries its own `order`, and the order of the array it
     // happens to sit in is not part of the contract. Everything else keeps the order it was written
@@ -229,7 +229,7 @@ describe('the workspace', () => {
 
   it('is handed back whole, in one request, to the person signed in', async () => {
     const db = database()
-    await writeWorkspace(db, workspace)
+    await writeWorkspace(db, workspace, 'workspace')
     const request = instance(db)
     const { cookie } = await signedIn(db)
 

@@ -36,7 +36,7 @@ export function workspaceRoutes(runtime: Runtime) {
       return c.json({ error: 'this instance has not finished migrating' }, 503)
     }
 
-    const workspace = await readWorkspace(allowed.db)
+    const workspace = await readWorkspace(allowed.db, allowed.workspaceId)
     // Whose workspace this is, answered by the session rather than by a pointer the browser keeps;
     // and which shape it is, so a client that cannot read it can say so instead of half-rendering.
     return c.json({ ...workspace, schema: WORKSPACE_SCHEMA, meUserId: allowed.user.id })
@@ -55,7 +55,7 @@ export function workspaceRoutes(runtime: Runtime) {
     const allowed = await requireWorkspace(c, runtime, 'workspace.import')
     if (allowed instanceof Response) return allowed
 
-    const existing = await readWorkspace(allowed.db)
+    const existing = await readWorkspace(allowed.db, allowed.workspaceId)
     if (existing.boards.length) return c.json({ error: 'this workspace already has boards' }, 409)
 
     const workspace = parseWorkspace(await c.req.json().catch(() => null))
@@ -64,6 +64,7 @@ export function workspaceRoutes(runtime: Runtime) {
     await writeWorkspace(
       allowed.db,
       workspace,
+      allowed.workspaceId,
       statement({
         actorId: allowed.user.id,
         action: 'workspace.import',
@@ -145,7 +146,7 @@ export function workspaceRoutes(runtime: Runtime) {
     const picked = [...latest.values()].sort((left, right) => left.id - right.id)
 
     const items = new Map(
-      (await readItemsByIds(allowed.db, picked.map((row) => row.item_id))).map((item) => [item.id, item]),
+      (await readItemsByIds(allowed.db, picked.map((row) => row.item_id), allowed.workspaceId)).map((item) => [item.id, item]),
     )
 
     return c.json({
@@ -183,7 +184,7 @@ export function workspaceRoutes(runtime: Runtime) {
     // what is stored — rather than applying it again — is what makes a queue safe to flush twice.
     const key = typeof body?.key === 'string' && body.key ? body.key.slice(0, 100) : undefined
     if (key && (await alreadyApplied(allowed.db, key))) {
-      return c.json({ item: (await readItem(allowed.db, id)) ?? null, applied: true })
+      return c.json({ item: (await readItem(allowed.db, id, allowed.workspaceId)) ?? null, applied: true })
     }
 
     // A conflict is a disagreement about a version, so it only exists when there is one: an item the
@@ -193,11 +194,11 @@ export function workspaceRoutes(runtime: Runtime) {
     const held = await heldByOther(allowed.db, id, tabOf(c))
     if (held) return c.json({ error: 'someone else is editing this card', holder: held }, 423)
 
-    const current = await readItem(allowed.db, id)
+    const current = await readItem(allowed.db, id, allowed.workspaceId)
     if (current && (current.rev ?? 0) !== baseRev) return c.json({ error: 'moved past', item: current }, 409)
 
     const stored = { ...item, rev: baseRev + 1 }
-    await writeItem(allowed.db, stored, key)
+    await writeItem(allowed.db, stored, allowed.workspaceId, key)
     // The change is announced only after it landed: a nudge for a write that failed would make a
     // second device read the feed for nothing.
     await runtime.live?.publish(c.env, WORKSPACE_ID, stored.rev ?? 0)

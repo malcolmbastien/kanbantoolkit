@@ -52,8 +52,8 @@ describe('the migration from one role column to two axes', () => {
     const db = oldDatabase()
     const result = await migrate(db, all)
 
-    expect(result.applied).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
-    expect(result.version).toBe(17)
+    expect(result.applied).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
+    expect(result.version).toBe(18)
 
     // The owner administers the instance and the workspace; the member remains a member here and
     // keeps the editing they could already do.
@@ -75,18 +75,28 @@ describe('the migration from one role column to two axes', () => {
     expect(await db.all('SELECT * FROM invites')).toEqual([])
   })
 
-  it('changes no work at all', async () => {
+  it('changes no work at all, and gives every row the one workspace', async () => {
     const db = oldDatabase()
-    const before = await db.all('SELECT * FROM items')
-    const boardsBefore = await db.all('SELECT * FROM boards')
-    const placementsBefore = await db.all('SELECT * FROM placements')
+    const before = await db.all<Record<string, unknown>>('SELECT * FROM items')
+    const boardsBefore = await db.all<Record<string, unknown>>('SELECT * FROM boards')
+    const placementsBefore = await db.all<Record<string, unknown>>('SELECT * FROM placements')
 
     await migrate(db, all)
 
-    expect(await db.all('SELECT * FROM items')).toEqual(before)
-    expect(await db.all('SELECT * FROM boards')).toEqual(boardsBefore)
-    expect(await db.all('SELECT * FROM placements')).toEqual(placementsBefore)
+    // The scope is the one thing added; nothing that was there moved, and no id changed.
+    const unscoped = (rows: Array<Record<string, unknown>>) =>
+      rows.map(({ workspace_id: _scope, ...rest }) => rest)
+
+    expect(unscoped(await db.all('SELECT * FROM items'))).toEqual(before)
+    expect(unscoped(await db.all('SELECT * FROM boards'))).toEqual(boardsBefore)
+    expect(unscoped(await db.all('SELECT * FROM placements'))).toEqual(placementsBefore)
     expect(before[0]).toMatchObject({ title: 'A card', rev: 3 })
+
+    for (const table of ['items', 'boards', 'placements', 'lanes', 'people', 'issue_types', 'item_log']) {
+      const rows = await db.all<{ workspace_id: string | null }>(`SELECT workspace_id FROM ${table}`)
+      expect(rows.every((row) => row.workspace_id === 'workspace'), table).toBe(true)
+    }
+    expect(await db.all('SELECT id, name FROM workspaces')).toEqual([{ id: 'workspace', name: 'Flowline' }])
   })
 
   it('retires the table that answered two questions with one column', async () => {

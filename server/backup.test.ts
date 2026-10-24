@@ -62,7 +62,7 @@ function working(): string {
   raw.close()
 
   const db = openSqlite(path)
-  void writeWorkspace(db, workspace)
+  void writeWorkspace(db, workspace, 'workspace')
   return path
 }
 

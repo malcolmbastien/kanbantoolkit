@@ -33,6 +33,8 @@ export interface Caller {
 }
 
 export interface WorkspaceCaller extends Caller {
+  /** The workspace this request is about — resolved here, never taken on trust from the browser. */
+  workspaceId: string
   workspaceRole: Role
   /**
    * Where that role came from: `direct`, or `group:<name>`. The screen says so, because a role
@@ -121,6 +123,7 @@ export async function workspaceCallerFromCookie(
     db,
     user,
     instanceRole: instance.role === 'admin' ? 'admin' : 'member',
+    workspaceId: WORKSPACE_ID,
     workspaceRole: resolved.role,
     roleSource: resolved.source,
   }
@@ -161,5 +164,5 @@ export async function requireWorkspace(
 
   if (!can(resolved.role, action)) return fail(c, { error: `a ${resolved.role} may not ${action}` }, 403)
 
-  return { ...caller, workspaceRole: resolved.role, roleSource: resolved.source }
+  return { ...caller, workspaceId: id, workspaceRole: resolved.role, roleSource: resolved.source }
 }

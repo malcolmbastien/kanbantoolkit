@@ -56,9 +56,9 @@ function group<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
   return groups
 }
 
-async function readBoards(db: Database): Promise<Board[]> {
+async function readBoards(db: Database, workspaceId: string): Promise<Board[]> {
   const [boards, kinds, tags] = await Promise.all([
-    db.all<Row>('SELECT * FROM boards ORDER BY position, id'),
+    db.all<Row>('SELECT * FROM boards WHERE workspace_id = ?1 ORDER BY position, id', [workspaceId]),
     db.all<Row>('SELECT * FROM board_initiative_types ORDER BY board_id, position'),
     db.all<Row>('SELECT * FROM board_tags ORDER BY board_id, position'),
   ])
@@ -106,8 +106,8 @@ async function readBoards(db: Database): Promise<Board[]> {
   })
 }
 
-async function readLanes(db: Database): Promise<Lane[]> {
-  const rows = await db.all<Row>('SELECT * FROM lanes ORDER BY board_id, workflow, position, id')
+async function readLanes(db: Database, workspaceId: string): Promise<Lane[]> {
+  const rows = await db.all<Row>('SELECT * FROM lanes WHERE workspace_id = ?1 ORDER BY board_id, workflow, position, id', [workspaceId])
   return rows.map((row) => {
     const lane: Lane = {
       id: text(row.id),
@@ -129,11 +129,11 @@ async function readLanes(db: Database): Promise<Lane[]> {
   })
 }
 
-async function readItems(db: Database): Promise<Item[]> {
+async function readItems(db: Database, workspaceId: string): Promise<Item[]> {
   const [items, checklists, logs] = await Promise.all([
-    db.all<Row>('SELECT * FROM items ORDER BY created_at, id'),
+    db.all<Row>('SELECT * FROM items WHERE workspace_id = ?1 ORDER BY created_at, id', [workspaceId]),
     db.all<Row>('SELECT * FROM item_checklist ORDER BY item_id, position'),
-    db.all<Row>('SELECT * FROM item_log ORDER BY item_id, at, id'),
+    db.all<Row>('SELECT * FROM item_log WHERE workspace_id = ?1 ORDER BY item_id, at, id', [workspaceId]),
   ])
 
   const checklistByItem = group(checklists, (row) => text(row.item_id))
@@ -231,13 +231,16 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
  * The ids are bounded by the caller (a poll asks for a page, not for everything), because both D1
  * and the file driver have a limit on how many values one statement may carry.
  */
-export async function readItemsByIds(db: Database, ids: string[]): Promise<Item[]> {
+export async function readItemsByIds(db: Database, ids: string[], workspaceId: string = WORKSPACE_ROW): Promise<Item[]> {
   if (!ids.length) return []
-  const marks = ids.map((_, index) => `?${index + 1}`).join(', ')
+  // `?1` is the workspace, so the ids start at two — and the same marks serve the two child
+  // queries, which are reached through an item the scope already admitted.
+  const marks = ids.map((_, index) => `?${index + 2}`).join(', ')
+  const plain = ids.map((_, index) => `?${index + 1}`).join(', ')
   const [items, checklists, logs] = await Promise.all([
-    db.all<Row>(`SELECT * FROM items WHERE id IN (${marks})`, ids),
-    db.all<Row>(`SELECT * FROM item_checklist WHERE item_id IN (${marks}) ORDER BY position`, ids),
-    db.all<Row>(`SELECT * FROM item_log WHERE item_id IN (${marks}) ORDER BY at, id`, ids),
+    db.all<Row>(`SELECT * FROM items WHERE workspace_id = ?1 AND id IN (${marks})`, [workspaceId, ...ids]),
+    db.all<Row>(`SELECT * FROM item_checklist WHERE item_id IN (${plain}) ORDER BY position`, ids),
+    db.all<Row>(`SELECT * FROM item_log WHERE item_id IN (${plain}) ORDER BY at, id`, ids),
   ])
 
   const checklistByItem = group(checklists, (row) => text(row.item_id))
@@ -250,8 +253,8 @@ export async function readItemsByIds(db: Database, ids: string[]): Promise<Item[
 }
 
 /** One item, by id — the version the server holds, which is the one a refusal answers with. */
-export async function readItem(db: Database, id: string): Promise<Item | undefined> {
-  const row = await db.get<Row>('SELECT * FROM items WHERE id = ?1', [id])
+export async function readItem(db: Database, id: string, workspaceId: string = WORKSPACE_ROW): Promise<Item | undefined> {
+  const row = await db.get<Row>('SELECT * FROM items WHERE workspace_id = ?1 AND id = ?2', [workspaceId, id])
   if (!row) return undefined
   const [checklist, log] = await Promise.all([
     db.all<Row>('SELECT * FROM item_checklist WHERE item_id = ?1 ORDER BY position', [id]),
@@ -261,9 +264,9 @@ export async function readItem(db: Database, id: string): Promise<Item | undefin
 }
 
 
-async function readTemplates(db: Database): Promise<BoardTemplate[]> {
+async function readTemplates(db: Database, workspaceId: string): Promise<BoardTemplate[]> {
   const [templates, lanes] = await Promise.all([
-    db.all<Row>('SELECT * FROM board_templates ORDER BY id'),
+    db.all<Row>('SELECT * FROM board_templates WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
     db.all<Row>('SELECT * FROM template_lanes ORDER BY template_id, position'),
   ])
   const lanesByTemplate = group(lanes, (row) => text(row.template_id))
@@ -295,8 +298,8 @@ async function readTemplates(db: Database): Promise<BoardTemplate[]> {
   })
 }
 
-async function readSettings(db: Database): Promise<{ boardId: string; autoArchiveDays?: number; savedFilters: SavedFilter[]; collapsedLanes: Record<string, boolean> }> {
-  const row = await db.get<Row>('SELECT * FROM workspace WHERE id = ?1', [WORKSPACE_ROW])
+async function readSettings(db: Database, workspaceId: string): Promise<{ boardId: string; autoArchiveDays?: number; savedFilters: SavedFilter[]; collapsedLanes: Record<string, boolean> }> {
+  const row = await db.get<Row>('SELECT * FROM workspace WHERE id = ?1', [workspaceId])
   const autoArchiveDays = row ? maybeCount(row.auto_archive_days) : undefined
   return {
     boardId: row ? text(row.board_id) : '',
@@ -306,21 +309,21 @@ async function readSettings(db: Database): Promise<{ boardId: string; autoArchiv
   }
 }
 
-export async function readWorkspace(db: Database): Promise<Workspace> {
+export async function readWorkspace(db: Database, workspaceId: string = WORKSPACE_ROW): Promise<Workspace> {
   const [settings, boards, lanes, items, placements, edges, links, objectives, keyResults, boardTemplates, users, issueTypes] =
     await Promise.all([
-      readSettings(db),
-      readBoards(db),
-      readLanes(db),
-      readItems(db),
-      db.all<Row>('SELECT * FROM placements ORDER BY id'),
-      db.all<Row>('SELECT * FROM edges ORDER BY id'),
-      db.all<Row>('SELECT * FROM links ORDER BY id'),
-      db.all<Row>('SELECT * FROM objectives ORDER BY id'),
-      db.all<Row>('SELECT * FROM key_results ORDER BY id'),
-      readTemplates(db),
-      db.all<Row>('SELECT * FROM people ORDER BY id'),
-      db.all<Row>('SELECT * FROM issue_types ORDER BY id'),
+      readSettings(db, workspaceId),
+      readBoards(db, workspaceId),
+      readLanes(db, workspaceId),
+      readItems(db, workspaceId),
+      db.all<Row>('SELECT * FROM placements WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+      db.all<Row>('SELECT * FROM edges WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+      db.all<Row>('SELECT * FROM links WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+      db.all<Row>('SELECT * FROM objectives WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+      db.all<Row>('SELECT * FROM key_results WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+      readTemplates(db, workspaceId),
+      db.all<Row>('SELECT * FROM people WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+      db.all<Row>('SELECT * FROM issue_types WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
     ])
 
   return {

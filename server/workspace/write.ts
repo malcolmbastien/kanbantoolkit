@@ -37,20 +37,61 @@ const TABLES = [
 
 type Row = Record<string, unknown>
 
+/**
+ * The tables that carry a `workspace_id` of their own.
+ *
+ * The children — a checklist, a log, a board's kinds and tags, a template's lanes — belong through
+ * their parent, and are scoped by it: an item's checklist cannot be in a different workspace from
+ * the item, so a second column would be a second thing to keep true.
+ *
+ * The settings row is absent for a different reason: its primary key *is* the workspace id, so it
+ * carries the workspace as its identity rather than as a second column saying the same thing.
+ */
+const SCOPED = new Set([
+  'people',
+  'issue_types',
+  'boards',
+  'lanes',
+  'items',
+  'item_log',
+  'placements',
+  'edges',
+  'links',
+  'objectives',
+  'key_results',
+  'board_templates',
+])
+
+/**
+ * How a table that carries no `workspace_id` of its own is cleared: through the parent the scope
+ * already names, or — for the settings row — by its own primary key, which is the workspace.
+ */
+const CHILD_DELETE: Record<string, string> = {
+  workspace: 'DELETE FROM workspace WHERE id = ?1',
+  item_checklist: 'DELETE FROM item_checklist WHERE item_id IN (SELECT id FROM items WHERE workspace_id = ?1)',
+  item_log: 'DELETE FROM item_log WHERE item_id IN (SELECT id FROM items WHERE workspace_id = ?1)',
+  board_initiative_types:
+    'DELETE FROM board_initiative_types WHERE board_id IN (SELECT id FROM boards WHERE workspace_id = ?1)',
+  board_tags: 'DELETE FROM board_tags WHERE board_id IN (SELECT id FROM boards WHERE workspace_id = ?1)',
+  template_lanes:
+    'DELETE FROM template_lanes WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)',
+}
+
 const value = <T>(input: T | undefined | null): T | null => input ?? null
 const flag = (input: boolean | undefined): number | null => (input === undefined ? null : input ? 1 : 0)
 const json = (input: unknown): string | null => (input === undefined ? null : JSON.stringify(input))
 
-function add(statements: Statement[], table: string, row: Row): void {
-  const columns = Object.keys(row)
+function add(statements: Statement[], table: string, row: Row, workspaceId: string): void {
+  const scoped = SCOPED.has(table) ? { ...row, workspace_id: workspaceId } : row
+  const columns = Object.keys(scoped)
   statements.push({
     sql: `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map((_, index) => `?${index + 1}`).join(', ')})`,
-    params: Object.values(row),
+    params: Object.values(scoped),
   })
 }
 
 /** One item's row, checklist and history. Shared by the whole-workspace write and the item write. */
-function addItem(statements: Statement[], item: Item): void {
+function addItem(statements: Statement[], item: Item, workspaceId: string): void {
     add(statements, 'items', {
       id: item.id,
       title: item.title,
@@ -71,7 +112,7 @@ function addItem(statements: Statement[], item: Item): void {
       blocked_reason: value(item.blockedReason),
       archived: flag(item.archived),
       archived_at: value(item.archivedAt),
-    })
+    }, workspaceId)
 
     for (const [position, entry] of (item.checklist ?? []).entries()) {
       add(statements, 'item_checklist', {
@@ -80,7 +121,7 @@ function addItem(statements: Statement[], item: Item): void {
         text: entry.text,
         done: entry.done ? 1 : 0,
         position,
-      })
+      }, workspaceId)
     }
 
     for (const entry of item.log ?? []) {
@@ -96,7 +137,7 @@ function addItem(statements: Statement[], item: Item): void {
         from_stage: value(entry.fromStage),
         to_stage: value(entry.toStage),
         board_id: value(entry.boardId),
-      })
+      }, workspaceId)
     }
 }
 
@@ -107,13 +148,13 @@ function addItem(statements: Statement[], item: Item): void {
  * one. The children are cleared first because D1 does not cascade a foreign key by default, and a
  * history that outlived its item would be worse than a slow delete.
  */
-export async function writeItem(db: Database, item: Item, key?: string): Promise<void> {
+export async function writeItem(db: Database, item: Item, workspaceId: string, key?: string): Promise<void> {
   const statements: Statement[] = [
     { sql: 'DELETE FROM item_checklist WHERE item_id = ?1', params: [item.id] },
     { sql: 'DELETE FROM item_log WHERE item_id = ?1', params: [item.id] },
     { sql: 'DELETE FROM items WHERE id = ?1', params: [item.id] },
   ]
-  addItem(statements, item)
+  addItem(statements, item, workspaceId)
 
   // The feed a second device reads. Written with the change, so a change that landed is a change
   // that is announced, and a batch that failed announced nothing.
@@ -134,15 +175,26 @@ export async function alreadyApplied(db: Database, key: string): Promise<boolean
   return Boolean(await db.get('SELECT 1 AS applied FROM applied_writes WHERE key = ?1', [key]))
 }
 
-export async function writeWorkspace(db: Database, workspace: Workspace, audit?: Statement): Promise<void> {
-  const statements: Statement[] = TABLES.map((table) => ({ sql: `DELETE FROM ${table}` }))
+export async function writeWorkspace(
+  db: Database,
+  workspace: Workspace,
+  workspaceId: string,
+  audit?: Statement,
+): Promise<void> {
+  // Only this workspace's rows: the import replaces one workspace, and another workspace's work is
+  // not this transaction's to remove.
+  const statements: Statement[] = TABLES.map((table) =>
+    SCOPED.has(table)
+      ? { sql: `DELETE FROM ${table} WHERE workspace_id = ?1`, params: [workspaceId] }
+      : { sql: CHILD_DELETE[table], params: [workspaceId] },
+  )
 
   for (const user of workspace.users) {
-    add(statements, 'people', { id: user.id, name: user.name, avatar_url: value(user.avatarUrl) })
+    add(statements, 'people', { id: user.id, name: user.name, avatar_url: value(user.avatarUrl) }, workspaceId)
   }
 
   for (const type of workspace.issueTypes) {
-    add(statements, 'issue_types', { id: type.id, name: type.name, color: type.color })
+    add(statements, 'issue_types', { id: type.id, name: type.name, color: type.color }, workspaceId)
   }
 
   workspace.boards.forEach((board, index) => {
@@ -158,7 +210,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
       default_drop_lane_id: value(board.defaultDropLaneId),
       wip_enforcement: value(board.wipEnforcement),
       position: index,
-    })
+    }, workspaceId)
     for (const [position, kind] of (board.initiativeTypes ?? []).entries()) {
       add(statements, 'board_initiative_types', {
         board_id: board.id,
@@ -166,7 +218,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
         name: kind.name,
         color: kind.color,
         position,
-      })
+      }, workspaceId)
     }
     for (const [position, tag] of (board.tags ?? []).entries()) {
       add(statements, 'board_tags', {
@@ -175,7 +227,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
         name: tag.name,
         color: tag.color,
         position,
-      })
+      }, workspaceId)
     }
   })
 
@@ -193,7 +245,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
       stage: value(lane.stage),
       wip_limit: value(lane.wipLimit),
       description: value(lane.description),
-    })
+    }, workspaceId)
   }
   for (const lane of workspace.lanes) {
     if (lane.parentId) {
@@ -202,7 +254,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
   }
 
   for (const item of workspace.items) {
-    addItem(statements, item)
+    addItem(statements, item, workspaceId)
     statements.push({ sql: 'INSERT INTO changes (item_id, rev) VALUES (?1, ?2)', params: [item.id, item.rev ?? 0] })
   }
 
@@ -214,15 +266,15 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
       lane_id: placement.laneId,
       lane_entered_at: value(placement.laneEnteredAt),
       rank: value(placement.rank),
-    })
+    }, workspaceId)
   }
 
   for (const edge of workspace.edges) {
-    add(statements, 'edges', { id: edge.id, kind: edge.kind, from_id: edge.from, to_id: edge.to })
+    add(statements, 'edges', { id: edge.id, kind: edge.kind, from_id: edge.from, to_id: edge.to }, workspaceId)
   }
 
   for (const link of workspace.links) {
-    add(statements, 'links', { id: link.id, from_id: link.from, to_id: link.to, reason: value(link.reason) })
+    add(statements, 'links', { id: link.id, from_id: link.from, to_id: link.to, reason: value(link.reason) }, workspaceId)
   }
 
   for (const objective of workspace.objectives) {
@@ -232,11 +284,11 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
       period: objective.period,
       status: objective.status,
       score: value(objective.score),
-    })
+    }, workspaceId)
   }
 
   for (const result of workspace.keyResults) {
-    add(statements, 'key_results', { id: result.id, objective_id: result.objectiveId, title: result.title })
+    add(statements, 'key_results', { id: result.id, objective_id: result.objectiveId, title: result.title }, workspaceId)
   }
 
   for (const template of workspace.boardTemplates) {
@@ -246,7 +298,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
       band: template.band,
       default_card_type_id: value(template.defaultCardTypeId),
       wip_enforcement: value(template.wipEnforcement),
-    })
+    }, workspaceId)
     for (const lane of template.lanes) {
       add(statements, 'template_lanes', {
         template_id: template.id,
@@ -258,7 +310,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
         stage: value(lane.stage),
         wip_limit: value(lane.wipLimit),
         description: value(lane.description),
-      })
+      }, workspaceId)
     }
   }
 
@@ -268,7 +320,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace, audit?:
     auto_archive_days: value(workspace.autoArchiveDays),
     saved_filters: json(workspace.savedFilters),
     collapsed_lanes: json(workspace.collapsedLanes),
-  })
+  }, workspaceId)
 
   // The import and the record of it are one transaction: an import nobody can explain is not one.
   if (audit) statements.push(audit)
