@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
 /**
@@ -16,12 +17,13 @@ test('the front page is the site, and it is readable with no JavaScript at all',
   const page = await context.newPage()
   try {
     await page.goto('/')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Work is a graph')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('The truth is derived')
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
     await expect(page.getByRole('contentinfo')).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Start free' }).first()).toBeVisible()
-    // The picture the page is about, and the links into the rest of the site.
+    await expect(page.getByRole('link', { name: 'Open the demo — no account' }).first()).toBeVisible()
+    // The picture the page is about, the questions it answers, and the links into the rest of the site.
     await expect(page.locator('main img')).toHaveCount(1)
+    await expect(page.getByRole('term')).toHaveCount(5)
     await expect(page.getByRole('link', { name: 'Pricing' }).first()).toBeVisible()
   } finally {
     await context.close()
@@ -100,6 +102,31 @@ test('the changelog is dated, newest first', async ({ request }) => {
   const dates = [...html.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((match) => match[1])
   expect(dates.length).toBeGreaterThan(0)
   expect(dates).toEqual([...dates].sort().reverse())
+})
+
+test('the home page and the product page have no barrier a machine can find', async ({ page }) => {
+  for (const path of ['/', '/product/']) {
+    await page.goto(path)
+    const { violations } = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const barriers = violations
+      .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
+      .map((violation) => `${violation.id}: ${violation.help} — ${violation.nodes[0]?.target.join(' ')}`)
+    expect(barriers, path).toEqual([])
+  }
+})
+
+test('the home page holds at 320 pixels wide', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.goto('/')
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  )
+  expect(overflow).toBeLessThanOrEqual(0)
+  // And it is still the page: the heading, the demo action, the questions.
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('The truth is derived')
+  await expect(page.getByRole('link', { name: 'Open the demo — no account' }).first()).toBeVisible()
 })
 
 test('no public page fetches anything from another origin', async ({ page }) => {

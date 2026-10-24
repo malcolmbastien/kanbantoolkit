@@ -122,6 +122,81 @@ const homeKb = homeBytes / 1024
 if (homeKb > HOME_BUDGET_KB) fail(`the home page is ${homeKb.toFixed(1)} kB, over ${HOME_BUDGET_KB} kB`)
 else console.log(`home page: ${homeKb.toFixed(1)} kB compressed (HTML, CSS and ${referenced.length} image(s))`)
 
+// ---- R2/R3/R6: the home page's copy and its pictures ----
+/** What the site may not say: nothing invented, and no superlatives dressed as evidence. */
+const BANNED = [
+  'trusted by',
+  'AI-powered',
+  'AI powered',
+  '10,000',
+  '% of teams',
+  'revolutionary',
+  'world-class',
+  'best-in-class',
+  'game-changing',
+  'seamless',
+  '!',
+]
+
+const homePage = readFileSync(join(DIST, 'index.html'), 'utf8')
+const productPage = readFileSync(join(DIST, 'product/index.html'), 'utf8')
+
+for (const phrase of BANNED) {
+  // An exclamation mark in an attribute or a URL is not copy; the check is over the text.
+  const text = homePage.replace(/<[^>]+>/g, ' ')
+  if (text.includes(phrase)) fail(`the home page says "${phrase}"`)
+}
+
+// One H1, and a heading order that never skips a level.
+for (const [name, text] of [
+  ['/', homePage],
+  ['/product/', productPage],
+]) {
+  const levels = [...text.matchAll(/<h([1-6])[ >]/g)].map((match) => Number(match[1]))
+  const firsts = levels.filter((level) => level === 1).length
+  if (firsts !== 1) fail(`${name} has ${firsts} <h1> elements`)
+  for (let i = 1; i < levels.length; i++) {
+    if (levels[i] > levels[i - 1] + 1) fail(`${name} skips from h${levels[i - 1]} to h${levels[i]}`)
+  }
+}
+
+// Every picture has alt text and its real dimensions, and is a modern format.
+for (const file of html) {
+  const text = readFileSync(file, 'utf8')
+  const where = file.replace(`${DIST}/`, '')
+  for (const [tag, attributes] of text.matchAll(/<img\s([^>]*)>/g)) {
+    if (!/\salt="[^"]+"/.test(attributes)) fail(`${where}: an image has no alt text`)
+    if (!/\swidth="\d+"/.test(attributes) || !/\sheight="\d+"/.test(attributes)) {
+      fail(`${where}: an image has no explicit width and height`)
+    }
+    const src = /src="([^"]+)"/.exec(attributes)?.[1] ?? ''
+    if (!/\.(webp|avif)$/.test(src)) fail(`${where}: ${src} is not a modern image format`)
+    if (!existsSync(join(DIST, src))) fail(`${where}: ${src} was not built`)
+  }
+}
+
+// The list of "unusual promises" must each point at the page that proves it (R2, the ledger).
+const promises = /<h2 id="promises">[\s\S]*?<\/ul>/.exec(homePage)?.[0] ?? ''
+if (!promises) fail('the home page has no promises section')
+else {
+  const items = [...promises.matchAll(/<li>[\s\S]*?<\/li>/g)].map((match) => match[0])
+  if (items.length < 4) fail('the promises section lists fewer than four promises')
+  for (const item of items) if (!/<a\s[^>]*href="\//.test(item)) fail('a promise has no link to its proof')
+}
+
+// The required sections, in the order the page promises (R1).
+const ORDER = ['facts', 'product', 'ideas', 'starts', 'who', 'pricing', 'promises', 'questions']
+const positions = ORDER.map((id) => homePage.indexOf(`id="${id}"`))
+if (positions.some((at) => at === -1)) {
+  fail(`the home page is missing a section: ${ORDER.filter((id, i) => positions[i] === -1).join(', ')}`)
+} else if (positions.join() !== [...positions].sort((a, b) => a - b).join()) {
+  fail('the home page is out of order')
+}
+
+// ---- R4: both actions are links, and they go where they say ----
+if (!/<a[^>]+href="\/app"[^>]*>Open the demo/.test(homePage)) fail('the home page has no demo link to /app')
+if (!/<a[^>]+href="\/signin"[^>]*>Start free/.test(homePage)) fail('the home page has no Start free link to /signin')
+
 // ---- R5/V5: every internal link resolves to something that was built ----
 const resolve = (href) => {
   const path = href.split('#')[0].split('?')[0]

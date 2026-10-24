@@ -12,7 +12,7 @@
  *   node scripts/build-site.ts
  */
 
-import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 const ROOT = process.cwd()
@@ -192,6 +192,8 @@ function main(): void {
   for (const asset of readdirSync(join(SITE, 'assets'))) {
     cpSync(join(SITE, 'assets', asset), join(DIST, asset))
   }
+  // The screenshots, taken from the shipped app by `npm run shots`.
+  if (existsSync(join(SITE, 'img'))) cpSync(join(SITE, 'img'), join(DIST, 'img'), { recursive: true })
 
   writeFileSync(join(DIST, 'robots.txt'), robots())
   writeFileSync(join(DIST, 'sitemap.xml'), sitemap(pages))

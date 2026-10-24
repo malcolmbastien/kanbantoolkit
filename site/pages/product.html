@@ -1,0 +1,72 @@
+<!--
+title: How Flowline works — the model, and the four stages
+description: One card on many boards, the lane tree and its four stages, initiatives computed from the work below, dependencies that clear themselves, the same graph at three altitudes — and what is deliberately not automated.
+path: /product/
+-->
+<h1>How it works</h1>
+<p class="lede">
+  The model in five ideas and one refusal. Each section is the thing the app does, then a picture of
+  it doing that — captured from the shipped build, not drawn.
+</p>
+
+<h2 id="many-boards">One card, many boards</h2>
+<p>
+  A card is an item, and where it is read is a placement: one per board. Move it, and it moves — not a
+  copy that can drift, because a copied card is a second thing that can disagree. It keeps its type,
+  its parent, its assignees and its history wherever it appears.
+</p>
+<figure class="shot">
+  <img src="/img/board.webp" width="1440" height="1200" alt="The board with four columns: Backlog, Not Started, In Progress and Done, with cards in each." />
+</figure>
+
+<h2 id="stages">The lane tree, and the four stages</h2>
+<p>
+  A board is a tree of lanes, and every top-level column is one of four stages: Backlog, Not Started,
+  In Progress, Done. Split a column into cells and name them what your team calls them — the stage
+  stays the column's, so a card's status is never a word somebody chose on a Tuesday. The four are
+  fixed; the shape between them is yours.
+</p>
+<figure class="shot">
+  <img src="/img/lanes.webp" width="1408" height="772" alt="One split column: its two cells side by side, each with its own name, count and cards." />
+</figure>
+
+<h2 id="initiatives">Initiatives, computed from the work below</h2>
+<p>
+  An initiative has no status field and no estimate. Its status is the rollup of its leaves; its size
+  is the sum of theirs; its completion is the share of leaf work done, weighted by size. Add an
+  unplanned card and the number moves back, because the work moved.
+</p>
+<figure class="shot">
+  <img src="/img/initiatives.webp" width="1408" height="515" alt="The initiatives flow: three initiatives under their stage headings, each with its rollup percentage, size in points and the work beneath it." />
+</figure>
+
+<h2 id="dependencies">Dependencies that clear themselves</h2>
+<p>
+  A dependency is an edge between two items. Its state is read from the two ends, so it is blocked only
+  while the thing it waits on is open — there is no field to remember to update, and no way for a
+  cleared dependency to stay red because nobody clicked.
+</p>
+<figure class="shot">
+  <img src="/img/drawer.webp" width="460" height="1115" alt="A card open in its panel, showing its parent chip, its history and the work it depends on." />
+</figure>
+
+<h2 id="flights">The same graph at three altitudes</h2>
+<p>
+  A team board is one view. A programme board aggregates the teams under it, and a portfolio reads the
+  objectives the work serves. The altitudes are lenses over one model, not copies of it: the numbers at
+  the top are the same numbers at the bottom.
+</p>
+<figure class="shot">
+  <img src="/img/flights.webp" width="1440" height="1200" alt="The management dashboard: a portfolio's work read at a higher altitude, with the boards beneath it and the rollups between them." />
+</figure>
+
+<h2 id="no-trackers">What is deliberately not automated</h2>
+<p class="note">
+  The app writes nothing nobody wrote. No generated cards, no summarised history, no AI guesses about
+  what a card means. A model that fills a board with plausible sentences makes the board a second
+  author of the team's work, and then nobody can tell which parts are true.
+</p>
+<p>
+  <a class="button" href="/app">Open the demo — no account</a>
+  <a class="quiet" href="/signin">Start free</a>
+</p>

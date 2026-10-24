@@ -1,48 +1,90 @@
 <!--
-title: Flowline — work is a graph, boards are views over it
-description: A board for teams: initiatives roll up from the work below, every change is part of the record, and the board is a view over the graph rather than a folder of cards.
+title: Flowline — the truth is derived, not typed
+description: A board for the team's flow and management's read of it, from the same work. One card on several boards, status rolled up from the work below, edits that land offline — and no trackers.
 path: /
 -->
-<p class="eyebrow">A board for teams</p>
-<h1>Work is a graph.<br />Boards are views over it.</h1>
+<p class="eyebrow">A board for teams, and for the people who read them</p>
+<h1>The truth is derived, not typed.</h1>
 <p class="lede">
-  A card is not a row in a list. It is an item with a parent, an owner, a history and a place — and a
-  board is one way of looking at those. Move the work, and everything that rolls up from it moves with
-  it.
+  Your team's flow and your management's read of it, from the same work. A card is one item with a
+  parent, an owner and a history; the board is one view of it, and the rollup is another. Nothing is
+  written down twice, because there is only one thing to write.
 </p>
 <p class="cta">
-  <a class="button" href="/signup/">Start free</a>
-  <a class="quiet" href="/#product">See what it does</a>
+  <a class="button" href="/app">Open the demo — no account</a>
+  <a class="quiet" href="/signin">Start free</a>
 </p>
 
+<ul class="facts" id="facts">
+  <li><a href="/product/#many-boards"><strong>One card, several boards.</strong> It keeps its identity, its history and its owner wherever it is read.</a></li>
+  <li><a href="/product/#stages"><strong>Status is rolled up.</strong> Not a field somebody sets: the work below decides it.</a></li>
+  <li><a href="/product/#offline"><strong>Edits land offline.</strong> They wait, in order, and go when the line comes back.</a></li>
+  <li><a href="/product/#no-trackers"><strong>No trackers.</strong> No third-party scripts, no analytics, no fonts from elsewhere.</a></li>
+</ul>
+
 <figure class="shot" id="product">
-  <img src="/board.svg" width="960" height="540" alt="A Flowline board: four typed columns, with initiatives rolling up from the cards beneath them." />
+  <img src="/img/board.webp" width="1440" height="1200" alt="The Flowline board: four typed columns — Backlog, Not Started, In Progress and Done — with three initiatives above them and the cards that make them up below, each headlined by its type and showing a rollup percentage." />
   <figcaption>
-    One board. Four typed columns — Backlog, Not Started, In Progress, Done — split however the team
-    likes, with the work underneath each initiative counted, sized and dated.
+    The shipped board, as it draws with no account: initiatives across the top, the team's own columns
+    below, and the work that decides both.
   </figcaption>
 </figure>
 
-<h2>What it does</h2>
+<h2 id="ideas">Three ideas, and what they mean for you</h2>
+<p>
+  <strong>Work is a graph.</strong> Cards, initiatives, objectives and the edges between them are
+  items in one model, not folders in a tree. The consequence: the same card can be read on the team's
+  board and on the programme's without being copied, so it cannot disagree with itself.
+</p>
+<p>
+  <strong>Facts are derived.</strong> A rollup, a status, a dependency that has cleared, a stale
+  initiative — each is computed from the work, never entered. The consequence: nobody's Tuesday is
+  spent updating a status that the cards already answer, and the number cannot drift from the work.
+</p>
+<p>
+  <strong>One truth, two audiences.</strong> The team shapes its own columns and names them what it
+  likes; management reads the same work at a higher altitude. The consequence: a board can be
+  reorganised without the portfolio becoming wrong, because the portfolio is not a copy of the board.
+</p>
+
+<h2 id="starts">How it starts</h2>
+<ol class="steps">
+  <li><strong>Open the demo.</strong> A seeded board, no account, no card. It is the whole product, not a tour.</li>
+  <li><strong>Shape a board.</strong> Four typed columns, split however your team actually works — and your own names for them.</li>
+  <li><strong>Share it when it needs sharing.</strong> Invite the people who do the work, then read the same work above it.</li>
+</ol>
+
+<h2 id="who">Who it is for</h2>
+<p><strong>A programme whose board no longer matches the work.</strong> The columns drifted, the status is a week old, and the slide is a third thing again.</p>
+<p><strong>A team whose column names are its own.</strong> Not somebody else's idea of a pipeline, and not one that has to be renamed to fit a report.</p>
+<p><strong>Somebody who reads for a living, and is tired of asking.</strong> The numbers are there because the work is; nobody has to be chased for them.</p>
+
+<h2 id="pricing">Pricing, in one line per plan</h2>
 <ul class="points">
-  <li>
-    <strong>Rolls up.</strong> An initiative's status is its work, not a field somebody sets. Split a
-    column and the cards in it do not move; the board is a view, and the model does not change shape
-    to accommodate it.
-  </li>
-  <li>
-    <strong>Keeps the record.</strong> Every move, edit and refusal is part of the card's own history,
-    with the name of the person who did it — including after they leave.
-  </li>
-  <li>
-    <strong>Stays out of the way.</strong> One board is one workspace, and a workspace is the people
-    you invited. No account is needed to read this page, and none is needed to try the demo.
-  </li>
+  <li><strong>Free</strong> — one team's board: unlimited people, unlimited cards and initiatives, no objectives.</li>
+  <li><strong>Team</strong> — the portfolio above it: programme and portfolio boards, objectives, the audit trail and backups.</li>
+  <li><strong>Self-hosted</strong> — the same server on your own machine.</li>
+</ul>
+<p><a href="/pricing/">The plans in full</a>, with the limits as the server applies them.</p>
+
+<h2 id="promises">The promises that are unusual</h2>
+<ul class="points">
+  <li><strong>No trackers.</strong> No analytics, no advertising, no third-party scripts — the page you are reading makes no request off this domain. <a href="/privacy/">What we hold</a>.</li>
+  <li><strong>Your export always works.</strong> The board's menu writes the whole workspace as one file; the file is the data. <a href="/help/#export">How to export</a>.</li>
+  <li><strong>A lapsed plan deletes nothing.</strong> It falls back to the free plan, and everything you wrote stays where it is. <a href="/pricing/">The plans</a>.</li>
+  <li><strong>It runs on your own machine.</strong> One Node process and one SQLite file, the same routes and the same rules. <a href="/self-host/">Self-host</a>.</li>
 </ul>
 
-<h2>Where it starts</h2>
-<p>
-  Free is one team board. Paid adds coordination boards, more people and the history a paid account
-  keeps. <a href="/pricing/">The pricing page</a> has the detail, and it is the same table the product
-  reads.
-</p>
+<h2 id="questions">Five questions</h2>
+<dl class="questions">
+  <dt>Do I need an account?</dt>
+  <dd>Not to look. <a href="/app">The demo</a> is the shipped board with seeded work and no session. An account is for a workspace of your own, and it starts free.</dd>
+  <dt>What happens offline?</dt>
+  <dd>An edit you make with no connection is held, in order, and sent when the line comes back. The app says how many are waiting; nothing is silently dropped.</dd>
+  <dt>Can we self-host?</dt>
+  <dd>Yes. The same build runs as a Worker and as a Node process; <a href="/self-host/">self-hosting</a> is a supported deployment, not a fork.</dd>
+  <dt>How do you make money?</dt>
+  <dd>A paid plan for the portfolio above the team, and a licence for self-hosting. The free plan is not a trial: no clock, no card.</dd>
+  <dt>Do you train anything on our data?</dt>
+  <dd>No. Your work is not used to train anything, and there is no third party in the path to read it — the <a href="/privacy/">privacy notice</a> lists every service that touches it.</dd>
+</dl>
