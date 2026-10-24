@@ -43,6 +43,9 @@ export type Action =
   | 'workspace.share'
   | 'workspace.import'
   | 'workspace.restore'
+  // Ending this workspace, and only this one. A workspace is the tenant (task 126): its
+  // administrator may close it, and nothing a member does reaches another workspace.
+  | 'workspace.delete'
 
 /** Every action, for iteration in tests and for completeness checks. */
 export const ACTIONS: readonly Action[] = [
@@ -66,6 +69,7 @@ export const ACTIONS: readonly Action[] = [
   'workspace.share',
   'workspace.import',
   'workspace.restore',
+  'workspace.delete',
 ]
 
 /**
@@ -104,6 +108,7 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'workspace.share': false,
     'workspace.import': false,
     'workspace.restore': false,
+    'workspace.delete': false,
   },
   editor: {
     'board.read': true,
@@ -126,6 +131,7 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'workspace.share': false,
     'workspace.import': false,
     'workspace.restore': false,
+    'workspace.delete': false,
   },
   admin: {
     'board.read': true,
@@ -148,72 +154,8 @@ const MATRIX: Record<Role, Record<Action, boolean>> = {
     'workspace.share': true,
     'workspace.import': true,
     'workspace.restore': true,
-  },
-}
-
-/* -------------------------------------------------------------------------------------------- *
- * The account, which is a different axis
- * -------------------------------------------------------------------------------------------- */
-
-/**
- * The two instance roles: who administers the deployment, and everybody else.
- *
- * The workspace matrix above answers "what may this person do on the board". This answers "what may
- * they do to the account" — rename it, keep its billing record, appoint another Account Admin, and
- * destroy things: a workspace, or the whole account. It is a second table because it is a second
- * question, not because it is a second copy: no workspace role can answer it, and no account role
- * can answer a workspace one.
- *
- * The Account Admin is the instance administrator under the name the role now earns (task 126).
- * There is no third level: whoever can administer the deployment is whoever can close it.
- */
-export type InstanceRole = 'admin' | 'member'
-
-export type AccountAction =
-  | 'account.rename'
-  | 'account.billing'
-  | 'account.admins'
-  | 'account.delete'
-  | 'workspace.delete'
-
-/** Every account action, for iteration in tests and for the completeness check. */
-export const ACCOUNT_ACTIONS: readonly AccountAction[] = [
-  'account.rename',
-  'account.billing',
-  'account.admins',
-  'account.delete',
-  'workspace.delete',
-]
-
-/**
- * One table, both instance roles, every action decided. `member` is false in every row on purpose:
- * being a member of the instance is not a grant of anything at this level, and a missing key would
- * read as "nobody may" — safe, but silent.
- */
-const ACCOUNT_MATRIX: Record<InstanceRole, Record<AccountAction, boolean>> = {
-  admin: {
-    'account.rename': true,
-    'account.billing': true,
-    'account.admins': true,
-    'account.delete': true,
-    // The workspace's own administrator runs it; only the account's may end it. Deleting a
-    // workspace takes its boards, its lanes and the work in them, and that is a decision about the
-    // account rather than about a board.
     'workspace.delete': true,
   },
-  member: {
-    'account.rename': false,
-    'account.billing': false,
-    'account.admins': false,
-    'account.delete': false,
-    'workspace.delete': false,
-  },
-}
-
-/** What an instance role may do to the account. The same shape, and the same refusal, as `can`. */
-export function canAccount(role: string, action: AccountAction): boolean {
-  const row = ACCOUNT_MATRIX[role as InstanceRole]
-  return Boolean(row?.[action])
 }
 
 /** What the interface calls each role, and what an invitation says about it. */

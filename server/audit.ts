@@ -37,9 +37,7 @@ export type AuditAction =
   | 'group.delete'
   | 'group.member'
   | 'group.role'
-  | 'account.rename'
-  | 'account.billing'
-  | 'account.admins'
+  | 'workspace.account'
   | 'workspace.delete'
   // `account.delete` is deliberately absent: closing the account removes this table with the rest,
   // so a trail entry for it would be deleted by the act it describes.

@@ -18,7 +18,7 @@ import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, prof
 import { issueSession, revoke, sessionCookie, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
 import { admitsDomain, settings } from '../instance'
-import { effectiveRole } from '../groups'
+import { resolveWorkspace } from '../access'
 import { byToken, stateOf } from '../invites'
 import type { AuthUser } from './session'
 
@@ -357,17 +357,14 @@ export function authRoutes(runtime: Runtime) {
       })
     }
 
-    // The effective role — direct or through an active group — because the interface enables or
-    // hides controls from this number. The server decides again on every request.
-    const grant = await effectiveRole(db, user.id, WORKSPACE_ID)
-    const member = grant ? { workspace_id: WORKSPACE_ID, role: grant.role } : undefined
-    // An instance administrator can enter any workspace, so the one they are not on is still theirs
-    // to repair — the payload says so, and the server says the same thing when it is asked.
-    const workspaces = member
-      ? [{ id: member.workspace_id, role: member.role }]
-      : user.instanceRole === 'admin'
-        ? [{ id: WORKSPACE_ID, role: 'admin' }]
-        : []
+    // The same door every request goes through (task 122.2): the workspace this person may open, and
+    // the effective role — direct or through an active group. The payload says it so the interface
+    // can enable or hide a control; the server decides again on every request.
+    //
+    // No workspace is invented for an instance administrator when none exists: after a workspace is
+    // deleted, the honest answer is that there is nothing to open.
+    const resolved = await resolveWorkspace(db, user.id, user.instanceRole === 'admin', undefined)
+    const workspaces = resolved ? [{ id: resolved.id, role: resolved.role }] : []
 
     return c.json({
       user: { id: user.id, name: user.name, email: user.email },

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Upload } from 'lucide-react'
+import { AlertTriangle, Upload } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { copyToAccount, declineImport, useWorkspaceSync } from '@/lib/workspaceSync'
 import { persistedSlice, useStore } from '@/store'
@@ -28,6 +28,19 @@ export function ImportNotice() {
     document.addEventListener('pointerdown', away)
     return () => document.removeEventListener('pointerdown', away)
   }, [open])
+
+  // A closed workspace is said even when there is no offer to make: the person is looking at this
+  // browser's copy and needs to know the account's is not there.
+  if (user && !offer && error) {
+    return (
+      <span
+        title={error}
+        className="flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-1 text-meta font-medium text-slate-700"
+      >
+        <AlertTriangle size={13} /> No workspace
+      </span>
+    )
+  }
 
   if (!user || !offer) return null
 

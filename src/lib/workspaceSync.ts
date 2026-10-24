@@ -53,7 +53,7 @@ function remember(userId: string): void {
   }
 }
 
-export type AccountLoad = 'adopted' | 'offered' | 'held' | 'empty' | 'mismatch' | 'failed'
+export type AccountLoad = 'adopted' | 'offered' | 'held' | 'empty' | 'mismatch' | 'gone' | 'failed'
 
 /**
  * Settle what this browser should be showing, given the account.
@@ -67,6 +67,16 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
   let body: Record<string, unknown>
   try {
     const response = await fetch('/api/workspace', { headers: { accept: 'application/json' } })
+    if (response.status === 404) {
+      // The account has no workspace to open: it was deleted, or this person was removed from it.
+      // Saying so is the honest answer — the board keeps drawing this browser's own copy, and the
+      // notice explains why the account's work is not what it is showing.
+      useWorkspaceSync.setState({
+        offer: false,
+        error: 'This account has no workspace to open — it was deleted, or you were removed from it. What you see is this browser’s own copy.',
+      })
+      return 'gone'
+    }
     if (!response.ok) return 'failed'
     body = (await response.json()) as Record<string, unknown>
   } catch {

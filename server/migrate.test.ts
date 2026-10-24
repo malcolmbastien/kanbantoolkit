@@ -44,9 +44,9 @@ describe('the server schema', () => {
   it('carries what exists through a later migration', async () => {
     const raw = new DatabaseSync(':memory:')
     // The shape *before* the workspace became a row: no `workspaces` table, no `workspace_id`, and
-    // the two migrations that add them still to run. That is the database a real self-hoster has
-    // when they upgrade.
-    const older = all.slice(0, -2)
+    // every migration since still to run. That is the database a real self-hoster has when they
+    // upgrade.
+    const older = all.slice(0, -3)
     for (const migration of older) raw.exec(migration.sql)
     raw.exec(`
       INSERT INTO boards (id, name, band, description, position) VALUES ('b-1', 'Atlas', 'team', 'Kept.', 0);
@@ -56,8 +56,8 @@ describe('the server schema', () => {
     const db = fromSqlite(raw)
     const result = await migrate(db, all)
 
-    // Two behind, and it knows it: only those two run.
-    expect(result.applied).toEqual(all.slice(-2).map((migration) => migration.version))
+    // Behind, and it knows it: only the ones it is missing run.
+    expect(result.applied).toEqual(all.slice(-3).map((migration) => migration.version))
     expect(result.version).toBe(all.length)
     // Nothing was reseeded: the board and the card are still the ones that were there…
     expect(await db.get('SELECT name FROM boards WHERE id = ?1', ['b-1'])).toEqual({ name: 'Atlas' })
