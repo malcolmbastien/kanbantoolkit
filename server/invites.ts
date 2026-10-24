@@ -9,7 +9,7 @@
  * matters here: the time a lookup takes does not depend on how close a guess was to the token.
  */
 
-import type { Database } from './db'
+import type { Database, Statement } from './db'
 import { randomToken, sha256 } from './auth/oauth'
 import type { Role } from '../src/domain/roles'
 
@@ -73,17 +73,26 @@ export async function liveFor(db: Database, email: string, now = new Date()): Pr
  */
 export async function createInvite(
   db: Database,
-  input: { email: string; role: Role; invitedBy: string; days?: number; now?: Date },
+  input: { email: string; role: Role; invitedBy: string; days?: number; now?: Date; audit?: (id: string) => Statement },
 ): Promise<{ invite: Invite; token: string }> {
   const now = input.now ?? new Date()
   const token = randomToken(32)
   const id = `inv_${randomToken(9)}`
   const days = Math.min(Math.max(input.days ?? INVITE_DAYS, 1), 90)
 
-  await db.run(
-    `INSERT INTO invites (id, email, role, token_hash, invited_by, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
-    [id, input.email.trim().toLowerCase(), input.role, await sha256(token), input.invitedBy, new Date(now.getTime() + days * 86_400_000).toISOString()],
-  )
+  const insert = {
+    sql: `INSERT INTO invites (id, email, role, token_hash, invited_by, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+    params: [
+      id,
+      input.email.trim().toLowerCase(),
+      input.role,
+      await sha256(token),
+      input.invitedBy,
+      new Date(now.getTime() + days * 86_400_000).toISOString(),
+    ],
+  }
+  const auditRow = input.audit?.(id)
+  await db.batch(auditRow ? [insert, auditRow] : [insert])
 
   const invite = await byId(db, id)
   if (!invite) throw new Error('the invitation was written and could not be read back')
@@ -100,18 +109,27 @@ export async function resendInvite(
   db: Database,
   id: string,
   now = new Date(),
+  audit?: Statement,
 ): Promise<{ invite: Invite; token: string } | undefined> {
   const existing = await byId(db, id)
   if (!existing) return undefined
 
   const token = randomToken(32)
   const expires = new Date(now.getTime() + INVITE_DAYS * 86_400_000).toISOString()
-  await db.run('UPDATE invites SET token_hash = ?1, expires_at = ?2 WHERE id = ?3', [await sha256(token), expires, id])
+  const update = {
+    sql: 'UPDATE invites SET token_hash = ?1, expires_at = ?2 WHERE id = ?3',
+    params: [await sha256(token), expires, id],
+  }
+  await db.batch(audit ? [update, audit] : [update])
 
   const invite = await byId(db, id)
   return invite ? { invite, token } : undefined
 }
 
-export async function revokeInvite(db: Database, id: string): Promise<void> {
-  await db.run('UPDATE invites SET revoked_at = ?1 WHERE id = ?2 AND revoked_at IS NULL', [new Date().toISOString(), id])
+export async function revokeInvite(db: Database, id: string, audit?: Statement): Promise<void> {
+  const update = {
+    sql: 'UPDATE invites SET revoked_at = ?1 WHERE id = ?2 AND revoked_at IS NULL',
+    params: [new Date().toISOString(), id],
+  }
+  await db.batch(audit ? [update, audit] : [update])
 }

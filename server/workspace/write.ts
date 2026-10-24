@@ -134,7 +134,7 @@ export async function alreadyApplied(db: Database, key: string): Promise<boolean
   return Boolean(await db.get('SELECT 1 AS applied FROM applied_writes WHERE key = ?1', [key]))
 }
 
-export async function writeWorkspace(db: Database, workspace: Workspace): Promise<void> {
+export async function writeWorkspace(db: Database, workspace: Workspace, audit?: Statement): Promise<void> {
   const statements: Statement[] = TABLES.map((table) => ({ sql: `DELETE FROM ${table}` }))
 
   for (const user of workspace.users) {
@@ -270,5 +270,7 @@ export async function writeWorkspace(db: Database, workspace: Workspace): Promis
     collapsed_lanes: json(workspace.collapsedLanes),
   })
 
+  // The import and the record of it are one transaction: an import nobody can explain is not one.
+  if (audit) statements.push(audit)
   await db.batch(statements)
 }

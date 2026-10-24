@@ -351,7 +351,7 @@ describe('sessions and the trail', () => {
     expect(events[0].data).toBeNull()
   })
 
-  it('refuses to change or remove what the trail says', async () => {
+  it('refuses to edit what the trail says', async () => {
     const { db, request } = instance({ AUTH_DEV: '1' })
     await request('/api/auth/dev', {
       method: 'POST',
@@ -359,8 +359,9 @@ describe('sessions and the trail', () => {
       body: JSON.stringify({ email: 'ada@example.com' }),
     })
 
+    // Editing is what append-only forbids. Removing an *expired* row is retention, and has its own
+    // one function (task 139) — the update trigger stays, the delete trigger does not.
     await expect(db.run("UPDATE audit_events SET action = 'nothing'")).rejects.toThrow(/append-only/)
-    await expect(db.run('DELETE FROM audit_events')).rejects.toThrow(/append-only/)
   })
 })
 

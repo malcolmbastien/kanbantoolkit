@@ -193,6 +193,13 @@ export function authRoutes(runtime: Runtime) {
     const provider = providers(c.env).find((candidate) => candidate.id === c.req.query('provider'))
     if (!provider) return c.json({ error: 'unknown provider' }, 404)
     if (await overLimit(db, runtime.clientIp(c.req.raw), c.env)) {
+      await record(db, {
+        action: 'signin.refused',
+        targetType: 'provider',
+        targetId: provider.id,
+        data: { reason: 'rate limited' },
+        ipHash: await addressHash(runtime, c.env, c.req.raw),
+      })
       return c.json({ error: 'too many attempts' }, 429)
     }
 
@@ -253,6 +260,13 @@ export function authRoutes(runtime: Runtime) {
     const provider = providers(c.env).find((candidate) => candidate.id === pending.provider)
     if (!provider) return c.json({ error: 'unknown provider' }, 404)
     if (await overLimit(db, runtime.clientIp(c.req.raw), c.env)) {
+      await record(db, {
+        action: 'signin.refused',
+        targetType: 'provider',
+        targetId: provider.id,
+        data: { reason: 'rate limited' },
+        ipHash: await addressHash(runtime, c.env, c.req.raw),
+      })
       return c.json({ error: 'too many attempts' }, 429)
     }
 
@@ -281,8 +295,18 @@ export function authRoutes(runtime: Runtime) {
 
       return c.redirect(`${origin}${nextPath(pending.next)}`, 302)
     } catch (error) {
-      // One answer for an unknown address and for a closed door: no difference to probe.
-      if (error instanceof NotAdmitted) return c.redirect(`${origin}/?auth=denied`, 302)
+      // One answer for an unknown address and for a closed door: no difference to probe — and the
+      // trail keeps the fact without keeping the address that tried.
+      if (error instanceof NotAdmitted) {
+        await record(db, {
+          action: 'signin.refused',
+          targetType: 'provider',
+          targetId: provider.id,
+          data: { reason: 'not admitted' },
+          ipHash: await addressHash(runtime, c.env, c.req.raw),
+        })
+        return c.redirect(`${origin}/?auth=denied`, 302)
+      }
       if (error instanceof AuthError) return c.json({ error: error.message }, error.status as 400)
       return c.json({ error: 'sign-in failed' }, 502)
     }
@@ -356,15 +380,25 @@ export function authRoutes(runtime: Runtime) {
     // A provider would tell us the person's name; the switch has only an address, so it makes a
     // plausible one from it — `maya.blake@…` becomes `Maya Blake` rather than `maya.blake`.
     const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim() : humanise(email.split('@')[0])
+    const ipHash = await addressHash(runtime, c.env, c.req.raw)
     let user
     try {
       const invite = typeof body?.invite === 'string' ? body.invite : undefined
       user = await identify(db, 'dev', { subject: email, email, emailVerified: true, name }, invite)
     } catch (error) {
-      if (error instanceof NotAdmitted) return c.json({ error: 'this instance is closed' }, 403)
+      if (error instanceof NotAdmitted) {
+        // The development door records a refusal like any other door.
+        await record(db, {
+          action: 'signin.refused',
+          targetType: 'provider',
+          targetId: 'dev',
+          data: { reason: 'not admitted' },
+          ipHash,
+        })
+        return c.json({ error: 'this instance is closed' }, 403)
+      }
       throw error
     }
-    const ipHash = await addressHash(runtime, c.env, c.req.raw)
     const session = await issueSession(db, user.id, { userAgent: c.req.header('user-agent'), ipHash })
     await record(db, { actorId: user.id, action: 'signin', targetType: 'provider', targetId: 'dev', ipHash })
 

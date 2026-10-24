@@ -5,7 +5,7 @@
  * it matters is the moment an administrator opens or closes it.
  */
 
-import type { Database } from './db'
+import type { Database, Statement } from './db'
 
 export type Access = 'open' | 'closed'
 
@@ -22,10 +22,11 @@ export async function accessMode(db: Database): Promise<Access> {
   }
 }
 
-export async function setAccess(db: Database, access: Access): Promise<void> {
-  await db.run(
-    `INSERT INTO instance_settings (id, access, updated_at) VALUES (?1, ?2, ?3)
-     ON CONFLICT (id) DO UPDATE SET access = excluded.access, updated_at = excluded.updated_at`,
-    [ROW, access, new Date().toISOString()],
-  )
+export async function setAccess(db: Database, access: Access, audit?: Statement): Promise<void> {
+  const change = {
+    sql: `INSERT INTO instance_settings (id, access, updated_at) VALUES (?1, ?2, ?3)
+          ON CONFLICT (id) DO UPDATE SET access = excluded.access, updated_at = excluded.updated_at`,
+    params: [ROW, access, new Date().toISOString()],
+  }
+  await db.batch(audit ? [change, audit] : [change])
 }

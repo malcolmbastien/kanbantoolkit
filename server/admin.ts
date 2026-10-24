@@ -8,7 +8,7 @@
 
 import { Hono } from 'hono'
 import { requireInstanceAdmin } from './access'
-import { record } from './audit'
+import { statement } from './audit'
 import type { Role } from '../src/domain/roles'
 import { accessMode, setAccess } from './instance'
 import { publicUrl } from './config'
@@ -40,13 +40,11 @@ export function adminRoutes(runtime: Runtime) {
       return c.json({ error: 'access must be "open" or "closed"' }, 400)
     }
 
-    await setAccess(caller.db, access as Access)
-    await record(caller.db, {
-      actorId: caller.user.id,
-      action: 'instance.access',
-      targetType: 'instance',
-      data: { access },
-    })
+    await setAccess(
+      caller.db,
+      access as Access,
+      statement({ actorId: caller.user.id, action: 'instance.access', targetType: 'instance', data: { access } }),
+    )
 
     return c.json({ access })
   })
@@ -210,13 +208,14 @@ export function adminRoutes(runtime: Runtime) {
       return c.json({ error: 'an invitation is already pending for that address' }, 409)
     }
 
-    const { invite, token } = await createInvite(caller.db, { email, role, invitedBy: caller.user.id, days })
-    await record(caller.db, {
-      actorId: caller.user.id,
-      action: 'invite.create',
-      targetType: 'invite',
-      targetId: invite.id,
-      data: { role },
+    const { invite, token } = await createInvite(caller.db, {
+      email,
+      role,
+      invitedBy: caller.user.id,
+      days,
+      // The id is minted inside; the record of it is written with it, in one batch.
+      audit: (id) =>
+        statement({ actorId: caller.user.id, action: 'invite.create', targetType: 'invite', targetId: id, data: { role } }),
     })
 
     return c.json({ invite: view(invite), url: link(c, token) }, 201)
@@ -227,15 +226,14 @@ export function adminRoutes(runtime: Runtime) {
     const caller = await requireInstanceAdmin(c, runtime)
     if (caller instanceof Response) return caller
 
-    const resent = await resendInvite(caller.db, c.req.param('id'))
+    const id = c.req.param('id')
+    const resent = await resendInvite(
+      caller.db,
+      id,
+      new Date(),
+      statement({ actorId: caller.user.id, action: 'invite.resend', targetType: 'invite', targetId: id }),
+    )
     if (!resent) return c.json({ error: 'no such invitation' }, 404)
-
-    await record(caller.db, {
-      actorId: caller.user.id,
-      action: 'invite.resend',
-      targetType: 'invite',
-      targetId: resent.invite.id,
-    })
 
     return c.json({ invite: view(resent.invite), url: link(c, resent.token) })
   })
@@ -244,13 +242,12 @@ export function adminRoutes(runtime: Runtime) {
     const caller = await requireInstanceAdmin(c, runtime)
     if (caller instanceof Response) return caller
 
-    await revokeInvite(caller.db, c.req.param('id'))
-    await record(caller.db, {
-      actorId: caller.user.id,
-      action: 'invite.revoke',
-      targetType: 'invite',
-      targetId: c.req.param('id'),
-    })
+    const id = c.req.param('id')
+    await revokeInvite(
+      caller.db,
+      id,
+      statement({ actorId: caller.user.id, action: 'invite.revoke', targetType: 'invite', targetId: id }),
+    )
 
     return c.body(null, 204)
   })

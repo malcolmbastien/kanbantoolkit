@@ -15,6 +15,7 @@ import { schemaVersion } from '../migrate'
 import { acquire, heldByOther, heldLocks, lockOf, release, renew } from './locks'
 import { parseItem, parseWorkspace } from './validate'
 import { alreadyApplied, writeItem, writeWorkspace } from './write'
+import { statement } from '../audit'
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
 function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
@@ -59,7 +60,16 @@ export function workspaceRoutes(runtime: Runtime) {
     const workspace = parseWorkspace(await c.req.json().catch(() => null))
     if (!workspace) return c.json({ error: 'not a workspace' }, 400)
 
-    await writeWorkspace(allowed.db, workspace)
+    await writeWorkspace(
+      allowed.db,
+      workspace,
+      statement({
+        actorId: allowed.user.id,
+        action: 'workspace.import',
+        targetType: 'workspace',
+        data: { boards: workspace.boards.length, items: workspace.items.length },
+      }),
+    )
     return c.json({ imported: { boards: workspace.boards.length, items: workspace.items.length } })
   })
 
