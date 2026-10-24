@@ -184,3 +184,79 @@ describe('the directory', () => {
     expect(((await demote.json()) as { error: string }).error).toContain('last administrator')
   })
 })
+
+describe('the drawer', () => {
+  it('describes somebody: their sessions, what they were sent, and what happened to them', async () => {
+    const { request, adminCookie, id } = await world()
+    const grace = await id('grace@example.com')
+
+    await request('/api/admin/invites', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({ email: 'grace@example.com', role: 'editor' }),
+    })
+
+    const detail = (await (await request(`/api/admin/users/${grace}`, { headers: { cookie: adminCookie } })).json()) as {
+      person: { name: string; role: string }
+      sessions: { live: number }
+      invite?: { role: string }
+      audit: Array<{ action: string }>
+    }
+
+    expect(detail.person.name).toBe('Grace')
+    expect(detail.sessions.live).toBe(1)
+    expect(detail.invite?.role).toBe('editor')
+    expect(detail.audit.map((entry) => entry.action)).toContain('signin')
+  })
+
+  it('edits a name and an address without putting either in the trail', async () => {
+    const { db, request, adminCookie, id } = await world()
+    const grace = await id('grace@example.com')
+
+    const changed = await request(`/api/admin/users/${grace}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({ name: 'Grace Hopper', email: 'grace.hopper@example.com' }),
+    })
+    expect(changed.status).toBe(200)
+
+    expect(await db.get('SELECT name, email FROM users WHERE id = ?1', [grace])).toEqual({
+      name: 'Grace Hopper',
+      email: 'grace.hopper@example.com',
+    })
+
+    const event = await db.get<{ data: string }>("SELECT data FROM audit_events WHERE action = 'user.edit' AND target_id = ?1", [grace])
+    expect(event?.data).toContain('email')
+    // Field names, never values: a trail carrying addresses is a second directory.
+    expect(event?.data).not.toContain('grace.hopper@example.com')
+  })
+
+  it('signs somebody out everywhere', async () => {
+    const { db, request, adminCookie, id } = await world()
+    const grace = await id('grace@example.com')
+
+    const revoked = await request(`/api/admin/users/${grace}/sessions/revoke`, { method: 'POST', headers: { cookie: adminCookie } })
+    expect(revoked.status).toBe(200)
+
+    const live = await db.get<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?1 AND revoked_at IS NULL',
+      [grace],
+    )
+    expect(live?.n).toBe(0)
+    expect(await db.get("SELECT 1 AS seen FROM audit_events WHERE action = 'session.revoke'")).toEqual({ seen: 1 })
+  })
+
+  it('erases the person and keeps the account the work points at', async () => {
+    const { db, request, adminCookie, id } = await world()
+    const grace = await id('grace@example.com')
+
+    expect((await request(`/api/admin/users/${grace}/erase`, { method: 'POST', headers: { cookie: adminCookie } })).status).toBe(204)
+
+    // The row is still there — a card that names this person still resolves — with nobody in it.
+    const row = await db.get<{ name: string; email: string; status: string }>('SELECT name, email, status FROM users WHERE id = ?1', [grace])
+    expect(row?.name).toBe('Erased person')
+    expect(row?.email).toContain('@invalid')
+    expect(row?.status).toBe('inactive')
+    expect(await db.all('SELECT 1 FROM identities WHERE user_id = ?1', [grace])).toEqual([])
+  })
+})

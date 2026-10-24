@@ -266,6 +266,7 @@ export function adminRoutes(runtime: Runtime) {
     const search = (c.req.query('q') ?? '').trim().toLowerCase().slice(0, 100)
     const status = c.req.query('status') === 'inactive' ? 'inactive' : c.req.query('status') === 'active' ? 'active' : ''
     const role = ['viewer', 'editor', 'admin'].includes(c.req.query('role') ?? '') ? c.req.query('role')! : ''
+    const provider = (c.req.query('provider') ?? '').trim().toLowerCase().slice(0, 40)
     const sort = c.req.query('sort') === 'active' ? 'active' : 'name'
     const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 50), 1), 200)
     const after = c.req.query('after') ?? ''
@@ -285,11 +286,20 @@ export function adminRoutes(runtime: Runtime) {
       where.push(`w.role = ?${params.length + 1}`)
       params.push(role)
     }
-    if (after && sort === 'name') {
-      // The cursor is the last row's name and id, compared as a pair, so a page boundary cannot
-      // repeat or skip a person who shares a name.
-      where.push(`(u.name, u.id) > (?${params.length + 1}, ?${params.length + 2})`)
-      params.push(after.slice(0, 120), after.slice(after.indexOf('|') + 1))
+    if (provider) {
+      where.push(`EXISTS (SELECT 1 FROM identities d WHERE d.user_id = u.id AND d.provider = ?${params.length + 1})`)
+      params.push(provider)
+    }
+    if (after) {
+      // The cursor is the last row's sort value and id, compared as a pair, so a page boundary
+      // cannot repeat or skip a person who shares a name — or a time.
+      const [value, id] = [after.slice(0, after.indexOf('|')), after.slice(after.indexOf('|') + 1)]
+      if (sort === 'active') {
+        where.push(`(coalesce(u.last_seen_at, ''), u.id) < (?${params.length + 1}, ?${params.length + 2})`)
+      } else {
+        where.push(`(u.name, u.id) > (?${params.length + 1}, ?${params.length + 2})`)
+      }
+      params.push(value, id)
     }
 
     const rows = await caller.db.all<{
@@ -309,7 +319,7 @@ export function adminRoutes(runtime: Runtime) {
        LEFT JOIN instance_members i ON i.user_id = u.id
        LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = ?1
        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-       ORDER BY ${sort === 'active' ? 'u.last_seen_at DESC NULLS LAST, u.name' : 'u.name, u.id'}
+       ORDER BY ${sort === 'active' ? "coalesce(u.last_seen_at, '') DESC, u.id" : 'u.name, u.id'}
        LIMIT ?${params.length + 1}`,
       [...params, limit + 1],
     )
@@ -318,6 +328,9 @@ export function adminRoutes(runtime: Runtime) {
     const last = page[page.length - 1]
     // How many active administrators exist, so the interface can explain a disabled control before
     // the server refuses it. The server still refuses.
+    const providers = await caller.db.all<{ provider: string }>(
+      'SELECT DISTINCT provider FROM identities ORDER BY provider',
+    )
     const admins = await caller.db.get<{ n: number }>(
       `SELECT COUNT(*) AS n FROM workspace_members w JOIN users u ON u.id = w.user_id
        WHERE w.workspace_id = ?1 AND w.role = 'admin' AND u.status = 'active'`,
@@ -326,6 +339,7 @@ export function adminRoutes(runtime: Runtime) {
 
     return c.json({
       admins: admins?.n ?? 0,
+      providers: providers.map((row) => row.provider),
       people: page.map((row) => ({
         id: row.id,
         name: row.name,
@@ -337,8 +351,156 @@ export function adminRoutes(runtime: Runtime) {
         instanceRole: row.instance_role ?? 'member',
         role: row.workspace_role ?? 'viewer',
       })),
-      cursor: rows.length > limit && last ? `${last.name}|${last.id}` : null,
+      cursor: rows.length > limit && last ? `${sort === 'active' ? (last.last_seen_at ?? '') : last.name}|${last.id}` : null,
     })
+  })
+
+  /**
+   * One person, for the drawer: who they are, whether an invitation is waiting, what they have been
+   * doing, and the last few things that happened to them.
+   */
+  routes.get('/users/:id', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const target = await personOf(caller.db, id)
+    if (!target) return c.json({ error: 'no such person' }, 404)
+
+    const user = await caller.db.get<{ name: string; email: string; avatar_url: string | null; last_seen_at: string | null; created_at: string }>(
+      'SELECT name, email, avatar_url, last_seen_at, created_at FROM users WHERE id = ?1',
+      [id],
+    )
+    const sessions = await caller.db.get<{ live: number; seen: string | null }>(
+      `SELECT COUNT(*) AS live, MAX(last_seen_at) AS seen FROM sessions
+       WHERE user_id = ?1 AND revoked_at IS NULL AND expires_at > ?2`,
+      [id, new Date().toISOString()],
+    )
+    const invite = await caller.db.get<{ id: string; role: string; expires_at: string }>(
+      `SELECT id, role, expires_at FROM invites
+       WHERE email = lower(?1) AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?2
+       ORDER BY created_at DESC LIMIT 1`,
+      [user?.email ?? '', new Date().toISOString()],
+    )
+    const audit = await caller.db.all<{ at: string; action: string; actor: string | null }>(
+      `SELECT e.at, e.action, a.name AS actor FROM audit_events e
+       LEFT JOIN users a ON a.id = e.actor_id
+       WHERE e.target_id = ?1 OR e.actor_id = ?1
+       ORDER BY e.at DESC, e.id DESC LIMIT 10`,
+      [id],
+    )
+
+    return c.json({
+      person: {
+        id,
+        name: user?.name ?? '',
+        email: user?.email ?? '',
+        avatarUrl: user?.avatar_url ?? undefined,
+        status: target.status,
+        lastSeenAt: user?.last_seen_at ?? undefined,
+        joinedAt: user?.created_at ?? '',
+        instanceRole: target.instance ?? 'member',
+        role: target.workspace ?? 'viewer',
+      },
+      sessions: { live: sessions?.live ?? 0, lastSeenAt: sessions?.seen ?? undefined },
+      invite: invite ? { id: invite.id, role: invite.role, expiresAt: invite.expires_at } : undefined,
+      audit,
+    })
+  })
+
+  /** Edit what an administrator may edit. The address is recorded by name, never by value. */
+  routes.patch('/users/:id', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const target = await personOf(caller.db, id)
+    if (!target) return c.json({ error: 'no such person' }, 404)
+
+    const body = (await c.req.json().catch(() => null)) as { name?: unknown; email?: unknown } | null
+    const updates: Record<string, string> = {}
+
+    if (body && 'name' in body) {
+      const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) : ''
+      if (!name) return c.json({ error: 'a name is required' }, 400)
+      updates.name = name
+    }
+    if (body && 'email' in body) {
+      const email = typeof body.email === 'string' ? body.email.trim().toLowerCase().slice(0, 200) : ''
+      if (!email.includes('@')) return c.json({ error: 'an address is required' }, 400)
+      updates.email = email
+    }
+    if (!Object.keys(updates).length) return c.json({ error: 'nothing to change' }, 400)
+
+    const columns = Object.keys(updates)
+    await caller.db.batch([
+      {
+        sql: `UPDATE users SET ${columns.map((column, index) => `${column} = ?${index + 1}`).join(', ')}, updated_at = ?${columns.length + 1} WHERE id = ?${columns.length + 2}`,
+        params: [...Object.values(updates), new Date().toISOString(), id],
+      },
+      statement({
+        actorId: caller.user.id,
+        action: 'user.edit',
+        targetType: 'user',
+        targetId: id,
+        // Field names only. A trail that carried addresses would be a second directory.
+        data: { fields: columns, by: 'administrator' },
+      }),
+    ])
+
+    return c.json({ id })
+  })
+
+  /** Sign somebody out everywhere. Their next request is refused; nothing else changes. */
+  routes.post('/users/:id/sessions/revoke', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    if (!(await personOf(caller.db, id))) return c.json({ error: 'no such person' }, 404)
+
+    const live = await caller.db.get<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?1 AND revoked_at IS NULL',
+      [id],
+    )
+    const now = new Date().toISOString()
+    await caller.db.batch([
+      { sql: 'UPDATE sessions SET revoked_at = ?1 WHERE user_id = ?2 AND revoked_at IS NULL', params: [now, id] },
+      statement({ actorId: caller.user.id, action: 'session.revoke', targetType: 'user', targetId: id }),
+    ])
+
+    return c.json({ revoked: live?.n ?? 0 })
+  })
+
+  /**
+   * Erase a person, rather than delete them.
+   *
+   * The account stays, with no address, no picture and no name that identifies anybody — so every
+   * card, log entry and assignment that names them still resolves, and the person is gone from the
+   * record. That is the difference 144 is about: delete removes the way in, erase removes the person
+   * from what remains.
+   */
+  routes.post('/users/:id/erase', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    if (!(await personOf(caller.db, id))) return c.json({ error: 'no such person' }, 404)
+    if (id === caller.user.id) return c.json({ error: 'You cannot erase yourself.' }, 409)
+
+    const now = new Date().toISOString()
+    await caller.db.batch([
+      {
+        sql: `UPDATE users SET name = 'Erased person', email = 'erased+?1@invalid', avatar_url = NULL,
+                status = 'inactive', updated_at = ?2 WHERE id = ?1`,
+        params: [id, now],
+      },
+      { sql: 'UPDATE sessions SET revoked_at = ?1 WHERE user_id = ?2 AND revoked_at IS NULL', params: [now, id] },
+      { sql: 'DELETE FROM identities WHERE user_id = ?1', params: [id] },
+      statement({ actorId: caller.user.id, action: 'user.erase', targetType: 'user', targetId: id }),
+    ])
+
+    return c.body(null, 204)
   })
 
   /** Change what somebody may do here. The last workspace administrator cannot be demoted. */

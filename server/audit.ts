@@ -25,6 +25,8 @@ export type AuditAction =
   | 'user.edit'
   | 'user.role'
   | 'user.delete'
+  | 'user.erase'
+  | 'session.revoke'
   | 'identity.unlink'
   | 'user.deactivate'
   | 'user.activate'

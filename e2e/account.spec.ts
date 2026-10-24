@@ -228,7 +228,7 @@ test('an administrator sees the people, and cannot close their own door', async 
   await expect(page.getByRole('table')).toContainText('maya.blake@example.com')
 
   // The drawer explains the guard before the server has to refuse it.
-  await page.getByRole('button', { name: 'Open' }).first().click()
+  await page.getByRole('button', { name: /^Open/ }).first().click()
   await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toBeVisible()
 
   // Escape closes it, like every other panel in the app.
