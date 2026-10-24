@@ -15,6 +15,7 @@
 import { Hono } from 'hono'
 import { adminRoutes } from './admin'
 import { auditRoutes } from './audit-routes'
+import { groupsRoutes } from './groups'
 import { inviteLinkRoutes } from './invite-links'
 import { meRoutes } from './me'
 import { workspaceMembersRoutes } from './workspace-members'
@@ -100,6 +101,7 @@ export function createApp(runtime: Runtime) {
   app.route('/api/auth', authRoutes(runtime))
   app.route('/api/admin', adminRoutes(runtime))
   app.route('/api/admin', auditRoutes(runtime))
+  app.route('/api/admin/groups', groupsRoutes(runtime))
   app.route('/api/invite', inviteLinkRoutes(runtime))
   app.route('/api/me', meRoutes(runtime))
   app.route('/api/admin/workspace', workspaceMembersRoutes(runtime))

@@ -21,6 +21,7 @@ import type { Action, Role } from '../src/domain/roles'
 import { sessionCookie, userForToken, WORKSPACE_ID } from './auth/session'
 import type { AuthUser } from './auth/session'
 import type { Database } from './db'
+import { effectiveRole } from './groups'
 import { schemaVersion } from './migrate'
 import type { Runtime } from './runtime'
 import { REQUIRED_SCHEMA } from './workspace/schema'
@@ -33,6 +34,11 @@ export interface Caller {
 
 export interface WorkspaceCaller extends Caller {
   workspaceRole: Role
+  /**
+   * Where that role came from: `direct`, or `group:<name>`. The screen says so, because a role
+   * nobody can explain is a role nobody can change.
+   */
+  roleSource: string
 }
 
 type Hono = Context<{ Bindings: object }>
@@ -102,15 +108,16 @@ export async function requireWorkspace(
   if (caller instanceof Response) return caller
 
   const id = workspaceId(c)
-  const member = await caller.db.get<{ role: string }>(
-    'SELECT role FROM workspace_members WHERE workspace_id = ?1 AND user_id = ?2',
-    [id, caller.user.id],
-  )
+  // The union of the direct row and every active group's grant, highest wins — see `effectiveRole`.
+  const grant = await effectiveRole(caller.db, caller.user.id, id)
 
-  const role = (member?.role ?? (caller.instanceRole === 'admin' ? 'admin' : undefined)) as Role | undefined
-  if (!role) return fail(c, { error: 'no such workspace' }, 404)
+  // An instance administrator may repair a workspace they are not on; that is the reason the two
+  // axes are separate.
+  const resolved: { role: Role; source: string } | undefined =
+    grant ?? (caller.instanceRole === 'admin' ? { role: 'admin', source: 'instance' } : undefined)
+  if (!resolved) return fail(c, { error: 'no such workspace' }, 404)
 
-  if (!can(role, action)) return fail(c, { error: `a ${role} may not ${action}` }, 403)
+  if (!can(resolved.role, action)) return fail(c, { error: `a ${resolved.role} may not ${action}` }, 403)
 
-  return { ...caller, workspaceRole: role }
+  return { ...caller, workspaceRole: resolved.role, roleSource: resolved.source }
 }

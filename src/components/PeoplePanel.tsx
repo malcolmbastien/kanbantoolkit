@@ -27,7 +27,13 @@ interface Person {
   lastSeenAt?: string
   joinedAt: string
   instanceRole: string
+  /** The direct row — what the drawer's select edits. */
   role: string
+  /** What the server actually grants: the highest of the direct role and any active group's. */
+  effectiveRole?: string
+  /** `direct`, or `group:<name>`. */
+  roleSource?: string
+  roleGroup?: string
 }
 
 interface Detail {
@@ -113,6 +119,14 @@ export function PeoplePanel() {
 
   useEffect(() => {
     void load()
+  }, [load])
+
+  // A group's role changes what this table shows. The two panels share a screen, so one tells the
+  // other to read the directory again rather than leaving a stale word in a row.
+  useEffect(() => {
+    const again = () => void load()
+    window.addEventListener('flowline:directory-changed', again)
+    return () => window.removeEventListener('flowline:directory-changed', again)
   }, [load])
 
   // A selection belongs to what is on screen: narrowing the list drops what is no longer visible,
@@ -348,7 +362,16 @@ export function PeoplePanel() {
                   <span className="font-medium text-slate-800">{entry.name}</span>
                   <span className="ml-1.5 text-meta text-slate-500">{entry.email}</span>
                 </td>
-                <td className="py-1.5 text-meta text-slate-700">{entry.role}</td>
+                <td className="py-1.5 text-meta text-slate-700">
+                  {entry.effectiveRole && entry.effectiveRole !== entry.role ? (
+                    <span title={`Given ${entry.roleGroup ? `by the group “${entry.roleGroup}”` : 'another way'}; their own role here is ${entry.role}`}>
+                      {entry.effectiveRole}
+                      <span className="ml-1 text-micro text-indigo-700">via group</span>
+                    </span>
+                  ) : (
+                    entry.role
+                  )}
+                </td>
                 <td className="py-1.5">
                   <span className="flex items-center gap-1 text-meta text-slate-700">
                     <span className={cn('size-1.5 rounded-full', entry.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400')} />
@@ -448,6 +471,13 @@ export function PeoplePanel() {
                 ))}
               </select>
             </label>
+            {person.effectiveRole && person.effectiveRole !== person.role && (
+              <p className="-mt-1 text-micro text-slate-600">
+                Here they are a <strong>{person.effectiveRole}</strong>
+                {person.roleGroup ? ` because of the group “${person.roleGroup}”` : ' through another grant'} — their own role is{' '}
+                {person.role}. Change the group, not the person, to take it away.
+              </p>
+            )}
             {lastAdmin && <p className="text-meta text-slate-500">This is the last administrator; make somebody else one first.</p>}
 
             <div>

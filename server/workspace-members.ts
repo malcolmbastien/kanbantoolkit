@@ -14,6 +14,7 @@ import { requireWorkspace } from './access'
 import { statement } from './audit'
 import { WORKSPACE_ID } from './auth/session'
 import { mayAdminister } from '../src/domain/roster'
+import { effectiveRole, strongestGrant, workspaceAdminIds } from './groups'
 import type { Roster, RosterOperation } from '../src/domain/roster'
 import { createInvite } from './invites'
 import type { Role } from '../src/domain/roles'
@@ -21,26 +22,26 @@ import type { Database } from './db'
 import type { Runtime } from './runtime'
 
 async function memberOf(db: Database, id: string) {
-  return db.get<{ id: string; status: string; instance: string | null; workspace: string | null }>(
-    `SELECT u.id, u.status, i.role AS instance, w.role AS workspace
+  const row = await db.get<{ id: string; status: string; instance: string | null }>(
+    `SELECT u.id, u.status, i.role AS instance
      FROM users u
      LEFT JOIN instance_members i ON i.user_id = u.id
-     LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = ?2
      WHERE u.id = ?1`,
-    [id, WORKSPACE_ID],
+    [id],
   )
+  if (!row) return undefined
+  // Effective, not direct: a person who administers through a group administers (task 146, R4).
+  const grant = await effectiveRole(db, id, WORKSPACE_ID)
+  return { ...row, workspace: grant?.role ?? null }
 }
 
 async function admins(db: Database): Promise<{ instance: number; workspace: number }> {
-  const row = await db.get<{ instance: number; workspace: number }>(
-    `SELECT
-       (SELECT COUNT(*) FROM instance_members m JOIN users u ON u.id = m.user_id
-         WHERE m.role = 'admin' AND u.status = 'active') AS instance,
-       (SELECT COUNT(*) FROM workspace_members w JOIN users u ON u.id = w.user_id
-         WHERE w.role = 'admin' AND w.workspace_id = ?1 AND u.status = 'active') AS workspace`,
-    [WORKSPACE_ID],
+  const row = await db.get<{ instance: number }>(
+    `SELECT COUNT(*) AS instance FROM instance_members m JOIN users u ON u.id = m.user_id
+      WHERE m.role = 'admin' AND u.status = 'active'`,
   )
-  return { instance: row?.instance ?? 0, workspace: row?.workspace ?? 0 }
+  // Group-granted administrators are administrators, so the count includes them.
+  return { instance: row?.instance ?? 0, workspace: (await workspaceAdminIds(db, WORKSPACE_ID)).size }
 }
 
 export function workspaceMembersRoutes(runtime: Runtime) {
@@ -69,18 +70,36 @@ export function workspaceMembersRoutes(runtime: Runtime) {
        ORDER BY w.created_at, u.name`,
       [WORKSPACE_ID],
     )
+    const grants = await caller.db.all<{ user_id: string; role: string; name: string }>(
+      `SELECT m.user_id, r.role, g.name
+         FROM group_members m
+         JOIN groups g ON g.id = m.group_id AND g.active = 1
+         JOIN group_workspace_roles r ON r.group_id = g.id AND r.workspace_id = ?1`,
+      [WORKSPACE_ID],
+    )
 
     return c.json({
       workspace: { name: settings?.name ?? 'Flowline', description: settings?.description ?? '' },
-      members: members.map((member) => ({
-        id: member.id,
-        name: member.name,
-        email: member.email,
-        avatarUrl: member.avatar_url ?? undefined,
-        status: member.status,
-        role: member.role,
-        joinedAt: member.created_at,
-      })),
+      members: members.map((member) => {
+        const effective = strongestGrant(
+          member.role,
+          grants.filter((grant) => grant.user_id === member.id),
+        )
+        return {
+          id: member.id,
+          name: member.name,
+          email: member.email,
+          avatarUrl: member.avatar_url ?? undefined,
+          status: member.status,
+          // The direct row is what the select edits; the effective role is what the server grants,
+          // and the source is how the screen explains the difference.
+          role: member.role,
+          effectiveRole: effective?.role ?? member.role,
+          roleSource: effective?.source ?? 'direct',
+          roleGroup: effective?.groupName,
+          joinedAt: member.created_at,
+        }
+      }),
     })
   })
 

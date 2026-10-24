@@ -11,6 +11,7 @@ import { requireInstanceAdmin } from './access'
 import { statement } from './audit'
 import type { Role } from '../src/domain/roles'
 import { normaliseDomain, setAccess, setAllowedDomains, settings } from './instance'
+import { effectiveRole, strongestGrant, workspaceAdminIds } from './groups'
 import { publicUrl } from './config'
 import { createInvite, liveFor, resendInvite, revokeInvite, stateOf } from './invites'
 import type { Invite } from './invites'
@@ -82,26 +83,28 @@ export function adminRoutes(runtime: Runtime) {
    * these rules is that the count is the count *now*.
    */
   async function personOf(db: Database, id: string) {
-    return db.get<{ id: string; status: string; instance: string | null; workspace: string | null }>(
-      `SELECT u.id, u.status, i.role AS instance, w.role AS workspace
+    const row = await db.get<{ id: string; status: string; instance: string | null }>(
+      `SELECT u.id, u.status, i.role AS instance
        FROM users u
        LEFT JOIN instance_members i ON i.user_id = u.id
-       LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = ?2
        WHERE u.id = ?1`,
-      [id, WORKSPACE_ID],
+      [id],
     )
+    if (!row) return undefined
+    // The standing that matters is the effective one: a person made an administrator by a group is
+    // an administrator, and the last-administrator rule has to see them.
+    const grant = await effectiveRole(db, id, WORKSPACE_ID)
+    return { ...row, workspace: grant?.role ?? null }
   }
 
   async function activeAdmins(db: Database): Promise<{ instance: number; workspace: number }> {
-    const row = await db.get<{ instance: number; workspace: number }>(
-      `SELECT
-         (SELECT COUNT(*) FROM instance_members m JOIN users u ON u.id = m.user_id
-           WHERE m.role = 'admin' AND u.status = 'active') AS instance,
-         (SELECT COUNT(*) FROM workspace_members w JOIN users u ON u.id = w.user_id
-           WHERE w.role = 'admin' AND w.workspace_id = ?1 AND u.status = 'active') AS workspace`,
-      [WORKSPACE_ID],
+    const row = await db.get<{ instance: number }>(
+      `SELECT COUNT(*) AS instance FROM instance_members m JOIN users u ON u.id = m.user_id
+        WHERE m.role = 'admin' AND u.status = 'active'`,
     )
-    return { instance: row?.instance ?? 0, workspace: row?.workspace ?? 0 }
+    // A workspace administrator is anybody who *is* one: directly, or through an active group
+    // (task 146). A count that ignored groups would let the last one be removed by a side door.
+    return { instance: row?.instance ?? 0, workspace: (await workspaceAdminIds(db, WORKSPACE_ID)).size }
   }
 
   /** The one judgement, with the roster read for it. Answers a response when it refuses. */
@@ -370,32 +373,56 @@ export function adminRoutes(runtime: Runtime) {
     )
 
     const page = rows.slice(0, limit)
+
+    // Where each of these people gets their role, in one query rather than one per row.
+    const grants = page
+      .length
+      ? await caller.db.all<{ user_id: string; role: string; name: string }>(
+          `SELECT m.user_id, r.role, g.name
+             FROM group_members m
+             JOIN groups g ON g.id = m.group_id AND g.active = 1
+             JOIN group_workspace_roles r ON r.group_id = g.id AND r.workspace_id = ?1
+            WHERE m.user_id IN (${page.map((_, index) => `?${index + 2}`).join(', ')})`,
+          [WORKSPACE_ID, ...page.map((row) => row.id)],
+        )
+      : []
+
     const last = page[page.length - 1]
     // How many active administrators exist, so the interface can explain a disabled control before
     // the server refuses it. The server still refuses.
     const providers = await caller.db.all<{ provider: string }>(
       'SELECT DISTINCT provider FROM identities ORDER BY provider',
     )
-    const admins = await caller.db.get<{ n: number }>(
-      `SELECT COUNT(*) AS n FROM workspace_members w JOIN users u ON u.id = w.user_id
-       WHERE w.workspace_id = ?1 AND w.role = 'admin' AND u.status = 'active'`,
-      [WORKSPACE_ID],
-    )
+    // The count the interface explains a disabled control with: group-granted administrators are
+    // administrators, so the number has to include them (task 146, R4).
+    const admins = { n: (await workspaceAdminIds(caller.db, WORKSPACE_ID)).size }
 
     return c.json({
       admins: admins?.n ?? 0,
       providers: providers.map((row) => row.provider),
-      people: page.map((row) => ({
-        id: row.id,
-        name: row.name,
-        email: row.email,
-        avatarUrl: row.avatar_url ?? undefined,
-        status: row.status,
-        lastSeenAt: row.last_seen_at ?? undefined,
-        joinedAt: row.created_at,
-        instanceRole: row.instance_role ?? 'member',
-        role: row.workspace_role ?? 'viewer',
-      })),
+      people: page.map((row) => {
+        // The direct row, then every active group's grant, highest wins — the same rule the
+        // permission check applies, answered here so the screen can say where a role came from.
+        const best = strongestGrant(
+          row.workspace_role,
+          grants.filter((grant) => grant.user_id === row.id),
+        )
+
+        return {
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          avatarUrl: row.avatar_url ?? undefined,
+          status: row.status,
+          lastSeenAt: row.last_seen_at ?? undefined,
+          joinedAt: row.created_at,
+          instanceRole: row.instance_role ?? 'member',
+          role: row.workspace_role ?? 'viewer',
+          effectiveRole: best?.role ?? 'viewer',
+          roleSource: best?.source ?? 'direct',
+          roleGroup: best?.groupName,
+        }
+      }),
       cursor: rows.length > limit && last ? `${sort === 'active' ? (last.last_seen_at ?? '') : last.name}|${last.id}` : null,
     })
   })

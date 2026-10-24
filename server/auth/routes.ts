@@ -18,6 +18,7 @@ import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, prof
 import { issueSession, revoke, sessionCookie, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
 import { admitsDomain, settings } from '../instance'
+import { effectiveRole } from '../groups'
 import { byToken, stateOf } from '../invites'
 import type { AuthUser } from './session'
 
@@ -344,10 +345,10 @@ export function authRoutes(runtime: Runtime) {
       return c.json({ user: null, instanceRole: null, workspaces: [], access: (await settings(db)).access, dev: devAuth(c.env) })
     }
 
-    const member = await db.get<{ workspace_id: string; role: string }>(
-      'SELECT workspace_id, role FROM workspace_members WHERE user_id = ?1 ORDER BY workspace_id LIMIT 1',
-      [user.id],
-    )
+    // The effective role — direct or through an active group — because the interface enables or
+    // hides controls from this number. The server decides again on every request.
+    const grant = await effectiveRole(db, user.id, WORKSPACE_ID)
+    const member = grant ? { workspace_id: WORKSPACE_ID, role: grant.role } : undefined
     // An instance administrator can enter any workspace, so the one they are not on is still theirs
     // to repair — the payload says so, and the server says the same thing when it is asked.
     const workspaces = member

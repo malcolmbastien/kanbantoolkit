@@ -52,8 +52,8 @@ describe('the migration from one role column to two axes', () => {
     const db = oldDatabase()
     const result = await migrate(db, all)
 
-    expect(result.applied).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16])
-    expect(result.version).toBe(16)
+    expect(result.applied).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    expect(result.version).toBe(17)
 
     // The owner administers the instance and the workspace; the member remains a member here and
     // keeps the editing they could already do.

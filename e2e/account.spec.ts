@@ -235,8 +235,9 @@ test('an administrator sees the people, and cannot close their own door', async 
   const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
   await expect(people.getByRole('table')).toContainText('maya.blake@example.com')
 
-  // The drawer explains the guard before the server has to refuse it.
-  await people.getByRole('button', { name: /^Open/ }).first().click()
+  // The drawer explains the guard before the server has to refuse it. Maya's own row, by name:
+  // other specs add people to this instance, and "the first row" is a name that sorts early.
+  await people.getByRole('button', { name: 'Open Maya Blake' }).click()
   await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toBeVisible()
 
   // Escape closes it, like every other panel in the app.

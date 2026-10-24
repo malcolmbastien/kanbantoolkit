@@ -4,6 +4,7 @@ import { InvitationsPanel } from './InvitationsPanel'
 import { WorkspacePanel } from './WorkspacePanel'
 import { AuditPanel, HealthPanel } from './AuditPanels'
 import { AccessPanel } from './AccessPanel'
+import { GroupsPanel } from './GroupsPanel'
 import { useAuth } from '@/lib/auth'
 import { ArrowLeft, History } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
@@ -71,6 +72,9 @@ export function AdminView() {
         {admin && <AccessPanel />}
         {admin && <PeoplePanel />}
         {admin && <InvitationsPanel />}
+        {/* Groups sit beside the people who hold roles directly: the same authority, written once
+            for several people. */}
+        {admin && <GroupsPanel />}
         {/* The trail is read by whoever administers: an instance administrator reads all of it, a
             workspace administrator reads the events their own routes wrote. */}
         {workspaceAdmin && <AuditPanel />}
