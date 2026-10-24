@@ -38,7 +38,7 @@ import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
-import { initialsOf } from '@/domain/users'
+import { FORMER_MEMBER, initialsOf, nameOfUser } from '@/domain/users'
 import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useReturnFocus } from '@/lib/useDialogFocus'
@@ -372,8 +372,12 @@ export function ItemPanel({ itemId }: Props) {
     { id: 'activity', label: 'Activity' },
   ]
 
-  /** The author of an entry, by name — or nothing when nobody was named or the name is gone. */
-  const authorOf = (entry: ItemLogEntry) => (entry.by ? userById(entry.by)?.name : undefined)
+  /**
+   * The author of an entry, by name — or "Former member" when the account behind it has been removed
+   * (task 144). The entry itself is untouched: the sentence stays, and only the name on it changes.
+   * Undefined only when nobody was named at all.
+   */
+  const authorOf = (entry: ItemLogEntry) => nameOfUser(users, entry.by)
 
   /**
    * One item as a row in a list: how it stands, what it is called, and where it lives — the three
@@ -930,17 +934,18 @@ export function ItemPanel({ itemId }: Props) {
                     />
                     {(item.assignees ?? []).map((id) => {
                       const u = userById(id)
+                      const name = nameOfUser(users, id) ?? FORMER_MEMBER
                       return (
-                        <span key={id} className={CHIP}>
+                        <span key={id} className={CHIP} title={u ? name : `${name} — their account has been removed`}>
                           <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-white text-micro font-bold text-slate-600 ring-1 ring-slate-200">
-                            {initialsOf(u?.name ?? id)}
+                            {u ? initialsOf(name) : '?'}
                           </span>
-                          {u?.name ?? id}
+                          {name}
                           <button
                             onClick={() => setItemFields(item.id, { assignees: (item.assignees ?? []).filter((x) => x !== id) })}
                             className="text-slate-500 transition hover:text-rose-600"
-                            title={`Remove ${u?.name ?? id}`}
-                            aria-label={`Remove ${u?.name ?? id}`}
+                            title={`Remove ${name}`}
+                            aria-label={`Remove ${name}`}
                           >
                             <X size={11} />
                           </button>

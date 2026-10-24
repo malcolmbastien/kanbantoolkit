@@ -3,7 +3,7 @@ import { Ban, Check, ChevronDown, Clock, CornerDownRight, Link2, ListChecks, Loc
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
-import { initialsOf } from '@/domain/users'
+import { FORMER_MEMBER, initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
 import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
@@ -236,9 +236,17 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
   // While a multi-select group is active, the cards outside it recede.
   const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
-  const assignees = (item.assignees ?? [])
-    .map((id) => users?.find((u) => u.id === id))
-    .filter((u): u is User => Boolean(u))
+  // A removed member keeps their chip: the card still belongs partly to the person who did the
+  // work, and "Former member" is a truer chip than a name silently disappearing (task 144).
+  const assignees = (item.assignees ?? []).map((id) => {
+    const person = users?.find((u) => u.id === id)
+    return {
+      id,
+      name: person?.name ?? FORMER_MEMBER,
+      avatarUrl: person?.avatarUrl,
+      gone: !person,
+    }
+  })
 
   // Blocked rolls up: the item's own status is precise; a count of blocked
   // descendants is what lets a team blockage surface on its initiative.
@@ -735,8 +743,19 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
   )
 }
 
-/** A user's avatar: their profile photo, or their initials when there is none. */
-function Avatar({ user }: { user: User }) {
+/** A user's avatar: their profile photo, their initials, or a mark for somebody who has left. */
+function Avatar({ user }: { user: { id: string; name: string; avatarUrl?: string; gone?: boolean } }) {
+  if (user.gone) {
+    return (
+      <span
+        className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-200 text-micro font-bold text-slate-600 ring-2 ring-white"
+        title={`${user.name} — their account has been removed`}
+        aria-label={user.name}
+      >
+        ?
+      </span>
+    )
+  }
   if (user.avatarUrl) {
     return (
       <img

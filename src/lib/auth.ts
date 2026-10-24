@@ -86,9 +86,18 @@ export async function loadAuth(): Promise<AuthState> {
   return next
 }
 
-/** The invitation this page was opened with, if it was opened with one. */
+/**
+ * The invitation this page was opened with, if it was opened with one.
+ *
+ * Read once, at load, because the address bar is rewritten to the current view a moment after the
+ * app starts — and a link that works only until the URL settles is a link that fails for the person
+ * who clicked it.
+ */
+const INVITE =
+  typeof window === 'undefined' ? undefined : (new URLSearchParams(window.location.search).get('invite') ?? undefined)
+
 function inviteToken(): string | undefined {
-  return new URLSearchParams(window.location.search).get('invite') ?? undefined
+  return INVITE
 }
 
 /**

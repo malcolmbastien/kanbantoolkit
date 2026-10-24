@@ -137,6 +137,40 @@ export async function writeWorkspaceAccount(
  */
 
 /**
+ * The rows that end an account, deleted after the trail is written and before the cascade from
+ * `users` does the rest: an invitation they sent, a pen they were holding, their name in the
+ * workspace's roster.
+ *
+ * `where` selects the accounts by a subquery on `users`, so the same statements serve "everybody in
+ * this workspace" (a deletion) and "this one person" (a removal) without drifting apart.
+ */
+export function accountRemovalStatements(where: string, params: unknown[]): Statement[] {
+  return [
+    { sql: `DELETE FROM invites WHERE invited_by IN (SELECT id FROM users WHERE ${where})`, params },
+    { sql: `DELETE FROM locks WHERE user_id IN (SELECT id FROM users WHERE ${where})`, params },
+    // scoped by its account: the roster row is the person's name in whichever workspace they were in.
+    { sql: `DELETE FROM people WHERE id IN (SELECT id FROM users WHERE ${where})`, params },
+    // Identities, sessions, instance memberships, workspace memberships and group memberships
+    // cascade from here; `audit_events.actor_id` is nulled rather than removed.
+    { sql: `DELETE FROM users WHERE ${where}`, params },
+  ]
+}
+
+/** Whether this person is the deployment's last active administrator. */
+export async function isLastDeploymentAdministrator(db: Database, userId: string): Promise<boolean> {
+  const target = await db.get<{ role: string; status: string }>(
+    `SELECT m.role, u.status FROM instance_members m JOIN users u ON u.id = m.user_id WHERE m.user_id = ?1`,
+    [userId],
+  )
+  if (target?.role !== 'admin' || target.status !== 'active') return false
+  const admins = await db.get<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM instance_members m JOIN users u ON u.id = m.user_id
+      WHERE m.role = 'admin' AND u.status = 'active'`,
+  )
+  return (admins?.n ?? 0) <= 1
+}
+
+/**
  * The one refusal: deleting a workspace that holds the deployment's last administrator would leave
  * nobody able to administer it. The same spirit as the last-administrator rule everywhere else.
  */
@@ -200,12 +234,9 @@ export async function deleteWorkspace(db: Database, workspaceId: string, audit: 
     // Written before the accounts go, so the trail has an actor to null out rather than an id that
     // never existed. The sentence keeps the name in its own data.
     audit,
-    // …and now the accounts themselves. Identities, sessions and instance memberships cascade from
-    // `users`; what does not is an invitation they sent and a pen they were holding.
-    { sql: 'DELETE FROM invites WHERE invited_by IN (SELECT user_id FROM workspace_members WHERE workspace_id = ?1)', params: [workspaceId] },
-    { sql: 'DELETE FROM locks WHERE user_id IN (SELECT user_id FROM workspace_members WHERE workspace_id = ?1)', params: [workspaceId] },
-    // Their workspace membership cascades from the account, so this is the last statement that has
-    // to know who belonged here.
-    { sql: 'DELETE FROM users WHERE id IN (SELECT user_id FROM workspace_members WHERE workspace_id = ?1)', params: [workspaceId] },
+    // …and now the accounts themselves, by the same statements a single removal uses. The roster
+    // was already cleared with the workspace's rows above; the account-scoped deletes are harmless
+    // a second time and keep this path and a single removal identical.
+    ...accountRemovalStatements('id IN (SELECT user_id FROM workspace_members WHERE workspace_id = ?1)', [workspaceId]),
   ])
 }

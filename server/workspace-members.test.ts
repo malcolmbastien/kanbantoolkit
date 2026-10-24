@@ -90,8 +90,9 @@ describe('workspace members', () => {
     ).toBe(403)
 
     expect((await request(`/api/admin/workspace/members/${grace}`, { method: 'DELETE', headers: { cookie: adaCookie } })).status).toBe(204)
-    // Removed, not deactivated: the account can still sign in, and sees no workspace.
-    expect((await request('/api/workspace', { headers: { cookie: graceCookie } })).status).toBe(404)
+    // Removed, not deactivated: the account is gone, so the cookie it held is not a credential at
+    // all — and the deployment keeps an administrator of its own (task 144, 126).
+    expect((await request('/api/workspace', { headers: { cookie: graceCookie } })).status).toBe(401)
   })
 
   it('will not let the last workspace administrator demote themselves or leave', async () => {

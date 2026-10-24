@@ -14,6 +14,7 @@ import { requireWorkspace } from './access'
 import { statement } from './audit'
 import { WORKSPACE_ID } from './auth/session'
 import { mayAdminister } from '../src/domain/roster'
+import { accountRemovalStatements, isLastDeploymentAdministrator } from './workspace/account'
 import { effectiveRole, strongestGrant, workspaceAdminIds } from './groups'
 import type { Roster, RosterOperation } from '../src/domain/roster'
 import { createInvite } from './invites'
@@ -218,10 +219,61 @@ export function workspaceMembersRoutes(runtime: Runtime) {
   })
 
   /**
-   * Remove somebody from this workspace.
+   * Close somebody's door without ending them.
    *
-   * Not deactivation: the instance account stays, with its other workspaces and its history. What
-   * ends is their access here, on their next request.
+   * Deactivation keeps the account: they cannot sign in, their sessions end, and every place the
+   * history names them keeps their name. It is the reversible act, and the members screen must not
+   * let it be mistaken for the one below.
+   */
+  routes.post('/members/:id/deactivate', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.members')
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const refused = await judge(c, caller, id, 'deactivate')
+    if (refused) return refused
+
+    const now = new Date().toISOString()
+    await caller.db.batch([
+      { sql: "UPDATE users SET status = 'inactive', updated_at = ?1 WHERE id = ?2", params: [now, id] },
+      // A deactivation that left a session working would be a door that looks shut and is not.
+      { sql: 'UPDATE sessions SET revoked_at = ?1 WHERE user_id = ?2 AND revoked_at IS NULL', params: [now, id] },
+      statement({ actorId: caller.user.id, action: 'user.deactivate', targetType: 'user', targetId: id }),
+    ])
+
+    return c.body(null, 204)
+  })
+
+  /** The other end of it: the account is still there, so its door can be opened again. */
+  routes.post('/members/:id/activate', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.members')
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const target = await memberOf(caller.db, id)
+    if (!target) return c.json({ error: 'no such member' }, 404)
+
+    await caller.db.batch([
+      {
+        sql: "UPDATE users SET status = 'active', updated_at = ?1 WHERE id = ?2",
+        params: [new Date().toISOString(), id],
+      },
+      statement({ actorId: caller.user.id, action: 'user.activate', targetType: 'user', targetId: id }),
+    ])
+
+    return c.body(null, 204)
+  })
+
+  /**
+   * Remove somebody: their account ends, and the work they did keeps saying "Former member".
+   *
+   * Not deactivation. This deletes the record — the person, their ways in, their sessions, their
+   * memberships — and touches none of the work: no item, no log entry, no comment, no placement, no
+   * edge, and no audit event. The trail entry is written first, so it survives with its actor
+   * nulled by the foreign key that already points at a person (task 144).
+   *
+   * Coming back is a fresh invitation and a **new** account: the history of this one is not
+   * re-attached, because attaching it would be a claim about identity nobody can check.
    */
   routes.delete('/members/:id', async (c) => {
     const caller = await requireWorkspace(c, runtime, 'workspace.members')
@@ -231,9 +283,23 @@ export function workspaceMembersRoutes(runtime: Runtime) {
     const refused = await judge(c, caller, id, 'remove')
     if (refused) return refused
 
+    // An account going is an instance membership going too: the deployment must keep somebody who
+    // can administer it (task 126's guard).
+    if (await isLastDeploymentAdministrator(caller.db, id)) {
+      return c.json({ error: 'this is the last administrator of the deployment. Appoint another one first.' }, 409)
+    }
+
+    const person = await caller.db.get<{ name: string }>('SELECT name FROM users WHERE id = ?1', [id])
     await caller.db.batch([
-      { sql: 'DELETE FROM workspace_members WHERE workspace_id = ?1 AND user_id = ?2', params: [WORKSPACE_ID, id] },
-      statement({ actorId: caller.user.id, action: 'workspace.member.remove', targetType: 'user', targetId: id }),
+      statement({
+        actorId: caller.user.id,
+        action: 'workspace.member.remove',
+        targetType: 'user',
+        targetId: id,
+        // The name, because the row it points at is about to be gone.
+        data: { name: person?.name ?? 'somebody', account: true },
+      }),
+      ...accountRemovalStatements('id = ?1', [id]),
     ])
 
     return c.body(null, 204)

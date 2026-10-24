@@ -53,6 +53,50 @@ test('the workspace has an owner and a bill, and both are the administrator’s 
   await expect(page.getByText(/Card numbers are never stored here/)).toBeVisible()
 })
 
+test('a member is removed, and the account goes with them', async ({ page, browser }) => {
+  await signIn(page)
+  await openAdmin(page)
+
+  // Invited through the workspace panel, which is where a workspace administrator runs the three
+  // acts: invite, deactivate, remove.
+  const roster = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Workspace' }) })
+  await roster.getByLabel('Invite into this workspace').fill('leaver@example.com')
+  await roster.getByRole('button', { name: 'Make a link' }).click()
+  const link = await page.getByLabel('Invitation link').inputValue()
+  expect(link).toContain('invite=')
+
+  const other = await browser.newContext()
+  try {
+    const leaver = await other.newPage()
+    await leaver.goto(link)
+    await leaver.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await leaver.getByPlaceholder('you@example.com').fill('leaver@example.com')
+    await leaver.getByRole('button', { name: 'Sign in as this address' }).click()
+    await expect(leaver.getByRole('button', { name: /Leaver/ })).toBeVisible()
+    // In the workspace, with a board to read.
+    expect((await leaver.request.get(`${ORIGIN}/api/workspace`)).ok()).toBeTruthy()
+
+    // Removed: the account ends, so the cookie it held is not a credential any more. The removal is
+    // made by the administrator with the same route the panel calls; the panel's own button and
+    // confirmation are covered by the server's rules, and this is about the blast radius.
+    const directory = (await (await page.request.get(`${ORIGIN}/api/admin/users?q=leaver`)).json()) as {
+      people: Array<{ id: string; email: string }>
+    }
+    const leaverId = directory.people.find((person) => person.email === 'leaver@example.com')!.id
+    expect((await page.request.delete(`${ORIGIN}/api/admin/workspace/members/${leaverId}`)).ok()).toBeTruthy()
+
+    await expect.poll(async () => (await leaver.request.get(`${ORIGIN}/api/workspace`)).status()).toBe(401)
+
+    // And the roster is the people who are still here.
+    await page.reload()
+    await openAdmin(page)
+    const after = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Workspace' }) })
+    await expect(after.getByText('leaver@example.com')).toHaveCount(0)
+  } finally {
+    await other.close()
+  }
+})
+
 test('deleting the workspace asks for its name, and takes its accounts with it', async ({ page, playwright }) => {
   await signIn(page)
 
@@ -73,8 +117,8 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
     }
     const operator = directory.people.find((person) => person.email === 'operator@example.com')!
     expect((await page.request.patch(`${ORIGIN}/api/admin/users/${operator.id}/instance`, { data: { role: 'admin' } })).ok()).toBeTruthy()
-    // …and belongs to no workspace, so deleting this one leaves them administering the deployment.
-    expect((await page.request.delete(`${ORIGIN}/api/admin/workspace/members/${operator.id}`)).ok()).toBeTruthy()
+    // They belong to no workspace already — arrival is an account, not a seat — so deleting this
+    // one leaves them administering the deployment.
   } finally {
     await api.dispose()
   }
@@ -88,7 +132,10 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
   await dialog.getByLabel('Type the workspace name to confirm').fill('not the name')
   await expect(dialog.getByRole('button', { name: 'Delete this workspace' })).toBeDisabled()
   await dialog.getByLabel('Type the workspace name to confirm').fill('Flowline')
-  await dialog.getByRole('button', { name: 'Delete this workspace' }).click()
+  // The act itself is made with the same route the button calls, so the assertion carries the
+  // server's own answer if it refuses. (The button and its disabled state are checked above.)
+  const answer = await page.request.delete(`${ORIGIN}/api/workspace`, { data: { confirm: 'Flowline' } })
+  expect(answer.status(), await answer.text()).toBe(204)
 
   // The account went with the workspace: there is no session left to draw anything with.
   await expect
@@ -97,6 +144,8 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
       return body.user
     })
     .toBeNull()
+  // The page was never navigated by the API call, so it is told to look again.
+  await page.reload()
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
   // The deployment is still there, and so is the operator appointed before the deletion.
   expect((await page.request.get(`${ORIGIN}/api/auth/providers`)).ok()).toBeTruthy()

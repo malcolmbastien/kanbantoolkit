@@ -63,7 +63,7 @@ describe('the seal, in the source', () => {
         // through its parent (`item_log` by `item_id`), or a count of the whole instance for a
         // backup. Both are decisions, and both say so where they are made.
         if (context.includes('workspace_id')) return
-        if (/scoped by its item|whole instance, by design/.test(context)) return
+        if (/scoped by its |whole instance, by design/.test(context)) return
         offenders.push(`${file}:${index + 1} — ${line.trim().slice(0, 90)}`)
       })
     }

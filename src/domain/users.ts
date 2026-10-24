@@ -14,3 +14,18 @@ export function initialsOf(name: string): string {
 export function userById(users: User[], id: string): User | undefined {
   return users.find((u) => u.id === id)
 }
+
+/**
+ * What to call somebody, when the only thing left is their id.
+ *
+ * A removed member's account is deleted (task 144), and the work they did keeps naming them: a log
+ * entry, a comment, a card they were assigned. Those sentences stay exactly as written — only the
+ * name on them changes, and it changes to this. An unknown id is never rendered raw: a card that
+ * says "u_9f3a" is a card that has forgotten it was written by a person.
+ */
+export const FORMER_MEMBER = 'Former member'
+
+export function nameOfUser(users: User[], id: string | undefined): string | undefined {
+  if (!id) return undefined
+  return userById(users, id)?.name ?? FORMER_MEMBER
+}

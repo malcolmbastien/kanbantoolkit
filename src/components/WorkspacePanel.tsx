@@ -108,11 +108,33 @@ export function WorkspacePanel() {
     await load()
   }
 
+  /**
+   * The reversible act: the door closes, the person and their name stay.
+   *
+   * Kept beside removal and never merged with it — one can be undone by an administrator, the other
+   * cannot be undone at all.
+   */
+  async function setActive(member: Member, active: boolean) {
+    setMessage(undefined)
+    const response = await fetch(`/api/admin/workspace/members/${member.id}/${active ? 'activate' : 'deactivate'}`, {
+      method: 'POST',
+    })
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null
+      return setMessage({ tone: 'bad', text: body?.error ?? 'That could not be done.' })
+    }
+    setMessage({
+      tone: 'ok',
+      text: active ? `${member.name} can sign in again.` : `${member.name} cannot sign in. Their work and their name stay.`,
+    })
+    await load()
+  }
+
   function remove(member: Member) {
     askConfirm({
       title: `Remove ${member.name} from this workspace?`,
-      body: 'Their account stays: this ends their access here, on their next request.',
-      confirmLabel: 'Remove',
+      body: 'This deletes their account — they cannot sign in again until somebody invites them, which creates a new one. Their cards, comments and history stay, and every place that names them says “Former member”.',
+      confirmLabel: 'Remove them',
       danger: true,
       onConfirm: () => {
         void (async () => {
@@ -225,9 +247,27 @@ export function WorkspacePanel() {
                   {lastAdmin && <p className="mt-0.5 text-micro text-slate-500">The last administrator here.</p>}
                 </td>
                 <td className="py-1.5 text-right">
-                  <button onClick={() => remove(member)} disabled={lastAdmin} title={lastAdmin ? 'The last administrator cannot leave' : undefined} className={cn(BUTTON, 'px-1.5 text-micro')}>
-                    Remove
-                  </button>
+                  <span className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => void setActive(member, member.status !== 'active')}
+                      title={
+                        member.status === 'active'
+                          ? 'They cannot sign in; their account and name stay'
+                          : 'Open their door again'
+                      }
+                      className={cn(BUTTON, 'px-1.5 text-micro')}
+                    >
+                      {member.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button
+                      onClick={() => remove(member)}
+                      disabled={lastAdmin}
+                      title={lastAdmin ? 'The last administrator cannot leave' : 'Delete their account; the history keeps their words'}
+                      className={cn(BUTTON, 'px-1.5 text-micro')}
+                    >
+                      Remove
+                    </button>
+                  </span>
                 </td>
               </tr>
             )
@@ -244,7 +284,14 @@ export function WorkspacePanel() {
         <button onClick={() => void invite()} disabled={busy || !email.includes('@')} className={BUTTON}>
           Make a link
         </button>
-        {me?.role === 'admin' && <span className="text-micro text-slate-500">You may invite, change roles and remove — here, not on the instance.</span>}
+        {me?.role === 'admin' && (
+          <p className="mt-1 text-micro text-slate-600">
+            <strong>Invite</strong> brings somebody in. <strong>Deactivate</strong> closes their door and keeps
+            the account, so their name stays on the work. <strong>Remove</strong> deletes the account: the work
+            stays, and every reference to them reads “Former member”. Coming back is a fresh invitation and a
+            new account.
+          </p>
+        )}
       </div>
 
       {issued && (
