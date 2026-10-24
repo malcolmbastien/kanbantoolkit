@@ -153,7 +153,7 @@ export function BoardView({ requestMove }: Props) {
               <span className="hidden shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-micro font-semibold text-slate-500 ring-1 ring-emerald-200/80 sm:inline">
                 {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
               </span>
-              <span className="truncate text-meta text-slate-500">this team’s initiatives — status rolls up from the cards below</span>
+              <span className="truncate text-meta text-slate-600">this team’s initiatives — status rolls up from the cards below</span>
             </div>
             <KindFilter boardId={boardId} />
           </div>
@@ -171,7 +171,7 @@ export function BoardView({ requestMove }: Props) {
             <div className="flex min-w-0 items-center gap-2">
               <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
               <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Cards workflow</h2>
-              <span className="truncate text-meta text-slate-500">
+              <span className="truncate text-meta text-slate-600">
                 {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
               </span>
             </div>

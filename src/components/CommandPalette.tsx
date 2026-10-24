@@ -4,6 +4,7 @@ import { isInitiativeItem } from '@/domain/board'
 import { KIND_LABEL, rankEntries, type PaletteEntry, type PaletteKind } from '@/domain/palette'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 
 interface Props {
   onNewCard: () => void
@@ -50,6 +51,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   // ⌘K / Ctrl-K from anywhere, and again to close. The palette is a layer, not a view: it never
   // changes what is behind it until something is chosen.
@@ -66,9 +68,9 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
+  // A palette is a dialog with a search box in it: the caret belongs in the box, Tab stays inside,
+  // and Escape gives the caret back to whatever was being read.
+  useDialogFocus(dialogRef, () => setOpen(false), open, 'input')
 
   const boardName = (id: string) => boards.find((b) => b.id === id)?.name
 
@@ -184,9 +186,11 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
       onMouseDown={() => setOpen(false)}
     >
       <div
+        ref={dialogRef}
         className="w-full max-w-xl overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
+        aria-modal="true"
         aria-label="Command palette"
       >
         <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2.5">

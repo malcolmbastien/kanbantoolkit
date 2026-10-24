@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth'
 import { ROLES } from '@/domain/roles'
 import { RoleSelect } from './RoleSelect'
 import { cn } from '@/lib/utils'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
  * The people who may use this instance.
@@ -147,36 +148,9 @@ export function PeoplePanel() {
     }
   }, [open])
 
-  useEffect(() => {
-    if (!open) return
-    closeRef.current?.focus()
-
-    const away = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(null)
-      if (event.key !== 'Tab') return
-
-      // A dialog is a place: Tab cycles inside it rather than wandering into the table behind.
-      const root = drawerRef.current
-      if (!root) return
-      const focusable = [...root.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]')].filter(
-        (element) => !element.hasAttribute('disabled'),
-      )
-      if (!focusable.length) return
-
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', away)
-    return () => document.removeEventListener('keydown', away)
-  }, [open])
+  // The drawer is a dialog that happens to slide in from the edge: the caret is in it, Tab stays
+  // in it, Escape closes it, and the caret goes back to the row that was opened.
+  useDialogFocus(drawerRef, () => setOpen(null), Boolean(open))
 
   const person = detail?.person ?? people.find((entry) => entry.id === open)
   const self = person?.id === me?.id
@@ -407,8 +381,14 @@ export function PeoplePanel() {
       )}
 
       {person && (
-        <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/30" role="dialog" aria-modal="true" aria-label={person.name}>
-          <div ref={drawerRef} className="flex h-full w-full max-w-sm flex-col gap-4 overflow-y-auto bg-white p-4 shadow-2xl">
+        <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/30">
+          <div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={person.name}
+            className="flex h-full w-full max-w-sm flex-col gap-4 overflow-y-auto bg-white p-4 shadow-2xl"
+          >
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-body font-semibold text-slate-900">{person.name}</h3>

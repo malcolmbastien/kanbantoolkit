@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LayoutTemplate, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
@@ -6,6 +6,7 @@ import { lanePath, leafLanes } from '@/domain/lanes'
 import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
  * Board settings: title, flight-level band, which card types the board
@@ -38,6 +39,10 @@ export function BoardSettings() {
   const addLinkedBoard = useStore((s) => s.addLinkedBoard)
   const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const close = useStore((s) => s.toggleBoardSettings)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // A dialog over the board: the caret is in it, Tab stays in it, Escape puts the caret back on
+  // the control that opened it.
+  useDialogFocus(dialogRef, close)
   const [newTypeName, setNewTypeName] = useState('')
   const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
   const [newKindName, setNewKindName] = useState('')
@@ -105,6 +110,7 @@ export function BoardSettings() {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" onClick={close}>
       <div
+        ref={dialogRef}
         data-board-settings
         role="dialog"
         aria-modal="true"

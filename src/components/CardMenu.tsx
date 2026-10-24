@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Archive,
+  ArrowDown,
+  ArrowUp,
   Ban,
   CalendarClock,
   Check,
@@ -61,6 +63,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
+  const reorderCard = useStore((s) => s.reorderCard)
   const setParent = useStore((s) => s.setParent)
   const startParentPick = useStore((s) => s.startParentPick)
   const startChildPick = useStore((s) => s.startChildPick)
@@ -449,6 +452,20 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
         {/* An initiative does not live in a lane — it lives in a cell of a section, and moves
             between them. Offering a card's lanes for one would be offering the wrong tree. */}
         {!selectionHasInitiative && header('move', <FolderInput size={13} />, 'Move to lane')}
+        {/* The keyboard's answer to a drag within the column. A pointer can see where a card will
+            land; this cannot, so it moves one place and says where it got to. */}
+        {single && cell && (
+          <>
+            <button className={cn(ITEM, 'pl-7')} onClick={() => runMove(() => reorderCard(only!.id, -1))}>
+              <span className="flex-1">Move earlier</span>
+              <ArrowUp size={12} className="shrink-0 text-slate-300" />
+            </button>
+            <button className={cn(ITEM, 'pl-7')} onClick={() => runMove(() => reorderCard(only!.id, 1))}>
+              <span className="flex-1">Move later</span>
+              <ArrowDown size={12} className="shrink-0 text-slate-300" />
+            </button>
+          </>
+        )}
         {header('priority', <Flag size={13} />, 'Priority', single && only?.priority ? PRIORITY_META[only.priority].label : '')}
         {header('assignee', <UserPlus size={13} />, 'Assignees')}
         {/* An initiative is not retyped: the type is what makes it one, and the

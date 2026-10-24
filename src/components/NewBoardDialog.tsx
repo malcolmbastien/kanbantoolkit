@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Target, X } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { cn } from '@/lib/utils'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 import type { BoardBand, BoardTemplate } from '@/domain/types'
 
 /**
@@ -64,6 +65,10 @@ export function NewBoardDialog({
     onCreate(trimmed, band, templateId || undefined)
   }
 
+  const dialogRef = useRef<HTMLFormElement>(null)
+  // A new board starts with its name: the caret belongs there, and Escape gives the caret back.
+  useDialogFocus(dialogRef, onClose, true, 'input')
+
   return (
     <div
       data-new-board-dialog
@@ -71,6 +76,7 @@ export function NewBoardDialog({
       onClick={onClose}
     >
       <form
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-board-title"

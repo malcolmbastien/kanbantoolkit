@@ -3,6 +3,7 @@ import { Check, Copy, Plus, X } from 'lucide-react'
 import { ROLES } from '@/domain/roles'
 import { useStore } from '@/store'
 import { cn } from '@/lib/utils'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
  * The invitations somebody has sent.
@@ -60,6 +61,12 @@ export function InvitationsPanel() {
   const [issued, setIssued] = useState<string | undefined>()
   const [copied, setCopied] = useState(false)
   const issuedRef = useRef<HTMLInputElement>(null)
+  const createRef = useRef<HTMLDivElement>(null)
+  const issuedDialogRef = useRef<HTMLDivElement>(null)
+  // Two dialogs, each a place of its own: the form, and the one-time link it produces. The link
+  // takes the caret (its whole text selected, ready to copy) because reading it is the point.
+  useDialogFocus(createRef, () => setCreating(false), creating, 'input')
+  useDialogFocus(issuedDialogRef, () => setIssued(undefined), Boolean(issued), 'input')
   const askConfirm = useStore((s) => s.askConfirm)
 
   const load = useCallback(async () => {
@@ -248,7 +255,13 @@ export function InvitationsPanel() {
       )}
 
       {creating && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Invite somebody">
+        <div
+          ref={createRef}
+          className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Invite somebody"
+        >
           <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <h3 className="text-body font-semibold text-slate-900">Invite somebody</h3>
@@ -297,7 +310,13 @@ export function InvitationsPanel() {
       )}
 
       {issued && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Invitation created">
+        <div
+          ref={issuedDialogRef}
+          className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Invitation created"
+        >
           <div className="w-full max-w-md rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
             <h3 className="text-body font-semibold text-slate-900">Here is the link</h3>
             <p className="mt-0.5 text-meta text-slate-600">

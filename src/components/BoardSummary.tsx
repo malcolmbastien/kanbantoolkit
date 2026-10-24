@@ -716,7 +716,7 @@ function Cell({
           // every empty one would be the nested enclosure this surface is trying to shed.
           <div className="flex flex-1 flex-col items-center justify-center gap-1 p-4 text-center">
             <Hourglass size={16} className="text-slate-400/80" />
-            <span className="text-micro text-slate-500">No initiatives</span>
+            <span className="text-micro text-slate-600">No initiatives</span>
           </div>
         ) : (
           children

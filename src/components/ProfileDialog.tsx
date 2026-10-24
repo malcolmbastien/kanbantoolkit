@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
  * The profile a person owns.
@@ -33,6 +34,9 @@ const FIELD =
   'w-full rounded-md border border-slate-200 px-2 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400'
 
 export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved(): void }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // A modal like every other: the caret is in it until it closes, and then it goes back.
+  useDialogFocus(dialogRef, onClose)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [identities, setIdentities] = useState<Identity[]>([])
   const [name, setName] = useState('')
@@ -121,7 +125,7 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-label="Your profile">
+    <div ref={dialogRef} className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Your profile">
       <div className="w-full max-w-md rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
         <div className="flex items-center justify-between">
           <h2 className="text-body font-semibold text-slate-900">Your profile</h2>

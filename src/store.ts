@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
-import { canPlaceInSection, decompositionParent, descendants, statusOf, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
+import { canPlaceInSection, decompositionParent, descendants, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
 import { quarantineUnreadable } from '@/lib/quarantine'
+import { announce } from '@/lib/announce'
 import { chooseRepository } from '@/lib/repository'
 import { queue, newKey, type QueuedWrite } from '@/lib/queue'
 import type { CommitAnswer } from '@/lib/repository'
@@ -382,6 +383,7 @@ export interface Actions {
   /** Land an initiative at a position in a cell — a rank within the cell, like a card's. */
   moveInitiativeToIndex: (itemId: string, boardId: string, laneId: string, index: number) => void
   /** Move a card one place up or down within its lane (delta -1 = up). */
+  reorderCard: (itemId: string, delta: number) => void
   /** Land a card at a position in a lane, counting the cards already there. */
   moveCardToIndex: (itemId: string, boardId: string, laneId: string, index: number) => void
   setItemFields: (id: string, patch: Partial<Item>) => void
@@ -486,6 +488,27 @@ export const isBoardSurface = (
   !s.showAdmin
 
 const uid = makeUid
+
+/**
+ * A move said out loud: the card's title and the lane's path, never an id — a message is read,
+ * and an id read aloud is noise. Used by the announcer at the move seam, so the pointer, the menu,
+ * the keyboard and the bulk bar all speak the same sentence.
+ */
+function moveSentence(state: Store, itemId: string, laneId: string): string {
+  const title = state.items.find((i) => i.id === itemId)?.title ?? 'The card'
+  const path = lanePath(state.lanes, laneId).join(' / ')
+  return `${title} moved to ${path || 'another lane'}.`
+}
+
+/**
+ * Committed work over uncommitted work is a warning the app raises rather than a rule it enforces
+ * (`uncommittedBelow`), and a move is what usually raises it. Read before and after, so only the
+ * raising is announced — a warning that was already there is not news.
+ */
+function raisedWarning(before: number, after: number): string {
+  if (after <= before) return ''
+  return ` Warning: ${after} item${after === 1 ? '' : 's'} below ${after === 1 ? 'is' : 'are'} still in Backlog.`
+}
 
 /**
  * Put a card at a position in a lane: before a card, after a card, or at the end. The lane
@@ -1473,6 +1496,8 @@ export const useStore = create<Store>()(
             return next
           }),
         })
+        const count = itemIds.length
+        announce(`${count} card${count === 1 ? '' : 's'} moved to ${lanePath(state.lanes, laneId).join(' / ') || 'another lane'}.`)
       },
 
       setItemsType: (itemIds, typeId) => {
@@ -2101,10 +2126,18 @@ export const useStore = create<Store>()(
         if (mode !== 'visualize') {
           const breached = exceededLane(state, boardId, laneId, existing?.laneId)
           if (breached) {
-            if (mode === 'block') return false
+            const where = breached.name || 'that lane'
+            if (mode === 'block') {
+              // Refused, and said: a drop that just does not happen looks identical to a drop the
+              // board did not see.
+              const title = state.items.find((i) => i.id === itemId)?.title ?? 'The card'
+              announce(`${title} was not moved: ${where} is at its limit of ${breached.wipLimit ?? 0}.`)
+              return false
+            }
             // 'justify': hold the move until the user supplies a reason. The place the gesture
             // offered is held with it, so the card lands where it was put when the answer comes.
             if (reason === undefined) {
+              announce(`Move held: ${where} is at its limit of ${breached.wipLimit ?? 0}. A reason is needed.`)
               set({
                 wipPrompt: {
                   itemId,
@@ -2140,10 +2173,50 @@ export const useStore = create<Store>()(
           next = { ...next, log: [...(next.log ?? []), movedEntry(state.lanes, boardId, existing?.laneId, laneId)] }
           return next
         })
+        // A move is also the moment a warning can arrive: committed work over Backlog work is
+        // noticed rather than blocked, and somebody who cannot see the card's badge needs to hear
+        // that it turned up.
+        const raised = raisedWarning(
+          uncommittedBelow(itemId, { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }),
+          uncommittedBelow(itemId, { items, edges: state.edges, links: state.links, placements, lanes: state.lanes }),
+        )
         set({ placements, items })
+        // Said after the write, so what is announced is what the board now shows.
+        announce(`${moveSentence(state, itemId, laneId)}${raised}`)
         return true
       },
 
+
+      /**
+       * A card's position, changed from the keyboard.
+       *
+       * Reordering is the one arrangement a pointer does better — you see where it is going. From
+       * the keyboard there is nothing to see, so it moves one place at a time and says where it
+       * landed, and the ends are stated rather than silently ignored.
+       */
+      reorderCard: (itemId, delta) => {
+        const state = get()
+        const placement = state.placements.find((p) => p.itemId === itemId && p.boardId === state.boardId)
+        if (!placement) return
+        const ordered = placementsInOrder(
+          state.placements.filter((p) => p.boardId === state.boardId),
+          placement.laneId,
+        )
+        const at = ordered.findIndex((p) => p.itemId === itemId)
+        if (at === -1) return
+
+        const title = state.items.find((i) => i.id === itemId)?.title ?? 'The card'
+        const where = lanePath(state.lanes, placement.laneId).join(' / ') || 'its lane'
+        const step = delta < 0 ? -1 : 1
+        const to = at + step
+        if (to < 0 || to >= ordered.length) {
+          announce(`${title} is already ${step < 0 ? 'first' : 'last'} in ${where}.`)
+          return
+        }
+
+        get().moveCardToIndex(itemId, state.boardId, placement.laneId, to)
+        announce(`${title} is now ${to + 1} of ${ordered.length} in ${where}.`)
+      },
 
       /**
        * Land a card at a position in a lane. The lane is renumbered to a clean 0..n-1 as it
@@ -2180,7 +2253,13 @@ export const useStore = create<Store>()(
         // from. (Refusing these made decomposition a precondition of commitment, which is
         // backwards.)
         const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
-        if (!canPlaceInSection(itemId, laneId, graph)) return
+        const title = state.items.find((i) => i.id === itemId)?.title ?? 'The initiative'
+        if (!canPlaceInSection(itemId, laneId, graph)) {
+          // A section is derived, and a move can never cross one: said, so a drop that appears to
+          // do nothing is understood rather than repeated.
+          announce(`${title} was not moved: its section is decided by the work below it.`)
+          return
+        }
         const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (existing && existing.laneId === laneId) return
         const placements = existing
@@ -2195,6 +2274,7 @@ export const useStore = create<Store>()(
             i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, boardId, existing?.laneId, laneId)] } : i,
           ),
         })
+        announce(`${title} moved to ${lanePath(state.lanes, laneId).join(' / ') || 'another cell'}.`)
       },
 
       // A rank within a cell, like a card's within a lane: the initiatives of a cell are a
@@ -2378,7 +2458,12 @@ export const useStore = create<Store>()(
         // corrected, and refused *before* the old parent is dropped: asking for something
         // impossible must not quietly detach the item instead.
         const after = parentId && canSetParent(childId, parentId, state, state.issueTypes) ? parentId : undefined
-        if (parentId && !after) return
+        const child = state.items.find((i) => i.id === childId)?.title ?? 'The item'
+        const target = state.items.find((i) => i.id === parentId)?.title ?? 'that item'
+        if (parentId && !after) {
+          announce(`${child} cannot roll up to ${target}: a parent must be an initiative, and nothing can be its own ancestor.`)
+          return
+        }
         // Nothing changed, nothing to say: the log records decisions, not gestures.
         if ((before ?? undefined) === after) return
         const title = (id: string | undefined) => state.items.find((i) => i.id === id)?.title ?? id
@@ -2397,6 +2482,7 @@ export const useStore = create<Store>()(
               : i,
           ),
         })
+        announce(after ? `${child} now rolls up to ${title(after)}.` : `${child} no longer rolls up to anything.`)
       },
 
       setParents: (itemIds, parentId) => {

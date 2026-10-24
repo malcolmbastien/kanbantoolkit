@@ -41,6 +41,7 @@ import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { initialsOf } from '@/domain/users'
 import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { useReturnFocus } from '@/lib/useDialogFocus'
 import { usePresence, heldByOther } from '@/lib/presence'
 import { dropLease, takeLease } from '@/lib/lease'
 import { useAuth } from '@/lib/auth'
@@ -87,6 +88,9 @@ export function ItemPanel({ itemId }: Props) {
   const keyResults = useStore((s) => s.keyResults)
   const users = useStore((s) => s.users)
   const close = useStore((s) => s.openItem)
+  // The panel sits beside the board rather than over it, so focus is not trapped here — but when
+  // it closes the caret goes back to the card that opened it.
+  useReturnFocus()
   const setItemFields = useStore((s) => s.setItemFields)
   const setParent = useStore((s) => s.setParent)
   const addChecklistEntry = useStore((s) => s.addChecklistEntry)

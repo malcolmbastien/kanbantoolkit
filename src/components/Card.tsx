@@ -464,7 +464,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               {pct !== undefined && (
                 <span
                   className="text-body font-bold tabular-nums"
-                  style={{ color: pct >= 100 ? '#059669' : pct > 0 ? '#4f46e5' : '#94a3b8' }}
+                  style={{ color: pct >= 100 ? '#047857' : pct > 0 ? '#4338ca' : '#475569' }}
                   title="Rollup — the share of leaf work done, weighted by size"
                 >
                   {pct}%

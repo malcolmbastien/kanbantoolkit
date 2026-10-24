@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
  * The trail, and how the instance is.
@@ -108,6 +109,9 @@ export function AuditPanel() {
   const [scope, setScope] = useState('instance')
   const [action, setAction] = useState('')
   const [open, setOpen] = useState<Event | null>(null)
+  const eventRef = useRef<HTMLDivElement>(null)
+  // The detail of an event is a dialog: a sentence you opened to read the raw action behind it.
+  useDialogFocus(eventRef, () => setOpen(null), Boolean(open))
   const [error, setError] = useState<string | undefined>()
 
   const load = useCallback(
@@ -190,7 +194,7 @@ export function AuditPanel() {
       )}
 
       {open && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Event detail">
+        <div ref={eventRef} className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Event detail">
           <div className="w-full max-w-md rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
             <div className="flex items-start justify-between">
               <div>
@@ -226,6 +230,9 @@ export function HealthPanel() {
   const [health, setHealth] = useState<Health | null>(null)
   const [reports, setReports] = useState<Report[]>([])
   const [report, setReport] = useState<Report | null>(null)
+  const reportRef = useRef<HTMLDivElement>(null)
+  // The stack is a dialog too, and the caret starts on it rather than on the table behind.
+  useDialogFocus(reportRef, () => setReport(null), Boolean(report))
   const [error, setError] = useState<string | undefined>()
 
   useEffect(() => {
@@ -336,7 +343,7 @@ export function HealthPanel() {
       </div>
 
       {report && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Error report">
+        <div ref={reportRef} className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Error report">
           <div className="w-full max-w-lg rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
             <div className="flex items-start justify-between">
               <div>

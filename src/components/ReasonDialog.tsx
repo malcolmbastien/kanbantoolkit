@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Gauge } from 'lucide-react'
 import { useStore } from '@/store'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
  * Asks for a reason when a move would exceed a WIP limit on a `justify` board.
@@ -12,20 +13,15 @@ export function ReasonDialog() {
   const cancel = useStore((s) => s.cancelWipPrompt)
   const [reason, setReason] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // The reason is the question: the caret belongs in it, and cancelling gives the caret back to
+  // the card that was dropped.
+  useDialogFocus(dialogRef, cancel, Boolean(prompt), 'textarea')
 
   useEffect(() => {
-    if (!prompt) return
-    setReason('')
-    inputRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        cancel()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [prompt, cancel])
+    if (prompt) setReason('')
+  }, [prompt])
 
   if (!prompt) return null
 
@@ -37,6 +33,7 @@ export function ReasonDialog() {
   return (
     <div data-reason-dialog className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 p-4" onClick={cancel}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="WIP limit exceeded"

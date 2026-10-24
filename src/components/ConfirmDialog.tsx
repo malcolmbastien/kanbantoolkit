@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
  * The global confirmation modal. Destructive actions (delete board / card /
@@ -13,41 +14,10 @@ export function ConfirmDialog() {
   const request = useStore((s) => s.confirm)
   const closeConfirm = useStore((s) => s.closeConfirm)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const confirmRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    if (!request) return
-    const previous = document.activeElement as HTMLElement | null
-    confirmRef.current?.focus()
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        closeConfirm()
-        return
-      }
-      if (e.key === 'Tab') {
-        // Keep focus inside the dialog.
-        const nodes = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled])')
-        if (!nodes || nodes.length === 0) return
-        const first = nodes[0]
-        const last = nodes[nodes.length - 1]
-        const active = document.activeElement
-        if (e.shiftKey && active === first) {
-          e.preventDefault()
-          last.focus()
-        } else if (!e.shiftKey && active === last) {
-          e.preventDefault()
-          first.focus()
-        }
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      previous?.focus?.()
-    }
-  }, [request, closeConfirm])
+  // Escape, Tab and the return of the caret are the dialog's own — the confirm button takes the
+  // focus, because a dialog that asks a question should have the answer under the fingers.
+  useDialogFocus(dialogRef, closeConfirm, Boolean(request), '[data-confirm-yes]')
 
   if (!request) return null
 
@@ -85,7 +55,7 @@ export function ConfirmDialog() {
             Cancel
           </button>
           <button
-            ref={confirmRef}
+            data-confirm-yes
             onClick={confirm}
             className={cn(
               'rounded-md px-2.5 py-1 text-meta font-semibold text-white',

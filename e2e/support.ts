@@ -15,8 +15,11 @@ export async function openBoard(page: Page, url = ATLAS): Promise<void> {
  * initiatives flow has lanes of the same names above it, and "the Backlog" means the team's own.
  */
 export function laneRegion(page: Page, name: string): Locator {
+  // A cell, by the attribute that marks one. The lanes are a tree — nested items share their
+  // ancestors' names — so the role alone cannot say which of them is a cell; the deepest match,
+  // by this attribute, is the one the cards belong to.
   return page
-    .locator('[data-workflow="cards"] div[role="region"]')
+    .locator('[data-workflow="cards"] [data-lane-cell]')
     .filter({ hasText: name })
     .last()
 }
@@ -37,10 +40,10 @@ export async function cardsIn(page: Page, name: string): Promise<string[]> {
  * The one way in for new work: the footer button of a lane.
  *
  * The button repeats — every column has one — so it is found by the name a screen reader hears,
- * which is the lane's own: "Add a card to Backlog".
+ * which is the lane's own: "Add card to Backlog".
  */
 export async function addCardTo(page: Page, name: string): Promise<void> {
-  await laneRegion(page, name).getByRole('button', { name: `Add a card to ${name}` }).click()
+  await laneRegion(page, name).getByRole('button', { name: `Add card to ${name}` }).click()
 }
 
 /** A locator's visible box, for a pointer to aim at. */

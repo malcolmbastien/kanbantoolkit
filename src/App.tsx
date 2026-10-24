@@ -8,6 +8,7 @@ import { StorageBanner } from './components/StorageBanner'
 import { QuarantineBanner } from './components/QuarantineBanner'
 import { StaleTabBanner } from './components/StaleTabBanner'
 import { BoardLegend } from './components/BoardLegend'
+import { Announcer } from './components/Announcer'
 
 import { FocusChip } from './components/FocusChip'
 
@@ -188,6 +189,9 @@ export default function App() {
       {/* One host for the menu and the pick chips, so every surface has them — an aggregating
           board renders no BoardCanvas, and used to get neither. */}
       <Overlays />
+      {/* What a sighted person sees, said out loud: a drag that landed, a drop the board
+          refused, a warning that arrived. One region for the whole app. */}
+      <Announcer />
       {/* One palette for the whole app: boards, cards and the app's own verbs. It answers to the
           same rule the toolbar's buttons do — a board that renders no cards workflow does not make
           cards — so the two ways in cannot disagree. */}

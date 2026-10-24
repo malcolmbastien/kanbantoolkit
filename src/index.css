@@ -68,3 +68,21 @@ body {
 *::-webkit-scrollbar-thumb {
   @apply rounded-full bg-slate-300;
 }
+
+/*
+ * Motion is a courtesy, and one some people cannot accept — a card that slides, a panel that
+ * fades, a row that brushes past can cost a person the screen they were reading. Where the system
+ * has been asked to reduce it, nothing animates or transitions: the change still happens, it just
+ * arrives. Kept in the app's own stylesheet rather than in a component, because a rule that only
+ * some dialogs honour is not a rule.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

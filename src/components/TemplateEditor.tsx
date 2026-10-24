@@ -22,6 +22,7 @@ import {
 import { STAGE_ACCENT } from '@/lib/colors'
 import { cn, uid } from '@/lib/utils'
 import { useStore } from '@/store'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 import type { BoardTemplate, TemplateLane } from '@/domain/types'
 
 /**
@@ -44,6 +45,10 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
   const [editing, setEditing] = useState(false)
   const [newTypeName, setNewTypeName] = useState('')
   const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // The editor is a dialog like any other: focus inside, Escape out, and the caret goes back to
+  // the control that opened it.
+  useDialogFocus(dialogRef, onClose)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -89,6 +94,7 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
         data-template-editor
         role="dialog"
         aria-modal="true"

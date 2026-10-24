@@ -8,19 +8,19 @@ export const BAND_STYLES: Record<BoardBand, { label: string; hint: string; chip:
   team: {
     label: 'Team',
     hint: 'L1 — a team’s flow: lanes, cards, WIP',
-    chip: 'bg-emerald-500 text-white',
+    chip: 'bg-emerald-700 text-white',
     icon: Users,
   },
   program: {
     label: 'Program',
     hint: 'L2 — coordinates teams: a value stream, line of business or programme',
-    chip: 'bg-sky-500 text-white',
+    chip: 'bg-sky-700 text-white',
     icon: Network,
   },
   portfolio: {
     label: 'Portfolio',
     hint: 'L3 — demand vs capability across the organisation',
-    chip: 'bg-violet-500 text-white',
+    chip: 'bg-violet-700 text-white',
     icon: Layers,
   },
 }

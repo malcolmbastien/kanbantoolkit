@@ -32,7 +32,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, externalDependenciesOnBoard, tagsOf } from '@/domain/board'
-import { childrenOf, effectiveStage, isTopLevel, lanePath, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
+import { childrenOf, effectiveStage, isTopLevel, laneDepth, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_PILL } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -158,6 +158,13 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     }).length
   }
   const wip = wipState(countInLane(lane.id), lane.wipLimit)
+
+  // One lane, one item of the tree: its own path, its own count, and the level its nesting puts
+  // it at. The label is the sentence a screen reader reads on arrival.
+  // The level is the tree's own fact. No name: a lane contains the cards, and a container whose
+  // visible text is not in its accessible name is a contradiction — the nesting and the header
+  // inside it say what it is.
+  const level = laneDepth(lanes, lane.id) + 1
 
   // Confirm before removing a lane that carries cards or sub-lanes.
   const removeWithConfirm = () => {
@@ -311,6 +318,9 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     const count = countInLane(lane.id)
     return (
       <div
+        role="treeitem"
+        aria-level={level}
+        aria-expanded={false}
         className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2"
         style={accent ? { backgroundColor: tintOn(accent, 0.18), borderColor: accent } : undefined}
       >
@@ -353,6 +363,9 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
     return (
       <div
+        role="treeitem"
+        aria-level={level}
+        aria-expanded={!collapsed}
         className={cn(
           'flex h-full min-h-0 w-full flex-1 flex-col',
           // No outer box: each top-level column is its own card, with a gap between them.
@@ -368,6 +381,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         {!hideHeader && !isRoot && (editMode || lane.name) && header(false)}
         {!collapsed && (
         <div
+            role="group"
             className={cn(
               'flex w-full flex-1 min-h-0',
               // Stacked rows get a gap; a nested columns split is divided by one hairline.
@@ -418,10 +432,12 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
 
   return (
     <div
-      // A lane is a named region: a screen reader announces "In Progress / Dev, 2 cards" and
-      // the cards inside it are its contents, rather than one undifferentiated board.
-      role="region"
-      aria-label={`${lanePath(lanes, lane.id).join(' / ') || 'Board'} — ${countInLane(lane.id)} card${countInLane(lane.id) === 1 ? '' : 's'}`}
+      // A cell is an item of the tree: a screen reader announces "In Progress / Dev, 2 cards" and
+      // the cards inside it are its contents, rather than one undifferentiated board. `data-lane-cell`
+      // marks it as a cell for the tests — the tree nests, so a role alone cannot say which.
+      role="treeitem"
+      data-lane-cell
+      aria-level={level}
       className={cn(
         'flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col',
         // A top-level column is the object: one edge, one tint, one accent. A nested cell
@@ -491,8 +507,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                thing a reader does to a lane that has nothing in it. */
             <button
               onClick={() => ctx.onAddCard(lane.id)}
-              title={`Add a card to ${lane.name || 'this column'}`}
-              aria-label={`Add a card to ${lane.name || 'this column'}`}
+              title={`Add card to ${lane.name || 'this column'}`}
+              aria-label={`Add card to ${lane.name || 'this column'}`}
               className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white text-meta font-semibold text-slate-800 transition hover:border-indigo-400 hover:bg-indigo-50/60 hover:text-indigo-700 pointer-coarse:min-h-[48px]"
             >
               <Plus size={16} strokeWidth={2.5} className="shrink-0" /> Add card
@@ -522,8 +538,9 @@ function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: La
 
   return (
     <div
-      role="region"
-      aria-label={`${lane.name || 'Board'} — swim lanes across ${columns.length} columns`}
+      role="treeitem"
+      aria-level={laneDepth(lanes, lane.id) + 1}
+      aria-expanded
       className="flex min-h-0 w-full flex-1 flex-col"
     >
       {(editMode || lane.name) && (
@@ -546,6 +563,7 @@ function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: La
         </div>
       )}
       <div
+        role="group"
         className="grid w-full flex-1 min-h-0"
         style={{ gridTemplateColumns: `160px repeat(${columns.length}, minmax(min-content, 1fr))` }}
       >
@@ -654,6 +672,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const root = rootLane(lanes, boardId, 'cards')
+  const boardName = boards.find((b) => b.id === boardId)?.name
   const editMode = storeEdit && interactive
   const rowRef = useRef<HTMLDivElement>(null)
   // Drag empty workflow space to move the board. See usePanScroll.
@@ -832,7 +851,14 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
           lifting && '[&_[data-card-id]]:pointer-events-none',
         )}
       >
-        <div className="min-h-[120px] w-full min-w-min">
+        {/* The lane tree, as a tree. Every lane is one item of it, at its own level, and a
+            container says whether it is open — so the shape a sighted reader gets from the
+            nesting is the shape a screen reader gets from the structure. */}
+        <div
+          role="tree"
+          aria-label={boardName ? `${boardName} — lanes` : 'Lanes'}
+          className="min-h-[120px] w-full min-w-min"
+        >
           {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-meta text-slate-600">This board has no lanes.</p>}
         </div>
       </div>
