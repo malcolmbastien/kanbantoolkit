@@ -54,6 +54,15 @@ async function world() {
   const id = async (email: string) =>
     (await db.get<{ id: string }>('SELECT id FROM users WHERE email = ?1', [email]))!.id
 
+  // Being in a group grants a role; being in the workspace is an invitation (task 162). The people
+  // in these tests are invited as viewers first, which is the seat the group then raises.
+  for (const email of ['grace@example.com', 'linus@example.com']) {
+    await db.run(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', ?1, 'viewer')`,
+      [await id(email)],
+    )
+  }
+
   const as = (cookie: string) => (path: string, init: RequestInit = {}) =>
     request(path, { ...init, headers: { 'content-type': 'application/json', cookie, ...init.headers } })
 

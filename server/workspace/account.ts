@@ -126,12 +126,39 @@ export async function writeWorkspaceAccount(
 }
 
 /**
- * Delete the workspace: its work, its members and its settings, in one transaction.
+ * The workspace, and the accounts that belong to it, end together.
  *
- * The people's **accounts** survive — they are users of the service, not rows of this workspace —
- * and so does every other workspace. The audit entry is written in the same transaction to a table
- * with no workspace id, so it outlives the thing it describes.
+ * An account is a person *in this workspace*: it is created for the workspace and deleted with it.
+ * So this is not "members lose access" — it is the members themselves going, with their sign-in
+ * identities and their sessions. Another workspace and its people are untouched, and the audit entry
+ * is written in the same transaction to a table that outlives both, keeping the act and the name of
+ * whoever did it (their account is deleted a moment later, so `actor_id` becomes null and the
+ * sentence keeps their name in its data).
  */
+
+/**
+ * The one refusal: deleting a workspace that holds the deployment's last administrator would leave
+ * nobody able to administer it. The same spirit as the last-administrator rule everywhere else.
+ */
+export async function lastAdministratorRefusal(db: Database, workspaceId: string): Promise<string | undefined> {
+  const inside = await db.get<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM workspace_members w
+       JOIN instance_members m ON m.user_id = w.user_id AND m.role = 'admin'
+       JOIN users u ON u.id = w.user_id AND u.status = 'active'
+      WHERE w.workspace_id = ?1`,
+    [workspaceId],
+  )
+  if (!inside?.n) return undefined
+
+  const all = await db.get<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM instance_members m JOIN users u ON u.id = m.user_id
+      WHERE m.role = 'admin' AND u.status = 'active'`,
+  )
+  if ((all?.n ?? 0) <= inside.n) {
+    return 'this workspace’s people include the last administrator of the deployment. Appoint another one first.'
+  }
+  return undefined
+}
 export async function deleteWorkspace(db: Database, workspaceId: string, audit: Statement): Promise<void> {
   await db.batch([
     // Children first, through the parent the scope already names.
@@ -167,10 +194,18 @@ export async function deleteWorkspace(db: Database, workspaceId: string, audit: 
               SELECT u.email FROM users u JOIN workspace_members w ON w.user_id = u.id WHERE w.workspace_id = ?1)`,
       params: [workspaceId],
     },
-    { sql: 'DELETE FROM workspace_members WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM group_workspace_roles WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM workspace WHERE id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM workspaces WHERE id = ?1', params: [workspaceId] },
+    // Written before the accounts go, so the trail has an actor to null out rather than an id that
+    // never existed. The sentence keeps the name in its own data.
     audit,
+    // …and now the accounts themselves. Identities, sessions and instance memberships cascade from
+    // `users`; what does not is an invitation they sent and a pen they were holding.
+    { sql: 'DELETE FROM invites WHERE invited_by IN (SELECT user_id FROM workspace_members WHERE workspace_id = ?1)', params: [workspaceId] },
+    { sql: 'DELETE FROM locks WHERE user_id IN (SELECT user_id FROM workspace_members WHERE workspace_id = ?1)', params: [workspaceId] },
+    // Their workspace membership cascades from the account, so this is the last statement that has
+    // to know who belonged here.
+    { sql: 'DELETE FROM users WHERE id IN (SELECT user_id FROM workspace_members WHERE workspace_id = ?1)', params: [workspaceId] },
   ])
 }

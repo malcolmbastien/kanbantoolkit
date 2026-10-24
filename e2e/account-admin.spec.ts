@@ -53,8 +53,32 @@ test('the workspace has an owner and a bill, and both are the administrator’s 
   await expect(page.getByText(/Card numbers are never stored here/)).toBeVisible()
 })
 
-test('deleting the workspace asks for its name, and leaves the person with nothing to open', async ({ page }) => {
+test('deleting the workspace asks for its name, and takes its accounts with it', async ({ page, playwright }) => {
   await signIn(page)
+
+  // Somebody has to be outside the workspace before its accounts can go: deleting it would otherwise
+  // remove the deployment's last administrator, which the server refuses. An operator — administers
+  // the deployment, belongs to no workspace — is appointed here, through the same routes a screen
+  // would call. A request context of its own, so signing the operator in does not take the cookie
+  // away from the page that is about to delete the workspace.
+  const api = await playwright.request.newContext({ baseURL: ORIGIN })
+  try {
+    // The operator has to exist before anybody can appoint them: signing in is what creates the
+    // account, and it happens in a jar of its own so the page keeps the owner's cookie. The roster
+    // is closed by default, so the domain these tests use is opened first.
+    expect((await page.request.patch(`${ORIGIN}/api/admin/settings`, { data: { allowedDomains: ['example.com'] } })).ok()).toBeTruthy()
+    expect((await api.post('/api/auth/dev', { data: { email: 'operator@example.com' } })).ok()).toBeTruthy()
+    const directory = (await (await page.request.get(`${ORIGIN}/api/admin/users?q=operator`)).json()) as {
+      people: Array<{ id: string; email: string }>
+    }
+    const operator = directory.people.find((person) => person.email === 'operator@example.com')!
+    expect((await page.request.patch(`${ORIGIN}/api/admin/users/${operator.id}/instance`, { data: { role: 'admin' } })).ok()).toBeTruthy()
+    // …and belongs to no workspace, so deleting this one leaves them administering the deployment.
+    expect((await page.request.delete(`${ORIGIN}/api/admin/workspace/members/${operator.id}`)).ok()).toBeTruthy()
+  } finally {
+    await api.dispose()
+  }
+
   await openAdmin(page)
 
   await page.getByRole('button', { name: 'Delete this workspace…' }).click()
@@ -66,28 +90,36 @@ test('deleting the workspace asks for its name, and leaves the person with nothi
   await dialog.getByLabel('Type the workspace name to confirm').fill('Flowline')
   await dialog.getByRole('button', { name: 'Delete this workspace' }).click()
 
-  // The app has no workspace left to draw the account's work from, and says so.
-  await expect(page.getByText('No workspace')).toBeVisible()
-  await expect.poll(async () => (await page.request.get(`${ORIGIN}/api/workspace`)).status()).toBe(404)
-
-  // The person's account survives — they are signed in, with nothing to open.
-  const session = await (await page.request.get(`${ORIGIN}/api/auth/session`)).json()
-  expect(session.user.email).toBe('owner@example.com')
-  expect(session.workspaces).toEqual([])
-  // And it took only that workspace: the account itself, its people and the instance remain.
+  // The account went with the workspace: there is no session left to draw anything with.
+  await expect
+    .poll(async () => {
+      const body = (await (await page.request.get(`${ORIGIN}/api/auth/session`)).json()) as { user: unknown }
+      return body.user
+    })
+    .toBeNull()
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  // The deployment is still there, and so is the operator appointed before the deletion.
   expect((await page.request.get(`${ORIGIN}/api/auth/providers`)).ok()).toBeTruthy()
 })
 
-test('a person with no workspace creates one, and owns it', async ({ page }) => {
-  // The previous test deleted the workspace, so this account has none — but each test gets its own
-  // browser context, so the sign-in happens again here.
-  await signIn(page)
+test('a new account creates the workspace it owns', async ({ page }) => {
+  // The previous test deleted the workspace *and its accounts*, so this is somebody new signing up.
+  // (The addressed account is created by signing in; the workspace is created as part of the same
+  // act, which is what a sign-up page will present as one step.)
+  const signUp = async () => {
+    await page.goto(`${ORIGIN}/?board=b-atlas`)
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await page.getByPlaceholder('you@example.com').fill('founder@example.com')
+    await page.getByRole('button', { name: 'Sign in as this address' }).click()
+    await expect(page.getByRole('button', { name: /Founder/ })).toBeVisible()
+  }
+  await signUp()
   await expect(page.getByText('No workspace')).toBeVisible()
 
   await page.getByRole('button', { name: 'Create a workspace' }).click()
   const dialog = page.getByRole('dialog', { name: 'Create a workspace' })
   // The owner is the account itself, shown and not typed.
-  await expect(dialog.getByText('owner@example.com')).toBeVisible()
+  await expect(dialog.getByText('founder@example.com')).toBeVisible()
   await dialog.getByLabel('Workspace name').fill('Northwind')
   await dialog.getByRole('button', { name: 'Create workspace' }).click()
 
@@ -97,5 +129,5 @@ test('a person with no workspace creates one, and owns it', async ({ page }) => 
   const session = await (await page.request.get(`${ORIGIN}/api/auth/session`)).json()
   expect(session.workspaces[0].role).toBe('admin')
   const account = await (await page.request.get(`${ORIGIN}/api/workspace/account`)).json()
-  expect(account).toMatchObject({ name: 'Northwind', ownerName: 'Owner' })
+  expect(account).toMatchObject({ name: 'Northwind', ownerName: 'Founder' })
 })

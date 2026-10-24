@@ -148,21 +148,29 @@ async function identify(
       : invite.role === 'viewer'
         ? 'viewer'
         : 'editor'
-    : first
-      ? 'admin'
-      : 'viewer'
+    : 'admin'
 
   // One batch: no moment at which an account exists and nobody administers it.
+  //
+  // An account arrives with **no workspace** unless it is the deployment's first person or it was
+  // invited into one. Joining is an invitation (task 162); creating is a sign-up; a stranger who
+  // merely signed in is an account, and the interface says so rather than quietly seating them in
+  // somebody else's workspace.
+  const joinsTheWorkspace = first || Boolean(invite)
   await db.batch([
-    // The instance's workspace, if this deployment has none left — after an account is closed,
-    // the first person to arrive creates it again rather than joining nothing.
-    { sql: "INSERT OR IGNORE INTO workspaces (id, name) VALUES (?1, 'Flowline')", params: [WORKSPACE_ID] },
+    // The deployment's own workspace, for its first person. Created here rather than assumed: a
+    // deployment whose workspace was deleted starts again the same way it began.
+    ...(first ? [{ sql: "INSERT OR IGNORE INTO workspaces (id, name) VALUES (?1, 'Flowline')", params: [WORKSPACE_ID] }] : []),
     ...(known ? [] : [{ sql: 'INSERT INTO users (id, name, email) VALUES (?1, ?2, ?3)', params: [userId, who.name, who.email] }]),
     { sql: 'INSERT INTO instance_members (user_id, role) VALUES (?1, ?2)', params: [userId, instanceRole] },
-    {
-      sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
-      params: [WORKSPACE_ID, userId, workspaceRole, invite?.invited_by ?? null],
-    },
+    ...(joinsTheWorkspace
+      ? [
+          {
+            sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
+            params: [WORKSPACE_ID, userId, workspaceRole, invite?.invited_by ?? null],
+          },
+        ]
+      : []),
     ...(invite
       ? [
           { sql: 'UPDATE invites SET accepted_at = ?1 WHERE id = ?2', params: [new Date().toISOString(), invite.id] },

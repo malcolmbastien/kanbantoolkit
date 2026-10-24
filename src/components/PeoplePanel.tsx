@@ -426,7 +426,32 @@ export function PeoplePanel() {
               <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className="text-slate-800">{person.status}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Last active</dt><dd className="text-slate-800">{when(person.lastSeenAt)}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Joined</dt><dd className="text-slate-800">{when(person.joinedAt)}</dd></div>
-              <div className="flex justify-between"><dt className="text-slate-500">Instance</dt><dd className="text-slate-800">{person.instanceRole}</dd></div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-slate-500">Deployment</dt>
+                <dd>
+                  {/* The operator's role (task 126, revised): the people, the invitations, the
+                      groups. Never the workspace's account — that is its own panel. */}
+                  <select
+                    value={person.instanceRole}
+                    disabled={busy === 'instance'}
+                    onChange={(event) =>
+                      void call(
+                        'instance',
+                        `/api/admin/users/${person.id}/instance`,
+                        json('PATCH', { role: event.target.value }),
+                        event.target.value === 'admin'
+                          ? 'Now administers the deployment.'
+                          : 'No longer administers the deployment.',
+                      ).then(refresh)
+                    }
+                    aria-label="Deployment role"
+                    className={cn(FIELD, 'py-0.5 text-micro')}
+                  >
+                    <option value="member">Member</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                </dd>
+              </div>
             </dl>
 
             <div className="grid grid-cols-2 gap-2">

@@ -116,8 +116,14 @@ describe('deactivating and reactivating a person', () => {
 
 describe('the directory', () => {
   it('searches, filters and pages by name', async () => {
-    const { request, dev, adminCookie } = await world()
+    const { request, dev, adminCookie, db } = await world()
     await dev('linus@example.com')
+    // The role filter reads a membership, and arrival is an account rather than a seat (task 162):
+    // these two were invited as viewers, which is what the filter is looking for.
+    await db.run(
+      `INSERT INTO workspace_members (workspace_id, user_id, role)
+       SELECT 'workspace', id, 'viewer' FROM users WHERE email IN ('grace@example.com', 'linus@example.com')`,
+    )
 
     const list = async (query: string) =>
       (await (await request(`/api/admin/users${query}`, { headers: { cookie: adminCookie } })).json()) as {

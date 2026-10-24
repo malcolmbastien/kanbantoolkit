@@ -65,9 +65,10 @@ test('a group carries a role, grants it to its people, and can be turned off', a
     await expect(page.getByText('Turned off — it grants nothing now.')).toBeVisible()
     await expect(groups.getByText('off', { exact: true })).toBeVisible()
 
-    // The grant is gone from the server's point of view too: the person is a viewer again.
+    // The grant is gone from the server's point of view too — and with it the seat: the group was
+    // this person's way into the workspace (task 162 — arrival is an account, not a seat).
     const session = await (await person.request.get(`${SELF_HOSTED}/api/auth/session`)).json()
-    expect(session.workspaces[0].role).toBe('viewer')
+    expect(session.workspaces).toEqual([])
   } finally {
     await other.close()
   }

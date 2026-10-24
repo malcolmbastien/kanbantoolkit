@@ -66,8 +66,16 @@ export async function resolveWorkspace(
   instanceAdmin: boolean,
   requested: string | undefined,
 ): Promise<{ id: string; role: Role; source: string } | undefined> {
+  // A direct row, or a group that carries a role here: being in the group is being a member, which
+  // is what makes `group_workspace_roles` a way in rather than a decoration on one.
   const memberships = await db.all<{ workspace_id: string }>(
-    'SELECT workspace_id FROM workspace_members WHERE user_id = ?1 ORDER BY workspace_id',
+    `SELECT workspace_id FROM workspace_members WHERE user_id = ?1
+     UNION
+     SELECT r.workspace_id FROM group_members m
+       JOIN groups g ON g.id = m.group_id AND g.active = 1
+       JOIN group_workspace_roles r ON r.group_id = g.id
+      WHERE m.user_id = ?1
+     ORDER BY workspace_id`,
     [userId],
   )
   const member = (id: string) => memberships.some((row) => row.workspace_id === id)

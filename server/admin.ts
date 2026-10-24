@@ -575,6 +575,54 @@ export function adminRoutes(runtime: Runtime) {
     return c.body(null, 204)
   })
 
+  /**
+   * Who administers the **deployment**: the people screen, the invitations, the groups.
+   *
+   * Not the account and not the workspace — that is the workspace's own administrator and its own
+   * panel (task 126). This is the operator's role, and the last one cannot be unappointed: a
+   * deployment nobody administers is one nobody can repair.
+   */
+  routes.patch('/users/:id/instance', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const body = (await c.req.json().catch(() => null)) as { role?: unknown } | null
+    const role = body?.role
+    if (role !== 'admin' && role !== 'member') return c.json({ error: 'role must be admin or member' }, 400)
+
+    const id = c.req.param('id')
+    const target = await caller.db.get<{ id: string; status: string }>('SELECT id, status FROM users WHERE id = ?1', [id])
+    if (!target) return c.json({ error: 'no such person' }, 404)
+
+    if (role === 'member') {
+      const current = await caller.db.get<{ role: string }>('SELECT role FROM instance_members WHERE user_id = ?1', [id])
+      const admins = await caller.db.get<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM instance_members m JOIN users u ON u.id = m.user_id
+          WHERE m.role = 'admin' AND u.status = 'active'`,
+      )
+      if (current?.role === 'admin' && target.status === 'active' && (admins?.n ?? 0) <= 1) {
+        return c.json({ error: 'this is the last administrator of the deployment. Appoint another one first.' }, 409)
+      }
+    }
+
+    await caller.db.batch([
+      {
+        sql: `INSERT INTO instance_members (user_id, role) VALUES (?1, ?2)
+              ON CONFLICT (user_id) DO UPDATE SET role = excluded.role`,
+        params: [id, role],
+      },
+      statement({
+        actorId: caller.user.id,
+        action: 'user.instance',
+        targetType: 'user',
+        targetId: id,
+        data: { instanceRole: role },
+      }),
+    ])
+
+    return c.json({ id, role })
+  })
+
   /** Change what somebody may do here. The last workspace administrator cannot be demoted. */
   routes.patch('/users/:id/role', async (c) => {
     const caller = await requireInstanceAdmin(c, runtime)

@@ -17,7 +17,13 @@ import { acquire, heldByOther, heldLocks, lockOf, release, renew } from './locks
 import { parseItem, parseWorkspace } from './validate'
 import { alreadyApplied, writeItem, writeWorkspace } from './write'
 import { statement } from '../audit'
-import { deleteWorkspace, readAccountPatch, readWorkspaceAccount, writeWorkspaceAccount } from './account'
+import {
+  deleteWorkspace,
+  lastAdministratorRefusal,
+  readAccountPatch,
+  readWorkspaceAccount,
+  writeWorkspaceAccount,
+} from './account'
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
 function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
@@ -114,6 +120,11 @@ export function workspaceRoutes(runtime: Runtime) {
       return c.json({ error: 'type the workspace’s name to confirm' }, 400)
     }
 
+    // The accounts go with the workspace, so this has one refusal of its own: the deployment must
+    // keep somebody who can administer it.
+    const refusal = await lastAdministratorRefusal(allowed.db, allowed.workspaceId)
+    if (refusal) return c.json({ error: refusal }, 409)
+
     await deleteWorkspace(
       allowed.db,
       allowed.workspaceId,
@@ -122,7 +133,9 @@ export function workspaceRoutes(runtime: Runtime) {
         action: 'workspace.delete',
         targetType: 'workspace',
         targetId: allowed.workspaceId,
-        data: { name: account.name },
+        // The name of the workspace, and of the person ending it: their account is deleted in the
+        // same transaction, so `actor_id` will be nulled and this is what keeps the sentence whole.
+        data: { name: account.name, by: allowed.user.name },
       }),
     )
 

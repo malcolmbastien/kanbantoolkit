@@ -172,6 +172,11 @@ describe('the seal, at the door', () => {
     // The roster is closed, so a second person needs a door: a domain the instance admits.
     await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
     const grace = await dev('grace@example.com')
+    // Admission is an account, not a seat (task 162): the seat is put here so the removal below has
+    // something to remove.
+    await db.run(
+      "INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', (SELECT id FROM users WHERE email = 'grace@example.com'), 'editor')",
+    )
     expect((await as(grace.cookie)('/api/workspace')).status).toBe(200)
 
     await db.run("DELETE FROM workspace_members WHERE user_id = (SELECT id FROM users WHERE email = 'grace@example.com')")

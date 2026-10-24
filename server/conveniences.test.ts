@@ -61,10 +61,14 @@ describe('an allowed domain', () => {
     expect(await db.get("SELECT access FROM instance_settings WHERE id = 'instance'")).toEqual({ access: 'closed' })
 
     expect((await dev('grace@example.com')).status).toBe(200)
-    const grace = await db.get<{ role: string }>(
-      `SELECT w.role FROM workspace_members w JOIN users u ON u.id = w.user_id WHERE u.email = 'grace@example.com'`,
-    )
-    expect(grace?.role).toBe('viewer')
+    // Admitted as an **account**: the domain is a way in, and a workspace is still an invitation or
+    // a sign-up (task 162), so the door grants no seat.
+    expect(await db.get("SELECT 1 AS seen FROM users WHERE email = 'grace@example.com'")).toEqual({ seen: 1 })
+    expect(
+      await db.get(
+        `SELECT 1 AS seen FROM workspace_members w JOIN users u ON u.id = w.user_id WHERE u.email = 'grace@example.com'`,
+      ),
+    ).toBeUndefined()
 
     // Not a suffix, not a substring.
     expect((await dev('mallory@notexample.com')).status).toBe(403)

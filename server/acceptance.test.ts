@@ -88,7 +88,11 @@ async function world() {
       await db.run("UPDATE instance_members SET role = 'admin' WHERE user_id = ?1", [person.id])
       await db.run('DELETE FROM workspace_members WHERE user_id = ?1', [person.id])
     } else {
-      await db.run('UPDATE workspace_members SET role = ?2 WHERE user_id = ?1', [person.id, role])
+      await db.run(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', ?1, ?2)
+       ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = excluded.role`,
+      [person.id, role],
+    )
     }
     const call: Call = (path, init = {}) =>
       request(path, { ...init, headers: { 'content-type': 'application/json', cookie, ...init.headers } })
@@ -190,7 +194,11 @@ describe('the lifecycle', () => {
     expect((await person.call('/api/workspace/items/i-1', writeCard)).status).toBe(200)
 
     // A role change is read on the next request, with no re-login and no new session.
-    await db.run('UPDATE workspace_members SET role = ?2 WHERE user_id = ?1', [person.id, 'viewer'])
+    await db.run(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', ?1, ?2)
+       ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = excluded.role`,
+      [person.id, 'viewer'],
+    )
     expect((await person.call('/api/workspace/items/i-1', writeCard)).status).toBe(403)
     expect((await person.call('/api/workspace')).status).toBe(200)
 

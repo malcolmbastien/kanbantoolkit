@@ -311,8 +311,10 @@ describe('the two axes', () => {
     const second = await db.get<{ role: string }>(
       "SELECT w.role FROM workspace_members w JOIN users u ON u.id = w.user_id WHERE u.email = 'second@example.com'",
     )
-    // An open door admits a viewer, and never an administrator.
-    expect(second?.role).toBe('viewer')
+    // An open door admits an **account**, and never an administrator — of either axis. A workspace
+    // is joined by invitation or created by its owner (task 162), so a stranger arrives belonging to
+    // none and the interface offers them the sign-up rather than seating them in somebody's board.
+    expect(second).toBeUndefined()
   })
 })
 
@@ -385,19 +387,26 @@ describe('who may come in', () => {
     expect(await db.all('SELECT * FROM sessions')).toHaveLength(1)
   })
 
-  it('admits a stranger as a viewer when the door is open, and never as an administrator', async () => {
+  it('admits a stranger as an account when the door is open, and never as an administrator', async () => {
     const { db, request } = instance({ AUTH_DEV: '1' })
     await dev(request, 'first@example.com')
     await db.run("UPDATE instance_settings SET access = 'open'")
 
     expect((await dev(request, 'second@example.com')).status).toBe(200)
 
-    const second = await db.get<{ role: string; instance: string }>(
-      `SELECT w.role, i.role AS instance FROM workspace_members w
-       JOIN users u ON u.id = w.user_id JOIN instance_members i ON i.user_id = u.id
-       WHERE u.email = 'second@example.com'`,
+    // The door admits an account: a member of the instance, and nothing more. A workspace is joined
+    // by invitation or created by its owner (task 162) — the open door is not a seat on a board.
+    const second = await db.get<{ role: string }>(
+      `SELECT i.role AS role FROM instance_members i JOIN users u ON u.id = i.user_id
+        WHERE u.email = 'second@example.com'`,
     )
-    expect(second).toEqual({ role: 'viewer', instance: 'member' })
+    expect(second).toEqual({ role: 'member' })
+    expect(
+      await db.get(
+        `SELECT 1 AS seen FROM workspace_members w JOIN users u ON u.id = w.user_id
+          WHERE u.email = 'second@example.com'`,
+      ),
+    ).toBeUndefined()
   })
 
   it('keeps the posture to an administrator, and records the change', async () => {

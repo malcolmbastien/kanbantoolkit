@@ -65,6 +65,23 @@ async function world() {
   const request = (path: string, init?: RequestInit) => app.request(path, init, { AUTH_DEV: '1' })
   await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
 
+  /**
+   * An operator: administers the deployment, belongs to no workspace. Deleting a workspace deletes
+   * its accounts, so somebody has to be outside it or the deployment would lose its last
+   * administrator — the guard that makes the deletion refuse.
+   */
+  const operator = async () => {
+    const response = await request('/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'operator@example.com' }),
+    })
+    const id = (await db.get<{ id: string }>("SELECT id FROM users WHERE email = 'operator@example.com'"))!.id
+    await db.run("UPDATE instance_members SET role = 'admin' WHERE user_id = ?1", [id])
+    await db.run('DELETE FROM workspace_members WHERE user_id = ?1', [id])
+    return { cookie: cookieOf(response), id }
+  }
+
   const signIn = async (email: string, role: 'viewer' | 'editor' | 'admin' = 'admin') => {
     const response = await request('/api/auth/dev', {
       method: 'POST',
@@ -74,13 +91,17 @@ async function world() {
     if (response.status !== 200) throw new Error(`sign-in refused for ${email}: ${response.status}`)
     const cookie = cookieOf(response)
     const person = (await db.get<{ id: string }>('SELECT id FROM users WHERE email = ?1', [email]))!
-    await db.run('UPDATE workspace_members SET role = ?2 WHERE user_id = ?1', [person.id, role])
+    await db.run(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', ?1, ?2)
+       ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = excluded.role`,
+      [person.id, role],
+    )
     const call = (path: string, init: RequestInit = {}) =>
       request(path, { ...init, headers: { 'content-type': 'application/json', cookie, ...init.headers } })
     return { cookie, id: person.id, call }
   }
 
-  return { db, request, signIn }
+  return { db, request, signIn, operator }
 }
 
 const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) })
@@ -162,7 +183,8 @@ describe('deleting the workspace', () => {
   }
 
   it('is the administrator’s, and takes only that workspace', async () => {
-    const { db, signIn } = await world()
+    const { db, signIn, operator } = await world()
+    const operatorPerson = await operator()
     const admin = await signIn('admin@example.com', 'admin')
     await another(db)
     await db.run(
@@ -178,13 +200,14 @@ describe('deleting the workspace', () => {
     // …the other one is not…
     expect(await db.get("SELECT 1 AS seen FROM workspaces WHERE id = 'other'")).toEqual({ seen: 1 })
     expect(await db.get("SELECT 1 AS seen FROM items WHERE id = 'i-other'")).toEqual({ seen: 1 })
-    // …and the people's accounts survive with no workspace to open.
-    expect(await db.get("SELECT 1 AS seen FROM users WHERE email = 'admin@example.com'")).toEqual({ seen: 1 })
+    // …and the accounts that belonged to it went with it, while the operator outside it did not.
+    expect(await db.get("SELECT 1 AS seen FROM users WHERE email = 'admin@example.com'")).toBeUndefined()
+    expect(await db.get('SELECT 1 AS seen FROM users WHERE id = ?1', [operatorPerson.id])).toEqual({ seen: 1 })
     expect(await db.get("SELECT COUNT(*) AS n FROM workspace_members WHERE workspace_id = 'workspace'")).toEqual({ n: 0 })
 
     // The trail outlives the thing it describes.
     expect(await db.get<{ data: string }>("SELECT data FROM audit_events WHERE action = 'workspace.delete'")).toEqual({
-      data: JSON.stringify({ name: 'Team Atlas' }),
+      data: JSON.stringify({ name: 'Team Atlas', by: 'Admin' }),
     })
   })
 
@@ -206,13 +229,43 @@ describe('deleting the workspace', () => {
     expect(await db.get("SELECT 1 AS seen FROM workspaces WHERE id = 'workspace'")).toEqual({ seen: 1 })
   })
 
-  it('leaves the person with no workspace, which is what the read answers', async () => {
-    const { signIn } = await world()
+  it('leaves nobody behind: the accounts go with it', async () => {
+    const { db, signIn, operator } = await world()
+    await operator()
     const admin = await signIn('admin@example.com', 'admin')
+    const colleague = await signIn('colleague@example.com', 'editor')
 
     expect((await admin.call('/api/workspace')).status).toBe(200)
     expect((await admin.call('/api/workspace', json('DELETE', { confirm: 'Team Atlas' }))).status).toBe(204)
-    // No workspace to open: 404, not an empty board.
-    expect((await admin.call('/api/workspace')).status).toBe(404)
+
+    // The account that asked, and the account of everybody else in the workspace, are gone — with
+    // their identities and their sessions.
+    for (const id of [admin.id, colleague.id]) {
+      expect(await db.get('SELECT 1 AS seen FROM users WHERE id = ?1', [id])).toBeUndefined()
+      expect(await db.get('SELECT 1 AS seen FROM sessions WHERE user_id = ?1', [id])).toBeUndefined()
+      expect(await db.get('SELECT 1 AS seen FROM identities WHERE user_id = ?1', [id])).toBeUndefined()
+    }
+    // The session that asked cannot be used again, so the answer they saw is the last thing it did.
+    expect((await admin.call('/api/workspace')).status).toBe(401)
+    // The operator outside it is untouched.
+    expect(await db.get("SELECT 1 AS seen FROM users WHERE email = 'operator@example.com'")).toEqual({ seen: 1 })
+    // And the trail keeps the act, and the name of whoever did it — their id is nulled with them.
+    const trail = await db.get<{ actor_id: string | null; data: string }>(
+      "SELECT actor_id, data FROM audit_events WHERE action = 'workspace.delete'",
+    )
+    expect(trail?.actor_id).toBeNull()
+    expect(JSON.parse(trail!.data)).toEqual({ name: 'Team Atlas', by: 'Admin' })
+  })
+
+  it('refuses when the workspace holds the deployment’s last administrator', async () => {
+    const { db, signIn } = await world()
+    // Nobody outside: this account administers the deployment and belongs to the workspace, so
+    // deleting it would leave a deployment nobody can administer.
+    const admin = await signIn('admin@example.com', 'admin')
+
+    const refused = await admin.call('/api/workspace', json('DELETE', { confirm: 'Team Atlas' }))
+    expect(refused.status).toBe(409)
+    expect(((await refused.json()) as { error: string }).error).toContain('last administrator')
+    expect(await db.get("SELECT 1 AS seen FROM users WHERE email = 'admin@example.com'")).toEqual({ seen: 1 })
   })
 })

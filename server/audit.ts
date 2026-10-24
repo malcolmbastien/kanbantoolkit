@@ -24,6 +24,7 @@ export type AuditAction =
   | 'invite.accepted'
   | 'user.edit'
   | 'user.role'
+  | 'user.instance'
   | 'user.delete'
   | 'user.erase'
   | 'session.revoke'
