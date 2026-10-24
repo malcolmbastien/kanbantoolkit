@@ -1,0 +1,32 @@
+[
+  {
+    "id": "google",
+    "name": "Google",
+    "sees": "that you signed in, and the name and email address it verified. It does not see your workspace, your boards or your cards.",
+    "role": "identity provider, when configured"
+  },
+  {
+    "id": "microsoft",
+    "name": "Microsoft",
+    "sees": "that you signed in, and the name and email address it verified. It does not see your workspace, your boards or your cards.",
+    "role": "identity provider, when configured"
+  },
+  {
+    "id": "oidc",
+    "name": "your identity provider",
+    "sees": "whatever the provider an operator configured sees. Flowline asks it for an address and a name, and receives nothing else.",
+    "role": "identity provider, when an operator brings their own"
+  },
+  {
+    "id": "host",
+    "name": "the machine this runs on",
+    "sees": "everything the database holds: accounts, workspaces, cards and the audit trail. On the hosted service that is a Cloudflare Worker with a D1 database; a self-hoster's is their own server.",
+    "role": "hosting"
+  },
+  {
+    "id": "error-log",
+    "name": "the error log",
+    "sees": "a message, a stack trace, the path of the page, the build and the browser — never a query string and never an IP address, which are not collected.",
+    "role": "diagnostics"
+  }
+]

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { LogOut, Settings2, ShieldCheck, UserRound } from 'lucide-react'
+import { LifeBuoy, LogOut, Settings2, ShieldCheck, UserRound } from 'lucide-react'
 import { useStore } from '@/store'
 
 // A dialog nobody has opened yet is not part of the first download.
@@ -155,6 +155,14 @@ export function AccountMenu() {
                 </button>
               )}
 
+              {/* Somebody inside still needs the way to a person, and the site's help is it (R3). */}
+              <a
+                href="/help/"
+                className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              >
+                <LifeBuoy size={13} /> Help &amp; support
+              </a>
+
               <button
                 onClick={onSignOut}
                 disabled={busy}
@@ -203,6 +211,12 @@ export function AccountMenu() {
                   Continue with {provider.label}
                 </button>
               ))}
+
+              {/* The terms belong beside the door, before anybody walks through it (task 150, R2). */}
+              <p className="mt-1.5 px-1.5 text-micro text-slate-600">
+                By continuing you agree to the <a href="/terms/" className="underline">terms</a> and the{' '}
+                <a href="/privacy/" className="underline">privacy notice</a>.
+              </p>
 
               {auth.dev && (
                 <p className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-micro text-amber-900">

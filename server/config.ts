@@ -60,7 +60,14 @@ export function devAuth(env: unknown): boolean {
   return value(env, 'AUTH_DEV') === '1'
 }
 
-const KNOWN = {
+/**
+ * The providers this code knows by name — the hosted defaults.
+ *
+ * Exported because the privacy notice names them, and a notice that drifts from the code is worse
+ * than no notice: `server/site.test.ts` fails when a provider here is not listed in
+ * `site/processors.json`.
+ */
+export const KNOWN = {
   google: {
     label: 'Google',
     authorizeEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',

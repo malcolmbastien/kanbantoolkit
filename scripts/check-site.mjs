@@ -14,11 +14,13 @@ import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
 const DIST = 'dist'
+const SITE_DIR = 'site'
 const ORIGIN = (process.env.SITE_URL ?? 'https://flowline.example').replace(/\/+$/, '')
 /** The home page's whole transfer: HTML, the stylesheet, and the drawings on it. */
 const HOME_BUDGET_KB = 150
 
 const problems = []
+const escapeHtml = (value) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 const fail = (message) => problems.push(message)
 
 /** Every public page in the build, by the file it is served from. */
@@ -119,6 +121,43 @@ for (const file of homeFiles) {
 const homeKb = homeBytes / 1024
 if (homeKb > HOME_BUDGET_KB) fail(`the home page is ${homeKb.toFixed(1)} kB, over ${HOME_BUDGET_KB} kB`)
 else console.log(`home page: ${homeKb.toFixed(1)} kB compressed (HTML, CSS and ${referenced.length} image(s))`)
+
+// ---- R5/V5: every internal link resolves to something that was built ----
+const resolve = (href) => {
+  const path = href.split('#')[0].split('?')[0]
+  if (!path || path === '/') return join(DIST, 'index.html')
+  const full = join(DIST, path)
+  if (existsSync(full) && statSync(full).isFile()) return full
+  const index = join(full, 'index.html')
+  return existsSync(index) ? index : undefined
+}
+
+for (const file of html) {
+  const text = readFileSync(file, 'utf8')
+  const where = file.replace(`${DIST}/`, '')
+  for (const [, href] of text.matchAll(/href="(\/[^"]*)"/g)) {
+    if (href.startsWith('/app')) continue
+    if (!resolve(href)) fail(`${where}: links to ${href}, which was not built`)
+  }
+}
+
+// ---- R5: the notice names the processors the deployment is configured with ----
+const processors = JSON.parse(readFileSync(join(SITE_DIR, 'processors.json'), 'utf8'))
+const notice = readFileSync(join(DIST, 'privacy/index.html'), 'utf8')
+for (const processor of processors) {
+  if (!notice.includes(escapeHtml(processor.name))) fail(`the privacy notice does not name ${processor.name}`)
+}
+if (notice.includes('{{processors}}')) fail('the privacy notice still carries the processor placeholder')
+
+// ---- R3: the support address is a link that opens ----
+const help = readFileSync(join(DIST, 'help/index.html'), 'utf8')
+if (!/href="mailto:support@[^"]+"/.test(help)) fail('the help page has no support mailto:')
+
+// ---- R4: the changelog is dated, newest first ----
+const changelog = readFileSync(join(DIST, 'changelog/index.html'), 'utf8')
+const dates = [...changelog.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((match) => match[1])
+if (!dates.length) fail('the changelog has no dated entries')
+if (dates.join() !== [...dates].sort().reverse().join()) fail('the changelog is not newest first')
 
 // ---- R6: what machines are told ----
 const robots = readFileSync(join(DIST, 'robots.txt'), 'utf8')

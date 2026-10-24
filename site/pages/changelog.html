@@ -1,13 +1,29 @@
 <!--
 title: Changelog — Flowline
-description: What changed, in the words a person would use. Newest first.
+description: What changed in Flowline, newest first, in the words a person would use rather than in commit subjects.
 path: /changelog/
 -->
 <h1>Changelog</h1>
-<p class="lede">What changed, in the words a person would use. Newest first. Task 150 keeps this honest.</p>
-<h2>2026-10-24</h2>
+<p class="lede">What changed, newest first, in the words a person would use. A date is a day the change was live, not the day somebody thought about it.</p>
+
+<h2><time datetime="2026-10-24">24 October 2026</time></h2>
 <ul class="points">
-  <li>A workspace is the tenant: it has an owner, a bill of its own, and an end.</li>
-  <li>Removing a member ends their account; the work they did keeps saying who they were.</li>
-  <li>The app lives at <code>/app</code>; the site you are reading is here.</li>
+  <li><strong>The site has a front door.</strong> The app now lives at <code>/app</code>, and this is the page it opens from. Old links still work: they land on the same place under <code>/app</code>.</li>
+  <li><strong>A workspace can be deleted</strong> by its administrator, and only by them. Its accounts go with it; its work does not linger anywhere else.</li>
+  <li><strong>Removing a member</strong> ends their account. The work they did stays, and every place that names them reads “Former member”.</li>
+  <li><strong>A workspace has an owner</strong> — the account that pays for it — set in the workspace's own account panel.</li>
+  <li><strong>Invitations are links</strong> that can be revoked, and a link opened after the app moved to <code>/app</code> lands on the app rather than the site.</li>
+</ul>
+
+<h2><time datetime="2026-10-22">22 October 2026</time></h2>
+<ul class="points">
+  <li><strong>Sessions</strong> can be listed and ended one by one, or everywhere at once, from a profile.</li>
+  <li><strong>Groups</strong> grant a role once to many people, and can be turned off without deleting them.</li>
+  <li><strong>Live</strong> — a change on one device arrives on another without a reload, over a socket where the host has one and by polling where it does not.</li>
+</ul>
+
+<h2><time datetime="2026-10-21">21 October 2026</time></h2>
+<ul class="points">
+  <li><strong>Roles</strong> are decided by one matrix on the server, read on every request: a change takes effect on the next one, with no re-login.</li>
+  <li><strong>The workspace lives on the server</strong>, and the browser holds a copy that catches up.</li>
 </ul>

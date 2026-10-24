@@ -58,6 +58,14 @@ const LEGACY_SHIM = `<script>
       })()
     </script>`
 
+/** The processors the notice names, from the one file a test compares against the code. */
+interface Processor {
+  id: string
+  name: string
+  sees: string
+  role: string
+}
+
 interface Page {
   /** Where it is served, e.g. `/pricing/` or `/404.html`. */
   path: string
@@ -100,6 +108,20 @@ function canonicalOf(path: string): string {
   return `${ORIGIN}${path}`
 }
 
+/**
+ * The processor list, rendered from `site/processors.json`.
+ *
+ * A notice that drifts from the deployment is worse than none, so the page does not carry its own
+ * copy: `server/site.test.ts` fails when the code knows a provider this file does not list, and this
+ * renders whatever the file says.
+ */
+function processors(): string {
+  const list = JSON.parse(readFileSync(join(SITE, 'processors.json'), 'utf8')) as Processor[]
+  return list
+    .map((entry) => `  <li><strong>${escape(entry.name)}</strong> — ${entry.role}. It sees ${entry.sees}</li>`)
+    .join('\n')
+}
+
 function render(page: Page, layout: string): string {
   const canonical = canonicalOf(page.path)
   const head = page.path === '/' ? LEGACY_SHIM : ''
@@ -109,6 +131,7 @@ function render(page: Page, layout: string): string {
     .replaceAll('{{canonical}}', canonical)
     .replaceAll('{{origin}}', ORIGIN)
     .replaceAll('{{content}}', page.body)
+    .replaceAll('{{processors}}', processors())
     .replaceAll('{{head}}', head)
 }
 

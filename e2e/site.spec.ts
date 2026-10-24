@@ -77,6 +77,31 @@ test('the app is under /app, and answers deep links there', async ({ request }) 
   }
 })
 
+test('the terms stand beside the door, and the help page answers', async ({ page, request }) => {
+  // The door is on the instance with a server, because an account menu is what a server offers: the
+  // static tier has no ways in and so has nothing to stand the terms beside.
+  await page.goto(`${SELF_HOSTED}/app`)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+
+  const terms = page.getByRole('link', { name: 'terms' })
+  await expect(terms).toHaveAttribute('href', '/terms/')
+  await expect(page.getByRole('link', { name: 'privacy notice' })).toHaveAttribute('href', '/privacy/')
+  // A link that resolves: the page the promise points at is the page that exists.
+  expect((await request.get('/terms/')).status()).toBe(200)
+
+  // And the support address is a link that opens, with the promise beside it.
+  const help = await request.get('/help/')
+  expect(help.status()).toBe(200)
+  expect(await help.text()).toContain('mailto:support@flowline.example')
+})
+
+test('the changelog is dated, newest first', async ({ request }) => {
+  const html = await (await request.get('/changelog/')).text()
+  const dates = [...html.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((match) => match[1])
+  expect(dates.length).toBeGreaterThan(0)
+  expect(dates).toEqual([...dates].sort().reverse())
+})
+
 test('no public page fetches anything from another origin', async ({ page }) => {
   const foreign: string[] = []
   page.on('request', (request) => {

@@ -1,25 +1,68 @@
 <!--
 title: Privacy notice — Flowline
-description: What Flowline holds, who processes it, and how to get it out or have it deleted.
+description: What Flowline holds, who processes it, how long it keeps it, and how to take a workspace out or have it deleted — with links to the acts themselves.
 path: /privacy/
 -->
 <h1>Privacy notice</h1>
 <p class="lede">
-  What we hold, who processes it, and how to take it away. The complete notice — including the
-  processor list checked against the deployment's own configuration — is task 150.
+  What we hold, who sees it, how long it stays, and how to take it with you or have it removed. No
+  analytics, no advertising, no third-party scripts: the only things that see your work are the
+  services listed below, and each one is named.
 </p>
+
 <h2>What we hold</h2>
+<ul class="points">
+  <li><strong>Your account.</strong> A name, an email address, and the identity your provider verified when you signed in. The address is the one the provider vouched for; Flowline does not let anybody type a different one.</li>
+  <li><strong>Your workspace.</strong> Its boards, lanes, cards, placements, objectives and the words you put in them — the work itself.</li>
+  <li><strong>What happened.</strong> An audit trail of access changes — who invited whom, who changed a role, who signed in — kept for 90 days. It records field names, not the values of a billing address.</li>
+  <li><strong>Sessions.</strong> Stored as hashes, with the browser that opened them and when each was last used. An address is stored only as a salted hash, never as an address.</li>
+</ul>
 <p>
-  Your account (name, email, the identity a provider verified), the workspace you are in, and the work
-  in it. Sessions are stored as hashes; addresses are stored hashed.
+  We do not hold a card number, a CVC or a bank detail. A billing record points at the payment
+  provider's customer reference; the digits stay with the provider.
 </p>
+
 <h2>Who processes it</h2>
+<p>Only these, and only for what is described:</p>
+<ul class="points">
+{{processors}}
+</ul>
+
+<h2>How long it stays</h2>
 <p>
-  The identity providers you sign in with, the host this runs on, and the error log — and nothing
-  else.
+  A workspace stays until its administrator deletes it. Sessions end after twelve hours, or thirty
+  days when a browser asked to be remembered; the audit trail is kept for 90 days and then pruned.
+  Error reports are pruned with it.
 </p>
+
 <h2>Taking it with you</h2>
 <p>
-  <a href="/app">A workspace exports itself</a> at any time. Deleting a workspace deletes its accounts
-  with it; the work of a removed member stays, attributed to a former member.
+  <strong>Export a workspace</strong> from the board's own menu: the file is the workspace — boards,
+  lanes, cards, history and all — and it opens anywhere the app runs.
+  <a href="/help/#export">How to export</a>.
+</p>
+
+<h2>Having it deleted</h2>
+<p>
+  Two different promises, and both are kept:
+</p>
+<ul class="points">
+  <li><strong>A person is removed</strong> by a workspace administrator. Their account, their ways in and their sessions are deleted; the work they did stays, and every place that names them reads “Former member”.</li>
+  <li><strong>A workspace is deleted</strong> by its administrator, and its accounts are deleted with it. That is the end of it: to come back, somebody makes a new workspace and a new account.</li>
+</ul>
+<p><a href="/help/#closing">How to close a workspace</a>.</p>
+
+<h2>If something goes wrong</h2>
+<p>
+  Write to <a href="mailto:privacy@flowline.example">privacy@flowline.example</a>. We answer within two
+  working days. A security problem goes to
+  <a href="mailto:security@flowline.example">security@flowline.example</a> instead, and is answered
+  faster.
+</p>
+
+<h2>Changes</h2>
+<p>
+  When this notice changes, the <a href="/changelog/">changelog</a> says what changed and when. The
+  processors above are the ones this deployment actually uses: adding one to the product without
+  adding it here fails a test.
 </p>
