@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { PeoplePanel } from './PeoplePanel'
+import { useAuth } from '@/lib/auth'
 import { ArrowLeft, History } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
 import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
@@ -12,6 +14,9 @@ import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
  * the file belongs.
  */
 export function AdminView() {
+  // The People section exists only where there is somebody to administer: a session, and the
+  // instance administrator's role. Without a server the rest of this screen is exactly as it was.
+  const admin = useAuth((s) => s.user?.instanceRole === 'admin')
   const importWorkspace = useStore((s) => s.importWorkspace)
   const setView = useStore((s) => s.setView)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -55,6 +60,7 @@ export function AdminView() {
           <ArrowLeft size={13} /> Boards
         </button>
         <h1 className="mt-1 text-title font-semibold tracking-tight text-slate-900">Admin</h1>
+        {admin && <PeoplePanel />}
         <p className="mt-0.5 text-meta text-slate-600">
           This workspace lives in this browser. The copies below are what it keeps of itself, so a
           mistake is a moment rather than a loss.

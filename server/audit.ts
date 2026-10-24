@@ -23,6 +23,8 @@ export type AuditAction =
   | 'invite.revoke'
   | 'invite.accepted'
   | 'user.edit'
+  | 'user.role'
+  | 'user.delete'
   | 'identity.unlink'
   | 'user.deactivate'
   | 'user.activate'

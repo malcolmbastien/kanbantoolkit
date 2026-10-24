@@ -113,3 +113,74 @@ describe('deactivating and reactivating a person', () => {
     expect(await db.get("SELECT accepted_at FROM invites WHERE id = 'inv-2'")).toEqual({ accepted_at: null })
   })
 })
+
+describe('the directory', () => {
+  it('searches, filters and pages by name', async () => {
+    const { request, dev, adminCookie } = await world()
+    await dev('linus@example.com')
+
+    const list = async (query: string) =>
+      (await (await request(`/api/admin/users${query}`, { headers: { cookie: adminCookie } })).json()) as {
+        people: Array<{ name: string; role: string; status: string; email: string }>
+        cursor: string | null
+      }
+
+    expect((await list('')).people.map((person) => person.name)).toEqual(['Ada', 'Grace', 'Linus'])
+    expect((await list('?q=lin')).people.map((person) => person.name)).toEqual(['Linus'])
+    // Both of them arrived through an open door, which admits a viewer and never an administrator.
+    expect((await list('?role=viewer')).people.map((person) => person.name)).toEqual(['Grace', 'Linus'])
+    expect((await list('?role=editor')).people).toEqual([])
+
+    const first = await list('?limit=2')
+    expect(first.people).toHaveLength(2)
+    expect(first.cursor).toBeTruthy()
+
+    const second = await list(`?limit=2&after=${encodeURIComponent(first.cursor!)}`)
+    expect(second.people.map((person) => person.name)).toEqual(['Linus'])
+    expect(second.cursor).toBeNull()
+  })
+
+  it('changes a role, and records it', async () => {
+    const { db, request, adminCookie, id } = await world()
+    const grace = await id('grace@example.com')
+
+    const changed = await request(`/api/admin/users/${grace}/role`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({ role: 'editor' }),
+    })
+    expect(changed.status).toBe(200)
+
+    expect(
+      (await db.get<{ role: string }>("SELECT role FROM workspace_members WHERE user_id = ?1", [grace]))?.role,
+    ).toBe('editor')
+    expect(await db.get("SELECT 1 AS seen FROM audit_events WHERE action = 'user.role' AND target_id = ?1", [grace])).toEqual({ seen: 1 })
+  })
+
+  it('deletes an account, and leaves the work that names it', async () => {
+    const { db, request, adminCookie, id } = await world()
+    const grace = await id('grace@example.com')
+
+    expect((await request(`/api/admin/users/${grace}`, { method: 'DELETE', headers: { cookie: adminCookie } })).status).toBe(204)
+    expect(await db.get('SELECT 1 FROM users WHERE id = ?1', [grace])).toBeUndefined()
+    // The record of the deletion survives the row it is about.
+    expect(await db.get("SELECT 1 AS seen FROM audit_events WHERE action = 'user.delete' AND target_id = ?1", [grace])).toEqual({ seen: 1 })
+  })
+
+  it('refuses to delete the person doing it, and to demote the last administrator', async () => {
+    const { request, adminCookie, id } = await world()
+    const ada = await id('ada@example.com')
+
+    const self = await request(`/api/admin/users/${ada}`, { method: 'DELETE', headers: { cookie: adminCookie } })
+    expect(self.status).toBe(409)
+    expect(((await self.json()) as { error: string }).error).toContain('yourself')
+
+    const demote = await request(`/api/admin/users/${ada}/role`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({ role: 'viewer' }),
+    })
+    expect(demote.status).toBe(409)
+    expect(((await demote.json()) as { error: string }).error).toContain('last administrator')
+  })
+})

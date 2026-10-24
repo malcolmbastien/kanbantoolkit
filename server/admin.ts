@@ -252,5 +252,150 @@ export function adminRoutes(runtime: Runtime) {
     return c.body(null, 204)
   })
 
+  /**
+   * The directory.
+   *
+   * Paged by name, filtered and searched in the database rather than in the browser: a directory is
+   * the one list that grows without anyone deciding it should, and "download all of them" stops
+   * being acceptable at about the third team.
+   */
+  routes.get('/users', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const search = (c.req.query('q') ?? '').trim().toLowerCase().slice(0, 100)
+    const status = c.req.query('status') === 'inactive' ? 'inactive' : c.req.query('status') === 'active' ? 'active' : ''
+    const role = ['viewer', 'editor', 'admin'].includes(c.req.query('role') ?? '') ? c.req.query('role')! : ''
+    const sort = c.req.query('sort') === 'active' ? 'active' : 'name'
+    const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 50), 1), 200)
+    const after = c.req.query('after') ?? ''
+
+    const params: unknown[] = [WORKSPACE_ID]
+    const where: string[] = []
+
+    if (search) {
+      where.push(`(lower(u.name) LIKE ?${params.length + 1} OR lower(u.email) LIKE ?${params.length + 1})`)
+      params.push(`%${search}%`)
+    }
+    if (status) {
+      where.push(`u.status = ?${params.length + 1}`)
+      params.push(status)
+    }
+    if (role) {
+      where.push(`w.role = ?${params.length + 1}`)
+      params.push(role)
+    }
+    if (after && sort === 'name') {
+      // The cursor is the last row's name and id, compared as a pair, so a page boundary cannot
+      // repeat or skip a person who shares a name.
+      where.push(`(u.name, u.id) > (?${params.length + 1}, ?${params.length + 2})`)
+      params.push(after.slice(0, 120), after.slice(after.indexOf('|') + 1))
+    }
+
+    const rows = await caller.db.all<{
+      id: string
+      name: string
+      email: string
+      avatar_url: string | null
+      status: string
+      last_seen_at: string | null
+      created_at: string
+      instance_role: string | null
+      workspace_role: string | null
+    }>(
+      `SELECT u.id, u.name, u.email, u.avatar_url, u.status, u.last_seen_at, u.created_at,
+              i.role AS instance_role, w.role AS workspace_role
+       FROM users u
+       LEFT JOIN instance_members i ON i.user_id = u.id
+       LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = ?1
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY ${sort === 'active' ? 'u.last_seen_at DESC NULLS LAST, u.name' : 'u.name, u.id'}
+       LIMIT ?${params.length + 1}`,
+      [...params, limit + 1],
+    )
+
+    const page = rows.slice(0, limit)
+    const last = page[page.length - 1]
+    // How many active administrators exist, so the interface can explain a disabled control before
+    // the server refuses it. The server still refuses.
+    const admins = await caller.db.get<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM workspace_members w JOIN users u ON u.id = w.user_id
+       WHERE w.workspace_id = ?1 AND w.role = 'admin' AND u.status = 'active'`,
+      [WORKSPACE_ID],
+    )
+
+    return c.json({
+      admins: admins?.n ?? 0,
+      people: page.map((row) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        avatarUrl: row.avatar_url ?? undefined,
+        status: row.status,
+        lastSeenAt: row.last_seen_at ?? undefined,
+        joinedAt: row.created_at,
+        instanceRole: row.instance_role ?? 'member',
+        role: row.workspace_role ?? 'viewer',
+      })),
+      cursor: rows.length > limit && last ? `${last.name}|${last.id}` : null,
+    })
+  })
+
+  /** Change what somebody may do here. The last workspace administrator cannot be demoted. */
+  routes.patch('/users/:id/role', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const body = (await c.req.json().catch(() => null)) as { role?: unknown } | null
+    const role = body?.role
+    if (role !== 'viewer' && role !== 'editor' && role !== 'admin') {
+      return c.json({ error: 'role must be viewer, editor or admin' }, 400)
+    }
+
+    const refused = await refuse(c, caller, id, 'demote')
+    if (refused) return refused
+
+    await caller.db.batch([
+      {
+        sql: `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?1, ?2, ?3)
+              ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = excluded.role`,
+        params: [WORKSPACE_ID, id, role],
+      },
+      statement({
+        actorId: caller.user.id,
+        action: 'user.role',
+        targetType: 'user',
+        targetId: id,
+        data: { workspaceRole: role },
+      }),
+    ])
+
+    return c.json({ id, role })
+  })
+
+  /**
+   * Delete an account.
+   *
+   * It removes the way in and the record of who they were to the instance — not the work: a card
+   * keeps its assignee, because `people` is a different table and a person who has left is still
+   * the person who did the work.
+   */
+  routes.delete('/users/:id', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const refused = await refuse(c, caller, id, 'delete')
+    if (refused) return refused
+
+    await caller.db.batch([
+      { sql: 'DELETE FROM users WHERE id = ?1', params: [id] },
+      statement({ actorId: caller.user.id, action: 'user.delete', targetType: 'user', targetId: id }),
+    ])
+
+    return c.body(null, 204)
+  })
+
   return routes
 }

@@ -211,3 +211,27 @@ test('one person holds a card, and the other can see it is held, then free', asy
     await two.close()
   }
 })
+
+test('an administrator sees the people, and cannot close their own door', async ({ page }) => {
+  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await page.getByRole('button', { name: 'Sign in as this address' }).click()
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+
+  // Through the workspace, which is the only way in — and the way a person actually arrives. (A
+  // direct `?view=admin` is raced by the account's workspace being adopted on sign-in, which resets
+  // the view to the board.)
+  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.getByRole('button', { name: /^Admin/ }).click()
+  await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
+  await expect(page.getByRole('table')).toContainText('maya.blake@example.com')
+
+  // The drawer explains the guard before the server has to refuse it.
+  await page.getByRole('button', { name: 'Open' }).first().click()
+  await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toBeVisible()
+
+  // Escape closes it, like every other panel in the app.
+  await page.keyboard.press('Escape')
+  await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toHaveCount(0)
+})
