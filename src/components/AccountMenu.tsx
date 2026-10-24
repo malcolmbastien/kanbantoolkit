@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { LogOut, UserRound } from 'lucide-react'
+import { LogOut, Settings2, ShieldCheck, UserRound } from 'lucide-react'
 import { useStore } from '@/store'
+
+// A dialog nobody has opened yet is not part of the first download.
+const ProfileDialog = lazy(() => import('./ProfileDialog').then((module) => ({ default: module.ProfileDialog })))
 import { devSignIn, loadAuth, signOut, startSignIn, useAuth } from '@/lib/auth'
 import type { AuthUser } from '@/lib/auth'
 import { cn } from '@/lib/utils'
@@ -16,6 +19,7 @@ import { cn } from '@/lib/utils'
 export function AccountMenu() {
   const auth = useAuth()
   // A sign-in that did not finish lands on `?auth=denied`; the menu opens itself to say why.
+  const [profileOpen, setProfileOpen] = useState(false)
   const [open, setOpen] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied',
   )
@@ -84,6 +88,12 @@ export function AccountMenu() {
 
   return (
     <div ref={ref} className="relative">
+      {profileOpen && (
+        <Suspense fallback={null}>
+          <ProfileDialog onClose={() => setProfileOpen(false)} onSaved={() => void loadAuth()} />
+        </Suspense>
+      )}
+
       <button
         onClick={() => setOpen((value) => !value)}
         className={cn(
@@ -113,6 +123,30 @@ export function AccountMenu() {
                 <p className="truncate text-meta text-slate-500">{auth.user.email}</p>
                 <p className="mt-1 text-micro uppercase tracking-wide text-slate-400">{auth.user.role}</p>
               </div>
+              <button
+                onClick={() => {
+                  setOpen(false)
+                  setProfileOpen(true)
+                }}
+                className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              >
+                <Settings2 size={13} /> Profile
+              </button>
+
+              {/* Admin is the instance's own administration, so it is offered only to the people
+                  who have it. The server checks again; this is the courtesy, not the rule. */}
+              {auth.user.instanceRole === 'admin' && (
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    useStore.getState().setView('admin')
+                  }}
+                  className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                >
+                  <ShieldCheck size={13} /> Admin
+                </button>
+              )}
+
               <button
                 onClick={onSignOut}
                 disabled={busy}
