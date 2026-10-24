@@ -97,8 +97,22 @@ Four things, and each is a named seam rather than a scatter of `if (isCloudflare
 2. **The database binding** — `env.DB`, or a file path.
 3. **Static assets** — the asset router, or a static handler.
 4. **The live channel** — a Durable Object on Cloudflare, a WebSocket server on Node, polling
-   everywhere. Task 118.5 has to name the fallback, because a self-hosted instance has no Durable
-   Objects to lean on.
+   everywhere. Built as task 118.5, and built the way this document asked: the *transport* is the
+   entry's, the channel is one interface, and the fallback is the feed that was already there.
+
+   What travels is a nudge — `{"revision": n}` — and never a change. A client that hears one reads
+   `GET /api/workspace/changes?since=<cursor>`, which is the same request it would have made on a
+   timer; so a deployment with no socket, or a browser that cannot open one, is two seconds behind
+   rather than a different application. The entry decides, and says so in `/api/auth/session`:
+   `live: 'socket'` or `'poll'`. The client falls back on its own if a socket fails, so the hint is
+   a preference rather than a promise.
+
+   The bell is rung after the write that moved the feed, in `server/workspace/routes.ts`, through
+   `Runtime.live.publish` — the one line that knows a channel exists. On Cloudflare that reaches
+   `WorkspaceChannel`, one Durable Object per workspace, holding hibernatable sockets so an idle
+   channel costs nothing. On Node it reaches an in-process map of listeners, which is the whole
+   channel for one process. With `LIVE=0` the Node entry has no channel at all, and CI runs the
+   e2e suite against both that instance and the socketed one.
 
 Everything else — routes, SQL, rules, validation — is shared.
 
@@ -120,7 +134,8 @@ claim. Without that lane the second entry rots and the README becomes false.
 - **No fork.** Not a "cloud edition" and a "self-host edition". One repository, two entry files.
 - **No feature matrix.** A feature that only works on one deployment is a bug, unless it is named
   as a Cloudflare convenience — the live channel's Durable Object, for instance — with a fallback
-  that works everywhere.
+  that works everywhere. That fallback is not a degraded mode: it is the same feed, read on a
+  timer instead of when a bell rings.
 - **No required server.** The static tier depends on none of this.
 
 ## A note on the framework
@@ -141,3 +156,4 @@ shape ever chafes; because the contract is web standards, either swap is a weeke
 | 2026-10-21 | No ORM yet: plain SQLite behind the interface, with Drizzle as a later swap. |
 | 2026-10-21 | Hono for the API; the framework stays reversible. |
 | 2026-10-21 | The static tier stays complete; a server is never required to use the app. |
+| 2026-10-24 | The live channel is a nudge, not a payload: the feed stays the only way a change enters the store, so one shape and one cursor serve every transport. |

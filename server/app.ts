@@ -13,6 +13,7 @@
  */
 
 import { Hono } from 'hono'
+import type { Handler } from 'hono'
 import { adminRoutes } from './admin'
 import { auditRoutes } from './audit-routes'
 import { groupsRoutes } from './groups'
@@ -22,6 +23,7 @@ import { workspaceMembersRoutes } from './workspace-members'
 import { authRoutes } from './auth/routes'
 import { workspaceRoutes } from './workspace/routes'
 import { salt } from './config'
+import { LIVE_PATH } from './live'
 import type { Runtime } from './runtime'
 import { parseReport } from './report'
 
@@ -35,7 +37,22 @@ async function hash(value: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-export function createApp(runtime: Runtime) {
+/**
+ * What an entry adds of its own.
+ *
+ * The live channel is the one route whose *implementation* is the runtime's: a Durable Object on
+ * Cloudflare, a socket server on Node. It is mounted here, before the API's own 404, so the entry
+ * can hand over its handlers without a second app or a path it has to remember.
+ */
+export interface AppExtras {
+  /**
+   * One handler: the entry's guard and its upgrade, composed by the entry. It answers the path
+   * itself and never falls through, so the API's 404 stays for paths nobody claimed.
+   */
+  live?: Handler<{ Bindings: object }>
+}
+
+export function createApp(runtime: Runtime, extras: AppExtras = {}) {
   // `object` rather than a shape: the app never reads a binding itself. Whatever the runtime
   // passes arrives at `Runtime`, which is the only code that knows what a binding is.
   const app = new Hono<{ Bindings: object }>()
@@ -106,6 +123,10 @@ export function createApp(runtime: Runtime) {
   app.route('/api/me', meRoutes(runtime))
   app.route('/api/admin/workspace', workspaceMembersRoutes(runtime))
   app.route('/api/workspace', workspaceRoutes(runtime))
+
+  // The live channel, if this entry has a transport for it. Before the catch-all below, because a
+  // route registered after a `*` is a route that never runs.
+  if (extras.live) app.get(LIVE_PATH, extras.live)
 
   // The endpoint answers POST; anything else is a method it does not have, not a path it does not
   // know — and saying so is what the endpoint did before it moved here.

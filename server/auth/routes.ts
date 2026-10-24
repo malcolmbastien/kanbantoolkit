@@ -337,12 +337,21 @@ export function authRoutes(runtime: Runtime) {
    */
   auth.get('/session', async (c) => {
     const db = runtime.database(c.env)
-    if (!db) return c.json({ user: null, instanceRole: null, workspaces: [], access: 'closed', dev: false })
+    if (!db) {
+      return c.json({ user: null, instanceRole: null, workspaces: [], access: 'closed', dev: false, live: 'poll' })
+    }
 
     const token = getCookie(c, sessionCookie(c.env, c.req.raw).name)
     const user = token ? await userForToken(db, token) : undefined
     if (!user) {
-      return c.json({ user: null, instanceRole: null, workspaces: [], access: (await settings(db)).access, dev: devAuth(c.env) })
+      return c.json({
+        user: null,
+        instanceRole: null,
+        workspaces: [],
+        access: (await settings(db)).access,
+        dev: devAuth(c.env),
+        live: runtime.live ? 'socket' : 'poll',
+      })
     }
 
     // The effective role — direct or through an active group — because the interface enables or
@@ -363,6 +372,9 @@ export function authRoutes(runtime: Runtime) {
       workspaces,
       access: (await settings(db)).access,
       dev: devAuth(c.env),
+      // Which transport to open: the socket where the deployment has one, the poll where it does
+      // not. The client falls back to polling anyway, so this is a hint rather than a promise.
+      live: runtime.live ? 'socket' : 'poll',
     })
   })
 

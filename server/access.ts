@@ -18,7 +18,7 @@ import type { Context } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { can } from '../src/domain/roles'
 import type { Action, Role } from '../src/domain/roles'
-import { sessionCookie, userForToken, WORKSPACE_ID } from './auth/session'
+import { sessionCookie, sessionCookieName, userForToken, WORKSPACE_ID } from './auth/session'
 import type { AuthUser } from './auth/session'
 import type { Database } from './db'
 import { effectiveRole } from './groups'
@@ -82,6 +82,48 @@ export async function requireUser(c: Hono, runtime: Runtime): Promise<Caller | R
   }
 
   return { db, user, instanceRole: instance.role === 'admin' ? 'admin' : 'member' }
+}
+
+/**
+ * The same door, for a connection that is not a request.
+ *
+ * A WebSocket upgrade carries a cookie and a URL, not a `Context`: the session is read from the
+ * header and checked the way `requireWorkspace` checks it — the door, the workspace, and the action.
+ * Everything that decides is shared with the HTTP path; only the way the cookie is found differs.
+ */
+export async function workspaceCallerFromCookie(
+  db: Database,
+  env: unknown,
+  cookieHeader: string | undefined,
+  url: string,
+  action: Action,
+): Promise<WorkspaceCaller | undefined> {
+  const name = sessionCookieName(env, url)
+  const token = (cookieHeader ?? '')
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`))
+    ?.slice(name.length + 1)
+  if (!token) return undefined
+
+  const user = await userForToken(db, token)
+  if (!user) return undefined
+
+  const instance = await db.get<{ role: string }>('SELECT role FROM instance_members WHERE user_id = ?1', [user.id])
+  if (!instance) return undefined
+
+  const grant = await effectiveRole(db, user.id, WORKSPACE_ID)
+  const resolved: { role: Role; source: string } | undefined =
+    grant ?? (instance.role === 'admin' ? { role: 'admin', source: 'instance' } : undefined)
+  if (!resolved || !can(resolved.role, action)) return undefined
+
+  return {
+    db,
+    user,
+    instanceRole: instance.role === 'admin' ? 'admin' : 'member',
+    workspaceRole: resolved.role,
+    roleSource: resolved.source,
+  }
 }
 
 /** The instance's own administration: the people, the invitations, the access policy. */

@@ -14,4 +14,13 @@ export interface Runtime {
   database(env: unknown): Database | undefined
   /** The address that made the request, as the runtime sees it. */
   clientIp(request: Request): string
+  /**
+   * The live channel, when this deployment has one. A Worker answers with a Durable Object, the
+   * Node entry with its own WebSocket server, and a deployment with neither leaves this out — the
+   * client then polls the same feed, and nothing else in the application changes.
+   */
+  live?: {
+    /** Ring the bell: the workspace's feed has moved. Never says what moved. */
+    publish(env: unknown, workspaceId: string, revision: number): Promise<void> | void
+  }
 }

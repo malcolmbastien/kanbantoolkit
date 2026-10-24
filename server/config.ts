@@ -44,6 +44,15 @@ export function publicUrl(env: unknown, request: Request): string {
 }
 
 /**
+ * Whether this instance is served over https *as configured*, rather than as the request happened
+ * to arrive. Behind a proxy the request is http and the browser is not, and the cookie has to be
+ * issued for the browser.
+ */
+export function httpsConfigured(env: unknown): boolean {
+  return (value(env, 'PUBLIC_URL') ?? '').toLowerCase().startsWith('https:')
+}
+
+/**
  * The development identity switch. It is off unless it is asked for by name, so an instance that
  * is merely running locally is not an instance anyone can walk into.
  */

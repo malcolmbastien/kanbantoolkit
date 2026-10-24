@@ -9,6 +9,7 @@
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { requireWorkspace } from '../access'
+import { WORKSPACE_ID } from '../auth/session'
 import { readItem, readItemsByIds, readWorkspace } from './read'
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
 import { schemaVersion } from '../migrate'
@@ -197,6 +198,9 @@ export function workspaceRoutes(runtime: Runtime) {
 
     const stored = { ...item, rev: baseRev + 1 }
     await writeItem(allowed.db, stored, key)
+    // The change is announced only after it landed: a nudge for a write that failed would make a
+    // second device read the feed for nothing.
+    await runtime.live?.publish(c.env, WORKSPACE_ID, stored.rev ?? 0)
     return c.json({ item: stored })
   })
 

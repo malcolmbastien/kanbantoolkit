@@ -43,5 +43,17 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
+    {
+      /**
+       * The same entry with the socket switched off — an instance whose live channel is the poll.
+       * R5 of task 118.5 asks CI to exercise the fallback rather than only the push, and this is
+       * how: the same application, the same routes, one environment variable apart.
+       */
+      command:
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-poll.db && AUTH_DEV=1 LIVE=0 PORT=4175 DB_PATH=node_modules/.tmp/e2e-poll.db STATIC_DIR=dist npm run --silent server',
+      url: 'http://localhost:4175/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
   ],
 })

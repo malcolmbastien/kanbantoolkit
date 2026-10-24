@@ -17,7 +17,7 @@
  */
 
 import type { Database } from '../db'
-import { publicUrl } from '../config'
+import { httpsConfigured } from '../config'
 import { randomToken, sha256 } from './oauth'
 
 export const SESSION_COOKIE = 'fl_session'
@@ -68,10 +68,14 @@ export async function userById(db: Database, id: string): Promise<AuthUser | und
  * "Production" is `PUBLIC_URL` being https, not the request: behind a proxy the request arrives as
  * http while the browser is on https, and the cookie must still be issued Secure (R6).
  */
+export function sessionCookieName(env: unknown, url: string): string {
+  const https = httpsConfigured(env) || url.toLowerCase().startsWith('https:')
+  return https ? `__Host-${SESSION_COOKIE}` : SESSION_COOKIE
+}
+
 export function sessionCookie(env: unknown, request: Request): { name: string; secure: boolean } {
-  const https =
-    publicUrl(env, request).startsWith('https:') || new URL(request.url).protocol === 'https:'
-  return { name: https ? `__Host-${SESSION_COOKIE}` : SESSION_COOKIE, secure: https }
+  const name = sessionCookieName(env, request.url)
+  return { name, secure: name !== SESSION_COOKIE }
 }
 
 export interface IssuedSession {

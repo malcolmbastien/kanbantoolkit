@@ -18,6 +18,14 @@
     "not_found_handling": "single-page-application"
   },
 
+  // The live channel: one Durable Object per workspace, holding the sockets that say "the feed
+  // moved". Without this binding the clients poll the same feed and nothing else changes — which is
+  // what a self-hosted instance does with its own socket server.
+  "durable_objects": {
+    "bindings": [{ "name": "WORKSPACE_CHANNEL", "class_name": "WorkspaceChannel" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceChannel"] }],
+
   // Preview versions get their own URL, which is what a pull request deploys.
   "preview_urls": true,
   "previews": {},

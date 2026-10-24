@@ -18,12 +18,13 @@ const DIST = 'dist'
  * every screen needs.
  *
  * The number moves in deliberate steps, not by drift: 153.8 at the split, 155.0 when the account
- * control arrived (task 117), 158 for the account and sync controls, and 160 for the lease — the
+ * control arrived (task 117), 158 for the account and sync controls, 160 for the lease — the
  * presence store and the lease client are shared between the entry and the drawer, so they land in
- * the chunk both load. A raise belongs in this comment, with a reason, which is what makes it a
- * decision rather than a regression.
+ * the chunk both load — and 162 for the live channel's socket client (task 118.5), which the store
+ * starts on sign-in and so cannot be a screen of its own. A raise belongs in this comment, with a
+ * reason, which is what makes it a decision rather than a regression.
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 160)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 162)
 
 let manifest
 try {
