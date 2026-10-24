@@ -25,6 +25,8 @@ export function AccountMenu() {
   )
   const denied = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied'
   const [email, setEmail] = useState('')
+  // Twelve hours unless this is asked for: a shared machine should not stay open for a month.
+  const [remember, setRemember] = useState(false)
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -68,7 +70,7 @@ export function AccountMenu() {
     event.preventDefault()
     if (!email.includes('@')) return
     setBusy(true)
-    const user = await devSignIn(email)
+    const user = await devSignIn(email, undefined, remember)
     setBusy(false)
     if (!user) return
     signedIn(user)
@@ -163,11 +165,24 @@ export function AccountMenu() {
                 </p>
               )}
 
+              <label className="mb-1.5 flex items-start gap-1.5 px-1.5 text-micro text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(event) => setRemember(event.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Keep me signed in for 30 days
+                  <span className="block text-slate-500">Otherwise this browser signs out after 12 hours.</span>
+                </span>
+              </label>
+
               <p className="px-1.5 pb-1.5 text-micro uppercase tracking-wide text-slate-400">Sign in with</p>
               {auth.providers.map((provider) => (
                 <button
                   key={provider.id}
-                  onClick={() => startSignIn(provider.id)}
+                  onClick={() => startSignIn(provider.id, remember)}
                   className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 >
                   <span className="grid size-5 place-items-center rounded border border-slate-200 text-micro font-semibold text-slate-500">

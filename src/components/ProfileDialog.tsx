@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { mySessions, revokeSession, signOutEverywhere, type SessionInfo } from '@/lib/sessions'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
@@ -33,12 +34,18 @@ const TYPES = ['image/png', 'image/jpeg', 'image/webp']
 const FIELD =
   'w-full rounded-md border border-slate-200 px-2 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400'
 
+/** "3 Mar, 14:05" — enough to recognise a session, and no more precision than that. */
+const when = (value: string) =>
+  new Date(value).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
 export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved(): void }) {
   const dialogRef = useRef<HTMLDivElement>(null)
   // A modal like every other: the caret is in it until it closes, and then it goes back.
   useDialogFocus(dialogRef, onClose)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [identities, setIdentities] = useState<Identity[]>([])
+  const [sessions, setSessions] = useState<SessionInfo[]>([])
+  const [sessionBusy, setSessionBusy] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [timezone, setTimezone] = useState('')
   const [language, setLanguage] = useState('')
@@ -62,6 +69,7 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
 
         const list = await fetch('/api/me/identities', { headers: { accept: 'application/json' } })
         if (list.ok) setIdentities(((await list.json()) as { identities: Identity[] }).identities)
+        if (live) setSessions(await mySessions())
       } catch {
         if (live) setError('This instance has no profile service.')
       }
@@ -82,6 +90,34 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
       setAvatar(String(reader.result))
     }
     reader.readAsDataURL(file)
+  }
+
+  /**
+   * End one session. Ending *this* one is a sign-out, so the dialog closes rather than showing a
+   * list that includes a browser which is no longer allowed to read it.
+   */
+  async function endSession(session: SessionInfo) {
+    setSessionBusy(session.id)
+    setError(undefined)
+    const ended = await revokeSession(session.id)
+    setSessionBusy(null)
+    if (!ended) return setError('That session could not be ended.')
+    if (session.current) {
+      onSaved()
+      onClose()
+      return
+    }
+    setSessions(await mySessions())
+  }
+
+  async function endEverywhere() {
+    setSessionBusy('everywhere')
+    setError(undefined)
+    const ended = await signOutEverywhere()
+    setSessionBusy(null)
+    if (!ended) return setError('That could not be done.')
+    onSaved()
+    onClose()
   }
 
   async function save() {
@@ -210,6 +246,47 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
                   </li>
                 ))}
               </ul>
+            </div>
+
+            <div className="text-micro font-semibold uppercase tracking-wide text-slate-500">
+              Where you’re signed in
+              <ul className="mt-1 space-y-1">
+                {sessions.map((session) => (
+                  <li
+                    key={session.id}
+                    className="flex items-center justify-between gap-2 text-meta font-normal normal-case text-slate-700"
+                  >
+                    <span className="min-w-0">
+                      <span className="truncate">
+                        {session.device}
+                        {session.current && <span className="ml-1.5 text-micro text-indigo-700">this device</span>}
+                      </span>
+                      <span className="block text-micro text-slate-600">
+                        {session.lastSeenAt ? `last used ${when(session.lastSeenAt)}` : 'not used yet'} · ends{' '}
+                        {when(session.expiresAt)}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => void endSession(session)}
+                      disabled={sessionBusy !== null}
+                      title={session.current ? 'This signs this browser out' : 'Sign this device out'}
+                      className="shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-micro text-slate-600 hover:text-slate-900 disabled:opacity-40"
+                    >
+                      {sessionBusy === session.id ? 'ending…' : 'end'}
+                    </button>
+                  </li>
+                ))}
+                {sessions.length === 0 && <li className="text-meta font-normal normal-case text-slate-600">No sessions.</li>}
+              </ul>
+              {sessions.length > 0 && (
+                <button
+                  onClick={() => void endEverywhere()}
+                  disabled={sessionBusy !== null}
+                  className="mt-1.5 rounded-md border border-rose-300 px-2 py-0.5 text-micro font-medium normal-case text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+                >
+                  Sign out everywhere
+                </button>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-1">

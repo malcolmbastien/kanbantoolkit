@@ -87,13 +87,17 @@ function inviteToken(): string | undefined {
   return new URLSearchParams(window.location.search).get('invite') ?? undefined
 }
 
-/** Leaving for the provider, and coming back to the place that asked — carrying the link, if any. */
-export function startSignIn(provider: string): void {
+/**
+ * Leaving for the provider, and coming back to the place that asked — carrying the link, if any,
+ * and the choice of how long this browser should stay signed in.
+ */
+export function startSignIn(provider: string, remember = false): void {
   const next = window.location.pathname + window.location.search
   const invite = inviteToken()
   window.location.assign(
     `/api/auth/start?provider=${encodeURIComponent(provider)}&next=${encodeURIComponent(next)}` +
-      (invite ? `&invite=${encodeURIComponent(invite)}` : ''),
+      (invite ? `&invite=${encodeURIComponent(invite)}` : '') +
+      (remember ? '&remember=1' : ''),
   )
 }
 
@@ -107,12 +111,17 @@ export async function signOut(): Promise<void> {
 }
 
 /** The development identity switch, for the tests and for an instance with no provider yet. */
-export async function devSignIn(email: string, name?: string): Promise<AuthUser | null> {
+export async function devSignIn(email: string, name?: string, remember = false): Promise<AuthUser | null> {
   try {
     const response = await fetch('/api/auth/dev', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email, name, ...(inviteToken() ? { invite: inviteToken() } : {}) }),
+      body: JSON.stringify({
+        email,
+        name,
+        ...(inviteToken() ? { invite: inviteToken() } : {}),
+        ...(remember ? { remember: true } : {}),
+      }),
     })
     if (!response.ok) return null
     return ((await response.json()) as { user: AuthUser }).user

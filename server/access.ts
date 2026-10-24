@@ -18,7 +18,7 @@ import type { Context } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { can } from '../src/domain/roles'
 import type { Action, Role } from '../src/domain/roles'
-import { SESSION_COOKIE, userForToken, WORKSPACE_ID } from './auth/session'
+import { sessionCookie, userForToken, WORKSPACE_ID } from './auth/session'
 import type { AuthUser } from './auth/session'
 import type { Database } from './db'
 import { schemaVersion } from './migrate'
@@ -62,7 +62,7 @@ export async function requireUser(c: Hono, runtime: Runtime): Promise<Caller | R
   const db = runtime.database(c.env)
   if (!db) return fail(c, { error: 'not configured' }, 503)
 
-  const token = getCookie(c, SESSION_COOKIE)
+  const token = getCookie(c, sessionCookie(c.env, c.req.raw).name)
   if (!token) return fail(c, { error: 'sign in to use this workspace' }, 401)
 
   const user = await userForToken(db, token)

@@ -15,7 +15,7 @@ import type { Database } from '../db'
 import { devAuth, providers, publicUrl, salt } from '../config'
 import type { Runtime } from '../runtime'
 import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
-import { issueSession, revoke, SESSION_COOKIE, userById, userForToken, WORKSPACE_ID } from './session'
+import { issueSession, revoke, sessionCookie, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
 import { admitsDomain, settings } from '../instance'
 import { byToken, stateOf } from '../invites'
@@ -37,10 +37,6 @@ function humanise(local: string): string {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
-}
-
-function secure(request: Request): boolean {
-  return new URL(request.url).protocol === 'https:'
 }
 
 /**
@@ -210,21 +206,28 @@ export function authRoutes(runtime: Runtime) {
 
     const state = randomToken(16)
     const verifier = randomToken(32)
-    await db.run('INSERT INTO oauth_states (state, provider, verifier, next, invite) VALUES (?1, ?2, ?3, ?4, ?5)', [
-      state,
-      provider.id,
-      verifier,
-      nextPath(c.req.query('next')),
-      // A sign-in that carries an invitation is remembered with it, so the callback can accept it.
-      (c.req.query('invite') ?? '').slice(0, 200) || null,
-    ])
+    await db.run(
+      'INSERT INTO oauth_states (state, provider, verifier, next, invite, remember) VALUES (?1, ?2, ?3, ?4, ?5, ?6)',
+      [
+        state,
+        provider.id,
+        verifier,
+        nextPath(c.req.query('next')),
+        // A sign-in that carries an invitation is remembered with it, so the callback can accept it.
+        (c.req.query('invite') ?? '').slice(0, 200) || null,
+        // …and so is the choice of lifetime: the session is issued by the callback, after the
+        // browser has been away and back.
+        c.req.query('remember') === '1' ? 1 : 0,
+      ],
+    )
 
     setCookie(c, STATE_COOKIE, state, {
       httpOnly: true,
       sameSite: 'Lax',
       path: STATE_PATH,
       maxAge: STATE_MINUTES * 60,
-      secure: secure(c.req.raw),
+      // The same rule the session uses: https as configured, not as the request happened to arrive.
+      secure: sessionCookie(c.env, c.req.raw).secure,
     })
 
     return c.redirect(
@@ -254,10 +257,13 @@ export function authRoutes(runtime: Runtime) {
     // completing a sign-in for somebody else.
     if (!state || !cookie || state !== cookie) return c.json({ error: 'this sign-in did not start here' }, 400)
 
-    const pending = await db.get<{ provider: string; verifier: string; next: string; invite: string | null }>(
-      'SELECT provider, verifier, next, invite FROM oauth_states WHERE state = ?1',
-      [state],
-    )
+    const pending = await db.get<{
+      provider: string
+      verifier: string
+      next: string
+      invite: string | null
+      remember: number
+    }>('SELECT provider, verifier, next, invite, remember FROM oauth_states WHERE state = ?1', [state])
     // Single use, whether or not it is still valid.
     await db.run('DELETE FROM oauth_states WHERE state = ?1', [state])
     if (!pending) return c.json({ error: 'this sign-in has expired' }, 400)
@@ -287,15 +293,20 @@ export function authRoutes(runtime: Runtime) {
       const who = await profile(provider, accessToken)
       const user = await identify(db, provider.id, who, pending.invite ?? undefined)
       const ipHash = await addressHash(runtime, c.env, c.req.raw)
-      const session = await issueSession(db, user.id, { userAgent: c.req.header('user-agent'), ipHash })
+      const session = await issueSession(db, user.id, {
+        userAgent: c.req.header('user-agent'),
+        ipHash,
+        remember: pending.remember === 1,
+      })
       await record(db, { actorId: user.id, action: 'signin', targetType: 'provider', targetId: provider.id, ipHash })
 
-      setCookie(c, SESSION_COOKIE, session.token, {
+      const cookie = sessionCookie(c.env, c.req.raw)
+      setCookie(c, cookie.name, session.token, {
         httpOnly: true,
         sameSite: 'Lax',
         path: '/',
         maxAge: session.maxAge,
-        secure: secure(c.req.raw),
+        secure: cookie.secure,
       })
 
       return c.redirect(`${origin}${nextPath(pending.next)}`, 302)
@@ -327,7 +338,7 @@ export function authRoutes(runtime: Runtime) {
     const db = runtime.database(c.env)
     if (!db) return c.json({ user: null, instanceRole: null, workspaces: [], access: 'closed', dev: false })
 
-    const token = getCookie(c, SESSION_COOKIE)
+    const token = getCookie(c, sessionCookie(c.env, c.req.raw).name)
     const user = token ? await userForToken(db, token) : undefined
     if (!user) {
       return c.json({ user: null, instanceRole: null, workspaces: [], access: (await settings(db)).access, dev: devAuth(c.env) })
@@ -356,7 +367,8 @@ export function authRoutes(runtime: Runtime) {
 
   auth.post('/signout', async (c) => {
     const db = runtime.database(c.env)
-    const token = getCookie(c, SESSION_COOKIE)
+    const cookie = sessionCookie(c.env, c.req.raw)
+    const token = getCookie(c, cookie.name)
     if (db && token) {
       const leaving = await userForToken(db, token)
       await revoke(db, token)
@@ -364,7 +376,7 @@ export function authRoutes(runtime: Runtime) {
         await record(db, { actorId: leaving.id, action: 'signout', ipHash: await addressHash(runtime, c.env, c.req.raw) })
       }
     }
-    deleteCookie(c, SESSION_COOKIE, { path: '/' })
+    deleteCookie(c, cookie.name, { path: '/' })
     return c.body(null, 204)
   })
 
@@ -378,7 +390,12 @@ export function authRoutes(runtime: Runtime) {
     const db = runtime.database(c.env)
     if (!db) return c.json({ error: 'not configured' }, 503)
 
-    const body = (await c.req.json().catch(() => null)) as { email?: unknown; name?: unknown; invite?: unknown } | null
+    const body = (await c.req.json().catch(() => null)) as {
+      email?: unknown
+      name?: unknown
+      invite?: unknown
+      remember?: unknown
+    } | null
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     if (!email.includes('@')) return c.json({ error: 'an address is required' }, 400)
 
@@ -404,15 +421,21 @@ export function authRoutes(runtime: Runtime) {
       }
       throw error
     }
-    const session = await issueSession(db, user.id, { userAgent: c.req.header('user-agent'), ipHash })
+    const session = await issueSession(db, user.id, {
+      userAgent: c.req.header('user-agent'),
+      ipHash,
+      // The same question a provider's sign-in is asked, and answered the same way.
+      remember: body?.remember === true,
+    })
     await record(db, { actorId: user.id, action: 'signin', targetType: 'provider', targetId: 'dev', ipHash })
 
-    setCookie(c, SESSION_COOKIE, session.token, {
+    const cookie = sessionCookie(c.env, c.req.raw)
+    setCookie(c, cookie.name, session.token, {
       httpOnly: true,
       sameSite: 'Lax',
       path: '/',
       maxAge: session.maxAge,
-      secure: secure(c.req.raw),
+      secure: cookie.secure,
     })
     return c.json({ user })
   })

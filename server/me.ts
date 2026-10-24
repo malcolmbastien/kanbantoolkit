@@ -10,8 +10,25 @@
  */
 
 import { Hono } from 'hono'
+import { deleteCookie, getCookie } from 'hono/cookie'
 import { requireUser } from './access'
+import { statement } from './audit'
+import {
+  describeDevice,
+  pruneSessions,
+  revokeAllFor,
+  revokeSessionById,
+  sessionCookie,
+  sessionIdOf,
+  sessionsOf,
+} from './auth/session'
 import type { Runtime } from './runtime'
+
+/** An audit event as `run` takes it: the statement's SQL, then its parameters. */
+function auditStatement(event: Parameters<typeof statement>[0]): [string, unknown[]] {
+  const { sql, params } = statement(event)
+  return [sql, params ?? []]
+}
 
 /** A picture is a decoration, not a document. Anything larger is not a profile photo. */
 const MAX_AVATAR = 256 * 1024
@@ -142,6 +159,102 @@ export function meRoutes(runtime: Runtime) {
     ])
 
     return c.body(null, 204)
+  })
+
+  /** The cookie this browser presents, and the id that names the session behind it. */
+  const sessionOf = async (c: Parameters<typeof requireUser>[0]) => {
+    const name = sessionCookie(c.env, c.req.raw).name
+    const token = getCookie(c, name)
+    const id = await sessionIdOf(token)
+    if (!id) return { name, publicId: undefined as string | undefined }
+    const db = runtime.database(c.env)
+    const row = await db?.get<{ public_id: string | null }>('SELECT public_id FROM sessions WHERE id = ?1', [id])
+    return { name, publicId: row?.public_id ?? undefined }
+  }
+
+  /**
+   * Where this person is signed in.
+   *
+   * Each row is a session they can recognise and end: the device as a sentence rather than a
+   * user-agent string, when it was last used, when it expires on its own. This list is what makes
+   * "sign out everywhere" a decision rather than a guess.
+   *
+   * The id is the session's *public* name. The row id is the SHA-256 of the token — handing that
+   * back would be handing back the fingerprint of a credential.
+   */
+  routes.get('/sessions', async (c) => {
+    const caller = await requireUser(c, runtime)
+    if (caller instanceof Response) return caller
+
+    // Lazily, on the listing: rows nobody can use any more explain nothing after the audit window.
+    await pruneSessions(caller.db)
+
+    const { publicId } = await sessionOf(c)
+    const rows = await sessionsOf(caller.db, caller.user.id)
+    return c.json({
+      sessions: rows.map((row) => ({
+        id: row.id,
+        device: describeDevice(row.userAgent),
+        createdAt: row.createdAt,
+        lastSeenAt: row.lastSeenAt,
+        expiresAt: row.expiresAt,
+        current: publicId !== undefined && row.id === publicId,
+      })),
+    })
+  })
+
+  /**
+   * End one session.
+   *
+   * Ending the one you are using is allowed, and is a sign-out: the cookie goes with it, so the
+   * browser does not keep presenting a credential the server has stopped honouring.
+   */
+  routes.delete('/sessions/:id', async (c) => {
+    const caller = await requireUser(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const { name, publicId } = await sessionOf(c)
+    const ended = await revokeSessionById(caller.db, caller.user.id, id)
+    // A session id belonging to somebody else finds nothing. 404 rather than 403: naming the
+    // difference would confirm that the id exists.
+    if (ended === 0) return c.json({ error: 'no such session' }, 404)
+
+    if (id === publicId) deleteCookie(c, name, { path: '/' })
+
+    await caller.db.run(
+      ...auditStatement({
+        actorId: caller.user.id,
+        action: 'session.revoke',
+        targetType: 'user',
+        targetId: caller.user.id,
+        data: { sessions: 1 },
+      }),
+    )
+
+    return c.json({ revoked: ended })
+  })
+
+  /** Sign out of everywhere, including here: every live session ends, and the trail records it. */
+  routes.post('/signout-everywhere', async (c) => {
+    const caller = await requireUser(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const { name } = await sessionOf(c)
+    const ended = await revokeAllFor(caller.db, caller.user.id)
+    deleteCookie(c, name, { path: '/' })
+
+    await caller.db.run(
+      ...auditStatement({
+        actorId: caller.user.id,
+        action: 'session.revoke',
+        targetType: 'user',
+        targetId: caller.user.id,
+        data: { sessions: ended, everywhere: true },
+      }),
+    )
+
+    return c.json({ revoked: ended })
   })
 
   routes.get('/identities', async (c) => {
