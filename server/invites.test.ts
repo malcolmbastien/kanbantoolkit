@@ -175,3 +175,27 @@ describe('an invitation is a link', () => {
     )
   })
 })
+
+describe('the list of invitations', () => {
+  it('says who invited whom, and who it became', async () => {
+    const { request, dev, adminCookie, invite } = await world()
+    const { token } = await invite('grace@example.com', 'viewer')
+
+    const pending = (await (await request('/api/admin/invites', { headers: { cookie: adminCookie } })).json()) as {
+      invites: Array<{ email: string; state: string; invitedByName?: string; acceptedName?: string }>
+    }
+    expect(pending.invites[0]).toMatchObject({
+      email: 'grace@example.com',
+      state: 'valid',
+      invitedByName: 'Ada',
+    })
+
+    await dev('grace@example.com', token)
+
+    const accepted = (await (await request('/api/admin/invites', { headers: { cookie: adminCookie } })).json()) as {
+      invites: Array<{ state: string; acceptedName?: string }>
+    }
+    // The row does not disappear: the record of who invited whom is half the reason to keep it.
+    expect(accepted.invites[0]).toMatchObject({ state: 'used', acceptedName: 'Grace' })
+  })
+})

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PeoplePanel } from './PeoplePanel'
+import { InvitationsPanel } from './InvitationsPanel'
 import { useAuth } from '@/lib/auth'
 import { ArrowLeft, History } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
@@ -61,6 +62,7 @@ export function AdminView() {
         </button>
         <h1 className="mt-1 text-title font-semibold tracking-tight text-slate-900">Admin</h1>
         {admin && <PeoplePanel />}
+        {admin && <InvitationsPanel />}
         <p className="mt-0.5 text-meta text-slate-600">
           This workspace lives in this browser. The copies below are what it keeps of itself, so a
           mistake is a moment rather than a loss.

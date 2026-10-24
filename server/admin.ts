@@ -12,7 +12,7 @@ import { statement } from './audit'
 import type { Role } from '../src/domain/roles'
 import { accessMode, setAccess } from './instance'
 import { publicUrl } from './config'
-import { createInvite, liveFor, pending, resendInvite, revokeInvite, stateOf } from './invites'
+import { createInvite, liveFor, resendInvite, revokeInvite, stateOf } from './invites'
 import type { Invite } from './invites'
 import { mayAdminister } from '../src/domain/roster'
 import type { Roster, RosterOperation } from '../src/domain/roster'
@@ -181,7 +181,25 @@ export function adminRoutes(runtime: Runtime) {
   routes.get('/invites', async (c) => {
     const caller = await requireInstanceAdmin(c, runtime)
     if (caller instanceof Response) return caller
-    return c.json({ invites: (await pending(caller.db)).map(view) })
+
+    // The inviter's name and, once it is spent, the name of the account it became: the record of who
+    // invited whom is half the reason to keep an accepted row.
+    const rows = await caller.db.all<Invite & { invited_by_name: string | null; accepted_name: string | null }>(
+      `SELECT i.id, i.email, i.role, i.invited_by, i.created_at, i.expires_at, i.accepted_at, i.revoked_at,
+              u.name AS invited_by_name, a.name AS accepted_name
+       FROM invites i
+       LEFT JOIN users u ON u.id = i.invited_by
+       LEFT JOIN users a ON lower(a.email) = i.email
+       ORDER BY i.created_at DESC LIMIT 200`,
+    )
+
+    return c.json({
+      invites: rows.map((row) => ({
+        ...view(row),
+        invitedByName: row.invited_by_name ?? undefined,
+        acceptedName: row.accepted_name ?? undefined,
+      })),
+    })
   })
 
   /**

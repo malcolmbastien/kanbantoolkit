@@ -235,3 +235,33 @@ test('an administrator sees the people, and cannot close their own door', async 
   await page.keyboard.press('Escape')
   await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toHaveCount(0)
 })
+
+test('an administrator makes an invitation link, and takes it back', async ({ page }) => {
+  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await page.getByRole('button', { name: 'Sign in as this address' }).click()
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+
+  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.getByRole('button', { name: /^Admin/ }).click()
+  await expect(page.getByRole('heading', { name: 'Invitations' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Invite' }).click()
+  await page.getByPlaceholder('grace@example.com').fill('newcomer@example.com')
+  await page.getByRole('button', { name: 'Make the link' }).click()
+
+  // Shown once, with the link selectable.
+  await expect(page.getByText('This link is shown once.')).toBeVisible()
+  const link = page.getByLabel('Invitation link')
+  await expect(link).toHaveValue(/invite=/)
+
+  await page.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByRole('cell', { name: 'newcomer@example.com' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'pending' })).toBeVisible()
+
+  // Revoking is immediate and says so.
+  await page.getByRole('button', { name: 'Revoke' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Revoke' }).click()
+  await expect(page.getByRole('cell', { name: 'revoked' })).toBeVisible()
+})
