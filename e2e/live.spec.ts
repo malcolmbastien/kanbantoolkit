@@ -11,17 +11,28 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 const SOCKET = 'http://localhost:4174'
 const POLL = 'http://localhost:4175'
 
+/**
+ * Two browser contexts, four servers and a build on a two-core runner: every wait is bounded, so a
+ * control that never arrives fails with a sentence instead of hanging until the test gives up.
+ */
+test.setTimeout(90_000)
+
 async function signIn(page: Page, origin: string) {
   await page.goto(`${origin}/?board=b-atlas`)
   // A page in a context that is already signed in says who it is, and asking it to sign in again
   // would wait for a button that is not there.
   const account = page.getByRole('button', { name: /Maya Blake/ })
-  if (await account.isVisible().catch(() => false)) return
+  const signInButton = page.getByRole('button', { name: 'Sign in', exact: true })
 
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  // One of the two is on screen within a moment on a machine that is not busy; on one that is,
+  // waiting is the whole difference between a slow page and a hung test.
+  await expect(account.or(signInButton)).toBeVisible({ timeout: 20_000 })
+  if (await account.isVisible()) return
+
+  await signInButton.click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
-  await expect(account).toBeVisible()
+  await expect(account).toBeVisible({ timeout: 20_000 })
 }
 
 /**
@@ -39,7 +50,10 @@ async function editedElsewhereArrives(one: BrowserContext, two: BrowserContext, 
   const away = await one.newPage()
   await signIn(away, origin)
 
+  // A fresh instance offers to take this browser's workspace; one that already has it does not.
+  // The offer is given a moment to arrive rather than read the instant the account button appears.
   const offer = away.getByRole('button', { name: 'Copy to account' })
+  await away.getByRole('button', { name: /Maya Blake/ }).waitFor()
   if (await offer.isVisible().catch(() => false)) {
     await offer.click()
     await away.getByRole('button', { name: 'Copy workspace' }).click()
@@ -53,7 +67,7 @@ async function editedElsewhereArrives(one: BrowserContext, two: BrowserContext, 
 
   const here = await two.newPage()
   await signIn(here, origin)
-  await expect(here.locator('[data-workflow="cards"] [data-card-id]').first()).toBeVisible()
+  await expect(here.locator('[data-workflow="cards"] [data-card-id]').first()).toBeVisible({ timeout: 20_000 })
 
   const workspace = (await (await away.request.get(`${origin}/api/workspace`)).json()) as {
     items: Array<{ id: string; title: string; rev?: number }>
