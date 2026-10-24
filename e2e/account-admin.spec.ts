@@ -77,3 +77,25 @@ test('deleting the workspace asks for its name, and leaves the person with nothi
   // And it took only that workspace: the account itself, its people and the instance remain.
   expect((await page.request.get(`${ORIGIN}/api/auth/providers`)).ok()).toBeTruthy()
 })
+
+test('a person with no workspace creates one, and owns it', async ({ page }) => {
+  // The previous test deleted the workspace, so this account has none — but each test gets its own
+  // browser context, so the sign-in happens again here.
+  await signIn(page)
+  await expect(page.getByText('No workspace')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Create a workspace' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Create a workspace' })
+  // The owner is the account itself, shown and not typed.
+  await expect(dialog.getByText('owner@example.com')).toBeVisible()
+  await dialog.getByLabel('Workspace name').fill('Northwind')
+  await dialog.getByRole('button', { name: 'Create workspace' }).click()
+
+  // The board opens on the new one, and the account is its administrator and its owner.
+  await expect.poll(async () => (await page.request.get(`${ORIGIN}/api/workspace`)).status()).toBe(200)
+  await expect(page.getByText('No workspace')).toHaveCount(0)
+  const session = await (await page.request.get(`${ORIGIN}/api/auth/session`)).json()
+  expect(session.workspaces[0].role).toBe('admin')
+  const account = await (await page.request.get(`${ORIGIN}/api/workspace/account`)).json()
+  expect(account).toMatchObject({ name: 'Northwind', ownerName: 'Owner' })
+})

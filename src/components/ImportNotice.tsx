@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Upload } from 'lucide-react'
+import { AlertTriangle, Plus, Upload } from 'lucide-react'
+import { CreateWorkspaceDialog } from './CreateWorkspaceDialog'
 import { useAuth } from '@/lib/auth'
 import { copyToAccount, declineImport, useWorkspaceSync } from '@/lib/workspaceSync'
 import { persistedSlice, useStore } from '@/store'
@@ -18,6 +19,7 @@ export function ImportNotice() {
   const error = useWorkspaceSync((state) => state.error)
 
   const [open, setOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -30,14 +32,23 @@ export function ImportNotice() {
   }, [open])
 
   // A closed workspace is said even when there is no offer to make: the person is looking at this
-  // browser's copy and needs to know the account's is not there.
+  // browser's copy and needs to know the account's is not there — and needs a way to make another.
   if (user && !offer && error) {
     return (
-      <span
-        title={error}
-        className="flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-1 text-meta font-medium text-slate-700"
-      >
-        <AlertTriangle size={13} /> No workspace
+      <span className="flex items-center gap-1.5">
+        <span
+          title={error}
+          className="flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-1 text-meta font-medium text-slate-700"
+        >
+          <AlertTriangle size={13} /> No workspace
+        </span>
+        <button
+          onClick={() => setCreating(true)}
+          className="flex items-center gap-1 rounded-md bg-slate-900 px-2 py-1 text-meta font-medium text-white hover:bg-slate-800"
+        >
+          <Plus size={13} /> Create a workspace
+        </button>
+        {creating && <CreateWorkspaceDialog onClose={() => setCreating(false)} />}
       </span>
     )
   }

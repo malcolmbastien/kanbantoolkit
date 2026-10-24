@@ -17,6 +17,7 @@ import type { Handler } from 'hono'
 import { adminRoutes } from './admin'
 import { auditRoutes } from './audit-routes'
 import { groupsRoutes } from './groups'
+import { workspaceCreateRoutes } from './workspaces-create'
 import { inviteLinkRoutes } from './invite-links'
 import { meRoutes } from './me'
 import { workspaceMembersRoutes } from './workspace-members'
@@ -123,6 +124,8 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
   app.route('/api/me', meRoutes(runtime))
   app.route('/api/admin/workspace', workspaceMembersRoutes(runtime))
   app.route('/api/workspace', workspaceRoutes(runtime))
+  // Creating a workspace, which is a new tenant rather than a write inside one.
+  app.route('/api/workspaces', workspaceCreateRoutes(runtime))
 
   // The live channel, if this entry has a transport for it. Before the catch-all below, because a
   // route registered after a `*` is a route that never runs.
