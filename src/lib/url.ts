@@ -4,10 +4,10 @@
  * A place is a board, a view of it, and the card or initiative open over it — three facts, one
  * canonical query:
  *
- *     /?board=b-atlas                          the board's own flow
- *     /?board=b-atlas&view=timeline            a view of that board
- *     /?board=b-atlas&item=init-signup         a card or initiative open on it
- *     /?board=b-atlas&view=dashboard&item=…    both at once
+ *     /app?board=b-atlas                          the board's own flow
+ *     /app?board=b-atlas&view=timeline            a view of that board
+ *     /app?board=b-atlas&item=init-signup         a card or initiative open on it
+ *     /app?board=b-atlas&view=dashboard&item=…    both at once
  *
  * Canonical, not merely faithful: the query is rebuilt from the state every time and anything the
  * app does not recognise is dropped, so one place has exactly one URL and two people looking at
@@ -66,7 +66,7 @@ export function viewOf(flags: ViewFlags): ViewName {
 export function urlQuery(place: Place): string {
   const params = new URLSearchParams()
   if (place.boardId) params.set('board', place.boardId)
-  // The board's own flow is the absence of a view, not a view named `board`: `/?board=x` is the
+  // The board's own flow is the absence of a view, not a view named `board`: `/app?board=x` is the
   // shortest true thing to say, and it is what a person writes by hand.
   if (place.view !== 'board') params.set('view', place.view)
   if (place.itemId) params.set('item', place.itemId)

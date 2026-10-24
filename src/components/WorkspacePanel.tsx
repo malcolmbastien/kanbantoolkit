@@ -165,7 +165,7 @@ export function WorkspacePanel() {
         return
       }
       const body = (await response.json()) as { token: string }
-      setIssued(`${window.location.origin}/?invite=${encodeURIComponent(body.token)}`)
+      setIssued(`${window.location.origin}/app?invite=${encodeURIComponent(body.token)}`)
       setCopied(false)
       setEmail('')
     } catch {

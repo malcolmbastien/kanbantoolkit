@@ -15,7 +15,7 @@ test.describe.configure({ mode: 'serial' })
 const SELF_HOSTED = 'http://localhost:4174'
 
 test('a person signs in, stays signed in across a reload, and signs out', async ({ page }) => {
-  await page.goto(SELF_HOSTED)
+  await page.goto(`${SELF_HOSTED}/app`)
 
   const signIn = page.getByRole('button', { name: 'Sign in' })
   await expect(signIn).toBeVisible()
@@ -39,7 +39,7 @@ test('a person signs in, stays signed in across a reload, and signs out', async 
 
 test('an edit made while signed in reaches the server', async ({ page }) => {
   // The team board, because that is the one whose cards are cards.
-  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
 
   await page.getByRole('button', { name: 'Sign in' }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
@@ -61,7 +61,7 @@ test('an edit made while signed in reaches the server', async ({ page }) => {
 })
 
 test('an edit made offline waits, and lands when the connection comes back', async ({ page, context }) => {
-  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
 
   await page.getByRole('button', { name: 'Sign in' }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
@@ -105,7 +105,7 @@ test('a change made on one device arrives on another without a reload', async ({
     const here = await two.newPage()
 
     for (const page of [away, here]) {
-      await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+      await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
       await page.getByRole('button', { name: 'Sign in' }).click()
       await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
       await page.getByRole('button', { name: 'Sign in as this address' }).click()
@@ -129,7 +129,7 @@ test('a change made on one device arrives on another without a reload', async ({
 })
 
 test('a local workspace can be copied to the account on first sign-in', async ({ page }) => {
-  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
 
   await page.getByRole('button', { name: 'Sign in' }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
@@ -172,7 +172,7 @@ test('one person holds a card, and the other can see it is held, then free', asy
     // than locked out.
     for (const page of [holder, reader]) {
       const who = 'maya.blake@example.com'
-      await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+      await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
       await page.getByRole('button', { name: 'Sign in' }).click()
       await page.getByPlaceholder('you@example.com').fill(who)
       await page.getByRole('button', { name: 'Sign in as this address' }).click()
@@ -214,7 +214,7 @@ test('one person holds a card, and the other can see it is held, then free', asy
 })
 
 test('an administrator sees the people, and cannot close their own door', async ({ page }) => {
-  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
@@ -223,7 +223,7 @@ test('an administrator sees the people, and cannot close their own door', async 
   // Through the workspace, which is the only way in — and the way a person actually arrives. (A
   // direct `?view=admin` is raced by the account's workspace being adopted on sign-in, which resets
   // the view to the board.)
-  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
   // The trail and the health of the instance, on the same screen.
@@ -246,13 +246,13 @@ test('an administrator sees the people, and cannot close their own door', async 
 })
 
 test('an administrator makes an invitation link, and takes it back', async ({ page }) => {
-  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
 
-  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'Invitations' })).toBeVisible()
 
@@ -276,13 +276,13 @@ test('an administrator makes an invitation link, and takes it back', async ({ pa
 })
 
 test('a listed domain is a door, the selection is judged whole, and the directory leaves as a file', async ({ page, browser }) => {
-  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
 
-  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'Access' })).toBeVisible()
 
@@ -303,7 +303,7 @@ test('a listed domain is a door, the selection is judged whole, and the director
   const other = await browser.newContext()
   try {
     const stranger = await other.newPage()
-    await stranger.goto(SELF_HOSTED)
+    await stranger.goto(`${SELF_HOSTED}/app`)
     await stranger.getByRole('button', { name: 'Sign in', exact: true }).click()
     await stranger.getByPlaceholder('you@example.com').fill('robin@trials.example')
     await stranger.getByRole('button', { name: 'Sign in as this address' }).click()
@@ -323,7 +323,7 @@ test('a listed domain is a door, the selection is judged whole, and the director
   }
 
   // And the selection, which the server judges whole: the person just admitted can be closed out.
-  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   const list = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
   await expect(list.getByRole('cell', { name: /robin@trials\.example/ })).toBeVisible()

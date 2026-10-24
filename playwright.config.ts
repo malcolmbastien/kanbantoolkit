@@ -26,7 +26,10 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 1200 } } }],
   webServer: [
     {
-      command: 'npm run build && npx vite preview --port 4173 --strictPort',
+      // The build, served by a forty-line host that implements the deployment's routing contract:
+      // `/app` is the app, an unknown path is the 404 page with a 404. (Vite's preview answers every
+      // unknown path with a single page, which is exactly what task 151 removed.)
+      command: 'npm run build && PORT=4173 node scripts/serve-dist.mjs',
       url: 'http://localhost:4173',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{title}}</title>
+    <meta name="description" content="{{description}}" />
+    <link rel="canonical" href="{{canonical}}" />
+    <meta name="theme-color" content="#faf9f7" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/site.css" />
+
+    <!-- What a shared link says. No board and no workspace: a preview that named one would be the
+         leak every other decision here is written to avoid. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Flowline" />
+    <meta property="og:title" content="{{title}}" />
+    <meta property="og:description" content="{{description}}" />
+    <meta property="og:url" content="{{canonical}}" />
+    <meta property="og:image" content="{{origin}}/social.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{title}}" />
+    <meta name="twitter:description" content="{{description}}" />
+    <meta name="twitter:image" content="{{origin}}/social.svg" />
+    {{head}}
+  </head>
+  <body>
+    <!-- The first thing a keyboard reaches, and the only thing before the navigation. -->
+    <a class="skip" href="#main">Skip to the content</a>
+
+    <header class="site-header">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        Flowline
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#product">Product</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/help/">Help</a>
+        <a href="/self-host/">Self-host</a>
+        <a href="/changelog/">Changelog</a>
+        <a href="/status/">Status</a>
+      </nav>
+      <p class="site-actions">
+        <a class="quiet" href="/app">Sign in</a>
+        <a class="button" href="/signup/">Start free</a>
+      </p>
+    </header>
+
+    <main id="main" tabindex="-1">
+      {{content}}
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-group">
+        <h2>Product</h2>
+        <a href="/#product">What it does</a>
+        <a href="/pricing/">Pricing</a>
+        <a href="/changelog/">Changelog</a>
+        <a href="/status/">Status</a>
+      </div>
+      <div class="footer-group">
+        <h2>Using it</h2>
+        <a href="/help/">Help</a>
+        <a href="/self-host/">Self-host</a>
+        <a href="/app">Sign in</a>
+        <a href="/signup/">Start free</a>
+      </div>
+      <div class="footer-group">
+        <h2>Trust</h2>
+        <a href="/privacy/">Privacy notice</a>
+        <a href="/terms/">Terms</a>
+        <a href="/security/">Security</a>
+        <a href="/sub-processors/">Sub-processors</a>
+      </div>
+      <div class="footer-group">
+        <h2>About</h2>
+        <a href="/changelog/">Changelog</a>
+        <a href="/status/">Status</a>
+        <a href="mailto:support@flowline.example">support@flowline.example</a>
+      </div>
+      <p class="footer-note">Flowline — work is a graph, boards are views over it. © 2026.</p>
+    </footer>
+  </body>
+</html>

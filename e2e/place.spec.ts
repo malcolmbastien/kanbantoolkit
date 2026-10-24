@@ -30,10 +30,12 @@ test('an open card is the title, and closing it returns the board’s', async ({
 })
 
 test('a crawler that runs no JavaScript still reads a useful page, and nothing of the workspace', async ({ request }) => {
+  // The front page is the *site* (task 151): the app is under `/app`, and this is what a stranger —
+  // or a crawler — is handed. The app's own document is at `/app`, and answers the same way.
   const response = await request.get('/')
   const html = await response.text()
 
-  expect(html).toContain('<title>Flowline</title>')
+  expect(html).toContain('<title>Flowline')
   expect(html).toMatch(/property="og:title"/)
   expect(html).toMatch(/property="og:description"/)
   expect(html).toMatch(/name="twitter:card"/)

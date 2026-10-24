@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
 /** Where every flow starts: the demo's first board, which the app seeds itself on a fresh origin. */
-export const ATLAS = '/?board=b-atlas'
+export const ATLAS = '/app?board=b-atlas'
 
 /** Open a board and wait for it to draw. A fresh context means an empty origin, so the demo seeds. */
 export async function openBoard(page: Page, url = ATLAS): Promise<void> {

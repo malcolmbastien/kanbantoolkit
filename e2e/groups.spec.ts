@@ -15,7 +15,7 @@ const PERSON = 'groupie@example.com'
 test.describe.configure({ mode: 'serial' })
 
 async function signIn(page: Page, who: string) {
-  await page.goto(SELF_HOSTED)
+  await page.goto(`${SELF_HOSTED}/app`)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByPlaceholder('you@example.com').fill(who)
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
@@ -35,7 +35,7 @@ test('a group carries a role, grants it to its people, and can be turned off', a
     await expect(person.getByRole('button', { name: /Groupie/ })).toBeVisible()
 
     // The screen, through the workspace, as a person arrives at it.
-    await page.goto(`${SELF_HOSTED}/?view=boards`)
+    await page.goto(`${SELF_HOSTED}/app?view=boards`)
     await page.getByRole('button', { name: /^Admin/ }).click()
     await expect(page.getByRole('heading', { name: 'Groups' })).toBeVisible()
 

@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/build-site.ts",
     "size": "node scripts/bundle-size.mjs",
     "smoke:node": "node scripts/smoke-node.mjs",
-    "preview": "vite preview",
+    "preview": "node scripts/serve-dist.mjs",
     "server": "tsx server/index.node.ts",
     "backup": "tsx server/backup.ts",
     "deploy": "npm run build && wrangler deploy",
@@ -19,7 +19,8 @@
     "taskmaster:proxy": "node scripts/opencode-go-proxy.mjs",
     "scan": "bash scripts/scan-deps.sh",
     "portable": "bash scripts/check-portable.sh",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "site:check": "node scripts/check-site.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

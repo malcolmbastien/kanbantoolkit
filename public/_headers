@@ -1,25 +1,29 @@
-# Headers for the static app. Cloudflare applies the matching block to the asset it serves.
+# Headers for what this deployment serves: the site's pages at the root, the app under /app.
 #
-# The policy is tight because the app is self-contained: no third-party scripts, no remote fonts,
-# no measurement. A view added later that calls a host must add it to connect-src; a measurement
-# script must add its origin to script-src and connect-src.
+# The policy is tight because both are self-contained: no third-party scripts, no remote fonts, no
+# measurement. A view added later that calls a host must add it to connect-src; a measurement script
+# must add its origin to script-src and connect-src.
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Cross-Origin-Opener-Policy: same-origin
-  # The beta is not open and lives on a public workers.dev host. Keep it out of indexes until the
-  # product opens: remove this line with the Access gate, not before.
+
+# The app is scoped out of the index and the site is not (task 151): a public page exists to be
+# found, and a board inside somebody's workspace exists to be private. The `noindex` lives here
+# rather than on `/*`, because a site that tells crawlers to ignore it is a site nobody finds.
+/app/*
   X-Robots-Tag: noindex
+  # A place is a query string, so every page of the app is one document: revalidate it.
+  Cache-Control: public, max-age=0, must-revalidate
 
 # Vite's filenames carry a content hash, so an asset at a given URL never changes.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Every place is the same document, so it is revalidated or a deploy stays invisible.
-/
-  Cache-Control: public, max-age=0, must-revalidate
+/site.css
+  Cache-Control: public, max-age=86400
 
-/favicon.svg
+/*.svg
   Cache-Control: public, max-age=86400

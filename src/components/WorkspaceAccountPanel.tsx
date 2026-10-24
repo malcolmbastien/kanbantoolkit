@@ -123,7 +123,7 @@ export function WorkspaceAccountPanel() {
       // The workspace this person was in is gone, and with it their membership: the app returns to
       // the board, which now has to say so rather than pretend.
       await loadAuth()
-      window.location.assign('/?workspace=deleted')
+      window.location.assign('/app?workspace=deleted')
     } catch {
       setMessage({ tone: 'bad', text: 'The server could not be reached.' })
     } finally {

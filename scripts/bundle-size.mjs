@@ -34,9 +34,9 @@ try {
   process.exit(1)
 }
 
-const entry = manifest['index.html']
+const entry = manifest['app/index.html']
 if (!entry) {
-  console.error('The manifest has no "index.html" entry — the build did not produce one.')
+  console.error('The manifest has no "app/index.html" entry — the build did not produce the app.')
   process.exit(1)
 }
 
@@ -48,7 +48,7 @@ const walk = (key) => {
   files.add(chunk.file)
   for (const imported of chunk.imports ?? []) walk(imported)
 }
-walk('index.html')
+walk('app/index.html')
 
 const gz = (file) => gzipSync(readFileSync(join(DIST, file))).length
 const total = [...files].reduce((sum, file) => sum + gz(file), 0)

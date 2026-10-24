@@ -1,0 +1,2 @@
+# A place in the app is a query string, so every path under /app is the same document.
+/app/*  /app/index.html  200

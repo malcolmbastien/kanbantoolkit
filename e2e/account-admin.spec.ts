@@ -12,7 +12,7 @@ import { expect, test, type Page } from '@playwright/test'
 const ORIGIN = 'http://localhost:4176'
 
 async function signIn(page: Page) {
-  await page.goto(`${ORIGIN}/?board=b-atlas`)
+  await page.goto(`${ORIGIN}/app?board=b-atlas`)
   const account = page.getByRole('button', { name: /Owner/ })
   if (await account.isVisible().catch(() => false)) return
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -22,7 +22,7 @@ async function signIn(page: Page) {
 }
 
 const openAdmin = async (page: Page) => {
-  await page.goto(`${ORIGIN}/?view=boards`)
+  await page.goto(`${ORIGIN}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'Workspace account' })).toBeVisible()
 }
@@ -156,7 +156,7 @@ test('a new account creates the workspace it owns', async ({ page }) => {
   // (The addressed account is created by signing in; the workspace is created as part of the same
   // act, which is what a sign-up page will present as one step.)
   const signUp = async () => {
-    await page.goto(`${ORIGIN}/?board=b-atlas`)
+    await page.goto(`${ORIGIN}/app?board=b-atlas`)
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     await page.getByPlaceholder('you@example.com').fill('founder@example.com')
     await page.getByRole('button', { name: 'Sign in as this address' }).click()

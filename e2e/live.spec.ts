@@ -18,7 +18,7 @@ const POLL = 'http://localhost:4175'
 test.setTimeout(90_000)
 
 async function signIn(page: Page, origin: string) {
-  await page.goto(`${origin}/?board=b-atlas`)
+  await page.goto(`${origin}/app?board=b-atlas`)
   // A page in a context that is already signed in says who it is, and asking it to sign in again
   // would wait for a button that is not there.
   const account = page.getByRole('button', { name: /Maya Blake/ })

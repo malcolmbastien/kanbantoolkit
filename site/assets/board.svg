@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="A Flowline board with four typed columns">
+  <rect width="960" height="540" fill="#f3f1ec"/>
+  <rect x="16" y="16" width="928" height="508" rx="12" fill="#fbfaf8" stroke="#e2ded6"/>
+  <g font-family="Georgia, serif" font-size="13" fill="#55657a">
+    <text x="44" y="52" font-weight="bold" letter-spacing="1.5">BACKLOG</text>
+    <text x="278" y="52" font-weight="bold" letter-spacing="1.5">NOT STARTED</text>
+    <text x="512" y="52" font-weight="bold" letter-spacing="1.5">IN PROGRESS</text>
+    <text x="746" y="52" font-weight="bold" letter-spacing="1.5">DONE</text>
+  </g>
+  <g stroke="#e2ded6">
+    <line x1="252" y1="30" x2="252" y2="510"/>
+    <line x1="486" y1="30" x2="486" y2="510"/>
+    <line x1="720" y1="30" x2="720" y2="510"/>
+  </g>
+  <g fill="#ffffff" stroke="#dcd7cd">
+    <rect x="34" y="70" width="196" height="70" rx="8"/>
+    <rect x="34" y="152" width="196" height="70" rx="8"/>
+    <rect x="34" y="234" width="196" height="70" rx="8"/>
+    <rect x="268" y="70" width="196" height="70" rx="8"/>
+    <rect x="268" y="152" width="196" height="70" rx="8"/>
+    <rect x="502" y="70" width="196" height="86" rx="8"/>
+    <rect x="502" y="168" width="196" height="70" rx="8"/>
+    <rect x="736" y="70" width="196" height="70" rx="8"/>
+    <rect x="736" y="152" width="196" height="70" rx="8"/>
+  </g>
+  <g font-family="Charter, Georgia, serif" font-size="14" fill="#1f2937">
+    <text x="48" y="98">Export the workspace</text>
+    <text x="48" y="180">Sessions list</text>
+    <text x="48" y="262">Invite by link</text>
+    <text x="282" y="98">Audit screen</text>
+    <text x="282" y="180">Plan limits</text>
+    <text x="516" y="98">Live channel</text>
+    <text x="516" y="196">Workspace roles</text>
+    <text x="750" y="98">Sign-in policy</text>
+    <text x="750" y="180">Change feed</text>
+  </g>
+  <g font-family="Charter, Georgia, serif" font-size="12" fill="#55657a">
+    <text x="516" y="118">a change arrives without a reload</text>
+    <text x="48" y="118">the file is the workspace</text>
+    <text x="282" y="118">who changed what, and why</text>
+  </g>
+  <g fill="#3b4a8c">
+    <circle cx="212" cy="272" r="5"/>
+    <circle cx="446" cy="206" r="5"/>
+    <circle cx="680" cy="110" r="5"/>
+    <circle cx="914" cy="206" r="5"/>
+  </g>
+</svg>

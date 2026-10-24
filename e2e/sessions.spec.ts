@@ -17,7 +17,7 @@ const PERSON = 'session-tester@example.com'
 test.describe.configure({ mode: 'serial' })
 
 async function signIn(page: Page, who = PERSON, remember = false) {
-  await page.goto(SELF_HOSTED)
+  await page.goto(`${SELF_HOSTED}/app`)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   if (remember) await page.getByLabel(/Keep me signed in/).check()
   await page.getByPlaceholder('you@example.com').fill(who)
@@ -36,7 +36,7 @@ test.beforeAll(async ({ browser }) => {
   // the first account, and only for `example.com` on the test instance.
   const context = await browser.newContext()
   const page = await context.newPage()
-  await page.goto(SELF_HOSTED)
+  await page.goto(`${SELF_HOSTED}/app`)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()

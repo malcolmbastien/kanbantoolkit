@@ -40,27 +40,27 @@ async function barriers(page: Page, { nestedInteractive = false } = {}) {
 }
 
 test('the board has no barrier a machine can find', async ({ page }) => {
-  await page.goto('/?board=b-atlas')
+  await page.goto('/app?board=b-atlas')
   await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
   await expect(page.getByRole('tree', { name: /lanes/ })).toBeVisible()
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
 test('a card open in its panel has none either', async ({ page }) => {
-  await page.goto('/?board=b-atlas')
+  await page.goto('/app?board=b-atlas')
   await page.locator('[data-workflow="cards"] [data-card-id]').first().click()
   await expect(page.getByLabel('Title')).toBeVisible()
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
 test('the admin screen, signed in, has none', async ({ page }) => {
-  await page.goto(SELF_HOSTED)
+  await page.goto(`${SELF_HOSTED}/app`)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
 
-  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
   expect(await barriers(page)).toEqual([])
@@ -80,7 +80,7 @@ test('motion stops when the system asks it to', async ({ page }) => {
       ),
     )
 
-  await page.goto('/?board=b-atlas')
+  await page.goto('/app?board=b-atlas')
   await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
   // The app animates: hovering a control moves it. If it did not, the check below would pass
   // without proving anything.

@@ -70,12 +70,13 @@ Node **26** (the version CI runs). Install, then dev:
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173
+npm run dev          # http://localhost:5173/app — the app lives under /app
 ```
 
 ```bash
-npm run build        # tsc -b && vite build  ->  dist/
-npm run preview      # serve the production build
+npm run build        # tsc -b && vite build && the site  ->  dist/
+npm run preview      # serve the build: the site at /, the app at /app
+npm run site:check   # the site's pages: named, self-contained, inside their budget
 npm test             # Vitest: derivation + store behaviour
 npm run lint         # oxlint
 npm run scan         # the AGENTS.md dependency rule (no Firebase, no Google tracking)
@@ -88,7 +89,8 @@ npm run smoke:node   # boots that entry and uses the API, so the second runtime 
 ```
 
 Every push to `main` and every pull request runs `.github/workflows/ci.yml` on Node 26: typecheck,
-lint, tests, the `AGENTS.md` dependency scan, and the production build in a job named `checks`;
+lint, tests, the `AGENTS.md` dependency scan, the production build, the site's checks, and the
+first-download measurement in a job named `checks`;
 then the Playwright suite against the built app, in a job named `e2e`, which keeps its traces when
 it fails. Publishing waits on both, so a red test never reaches the live app.
 
@@ -98,10 +100,10 @@ it fails. Publishing waits on both, so a red test never reaches the live app.
 board, a view of it, and the card or initiative open over it — three facts, one canonical query:
 
 ```
-/?board=b-atlas                          the board's own flow (the Board tab)
-/?board=b-atlas&view=dashboard           a view of that board
-/?board=b-atlas&item=init-signup         a card or initiative open on it
-/?board=b-atlas&view=timeline&item=…     both at once
+/app?board=b-atlas                          the board's own flow (the Board tab)
+/app?board=b-atlas&view=dashboard           a view of that board
+/app?board=b-atlas&item=init-signup         a card or initiative open on it
+/app?board=b-atlas&view=timeline&item=…     both at once
 ```
 
 The query is **canonical**: it is rebuilt from the state on every change and anything the app does

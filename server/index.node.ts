@@ -10,7 +10,8 @@
  * This is the entry `task 129` proves in CI. The packaged image is task 128's job.
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { extname, join, normalize } from 'node:path'
 import { serve, upgradeWebSocket } from '@hono/node-server'
 import type { Handler } from 'hono'
 import { serveStatic } from '@hono/node-server/serve-static'
@@ -93,11 +94,63 @@ const app = createApp(
   },
 )
 
-// The client, served the way the asset router serves it: files first, and the app for every other
-// path, so a deep link opens the board rather than a 404. Registered after the API, which answers
-// its own paths and never falls through to here.
+const TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
+  '.webmanifest': 'application/manifest+json',
+}
+
+/** A file inside the static directory, or nothing — never a path that climbs out of it. */
+function staticFile(pathname: string): string | undefined {
+  const clean = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '')
+  const full = join(staticDir, clean)
+  if (!full.startsWith(normalize(staticDir))) return undefined
+  if (existsSync(full) && statSync(full).isFile()) return full
+  // A page lives at a directory: `/pricing/` is `dist/pricing/index.html`.
+  const index = join(full, 'index.html')
+  return existsSync(index) && statSync(index).isFile() ? index : undefined
+}
+
+// Files first: the site's stylesheet and drawings, the app's chunks, robots and sitemap.
 app.use('*', serveStatic({ root: staticDir }))
-app.get('*', serveStatic({ path: `${staticDir}/index.html` }))
+
+/**
+ * The app, under `/app` and only there (task 151). `/app` and anything beneath it is the app's own
+ * document, because the board's places are a query string, not a path.
+ */
+app.get('/app', () => {
+  const page = join(staticDir, 'app/index.html')
+  return new Response(readFileSync(page), { headers: { 'content-type': TYPES['.html'] } })
+})
+app.get('/app/*', () => {
+  const page = join(staticDir, 'app/index.html')
+  return new Response(readFileSync(page), { headers: { 'content-type': TYPES['.html'] } })
+})
+
+/**
+ * Everything else is a page of the site, or nothing.
+ *
+ * The single-page fallback is gone on purpose: an unknown address answers the 404 page *with a 404*,
+ * so a crawler and a person are told the same true thing.
+ */
+app.get('*', (c) => {
+  const page = staticFile(new URL(c.req.url).pathname)
+  if (page) {
+    return new Response(readFileSync(page), { headers: { 'content-type': TYPES[extname(page)] ?? 'application/octet-stream' } })
+  }
+  const notFound = join(staticDir, '404.html')
+  return new Response(existsSync(notFound) ? readFileSync(notFound) : 'Not found', {
+    status: 404,
+    headers: { 'content-type': TYPES['.html'] },
+  })
+})
 
 // `noServer` because the HTTP server decides what upgrades: the adapter hands every upgrade to the
 // route above, and a path that is not the channel is answered as a request.

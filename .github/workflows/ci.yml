@@ -57,6 +57,11 @@ jobs:
       - name: First download size
         run: npm run size
 
+      # The site, checked as a build: every page named, nothing off-origin, the home page inside its
+      # budget, and what crawlers are told matching what is served (task 151).
+      - name: The site
+        run: npm run site:check
+
       # The server exists twice — a Worker and a Node process — and two runtimes drift apart
       # silently. This boots the Node entry against a real database and uses the API.
       - name: The Node entry answers

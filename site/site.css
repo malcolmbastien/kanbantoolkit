@@ -1,0 +1,257 @@
+/*
+ * The site's own stylesheet — one file, no framework, no fonts from anywhere else.
+ *
+ * The app is a Tailwind build with its own type scale; this is the public site's, and it is
+ * deliberately not shared: a public page must be readable with the app's bundle nowhere in sight
+ * (task 151, R5). Warm parchment and ink, one accent, and a measured line length.
+ */
+
+:root {
+  --paper: #faf9f7;
+  --ink: #1f2937;
+  --muted: #55657a;
+  --rule: #e2ded6;
+  --accent: #3b4a8c;
+  --accent-soft: #eef0f8;
+  --measure: 42rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.65 Charter, Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+}
+
+/* The first thing a keyboard reaches. It is off-screen until it is focused, and then it is the
+   most visible thing on the page. */
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  padding: 0.6rem 1rem;
+  background: var(--ink);
+  color: var(--paper);
+  z-index: 10;
+}
+
+.skip:focus {
+  left: 0;
+}
+
+.site-header,
+.site-footer,
+main {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem 1.25rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.25rem;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-right: 0.35rem;
+  border-radius: 2px;
+  background: var(--accent);
+  vertical-align: baseline;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+  font-size: 15px;
+}
+
+.site-actions {
+  display: flex;
+  gap: 0.9rem;
+  margin: 0 0 0 auto;
+  font-size: 15px;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--ink);
+}
+
+.button {
+  display: inline-block;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.button:hover {
+  background: var(--ink);
+  color: #fff;
+}
+
+.quiet {
+  font-weight: 600;
+}
+
+main {
+  padding-bottom: 3rem;
+}
+
+h1 {
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0.5rem 0 1rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin: 2.25rem 0 0.6rem;
+}
+
+p,
+li {
+  max-width: 38rem;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lede {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.shot {
+  margin: 2rem 0;
+}
+
+.shot img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+
+figcaption {
+  margin-top: 0.6rem;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.points {
+  padding-left: 1.1rem;
+}
+
+.points li {
+  margin-bottom: 0.8rem;
+}
+
+.note {
+  font-size: 14px;
+  color: var(--muted);
+  border-left: 2px solid var(--rule);
+  padding-left: 0.8rem;
+}
+
+code {
+  font-size: 0.9em;
+  background: var(--accent-soft);
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+}
+
+.site-footer {
+  display: grid;
+  gap: 1.5rem 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  border-top: 1px solid var(--rule);
+  padding-top: 1.5rem;
+  padding-bottom: 2.5rem;
+  font-size: 15px;
+}
+
+.footer-group h2 {
+  margin: 0 0 0.4rem;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.footer-group a {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.footer-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* One column on a phone, and nothing that depends on motion. */
+@media (max-width: 34rem) {
+  .site-header {
+    align-items: flex-start;
+  }
+
+  .site-actions {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
