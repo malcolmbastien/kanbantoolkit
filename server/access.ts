@@ -16,8 +16,8 @@
 
 import type { Context } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { can } from '../src/domain/roles'
-import type { Action, Role } from '../src/domain/roles'
+import { can, canAccount } from '../src/domain/roles'
+import type { AccountAction, Action, Role } from '../src/domain/roles'
 import { sessionCookie, sessionCookieName, userForToken, WORKSPACE_ID } from './auth/session'
 import type { AuthUser } from './auth/session'
 import type { Database } from './db'
@@ -174,11 +174,24 @@ export async function workspaceCallerFromCookie(
   }
 }
 
-/** The instance's own administration: the people, the invitations, the access policy. */
-export async function requireInstanceAdmin(c: Hono, runtime: Runtime): Promise<Caller | Response> {
+/**
+ * The account's own administration: the people, the invitations, the policy — and, when an action is
+ * named, one of the account's powers from the matrix (task 126).
+ *
+ * The two questions have one answer, because there is one role: whoever administers the deployment
+ * is whoever may rename it, keep its billing record, appoint another administrator and close it.
+ */
+export async function requireInstanceAdmin(
+  c: Hono,
+  runtime: Runtime,
+  action?: AccountAction,
+): Promise<Caller | Response> {
   const caller = await requireUser(c, runtime)
   if (caller instanceof Response) return caller
   if (caller.instanceRole !== 'admin') return fail(c, { error: 'administrators only' }, 403)
+  if (action && !canAccount(caller.instanceRole, action)) {
+    return fail(c, { error: `an account administrator may not ${action}` }, 403)
+  }
   return caller
 }
 

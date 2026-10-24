@@ -15,4 +15,4 @@ export const WORKSPACE_SCHEMA = 1
  * state of the schema behind it. A database below this is refused rather than served, which is R2's
  * "run before the new code serves a request" said by the code that would otherwise guess.
  */
-export const REQUIRED_SCHEMA = 18
+export const REQUIRED_SCHEMA = 19

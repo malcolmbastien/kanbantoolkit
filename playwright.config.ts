@@ -45,6 +45,17 @@ export default defineConfig({
     },
     {
       /**
+       * An instance of its own for the one spec that **closes the account** (task 126): a test that
+       * deletes everything cannot share a database with tests that expect something to be there.
+       */
+      command:
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-account.db && AUTH_DEV=1 PORT=4176 DB_PATH=node_modules/.tmp/e2e-account.db STATIC_DIR=dist npm run --silent server',
+      url: 'http://localhost:4176/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      /**
        * The same entry with the socket switched off — an instance whose live channel is the poll.
        * R5 of task 118.5 asks CI to exercise the fallback rather than only the push, and this is
        * how: the same application, the same routes, one environment variable apart.

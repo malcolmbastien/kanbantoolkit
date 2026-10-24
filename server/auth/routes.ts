@@ -154,6 +154,9 @@ async function identify(
 
   // One batch: no moment at which an account exists and nobody administers it.
   await db.batch([
+    // The instance's workspace, if this deployment has none left — after an account is closed,
+    // the first person to arrive creates it again rather than joining nothing.
+    { sql: "INSERT OR IGNORE INTO workspaces (id, name) VALUES (?1, 'Flowline')", params: [WORKSPACE_ID] },
     ...(known ? [] : [{ sql: 'INSERT INTO users (id, name, email) VALUES (?1, ?2, ?3)', params: [userId, who.name, who.email] }]),
     { sql: 'INSERT INTO instance_members (user_id, role) VALUES (?1, ?2)', params: [userId, instanceRole] },
     {

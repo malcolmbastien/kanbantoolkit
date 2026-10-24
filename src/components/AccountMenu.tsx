@@ -24,6 +24,12 @@ export function AccountMenu() {
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied',
   )
   const denied = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied'
+  // A closed account lands here: there is nobody left to show a panel to, so the sign-in surface
+  // says what happened where the person now is. Read once, at mount, because the URL is rewritten
+  // to the current view a moment later and the note must outlive that.
+  const [closed] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'closed',
+  )
   const [email, setEmail] = useState('')
   // Twelve hours unless this is asked for: a shared machine should not stay open for a month.
   const [remember, setRemember] = useState(false)
@@ -162,6 +168,12 @@ export function AccountMenu() {
               {denied && (
                 <p className="mx-1.5 mb-2 rounded-md bg-rose-50 px-2 py-1 text-meta text-rose-800">
                   Sign-in was not accepted. This instance only admits the people it invited.
+                </p>
+              )}
+              {closed && (
+                <p className="mx-1.5 mb-2 rounded-md bg-emerald-50 px-2 py-1 text-meta text-emerald-900">
+                  The account was closed. Everything it held has been removed. Signing in again begins a new
+                  one.
                 </p>
               )}
 

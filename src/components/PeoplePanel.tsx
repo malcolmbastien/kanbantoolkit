@@ -426,7 +426,30 @@ export function PeoplePanel() {
               <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className="text-slate-800">{person.status}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Last active</dt><dd className="text-slate-800">{when(person.lastSeenAt)}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Joined</dt><dd className="text-slate-800">{when(person.joinedAt)}</dd></div>
-              <div className="flex justify-between"><dt className="text-slate-500">Instance</dt><dd className="text-slate-800">{person.instanceRole}</dd></div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-slate-500">Account</dt>
+                <dd>
+                  {/* The account's own axis (task 126): the person who may rename it, keep its billing
+                      record, appoint another Account Admin and close it. */}
+                  <select
+                    value={person.instanceRole}
+                    disabled={busy === 'instance' || (self && person.instanceRole === 'admin')}
+                    onChange={(event) =>
+                      void call(
+                        'instance',
+                        `/api/admin/account/admins/${person.id}`,
+                        json('PATCH', { role: event.target.value }),
+                        event.target.value === 'admin' ? 'Now an Account Admin.' : 'No longer an Account Admin.',
+                      ).then(refresh)
+                    }
+                    aria-label="Account role"
+                    className={cn(FIELD, 'py-0.5 text-micro')}
+                  >
+                    <option value="member">Member</option>
+                    <option value="admin">Account Admin</option>
+                  </select>
+                </dd>
+              </div>
             </dl>
 
             <div className="grid grid-cols-2 gap-2">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ACTIONS, can, ROLES } from './roles'
-import type { Action, Role } from './roles'
+import { ACCOUNT_ACTIONS, ACTIONS, can, canAccount, ROLES } from './roles'
+import type { AccountAction, Action, InstanceRole, Role } from './roles'
 
 /**
  * The matrix told a second way — as "what each action needs" rather than "what each role has".
@@ -76,5 +76,39 @@ describe('who may do what', () => {
     expect(can('editor', 'objective.write')).toBe(false)
     expect(can('admin', 'board.design')).toBe(true)
     expect(can('admin', 'objective.write')).toBe(true)
+  })
+})
+
+/**
+ * The account's matrix, told the same second way.
+ *
+ * One instance role grants everything here and the other grants nothing: being a member of the
+ * deployment is not a grant of anything at this level. A new account action without a row fails
+ * `decides every account action`, which is the point of writing it out.
+ */
+const ACCOUNT_NEEDS: Record<AccountAction, InstanceRole[]> = {
+  'account.rename': ['admin'],
+  'account.billing': ['admin'],
+  'account.admins': ['admin'],
+  'account.delete': ['admin'],
+  'workspace.delete': ['admin'],
+}
+
+describe('what an Account Admin may do', () => {
+  for (const action of ACCOUNT_ACTIONS) {
+    for (const role of ['admin', 'member'] as const) {
+      it(`${role} × ${action}`, () => {
+        expect(canAccount(role, action)).toBe(ACCOUNT_NEEDS[action].includes(role))
+      })
+    }
+  }
+
+  it('decides every account action, so a new one cannot arrive without a row', () => {
+    expect(Object.keys(ACCOUNT_NEEDS).sort()).toEqual([...ACCOUNT_ACTIONS].sort())
+  })
+
+  it('grants nothing to a role it has never heard of', () => {
+    expect(canAccount('owner', 'account.delete')).toBe(false)
+    expect(canAccount('', 'account.billing')).toBe(false)
   })
 })

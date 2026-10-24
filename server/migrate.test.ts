@@ -43,8 +43,10 @@ describe('the server schema', () => {
 
   it('carries what exists through a later migration', async () => {
     const raw = new DatabaseSync(':memory:')
-    const older = all.slice(0, -1)
-    // A database at the shape before the version table existed, with a workspace already in it.
+    // The shape *before* the workspace became a row: no `workspaces` table, no `workspace_id`, and
+    // the two migrations that add them still to run. That is the database a real self-hoster has
+    // when they upgrade.
+    const older = all.slice(0, -2)
     for (const migration of older) raw.exec(migration.sql)
     raw.exec(`
       INSERT INTO boards (id, name, band, description, position) VALUES ('b-1', 'Atlas', 'team', 'Kept.', 0);
@@ -54,14 +56,18 @@ describe('the server schema', () => {
     const db = fromSqlite(raw)
     const result = await migrate(db, all)
 
-    // The database is one migration behind, and knows it: only that one runs. (A database older
-    // than the version table at all has no record, so the runner re-runs everything once — the
-    // files before 0006 are idempotent by construction, which is why that is safe.)
-    expect(result.applied).toEqual([all.length])
+    // Two behind, and it knows it: only those two run.
+    expect(result.applied).toEqual(all.slice(-2).map((migration) => migration.version))
     expect(result.version).toBe(all.length)
-    // Nothing was reseeded: the board and the card are still the ones that were there.
+    // Nothing was reseeded: the board and the card are still the ones that were there…
     expect(await db.get('SELECT name FROM boards WHERE id = ?1', ['b-1'])).toEqual({ name: 'Atlas' })
-    expect(await db.get('SELECT title, rev FROM items WHERE id = ?1', ['i-1'])).toEqual({ title: 'A card', rev: 3 })
+    expect(await db.get("SELECT title, rev, workspace_id FROM items WHERE id = 'i-1'")).toEqual({
+      title: 'A card',
+      rev: 3,
+      workspace_id: 'workspace',
+    })
+    // …and the migration that made the workspace a row gave them theirs.
+    expect(await db.get("SELECT name FROM workspaces WHERE id = 'workspace'")).toEqual({ name: 'Flowline' })
   })
 
   it('leaves the version where it was when a file fails, so the next attempt starts it again', async () => {
