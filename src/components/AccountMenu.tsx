@@ -135,7 +135,7 @@ export function AccountMenu() {
 
               {/* Admin is the instance's own administration, so it is offered only to the people
                   who have it. The server checks again; this is the courtesy, not the rule. */}
-              {auth.user.instanceRole === 'admin' && (
+              {(auth.user.instanceRole === 'admin' || auth.user.role === 'admin') && (
                 <button
                   onClick={() => {
                     setOpen(false)

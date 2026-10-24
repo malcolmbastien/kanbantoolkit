@@ -73,7 +73,8 @@ export async function liveFor(db: Database, email: string, now = new Date()): Pr
  */
 export async function createInvite(
   db: Database,
-  input: { email: string; role: Role; invitedBy: string; days?: number; now?: Date; audit?: (id: string) => Statement },
+  input: { email: string; role: Role; invitedBy: string; days?: number; now?: Date; scope?: 'instance' | 'workspace'
+  audit?: (id: string) => Statement },
 ): Promise<{ invite: Invite; token: string }> {
   const now = input.now ?? new Date()
   const token = randomToken(32)
@@ -81,7 +82,7 @@ export async function createInvite(
   const days = Math.min(Math.max(input.days ?? INVITE_DAYS, 1), 90)
 
   const insert = {
-    sql: `INSERT INTO invites (id, email, role, token_hash, invited_by, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+    sql: `INSERT INTO invites (id, email, role, token_hash, invited_by, expires_at, scope) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
     params: [
       id,
       input.email.trim().toLowerCase(),
@@ -89,6 +90,7 @@ export async function createInvite(
       await sha256(token),
       input.invitedBy,
       new Date(now.getTime() + days * 86_400_000).toISOString(),
+      input.scope ?? 'instance',
     ],
   }
   const auditRow = input.audit?.(id)

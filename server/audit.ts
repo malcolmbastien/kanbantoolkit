@@ -32,6 +32,10 @@ export type AuditAction =
   | 'user.activate'
   | 'instance.access'
   | 'workspace.import'
+  | 'workspace.settings'
+  | 'workspace.role'
+  | 'workspace.member.remove'
+  | 'workspace.invite'
 
 export interface AccessEvent {
   /** Who did it. Absent for something the system did, or for a refusal before anyone is known. */

@@ -225,10 +225,13 @@ test('an administrator sees the people, and cannot close their own door', async 
   await page.goto(`${SELF_HOSTED}/?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
-  await expect(page.getByRole('table')).toContainText('maya.blake@example.com')
+  // Two tables now — the workspace's members and the instance's people — so the assertion names
+  // which one it means.
+  const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
+  await expect(people.getByRole('table')).toContainText('maya.blake@example.com')
 
   // The drawer explains the guard before the server has to refuse it.
-  await page.getByRole('button', { name: /^Open/ }).first().click()
+  await people.getByRole('button', { name: /^Open/ }).first().click()
   await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toBeVisible()
 
   // Escape closes it, like every other panel in the app.
@@ -248,7 +251,7 @@ test('an administrator makes an invitation link, and takes it back', async ({ pa
   await expect(page.getByRole('heading', { name: 'Invitations' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Invite' }).click()
-  await page.getByPlaceholder('grace@example.com').fill('newcomer@example.com')
+  await page.getByRole('dialog', { name: 'Invite somebody' }).getByPlaceholder('grace@example.com').fill('newcomer@example.com')
   await page.getByRole('button', { name: 'Make the link' }).click()
 
   // Shown once, with the link selectable.

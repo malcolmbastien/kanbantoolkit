@@ -1,0 +1,224 @@
+/**
+ * The workspace's own members.
+ *
+ * This is the boundary the two axes exist for. An **instance** administrator runs the deployment;
+ * a **workspace** administrator runs this team — and may invite into it, change a role, or remove
+ * somebody, without being able to grant themselves anything at the instance level.
+ *
+ * The guard is the same roster judgement the People screen uses; the difference is which question
+ * was asked before it (`workspace.members` rather than `instance admin`).
+ */
+
+import { Hono } from 'hono'
+import { requireWorkspace } from './access'
+import { statement } from './audit'
+import { WORKSPACE_ID } from './auth/session'
+import { mayAdminister } from '../src/domain/roster'
+import type { Roster, RosterOperation } from '../src/domain/roster'
+import { createInvite } from './invites'
+import type { Role } from '../src/domain/roles'
+import type { Database } from './db'
+import type { Runtime } from './runtime'
+
+async function memberOf(db: Database, id: string) {
+  return db.get<{ id: string; status: string; instance: string | null; workspace: string | null }>(
+    `SELECT u.id, u.status, i.role AS instance, w.role AS workspace
+     FROM users u
+     LEFT JOIN instance_members i ON i.user_id = u.id
+     LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = ?2
+     WHERE u.id = ?1`,
+    [id, WORKSPACE_ID],
+  )
+}
+
+async function admins(db: Database): Promise<{ instance: number; workspace: number }> {
+  const row = await db.get<{ instance: number; workspace: number }>(
+    `SELECT
+       (SELECT COUNT(*) FROM instance_members m JOIN users u ON u.id = m.user_id
+         WHERE m.role = 'admin' AND u.status = 'active') AS instance,
+       (SELECT COUNT(*) FROM workspace_members w JOIN users u ON u.id = w.user_id
+         WHERE w.role = 'admin' AND w.workspace_id = ?1 AND u.status = 'active') AS workspace`,
+    [WORKSPACE_ID],
+  )
+  return { instance: row?.instance ?? 0, workspace: row?.workspace ?? 0 }
+}
+
+export function workspaceMembersRoutes(runtime: Runtime) {
+  const routes = new Hono<{ Bindings: object }>()
+
+  routes.get('/', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.members')
+    if (caller instanceof Response) return caller
+
+    const settings = await caller.db.get<{ name: string; description: string }>(
+      'SELECT name, description FROM workspace WHERE id = ?1',
+      [WORKSPACE_ID],
+    )
+    const members = await caller.db.all<{
+      id: string
+      name: string
+      email: string
+      avatar_url: string | null
+      status: string
+      role: string
+      created_at: string
+    }>(
+      `SELECT u.id, u.name, u.email, u.avatar_url, u.status, w.role, w.created_at
+       FROM workspace_members w JOIN users u ON u.id = w.user_id
+       WHERE w.workspace_id = ?1
+       ORDER BY w.created_at, u.name`,
+      [WORKSPACE_ID],
+    )
+
+    return c.json({
+      workspace: { name: settings?.name ?? 'Flowline', description: settings?.description ?? '' },
+      members: members.map((member) => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        avatarUrl: member.avatar_url ?? undefined,
+        status: member.status,
+        role: member.role,
+        joinedAt: member.created_at,
+      })),
+    })
+  })
+
+  /** The name and the description: this workspace's own voice, not the instance's. */
+  routes.patch('/', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.settings')
+    if (caller instanceof Response) return caller
+
+    const body = (await c.req.json().catch(() => null)) as { name?: unknown; description?: unknown } | null
+    const updates: Record<string, string> = {}
+    if (body && 'name' in body) {
+      const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) : ''
+      if (!name) return c.json({ error: 'a name is required' }, 400)
+      updates.name = name
+    }
+    if (body && 'description' in body) {
+      updates.description = typeof body.description === 'string' ? body.description.slice(0, 2_000) : ''
+    }
+    if (!Object.keys(updates).length) return c.json({ error: 'nothing to change' }, 400)
+
+    const columns = Object.keys(updates)
+    await caller.db.batch([
+      {
+        sql: `INSERT INTO workspace (id, ${columns.join(', ')}) VALUES (?1${columns.map((_, index) => `, ?${index + 2}`).join('')})
+              ON CONFLICT (id) DO UPDATE SET ${columns.map((column, index) => `${column} = ?${index + 2}`).join(', ')}`,
+        params: [WORKSPACE_ID, ...Object.values(updates)],
+      },
+      statement({
+        actorId: caller.user.id,
+        action: 'workspace.settings',
+        targetType: 'workspace',
+        targetId: WORKSPACE_ID,
+        data: { fields: columns },
+      }),
+    ])
+
+    return c.body(null, 204)
+  })
+
+  /** Invite somebody into this workspace, with the role it names. It says which workspace it is for. */
+  routes.post('/invites', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.members')
+    if (caller instanceof Response) return caller
+
+    const body = (await c.req.json().catch(() => null)) as { email?: unknown; role?: unknown; days?: unknown } | null
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+    if (!email.includes('@')) return c.json({ error: 'an address is required' }, 400)
+
+    const role: Role = body?.role === 'viewer' || body?.role === 'admin' ? body.role : 'editor'
+    const days = typeof body?.days === 'number' ? body.days : undefined
+
+    const { invite, token } = await createInvite(caller.db, {
+      email,
+      role,
+      invitedBy: caller.user.id,
+      days,
+      scope: 'workspace',
+      audit: (id) =>
+        statement({
+          actorId: caller.user.id,
+          action: 'workspace.invite',
+          targetType: 'invite',
+          targetId: id,
+          data: { role, scope: 'workspace' },
+        }),
+    })
+
+    return c.json({ invite: { id: invite.id, email: invite.email, role: invite.role, expiresAt: invite.expires_at }, token }, 201)
+  })
+
+  async function judge(c: Parameters<typeof requireWorkspace>[0], caller: { user: { id: string; role: string }; instanceRole: string; db: Database }, targetId: string, operation: RosterOperation) {
+    const target = await memberOf(caller.db, targetId)
+    if (!target) return c.json({ error: 'no such member' }, 404) as unknown as Response
+
+    const counts = await admins(caller.db)
+    const roster: Roster = {
+      actor: { id: caller.user.id, active: true, instanceAdmin: caller.instanceRole === 'admin', workspaceAdmin: caller.user.role === 'admin' },
+      target: {
+        id: target.id,
+        active: target.status === 'active',
+        instanceAdmin: target.instance === 'admin',
+        workspaceAdmin: target.workspace === 'admin',
+      },
+      instanceAdmins: counts.instance,
+      workspaceAdmins: counts.workspace,
+    }
+
+    const verdict = mayAdminister(roster, operation)
+    return verdict.ok ? undefined : (c.json({ error: verdict.reason }, 409) as unknown as Response)
+  }
+
+  /** Change a role here. Nothing else — not the instance role, not another workspace. */
+  routes.patch('/members/:id', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.members')
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const body = (await c.req.json().catch(() => null)) as { role?: unknown } | null
+    const role = body?.role
+    if (role !== 'viewer' && role !== 'editor' && role !== 'admin') {
+      return c.json({ error: 'role must be viewer, editor or admin' }, 400)
+    }
+
+    const refused = await judge(c, caller, id, 'demote')
+    if (refused) return refused
+
+    await caller.db.batch([
+      {
+        sql: 'UPDATE workspace_members SET role = ?1 WHERE workspace_id = ?2 AND user_id = ?3',
+        params: [role, WORKSPACE_ID, id],
+      },
+      statement({ actorId: caller.user.id, action: 'workspace.role', targetType: 'user', targetId: id, data: { role } }),
+    ])
+
+    return c.json({ id, role })
+  })
+
+  /**
+   * Remove somebody from this workspace.
+   *
+   * Not deactivation: the instance account stays, with its other workspaces and its history. What
+   * ends is their access here, on their next request.
+   */
+  routes.delete('/members/:id', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.members')
+    if (caller instanceof Response) return caller
+
+    const id = c.req.param('id')
+    const refused = await judge(c, caller, id, 'remove')
+    if (refused) return refused
+
+    await caller.db.batch([
+      { sql: 'DELETE FROM workspace_members WHERE workspace_id = ?1 AND user_id = ?2', params: [WORKSPACE_ID, id] },
+      statement({ actorId: caller.user.id, action: 'workspace.member.remove', targetType: 'user', targetId: id }),
+    ])
+
+    return c.body(null, 204)
+  })
+
+  return routes
+}

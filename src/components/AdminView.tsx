@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PeoplePanel } from './PeoplePanel'
 import { InvitationsPanel } from './InvitationsPanel'
+import { WorkspacePanel } from './WorkspacePanel'
 import { useAuth } from '@/lib/auth'
 import { ArrowLeft, History } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
@@ -18,6 +19,9 @@ export function AdminView() {
   // The People section exists only where there is somebody to administer: a session, and the
   // instance administrator's role. Without a server the rest of this screen is exactly as it was.
   const admin = useAuth((s) => s.user?.instanceRole === 'admin')
+  // The workspace's own administration is a different door: its administrators see it whether or
+  // not they run the instance.
+  const workspaceAdmin = useAuth((s) => s.user?.role === 'admin' || s.user?.instanceRole === 'admin')
   const importWorkspace = useStore((s) => s.importWorkspace)
   const setView = useStore((s) => s.setView)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -61,6 +65,7 @@ export function AdminView() {
           <ArrowLeft size={13} /> Boards
         </button>
         <h1 className="mt-1 text-title font-semibold tracking-tight text-slate-900">Admin</h1>
+        {workspaceAdmin && <WorkspacePanel />}
         {admin && <PeoplePanel />}
         {admin && <InvitationsPanel />}
         <p className="mt-0.5 text-meta text-slate-600">

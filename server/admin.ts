@@ -173,6 +173,7 @@ export function adminRoutes(runtime: Runtime) {
     acceptedAt: invite.accepted_at,
     revokedAt: invite.revoked_at,
     state: stateOf(invite),
+    scope: (invite as Invite & { scope?: string }).scope ?? 'instance',
   })
 
   const link = (c: Parameters<typeof requireInstanceAdmin>[0], token: string) =>
@@ -185,7 +186,7 @@ export function adminRoutes(runtime: Runtime) {
     // The inviter's name and, once it is spent, the name of the account it became: the record of who
     // invited whom is half the reason to keep an accepted row.
     const rows = await caller.db.all<Invite & { invited_by_name: string | null; accepted_name: string | null }>(
-      `SELECT i.id, i.email, i.role, i.invited_by, i.created_at, i.expires_at, i.accepted_at, i.revoked_at,
+      `SELECT i.id, i.email, i.role, i.invited_by, i.created_at, i.expires_at, i.accepted_at, i.revoked_at, i.scope,
               u.name AS invited_by_name, a.name AS accepted_name
        FROM invites i
        LEFT JOIN users u ON u.id = i.invited_by
