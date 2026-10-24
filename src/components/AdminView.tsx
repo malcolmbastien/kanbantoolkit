@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { PeoplePanel } from './PeoplePanel'
 import { InvitationsPanel } from './InvitationsPanel'
 import { WorkspacePanel } from './WorkspacePanel'
+import { AuditPanel, HealthPanel } from './AuditPanels'
 import { useAuth } from '@/lib/auth'
 import { ArrowLeft, History } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
@@ -68,6 +69,10 @@ export function AdminView() {
         {workspaceAdmin && <WorkspacePanel />}
         {admin && <PeoplePanel />}
         {admin && <InvitationsPanel />}
+        {/* The trail is read by whoever administers: an instance administrator reads all of it, a
+            workspace administrator reads the events their own routes wrote. */}
+        {workspaceAdmin && <AuditPanel />}
+        {admin && <HealthPanel />}
         <p className="mt-0.5 text-meta text-slate-600">
           This workspace lives in this browser. The copies below are what it keeps of itself, so a
           mistake is a moment rather than a loss.

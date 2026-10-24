@@ -225,6 +225,10 @@ test('an administrator sees the people, and cannot close their own door', async 
   await page.goto(`${SELF_HOSTED}/?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
+  // The trail and the health of the instance, on the same screen.
+  await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Health' })).toBeVisible()
+  await expect(page.getByText('90 days')).toBeVisible()
   // Two tables now — the workspace's members and the instance's people — so the assertion names
   // which one it means.
   const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })

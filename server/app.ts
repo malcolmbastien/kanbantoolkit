@@ -14,6 +14,7 @@
 
 import { Hono } from 'hono'
 import { adminRoutes } from './admin'
+import { auditRoutes } from './audit-routes'
 import { inviteLinkRoutes } from './invite-links'
 import { meRoutes } from './me'
 import { workspaceMembersRoutes } from './workspace-members'
@@ -98,6 +99,7 @@ export function createApp(runtime: Runtime) {
   // Accounts, on the same handler: two entries, one set of routes, whichever machine answers.
   app.route('/api/auth', authRoutes(runtime))
   app.route('/api/admin', adminRoutes(runtime))
+  app.route('/api/admin', auditRoutes(runtime))
   app.route('/api/invite', inviteLinkRoutes(runtime))
   app.route('/api/me', meRoutes(runtime))
   app.route('/api/admin/workspace', workspaceMembersRoutes(runtime))
