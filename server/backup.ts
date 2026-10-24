@@ -100,6 +100,7 @@ export function restoreDatabase(input: { from: string; to: string; force?: boole
     if (integrity?.integrity_check !== 'ok') throw new Error(`the restored database is not sound: ${integrity?.integrity_check}`)
 
     const counts = db
+      // The whole instance, by design: a backup is of everything this database holds.
       .prepare('SELECT (SELECT COUNT(*) FROM boards) AS boards, (SELECT COUNT(*) FROM items) AS items')
       .get() as unknown as Restored
     return { boards: counts.boards, items: counts.items }

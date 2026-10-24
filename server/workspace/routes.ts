@@ -10,7 +10,7 @@ import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { requireWorkspace } from '../access'
 import { WORKSPACE_ID } from '../auth/session'
-import { readItem, readItemsByIds, readWorkspace } from './read'
+import { itemBelongsElsewhere, readItem, readItemsByIds, readWorkspace } from './read'
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
 import { schemaVersion } from '../migrate'
 import { acquire, heldByOther, heldLocks, lockOf, release, renew } from './locks'
@@ -86,6 +86,10 @@ export function workspaceRoutes(runtime: Runtime) {
     // before the first change ever reaches the server. Requiring the card to exist would mean a
     // card could not be edited for the first time by anybody.
     const id = c.req.param('id')
+    // An id that belongs to another workspace is not a card waiting for its first edit: it is
+    // somebody else's, and taking a pen on it would be a write into a workspace this request is
+    // not about.
+    if (await itemBelongsElsewhere(allowed.db, id, allowed.workspaceId)) return c.json({ error: 'no such item' }, 404)
     const sessionId = tabOf(c)
     const lock = await acquire(allowed.db, id, { userId: allowed.user.id, sessionId, name: allowed.user.name })
     if (lock.sessionId !== sessionId) return c.json({ error: 'someone else holds this card', holder: lock }, 423)
@@ -98,6 +102,7 @@ export function workspaceRoutes(runtime: Runtime) {
     if (allowed instanceof Response) return allowed
 
     const id = c.req.param('id')
+    if (await itemBelongsElsewhere(allowed.db, id, allowed.workspaceId)) return c.json({ error: 'no such item' }, 404)
     const lock = await renew(allowed.db, id, tabOf(c))
     if (lock) return c.json({ lock })
 
@@ -130,8 +135,11 @@ export function workspaceRoutes(runtime: Runtime) {
     const since = Number.isInteger(asked) && asked > 0 ? asked : 0
 
     const rows = await allowed.db.all<{ id: number; item_id: string; rev: number }>(
-      'SELECT id, item_id, rev FROM changes WHERE id > ?1 ORDER BY id LIMIT 50',
-      [since],
+      // The feed is the workspace's: a change names an item, and an item belongs to one workspace.
+      `SELECT id, item_id, rev FROM changes
+        WHERE id > ?2 AND item_id IN (SELECT id FROM items WHERE workspace_id = ?1)
+        ORDER BY id LIMIT 50`,
+      [allowed.workspaceId, since],
     )
     // The leases ride the same poll as the changes: one request, one cursor, one picture of what is
     // going on in this workspace.
@@ -195,6 +203,11 @@ export function workspaceRoutes(runtime: Runtime) {
     if (held) return c.json({ error: 'someone else is editing this card', holder: held }, 423)
 
     const current = await readItem(allowed.db, id, allowed.workspaceId)
+    // "No such item here" and "such an item, in another workspace" are different answers, and only
+    // the first is a creation. The second is a refusal that says nothing about where it lives.
+    if (!current && (await itemBelongsElsewhere(allowed.db, id, allowed.workspaceId))) {
+      return c.json({ error: 'no such item' }, 404)
+    }
     if (current && (current.rev ?? 0) !== baseRev) return c.json({ error: 'moved past', item: current }, 409)
 
     const stored = { ...item, rev: baseRev + 1 }

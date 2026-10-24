@@ -240,6 +240,7 @@ export async function readItemsByIds(db: Database, ids: string[], workspaceId: s
   const [items, checklists, logs] = await Promise.all([
     db.all<Row>(`SELECT * FROM items WHERE workspace_id = ?1 AND id IN (${marks})`, [workspaceId, ...ids]),
     db.all<Row>(`SELECT * FROM item_checklist WHERE item_id IN (${plain}) ORDER BY position`, ids),
+    // scoped by its item
     db.all<Row>(`SELECT * FROM item_log WHERE item_id IN (${plain}) ORDER BY at, id`, ids),
   ])
 
@@ -252,12 +253,25 @@ export async function readItemsByIds(db: Database, ids: string[], workspaceId: s
   })
 }
 
+/**
+ * Whether this id belongs to a *different* workspace.
+ *
+ * The one question a scoped read cannot answer by itself: "there is no such item here" and "there
+ * is such an item, and it is not yours" are different answers to the same 404, and the write path
+ * has to tell them apart before it treats an unknown id as a creation.
+ */
+export async function itemBelongsElsewhere(db: Database, id: string, workspaceId: string): Promise<boolean> {
+  const row = await db.get<{ workspace_id: string }>('SELECT workspace_id FROM items WHERE id = ?1', [id])
+  return Boolean(row && row.workspace_id !== workspaceId)
+}
+
 /** One item, by id — the version the server holds, which is the one a refusal answers with. */
 export async function readItem(db: Database, id: string, workspaceId: string = WORKSPACE_ROW): Promise<Item | undefined> {
   const row = await db.get<Row>('SELECT * FROM items WHERE workspace_id = ?1 AND id = ?2', [workspaceId, id])
   if (!row) return undefined
   const [checklist, log] = await Promise.all([
     db.all<Row>('SELECT * FROM item_checklist WHERE item_id = ?1 ORDER BY position', [id]),
+    // scoped by its item
     db.all<Row>('SELECT * FROM item_log WHERE item_id = ?1 ORDER BY at, id', [id]),
   ])
   return itemFrom(row, checklist, log)

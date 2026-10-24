@@ -151,8 +151,9 @@ function addItem(statements: Statement[], item: Item, workspaceId: string): void
 export async function writeItem(db: Database, item: Item, workspaceId: string, key?: string): Promise<void> {
   const statements: Statement[] = [
     { sql: 'DELETE FROM item_checklist WHERE item_id = ?1', params: [item.id] },
+    // scoped by its item
     { sql: 'DELETE FROM item_log WHERE item_id = ?1', params: [item.id] },
-    { sql: 'DELETE FROM items WHERE id = ?1', params: [item.id] },
+    { sql: 'DELETE FROM items WHERE id = ?1 AND workspace_id = ?2', params: [item.id, workspaceId] },
   ]
   addItem(statements, item, workspaceId)
 
@@ -249,7 +250,10 @@ export async function writeWorkspace(
   }
   for (const lane of workspace.lanes) {
     if (lane.parentId) {
-      statements.push({ sql: 'UPDATE lanes SET parent_id = ?1 WHERE id = ?2', params: [lane.parentId, lane.id] })
+      statements.push({
+      sql: 'UPDATE lanes SET parent_id = ?1 WHERE id = ?2 AND workspace_id = ?3',
+      params: [lane.parentId, lane.id, workspaceId],
+    })
     }
   }
 

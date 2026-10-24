@@ -46,14 +46,61 @@ export interface WorkspaceCaller extends Caller {
 type Hono = Context<{ Bindings: object }>
 
 /**
- * Which workspace a request is about.
+ * Which workspace a request is about — chosen by the server, and only ever one the caller is in.
  *
- * A path parameter when a route names one, and the instance's only workspace otherwise. The body is
- * deliberately not consulted: reading it here would consume the stream the route needs, and nothing
- * the client sends can be allowed to choose the scope anyway.
+ * The rule has three parts, and they are one rule:
+ *
+ * - a route may **name** a workspace in its path, and that is honoured only when the caller is a
+ *   member of it — or, for an instance administrator, when it exists at all;
+ * - with no name, it is the caller's own workspace: the first they belong to, so a person in two
+ *   starts in the one that sorts first rather than in whichever the browser remembers;
+ * - nothing else is consulted. No header, no body, no cookie. A workspace is not a thing a client
+ *   can point a read at.
+ *
+ * `undefined` means "there is nothing here for you", and the caller turns that into a 404 — the
+ * same answer for a workspace that does not exist and one somebody may not see.
  */
-export function workspaceId(c: Hono): string {
-  return c.req.param('workspaceId') ?? WORKSPACE_ID
+export async function resolveWorkspace(
+  db: Database,
+  userId: string,
+  instanceAdmin: boolean,
+  requested: string | undefined,
+): Promise<{ id: string; role: Role; source: string } | undefined> {
+  const memberships = await db.all<{ workspace_id: string }>(
+    'SELECT workspace_id FROM workspace_members WHERE user_id = ?1 ORDER BY workspace_id',
+    [userId],
+  )
+  const member = (id: string) => memberships.some((row) => row.workspace_id === id)
+
+  // An administrator may enter a workspace they are not on — the rule that lets somebody repair a
+  // team they do not belong to. It still has to exist.
+  const asAdmin = async (id: string) =>
+    instanceAdmin && (await db.get('SELECT 1 AS seen FROM workspaces WHERE id = ?1', [id]))
+      ? { id, role: 'admin' as Role, source: 'instance' }
+      : undefined
+
+  if (requested) {
+    if (member(requested)) {
+      const grant = await effectiveRole(db, userId, requested)
+      return grant ? { id: requested, ...grant } : asAdmin(requested)
+    }
+    return asAdmin(requested)
+  }
+
+  const first = memberships[0]?.workspace_id
+  if (first) {
+    const grant = await effectiveRole(db, userId, first)
+    if (grant) return { id: first, ...grant }
+  }
+
+  // No membership at all: the instance's own workspace, for its administrator.
+  if (!instanceAdmin) return undefined
+  // The instance's own workspace: the one a fresh instance creates, and — until a person can
+  // choose between two — the only one there is.
+  const only =
+    (await db.get<{ id: string }>('SELECT id FROM workspaces WHERE id = ?1', [WORKSPACE_ID])) ??
+    (await db.get<{ id: string }>('SELECT id FROM workspaces ORDER BY created_at, id LIMIT 1'))
+  return only ? { id: only.id, role: 'admin', source: 'instance' } : undefined
 }
 
 function fail(c: Hono, body: Record<string, unknown>, status: 401 | 403 | 404 | 503): Response {
@@ -114,16 +161,14 @@ export async function workspaceCallerFromCookie(
   const instance = await db.get<{ role: string }>('SELECT role FROM instance_members WHERE user_id = ?1', [user.id])
   if (!instance) return undefined
 
-  const grant = await effectiveRole(db, user.id, WORKSPACE_ID)
-  const resolved: { role: Role; source: string } | undefined =
-    grant ?? (instance.role === 'admin' ? { role: 'admin', source: 'instance' } : undefined)
+  const resolved = await resolveWorkspace(db, user.id, instance.role === 'admin', undefined)
   if (!resolved || !can(resolved.role, action)) return undefined
 
   return {
     db,
     user,
     instanceRole: instance.role === 'admin' ? 'admin' : 'member',
-    workspaceId: WORKSPACE_ID,
+    workspaceId: resolved.id,
     workspaceRole: resolved.role,
     roleSource: resolved.source,
   }
@@ -152,17 +197,19 @@ export async function requireWorkspace(
   const caller = await requireUser(c, runtime)
   if (caller instanceof Response) return caller
 
-  const id = workspaceId(c)
-  // The union of the direct row and every active group's grant, highest wins — see `effectiveRole`.
-  const grant = await effectiveRole(caller.db, caller.user.id, id)
-
-  // An instance administrator may repair a workspace they are not on; that is the reason the two
-  // axes are separate.
-  const resolved: { role: Role; source: string } | undefined =
-    grant ?? (caller.instanceRole === 'admin' ? { role: 'admin', source: 'instance' } : undefined)
+  // The workspace comes from the session's memberships, never from the request body — a route may
+  // name one in its path, and that name is checked rather than trusted.
+  const resolved = await resolveWorkspace(
+    caller.db,
+    caller.user.id,
+    caller.instanceRole === 'admin',
+    c.req.param('workspaceId'),
+  )
+  // Not a member, or not a workspace: the same 404, because naming the difference would confirm
+  // that this instance holds a workspace somebody cannot see.
   if (!resolved) return fail(c, { error: 'no such workspace' }, 404)
 
   if (!can(resolved.role, action)) return fail(c, { error: `a ${resolved.role} may not ${action}` }, 403)
 
-  return { ...caller, workspaceId: id, workspaceRole: resolved.role, roleSource: resolved.source }
+  return { ...caller, workspaceId: resolved.id, workspaceRole: resolved.role, roleSource: resolved.source }
 }
