@@ -17,7 +17,7 @@ import type { Runtime } from '../runtime'
 import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
 import { issueSession, revoke, SESSION_COOKIE, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
-import { accessMode } from '../instance'
+import { admitsDomain, settings } from '../instance'
 import { byToken, stateOf } from '../invites'
 import type { AuthUser } from './session'
 
@@ -135,7 +135,12 @@ async function identify(
   // The first person to arrive owns the instance, whatever the setting says — there has to be
   // somebody who can open the door.
   const first = ((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM instance_members'))?.n ?? 0) === 0
-  if (!first && !invite && (await accessMode(db)) === 'closed') throw new NotAdmitted()
+  if (!first && !invite) {
+    // Three ways in when the instance is closed: an invitation, a domain the administrator listed,
+    // or nothing at all. A listed domain is a door, and it admits a viewer like an open instance.
+    const posture = await settings(db)
+    if (posture.access === 'closed' && !admitsDomain(posture, who.email)) throw new NotAdmitted()
+  }
 
   // An open door admits a viewer. It never makes anybody an administrator: that is a decision
   // somebody makes about a person, not a consequence of arriving.
@@ -325,7 +330,7 @@ export function authRoutes(runtime: Runtime) {
     const token = getCookie(c, SESSION_COOKIE)
     const user = token ? await userForToken(db, token) : undefined
     if (!user) {
-      return c.json({ user: null, instanceRole: null, workspaces: [], access: await accessMode(db), dev: devAuth(c.env) })
+      return c.json({ user: null, instanceRole: null, workspaces: [], access: (await settings(db)).access, dev: devAuth(c.env) })
     }
 
     const member = await db.get<{ workspace_id: string; role: string }>(
@@ -344,7 +349,7 @@ export function authRoutes(runtime: Runtime) {
       user: { id: user.id, name: user.name, email: user.email },
       instanceRole: user.instanceRole,
       workspaces,
-      access: await accessMode(db),
+      access: (await settings(db)).access,
       dev: devAuth(c.env),
     })
   })

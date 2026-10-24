@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 
 // These three share one instance and its database, and each edits a card; run them in order so a
 // rename in one is never a surprise in another.
@@ -271,4 +272,59 @@ test('an administrator makes an invitation link, and takes it back', async ({ pa
   await page.getByRole('button', { name: 'Revoke' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Revoke' }).click()
   await expect(page.getByRole('cell', { name: 'revoked' })).toBeVisible()
+})
+
+test('a listed domain is a door, the selection is judged whole, and the directory leaves as a file', async ({ page, browser }) => {
+  await page.goto(`${SELF_HOSTED}/?board=b-atlas`)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await page.getByRole('button', { name: 'Sign in as this address' }).click()
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+
+  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.getByRole('button', { name: /^Admin/ }).click()
+  await expect(page.getByRole('heading', { name: 'Access' })).toBeVisible()
+
+  // The list is a door, and the screen says so before it is opened.
+  await page.getByLabel('Domains admitted without an invitation').fill('trials.example')
+  await page.getByRole('button', { name: 'Save the list' }).click()
+  await expect(page.getByText('Saved, and recorded in the audit.')).toBeVisible()
+
+  // The file: the documented columns, and the filters the list is showing.
+  const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
+  const [download] = await Promise.all([page.waitForEvent('download'), people.getByRole('link', { name: 'Export CSV' }).click()])
+  expect(download.suggestedFilename()).toMatch(/^flowline-people-\d{4}-\d{2}-\d{2}\.csv$/)
+  const file = await readFile((await download.path())!, 'utf8')
+  expect(file.split('\r\n')[0]).toBe('name,email,role,status,last active,joined')
+  expect(file).toContain('maya.blake@example.com')
+
+  // A verified address from that domain walks in without an invitation, as a viewer.
+  const other = await browser.newContext()
+  try {
+    const stranger = await other.newPage()
+    await stranger.goto(SELF_HOSTED)
+    await stranger.getByRole('button', { name: 'Sign in' }).click()
+    await stranger.getByPlaceholder('you@example.com').fill('robin@trials.example')
+    await stranger.getByRole('button', { name: 'Sign in as this address' }).click()
+    await expect(stranger.getByRole('button', { name: /Robin/ })).toBeVisible()
+
+    // A lookalike domain is not that domain: exact, never a suffix.
+    await stranger.getByRole('button', { name: /Robin/ }).click()
+    await stranger.getByRole('button', { name: 'Sign out' }).click()
+    await stranger.getByRole('button', { name: 'Sign in' }).click()
+    await stranger.getByPlaceholder('you@example.com').fill('eve@nottrials.example')
+    await stranger.getByRole('button', { name: 'Sign in as this address' }).click()
+    await expect(stranger.getByRole('button', { name: 'Sign in' })).toBeVisible()
+  } finally {
+    await other.close()
+  }
+
+  // And the selection, which the server judges whole: the person just admitted can be closed out.
+  await page.goto(`${SELF_HOSTED}/?view=boards`)
+  await page.getByRole('button', { name: /^Admin/ }).click()
+  const list = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
+  await expect(list.getByRole('cell', { name: /robin@trials\.example/ })).toBeVisible()
+  await list.getByRole('checkbox', { name: 'Select Robin' }).check()
+  await list.getByRole('button', { name: 'Deactivate' }).click()
+  await expect(page.getByText('1 person changed.')).toBeVisible()
 })

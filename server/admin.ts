@@ -10,7 +10,7 @@ import { Hono } from 'hono'
 import { requireInstanceAdmin } from './access'
 import { statement } from './audit'
 import type { Role } from '../src/domain/roles'
-import { accessMode, setAccess } from './instance'
+import { normaliseDomain, setAccess, setAllowedDomains, settings } from './instance'
 import { publicUrl } from './config'
 import { createInvite, liveFor, resendInvite, revokeInvite, stateOf } from './invites'
 import type { Invite } from './invites'
@@ -27,26 +27,52 @@ export function adminRoutes(runtime: Runtime) {
   routes.get('/settings', async (c) => {
     const caller = await requireInstanceAdmin(c, runtime)
     if (caller instanceof Response) return caller
-    return c.json({ access: await accessMode(caller.db) })
+    return c.json(await settings(caller.db))
   })
 
   routes.patch('/settings', async (c) => {
     const caller = await requireInstanceAdmin(c, runtime)
     if (caller instanceof Response) return caller
 
-    const body = (await c.req.json().catch(() => null)) as { access?: unknown } | null
-    const access = body?.access
-    if (access !== 'open' && access !== 'closed') {
-      return c.json({ error: 'access must be "open" or "closed"' }, 400)
+    const body = (await c.req.json().catch(() => null)) as { access?: unknown; allowedDomains?: unknown } | null
+    if (!body || (!('access' in body) && !('allowedDomains' in body))) {
+      return c.json({ error: 'nothing to change' }, 400)
     }
 
-    await setAccess(
-      caller.db,
-      access as Access,
-      statement({ actorId: caller.user.id, action: 'instance.access', targetType: 'instance', data: { access } }),
-    )
+    if ('access' in body) {
+      const access = body.access
+      if (access !== 'open' && access !== 'closed') {
+        return c.json({ error: 'access must be "open" or "closed"' }, 400)
+      }
+      await setAccess(
+        caller.db,
+        access as Access,
+        statement({ actorId: caller.user.id, action: 'instance.access', targetType: 'instance', data: { access } }),
+      )
+    }
 
-    return c.json({ access })
+    if ('allowedDomains' in body) {
+      if (!Array.isArray(body.allowedDomains)) return c.json({ error: 'allowedDomains must be a list' }, 400)
+      const domains: string[] = []
+      for (const entry of body.allowedDomains) {
+        const domain = typeof entry === 'string' ? normaliseDomain(entry) : undefined
+        if (!domain) return c.json({ error: `that is not a domain: ${String(entry)}` }, 400)
+        if (!domains.includes(domain)) domains.push(domain)
+      }
+      await setAllowedDomains(
+        caller.db,
+        domains,
+        statement({
+          actorId: caller.user.id,
+          action: 'instance.domains',
+          targetType: 'instance',
+          // The list itself is configuration, not a secret; the count is enough for the trail.
+          data: { domains: domains.length },
+        }),
+      )
+    }
+
+    return c.json(await settings(caller.db))
   })
 
   /**
@@ -553,6 +579,148 @@ export function adminRoutes(runtime: Runtime) {
     ])
 
     return c.json({ id, role })
+  })
+
+  /**
+   * Several people at once.
+   *
+   * Judged as a whole before anything is written, the way the bulk parent change refuses a selection
+   * that would cycle: if one row is protected, the operation does not happen and the row is named.
+   * A partial application would be worse than a refusal, because nobody could tell afterwards which
+   * half had happened.
+   */
+  routes.post('/users/bulk', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const body = (await c.req.json().catch(() => null)) as {
+      ids?: unknown
+      operation?: unknown
+      role?: unknown
+    } | null
+
+    const ids = Array.isArray(body?.ids)
+      ? [...new Set(body.ids.filter((id): id is string => typeof id === 'string'))].slice(0, 200)
+      : []
+    if (!ids.length) return c.json({ error: 'nothing selected' }, 400)
+
+    const operation = body?.operation
+    if (operation !== 'deactivate' && operation !== 'activate' && operation !== 'role') {
+      return c.json({ error: 'operation must be deactivate, activate or role' }, 400)
+    }
+    const role = body?.role
+    if (operation === 'role' && role !== 'viewer' && role !== 'editor' && role !== 'admin') {
+      return c.json({ error: 'role must be viewer, editor or admin' }, 400)
+    }
+
+    // Every row, before any of them. A refusal names the row, because "that selection cannot be
+    // changed" is not something an operator can act on.
+    if (operation !== 'activate') {
+      for (const id of ids) {
+        const refused = await refuse(c, caller, id, operation === 'role' ? 'demote' : 'deactivate')
+        if (!refused) continue
+        if (refused.status === 404) return refused
+        const named = await caller.db.get<{ name: string }>('SELECT name FROM users WHERE id = ?1', [id])
+        const answer = (await refused.json()) as { error?: string }
+        return c.json({ error: `${named?.name ?? 'That person'} — ${answer.error ?? 'cannot be changed'}`, id }, 409)
+      }
+    } else {
+      for (const id of ids) {
+        if (!(await personOf(caller.db, id))) return c.json({ error: 'no such person' }, 404)
+      }
+    }
+
+    const now = new Date().toISOString()
+    const statements = []
+    for (const id of ids) {
+      if (operation === 'role') {
+        statements.push({
+          sql: `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?1, ?2, ?3)
+                ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = excluded.role`,
+          params: [WORKSPACE_ID, id, role as string],
+        })
+        statements.push(
+          statement({ actorId: caller.user.id, action: 'user.role', targetType: 'user', targetId: id, data: { workspaceRole: role } }),
+        )
+      } else {
+        statements.push({
+          sql: `UPDATE users SET status = ?1, updated_at = ?2 WHERE id = ?3`,
+          params: [operation === 'deactivate' ? 'inactive' : 'active', now, id],
+        })
+        if (operation === 'deactivate') {
+          statements.push({ sql: 'UPDATE sessions SET revoked_at = ?1 WHERE user_id = ?2 AND revoked_at IS NULL', params: [now, id] })
+        }
+        statements.push(
+          statement({
+            actorId: caller.user.id,
+            action: operation === 'deactivate' ? 'user.deactivate' : 'user.activate',
+            targetType: 'user',
+            targetId: id,
+          }),
+        )
+      }
+    }
+
+    await caller.db.batch(statements)
+    return c.json({ changed: ids.length })
+  })
+
+  /**
+   * The directory as a file.
+   *
+   * The columns a person needs, and nothing that could authenticate anybody: no session, no token,
+   * no hash. Quoted per RFC 4180, because a name with a comma in it is a name, not a broken file.
+   */
+  routes.get('/users.csv', async (c) => {
+    const caller = await requireInstanceAdmin(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const search = (c.req.query('q') ?? '').trim().toLowerCase().slice(0, 100)
+    const status = c.req.query('status') === 'inactive' ? 'inactive' : c.req.query('status') === 'active' ? 'active' : ''
+
+    const params: unknown[] = [WORKSPACE_ID]
+    const where: string[] = []
+    if (search) {
+      where.push(`(lower(u.name) LIKE ?${params.length + 1} OR lower(u.email) LIKE ?${params.length + 1})`)
+      params.push(`%${search}%`)
+    }
+    if (status) {
+      where.push(`u.status = ?${params.length + 1}`)
+      params.push(status)
+    }
+
+    const rows = await caller.db.all<{
+      name: string
+      email: string
+      role: string | null
+      status: string
+      last_seen_at: string | null
+      created_at: string
+    }>(
+      `SELECT u.name, u.email, w.role, u.status, u.last_seen_at, u.created_at
+       FROM users u
+       LEFT JOIN workspace_members w ON w.user_id = u.id AND w.workspace_id = ?1
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY u.name, u.id
+       LIMIT 10000`,
+      params,
+    )
+
+    const quote = (value: string) => (/[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value)
+    const lines = [
+      ['name', 'email', 'role', 'status', 'last active', 'joined'].join(','),
+      ...rows.map((row) =>
+        [row.name, row.email, row.role ?? 'viewer', row.status, row.last_seen_at ?? '', row.created_at].map(quote).join(','),
+      ),
+    ]
+
+    return new Response(lines.join('\r\n'), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        // The date is in the name so two exports a week apart do not silently replace each other.
+        'content-disposition': `attachment; filename="flowline-people-${new Date().toISOString().slice(0, 10)}.csv"`,
+      },
+    })
   })
 
   /**

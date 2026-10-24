@@ -3,6 +3,7 @@ import { PeoplePanel } from './PeoplePanel'
 import { InvitationsPanel } from './InvitationsPanel'
 import { WorkspacePanel } from './WorkspacePanel'
 import { AuditPanel, HealthPanel } from './AuditPanels'
+import { AccessPanel } from './AccessPanel'
 import { useAuth } from '@/lib/auth'
 import { ArrowLeft, History } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
@@ -67,6 +68,7 @@ export function AdminView() {
         </button>
         <h1 className="mt-1 text-title font-semibold tracking-tight text-slate-900">Admin</h1>
         {workspaceAdmin && <WorkspacePanel />}
+        {admin && <AccessPanel />}
         {admin && <PeoplePanel />}
         {admin && <InvitationsPanel />}
         {/* The trail is read by whoever administers: an instance administrator reads all of it, a

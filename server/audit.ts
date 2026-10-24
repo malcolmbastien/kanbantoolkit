@@ -31,6 +31,7 @@ export type AuditAction =
   | 'user.deactivate'
   | 'user.activate'
   | 'instance.access'
+  | 'instance.domains'
   | 'workspace.import'
   | 'workspace.settings'
   | 'workspace.role'

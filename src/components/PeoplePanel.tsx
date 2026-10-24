@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { ROLES } from '@/domain/roles'
+import { RoleSelect } from './RoleSelect'
 import { cn } from '@/lib/utils'
 
 /**
@@ -63,6 +64,8 @@ export function PeoplePanel() {
   const [message, setMessage] = useState<{ tone: 'ok' | 'bad'; text: string } | undefined>()
   const [error, setError] = useState<string | undefined>()
   const [typed, setTyped] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkRole, setBulkRole] = useState('editor')
   const [draftName, setDraftName] = useState('')
   const [draftEmail, setDraftEmail] = useState('')
   const [issued, setIssued] = useState<string | undefined>()
@@ -110,6 +113,12 @@ export function PeoplePanel() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // A selection belongs to what is on screen: narrowing the list drops what is no longer visible,
+  // so a bulk action can only ever touch rows the operator can see.
+  useEffect(() => {
+    setSelected(new Set())
+  }, [search, status, role, provider, sort])
 
   // The drawer's own facts, read when it opens rather than kept from the list.
   useEffect(() => {
@@ -201,11 +210,50 @@ export function PeoplePanel() {
     body: JSON.stringify(body),
   })
 
+  /**
+   * Several people at once.
+   *
+   * The whole selection is judged by the server before anything is written, the way a bulk parent
+   * change refuses a selection that would cycle. This side does not guess at the answer and does not
+   * change a row optimistically: a half-applied selection is one nobody could reason about after.
+   */
+  async function bulk(operation: 'deactivate' | 'activate' | 'role') {
+    setBusy('bulk')
+    setMessage(undefined)
+    try {
+      const response = await fetch('/api/admin/users/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: [...selected], operation, ...(operation === 'role' ? { role: bulkRole } : {}) }),
+      })
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        setMessage({ tone: 'bad', text: body?.error ?? 'That selection could not be changed.' })
+        return
+      }
+
+      const body = (await response.json()) as { changed: number }
+      setMessage({ tone: 'ok', text: `${body.changed} ${body.changed === 1 ? 'person' : 'people'} changed.` })
+      setSelected(new Set())
+      await load()
+    } catch {
+      setMessage({ tone: 'bad', text: 'The server could not be reached.' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function refresh() {
     if (!open) return
     const response = await fetch(`/api/admin/users/${open}`, { headers: { accept: 'application/json' } })
     if (response.ok) setDetail((await response.json()) as Detail)
   }
+
+  // The export carries the filters the list is showing — the directory as it is seen.
+  const exportQuery = new URLSearchParams()
+  if (search.trim()) exportQuery.set('q', search.trim())
+  if (status) exportQuery.set('status', status)
 
   return (
     <section className="mt-6 rounded-xl bg-white p-4 ring-1 ring-slate-200">
@@ -249,8 +297,38 @@ export function PeoplePanel() {
             <option value="name">By name</option>
             <option value="active">By last active</option>
           </select>
+          {/* The directory as a file: the columns a person needs, and nothing that could sign in. */}
+          <a
+            href={`/api/admin/users.csv?${exportQuery.toString()}`}
+            download
+            className={cn(BUTTON, 'no-underline')}
+            title="Download the directory as a CSV file"
+          >
+            Export CSV
+          </a>
         </div>
       </div>
+
+      {selected.size > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1.5">
+          <span className="text-meta font-medium text-slate-700">{selected.size} selected</span>
+          <button onClick={() => void bulk('deactivate')} disabled={busy === 'bulk'} className={cn(BUTTON, 'px-1.5 text-micro')}>
+            Deactivate
+          </button>
+          <button onClick={() => void bulk('activate')} disabled={busy === 'bulk'} className={cn(BUTTON, 'px-1.5 text-micro')}>
+            Activate
+          </button>
+          <span className="flex items-center gap-1">
+            <RoleSelect value={bulkRole} onChange={setBulkRole} label="Role to apply" className="text-micro" />
+            <button onClick={() => void bulk('role')} disabled={busy === 'bulk'} className={cn(BUTTON, 'px-1.5 text-micro')}>
+              Set role
+            </button>
+          </span>
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-micro text-slate-500 hover:text-slate-800">
+            Clear
+          </button>
+        </div>
+      )}
 
       {message && (
         <p className={cn('mt-3 rounded-md px-2 py-1 text-meta', message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800')}>
@@ -268,6 +346,7 @@ export function PeoplePanel() {
         <table className="mt-3 w-full table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-slate-200 text-micro uppercase tracking-wide text-slate-500">
+              <th className="w-6 py-1.5" />
               <th className="py-1.5 font-semibold">Person</th>
               <th className="w-28 py-1.5 font-semibold">Role</th>
               <th className="w-24 py-1.5 font-semibold">Status</th>
@@ -278,6 +357,19 @@ export function PeoplePanel() {
           <tbody>
             {people.map((entry) => (
               <tr key={entry.id} className="border-b border-slate-100 last:border-0">
+                <td className="py-1.5">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(entry.id)}
+                    onChange={(event) => {
+                      const next = new Set(selected)
+                      if (event.target.checked) next.add(entry.id)
+                      else next.delete(entry.id)
+                      setSelected(next)
+                    }}
+                    aria-label={`Select ${entry.name}`}
+                  />
+                </td>
                 <td className="truncate py-1.5 pr-2">
                   <span className="font-medium text-slate-800">{entry.name}</span>
                   <span className="ml-1.5 text-meta text-slate-500">{entry.email}</span>
