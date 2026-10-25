@@ -15,6 +15,7 @@ import type { Database, Statement } from '../db'
 import { DEFAULT_WORKSPACE_NAME, devAuth, providers, publicUrl, salt, workspaceName } from '../config'
 import type { Runtime } from '../runtime'
 import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
+import { dummyHash, verify } from './password'
 import { issueSession, revoke, sessionCookie, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
 import { admitsDomain, settings } from '../instance'
@@ -259,13 +260,24 @@ async function identify(
 export function authRoutes(runtime: Runtime) {
   const auth = new Hono<{ Bindings: object }>()
 
-  /** What this instance offers. An instance with nothing configured offers nothing, and says so. */
-  auth.get('/providers', (c) =>
-    c.json({
+  /**
+   * What this instance offers. An instance with nothing configured offers nothing, and says so.
+   *
+   * `password` is true only when an account actually has one: a form for a door nobody can walk
+   * through is the kind of control this project refuses to draw. It becomes true the moment somebody
+   * sets one — the first administrator (task 154.4) or an accepted invitation (154.5).
+   */
+  auth.get('/providers', async (c) => {
+    const db = runtime.database(c.env)
+    const withPassword = db
+      ? Boolean(await db.get('SELECT 1 AS seen FROM users WHERE password_hash IS NOT NULL LIMIT 1'))
+      : false
+    return c.json({
       providers: providers(c.env).map(({ id, label }) => ({ id, label })),
+      password: withPassword,
       dev: devAuth(c.env),
-    }),
-  )
+    })
+  })
 
   auth.get('/start', async (c) => {
     const db = runtime.database(c.env)
@@ -452,6 +464,70 @@ export function authRoutes(runtime: Runtime) {
       // not. The client falls back to polling anyway, so this is a hint rather than a promise.
       live: runtime.live ? 'socket' : 'poll',
     })
+  })
+
+  /**
+   * The password door (task 154.3).
+   *
+   * One sentence for every refusal — an address that does not exist, an account that is closed, a
+   * password that is wrong — and the same cost for each: an unknown address verifies against a dummy
+   * hash, so a guesser learns nothing from the clock either. The rate limiter is the one the provider
+   * door already uses, and it is charged before the hash is computed.
+   */
+  auth.post('/password', async (c) => {
+    const db = runtime.database(c.env)
+    if (!db) return c.json({ error: 'not configured' }, 503)
+
+    const body = (await c.req.json().catch(() => null)) as {
+      email?: unknown
+      password?: unknown
+      remember?: unknown
+    } | null
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const password = typeof body?.password === 'string' ? body.password : ''
+    if (!email.includes('@') || !password) return c.json({ error: 'an address and a password are required' }, 400)
+
+    const ipHash = await addressHash(runtime, c.env, c.req.raw)
+    if (await overLimit(db, runtime.clientIp(c.req.raw), c.env)) {
+      await record(db, {
+        action: 'signin.refused',
+        targetType: 'password',
+        data: { reason: 'rate limited' },
+        ipHash,
+      })
+      return c.json({ error: 'too many attempts' }, 429)
+    }
+
+    const account = await db.get<{ id: string; status: string; password_hash: string | null }>(
+      'SELECT id, status, password_hash FROM users WHERE lower(email) = ?1',
+      [email],
+    )
+
+    // The same work whether the address exists or not, and whatever its status: the hash is the
+    // thing being spent, and a missing one is replaced by a real one so the timing matches.
+    const matched = await verify(password, account?.password_hash ?? (await dummyHash()))
+    if (!account || !account.password_hash || !matched || account.status !== 'active') {
+      await record(db, { action: 'signin.refused', targetType: 'password', data: { reason: 'no match' }, ipHash })
+      return c.json({ error: 'that address and password do not match' }, 401)
+    }
+
+    const session = await issueSession(db, account.id, {
+      userAgent: c.req.header('user-agent'),
+      ipHash,
+      remember: body?.remember === true,
+    })
+    await record(db, { actorId: account.id, action: 'signin', targetType: 'password', ipHash })
+
+    const cookie = sessionCookie(c.env, c.req.raw)
+    setCookie(c, cookie.name, session.token, {
+      httpOnly: true,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: session.maxAge,
+      secure: cookie.secure,
+    })
+    const user = await userById(db, account.id)
+    return c.json({ user })
   })
 
   auth.post('/signout', async (c) => {

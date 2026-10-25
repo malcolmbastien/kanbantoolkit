@@ -9,6 +9,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { hash } from './auth/password'
 import { createApp } from './app'
 import { issueSession, revoke, userForToken } from './auth/session'
 import { sha256 } from './auth/oauth'
@@ -118,7 +119,7 @@ describe('the provider registry', () => {
   it('is honest about what this instance offers', async () => {
     const { request } = instance({ AUTH_DEV: '1' })
     const answer = await request('/api/auth/providers')
-    expect(await answer.json()).toEqual({ providers: [], dev: true })
+    expect(await answer.json()).toEqual({ providers: [], password: false, dev: true })
   })
 })
 
@@ -446,5 +447,93 @@ describe('who may come in', () => {
     // A door closed is a fact somebody should be able to find later.
     const event = await db.get<{ data: string }>("SELECT data FROM audit_events WHERE action = 'instance.access'")
     expect(event?.data).toContain('closed')
+  })
+})
+
+describe('the password door', () => {
+  const PASSWORD = 'correct horse battery staple'
+
+  /** An account that exists through the development door, then has a password set the way 154.4 will. */
+  async function account(status: 'active' | 'inactive' = 'active') {
+    const world = instance({ AUTH_DEV: '1' })
+    await world.request('/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com' }),
+    })
+    await world.db.run('UPDATE users SET password_hash = ?1, status = ?2 WHERE lower(email) = ?3', [
+      await hash(PASSWORD),
+      status,
+      'ada@example.com',
+    ])
+    const signInWithPassword = (password = PASSWORD, email = 'ada@example.com') =>
+      world.request('/api/auth/password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+    return { ...world, signInWithPassword }
+  }
+
+  it('signs in with the right password, and the session is a session', async () => {
+    const { signInWithPassword, request } = await account()
+
+    const answer = await signInWithPassword()
+    expect(answer.status).toBe(200)
+    const token = cookie(answer, 'fl_session')
+    expect(token).toBeTruthy()
+
+    const session = (await (await request('/api/auth/session', { headers: { cookie: `fl_session=${token}` } })).json()) as {
+      user: { email: string } | null
+    }
+    expect(session.user?.email).toBe('ada@example.com')
+  })
+
+  it('answers an unknown address and a wrong password with one sentence and one status', async () => {
+    const { signInWithPassword } = await account()
+
+    const wrong = await signInWithPassword('not the password')
+    const unknown = await signInWithPassword(PASSWORD, 'nobody@example.com')
+    expect(wrong.status).toBe(401)
+    expect(unknown.status).toBe(401)
+    expect(await wrong.text()).toBe(await unknown.text())
+  })
+
+  it('refuses a closed account exactly as it refuses a wrong password', async () => {
+    const { signInWithPassword } = await account('inactive')
+    const closed = await signInWithPassword()
+    expect(closed.status).toBe(401)
+    expect(await closed.text()).toContain('do not match')
+  })
+
+  it('offers the password door only once an account has a password', async () => {
+    const world = instance({ AUTH_DEV: '1' })
+    expect(await (await world.request('/api/auth/providers')).json()).toMatchObject({ password: false })
+
+    await world.request('/api/auth/dev', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com' }),
+    })
+    expect(await (await world.request('/api/auth/providers')).json()).toMatchObject({ password: false })
+
+    await world.db.run('UPDATE users SET password_hash = ?1', [await hash(PASSWORD)])
+    expect(await (await world.request('/api/auth/providers')).json()).toMatchObject({ password: true })
+  })
+
+  it('refuses a request with no address or no password, rather than guessing', async () => {
+    const { request } = await account()
+    const empty = await request('/api/auth/password', { method: 'POST', body: JSON.stringify({ email: 'ada@example.com' }) })
+    expect(empty.status).toBe(400)
+  })
+
+  it('records the refusal and the sign-in in the trail', async () => {
+    const { db, signInWithPassword } = await account()
+    await signInWithPassword('wrong password here')
+    await signInWithPassword()
+
+    const actions = (await db.all<{ action: string }>('SELECT action FROM audit_events ORDER BY at')).map((row) => row.action)
+    expect(actions).toContain('signin.refused')
+    expect(actions).toContain('signin')
   })
 })

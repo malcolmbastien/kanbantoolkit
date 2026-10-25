@@ -31,11 +31,21 @@ export interface AuthState {
   /** Which transport the live feed uses here: a socket where the deployment has one, else polling. */
   live: 'socket' | 'poll'
   dev: boolean
+  /** Whether any account here has a password — the door exists only when somebody can walk it. */
+  password: boolean
   /** Whether this instance has been asked what it offers. Until it has, nothing is drawn. */
   loaded: boolean
 }
 
-const NONE: AuthState = { providers: [], user: null, access: 'closed', live: 'poll', dev: false, loaded: false }
+const NONE: AuthState = {
+  providers: [],
+  user: null,
+  access: 'closed',
+  live: 'poll',
+  dev: false,
+  password: false,
+  loaded: false,
+}
 
 /**
  * Who this instance says you are, in one place.
@@ -56,7 +66,7 @@ async function read<T>(path: string): Promise<T | null> {
 }
 
 export async function loadAuth(): Promise<AuthState> {
-  const offered = await read<{ providers?: AuthProvider[]; dev?: boolean }>('/api/auth/providers')
+  const offered = await read<{ providers?: AuthProvider[]; dev?: boolean; password?: boolean }>('/api/auth/providers')
   if (!offered?.providers) return NONE
 
   const session = await read<{
@@ -80,6 +90,7 @@ export async function loadAuth(): Promise<AuthState> {
         }
       : null,
     dev: offered.dev === true,
+    password: offered.password === true,
     loaded: true,
   }
   useAuth.setState(next)
@@ -121,6 +132,25 @@ export async function signOut(): Promise<void> {
     // A server that is not there holds no session to end.
   }
   useAuth.setState({ user: null })
+}
+
+/**
+ * The password door.
+ *
+ * The session cookie is the answer, exactly as it is for a provider; this only reports whether the
+ * instance accepted the address and the password, and the caller reloads the session to draw.
+ */
+export async function passwordSignIn(email: string, password: string, remember = false): Promise<boolean> {
+  try {
+    const response = await fetch('/api/auth/password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password, ...(remember ? { remember: true } : {}) }),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
 }
 
 /** The development identity switch, for the tests and for an instance with no provider yet. */

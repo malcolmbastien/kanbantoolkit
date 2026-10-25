@@ -17,5 +17,8 @@ export const WORKSPACE_SCHEMA = 1
  *
  * 21 is the bill leaving the schema (task 166). A database that still carries the billing columns is
  * one this code has stopped reading, so the rule is the same: refuse rather than guess.
+ *
+ * 22 is the password column (task 154.3): a database without it cannot sign anybody in, which is a
+ * read this code must not attempt.
  */
-export const REQUIRED_SCHEMA = 21
+export const REQUIRED_SCHEMA = 22

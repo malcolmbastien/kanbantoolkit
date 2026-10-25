@@ -89,7 +89,9 @@ describe('the server schema', () => {
 
     const db = fromSqlite(raw)
     const result = await migrate(db, all)
-    expect(result.applied).toEqual([since])
+    // 21 drops the bill; 22 adds the password column. Both are "later" than the database this
+    // fixture writes, so both run — and the point of the test is that the workspace survives them.
+    expect(result.applied).toEqual(all.filter((migration) => migration.version >= since).map((migration) => migration.version))
     expect(result.version).toBe(all.length)
 
     // The workspace, its name, its administrator and its work are all still there…

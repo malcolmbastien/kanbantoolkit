@@ -5,7 +5,7 @@ import { useStore } from '@/store'
 
 // A dialog nobody has opened yet is not part of the first download.
 const ProfileDialog = lazy(() => import('./ProfileDialog').then((module) => ({ default: module.ProfileDialog })))
-import { devSignIn, loadAuth, signOut, startSignIn, useAuth } from '@/lib/auth'
+import { devSignIn, loadAuth, passwordSignIn, signOut, startSignIn, useAuth } from '@/lib/auth'
 import type { AuthUser } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +31,9 @@ export function AccountMenu() {
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'closed',
   )
   const [email, setEmail] = useState('')
+  // The password door: only drawn when an account here has a password (task 154.3).
+  const [password, setPassword] = useState('')
+  const [refused, setRefused] = useState(false)
   // Twelve hours unless this is asked for: a shared machine should not stay open for a month.
   const [remember, setRemember] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -54,7 +57,7 @@ export function AccountMenu() {
     return () => document.removeEventListener('pointerdown', away)
   }, [open])
 
-  if (!auth.loaded || (auth.providers.length === 0 && !auth.dev)) return null
+  if (!auth.loaded || (auth.providers.length === 0 && !auth.dev && !auth.password)) return null
 
   /**
    * Until the workspace lives on the server, the account and the workspace's own person are two
@@ -80,6 +83,30 @@ export function AccountMenu() {
     setBusy(false)
     if (!user) return
     signedIn(user)
+    setEmail('')
+    setOpen(false)
+  }
+
+  async function onPassword(event: FormEvent) {
+    event.preventDefault()
+    if (!email.includes('@') || !password) return
+    setBusy(true)
+    setRefused(false)
+    const ok = await passwordSignIn(email, password, remember)
+    if (!ok) {
+      setBusy(false)
+      setRefused(true)
+      return
+    }
+    // The cookie is the session; asking again says who it belongs to, which is what draws the menu.
+    const next = await loadAuth()
+    setBusy(false)
+    setPassword('')
+    if (!next.user) {
+      setRefused(true)
+      return
+    }
+    signedIn(next.user)
     setEmail('')
     setOpen(false)
   }
@@ -200,7 +227,47 @@ export function AccountMenu() {
                 </span>
               </label>
 
-              <p className="px-1.5 pb-1.5 text-micro uppercase tracking-wide text-slate-400">Sign in with</p>
+              {auth.password && (
+                <form onSubmit={onPassword} className="px-1.5 pb-2">
+                  <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">Password</p>
+                  <input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    type="email"
+                    autoComplete="username"
+                    placeholder="you@example.com"
+                    aria-label="Email address"
+                    className="w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
+                  />
+                  <input
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="your password"
+                    aria-label="Password"
+                    className="mt-1 w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
+                  />
+                  {refused && (
+                    <p className="mt-1 rounded-md bg-rose-50 px-1.5 py-1 text-micro text-rose-800">
+                      That address and password do not match.
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={busy || !email.includes('@') || !password}
+                    className="mt-1 w-full rounded-md bg-slate-900 px-1.5 py-1 text-meta font-medium text-white hover:bg-slate-800 disabled:opacity-40"
+                  >
+                    {busy ? 'Signing in…' : 'Sign in'}
+                  </button>
+                </form>
+              )}
+
+              {auth.providers.length > 0 && (
+                <p className="px-1.5 pb-1.5 text-micro uppercase tracking-wide text-slate-400">
+                  {auth.password ? 'or continue with' : 'Sign in with'}
+                </p>
+              )}
               {auth.providers.map((provider) => (
                 <button
                   key={provider.id}
