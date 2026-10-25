@@ -370,7 +370,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           'flex h-full min-h-0 w-full flex-1 flex-col',
           // No outer box: each top-level column is its own card, with a gap between them.
           // The stage tints the whole column, so it reads at a glance without a label.
-          top && 'overflow-hidden rounded-xl border border-slate-200/90 shadow-sm',
+          top && 'overflow-hidden rounded-xl border border-slate-300/80 shadow-sm',
           top && stage && STAGE_SURFACE[stage],
         )}
         style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
@@ -443,7 +443,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         // A top-level column is the object: one edge, one tint, one accent. A nested cell
         // sits on its section's tint and needs none of the three — the partition line is
         // enough, and a second frame is what made a cell look like a box inside a box.
-        top && 'overflow-hidden rounded-xl border border-slate-200/90 shadow-sm',
+        top && 'overflow-hidden rounded-xl border border-slate-300/80 shadow-sm',
         top ? (stage ? STAGE_SURFACE[stage] : 'bg-slate-100') : '',
       )}
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}

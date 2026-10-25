@@ -200,12 +200,22 @@ export const STAGE_ACCENT: Record<Stage, string> = STAGE_COLOR
  * A lane body, tinted by the stage it belongs to. The stage is then legible from the
  * column itself rather than from a label — and it is the *column's* stage, so a team
  * splitting a column into cells does not lose it.
+ *
+ * The three levels of the board, and they are deliberate:
+ *
+ *   page     `bg-slate-300`  — the ground, one clear step below white;
+ *   column   these tints     — an object on the ground, still light;
+ *   card     `bg-white`      — the brightest plane, lifted by its shadow.
+ *
+ * The card is what a person reads, so it is the only pure white on the board. A tint
+ * that drifts back towards white takes that away: the columns stop being objects and
+ * the cards stop standing out, which is what the board looked like before.
  */
 export const STAGE_SURFACE: Record<Stage, string> = {
-  backlog: 'bg-slate-100/70',
-  notStarted: 'bg-blue-50/60',
-  inProgress: 'bg-violet-50/60',
-  done: 'bg-emerald-50/60',
+  backlog: 'bg-slate-200/80',
+  notStarted: 'bg-blue-100/70',
+  inProgress: 'bg-violet-100/70',
+  done: 'bg-emerald-100/70',
 }
 
 /**

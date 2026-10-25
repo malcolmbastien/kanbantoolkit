@@ -371,7 +371,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         className={cn(
           // `@container` lets the card shed detail as its column narrows (see the `@[Npx]:`
           // variants below) instead of overflowing a customised flow.
-          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white text-left shadow-sm transition',
+          '@container group relative flex w-full flex-col overflow-hidden rounded-lg border border-slate-300/80 bg-white text-left shadow-md transition',
           summary.done && 'bg-slate-50',
           FOCUS_RING,
           // On touch: a vertical swipe still scrolls the board (the browser takes it, and the
@@ -379,7 +379,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           // would make the board unscrollable from a card; both the browser's would make a card
           // undraggable.
           draggable && !locked && 'touch-pan-y',
-          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-md',
+          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-lg',
           lensCls,
           lockCls,
           dimCls,
@@ -604,11 +604,11 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         // shadow is what makes the card an object on a tinted lane rather than another pale
         // plane beside it; it deepens on hover, when the card is asked a question. What is loud
         // on a card is its warnings, not its box.
-        'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] border-slate-200 text-left shadow-sm transition',
+        'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] border-slate-300/80 text-left shadow-md transition',
         summary.done ? 'bg-slate-50' : 'bg-white',
         FOCUS_RING,
         draggable && !locked && 'touch-pan-y',
-        locked ? 'cursor-default' : 'cursor-pointer hover:shadow-md',
+        locked ? 'cursor-default' : 'cursor-pointer hover:shadow-lg',
         lensCls,
         lockCls,
         dimCls,

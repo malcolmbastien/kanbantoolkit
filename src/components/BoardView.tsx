@@ -79,7 +79,7 @@ export function BoardView({ requestMove }: Props) {
   // against the surface it commands. The bar is always present because the Filters control
   // always is; the rest of it appears only when it has something functional to say.
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-50">
+    <div className="flex h-full min-h-0 flex-col bg-slate-300">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 py-1.5 text-meta text-slate-600 backdrop-blur-sm">
         <button
           onClick={toggleLegend}
@@ -165,7 +165,7 @@ export function BoardView({ requestMove }: Props) {
             <div className="flex min-w-0 items-center gap-2">
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
               <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
-              <span className="hidden shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-micro font-semibold text-slate-500 ring-1 ring-emerald-200/80 sm:inline">
+              <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-emerald-200 sm:inline">
                 {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
               </span>
               <span className="truncate text-meta text-slate-600">this team’s initiatives — status rolls up from the cards below</span>
@@ -190,7 +190,7 @@ export function BoardView({ requestMove }: Props) {
                 {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
               </span>
             </div>
-            <span className="hidden shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-micro font-semibold text-slate-500 ring-1 ring-indigo-200/80 sm:inline">
+            <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-indigo-200 sm:inline">
               {cardCount} {cardCount === 1 ? 'card' : 'cards'}
             </span>
           </div>
