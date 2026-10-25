@@ -36,6 +36,10 @@ export type AuditAction =
   | 'token.create'
   | 'token.revoke'
   | 'token.approve'
+  // A write through `/api/v1` (task 169): the operation, the item, and the token. The app's own card
+  // writes are not audited — they are a person's typing — but a script's are, and they say which
+  // credential acted for whom.
+  | 'api.write'
   | 'user.deactivate'
   | 'user.activate'
   | 'instance.access'

@@ -336,6 +336,19 @@ export function lanePath(lanes: Lane[], laneId: string): string[] {
   return [...chain, self].filter(Boolean)
 }
 
+/**
+ * How a lane reads in a history note: the name it had at that moment, or the stage it carries when a
+ * board has left it unnamed. Callers pass the lanes *as they were* — a lane renamed or removed later
+ * must not rewrite what the note says, which is the whole point of a history.
+ */
+export function laneNameAt(lanes: Lane[], laneId: string | undefined): string {
+  if (!laneId) return ''
+  const lane = lanes.find((l) => l.id === laneId)
+  if (!lane) return 'a lane since gone'
+  const stage = effectiveStage(lanes, laneId)
+  return lane.name || (stage ? STAGE_LABELS[stage] : 'a lane since gone')
+}
+
 /** Placements anywhere in a lane's subtree. */
 export function laneCardCount(lanes: Lane[], placements: Placement[], laneId: string): number {
   const ids = new Set(subtreeIds(lanes, laneId))

@@ -2408,11 +2408,13 @@ describe("an item's revision", () => {
 
   it('has no content write outside the seam', () => {
     // The seam is a convention, not a type, so this is what keeps it honest: a raw item map is a
-    // write that skipped the revision. The number is the eight placement actions, the Done stamp
-    // in `placeCard`, and the seam's own map — it is here so that adding a tenth is a decision
-    // someone takes rather than something that slips past.
+    // write that skipped the revision. The number is the six placement actions, the Done stamp in
+    // `placeCard`, and the seam's own map — it is here so that adding a ninth is a decision someone
+    // takes rather than something that slips past. The two maps that left this file are the move's:
+    // they live in `src/domain/move.ts` now, and a move is arrangement, so it never bumps a
+    // revision — the rule those maps were an exception to.
     const raw = [...storeSource.matchAll(/state\.items\.map\(/g)].length
-    expect(raw).toBe(10)
+    expect(raw).toBe(8)
   })
 
   it('is not moved by a placement: a dragged card keeps its revision', () => {

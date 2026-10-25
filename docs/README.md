@@ -50,6 +50,7 @@ the build.
 | **[Architecture](architecture.md)** | the layers, the workspace boundary, and how a request becomes work |
 | **[The two runtimes](server-runtime.md)** | Worker and Node from one codebase, and the rule that keeps it honest |
 | **[The API](api.md)** | every route, what it answers, and how a session is carried |
+| **[The REST API](rest-api.md)** | `/api/v1`: the supported surface, its conventions, and the promise that it does not move |
 | **[The data model](data-model-v2.md)** | what a workspace is made of |
 | **[Collaboration](collaboration.md)** | how two people edit at once without losing a change |
 | **[The public site](public-site.md)** | what the project's site says, and why each page exists |

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { addLaneNode, ancestorsOf, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
+import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
 import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
 import { canPlaceInSection, decompositionParent, descendants, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
@@ -494,12 +495,6 @@ const uid = makeUid
  * and an id read aloud is noise. Used by the announcer at the move seam, so the pointer, the menu,
  * the keyboard and the bulk bar all speak the same sentence.
  */
-function moveSentence(state: Store, itemId: string, laneId: string): string {
-  const title = state.items.find((i) => i.id === itemId)?.title ?? 'The card'
-  const path = lanePath(state.lanes, laneId).join(' / ')
-  return `${title} moved to ${path || 'another lane'}.`
-}
-
 /**
  * Committed work over uncommitted work is a warning the app raises rather than a rule it enforces
  * (`uncommittedBelow`), and a move is what usually raises it. Read before and after, so only the
@@ -737,23 +732,6 @@ export async function flushQueue(): Promise<void> {
 }
 
 /** The first lane (target or ancestor) whose WIP limit a move would exceed. */
-function exceededLane(
-  state: Pick<FlowState, 'lanes' | 'placements'>,
-  boardId: string,
-  laneId: string,
-  existingLaneId: string | undefined,
-): Lane | undefined {
-  const limited = [state.lanes.find((l) => l.id === laneId), ...ancestorsOf(state.lanes, laneId)]
-  for (const l of limited) {
-    if (!l || l.wipLimit === undefined) continue
-    const subtree = new Set(subtreeIds(state.lanes, l.id))
-    const count = state.placements.filter((p) => p.boardId === boardId && subtree.has(p.laneId)).length
-    const alreadyInside = existingLaneId ? subtree.has(existingLaneId) : false
-    if (count + (alreadyInside ? 0 : 1) > l.wipLimit) return l
-  }
-  return undefined
-}
-
 /** Find a user by full name (case-insensitive), or create one. */
 function ensureUser(users: User[], name: string): { id: string; users: User[] } {
   const trimmed = name.trim()
@@ -782,51 +760,14 @@ const logEntry = (kind: ItemLogEntry['kind'], note?: string): ItemLogEntry => ({
 })
 
 /**
- * How a lane reads in a history note: the name it had at that moment, or the stage it carries
- * when a board has left it unnamed. Callers pass the lanes *as they were* — a lane renamed or
- * removed later must not rewrite what the note says, which is the whole point of a history.
- */
-const laneNameAt = (lanes: Lane[], laneId: string | undefined): string => {
-  if (!laneId) return ''
-  const lane = lanes.find((l) => l.id === laneId)
-  if (!lane) return 'a lane since gone'
-  const stage = effectiveStage(lanes, laneId)
-  return lane.name || (stage ? STAGE_LABELS[stage] : 'a lane since gone')
-}
-
-/**
- * A move, recorded where it happened. The note holds the names as they were ("Dev → Test"), and
- * `fromLaneId`/`toLaneId` hold the cells for anything that reads movements rather than words.
- * `why` is for the moves nobody made — a card rehomed because its lane was split or removed —
- * so a silent cell change explains itself.
+ * The history entry a move leaves, with this store's clock and author.
  *
- * The entry also carries the board and the **stages**: a lane can be renamed or split tomorrow,
- * and a stage cannot, so this is what the flow metrics are derived from.
+ * The shape is the domain's (`movedEntry`): a lane edit rehomes cards too, and it must say so in the
+ * same words a drag does — otherwise the same event would read two ways depending on which code
+ * noticed it.
  */
-const movedEntry = (
-  lanes: Lane[],
-  boardId: string,
-  fromLaneId: string | undefined,
-  toLaneId: string,
-  why?: string,
-): ItemLogEntry => {
-  const from = laneNameAt(lanes, fromLaneId)
-  const to = laneNameAt(lanes, toLaneId)
-  const fromStage = fromLaneId ? effectiveStage(lanes, fromLaneId) : undefined
-  const toStage = effectiveStage(lanes, toLaneId)
-  return {
-    id: uid(),
-    at: Date.now(),
-    kind: 'moved',
-    note: `${from ? `${from} → ${to}` : `into ${to}`}${why ? ` · ${why}` : ''}`,
-    boardId,
-    ...(fromLaneId ? { fromLaneId } : {}),
-    toLaneId,
-    ...(fromStage ? { fromStage } : {}),
-    ...(toStage ? { toStage } : {}),
-    ...(currentAuthor ? { by: currentAuthor } : {}),
-  }
-}
+const moved = (lanes: Lane[], boardId: string, from: string | undefined, to: string, why?: string) =>
+  movedEntry(lanes, boardId, from, to, { id: uid, at: Date.now(), by: currentAuthor, why })
 
 /**
  * The field edits worth keeping in a history: the decisions — a retype, a resize, a
@@ -1489,8 +1430,8 @@ export const useStore = create<Store>()(
             // Each card in the group records its own move, from the cell it was in. An item
             // with no placement here is not moved by this, so it records nothing.
             const from = state.placements.find((p) => p.itemId === i.id && p.boardId === state.boardId)?.laneId
-            const moved = from && from !== laneId ? { log: [...(i.log ?? []), movedEntry(state.lanes, state.boardId, from, laneId)] } : {}
-            const next = { ...i, ...moved }
+            const entry = from && from !== laneId ? { log: [...(i.log ?? []), moved(state.lanes, state.boardId, from, laneId)] } : {}
+            const next = { ...i, ...entry }
             if (stage === 'done' && !next.resolvedAt) return { ...next, resolvedAt: Date.now() }
             if (stage !== 'done' && next.resolvedAt) return { ...next, resolvedAt: null }
             return next
@@ -2112,80 +2053,64 @@ export const useStore = create<Store>()(
       },
 
       moveCard: (itemId, boardId, laneId, opts) => {
-        const reason = opts?.reason
         const state = get()
-        // Cards live in the cards workflow; an initiative cell is never a destination.
-        if (state.lanes.find((l) => l.id === laneId)?.workflow !== 'cards') return false
-        const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
-        // Already there: nothing to move, and the answer is yes — a caller with a position of its
-        // own may still write it.
-        if (existing && existing.laneId === laneId) return true
-        // WIP enforcement on the target lane (or any limited ancestor).
-        const board = state.boards.find((b) => b.id === boardId)
-        const mode = board?.wipEnforcement ?? 'visualize'
-        if (mode !== 'visualize') {
-          const breached = exceededLane(state, boardId, laneId, existing?.laneId)
-          if (breached) {
-            const where = breached.name || 'that lane'
-            if (mode === 'block') {
-              // Refused, and said: a drop that just does not happen looks identical to a drop the
-              // board did not see.
-              const title = state.items.find((i) => i.id === itemId)?.title ?? 'The card'
-              announce(`${title} was not moved: ${where} is at its limit of ${breached.wipLimit ?? 0}.`)
-              return false
-            }
-            // 'justify': hold the move until the user supplies a reason. The place the gesture
-            // offered is held with it, so the card lands where it was put when the answer comes.
-            if (reason === undefined) {
-              announce(`Move held: ${where} is at its limit of ${breached.wipLimit ?? 0}. A reason is needed.`)
-              set({
-                wipPrompt: {
-                  itemId,
-                  boardId,
-                  laneId,
-                  laneName: breached.name || 'lane',
-                  limit: breached.wipLimit ?? 0,
-                  ...(opts?.index === undefined ? {} : { index: opts.index }),
-                },
-              })
-              return false
-            }
-          }
-        }
-        const placements = existing
-          ? state.placements.map((p) => (p.id === existing.id ? toLane(state.placements, p, laneId) : p))
-          : [
-              ...state.placements,
-              { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now(), rank: nextRank(state.placements, laneId) },
-            ]
-        // Track when work enters/leaves Done — the clock auto-archive reads.
-        const stage = effectiveStage(state.lanes, laneId)
-        const items = state.items.map((i) => {
-          if (i.id !== itemId) return i
-          let next: Item = i
-          if (stage === 'done' && !i.resolvedAt) next = { ...next, resolvedAt: Date.now() }
-          if (stage !== 'done' && i.resolvedAt) next = { ...next, resolvedAt: null }
-          // A justified WIP overrun is recorded on the card and in its log.
-          if (reason) next = { ...next, lastMoveReason: reason, log: [...(i.log ?? []), logEntry('limit', reason)] }
-          // And the move itself. The journey is the point of the history: a card's past is
-          // otherwise unrecoverable, and the overrun above explains a limit rather than a
-          // destination. A same-cell reorder returned early and writes nothing.
-          next = { ...next, log: [...(next.log ?? []), movedEntry(state.lanes, boardId, existing?.laneId, laneId)] }
-          return next
-        })
-        // A move is also the moment a warning can arrive: committed work over Backlog work is
-        // noticed rather than blocked, and somebody who cannot see the card's badge needs to hear
-        // that it turned up.
-        const raised = raisedWarning(
-          uncommittedBelow(itemId, { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }),
-          uncommittedBelow(itemId, { items, edges: state.edges, links: state.links, placements, lanes: state.lanes }),
+        // The rule is `src/domain/move.ts` — the same one `/api/v1` and an agent's `move_item` ask.
+        // What is the store's own is what a person hears and what the prompt holds.
+        const outcome = moveCardOperation(
+          { items: state.items, placements: state.placements, lanes: state.lanes, boards: state.boards, edges: state.edges, links: state.links },
+          { itemId, boardId, laneId, reason: opts?.reason },
+          { at: Date.now(), by: currentAuthor, id: uid },
         )
-        set({ placements, items })
+
+        if (outcome.kind === 'refused') {
+          // A refusal under `block` is said: a drop that just does not happen looks identical to a
+          // drop the board did not see. The other refusals (a cell of the other workflow, a lane
+          // that is gone) are the pointer being over nothing, and silence is the right answer.
+          if (outcome.refusal.code === 'wip_blocked') {
+            const title = state.items.find((i) => i.id === itemId)?.title ?? 'The card'
+            announce(`${title} was not moved: ${outcome.refusal.details.laneName} is at its limit of ${outcome.refusal.details.limit}.`)
+          }
+          return false
+        }
+
+        if (outcome.kind === 'held') {
+          announce(`Move held: ${outcome.laneName} is at its limit of ${outcome.limit}. A reason is needed.`)
+          set({
+            wipPrompt: {
+              itemId,
+              boardId,
+              laneId,
+              laneName: outcome.laneName,
+              limit: outcome.limit,
+              ...(opts?.index === undefined ? {} : { index: opts.index }),
+            },
+          })
+          return false
+        }
+
+        // Already there: nothing moved, nothing to say, and the answer is yes — a caller with a
+        // position of its own may still write it.
+        if (outcome.positionOnly) return true
+
+        // A move is also the moment a warning can arrive: committed work over Backlog work is
+        // noticed rather than blocked, and somebody who cannot see the card's badge needs to hear it.
+        const graphOf = (items: typeof state.items, placements: typeof state.placements) => ({
+          items,
+          edges: state.edges,
+          links: state.links,
+          placements,
+          lanes: state.lanes,
+        })
+        const raised = raisedWarning(
+          uncommittedBelow(itemId, graphOf(state.items, state.placements)),
+          uncommittedBelow(itemId, graphOf(outcome.items, outcome.placements)),
+        )
+
+        set({ placements: outcome.placements, items: outcome.items })
         // Said after the write, so what is announced is what the board now shows.
         announce(`${moveSentence(state, itemId, laneId)}${raised}`)
         return true
       },
-
 
       /**
        * A card's position, changed from the keyboard.
@@ -2236,44 +2161,40 @@ export const useStore = create<Store>()(
           moving.laneId === laneId
             ? state.items
             : state.items.map((i) =>
-                i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, boardId, moving.laneId, laneId)] } : i,
+                i.id === itemId ? { ...i, log: [...(i.log ?? []), moved(state.lanes, boardId, moving.laneId, laneId)] } : i,
               )
         placeCard(set, { ...state, items }, moving, laneId, () => index)
       },
 
       moveInitiative: (itemId, boardId, laneId) => {
         const state = get()
-        const target = state.lanes.find((l) => l.id === laneId)
-        // Initiatives are arranged in the initiatives workflow — never in a card lane.
-        if (!target || target.workflow !== 'initiatives') return
-        // The section is derived from the work below — a move may rearrange a cell within it,
-        // never cross into another one. An initiative with nothing under it is its own leaf, so
-        // its section is the only fact there is: it can be committed before it is broken down,
-        // and moved back, and the derived section governs as soon as there is work to derive
-        // from. (Refusing these made decomposition a precondition of commitment, which is
-        // backwards.)
-        const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
+        // The same operation the cards workflow uses — one rule, two workflows: the section an
+        // initiative's work derives is what a move may never cross.
+        const outcome = moveInitiativeOperation(
+          { items: state.items, placements: state.placements, lanes: state.lanes, boards: state.boards, edges: state.edges, links: state.links },
+          { itemId, boardId, laneId },
+          { at: Date.now(), by: currentAuthor, id: uid },
+        )
         const title = state.items.find((i) => i.id === itemId)?.title ?? 'The initiative'
-        if (!canPlaceInSection(itemId, laneId, graph)) {
+
+        if (outcome.kind === 'refused') {
           // A section is derived, and a move can never cross one: said, so a drop that appears to
-          // do nothing is understood rather than repeated.
-          announce(`${title} was not moved: its section is decided by the work below it.`)
+          // do nothing is understood rather than repeated. A lane from the other workflow is not
+          // worth a sentence — the pointer was over nothing.
+          if (outcome.refusal.code === 'section_fixed') {
+            announce(`${title} was not moved: its section is decided by the work below it.`)
+          }
           return
         }
-        const existing = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
-        if (existing && existing.laneId === laneId) return
-        const placements = existing
-          ? state.placements.map((p) => (p.id === existing.id ? toLane(state.placements, p, laneId) : p))
-          : [
-              ...state.placements,
-              { id: uid(), boardId, itemId, laneId, laneEnteredAt: Date.now(), rank: nextRank(state.placements, laneId) },
-            ]
-        set({
-          placements,
-          items: state.items.map((i) =>
-            i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, boardId, existing?.laneId, laneId)] } : i,
-          ),
-        })
+        // A hold is a cards-workflow thing (WIP is the team's own lane policy), so an initiative
+        // never sees one; if it ever could, saying nothing would be the wrong answer here.
+        if (outcome.kind === 'held') {
+          announce(outcome.message)
+          return
+        }
+        if (outcome.positionOnly) return
+
+        set({ placements: outcome.placements, items: outcome.items })
         announce(`${title} moved to ${lanePath(state.lanes, laneId).join(' / ') || 'another cell'}.`)
       },
 
@@ -2294,7 +2215,7 @@ export const useStore = create<Store>()(
           moving.laneId === laneId
             ? state.items
             : state.items.map((i) =>
-                i.id === itemId ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, boardId, moving.laneId, laneId)] } : i,
+                i.id === itemId ? { ...i, log: [...(i.log ?? []), moved(state.lanes, boardId, moving.laneId, laneId)] } : i,
               )
         placeCard(set, { ...state, items }, moving, laneId, () => index, { stampDone: false })
       },
@@ -2375,7 +2296,7 @@ export const useStore = create<Store>()(
         const movedIds = new Set(state.placements.filter((p) => p.laneId === laneId).map((p) => p.itemId))
         const items = state.items.map((i) =>
           movedIds.has(i.id)
-            ? { ...i, log: [...(i.log ?? []), movedEntry(lanes, lane.boardId, laneId, firstChildId, 'lane split')] }
+            ? { ...i, log: [...(i.log ?? []), moved(lanes, lane.boardId, laneId, firstChildId, 'lane split')] }
             : i,
         )
         set({ lanes, placements, items })
@@ -2437,7 +2358,7 @@ export const useStore = create<Store>()(
           placements: state.placements.map((p) => (vanished.has(p.laneId) ? toLane(state.placements, p, to) : p)),
           items: state.items.map((i) =>
             from.has(i.id)
-              ? { ...i, log: [...(i.log ?? []), movedEntry(state.lanes, lane.boardId, from.get(i.id), to, 'lane removed')] }
+              ? { ...i, log: [...(i.log ?? []), moved(state.lanes, lane.boardId, from.get(i.id), to, 'lane removed')] }
               : i,
           ),
         })

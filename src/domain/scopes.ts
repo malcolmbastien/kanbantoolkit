@@ -142,6 +142,19 @@ export function covers(scopes: readonly Scope[], action: Action): boolean {
   return scopes.some((scope) => reaches(scope, action))
 }
 
+/**
+ * Whether a credential holding `held` satisfies a route that needs `needed` — the same scope, or one
+ * that includes it. (A route that needs `items:comment` is answered by `items:write`.)
+ */
+export function grants(held: readonly Scope[], needed: Scope, seen = new Set<Scope>()): boolean {
+  return held.some((scope) => {
+    if (scope === needed) return true
+    if (seen.has(scope)) return false
+    seen.add(scope)
+    return (SCOPES[scope].includes ?? []).some((included) => grants([included], needed, seen))
+  })
+}
+
 /** One scope and everything it includes, walked without repeating a node. */
 function reaches(scope: Scope, action: Action, seen = new Set<Scope>()): boolean {
   if (seen.has(scope)) return false

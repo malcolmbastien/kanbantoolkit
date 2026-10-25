@@ -9,7 +9,7 @@
  * Everything goes through one transaction, because a half-written workspace is worse than none.
  */
 
-import type { Item } from '../../src/domain/types'
+import type { Item, Placement } from '../../src/domain/types'
 import type { Database, Statement } from '../db'
 import type { Workspace } from './types'
 import { WORKSPACE_ROW } from './types'
@@ -149,6 +149,28 @@ function addItem(statements: Statement[], item: Item, workspaceId: string): void
  * history that outlived its item would be worse than a slow delete.
  */
 export async function writeItem(db: Database, item: Item, workspaceId: string, key?: string): Promise<void> {
+  return writeItemAndPlacements(db, item, [], workspaceId, key)
+}
+
+/**
+ * An item and the placements a change touched, in one transaction.
+ *
+ * A create is a card *and* its cell, and a move is the item's history *and* the arrangement — so the
+ * two cannot be separate statements with a moment between them. Placements are upserted by id, so the
+ * same writer serves a new placement and the renumbering of every card in the lane it landed in.
+ *
+ * This is the only place the API writes arrangement: the app's own moves are still the browser's
+ * (task 118 never grew a placement route), which is why `/api/v1` is the first door that puts a move
+ * in the database rather than in a cache.
+ */
+export async function writeItemAndPlacements(
+  db: Database,
+  item: Item,
+  placements: Placement[],
+  workspaceId: string,
+  key?: string,
+  audit?: Statement,
+): Promise<void> {
   const statements: Statement[] = [
     { sql: 'DELETE FROM item_checklist WHERE item_id = ?1', params: [item.id] },
     // scoped by its item
@@ -156,6 +178,29 @@ export async function writeItem(db: Database, item: Item, workspaceId: string, k
     { sql: 'DELETE FROM items WHERE id = ?1 AND workspace_id = ?2', params: [item.id, workspaceId] },
   ]
   addItem(statements, item, workspaceId)
+  // The trail shares the transaction, as every other access change does: a write that landed must
+  // be explainable, and one that failed must not leave a claim that it happened.
+  if (audit) statements.push(audit)
+
+  for (const placement of placements) {
+    statements.push({
+      sql: `INSERT INTO placements (id, board_id, item_id, lane_id, lane_entered_at, rank, workspace_id)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            ON CONFLICT (id) DO UPDATE SET
+              lane_id = excluded.lane_id,
+              lane_entered_at = excluded.lane_entered_at,
+              rank = excluded.rank`,
+      params: [
+        placement.id,
+        placement.boardId,
+        placement.itemId,
+        placement.laneId,
+        value(placement.laneEnteredAt),
+        value(placement.rank),
+        workspaceId,
+      ],
+    })
+  }
 
   // The feed a second device reads. Written with the change, so a change that landed is a change
   // that is announced, and a batch that failed announced nothing.
@@ -174,6 +219,12 @@ export async function writeItem(db: Database, item: Item, workspaceId: string, k
 /** Whether this change has already been applied, so a retry can be answered instead of redone. */
 export async function alreadyApplied(db: Database, key: string): Promise<boolean> {
   return Boolean(await db.get('SELECT 1 AS applied FROM applied_writes WHERE key = ?1', [key]))
+}
+
+/** The item a keyed change wrote, so a replay can answer with it rather than with "done". */
+export async function appliedItemOf(db: Database, key: string): Promise<{ itemId: string; rev: number } | undefined> {
+  const row = await db.get<{ item_id: string; rev: number }>('SELECT item_id, rev FROM applied_writes WHERE key = ?1', [key])
+  return row ? { itemId: row.item_id, rev: row.rev } : undefined
 }
 
 export async function writeWorkspace(

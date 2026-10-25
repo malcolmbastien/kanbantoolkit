@@ -1,7 +1,11 @@
 # The API
 
 One `fetch` handler. Hono exposes it as `app.fetch`; the Worker exports it and the Node entry serves
-it. There is no second API, no GraphQL and no SDK: a JSON request and a JSON answer.
+it. There is no second implementation, no GraphQL and no SDK: a JSON request and a JSON answer.
+
+This page is the **internal** API — what the shipped client calls, which changes with it in the same
+commit and promises nobody else anything. The surface a script may build on is
+[`/api/v1`](rest-api.md), and it says what it will not change.
 
 Everything is under `/api`. The client is a static build, so every one of these is same-origin and no
 route answers a request from another origin.
