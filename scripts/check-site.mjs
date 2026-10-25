@@ -251,8 +251,28 @@ for (const link of ['CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'LIC
 
 // ---- R2: the install page carries the commands, and does not pretend a package exists ----
 const install = readFileSync(join(DIST, 'install/index.html'), 'utf8')
-if (!/<pre><code>[\s\S]*npm run build[\s\S]*npm run server[\s\S]*<\/code><\/pre>/.test(install)) {
-  fail('the install page has no block with the build and the run command')
+// R3: the commands are the ones this repository proves. `docker compose up -d` is what the image job
+// in CI runs; the three-command road is what `npm run smoke:node` and the e2e boot. A page that
+// quotes a remembered variant of either is a page that fails on the operator's machine.
+if (!/<pre><code>[\s\S]*docker compose up -d[\s\S]*<\/code><\/pre>/.test(install)) {
+  fail('the install page has no container block with the command CI runs')
+}
+if (!/<pre><code>[\s\S]*npm ci[\s\S]*npm run build[\s\S]*npm run server[\s\S]*<\/code><\/pre>/.test(install)) {
+  fail('the install page has no block with the clone, build and run commands')
+}
+if (!/npm run backup/.test(install)) fail('the install page does not say how to take a backup')
+
+// R4: the limits are stated, not hidden.
+const limits = /<h2 id="limits">[\s\S]*?<\/ul>/.exec(install)?.[0] ?? ''
+if (!limits) fail('the install page has no limits section')
+else {
+  for (const limit of ['SQLite', 'horizontal', 'one process']) {
+    if (!limits.includes(limit)) fail(`the install page's limits do not mention "${limit}"`)
+  }
+}
+// R1: the licence is named on the page, and the page says what it asks.
+if (!/<h2 id="licence">/.test(install) || !install.includes('Affero General Public')) {
+  fail('the install page does not name the licence')
 }
 if (!install.includes('Git clone') && !/git clone https:\/\//.test(install)) fail('the install page does not say where the code comes from')
 if (install.includes('{{repo}}')) fail('the install page still carries the repository placeholder')

@@ -141,14 +141,18 @@ this". It is the short path, not the manual:
 
 - **What it is**: one Node process, one SQLite file, a directory of static files, and the same routes
   and rules as the Cloudflare Worker build.
-- **One command**, the environment it needs, and what it writes on first run — including that the
-  first account to sign in becomes the instance's administrator (task 163).
-- **TLS behind a proxy**, because that is the one thing every operator must get right.
-- **The honest limits**: one instance, the file is the database, and the backups are yours. The live
-  channel is the process's own socket server; `LIVE=0` forces polling.
-- **The licence**, named and linked (task 165).
-- **Where to go next**: the docs for configuration, upgrade, backup and restore (task 167), and the
-  help page for the questions people actually ask.
+- **Two roads**: `docker compose up -d` (one command, one volume — what CI builds and runs), and the
+  three commands that image performs, for a machine without Docker. Both are quoted exactly as they
+  are run, and the site check fails if either drifts.
+- **What the first run does**: the migrations, the workspace named by the installation, and the first
+  account as its administrator (task 163).
+- **What you take on**: TLS, updates, backups, and being the support — four jobs, named as jobs.
+- **The honest limits**: one instance, the file is the database, no horizontal scale, the live channel
+  is one process, and no hosted backups or support. There is no reduced edition and nothing to unlock.
+- **Keeping it up**: upgrade and restore in three lines each, ending at the docs' drill.
+- **The licence**, named and what it asks (task 165).
+- **Where to go next**: install, container, configure, TLS, upgrade and backup, by name — six links to
+  the documentation, plus the help page and the demo (task 167).
 
 It replaces `/self-host/`, which is deleted: two pages about running it would be two pages that can
 disagree, and the install page is the one a visitor needs. The *argument* for running it yourself is
