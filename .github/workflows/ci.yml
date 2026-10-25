@@ -62,6 +62,12 @@ jobs:
       - name: The site
         run: npm run site:check
 
+      # The docs live with the code, so they are checked like code: every relative link resolves,
+      # every file is listed in the index, and every command quoted is one package.json runs
+      # (task 167).
+      - name: The docs
+        run: npm run docs:check
+
       # The server exists twice — a Worker and a Node process — and two runtimes drift apart
       # silently. This boots the Node entry against a real database and uses the API.
       - name: The Node entry answers

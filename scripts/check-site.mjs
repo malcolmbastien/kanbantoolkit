@@ -256,6 +256,10 @@ if (!/<pre><code>[\s\S]*npm run build[\s\S]*npm run server[\s\S]*<\/code><\/pre>
 }
 if (!install.includes('Git clone') && !/git clone https:\/\//.test(install)) fail('the install page does not say where the code comes from')
 if (install.includes('{{repo}}')) fail('the install page still carries the repository placeholder')
+// The install page is the short path: it has to send the reader to the docs for the rest (task 167).
+for (const doc of ['docs/README.md', 'docs/configure.md', 'docs/tls.md', 'docs/upgrade.md', 'docs/backup.md']) {
+  if (!install.includes(doc)) fail(`the install page does not point at ${doc}`)
+}
 
 // ---- R5/V5: every internal link resolves to something that was built ----
 const resolve = (href) => {

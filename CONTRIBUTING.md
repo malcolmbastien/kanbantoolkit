@@ -47,6 +47,7 @@ A pull request is ready when these pass. CI runs exactly these, and nothing else
 | `npm run lint` | `oxlint` |
 | `npm run scan` | the dependency rule in `AGENTS.md` |
 | `npm run site:check` | the built site: page names, links, budget, no foreign requests |
+| `npm run docs:check` | the docs: every link resolves, every file is listed, every command exists |
 | `npm run size` | the first download stays inside its budget |
 | `npm run smoke:node` | the second runtime boots and answers |
 

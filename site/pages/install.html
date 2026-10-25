@@ -66,8 +66,17 @@ PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server</code></pre>
 
 <h2>Where to go next</h2>
 <p>
-  The documentation lives with the code: <a href="{{repo}}/blob/main/docs/README.md">the docs</a>
-  cover configuration, upgrading, backup and restore, and the architecture. The
-  <a href="/help/">help page</a> answers the questions people actually ask, and
-  <a href="/app">the demo</a> is the whole product with no install at all.
+  This page is the short version on purpose. The documentation lives with the code, so it is always
+  the version you are running:
+</p>
+<ul class="points">
+  <li><a href="{{repo}}/blob/main/docs/configure.md"><strong>Configure</strong></a> — every environment variable, its default, and what an unset one does.</li>
+  <li><a href="{{repo}}/blob/main/docs/tls.md"><strong>TLS and the proxy</strong></a> — Caddy and nginx, the headers, and the socket.</li>
+  <li><a href="{{repo}}/blob/main/docs/upgrade.md"><strong>Upgrade</strong></a> — what a release does to your database, and how to go back.</li>
+  <li><a href="{{repo}}/blob/main/docs/backup.md"><strong>Backup and restore</strong></a> — the copy, the schedule, and the drill that proves it.</li>
+</ul>
+<p>
+  <a href="{{repo}}/blob/main/docs/README.md">The index</a> is the front door to the rest — the
+  architecture, the API, the data model. <a href="/help/">The help page</a> answers what people ask,
+  and <a href="/app">the demo</a> is the whole product with no install at all.
 </p>

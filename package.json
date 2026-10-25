@@ -22,6 +22,7 @@
     "portable": "bash scripts/check-portable.sh",
     "test:e2e": "playwright test",
     "site:check": "node scripts/check-site.mjs",
+    "docs:check": "node scripts/check-docs.mjs",
     "shots": "tsx scripts/shots.ts"
   },
   "dependencies": {

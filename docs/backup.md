@@ -94,4 +94,5 @@ the provider's backups, which is why the manual steps above exist rather than in
 - **The browser's snapshots.** They are a ring in `IndexedDB`, for a bad edit in a tab — not a
   backup, and never a substitute for one.
 - **Configuration.** The provider's client secrets and the database path live in the environment;
-  they are documented in `README.md` and should be kept wherever the operator keeps secrets.
+  they are documented in [configure.md](configure.md) and should be kept wherever the operator keeps
+  secrets.
