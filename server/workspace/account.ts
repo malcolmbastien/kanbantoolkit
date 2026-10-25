@@ -19,6 +19,7 @@
  * shape so "just one more column" has to say what it is doing here.
  */
 
+import { DEFAULT_WORKSPACE_NAME } from '../config'
 import type { Database } from '../db'
 import type { Statement } from '../db'
 
@@ -55,7 +56,7 @@ export async function readWorkspaceAccount(db: Database, workspaceId: string): P
     ...(owner?.owner_id ? { ownerId: owner.owner_id } : {}),
     ...(ownerName ? { ownerName } : {}),
     // The same fallback the members screen uses, so the two never disagree about what this is called.
-    name: settings?.name?.trim() || 'Flowline',
+    name: settings?.name?.trim() || DEFAULT_WORKSPACE_NAME,
     billing: {
       ...(owner?.billing_email ? { email: owner.billing_email } : {}),
       ...(owner?.company_name ? { company: owner.company_name } : {}),

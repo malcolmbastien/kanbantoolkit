@@ -138,6 +138,6 @@ describe('copying this workspace to the account', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'taken' }), { status: 409 })))
 
     expect(await copyToAccount('u-ada', { boards: [] })).toBe(false)
-    expect(useWorkspaceSync.getState().error).toBe('This account already has a workspace.')
+    expect(useWorkspaceSync.getState().error).toBe('This workspace already has boards to import into.')
   })
 })

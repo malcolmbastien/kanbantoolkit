@@ -177,12 +177,21 @@ instance with no sign-in at all.
 | `AUTH_DEV=1` | a development identity switch: an address, no provider, no password |
 
 A provider is offered when both its client id and secret are present; nothing else is needed, and no
-code changes to add one. The first person to arrive owns the instance; everyone after them is a
-member, or arrives with the role an invitation gave their address. The same **verified** address
-through two providers is one account, not two.
+code changes to add one. The first person to arrive administers the instance and its one workspace;
+everyone after them is a member, or arrives with the role an invitation gave their address. The same
+**verified** address through two providers is one account, not two.
 
 The switch is off unless it is asked for by name, because an instance that is merely running locally
 is not an instance anyone should be able to walk into.
+
+## One instance, one workspace
+
+Each deployment is one team's workspace. The **installation** names it — `WORKSPACE_NAME`, defaulting
+to `Flowline` — the first account to sign in administers it, and everybody else arrives by
+invitation. There is no workspace switcher, no "create a workspace" and no sign-up page: a second
+team is a second deployment, not a second row, and `POST /api/workspaces` answers with a sentence
+that says so. The `workspace_id` columns and the seal every route goes through stay: one workspace
+makes them redundant, which is exactly why keeping them costs nothing.
 
 ## What to try
 

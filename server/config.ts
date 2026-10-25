@@ -137,3 +137,16 @@ export function providers(env: unknown): Provider[] {
 
   return list
 }
+
+/**
+ * The name a workspace is created with, when the installation does not choose one.
+ *
+ * One instance is one team (task 163), so the name belongs to the installation rather than to a
+ * person filling in a form: `WORKSPACE_NAME` is set once, beside the port and the database path.
+ */
+export const DEFAULT_WORKSPACE_NAME = 'Flowline'
+
+/** What this deployment calls the team it is for. */
+export function workspaceName(env: unknown): string {
+  return (value(env, 'WORKSPACE_NAME') ?? DEFAULT_WORKSPACE_NAME).slice(0, 120)
+}

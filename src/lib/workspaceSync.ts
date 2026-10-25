@@ -68,12 +68,12 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
   try {
     const response = await fetch('/api/workspace', { headers: { accept: 'application/json' } })
     if (response.status === 404) {
-      // The account has no workspace to open: it was deleted, or this person was removed from it.
-      // Saying so is the honest answer — the board keeps drawing this browser's own copy, and the
-      // notice explains why the account's work is not what it is showing.
+      // The account is not in this instance's workspace: the workspace was deleted, or this person
+      // was removed from it. There is no second one to join by asking — an administrator invites
+      // somebody in — so the notice says where they stand and nothing more.
       useWorkspaceSync.setState({
         offer: false,
-        error: 'This account has no workspace to open — it was deleted, or you were removed from it. What you see is this browser’s own copy.',
+        error: 'This account is not in this instance’s workspace — it was removed, or the workspace was deleted. What you see is this browser’s own copy.',
       })
       return 'gone'
     }
@@ -132,7 +132,7 @@ export async function copyToAccount(userId: string, workspace: Record<string, un
     if (!response.ok) {
       const message =
         response.status === 409
-          ? 'This account already has a workspace.'
+          ? 'This workspace already has boards to import into.'
           : response.status === 403
             ? 'You are not a member of this workspace.'
             : 'The workspace could not be copied.'

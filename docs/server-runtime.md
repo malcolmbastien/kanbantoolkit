@@ -49,6 +49,20 @@ What may live where:
 a route, a query or a rule is written there, it has been written in the one file a self-hoster
 cannot run.
 
+## The tenant is the deployment
+
+One deployment is one team. A **workspace** is not something a person makes from a form: it comes
+with the installation, is named by it (`WORKSPACE_NAME`, defaulting to `Flowline`), and the first
+account to sign in administers it. Everybody else arrives by invitation, and the API refuses a second
+workspace with a sentence rather than a 404 — `POST /api/workspaces` exists to say so (task 163).
+
+The `workspace_id` columns and the seal every route goes through — the session decides which
+workspace a request is about, never the client — stay exactly as they are. One workspace makes them
+redundant today; they are what a fork that wanted two would need, and deleting them would be churn
+with a risk attached. The product does not offer the second, which is the part that had to change:
+a hosted service with several teams and a self-hosted team are different shapes, and this
+application is the second one.
+
 ## The database
 
 D1 is SQLite. So the schema is SQLite, the queries are SQLite, and `migrations/` is applied

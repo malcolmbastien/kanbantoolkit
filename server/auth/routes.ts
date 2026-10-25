@@ -11,8 +11,8 @@
 
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
-import type { Database } from '../db'
-import { devAuth, providers, publicUrl, salt } from '../config'
+import type { Database, Statement } from '../db'
+import { DEFAULT_WORKSPACE_NAME, devAuth, providers, publicUrl, salt, workspaceName } from '../config'
 import type { Runtime } from '../runtime'
 import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
 import { issueSession, revoke, sessionCookie, userById, userForToken, WORKSPACE_ID } from './session'
@@ -73,8 +73,65 @@ async function overLimit(db: Database, address: string, env: unknown): Promise<b
  * already known — and the provider vouches for it — the doors are joined rather than a second
  * account being made. A first person owns the instance; an invited address arrives with its role.
  */
+/**
+ * The instance's one workspace, as the installation leaves it (task 163).
+ *
+ * One deployment is one team, so the workspace is not something anybody signs up for: it is named
+ * by the installation (`WORKSPACE_NAME`) and administered by the person whose arrival creates it.
+ * A name a team has already chosen is never replaced — only the name the row was created with is,
+ * which is what makes running this twice harmless.
+ *
+ * Returned as statements rather than executed, so the caller can put them in the same transaction
+ * as the account that arrives with them: no moment at which a workspace exists with nobody in it.
+ */
+function installWorkspaceStatements(env: unknown): Statement[] {
+  const name = workspaceName(env)
+  return [
+    {
+      sql: `INSERT INTO workspaces (id, name) VALUES (?1, ?2)
+            ON CONFLICT (id) DO UPDATE SET name = excluded.name WHERE workspaces.name = ?3`,
+      params: [WORKSPACE_ID, name, DEFAULT_WORKSPACE_NAME],
+    },
+    {
+      sql: `INSERT INTO workspace (id, name) VALUES (?1, ?2)
+            ON CONFLICT (id) DO UPDATE SET name = excluded.name WHERE workspace.name = ?3`,
+      params: [WORKSPACE_ID, name, DEFAULT_WORKSPACE_NAME],
+    },
+  ]
+}
+
+/** The seat that makes the arrival an administrator of the workspace they came to find. */
+function seatOf(userId: string, role: string, invitedBy: string | null = null): Statement {
+  return {
+    sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
+    params: [WORKSPACE_ID, userId, role, invitedBy],
+  }
+}
+
+/** Whether this deployment has its workspace — a deleted one is re-opened by an administrator. */
+async function workspaceInstalled(db: Database): Promise<boolean> {
+  return Boolean(await db.get('SELECT 1 AS seen FROM workspaces WHERE id = ?1', [WORKSPACE_ID]))
+}
+
+/**
+ * A deleted workspace comes back the way it began: an **instance administrator** arrives and the
+ * installation's name is applied again (task 163).
+ *
+ * Only an administrator, and only when there is no workspace at all: a plain member cannot
+ * resurrect a team they were not invited into, and nobody — administrator or not — can make a
+ * second one. Called on both ways through the door, because a returning identity is the common one
+ * and it used to be the path that skipped everything.
+ */
+async function reopenWorkspaceIfNeeded(db: Database, env: unknown, userId: string): Promise<void> {
+  if (await workspaceInstalled(db)) return
+  const role = await db.get<{ role: string }>('SELECT role FROM instance_members WHERE user_id = ?1', [userId])
+  if (role?.role !== 'admin') return
+  await db.batch([...installWorkspaceStatements(env), seatOf(userId, 'admin')])
+}
+
 async function identify(
   db: Database,
+  env: unknown,
   providerId: string,
   who: { subject: string; email: string; emailVerified: boolean; name: string },
   inviteToken?: string,
@@ -91,7 +148,10 @@ async function identify(
   if (linked) {
     if (linked.status === 'inactive') throw new NotAdmitted()
     const user = await userById(db, linked.user_id)
-    if (user) return user
+    if (user) {
+      await reopenWorkspaceIfNeeded(db, env, user.id)
+      return user
+    }
   }
 
   const known = await db.get<{ id: string; status: string }>(
@@ -108,13 +168,22 @@ async function identify(
     params: [providerId, who.subject, userId, who.email],
   }
 
-  // Already on the roster: the door is open to them regardless of the posture.
+  // Already on the roster: the door is open to them regardless of the posture. The role comes with
+  // it, because an instance administrator is the one who may re-open a workspace that was deleted
+  // (task 163) — a plain member cannot resurrect a team they were not invited into.
   const door = known
-    ? await db.get<{ user_id: string }>('SELECT user_id FROM instance_members WHERE user_id = ?1', [userId])
+    ? await db.get<{ user_id: string; role: string }>(
+        'SELECT user_id, role FROM instance_members WHERE user_id = ?1',
+        [userId],
+      )
     : undefined
 
   if (door) {
+    // A workspace that was deleted comes back the way it began: an instance administrator arrives
+    // and the installation's name is applied again. A plain member cannot re-open a team they were
+    // not invited into, and nobody can make a second one (task 163).
     await db.run(identity.sql, identity.params)
+    await reopenWorkspaceIfNeeded(db, env, userId)
     const user = await userById(db, userId)
     if (!user) throw new AuthError('the account could not be read back', 500)
     return user
@@ -152,25 +221,24 @@ async function identify(
 
   // One batch: no moment at which an account exists and nobody administers it.
   //
-  // An account arrives with **no workspace** unless it is the deployment's first person or it was
-  // invited into one. Joining is an invitation (task 162); creating is a sign-up; a stranger who
-  // merely signed in is an account, and the interface says so rather than quietly seating them in
-  // somebody else's workspace.
+  // An account arrives with **no workspace** unless it is the deployment's first person, an
+  // administrator re-opening one that was deleted, or somebody who was invited. By joining is an
+  // invitation; by creating is a sign-up, and there is no sign-up (task 163) — a stranger who merely
+  // signed in is an account, and the interface says so rather than seating them in a team.
   const joinsTheWorkspace = first || Boolean(invite)
   await db.batch([
-    // The deployment's own workspace, for its first person. Created here rather than assumed: a
-    // deployment whose workspace was deleted starts again the same way it began.
-    ...(first ? [{ sql: "INSERT OR IGNORE INTO workspaces (id, name) VALUES (?1, 'Flowline')", params: [WORKSPACE_ID] }] : []),
+    // The instance's one workspace, for its first person (task 163). Created here rather than
+    // assumed: a deployment whose workspace was deleted starts again the same way it began — and it
+    // is named by the *installation* (`WORKSPACE_NAME`), which is the only place a name can come
+    // from when nobody signs up for anything.
+    //
+    // A name somebody has already chosen is never overwritten: only the name the row was created
+    // with is replaced, which is what makes running this again harmless.
+    // The workspace, and the person who arrives as its administrator, in the same transaction.
+    ...(first ? installWorkspaceStatements(env) : []),
     ...(known ? [] : [{ sql: 'INSERT INTO users (id, name, email) VALUES (?1, ?2, ?3)', params: [userId, who.name, who.email] }]),
     { sql: 'INSERT INTO instance_members (user_id, role) VALUES (?1, ?2)', params: [userId, instanceRole] },
-    ...(joinsTheWorkspace
-      ? [
-          {
-            sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
-            params: [WORKSPACE_ID, userId, workspaceRole, invite?.invited_by ?? null],
-          },
-        ]
-      : []),
+    ...(joinsTheWorkspace ? [seatOf(userId, workspaceRole, invite?.invited_by ?? null)] : []),
     ...(invite
       ? [
           { sql: 'UPDATE invites SET accepted_at = ?1 WHERE id = ?2', params: [new Date().toISOString(), invite.id] },
@@ -303,7 +371,7 @@ export function authRoutes(runtime: Runtime) {
         redirectUri: `${origin}/api/auth/callback`,
       })
       const who = await profile(provider, accessToken)
-      const user = await identify(db, provider.id, who, pending.invite ?? undefined)
+      const user = await identify(db, c.env, provider.id, who, pending.invite ?? undefined)
       const ipHash = await addressHash(runtime, c.env, c.req.raw)
       const session = await issueSession(db, user.id, {
         userAgent: c.req.header('user-agent'),
@@ -427,7 +495,7 @@ export function authRoutes(runtime: Runtime) {
     let user
     try {
       const invite = typeof body?.invite === 'string' ? body.invite : undefined
-      user = await identify(db, 'dev', { subject: email, email, emailVerified: true, name }, invite)
+      user = await identify(db, c.env, 'dev', { subject: email, email, emailVerified: true, name }, invite)
     } catch (error) {
       if (error instanceof NotAdmitted) {
         // The development door records a refusal like any other door.

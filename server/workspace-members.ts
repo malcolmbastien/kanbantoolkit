@@ -13,6 +13,7 @@ import { Hono } from 'hono'
 import { requireWorkspace } from './access'
 import { statement } from './audit'
 import { WORKSPACE_ID } from './auth/session'
+import { DEFAULT_WORKSPACE_NAME } from './config'
 import { mayAdminister } from '../src/domain/roster'
 import { accountRemovalStatements, isLastDeploymentAdministrator } from './workspace/account'
 import { effectiveRole, strongestGrant, workspaceAdminIds } from './groups'
@@ -80,7 +81,7 @@ export function workspaceMembersRoutes(runtime: Runtime) {
     )
 
     return c.json({
-      workspace: { name: settings?.name ?? 'Flowline', description: settings?.description ?? '' },
+      workspace: { name: settings?.name ?? DEFAULT_WORKSPACE_NAME, description: settings?.description ?? '' },
       members: members.map((member) => {
         const effective = strongestGrant(
           member.role,

@@ -4,9 +4,9 @@ import { expect, test, type Page } from '@playwright/test'
  * The workspace's own account, on an instance of its own.
  *
  * This spec **deletes the workspace**, so it runs against the instance on port 4176 rather than the
- * one the rest of the suite shares. It is the only place the whole arc is visible: a workspace
- * administrator sets who pays for it and what is billed, and then ends the workspace — and only that
- * workspace; the person keeps their account and is left with nothing to open.
+ * one the rest of the suite shares. It is the only place the whole arc is visible: the workspace
+ * comes with the installation and is named by it, a signed-in person who is not in it is told so
+ * rather than handed a form, and ending it takes its accounts with it.
  */
 
 const ORIGIN = 'http://localhost:4176'
@@ -125,16 +125,21 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
 
   await openAdmin(page)
 
+  // The name a person types is the instalment's, not a name one of them chose: this instance was
+  // deployed as `WORKSPACE_NAME="Team Atlas"` (task 163).
+  const { name } = (await (await page.request.get(`${ORIGIN}/api/workspace/account`)).json()) as { name: string }
+  expect(name).toBe('Team Atlas')
+
   await page.getByRole('button', { name: 'Delete this workspace…' }).click()
   const dialog = page.getByRole('dialog', { name: 'Delete this workspace' })
 
   // The name is required, and the server checks it too.
   await dialog.getByLabel('Type the workspace name to confirm').fill('not the name')
   await expect(dialog.getByRole('button', { name: 'Delete this workspace' })).toBeDisabled()
-  await dialog.getByLabel('Type the workspace name to confirm').fill('Flowline')
+  await dialog.getByLabel('Type the workspace name to confirm').fill(name)
   // The act itself is made with the same route the button calls, so the assertion carries the
   // server's own answer if it refuses. (The button and its disabled state are checked above.)
-  const answer = await page.request.delete(`${ORIGIN}/api/workspace`, { data: { confirm: 'Flowline' } })
+  const answer = await page.request.delete(`${ORIGIN}/api/workspace`, { data: { confirm: name } })
   expect(answer.status(), await answer.text()).toBe(204)
 
   // The account went with the workspace: there is no session left to draw anything with.
@@ -151,32 +156,41 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
   expect((await page.request.get(`${ORIGIN}/api/auth/providers`)).ok()).toBeTruthy()
 })
 
-test('a new account creates the workspace it owns', async ({ page }) => {
-  // The previous test deleted the workspace *and its accounts*, so this is somebody new signing up.
-  // (The addressed account is created by signing in; the workspace is created as part of the same
-  // act, which is what a sign-up page will present as one step.)
-  const signUp = async () => {
+test('a deleted workspace comes back for an administrator, and no second can be made', async ({ page, playwright }) => {
+  // The previous test deleted the workspace *and its accounts*, and left one operator administering
+  // the deployment. That is the interesting state (task 163): the workspace comes with the
+  // installation, so it comes back the same way — not from a form, and not for just anybody.
+  const api = await playwright.request.newContext({ baseURL: ORIGIN })
+  try {
+    // A stranger signing in is an account, not a seat: they are told where they stand, and given
+    // nothing to press. There is no sign-up that would make them a team.
     await page.goto(`${ORIGIN}/app?board=b-atlas`)
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     await page.getByPlaceholder('you@example.com').fill('founder@example.com')
     await page.getByRole('button', { name: 'Sign in as this address' }).click()
-    await expect(page.getByRole('button', { name: /Founder/ })).toBeVisible()
+    await expect(page.getByText('Not in this workspace')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create a workspace' })).toHaveCount(0)
+
+    const refused = await page.request.post(`${ORIGIN}/api/workspaces`, { data: { name: 'Northwind' } })
+    expect(refused.status()).toBe(409)
+    expect(((await refused.json()) as { error: string }).error).toContain('one workspace')
+    expect((await page.request.get(`${ORIGIN}/api/workspace`)).status()).toBe(404)
+
+    // The operator who was left administering the deployment re-opens it by arriving. The name is
+    // the installation's (`WORKSPACE_NAME`, set for this instance in `playwright.config.ts`), and
+    // they are its administrator — there is no second workspace and nobody chose this one.
+    expect((await api.post('/api/auth/dev', { data: { email: 'operator@example.com' } })).ok()).toBeTruthy()
+    const reopened = await api.get('/api/workspace')
+    expect(reopened.status()).toBe(200)
+    const account = (await (await api.get('/api/workspace/account')).json()) as { name: string }
+    expect(account.name).toBe('Team Atlas')
+
+    const session = (await (await api.get('/api/auth/session')).json()) as {
+      workspaces: Array<{ role: string }>
+    }
+    expect(session.workspaces).toHaveLength(1)
+    expect(session.workspaces[0].role).toBe('admin')
+  } finally {
+    await api.dispose()
   }
-  await signUp()
-  await expect(page.getByText('No workspace')).toBeVisible()
-
-  await page.getByRole('button', { name: 'Create a workspace' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Create a workspace' })
-  // The owner is the account itself, shown and not typed.
-  await expect(dialog.getByText('founder@example.com')).toBeVisible()
-  await dialog.getByLabel('Workspace name').fill('Northwind')
-  await dialog.getByRole('button', { name: 'Create workspace' }).click()
-
-  // The board opens on the new one, and the account is its administrator and its owner.
-  await expect.poll(async () => (await page.request.get(`${ORIGIN}/api/workspace`)).status()).toBe(200)
-  await expect(page.getByText('No workspace')).toHaveCount(0)
-  const session = await (await page.request.get(`${ORIGIN}/api/auth/session`)).json()
-  expect(session.workspaces[0].role).toBe('admin')
-  const account = await (await page.request.get(`${ORIGIN}/api/workspace/account`)).json()
-  expect(account).toMatchObject({ name: 'Northwind', ownerName: 'Founder' })
 })

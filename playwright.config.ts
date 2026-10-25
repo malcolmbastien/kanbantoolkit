@@ -50,9 +50,11 @@ export default defineConfig({
       /**
        * An instance of its own for the one spec that **closes the account** (task 126): a test that
        * deletes everything cannot share a database with tests that expect something to be there.
+       * It is also the instance that names its own workspace (`WORKSPACE_NAME`), which is how the
+       * e2e proves the install — rather than a form — gives the team its name (task 163).
        */
       command:
-        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-account.db && AUTH_DEV=1 PORT=4176 DB_PATH=node_modules/.tmp/e2e-account.db STATIC_DIR=dist npm run --silent server',
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-account.db && AUTH_DEV=1 WORKSPACE_NAME="Team Atlas" PORT=4176 DB_PATH=node_modules/.tmp/e2e-account.db STATIC_DIR=dist npm run --silent server',
       url: 'http://localhost:4176/api/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
