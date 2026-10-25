@@ -3,17 +3,34 @@
  *
  * The app is a Tailwind build with its own type scale; this is the public site's, and it is
  * deliberately not shared: a public page must be readable with the app's bundle nowhere in sight
- * (task 151, R5). Warm parchment and ink, one accent, and a measured line length.
+ * (task 151, R5).
+ *
+ * The layout follows the shape a project's front door tends to take — a sticky translucent header, a
+ * two-column hero with the product beside the claim, a strip of facts under it, then bands of cards
+ * — and the type is the operating system's own. There is no webfont: a font host is a third-party
+ * request, and shipping the binaries would cost more than the page's whole budget. The system stack
+ * is what a reader already has.
+ *
+ * Light scheme only, on purpose. A dark palette is a second design that has to be checked for
+ * contrast on every page, and the one screenshot this site is built around is a light board.
  */
 
 :root {
-  --paper: #faf9f7;
-  --ink: #1f2937;
-  --muted: #55657a;
-  --rule: #e2ded6;
-  --accent: #3b4a8c;
-  --accent-soft: #eef0f8;
-  --measure: 42rem;
+  --ink: #172b3c;
+  --muted: #526374;
+  --line: #dce5ec;
+  --surface: #f4f7fa;
+  --card: #ffffff;
+  --blue: #086dbf;
+  --blue-button: #0a6ab8;
+  --blue-dark: #075fa9;
+  --blue-wash: #e6f0fb;
+  --radius: 0.65rem;
+  --radius-lg: 1rem;
+  --container: 1200px;
+  --measure: 40rem;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --serif: Charter, Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
 }
 
 * {
@@ -22,13 +39,25 @@
 
 html {
   color-scheme: light;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--card);
   color: var(--ink);
-  font: 17px/1.65 Charter, Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  font: 16px/1.65 var(--sans);
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The home page owns the top of the viewport: the hero's gradient is full-bleed, so it belongs to
+   the body rather than to the column the rest of the site sits in. */
+body.home {
+  background:
+    radial-gradient(ellipse 70% 46% at 78% 0%, var(--blue-wash) 0, transparent 70%),
+    linear-gradient(#fbfdff, #ffffff 42%);
+  background-repeat: no-repeat;
 }
 
 /* The first thing a keyboard reaches. It is off-screen until it is focused, and then it is the
@@ -39,272 +68,656 @@ body {
   top: 0;
   padding: 0.6rem 1rem;
   background: var(--ink);
-  color: var(--paper);
-  z-index: 10;
+  color: #fff;
+  z-index: 20;
 }
 
 .skip:focus {
   left: 0;
 }
 
-.site-header,
-.site-footer,
+/* ---- the column everything sits in ------------------------------------------------------------- */
+
 main {
-  max-width: var(--measure);
+  width: min(var(--container), 100% - 2.5rem);
   margin: 0 auto;
-  padding: 0 1.25rem;
+  padding-bottom: 1rem;
 }
 
+/* Every page except the home one opens with its heading; the home page opens with the hero. */
+body:not(.home) main {
+  padding-top: 2.5rem;
+}
+
+/* ---- header ------------------------------------------------------------------------------------ */
+
 .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.75rem 1.25rem;
-  padding-top: 1.5rem;
-  padding-bottom: 1.25rem;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  padding: 1rem max(1.25rem, calc((100% - var(--container)) / 2));
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid #e7edf2;
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--ink);
   text-decoration: none;
 }
 
 .brand-mark {
   display: inline-block;
-  width: 0.7rem;
-  height: 0.7rem;
-  margin-right: 0.35rem;
-  border-radius: 2px;
-  background: var(--accent);
-  vertical-align: baseline;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 3px;
+  background: var(--blue);
 }
 
 .site-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 0.9rem;
-  font-size: 15px;
+  gap: 0.35rem 1.35rem;
+  margin-inline: auto;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--ink);
 }
 
 .site-actions {
   display: flex;
-  gap: 0.9rem;
+  align-items: center;
+  gap: 1rem;
   margin: 0 0 0 auto;
-  font-size: 15px;
+  font-size: 0.86rem;
 }
 
-a {
-  color: var(--accent);
-  text-underline-offset: 2px;
-}
+/* ---- type -------------------------------------------------------------------------------------- */
 
-a:hover {
+h1,
+h2,
+h3 {
   color: var(--ink);
-}
-
-.button {
-  display: inline-block;
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px;
-  background: var(--accent);
-  color: #fff;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.button:hover {
-  background: var(--ink);
-  color: #fff;
-}
-
-.quiet {
-  font-weight: 600;
-}
-
-main {
-  padding-bottom: 3rem;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+  text-wrap: balance;
 }
 
 h1 {
-  font-size: clamp(1.9rem, 4vw, 2.6rem);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  margin: 0.5rem 0 1rem;
+  margin: 0.4rem 0 1.25rem;
+  font-size: clamp(2.3rem, 4.6vw, 3.5rem);
+  font-weight: 650;
+  letter-spacing: -0.055em;
+  line-height: 1.02;
 }
 
 h2 {
-  font-size: 1.25rem;
-  margin: 2.25rem 0 0.6rem;
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.6rem, 2.6vw, 2.15rem);
+  font-weight: 640;
+}
+
+h3 {
+  margin: 1.75rem 0 0.5rem;
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
 }
 
 p,
 li {
-  max-width: 38rem;
+  max-width: var(--measure);
+}
+
+main p {
+  color: var(--muted);
+}
+
+a {
+  color: var(--blue);
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  color: var(--blue-dark);
+}
+
+a:focus-visible,
+.button:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-transform: none;
   color: var(--muted);
 }
 
 .lede {
-  font-size: 1.1rem;
+  max-width: 32rem;
+  font-size: 1.08rem;
+  line-height: 1.75;
   color: var(--muted);
 }
 
-.cta {
+.note {
+  font-size: 0.85rem;
+  color: var(--muted);
+  border-left: 2px solid var(--line);
+  padding-left: 0.8rem;
+}
+
+code {
+  font-size: 0.9em;
+  background: var(--surface);
+  padding: 0.05em 0.3em;
+  border-radius: 4px;
+}
+
+pre {
+  overflow-x: auto;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+/* ---- buttons ----------------------------------------------------------------------------------- */
+
+.button,
+.hero .cta .quiet,
+.site-header .quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  transition: background 0.16s, border-color 0.16s, box-shadow 0.16s;
+}
+
+.button {
+  background: var(--blue-button);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(11, 119, 210, 0.18);
+}
+
+.button:hover {
+  background: var(--blue-dark);
+  color: #fff;
+  box-shadow: 0 5px 16px rgba(11, 119, 210, 0.26);
+}
+
+/* The secondary action: a quiet link in the header, an outlined button in the hero. */
+.site-header .quiet {
+  padding-inline: 0;
+  color: var(--ink);
+}
+
+.site-header .quiet:hover {
+  color: var(--blue);
+}
+
+.hero .cta .quiet {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.hero .cta .quiet:hover {
+  background: var(--surface);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+/* ---- the home page ----------------------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: 0.92fr 1.08fr;
+  align-items: center;
+  gap: 3rem;
+  padding: 3.5rem 0 3rem;
+}
+
+.hero-copy .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.72rem;
+}
+
+.hero-copy .eyebrow::before {
+  content: '';
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #168267;
+  box-shadow: 0 0 0 4px rgba(22, 130, 103, 0.12);
+}
+
+.hero h1 span {
+  color: var(--blue);
+}
+
+.hero .cta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
-  margin: 1.5rem 0 2rem;
+  gap: 0.7rem;
+  margin: 1.75rem 0 0;
 }
 
+/* The board, framed the way a product shot is: the page's own border, a deep shadow, and a caption
+   that says what it is rather than what to feel about it. */
 .shot {
-  margin: 2rem 0;
+  margin: 0;
 }
 
 .shot img {
+  display: block;
   width: 100%;
   height: auto;
-  border-radius: 10px;
-  border: 1px solid var(--rule);
-  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: 0 28px 65px -20px rgba(24, 54, 88, 0.35), 0 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.hero .shot img {
+  box-shadow: 0 28px 65px -20px rgba(24, 54, 88, 0.38), 0 0 0 7px rgba(255, 255, 255, 0.7);
 }
 
 figcaption {
-  margin-top: 0.6rem;
-  font-size: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin-top: 1.1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  max-width: 34rem;
+}
+
+figcaption::before {
+  content: '';
+  flex: none;
+  width: 1.5rem;
+  height: 1px;
+  background: var(--blue);
+  transform: translateY(-0.25em);
+}
+
+/* The facts strip: four checkable claims, a rule above and below, no card. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0 2.5rem;
+  margin: 0;
+  padding: 1.5rem 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.facts li {
+  font-size: 0.82rem;
+  line-height: 1.6;
   color: var(--muted);
 }
+
+.facts a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.facts strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.facts a:hover strong {
+  color: var(--blue);
+}
+
+.band {
+  padding: 3.5rem 0;
+}
+
+.band-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 3rem;
+  margin-bottom: 2rem;
+}
+
+.cards {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.cards-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.cards p {
+  margin: 0;
+  padding: 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--muted);
+  max-width: none;
+  transition: border-color 0.16s, background 0.16s;
+}
+
+.cards p strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.cards p:hover {
+  border-color: var(--blue);
+  background: #fcfdff;
+}
+
+/* How it starts: an ordered list that reads as three steps, with the number as the anchor. */
+.steps {
+  counter-reset: step;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps li {
+  counter-increment: step;
+  padding: 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--muted);
+  max-width: none;
+}
+
+.steps li::before {
+  content: counter(step, decimal-leading-zero);
+  display: block;
+  margin-bottom: 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  color: var(--blue);
+}
+
+.steps strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.98rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+/* The promises: a band, because they are one claim in three parts rather than three features. */
+.promises {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem 2.5rem;
+  margin: 0;
+  padding: 2.25rem;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.promises li {
+  position: relative;
+  padding-left: 1.7rem;
+  font-size: 0.88rem;
+  line-height: 1.75;
+  color: var(--muted);
+  max-width: none;
+}
+
+.promises li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--blue);
+}
+
+.promises strong {
+  color: var(--ink);
+}
+
+.questions {
+  max-width: 54rem;
+  margin: 0;
+}
+
+.questions dt {
+  margin: 1.6rem 0 0.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.98rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.questions dt:first-of-type {
+  margin-top: 0;
+}
+
+.questions dd {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--muted);
+}
+
+/* ---- the other pages: the same type and the same rules ----------------------------------------- */
 
 .points {
   padding-left: 1.1rem;
 }
 
 .points li {
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
 }
 
-.note {
-  font-size: 14px;
-  color: var(--muted);
-  border-left: 2px solid var(--rule);
-  padding-left: 0.8rem;
+main > h1 + .lede {
+  margin-bottom: 2rem;
 }
 
-code {
-  font-size: 0.9em;
-  background: var(--accent-soft);
-  padding: 0.05em 0.3em;
-  border-radius: 3px;
+main > h2,
+main > h3 {
+  margin-top: 2.5rem;
 }
+
+/* ---- footer ------------------------------------------------------------------------------------ */
 
 .site-footer {
   display: grid;
-  gap: 1.5rem 2rem;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  border-top: 1px solid var(--rule);
-  padding-top: 1.5rem;
-  padding-bottom: 2.5rem;
-  font-size: 15px;
+  gap: 2rem 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  width: min(var(--container), 100% - 2.5rem);
+  margin: 3rem auto 0;
+  padding: 2.5rem 0 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.86rem;
 }
 
 .footer-group h2 {
-  margin: 0 0 0.4rem;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  margin: 0 0 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .footer-group a {
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.footer-group a:hover {
+  color: var(--blue);
 }
 
 .footer-note {
   grid-column: 1 / -1;
   margin: 0;
-  font-size: 13px;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.78rem;
   color: var(--muted);
 }
 
-/* One column on a phone, and nothing that depends on motion. */
+/* ---- narrow ------------------------------------------------------------------------------------ */
+
+@media (max-width: 62rem) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    padding: 2.5rem 0 2rem;
+  }
+
+  .hero .lede {
+    max-width: 38rem;
+  }
+
+  .facts {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem 2rem;
+    padding: 1.5rem 0;
+  }
+
+  .cards-3,
+  .steps,
+  .promises {
+    grid-template-columns: 1fr;
+  }
+
+  .promises {
+    padding: 1.6rem;
+  }
+
+  .band {
+    padding: 2.5rem 0;
+  }
+}
+
 @media (max-width: 34rem) {
+  main,
+  .site-footer {
+    width: calc(100% - 2rem);
+  }
+
   .site-header {
-    align-items: flex-start;
+    gap: 0.5rem 1rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .site-nav {
+    order: 3;
+    width: 100%;
+    gap: 0.35rem 1rem;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 0.15rem;
   }
 
   .site-actions {
-    margin-left: 0;
+    margin-left: auto;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 9vw, 2.6rem);
+  }
+
+  .hero-copy .eyebrow {
+    font-size: 0.68rem;
+  }
+
+  .facts {
+    grid-template-columns: 1fr;
+  }
+
+  .cards p,
+  .steps li {
+    padding: 1.25rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* The four checkable facts under the hero: a strip, not a feature grid — each is a link to the
-   page that shows it working. */
-.facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 0.75rem 1.5rem;
-  margin: 2rem 0;
-  padding: 0;
-  list-style: none;
-}
-
-.facts li {
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--rule);
-  font-size: 15px;
-}
-
-.facts a {
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.facts a:hover strong {
-  color: var(--accent);
-}
-
-.facts strong {
-  display: block;
-  margin-bottom: 0.15rem;
-}
-
-.steps {
-  padding-left: 1.1rem;
-}
-
-.steps li {
-  margin-bottom: 0.7rem;
-}
-
-.questions {
-  margin: 1rem 0 0;
-}
-
-.questions dt {
-  margin-top: 1.1rem;
-  font-weight: 700;
-}
-
-.questions dd {
-  margin: 0.25rem 0 0;
-  color: var(--muted);
 }

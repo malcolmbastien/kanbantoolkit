@@ -191,7 +191,9 @@ else {
 }
 
 // The required sections, in the order the page promises (R1).
-const ORDER = ['facts', 'product', 'ideas', 'starts', 'who', 'promises', 'questions']
+// The page's own order: the product shot sits beside the claim, and the facts strip runs under
+// both of them, which is the layout the home page has (task 152, restyled).
+const ORDER = ['product', 'facts', 'ideas', 'starts', 'who', 'promises', 'questions']
 const positions = ORDER.map((id) => homePage.indexOf(`id="${id}"`))
 if (positions.some((at) => at === -1)) {
   fail(`the home page is missing a section: ${ORDER.filter((id, i) => positions[i] === -1).join(', ')}`)

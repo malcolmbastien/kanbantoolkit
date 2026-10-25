@@ -142,6 +142,9 @@ function render(page: Page, layout: string): string {
     .replaceAll('{{content}}', page.body)
     // After the content, so a page may use the same placeholders the layout does.
     .replaceAll('{{repo}}', REPO)
+    // A page may own the body: the home page's hero gradient is full-bleed, which needs the body
+    // rather than the column every other page sits in.
+    .replaceAll('{{bodyClass}}', page.path === '/' ? ' class="home"' : '')
     .replaceAll('{{processors}}', processors())
     .replaceAll('{{head}}', head)
 }
