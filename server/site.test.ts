@@ -23,8 +23,7 @@ const PROCESSORS: Processor[] = JSON.parse(readFileSync(new URL('../site/process
 
 const notice = readFileSync(new URL('../site/pages/privacy.html', import.meta.url), 'utf8')
 const terms = readFileSync(new URL('../site/pages/terms.html', import.meta.url), 'utf8')
-const changelog = readFileSync(new URL('../site/pages/changelog.html', import.meta.url), 'utf8')
-const help = readFileSync(new URL('../site/pages/help.html', import.meta.url), 'utf8')
+const layout = readFileSync(new URL('../site/layout.html', import.meta.url), 'utf8')
 
 describe('the privacy notice', () => {
   it('names every provider this code knows', () => {
@@ -49,13 +48,12 @@ describe('the privacy notice', () => {
     expect(notice).toContain('{{processors}}')
   })
 
-  it('points at the acts themselves for export and closure', () => {
-    // R5: a promise that points at a form is a promise nobody keeps. Both anchors exist in the help
-    // page the notice links to.
-    expect(notice).toContain('href="/help/#export"')
-    expect(notice).toContain('href="/help/#closing"')
-    expect(help).toContain('id="export"')
-    expect(help).toContain('id="closing"')
+  it('points at the act itself for export, and says how a workspace ends', () => {
+    // R5: a promise that points at a form is a promise nobody keeps. The site has no help page any
+    // more — it was removed on 2026-10-24 — so the notice links the runbook the export restores from,
+    // and states the closure in its own words.
+    expect(notice).toContain('href="{{repo}}/blob/main/docs/backup.md"')
+    expect(notice).toContain('A workspace is deleted')
   })
 
   it('says what happens to a removed member, in the product’s own words', () => {
@@ -66,16 +64,12 @@ describe('the privacy notice', () => {
 
 describe('support and changes', () => {
   it('publishes an address and a response expectation', () => {
-    for (const page of [notice, terms, help]) {
+    // The address is in the footer of every page (the site layout) and on the notice itself; there is
+    // no help page to carry it since 2026-10-24.
+    for (const page of [notice, terms, layout]) {
       expect(page).toMatch(/mailto:support@flowline\.example|mailto:privacy@flowline\.example/)
     }
-    expect(help).toContain('within two working')
-  })
-
-  it('has a changelog with dated entries, newest first', () => {
-    const dates = [...changelog.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((match) => match[1])
-    expect(dates.length).toBeGreaterThan(0)
-    // Newest first: the array is already in document order, so it must equal its own sorted self.
-    expect(dates).toEqual([...dates].sort().reverse())
+    // The sentence wraps in the source; the promise is what matters.
+    expect(notice.replace(/\s+/g, ' ')).toContain('within two working days')
   })
 })

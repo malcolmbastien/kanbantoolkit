@@ -59,8 +59,9 @@ Run the ones your change touches before you push; run all of them before you ask
    hat, and the review will say so.
 2. **A test that fails without it.** A rule in `src/domain/` gets a unit test; a flow a person
    performs gets an e2e in `e2e/`. A bug fix gets a test that reproduces the bug.
-3. **A changelog line** in `site/pages/changelog.html` if a person using Flowline would notice the
-   change. Newest first, dated, in the words somebody would read.
+3. **A release note at the tag** if a person using Flowline would notice the change — in the words
+   somebody would read, not the commit subject. There is no changelog page on the site: the
+   repository's releases and its history are the record.
 4. **A migration** if the schema changes — `migrations/NNNN_name.sql`, applied unchanged on D1 and on
    a SQLite file. Both runtimes read the same file, so a migration that only works on one is a bug.
 5. **The checks green**, and a sentence in the pull request saying what you ran.
@@ -82,7 +83,7 @@ There is no release automation yet. A release is:
 
 1. The version in `package.json`, bumped.
 2. A tag, `vX.Y.Z`.
-3. An entry at the top of `site/pages/changelog.html`, saying what changed for a person using it.
+3. A release note on the tag, saying what changed for a person using it.
 4. **If `migrations/` changed, say so in the entry** — the server applies pending migrations at
    start and refuses to serve a database it cannot migrate, so an operator needs to know to back up
    first. `npm run backup` takes a consistent copy while the server keeps running.

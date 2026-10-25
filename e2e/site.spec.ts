@@ -89,7 +89,10 @@ test('the pages that sold something are gone, and they answer 404', async ({ req
   // Nothing is for sale and nobody signs up for a workspace: the three pages that assumed a hosted
   // service are deleted, on the static host and on the Node entry alike (task 164).
   for (const origin of ['', SELF_HOSTED]) {
-    for (const path of ['/pricing/', '/signin/', '/signup/', '/self-host/']) {
+    // The pages that sold something, and the three the site stopped carrying on 2026-10-24: a help
+    // page the docs answer better, a status page nobody is on call for, and a changelog the
+    // repository already keeps.
+    for (const path of ['/pricing/', '/signin/', '/signup/', '/self-host/', '/help/', '/status/', '/changelog/']) {
       const response = await request.get(`${origin}${path}`)
       expect(response.status(), `${origin || 'static'}${path}`).toBe(404)
       expect(await response.text()).toContain('There is nothing at this address')
@@ -99,7 +102,7 @@ test('the pages that sold something are gone, and they answer 404', async ({ req
   }
 })
 
-test('the terms stand beside the door, and the help page answers', async ({ page, request }) => {
+test('the terms stand beside the door, and every page carries the support address', async ({ page, request }) => {
   // The door is on the instance with a server, because an account menu is what a server offers: the
   // static tier has no ways in and so has nothing to stand the terms beside.
   await page.goto(`${SELF_HOSTED}/app`)
@@ -111,17 +114,12 @@ test('the terms stand beside the door, and the help page answers', async ({ page
   // A link that resolves: the page the promise points at is the page that exists.
   expect((await request.get('/terms/')).status()).toBe(200)
 
-  // And the support address is a link that opens, with the promise beside it.
-  const help = await request.get('/help/')
-  expect(help.status()).toBe(200)
-  expect(await help.text()).toContain('mailto:support@flowline.example')
-})
-
-test('the changelog is dated, newest first', async ({ request }) => {
-  const html = await (await request.get('/changelog/')).text()
-  const dates = [...html.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((match) => match[1])
-  expect(dates.length).toBeGreaterThan(0)
-  expect(dates).toEqual([...dates].sort().reverse())
+  // And the support address is a link that opens, in the footer of every page rather than on a page
+  // of its own.
+  for (const path of ['/', '/install/', '/privacy/']) {
+    const html = await (await request.get(path)).text()
+    expect(html, path).toContain('mailto:support@flowline.example')
+  }
 })
 
 test('the home page and the product page have no barrier a machine can find', async ({ page }) => {
@@ -157,7 +155,7 @@ test('no public page fetches anything from another origin', async ({ page }) => 
     if (!url.pathname.startsWith('/app') && !local) foreign.push(request.url())
   })
 
-  for (const path of ['/', '/install/', '/help/', '/changelog/', '/status/', '/privacy/', '/terms/', '/security/', '/sub-processors/']) {
+  for (const path of ['/', '/install/', '/product/', '/privacy/', '/terms/', '/security/', '/sub-processors/']) {
     await page.goto(path)
     await expect(page.locator('main h1')).toBeVisible()
   }

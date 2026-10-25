@@ -187,7 +187,11 @@ if (!promises) fail('the home page has no promises section')
 else {
   const items = [...promises.matchAll(/<li>[\s\S]*?<\/li>/g)].map((match) => match[0])
   if (items.length < 3) fail('the promises section lists fewer than three promises')
-  for (const item of items) if (!/<a\s[^>]*href="\//.test(item)) fail('a promise has no link to its proof')
+  // A proof is a page on this site, or a document in the repository the site links to — the docs
+  // live with the code, so an absolute link to them is a link to a proof.
+  for (const item of items) {
+    if (!/<a\s[^>]*href="(?:\/|https:\/\/)/.test(item)) fail('a promise has no link to its proof')
+  }
 }
 
 // The required sections, in the order the page promises (R1).
@@ -224,7 +228,7 @@ if (!nav) fail('the home page has no main navigation')
 else {
   if (!/href="\/install\/"[^>]*>Install</.test(nav)) fail('the navigation has no Install item')
   if (!/href="https:\/\/[^"]+"[^>]*>Docs</.test(nav)) fail('the navigation has no Docs link')
-  if (!/href="\/help\/"[^>]*>Help</.test(nav)) fail('the navigation has no Help item')
+
 }
 
 // ---- R1: the licence is decided, written, and named where a person looks (task 165) ----
@@ -310,15 +314,14 @@ for (const processor of processors) {
 }
 if (notice.includes('{{processors}}')) fail('the privacy notice still carries the processor placeholder')
 
-// ---- R3: the support address is a link that opens ----
-const help = readFileSync(join(DIST, 'help/index.html'), 'utf8')
-if (!/href="mailto:support@[^"]+"/.test(help)) fail('the help page has no support mailto:')
-
-// ---- R4: the changelog is dated, newest first ----
-const changelog = readFileSync(join(DIST, 'changelog/index.html'), 'utf8')
-const dates = [...changelog.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((match) => match[1])
-if (!dates.length) fail('the changelog has no dated entries')
-if (dates.join() !== [...dates].sort().reverse().join()) fail('the changelog is not newest first')
+// ---- R3: the support address is a link that opens, in the footer of every page ----
+for (const file of html) {
+  const text = readFileSync(file, 'utf8')
+  const footer = /<footer class="site-footer"[\s\S]*?<\/footer>/.exec(text)?.[0] ?? ''
+  if (!/href="mailto:support@[^"]+"/.test(footer)) {
+    fail(`${file.replace(`${DIST}/`, '')}: the footer has no support mailto:`)
+  }
+}
 
 // ---- R6: what machines are told ----
 const robots = readFileSync(join(DIST, 'robots.txt'), 'utf8')

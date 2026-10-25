@@ -33,7 +33,7 @@ backend; the site is the same kind of thing and must not change that.
   link that exists today breaks.
 - **The site is static HTML, and it needs no JavaScript to read.** Pages are rendered at build from
   `site/` into `dist/`, each with its own `<title>`, description, Open Graph tags and canonical URL.
-  The one dynamic page is `/status`, because its whole job is to check something now.
+  There is no server-rendered page: nothing on the site has to check something now.
 - **The site's CSS is its own and small.** The app's bundle is not downloaded to read the home page.
   No third-party fonts, scripts or images: the same rule as the app, and the reason there is no
   cookie banner to show.
@@ -66,11 +66,8 @@ without a loader.
 | `/` | what it is, and the two things a visitor can do: the demo, or install | no | yes | 152 (done), 164 |
 | `/product/` | how the model works, with the real UI | no | yes | 152 (done) |
 | `/install/` | how to run it: one command, the configuration, TLS, and where the runbook is | no | yes | 164, 160, 128 |
-| `/help/` | the answers that keep people out of the inbox, including install, upgrade and backup | no | yes | 158 |
-| `/status/` | the **demo instance** checked now; incidents posted by hand | server | yes | 159 |
 | `/privacy/` | what the demo holds, who processes it, how to take it away | no | yes | 150 (done) |
 | `/terms/` | the terms of open-source software you run yourself | no | yes | 150 (done) |
-| `/changelog/` | user-visible changes, newest first, with the versions that change the schema | no | yes | 150 (done) |
 | `/security/` | how it is built, and what we do not claim | no | yes | 157 |
 | `/sub-processors/` | every processor the demo is configured with | no | yes | 157 |
 | `/app` | the application | yes | no | 151 (done) |
@@ -82,9 +79,15 @@ without a loader.
 workspace — they install one), `/signin/` (you sign in at your instance, not at the project's site),
 `/app/account/billing`, `/refunds`, `/dpa`, `/about`, `/licence`, `/accessibility` and `/support` as
 separate pages. Where one of them carried something still owed — the address to write to, the licence,
-the accessibility target — it moves into the page that now owns it: support into `/help/` and the
-footer, the licence into `/install/` and the repository, accessibility into `/security/` and the
-issue tracker.
+the accessibility target — it moves into the page that now owns it: support into the footer of every
+page, the licence into `/install/` and the repository, accessibility into `/security/` and the issue
+tracker.
+
+**Removed 2026-10-24, after shipping:** `/help/`, `/status/` and `/changelog/`. The answers a person
+needs live in the documentation (task 167) and in the app's own words; a status page for a deployment
+nobody is on call for is a promise of monitoring this project does not have; and a change log on the
+site duplicates the repository's own history and releases. The support address is in the footer of
+every page, and the security address is in `security.txt`.
 
 ## What each page says
 
@@ -158,30 +161,11 @@ It replaces `/self-host/`, which is deleted: two pages about running it would be
 disagree, and the install page is the one a visitor needs. The *argument* for running it yourself is
 not a page — it is three sentences on the home page, and the licence.
 
-### `/help/` — the guide
-
-Task-shaped pages, not a manual: getting started in five minutes; a board and its lanes; cards,
-hierarchy and types; initiatives and the management view; people, roles and invitations; sharing a
-board read-only; importing, exporting and backups; keyboard; **running it yourself**; **upgrading and
-migrating**; **backing up and restoring**; when something looks wrong (offline edits, a card that is
-read-only because someone else has it, a refused write, a stale tab). Each page: what you are about to
-do, the steps, one screenshot, and what to do if it did not work.
-
-The operator's three are links to the docs rather than copies of them (task 167).
-
-### `/status/` — checked now
-
-The page performs its checks when it is loaded — the app's assets, the API, the database, the
-configured sign-in providers, the live channel — and prints the time it checked. Below, incidents
-posted by hand and kept: what broke, when, what it affected, how it ended. It is the **demo
-instance's** status, and it says so: a self-hoster's uptime is their own machine's, and there is no
-uptime percentage here because this deployment has no monitoring history to average.
-
 ### The trust set
 
-- `/privacy`, `/terms`, `/changelog` — task 150's pages, already shipped. They name no payment
-  provider, because there is none. A self-hoster is the controller of their own instance's data, and
-  the notice says so plainly.
+- `/privacy` and `/terms` — task 150's pages, already shipped. They name no payment provider, because
+  there is none. A self-hoster is the controller of their own instance's data, and the notice says so
+  plainly.
 - `/sub-processors` — a table of every processor the **demo** is configured with: name, purpose, data,
   location, their terms. The list is derived from the deployment's own configuration wherever it can
   be, so it cannot quietly go stale.
@@ -240,8 +224,8 @@ the rest are open.
 6. **Where the project lives** — **open**. The repository's URL, and therefore the Docs link, the
    source link and the place a security report goes. Everything here assumes GitHub; the value is one
    constant in the build (`REPO_URL`), not a page.
-7. **The demo instance's identity** — **open**. `/status`, `/privacy` and `/sub-processors` describe
-   *this* deployment, so somebody has to run one, and it needs a name that is not "Flowline Cloud".
+7. **The demo instance's identity** — **open**. `/privacy` and `/sub-processors` describe *this*
+   deployment, so somebody has to run one, and it needs a name that is not "Flowline Cloud".
 
 ## Not planned, and why
 
@@ -288,7 +272,7 @@ Not a task, because it is a moment rather than work: every line must be true on 
 - [ ] `/pricing/`, `/signin/` and `/signup/` are gone, and nothing links to them.
 - [ ] The Access gate is off, `/app` is `noindex`, every public page is in `sitemap.xml`.
 - [ ] A backup exists and one restore has been performed (task 119).
-- [ ] Somebody is on the support rota, and the response expectation on `/help/` is the one they can keep.
+- [ ] Somebody reads the support address in the footer, and the expectation they answer on is the one they can keep.
 - [ ] The promises ledger above has no row without a green test.
 
 ## The rules this plan inherits

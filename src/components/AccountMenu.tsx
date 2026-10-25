@@ -155,9 +155,11 @@ export function AccountMenu() {
                 </button>
               )}
 
-              {/* Somebody inside still needs the way to a person, and the site's help is it (R3). */}
+              {/* Somebody inside still needs the way to a person. The site's help page was removed
+                  on 2026-10-24 — its answers live in the documentation, which the app cannot link
+                  without knowing the repository — so this is the address itself. */}
               <a
-                href="/help/"
+                href="mailto:support@flowline.example"
                 className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               >
                 <LifeBuoy size={13} /> Help &amp; support
