@@ -1,11 +1,32 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import type { Plugin } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
+/**
+ * The app's URL is `/app` — the place lives in the query string — and both servers that ship the
+ * build answer `/app` itself. Vite's dev server only knows the document as a *file*, so it wants
+ * `/app/` and 404s `/app`, which is the URL the README, the links and production all use. Answer
+ * the URL the app actually has, rather than asking developers to remember a trailing slash.
+ */
+function appWithoutTrailingSlash(): Plugin {
+  return {
+    name: 'flowline-app-entry',
+    configureServer(server) {
+      server.middlewares.use((request, _response, next) => {
+        if (request.url === '/app' || request.url?.startsWith('/app?')) {
+          request.url = `/app/${request.url.slice('/app'.length)}`
+        }
+        next()
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), appWithoutTrailingSlash()],
   /**
    * The app lives under `/app`, and only there (task 151) — but its *assets* stay at the origin
    * root, where `public/` already puts the favicon and where the caching header is written. The
