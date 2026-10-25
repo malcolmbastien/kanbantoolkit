@@ -193,6 +193,13 @@ for (const line of (await import('node:fs')).readFileSync('titles.txt', 'utf8').
 Both scripts do what a person would do by hand, one card at a time. There is no bulk endpoint: a batch
 of twenty cards is twenty calls, and twenty entries the trail can explain.
 
+## The other door
+
+An agent can reach the same acts through **MCP** — over `POST /mcp` or through the stdio bridge —
+with a token like the one above. The tools are named after the acts (`create_item`, `move_item`,
+`set_parent`) and call the same operations this page describes, so a WIP limit refuses an agent in the
+same words. [The MCP server](mcp.md) is the page for it.
+
 ## What is not here
 
 - **Webhooks.** The next thing a script asks for, and a task of its own: a delivery queue, retries and

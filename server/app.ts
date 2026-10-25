@@ -21,6 +21,7 @@ import { workspaceRoutes as workspaceInstanceRoutes } from './workspace-instance
 import { inviteLinkRoutes } from './invite-links'
 import { tokenAdminRoutes, tokenRoutes } from './token-routes'
 import { v1Routes } from './v1/routes'
+import { mcpRoutes } from './mcp/http'
 import { meRoutes } from './me'
 import { workspaceMembersRoutes } from './workspace-members'
 import { authRoutes } from './auth/routes'
@@ -130,6 +131,8 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
   app.route('/api/workspace', workspaceRoutes(runtime))
   // The supported surface (task 169): the same rules, a contract instead of a client's habits.
   app.route('/api/v1', v1Routes(runtime))
+  // The third door (task 170): the same operations, spoken as MCP.
+  app.route('/mcp', mcpRoutes(runtime))
   // Creating a workspace, which is a new tenant rather than a write inside one.
   app.route('/api/workspaces', workspaceInstanceRoutes(runtime))
 

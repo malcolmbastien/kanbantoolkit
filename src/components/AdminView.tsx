@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { PeoplePanel } from './PeoplePanel'
 import { InvitationsPanel } from './InvitationsPanel'
 import { WorkspacePanel } from './WorkspacePanel'
+import { ConnectAgent } from './ConnectAgent'
 import { AuditPanel, HealthPanel } from './AuditPanels'
 import { AccessPanel } from './AccessPanel'
 import { GroupsPanel } from './GroupsPanel'
@@ -80,6 +81,10 @@ export function AdminView() {
             workspace administrator reads the events their own routes wrote. */}
         {workspaceAdmin && <AuditPanel />}
         {admin && <HealthPanel />}
+
+        {/* A credential for a tool, made here rather than copied from a chat message: the scopes
+            are chosen in words, and the config is produced by the instance that knows its own URL. */}
+        <ConnectAgent />
         <p className="mt-0.5 text-meta text-slate-600">
           This workspace lives in this browser. The copies below are what it keeps of itself, so a
           mistake is a moment rather than a loss.

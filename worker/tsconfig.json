@@ -23,13 +23,15 @@
     ".",
     "../server/**/*.ts"
   ],
-  /* The Node entry and its driver, and the tests that use them, are the other project. */
+  /* The Node entry and its driver, and the tests that use them, are the other project. The stdio
+     MCP bridge is the same: it reads a file and a socket on somebody's laptop, never in a Worker. */
   "exclude": [
     "../server/index.node.ts",
     "../server/sqlite.ts",
     "../server/backup.ts",
     "../server/backup.test.ts",
     "../server/mail-smtp.ts",
+    "../server/mcp.ts",
     "../server/**/*.test.ts"
   ]
 }

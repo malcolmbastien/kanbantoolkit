@@ -395,15 +395,19 @@ describe('a move is the domain’s move', () => {
   })
 
   it('is the same operation the app calls, not a second placement write', () => {
-    // R1's structural half: the route imports the domain operation, and the store imports the same
-    // one. A second implementation would have to be written somewhere, and there is nowhere for it
-    // to hide — a placement write in the route file would be one.
+    // R1's structural half: the operations module imports the domain rule, and the store imports the
+    // same one. A second implementation would have to be written somewhere, and there is nowhere for
+    // it to hide — a placement write in the operations or route file would be one. (The writer in
+    // `workspace/write.ts` is the only place arrangement is stored.)
+    const operations = readFileSync(new URL('./operations.ts', import.meta.url), 'utf8')
     const routes = readFileSync(new URL('./v1/routes.ts', import.meta.url), 'utf8')
     const store = readFileSync(new URL('../src/store.ts', import.meta.url), 'utf8')
-    expect(routes).toContain("from '../../src/domain/move'")
+    expect(operations).toContain("from '../src/domain/move'")
     expect(store).toContain("from '@/domain/move'")
-    expect(routes).not.toMatch(/UPDATE\s+placements/i)
-    expect(routes).not.toMatch(/INSERT\s+INTO\s+placements/i)
+    for (const source of [routes, operations]) {
+      expect(source).not.toMatch(/UPDATE\s+placements/i)
+      expect(source).not.toMatch(/INSERT\s+INTO\s+placements/i)
+    }
   })
 })
 
