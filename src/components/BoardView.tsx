@@ -13,6 +13,8 @@ import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
+import { useMay } from '@/lib/permissions'
+import { useAuth } from '@/lib/auth'
 import type { Item } from '@/domain/types'
 
 interface Props {
@@ -44,6 +46,11 @@ export function BoardView({ requestMove }: Props) {
   const users = useStore((s) => s.users)
 
   const board = boards.find((b) => b.id === boardId)
+  // A Viewer reads a board and comments on it, and is offered nothing that writes to it. The
+  // server refuses the writes either way; offering the control would be the lie.
+  const may = useMay()
+  const editable = may('item.write')
+  const signedIn = useAuth((state) => state.user !== null)
   // Drag empty workflow space to move the board. See usePanScroll.
   const pan = usePanScroll<HTMLDivElement>()
 
@@ -86,13 +93,21 @@ export function BoardView({ requestMove }: Props) {
           <Info size={12} /> Legend
         </button>
         {board?.archived && <ArchivedBoardChip />}
+        {signedIn && !editable && (
+          <span
+            className="rounded bg-slate-100 px-1.5 py-px font-semibold text-slate-600 ring-1 ring-slate-300"
+            title="Your role is Viewer: you can read this board and comment on it"
+          >
+            read-only · viewer
+          </span>
+        )}
         {editMode && (
           <span className="rounded bg-amber-100 px-1.5 py-px font-semibold text-amber-800 ring-1 ring-amber-300">
             edit mode · unsaved changes
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
-          {doneCount > 0 && !editMode && (
+          {doneCount > 0 && !editMode && may('item.delete') && (
             <button
               onClick={() =>
                 askConfirm({
@@ -161,7 +176,7 @@ export function BoardView({ requestMove }: Props) {
               the board's kinds, and the one its kind filter narrows. Without it a team board's
               initiatives were read as somebody else's band: a kind could be set and stored, and
               the card never grew the header that says so. */}
-          <BoardSummary boardId={boardId} variant="initiatives" interactive />
+          <BoardSummary boardId={boardId} variant="initiatives" interactive={editable} />
         </section>
 
         {/* Cards workflow — the team's customizable flow. Tactical execution: its own cool
@@ -179,7 +194,7 @@ export function BoardView({ requestMove }: Props) {
               {cardCount} {cardCount === 1 ? 'card' : 'cards'}
             </span>
           </div>
-          <BoardCanvas boardId={boardId} interactive onMove={requestMove} />
+          <BoardCanvas boardId={boardId} interactive={editable} onMove={requestMove} />
         </section>
       </div>
     </div>

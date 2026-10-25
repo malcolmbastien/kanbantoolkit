@@ -5,6 +5,7 @@ import { SyncNotice } from './SyncNotice'
 import { ImportNotice } from './ImportNotice'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
+import { useMay } from '@/lib/permissions'
 import { isAggregating } from '@/domain/board'
 import { isBoardSurface } from '@/store'
 import type { Board } from '@/domain/types'
@@ -44,6 +45,13 @@ interface Props {
 }
 
 export function TopBar(props: Props) {
+  // A Viewer reads and comments; the controls that write are not offered, because the server would
+  // refuse them and a button that answers 403 is a lie about what the product does.
+  const may = useMay()
+  const mayWrite = may('item.write')
+  const mayDesign = may('board.design')
+  const maySettings = may('board.settings')
+
   const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onShowObjectives, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
@@ -188,7 +196,7 @@ export function TopBar(props: Props) {
         {/* Making work is the board's business, so these show on the board and nowhere else. */}
         {boardActive && (
           <>
-            {makesCards && (
+            {makesCards && mayWrite && (
               <button
                 onClick={onAddCard}
                 disabled={editMode}
@@ -197,6 +205,7 @@ export function TopBar(props: Props) {
                 <Plus size={13} /> Card
               </button>
             )}
+            {mayWrite && (
             <button
               onClick={onAddInitiative}
               disabled={editMode}
@@ -205,12 +214,13 @@ export function TopBar(props: Props) {
             >
               <Plus size={13} /> Initiative
             </button>
+            )}
           </>
         )}
 
         <GlobalSearch />
 
-        {boardActive && !editMode && (
+        {boardActive && !editMode && maySettings && (
           <button
             onClick={onOpenBoardSettings}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
@@ -221,7 +231,7 @@ export function TopBar(props: Props) {
         )}
 
 
-        {boardActive &&
+        {boardActive && mayDesign &&
           (editMode ? (
             <>
               <button
