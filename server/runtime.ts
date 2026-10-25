@@ -8,6 +8,7 @@
  */
 
 import type { Database } from './db'
+import type { Mail } from './mail'
 
 export interface Runtime {
   /** The database for this request, or undefined when the deployment has none configured. */
@@ -23,4 +24,12 @@ export interface Runtime {
     /** Ring the bell: the workspace's feed has moved. Never says what moved. */
     publish(env: unknown, workspaceId: string, revision: number): Promise<void> | void
   }
+  /**
+   * Mail, when this deployment has a relay to send it through.
+   *
+   * The same shape as `live`: the Node entry speaks SMTP to whatever the operator configured, the
+   * Worker has none, and a deployment without one simply does not offer a magic link (task 154.7).
+   * A route asks whether it is there; it never asks which runtime it is on.
+   */
+  mail?: Mail
 }

@@ -29,6 +29,7 @@
     "../server/sqlite.ts",
     "../server/backup.ts",
     "../server/backup.test.ts",
+    "../server/mail-smtp.ts",
     "../server/**/*.test.ts"
   ]
 }

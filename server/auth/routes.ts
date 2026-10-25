@@ -296,6 +296,8 @@ export function authRoutes(runtime: Runtime) {
       // A deployment with no accounts is an installation, not a sign-in: the client draws the first
       // run instead of a form nobody could complete.
       setup: db ? await setupOpen(db, c.env) : false,
+      // Whether this deployment can send a link: the magic-link door exists only where a relay does.
+      mail: Boolean(runtime.mail),
       dev: devAuth(c.env),
     })
   })

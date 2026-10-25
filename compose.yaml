@@ -45,6 +45,11 @@ services:
       # AUTH_OIDC_TOKEN_ENDPOINT: ""
       # AUTH_OIDC_USERINFO_ENDPOINT: ""
       # AUTH_OIDC_LABEL: ""
+      #
+      # Mail, if you want magic links. A relay on this machine may be plain SMTP; anything else must
+      # offer STARTTLS, and a deployment with neither still runs.
+      # SMTP_URL: "smtp://user:pass@host:587"
+      # MAIL_FROM: "flowline@example.com"
 
     volumes:
       # The database. Removing the container keeps this; removing the volume does not, so a backup

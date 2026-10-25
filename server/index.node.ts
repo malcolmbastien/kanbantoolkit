@@ -17,6 +17,8 @@ import type { Handler } from 'hono'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { WebSocketServer } from 'ws'
 import { createApp } from './app'
+import { consoleMailer } from './mail'
+import { smtpMailer } from './mail-smtp'
 import { liveCaller, publish, subscribe } from './live'
 import { WORKSPACE_ID } from './auth/session'
 import { migrate } from './migrate'
@@ -50,6 +52,15 @@ console.log(`flowline schema v${schema.version}${schema.applied.length ? ` (appl
  */
 const live = process.env.LIVE !== '0'
 
+/**
+ * Mail, if this machine has a relay.
+ *
+ * `MAIL_CONSOLE=1` writes messages to the log instead — development, and the e2e lane, which must not
+ * open a socket to somebody's mail server. Otherwise `SMTP_URL` and `MAIL_FROM` decide, and without
+ * both there is no mailer at all: the magic-link door is absent rather than broken.
+ */
+const mail = process.env.MAIL_CONSOLE === '1' ? consoleMailer() : smtpMailer(process.env)
+
 const app = createApp(
   {
     database: () => db,
@@ -58,6 +69,7 @@ const app = createApp(
     clientIp: (request) => request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
     // The bell, from this runtime's side: one process, one map of listeners.
     ...(live && { live: { publish: (_env: unknown, workspaceId: string, revision: number) => publish(workspaceId, revision) } }),
+    ...(mail && { mail }),
   },
   {
     /**
