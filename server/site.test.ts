@@ -58,9 +58,11 @@ describe('the privacy notice', () => {
     expect(notice).toContain('A workspace is deleted')
   })
 
-  it('says what happens to a removed member, in the product’s own words', () => {
+  it('says what happens to a removed member, and which licence the software carries', () => {
+    // The notice describes an instance's people because that is what a person reading it will ask
+    // about next; the terms carry the licence, which is what actually binds anybody.
     expect(notice).toContain('Former member')
-    expect(terms).toContain('isolated from every other workspace')
+    expect(terms).toContain('AGPL-3.0-or-later')
   })
 })
 
