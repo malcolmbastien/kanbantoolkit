@@ -134,7 +134,7 @@ Everything else — routes, SQL, rules, validation — is shared.
 
 A self-hoster cannot use the hosted instance's OAuth client: every deployment needs its own
 registration, its own consent screen, its own secret. So providers are **configuration**, not code.
-Google and Microsoft are the hosted defaults; an operator may configure their own OIDC endpoint, or
+The identity provider is the operator's own OIDC issuer — there is no vendor table in the code — or
 email, instead. This is why 117's R2 is about a provider list rather than two branches.
 
 ## The cost: a second CI lane

@@ -1,7 +1,7 @@
 /**
  * Accounts: the registry, the doors, the session, and the rule that one person stays one person.
  *
- * The OAuth flow is exercised against a fake provider, because a test that needs Google to be up is
+ * The OAuth flow is exercised against a fake issuer, because a test that needs a vendor to be up is
  * not a test. The fake speaks the two endpoints the flow actually uses — the token exchange and
  * `userinfo` — so everything between them is the real code.
  */
@@ -91,11 +91,21 @@ describe('the provider registry', () => {
     expect(providers({})).toEqual([])
   })
 
-  it('offers Google when its client is configured, and not before', () => {
-    expect(providers({ AUTH_GOOGLE_CLIENT_ID: 'id' })).toEqual([])
-    const [google] = providers({ AUTH_GOOGLE_CLIENT_ID: 'id', AUTH_GOOGLE_CLIENT_SECRET: 'secret' })
-    expect(google.id).toBe('google')
-    expect(google.authorizeEndpoint).toContain('accounts.google.com')
+  it('offers the operator’s issuer when it is configured, and not before', () => {
+    // Half a configuration is no configuration: a client id with no secret draws no button.
+    expect(providers({ AUTH_OIDC_CLIENT_ID: 'id' })).toEqual([])
+    expect(providers({ ...OIDC, AUTH_OIDC_TOKEN_ENDPOINT: '' })).toEqual([])
+
+    const [issuer] = providers(OIDC)
+    expect(issuer.id).toBe('oidc')
+    expect(issuer.label).toBe('Test IdP')
+    expect(issuer.authorizeEndpoint).toBe('https://idp.test/authorize')
+  })
+
+  it('names an issuer nobody labelled by its host, not by a placeholder', () => {
+    const { AUTH_OIDC_LABEL: _, ...unlabelled } = OIDC
+    const [issuer] = providers(unlabelled)
+    expect(issuer.label).toBe('idp.test')
   })
 
   it('lets a self-hoster bring an identity provider of its own', () => {

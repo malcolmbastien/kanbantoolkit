@@ -91,15 +91,15 @@ describe('a profile the person owns', () => {
 
   it('lists the ways in, and keeps the last one', async () => {
     const { db, request, cookie } = await me()
-    await db.run("INSERT INTO identities (provider, subject, user_id, email) VALUES ('google', 'g-1', (SELECT id FROM users WHERE email = 'ada@example.com'), 'ada@example.com')")
+    await db.run("INSERT INTO identities (provider, subject, user_id, email) VALUES ('oidc', 'g-1', (SELECT id FROM users WHERE email = 'ada@example.com'), 'ada@example.com')")
 
     const list = (await (await request('/api/me/identities', { headers: { cookie } })).json()) as {
       identities: Array<{ provider: string; subject: string }>
     }
-    expect(list.identities.map((identity) => identity.provider).sort()).toEqual(['dev', 'google'])
+    expect(list.identities.map((identity) => identity.provider).sort()).toEqual(['dev', 'oidc'])
 
     expect(
-      (await request('/api/me/identities/google/g-1', { method: 'DELETE', headers: { cookie } })).status,
+      (await request('/api/me/identities/oidc/g-1', { method: 'DELETE', headers: { cookie } })).status,
     ).toBe(204)
 
     // The last door cannot be removed: an account nobody can enter is a person locked out by a click.

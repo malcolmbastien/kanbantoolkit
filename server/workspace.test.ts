@@ -101,7 +101,7 @@ const workspace: Workspace = {
     {
       id: 'i-signin',
       title: 'Sign in with a provider',
-      description: 'Google or Microsoft, and no passwords.',
+      description: 'One OIDC issuer, and no passwords.',
       typeId: 't-card',
       size: 3,
       initiativeTypeId: 'k-bet',

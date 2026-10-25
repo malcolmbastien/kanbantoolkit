@@ -2,15 +2,16 @@
  * The notice and the code, held together.
  *
  * A privacy notice that lists a processor the deployment does not use is a false promise; one that
- * omits a processor it does use is a worse one. The deployment's providers are configuration, so the
- * only way this can stay true is if the *code* and the *notice* are checked against each other — and
- * that check is this file: add a provider to `server/config.ts` without listing it in
- * `site/processors.json` and it fails, before the page can lie.
+ * omits a processor it uses is a worse one. The list lives in one file — `site/processors.json` —
+ * and this file holds it to the things that are true of the code: every row says what it sees, the
+ * rows are distinct, and the page renders the list rather than carrying a second copy.
+ *
+ * Since task 154.1 there is no table of vendors in the code to compare against: an instance's
+ * identity provider is the operator's own OIDC issuer, listed as one row.
  */
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { KNOWN } from './config'
 
 interface Processor {
   id: string
@@ -28,11 +29,10 @@ const security = readFileSync(new URL('../site/pages/security.html', import.meta
 const subProcessors = readFileSync(new URL('../site/pages/sub-processors.html', import.meta.url), 'utf8')
 
 describe('the privacy notice', () => {
-  it('names every provider this code knows', () => {
-    const listed = PROCESSORS.map((processor) => processor.id)
-    for (const id of Object.keys(KNOWN)) {
-      expect(listed, `site/processors.json is missing "${id}"`).toContain(id)
-    }
+  it('lists the identity provider as the operator’s own issuer', () => {
+    // The one row a deployment's sign-in adds, and the reason there is no vendor table: an instance
+    // is configured with an OIDC issuer, whoever runs it.
+    expect(PROCESSORS.map((processor) => processor.id)).toContain('oidc')
   })
 
   it('says what each processor sees, and why it is there', () => {

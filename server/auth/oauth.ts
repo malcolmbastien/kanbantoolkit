@@ -112,9 +112,11 @@ function text(value: unknown): string {
 }
 
 /**
- * Who the provider says this is. Microsoft sends a work address as `preferred_username` rather than
- * `email` for some tenants, so both are read; an address the provider will not vouch for is not
- * accepted at all, because it is what joins two doors to one person.
+ * Who the issuer says this is.
+ *
+ * `email` first, then `preferred_username`: some issuers put a work address in the second, and a
+ * provider that vouchsafes neither gives no address at all. An address the issuer will not vouch for
+ * is not accepted, because the address is what joins two doors to one person.
  */
 export async function profile(provider: Provider, accessToken: string): Promise<Profile> {
   const response = await fetch(provider.userinfoEndpoint, {
@@ -131,8 +133,8 @@ export async function profile(provider: Provider, accessToken: string): Promise<
   return {
     subject,
     email,
-    // Google says so explicitly; Microsoft's work accounts are tenant-verified and say nothing.
-    // Only an explicit `false` is treated as unverified.
+    // An issuer that says an address is unverified is believed; one that says nothing is trusted,
+    // which is the usual shape for a tenant a company controls. Only an explicit `false` is refused.
     emailVerified: raw.email_verified !== false,
     name: text(raw.name) || email,
   }

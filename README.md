@@ -78,8 +78,8 @@ endpoints' cells, and **attribution never counts as work**.
 ## No Firebase, no tracking
 
 This app has **no Firebase, no Google tracking, and no third-party font host**, by design.
-Optional Google Sign-In is permitted by policy (see `AGENTS.md`); the current build makes no
-external requests at all.
+Sign-in is an OIDC issuer the operator configures (see `AGENTS.md` for the policy), so the product
+ships no vendor of its own; the current build makes no external requests at all.
 
 - Runtime: a static Vite + React SPA. All state is in the browser (`localStorage`).
   No backend, no auth, no cloud services of any kind.
@@ -191,12 +191,10 @@ instance with no sign-in at all.
 
 | Variable | What it is |
 | --- | --- |
-| `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET` | Google |
-| `AUTH_MICROSOFT_CLIENT_ID`, `AUTH_MICROSOFT_CLIENT_SECRET` | Microsoft |
-| `AUTH_MICROSOFT_TENANT` | the tenant id, or `common` (the default) |
-| `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | an identity provider of your own |
-| `AUTH_OIDC_AUTHORIZE_ENDPOINT`, `AUTH_OIDC_TOKEN_ENDPOINT`, `AUTH_OIDC_USERINFO_ENDPOINT` | where it lives |
-| `AUTH_OIDC_LABEL` | what the button calls it |
+| `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | your issuer's client credentials |
+| `AUTH_OIDC_AUTHORIZE_ENDPOINT`, `AUTH_OIDC_TOKEN_ENDPOINT`, `AUTH_OIDC_USERINFO_ENDPOINT` | where that issuer lives |
+| `AUTH_OIDC_LABEL` | what the button calls it (defaults to the issuer's host) |
+| `AUTH_OIDC_SCOPE` | what it asks for (defaults to `openid email profile`) |
 | `PUBLIC_URL` | the address the redirect URI is built from, when it differs from the request's |
 | `AUTH_DEV=1` | a development identity switch: an address, no provider, no password |
 

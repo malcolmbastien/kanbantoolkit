@@ -19,6 +19,15 @@ export interface Provider {
 
 type Settings = Record<string, string | undefined>
 
+/** The host of a URL, for naming an issuer nobody gave a label to. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return 'your identity provider'
+  }
+}
+
 function settings(env: unknown): Settings {
   return (env ?? {}) as Settings
 }
@@ -61,59 +70,20 @@ export function devAuth(env: unknown): boolean {
 }
 
 /**
- * The providers this code knows by name — the hosted defaults.
+ * The provider this instance offers: the operator's own OIDC issuer.
  *
- * Exported because the privacy notice names them, and a notice that drifts from the code is worse
- * than no notice: `server/site.test.ts` fails when a provider here is not listed in
- * `site/processors.json`.
- */
-export const KNOWN = {
-  google: {
-    label: 'Google',
-    authorizeEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-    tokenEndpoint: 'https://oauth2.googleapis.com/token',
-    userinfoEndpoint: 'https://openidconnect.googleapis.com/v1/userinfo',
-    scope: 'openid email profile',
-  },
-  microsoft: {
-    label: 'Microsoft',
-    authorizeEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    userinfoEndpoint: 'https://graph.microsoft.com/oidc/userinfo',
-    scope: 'openid email profile',
-  },
-} as const
-
-/**
- * The providers this instance offers.
- *
- * Google and Microsoft are the hosted defaults, and are enabled by their client credentials rather
- * than by a code change. A self-hoster with an identity provider of its own sets `AUTH_OIDC_*` and
- * gets a third door — the same flow, its own issuer — without touching this file.
+ * There is no vendor in this file, and that is the point. A team that runs Flowline already has an
+ * identity provider — Google Workspace, Entra, Keycloak, authentik — and each of them speaks OIDC.
+ * Naming two of them here would have meant a third and a fourth later, a table of endpoints to keep
+ * current, and a deployment that cannot use the provider it actually has.
  *
  * A provider with no client id or secret is simply absent, so an instance with none configured is a
- * valid instance: it is the static tier, with no accounts at all.
+ * valid instance: the board still runs, and the sign-in surface says in words that it has no way in
+ * rather than drawing a button that cannot work. (Task 154 adds the password and magic-link doors
+ * beside this one.)
  */
 export function providers(env: unknown): Provider[] {
   const list: Provider[] = []
-
-  for (const id of ['google', 'microsoft'] as const) {
-    const clientId = value(env, `AUTH_${id.toUpperCase()}_CLIENT_ID`)
-    const clientSecret = value(env, `AUTH_${id.toUpperCase()}_CLIENT_SECRET`)
-    if (!clientId || !clientSecret) continue
-    const known = KNOWN[id]
-    const tenant = id === 'microsoft' ? (value(env, 'AUTH_MICROSOFT_TENANT') ?? 'common') : ''
-    list.push({
-      id,
-      label: known.label,
-      authorizeEndpoint: known.authorizeEndpoint.replace('/common/', `/${tenant}/`),
-      tokenEndpoint: known.tokenEndpoint.replace('/common/', `/${tenant}/`),
-      userinfoEndpoint: known.userinfoEndpoint,
-      clientId,
-      clientSecret,
-      scope: known.scope,
-    })
-  }
 
   const oidc = {
     clientId: value(env, 'AUTH_OIDC_CLIENT_ID'),
@@ -125,7 +95,9 @@ export function providers(env: unknown): Provider[] {
   if (oidc.clientId && oidc.clientSecret && oidc.authorizeEndpoint && oidc.tokenEndpoint && oidc.userinfoEndpoint) {
     list.push({
       id: 'oidc',
-      label: value(env, 'AUTH_OIDC_LABEL') ?? 'your provider',
+      // The operator's own words, or the issuer's host: "login.example.com" says more than
+      // "your provider" when somebody has two of them open.
+      label: value(env, 'AUTH_OIDC_LABEL') ?? hostOf(oidc.authorizeEndpoint),
       authorizeEndpoint: oidc.authorizeEndpoint,
       tokenEndpoint: oidc.tokenEndpoint,
       userinfoEndpoint: oidc.userinfoEndpoint,

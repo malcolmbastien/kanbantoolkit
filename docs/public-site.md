@@ -279,5 +279,5 @@ Not a task, because it is a moment rather than work: every line must be true on 
 
 From `AGENTS.md`, without exception: the dependency rule binds the site exactly as it binds the app —
 the forbidden services are named there, not repeated here, and `npm run scan` is the check. Sign-in
-with Google stays one way in and never the only way. The site is static, so it adds no runtime
+is the operator's own OIDC issuer, never a vendor the product chose. The site is static, so it adds no runtime
 dependency to the app — and the app must still run, and still be usable, with no server at all.

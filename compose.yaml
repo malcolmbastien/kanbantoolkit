@@ -35,14 +35,16 @@ services:
       # door with no lock, and it is here so a local trial needs no OAuth client.
       AUTH_DEV: ${AUTH_DEV:-}
       #
-      # The doors — every provider is optional, and an instance with none still runs. Uncomment what
-      # this team has; docs/configure.md has the full list, the defaults, and the redirect URI.
+      # The door: the OIDC issuer this team already runs — Google Workspace, Entra, Keycloak,
+      # authentik. Optional, and an instance with none still runs (task 154 adds passwords).
+      # docs/configure.md has the full list, the defaults, and the redirect URI.
       #
-      # AUTH_GOOGLE_CLIENT_ID: ""
-      # AUTH_GOOGLE_CLIENT_SECRET: ""
-      # AUTH_MICROSOFT_CLIENT_ID: ""
-      # AUTH_MICROSOFT_CLIENT_SECRET: ""
-      # AUTH_MICROSOFT_TENANT: common
+      # AUTH_OIDC_CLIENT_ID: ""
+      # AUTH_OIDC_CLIENT_SECRET: ""
+      # AUTH_OIDC_AUTHORIZE_ENDPOINT: ""
+      # AUTH_OIDC_TOKEN_ENDPOINT: ""
+      # AUTH_OIDC_USERINFO_ENDPOINT: ""
+      # AUTH_OIDC_LABEL: ""
 
     volumes:
       # The database. Removing the container keeps this; removing the volume does not, so a backup

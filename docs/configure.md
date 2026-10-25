@@ -6,8 +6,8 @@ static tier is exactly that.
 
 Two rules hold everywhere:
 
-- **A variable that is unset is absent, not empty.** `AUTH_GOOGLE_CLIENT_ID=""` and no variable at
-  all are the same thing, and neither draws a button that cannot work.
+- **A variable that is unset is absent, not empty.** `AUTH_OIDC_CLIENT_ID=""` and no variable at all
+  are the same thing, and neither draws a button that cannot work.
 - **Secrets live in the environment**, not in this file, not in the database, and not in `dist/`
   (which is build output and can be rebuilt by anybody with the repository).
 
@@ -35,17 +35,18 @@ from an environment, which is what lets one set of routes run on both.
 
 ## The doors
 
+The identity provider is **the one you already run**. There is no vendor built into the product and no
+list of endpoints to keep current: any OIDC issuer works — Google Workspace, Entra, Keycloak,
+authentik, Okta — because they all speak the same protocol.
+
 Every provider is optional, and an instance with none is a valid instance — it simply has no way in,
 and the app says so rather than drawing a button.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET` | — | Google Sign-In. Both are required; either one alone leaves Google absent. Never the only way in by design: an instance that wants it pairs it with another provider or an invitation. |
-| `AUTH_MICROSOFT_CLIENT_ID`, `AUTH_MICROSOFT_CLIENT_SECRET` | — | Microsoft. The client id and secret are what enable it. |
-| `AUTH_MICROSOFT_TENANT` | `common` | The tenant the endpoints are built from: `common` for any work account, a tenant id for one organisation. |
-| `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | — | An identity provider of your own. The same flow, your issuer. |
-| `AUTH_OIDC_AUTHORIZE_ENDPOINT`, `AUTH_OIDC_TOKEN_ENDPOINT`, `AUTH_OIDC_USERINFO_ENDPOINT` | — | Where that provider lives. All three are required, and all three are used as given. |
-| `AUTH_OIDC_LABEL` | `your provider` | What the button says. |
+| `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | — | Your issuer's client credentials. Both are required; either one alone leaves the door closed. |
+| `AUTH_OIDC_AUTHORIZE_ENDPOINT`, `AUTH_OIDC_TOKEN_ENDPOINT`, `AUTH_OIDC_USERINFO_ENDPOINT` | — | Where that issuer lives. All three are required, and all three are used as given. |
+| `AUTH_OIDC_LABEL` | the issuer's host | What the button says. `login.example.com` is a better label than "your provider" when a person has two of them open. |
 | `AUTH_OIDC_SCOPE` | `openid email profile` | What Flowline asks for. It needs an address and a name, and nothing more. |
 | `AUTH_DEV` | off | `AUTH_DEV=1` turns on a development identity: sign in with an address, no provider, no password. **Never set it on an instance anybody can reach** — it is a door with no lock. |
 
@@ -86,7 +87,7 @@ Without `DB` the API answers `503` and says the database is not configured. With
 
 ```bash
 curl -s https://flowline.example/api/auth/providers
-# {"providers":[{"id":"microsoft","label":"Microsoft"}],"dev":false}
+# {"providers":[{"id":"oidc","label":"login.example.com"}],"dev":false}
 ```
 
 That is the truth the sign-in surface reads. A provider missing from that list is missing because its
