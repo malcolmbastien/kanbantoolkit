@@ -55,6 +55,14 @@ by password and by the reset link an administrator mints.
 | `AUTH_OIDC_SCOPE` | `openid email profile` | What Flowline asks for. It needs an address and a name, and nothing more. |
 | `AUTH_DEV` | off | `AUTH_DEV=1` turns on a development identity: sign in with an address, no provider, no password. **Never set it on an instance anybody can reach** — it is a door with no lock. |
 
+## Provisioning
+
+SCIM is not configured by environment: an instance administrator mints its token in **Admin →
+Directory provisioning**, named, with the workspace role a provisioned person gets. The endpoints, the
+lifecycle and the boundary (a group carries no authority by itself) are in
+[Identity](identity.md). One instance may have several tokens, so two directories can be told apart
+and one revoked without the other.
+
 ## Mail
 
 Mail is a **capability of the runtime**, like the live channel: the Node entry can speak SMTP to a

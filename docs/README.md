@@ -33,6 +33,7 @@ Follow these in order. Each one is short, and each ends where the next begins.
 | --- | --- |
 | 1. **[Install](install.md)** | Node 26, three commands, and what the first run writes |
 | 2. **[Configure](configure.md)** | every environment variable, its default, and what happens when it is unset |
+| 2b. **[Identity](identity.md)** | signing in through an issuer, and provisioning people from a directory (SCIM) |
 | 3. **[TLS and the proxy](tls.md)** | the one thing every operator must get right, with Caddy and nginx |
 | 4. **[Upgrade](upgrade.md)** | what a release does to your database, and how to go back |
 | 5. **[Backup and restore](backup.md)** | the copy, the schedule, and the drill that proves it |

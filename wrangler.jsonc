@@ -13,7 +13,7 @@
     // without it running at all.
     // The API, and the app's own document: a place in the board is a query string, so every path
     // under `/app` is the same file and the Worker is what hands it over (task 151).
-    "run_worker_first": ["/api/*", "/app", "/app/*"],
+    "run_worker_first": ["/api/*", "/app", "/app/*", "/mcp", "/scim/*"],
     "binding": "ASSETS",
     // Unknown paths answer the site's 404 page with a 404 (task 151). The app used to own the
     // fallback, because every place was a query on `/`; now the app is under `/app` — where

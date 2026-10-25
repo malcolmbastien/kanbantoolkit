@@ -24,5 +24,7 @@ export const WORKSPACE_SCHEMA = 1
  *
  * 24 adds the machine credentials (task 148): the token and device-code tables. The bearer door reads
  * them on every request, so a database without them would answer 401 to a credential that is valid.
+ * 25 adds SCIM (task 168): the provisioning token and the IdP's own id for a person. The `/scim/v2`
+ * door reads both, so the same rule — refuse rather than guess.
  */
-export const REQUIRED_SCHEMA = 24
+export const REQUIRED_SCHEMA = 25

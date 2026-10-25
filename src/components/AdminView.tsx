@@ -3,6 +3,7 @@ import { PeoplePanel } from './PeoplePanel'
 import { InvitationsPanel } from './InvitationsPanel'
 import { WorkspacePanel } from './WorkspacePanel'
 import { ConnectAgent } from './ConnectAgent'
+import { ScimPanel } from './ScimPanel'
 import { AuditPanel, HealthPanel } from './AuditPanels'
 import { AccessPanel } from './AccessPanel'
 import { GroupsPanel } from './GroupsPanel'
@@ -85,6 +86,8 @@ export function AdminView() {
         {/* A credential for a tool, made here rather than copied from a chat message: the scopes
             are chosen in words, and the config is produced by the instance that knows its own URL. */}
         <ConnectAgent />
+        {/* Provisioning is the deployment's door, not a workspace's: an instance administrator only. */}
+        {admin && <ScimPanel />}
         <p className="mt-0.5 text-meta text-slate-600">
           This workspace lives in this browser. The copies below are what it keeps of itself, so a
           mistake is a moment rather than a loss.

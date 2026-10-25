@@ -40,6 +40,16 @@ export type AuditAction =
   // writes are not audited — they are a person's typing — but a script's are, and they say which
   // credential acted for whom.
   | 'api.write'
+  // Provisioning (task 168). The actor is the directory, so the entry names the **token** rather than
+  // pretending a person did it — and never the token's value.
+  | 'scim.user.create'
+  | 'scim.user.update'
+  | 'scim.user.delete'
+  | 'scim.group.create'
+  | 'scim.group.update'
+  | 'scim.group.delete'
+  | 'scim.token.create'
+  | 'scim.token.revoke'
   | 'user.deactivate'
   | 'user.activate'
   | 'instance.access'

@@ -22,6 +22,7 @@ import { inviteLinkRoutes } from './invite-links'
 import { tokenAdminRoutes, tokenRoutes } from './token-routes'
 import { v1Routes } from './v1/routes'
 import { mcpRoutes } from './mcp/http'
+import { scimAdminRoutes, scimRoutes } from './scim/routes'
 import { meRoutes } from './me'
 import { workspaceMembersRoutes } from './workspace-members'
 import { authRoutes } from './auth/routes'
@@ -133,6 +134,9 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
   app.route('/api/v1', v1Routes(runtime))
   // The third door (task 170): the same operations, spoken as MCP.
   app.route('/mcp', mcpRoutes(runtime))
+  // The directory's door (task 168): provisioning, in SCIM's own shape.
+  app.route('/scim/v2', scimRoutes(runtime))
+  app.route('/api/admin/scim', scimAdminRoutes(runtime))
   // Creating a workspace, which is a new tenant rather than a write inside one.
   app.route('/api/workspaces', workspaceInstanceRoutes(runtime))
 
