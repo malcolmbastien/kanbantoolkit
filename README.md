@@ -9,14 +9,20 @@ one Node process, one SQLite file, and no service in between.
 
 ```bash
 git clone https://github.com/flowline/flowline && cd flowline
-npm ci && npm run build && PORT=8787 npm run server   # then open http://localhost:8787/app
+docker compose up -d        # then open http://localhost:8787/app
 ```
 
-Or, with Docker: `docker compose up -d` — one command, one volume, the same image. Both roads are in
-[`docs/install.md`](docs/install.md) and [`docs/docker.md`](docs/docker.md).
+Nothing to configure first: the image builds, the database is created on a volume, and the first visit
+offers the account that runs the instance. Without Docker, the same thing by hand:
+
+```bash
+npm ci && npm run build && PORT=8787 npm run server
+```
 
 The workspace is named by the installation (`WORKSPACE_NAME`, default `Flowline`), and the first
-account to sign in administers it. There is no sign-up: an instance *is* a workspace.
+account to make administers it. There is no sign-up: an instance *is* a workspace. Both roads are in
+[`docs/install.md`](docs/install.md), and the container's own details in
+[`docs/docker.md`](docs/docker.md).
 
 | | |
 | --- | --- |
