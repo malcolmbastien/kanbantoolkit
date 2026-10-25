@@ -21,9 +21,13 @@ export function AccountMenu() {
   const auth = useAuth()
   // A sign-in that did not finish lands on `?auth=denied`; the menu opens itself to say why.
   const [profileOpen, setProfileOpen] = useState(false)
-  const [open, setOpen] = useState(
-    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied',
-  )
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const query = new URLSearchParams(window.location.search)
+    // A refused sign-in opens the menu to say why, and an invitation link opens it because the whole
+    // reason the person is here is to accept one.
+    return query.get('auth') === 'denied' || Boolean(query.get('invite'))
+  })
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 

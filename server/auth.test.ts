@@ -614,3 +614,92 @@ describe('the first run', () => {
     expect(again.status).toBe(200)
   })
 })
+
+describe('an invitation with a password', () => {
+  const PASSWORD = 'correct horse battery staple'
+
+  /** An instance with one administrator, and an invitation for somebody else. */
+  async function invited(role: 'viewer' | 'editor' | 'admin' = 'viewer') {
+    const world = instance({})
+    const created = await world.request('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Ada', email: 'ada@example.com', password: PASSWORD }),
+    })
+    const token = cookie(created, 'fl_session')!
+    const issued = await world.request('/api/admin/workspace/invites', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `fl_session=${token}` },
+      body: JSON.stringify({ email: 'grace@example.com', role }),
+    })
+    const { token: invitation } = (await issued.json()) as { token: string }
+    const accept = (password = PASSWORD, name = 'Grace') =>
+      world.request(`/api/invite/${invitation}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password, name }),
+      })
+    return { ...world, token, invitation, accept }
+  }
+
+  it('creates the account with the role the invitation named, and signs it in', async () => {
+    const { accept, request, db } = await invited('editor')
+
+    const joined = await accept()
+    expect(joined.status).toBe(200)
+    const session = cookie(joined, 'fl_session')
+    expect(session).toBeTruthy()
+
+    const who = (await (await request('/api/auth/session', { headers: { cookie: `fl_session=${session}` } })).json()) as {
+      user: { email: string } | null
+      workspaces: Array<{ role: string }>
+    }
+    expect(who.user?.email).toBe('grace@example.com')
+    expect(who.workspaces[0]?.role).toBe('editor')
+    expect(await db.get("SELECT accepted_at FROM invites WHERE email = 'grace@example.com'")).toMatchObject({
+      accepted_at: expect.any(String),
+    })
+  })
+
+  it('works once: the second attempt is 410', async () => {
+    const { accept } = await invited()
+    expect((await accept()).status).toBe(200)
+    expect((await accept()).status).toBe(410)
+  })
+
+  it('refuses a short password, and spends nothing', async () => {
+    const { accept, db } = await invited()
+    const refused = await accept('short')
+    expect(refused.status).toBe(400)
+    expect(await db.get("SELECT accepted_at FROM invites WHERE email = 'grace@example.com'")).toEqual({
+      accepted_at: null,
+    })
+    expect(await db.get("SELECT COUNT(*) AS n FROM users WHERE email = 'grace@example.com'")).toEqual({ n: 0 })
+  })
+
+  it('says so when the address already has an account', async () => {
+    const { accept, token, request } = await invited()
+    // The administrator themself has an account; an invitation for their address is a sign-in, not a
+    // second account.
+    const again = await request('/api/admin/workspace/invites', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `fl_session=${token}` },
+      body: JSON.stringify({ email: 'ada@example.com', role: 'viewer' }),
+    })
+    const { token: own } = (await again.json()) as { token: string }
+    const answer = await request(`/api/invite/${own}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password: PASSWORD, name: 'Ada' }),
+    })
+    expect(answer.status).toBe(409)
+    expect(await accept()).toBeTruthy()
+  })
+
+  it('reports a used or unknown link the same way to anybody who opens it', async () => {
+    const { request } = await invited()
+    for (const path of ['/api/invite/not-a-token']) {
+      expect((await request(path)).status).toBe(410)
+    }
+  })
+})

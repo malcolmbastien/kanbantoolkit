@@ -1,6 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { devSignIn, loadAuth, passwordSignIn, setupInstance, startSignIn, useAuth } from '@/lib/auth'
+import {
+  acceptInvite,
+  devSignIn,
+  inviteToken,
+  loadAuth,
+  passwordSignIn,
+  readInvite,
+  setupInstance,
+  startSignIn,
+  useAuth,
+} from '@/lib/auth'
 import type { AuthUser } from '@/lib/auth'
 
 /**
@@ -25,6 +35,44 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
   // Twelve hours unless this is asked for: a shared machine should not stay open for a month.
   const [remember, setRemember] = useState(false)
   const [busy, setBusy] = useState(false)
+  // An invitation link is the way in for a deployment with no identity provider and no mail: the
+  // link is the proof, and the person chooses the password the account will have (task 154.5).
+  const token = inviteToken()
+  const [invite, setInvite] = useState<{ email: string; role: string } | 'unavailable' | null>(null)
+  const [inviteName, setInviteName] = useState('')
+  const [inviteError, setInviteError] = useState<string | undefined>()
+
+  useEffect(() => {
+    if (!token) return
+    let live = true
+    void readInvite(token).then((answer) => {
+      if (live) setInvite(answer ?? 'unavailable')
+    })
+    return () => {
+      live = false
+    }
+  }, [token])
+
+  async function onJoin(event: FormEvent) {
+    event.preventDefault()
+    if (!token || !password) return
+    setBusy(true)
+    setInviteError(undefined)
+    const answer = await acceptInvite(token, { name: inviteName.trim(), password })
+    if (!answer.ok) {
+      setBusy(false)
+      setInviteError(answer.error)
+      return
+    }
+    const next = await loadAuth()
+    setBusy(false)
+    setPassword('')
+    if (next.user) {
+      onSignedIn(next.user)
+      return
+    }
+    setInviteError('The account was made, but this browser could not read the session. Sign in with the password you chose.')
+  }
   // A sign-in that did not finish lands on `?auth=denied`, and a closed account leaves no panel to
   // show, so the surface says what happened where the person now is. Read once, at mount, because the
   // URL is rewritten to the current view a moment later.
@@ -98,15 +146,60 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
         </p>
       )}
 
-      <label className="mb-1.5 flex items-start gap-1.5 px-1.5 text-micro text-slate-600">
-        <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="mt-0.5" />
-        <span>
-          Keep me signed in for 30 days
-          <span className="block text-slate-500">Otherwise this browser signs out after 12 hours.</span>
-        </span>
-      </label>
+      {token && invite && (
+        <div className="px-1.5 pb-2">
+          {invite === 'unavailable' ? (
+            <p className="rounded-md bg-rose-50 px-2 py-1 text-meta text-rose-800">
+              This invitation is not available — it has been used, has expired, or was taken back. Ask for
+              another one.
+            </p>
+          ) : (
+            <form onSubmit={onJoin}>
+              <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">Invitation</p>
+              <p className="pb-1.5 text-meta text-slate-700">
+                You have been invited to join as <strong>{invite.role}</strong>, for{' '}
+                <strong>{invite.email}</strong>. Choose a password and you are in.
+              </p>
+              <input
+                value={inviteName}
+                onChange={(event) => setInviteName(event.target.value)}
+                placeholder="Your name"
+                aria-label="Your name"
+                className="w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
+              />
+              <input
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                type="password"
+                autoComplete="new-password"
+                placeholder="a password of at least 12 characters"
+                aria-label="Password"
+                className="mt-1 w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
+              />
+              {inviteError && <p className="mt-1 rounded-md bg-rose-50 px-1.5 py-1 text-micro text-rose-800">{inviteError}</p>}
+              <button
+                type="submit"
+                disabled={busy || !password}
+                className="mt-1 w-full rounded-md bg-slate-900 px-1.5 py-1 text-meta font-medium text-white hover:bg-slate-800 disabled:opacity-40"
+              >
+                {busy ? 'Joining…' : 'Join'}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
-      {auth.setup && (
+      {!(token && invite) && (
+        <label className="mb-1.5 flex items-start gap-1.5 px-1.5 text-micro text-slate-600">
+        <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="mt-0.5" />
+          <span>
+            Keep me signed in for 30 days
+            <span className="block text-slate-500">Otherwise this browser signs out after 12 hours.</span>
+          </span>
+        </label>
+      )}
+
+      {auth.setup && !(token && invite) && (
         <form onSubmit={onSetup} className="px-1.5 pb-2">
           <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">First run</p>
           <p className="pb-1.5 text-micro text-slate-600">
@@ -149,7 +242,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
         </form>
       )}
 
-      {auth.password && !auth.setup && (
+      {auth.password && !auth.setup && !(token && invite) && (
         <form onSubmit={onPassword} className="px-1.5 pb-2">
           <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">Password</p>
           <input
@@ -185,7 +278,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
         </form>
       )}
 
-      {auth.providers.length > 0 && !auth.setup && (
+      {auth.providers.length > 0 && !auth.setup && !(token && invite) && (
         <p className="px-1.5 pb-1.5 text-micro uppercase tracking-wide text-slate-400">
           {auth.password ? 'or continue with' : 'Sign in with'}
         </p>

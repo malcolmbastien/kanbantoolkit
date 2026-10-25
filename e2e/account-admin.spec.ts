@@ -71,7 +71,9 @@ test('a member is removed, and the account goes with them', async ({ page, brows
   try {
     const leaver = await other.newPage()
     await leaver.goto(link)
-    await leaver.getByRole('button', { name: 'Sign in', exact: true }).click()
+    // An invitation link opens the sign-in surface by itself (task 154.5), so the development door is
+    // already in front of the person — this instance has one, which is how the test signs in.
+    await expect(leaver.getByPlaceholder('you@example.com')).toBeVisible()
     await leaver.getByPlaceholder('you@example.com').fill('leaver@example.com')
     await leaver.getByRole('button', { name: 'Sign in as this address' }).click()
     await expect(leaver.getByRole('button', { name: /Leaver/ })).toBeVisible()

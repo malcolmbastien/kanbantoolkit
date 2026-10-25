@@ -113,8 +113,35 @@ export async function loadAuth(): Promise<AuthState> {
 const INVITE =
   typeof window === 'undefined' ? undefined : (new URLSearchParams(window.location.search).get('invite') ?? undefined)
 
-function inviteToken(): string | undefined {
+export function inviteToken(): string | undefined {
   return INVITE
+}
+
+/** What an invitation link says before anybody accepts it: a masked address, a role, an expiry. */
+export async function readInvite(token: string): Promise<{ email: string; role: string } | null> {
+  return read<{ email: string; role: string }>(`/api/invite/${encodeURIComponent(token)}`)
+}
+
+/**
+ * Accept an invitation by choosing a password — the way in for a deployment with no identity provider
+ * and no mail (task 154.5). The link is the proof; the account is created with the role it named.
+ */
+export async function acceptInvite(
+  token: string,
+  input: { name: string; password: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const response = await fetch(`/api/invite/${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    if (response.ok) return { ok: true }
+    const body = (await response.json().catch(() => null)) as { error?: string } | null
+    return { ok: false, error: body?.error ?? 'That invitation could not be accepted.' }
+  } catch {
+    return { ok: false, error: 'The server could not be reached.' }
+  }
 }
 
 /**

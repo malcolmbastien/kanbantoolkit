@@ -10,9 +10,10 @@ import { expect, test } from '@playwright/test'
 
 const ORIGIN = 'http://localhost:4177'
 
-// Serial: the second test asks what the first one made. Two workers would race for the one
-// administrator a fresh instance can have.
-test.describe.configure({ mode: 'serial' })
+// Serial, and never retried: every test here builds on the state the one before it made — one
+// administrator, one invitation, one spent link — so a retry would run against a database that has
+// already moved. A failure is reported once, against the state it actually met.
+test.describe.configure({ mode: 'serial', retries: 0 })
 const PASSWORD = 'correct horse battery staple'
 
 test('a fresh instance offers the first administrator, and closes behind them', async ({ page, request }) => {
@@ -58,4 +59,48 @@ test('the first administrator is offered once, and the instance refuses a second
     data: { name: 'Somebody Else', email: 'other@example.com', password: PASSWORD },
   })
   expect(again.status()).toBe(409)
+})
+
+test('an invitation is where the second person chooses a password', async ({ page, browser, request }) => {
+  // The administrator the first test made, signing in the way the deployment now offers.
+  await page.goto(`${ORIGIN}/app`)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByLabel('Email address').fill('ada@example.com')
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()
+  await expect(page.getByRole('button', { name: /Ada Lovelace/ })).toBeVisible()
+
+  // She invites a colleague as a Viewer — the role that reads and comments.
+  await page.goto(`${ORIGIN}/app?view=boards`)
+  await page.getByRole('button', { name: /^Admin/ }).click()
+  const workspace = page.locator('section').filter({ has: page.getByRole('heading', { name: 'This workspace' }) })
+  await workspace.getByPlaceholder('grace@example.com').fill('grace@example.com')
+  // The role the invitation grants, chosen before the link is made: the select shows the description
+  // with the name, so the match is on the label.
+  await workspace.getByRole('combobox', { name: 'As' }).selectOption('viewer')
+  await workspace.getByRole('button', { name: 'Make a link' }).click()
+  const link = await workspace.getByLabel('Invitation link').inputValue()
+  expect(link).toContain('invite=')
+
+  // A browser that has never seen this instance opens it, and is asked for a name and a password
+  // rather than sent to an identity provider it does not have.
+  const other = await browser.newContext()
+  try {
+    const guest = await other.newPage()
+    await guest.goto(link)
+    await expect(guest.getByText('You have been invited to join as')).toBeVisible()
+    await guest.getByLabel('Your name').fill('Grace Hopper')
+    await guest.getByLabel('Password').fill(PASSWORD)
+    await guest.getByRole('button', { name: 'Join' }).click()
+
+    await expect(guest.getByRole('button', { name: /Grace Hopper/ })).toBeVisible()
+    const session = await (await guest.request.get(`${ORIGIN}/api/auth/session`)).json()
+    expect(session.workspaces[0].role).toBe('viewer')
+  } finally {
+    await other.close()
+  }
+
+  // The link is spent: opening it again says so rather than offering a second account.
+  const spent = await request.get(`${ORIGIN}/api/invite/${new URL(link).searchParams.get('invite')}`)
+  expect(spent.status()).toBe(410)
 })
