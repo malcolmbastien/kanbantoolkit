@@ -314,6 +314,22 @@ for (const processor of processors) {
 }
 if (notice.includes('{{processors}}')) fail('the privacy notice still carries the processor placeholder')
 
+// ---- task 157: the trust pages say the true thing, and draw the list from one file ----
+const securityPage = readFileSync(join(DIST, 'security/index.html'), 'utf8')
+for (const claim of ['SOC 2', 'ISO 27001', 'penetration-test', 'WCAG 2.2']) {
+  if (!securityPage.includes(claim)) fail(`/security/ does not mention "${claim}"`)
+}
+if (!securityPage.includes('What is not claimed')) fail('/security/ has no section for what it does not claim')
+if (!securityPage.includes('Affero General Public')) fail('/security/ does not name the licence')
+
+const subProcessors = readFileSync(join(DIST, 'sub-processors/index.html'), 'utf8')
+for (const processor of processors) {
+  if (!subProcessors.includes(escapeHtml(processor.name))) {
+    fail(`/sub-processors/ does not name ${processor.name}`)
+  }
+}
+if (subProcessors.includes('{{processors}}')) fail('/sub-processors/ still carries the processor placeholder')
+
 // ---- R3: the support address is a link that opens, in the footer of every page ----
 for (const file of html) {
   const text = readFileSync(file, 'utf8')

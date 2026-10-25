@@ -1,13 +1,38 @@
 <!--
 title: Sub-processors — Flowline
-description: The services Flowline relies on to run the hosted product, and what each one sees.
+description: The services this demo deployment is configured with, what each one sees, and why a self-hoster's list is their own.
 path: /sub-processors/
 -->
 <h1>Sub-processors</h1>
-<p class="lede">The services the hosted product relies on, and what each one sees. The current list, checked against the deployment's configuration, is task 150.</p>
+<p class="lede">
+  The services <strong>this demo deployment</strong> is configured with, and what each one sees. The
+  list is rendered from the deployment's own configuration at build, so it cannot quietly go stale.
+</p>
+
 <h2>The list</h2>
 <ul class="points">
-  <li><strong>The identity providers</strong> — Google and Microsoft, or whichever an operator configures. They see that you signed in; they do not see your workspace.</li>
-  <li><strong>The host</strong> — the machine the deployment runs on, and the database it holds.</li>
-  <li><strong>The error log</strong> — a message, a stack, a path and a build. Never a query string, never an address.</li>
+{{processors}}
 </ul>
+<p class="note">
+  A provider that is not configured is not listed, because it is not running. The privacy notice reads
+  the same file, and a test fails when the code knows a provider this list does not.
+</p>
+
+<h2>If you run your own</h2>
+<p>
+  This list is not yours. A self-hosted instance's processors are the ones its operator chose — the
+  machine, the identity provider they configured, the database file, their own error log — and the
+  operator is the controller of that data. The table above is the shape to copy, not a relationship
+  to inherit.
+</p>
+<p>
+  There is no data processing agreement to sign with this project, because there is no processing: it
+  ships software, and you run it. If you process somebody else's data on an instance you operate, your
+  own agreement is the one that matters.
+</p>
+
+<h2>Changes</h2>
+<p>
+  When this deployment adds or removes a processor, the release note for the tag says so. A
+  self-hosted instance changes when its operator changes it, and nobody here can promise them notice.
+</p>

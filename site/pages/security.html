@@ -1,18 +1,73 @@
 <!--
 title: Security — Flowline
-description: How Flowline handles sessions, permissions and disclosure, and where to report a vulnerability.
+description: How Flowline carries a session, decides a role, scopes a workspace and treats a report — what is claimed, what is not, and where to send a vulnerability.
 path: /security/
 -->
 <h1>Security</h1>
 <p class="lede">
-  Sessions are hashed at rest and revoked in one batch; roles are decided by one matrix on the server,
-  read on every request; a workspace is a scope, not a filter. The full trust set — DPA,
-  sub-processors, refunds — is task 157.
+  What this software does with a session, a role and a report — and, in the same breath, what it does
+  not claim. A trust page that only lists the good parts is an advertisement.
 </p>
+
+<h2>How it is built</h2>
+<ul class="points">
+  <li><strong>Sessions are opaque and hashed.</strong> The browser holds a random token; the database holds a hash of it, the browser it was opened on, and when it was last used. A session lasts twelve hours, or thirty days if the person asked to be remembered at sign-in. Signing out deletes the row; an administrator can end one, or all of somebody's.</li>
+  <li><strong>Authority is read on every request.</strong> One matrix decides what a role may do, and it is consulted live rather than cached in the session — a demotion takes effect on the next request, not the next sign-in. A group can carry a role for several people at once, and is a way in rather than a decoration.</li>
+  <li><strong>A workspace is a scope, not a filter.</strong> Every row of work names its workspace, and which workspace a request is about is decided by the session — never by the client. Asking for something in a workspace you are not in answers "there is nothing here", the same as asking for something that does not exist, because naming it would confirm it exists.</li>
+  <li><strong>An invitation is a link, not an email row.</strong> It works once, for the address it was written for, expires, and can be revoked. A forwarded link needs a sign-in as that person.</li>
+  <li><strong>Reports hold no address.</strong> The error endpoint stores a message, a stack, the path of the page, the view, the build and the browser. Never a query string, never an IP address — an address is hashed for rate limiting and nothing else.</li>
+  <li><strong>No third-party code, anywhere.</strong> No analytics, no advertising, no font host, no CDN. The public pages make no request off their own domain, and the application loads nothing it did not ship. There is no cookie banner because there is nothing non-essential to consent to.</li>
+  <li><strong>Your work is not training data.</strong> Nothing in this product trains a model, and there is no third party in the path to read a board.</li>
+  <li><strong>Backups are a copy, and the copy is tested.</strong> One SQLite file, copied with <code>VACUUM INTO</code> while the server keeps running, and a restore that checks its own integrity and says what it restored. The drill runs in the test suite on every push.</li>
+</ul>
+
+<h2>What is not claimed</h2>
+<p>
+  These would be the easiest sentences on the page to write and the least true, so they are written
+  as what they are:
+</p>
+<ul class="points">
+  <li><strong>No SOC 2, and none in progress.</strong></li>
+  <li><strong>No ISO 27001.</strong></li>
+  <li><strong>No penetration-test certificate.</strong> When there is one, this line will state who did it and when.</li>
+  <li><strong>No uptime target, and no status page.</strong> A self-hosted instance is as available as the machine it runs on, and this project does not pretend to watch it.</li>
+  <li><strong>No bug bounty.</strong> Reports are answered by people, not paid for.</li>
+</ul>
+
+<h2>Accessibility</h2>
+<p>
+  The target is <strong>WCAG 2.2 level AA</strong>, which the app's own bar was set to and the public
+  pages share. It is tested rather than asserted: an automated pass runs over the home and product
+  pages on every build, the home page is checked at 320 pixels wide, and the site is checked as a
+  build for structure, headings and landmarks.
+</p>
+<p>
+  Known gaps, stated plainly:
+</p>
+<ul class="points">
+  <li><strong>The board is a dense grid.</strong> Dragging a card is the fluent way to move it; the item's own menu is the keyboard way, and both go through the same rule. A screen-reader audit of every screen has not been done.</li>
+  <li><strong>Some states are told in colour</strong> — a lane at its WIP limit, an item's type — and each has a word beside it, but not always a symbol.</li>
+</ul>
+<p>
+  If something stops you, that is a bug worth reporting, not a preference:
+  <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.
+</p>
+
 <h2>Report a vulnerability</h2>
 <p>
-  <a href="mailto:{{securityEmail}}">{{securityEmail}}</a>. Tell us what you did, what
-  happened, and how to reproduce it. We will not take legal action against good-faith research, and we
-  will tell you when it is fixed. The same address, with an expiry, is in
-  <a href="/security.txt">security.txt</a> — the machine-readable half of this page.
+  Write to <a href="mailto:{{securityEmail}}">{{securityEmail}}</a>. Tell us what you did, what
+  happened, and how to reproduce it — the build, the runtime, and whether it needs a session. This
+  project does not take legal action against good-faith research, and it says when a fix is out.
+</p>
+<p>
+  <a href="/security.txt">security.txt</a> is the machine-readable half of this page: the same address,
+  the policy, and an expiry that is checked by the build. <a href="{{repo}}/blob/main/SECURITY.md">SECURITY.md</a>
+  in the repository is the long version — what to include, what happens next, and what is out of scope.
+</p>
+
+<h2>The licence</h2>
+<p>
+  Flowline is free software under the <a href="{{repo}}/blob/main/LICENSE">GNU Affero General Public
+  License, version 3 or later</a>. Run it, read it, change it, run your changes. The one thing it asks
+  is the point of it: a modified version, run for other people over a network, offers them its source.
 </p>
