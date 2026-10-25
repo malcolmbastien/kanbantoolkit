@@ -14,5 +14,8 @@ export const WORKSPACE_SCHEMA = 1
  * Not the same number as `WORKSPACE_SCHEMA`: that one is the shape of the payload, this one is the
  * state of the schema behind it. A database below this is refused rather than served, which is R2's
  * "run before the new code serves a request" said by the code that would otherwise guess.
+ *
+ * 21 is the bill leaving the schema (task 166). A database that still carries the billing columns is
+ * one this code has stopped reading, so the rule is the same: refuse rather than guess.
  */
-export const REQUIRED_SCHEMA = 20
+export const REQUIRED_SCHEMA = 21

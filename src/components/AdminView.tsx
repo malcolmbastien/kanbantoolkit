@@ -5,7 +5,6 @@ import { WorkspacePanel } from './WorkspacePanel'
 import { AuditPanel, HealthPanel } from './AuditPanels'
 import { AccessPanel } from './AccessPanel'
 import { GroupsPanel } from './GroupsPanel'
-import { WorkspaceAccountPanel } from './WorkspaceAccountPanel'
 import { useAuth } from '@/lib/auth'
 import { ArrowLeft, History } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
@@ -69,9 +68,8 @@ export function AdminView() {
           <ArrowLeft size={13} /> Boards
         </button>
         <h1 className="mt-1 text-title font-semibold tracking-tight text-slate-900">Admin</h1>
+        {/* The workspace's own administration — its name, its people, and the end of it. */}
         {workspaceAdmin && <WorkspacePanel />}
-        {/* The workspace's own account: its owner, what is billed, and the end of it. */}
-        {workspaceAdmin && <WorkspaceAccountPanel />}
         {admin && <AccessPanel />}
         {admin && <PeoplePanel />}
         {admin && <InvitationsPanel />}

@@ -45,8 +45,10 @@ describe('the server schema', () => {
     const raw = new DatabaseSync(':memory:')
     // The shape *before* the workspace became a row: no `workspaces` table, no `workspace_id`, and
     // every migration since still to run. That is the database a real self-hoster has when they
-    // upgrade.
-    const older = all.slice(0, -3)
+    // upgrade. Named by version rather than counted from the end, so adding a migration does not
+    // quietly move the line this test draws.
+    const since = 18
+    const older = all.filter((migration) => migration.version < since)
     for (const migration of older) raw.exec(migration.sql)
     raw.exec(`
       INSERT INTO boards (id, name, band, description, position) VALUES ('b-1', 'Atlas', 'team', 'Kept.', 0);
@@ -57,7 +59,7 @@ describe('the server schema', () => {
     const result = await migrate(db, all)
 
     // Behind, and it knows it: only the ones it is missing run.
-    expect(result.applied).toEqual(all.slice(-3).map((migration) => migration.version))
+    expect(result.applied).toEqual(all.filter((migration) => migration.version >= since).map((migration) => migration.version))
     expect(result.version).toBe(all.length)
     // Nothing was reseeded: the board and the card are still the ones that were there…
     expect(await db.get('SELECT name FROM boards WHERE id = ?1', ['b-1'])).toEqual({ name: 'Atlas' })
@@ -68,6 +70,37 @@ describe('the server schema', () => {
     })
     // …and the migration that made the workspace a row gave them theirs.
     expect(await db.get("SELECT name FROM workspaces WHERE id = 'workspace'")).toEqual({ name: 'Flowline' })
+  })
+
+  it('takes the bill away and keeps the workspace it belonged to', async () => {
+    const raw = new DatabaseSync(':memory:')
+    // A database from before task 166: the workspace carries an owner and a billing record.
+    const since = 21
+    for (const migration of all.filter((candidate) => candidate.version < since)) raw.exec(migration.sql)
+    raw.exec(`
+      INSERT INTO users (id, name, email) VALUES ('u-1', 'Ada', 'ada@example.com');
+      UPDATE workspaces SET name = 'Atlas', owner_id = 'u-1', billing_email = 'billing@atlas.example',
+        company_name = 'Atlas Ltd', billing_reference = 'cus_1', plan = 'Team'
+       WHERE id = 'workspace';
+      INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace', 'u-1', 'admin');
+      INSERT INTO boards (id, name, band, description, position, workspace_id)
+        VALUES ('b-1', 'Atlas', 'team', 'Kept.', 0, 'workspace');
+    `)
+
+    const db = fromSqlite(raw)
+    const result = await migrate(db, all)
+    expect(result.applied).toEqual([since])
+    expect(result.version).toBe(all.length)
+
+    // The workspace, its name, its administrator and its work are all still there…
+    expect(await db.get("SELECT name FROM workspaces WHERE id = 'workspace'")).toEqual({ name: 'Atlas' })
+    expect(await db.get("SELECT role FROM workspace_members WHERE user_id = 'u-1'")).toEqual({ role: 'admin' })
+    expect(await db.get("SELECT name FROM boards WHERE id = 'b-1'")).toEqual({ name: 'Atlas' })
+    // …and the commercial columns are not.
+    const columns = (await db.all<{ name: string }>('PRAGMA table_info(workspaces)')).map((column) => column.name)
+    for (const gone of ['owner_id', 'billing_email', 'company_name', 'billing_reference', 'plan']) {
+      expect(columns, gone).not.toContain(gone)
+    }
   })
 
   it('leaves the version where it was when a file fails, so the next attempt starts it again', async () => {

@@ -1,17 +1,10 @@
 /**
- * The workspace's account: its owner, its bill, and the end of it.
+ * The end of a workspace: who may do it, what it takes with it, and what the schema refuses to keep.
  *
- * The correction of task 126's first shape. A **workspace** is the tenant — it holds many people's
- * accounts, its boards and its cards — and an **account** is a person. The owner is the account that
- * pays for the workspace: a field, not a role, because a workspace may have several administrators
- * and exactly one payer.
- *
- * Two things are asserted here, and they are the whole point of the correction:
- *
- * - the **workspace administrator** may delete the workspace, a **member may not**, and the act
- *   reaches nothing outside that workspace — not another workspace, not the people's accounts;
- * - what is billed is the **workspace**, so its record lives beside the owner it belongs to rather
- *   than on the deployment.
+ * Two things are asserted here. The **workspace administrator** may delete the workspace and a
+ * **member may not**, and the act reaches nothing outside that workspace — not another workspace,
+ * not the deployment's operator. And the schema holds no bill at all (task 166): no owner, no
+ * billing address, no plan, and nothing that could be charged.
  */
 
 import { readFileSync, readdirSync } from 'node:fs'
@@ -20,7 +13,6 @@ import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import type { Database } from './db'
 import { fromSqlite } from './sqlite'
-import { readWorkspaceAccount } from './workspace/account'
 import { writeWorkspace } from './workspace/write'
 import type { Workspace } from './workspace/types'
 
@@ -106,70 +98,27 @@ async function world() {
 
 const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) })
 
-describe('the workspace’s account', () => {
-  it('holds the owner and four billing fields, and nothing that could be charged', async () => {
+describe('the schema', () => {
+  it('holds no owner, no bill and no plan — nothing to charge and nowhere to send it', async () => {
     const { db } = await world()
     const columns = (await db.all<{ name: string }>('PRAGMA table_info(workspaces)')).map((column) => column.name)
 
-    for (const field of ['owner_id', 'billing_email', 'company_name', 'billing_reference', 'plan']) {
-      expect(columns).toContain(field)
+    // Task 166: the commercial shape left with the plans.
+    for (const gone of ['owner_id', 'billing_email', 'company_name', 'billing_reference', 'plan']) {
+      expect(columns, gone).not.toContain(gone)
     }
-    // The deployment no longer has a billing record of its own.
+    // And the deployment never had one.
     const settings = (await db.all<{ name: string }>('PRAGMA table_info(instance_settings)')).map((column) => column.name)
     expect(settings).not.toContain('billing_email')
     expect(settings).not.toContain('plan')
 
-    // And the liability this table refuses to hold.
+    // What the workspace is still made of: its identity, and when it arrived.
+    expect(columns).toEqual(expect.arrayContaining(['id', 'name', 'created_at']))
+
+    // The liability this table has never held, and still does not.
     for (const forbidden of ['card', 'cvc', 'cvv', 'iban', 'account_number', 'sort_code']) {
       expect(columns.filter((column) => column.includes(forbidden))).toEqual([])
     }
-  })
-
-  it('makes a member the owner, and records the fields that changed', async () => {
-    const { db, signIn } = await world()
-    const admin = await signIn('admin@example.com', 'admin')
-    const payer = await signIn('payer@example.com', 'viewer')
-
-    const saved = await admin.call(
-      '/api/workspace/account',
-      json('PATCH', {
-        ownerId: payer.id,
-        billing: { email: 'billing@atlas.example', company: 'Atlas Ltd', plan: 'Team', reference: 'cus_1' },
-      }),
-    )
-    expect(saved.status).toBe(200)
-    expect(await saved.json()).toMatchObject({
-      ownerId: payer.id,
-      ownerName: 'Payer',
-      billing: { email: 'billing@atlas.example', company: 'Atlas Ltd', plan: 'Team', reference: 'cus_1' },
-    })
-    expect(await readWorkspaceAccount(db, 'workspace')).toMatchObject({ ownerId: payer.id, name: 'Team Atlas' })
-
-    const trail = await db.get<{ data: string }>("SELECT data FROM audit_events WHERE action = 'workspace.account'")
-    // Field names, never values: a billing address is somebody's address.
-    expect(JSON.parse(trail!.data)).toEqual({
-      fields: ['billing_email', 'company_name', 'billing_reference', 'plan', 'owner_id'],
-    })
-  })
-
-  it('refuses an owner who is not in the workspace', async () => {
-    const { db, signIn } = await world()
-    await signIn('admin@example.com', 'admin')
-    await db.run("INSERT INTO users (id, name, email) VALUES ('u-stranger', 'Stranger', 'stranger@example.com')")
-
-    const admin = await signIn('admin@example.com', 'admin')
-    const refused = await admin.call('/api/workspace/account', json('PATCH', { ownerId: 'u-stranger' }))
-    expect(refused.status).toBe(400)
-    expect(((await refused.json()) as { error: string }).error).toContain('member')
-  })
-
-  it('is refused to a member: the owner and the bill are the administrator’s', async () => {
-    const { signIn } = await world()
-    await signIn('admin@example.com', 'admin')
-    const member = await signIn('member@example.com', 'editor')
-
-    expect((await member.call('/api/workspace/account')).status).toBe(403)
-    expect((await member.call('/api/workspace/account', json('PATCH', { billing: { company: 'x' } }))).status).toBe(403)
   })
 })
 

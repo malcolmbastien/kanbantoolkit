@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Copy, Check } from 'lucide-react'
-import { useAuth } from '@/lib/auth'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Copy, Check, Download } from 'lucide-react'
+import { loadAuth, useAuth } from '@/lib/auth'
+import { downloadWorkspace } from '@/lib/exportWorkspace'
 import { useStore } from '@/store'
+import { useDialogFocus } from '@/lib/useDialogFocus'
 import { RoleSelect } from './RoleSelect'
 import { cn } from '@/lib/utils'
 
@@ -10,7 +12,11 @@ import { cn } from '@/lib/utils'
  *
  * The boundary made visible: an instance administrator runs the deployment, a workspace
  * administrator runs this team. What is here — the name, the description, who is in it, what they may
- * do — is the second of those, and an editor or a viewer sees none of it.
+ * do, and the end of it — is the second of those, and an editor or a viewer sees none of it.
+ *
+ * The end of the workspace lives here rather than in a panel of its own. There was one, for the
+ * owner and the bill (task 126), and task 166 removed both: nothing is sold, so a workspace has a
+ * name, a membership and a way to end it, and no account to keep.
  *
  * The guards are the server's. The UI disables what it can predict and shows the server's sentence
  * for the rest, because "this is the last administrator" is more use than a greyed control.
@@ -42,6 +48,9 @@ export function WorkspacePanel() {
   const [issued, setIssued] = useState<string | undefined>()
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const [typed, setTyped] = useState('')
   const [message, setMessage] = useState<{ tone: 'ok' | 'bad'; text: string } | undefined>()
   const [error, setError] = useState<string | undefined>()
 
@@ -185,6 +194,37 @@ export function WorkspacePanel() {
     }
   }
 
+  /**
+   * The irreversible act: the workspace, and the accounts of everybody in it.
+   *
+   * Not a member's, and not the last instance administrator's — the server refuses both, and the
+   * sentence it gives is what this shows. After it, the deployment is still there and an
+   * administrator of it can bring the workspace back, empty, by signing in (task 163).
+   */
+  async function removeWorkspace() {
+    setRemoving(true)
+    setMessage(undefined)
+    try {
+      const response = await fetch('/api/workspace', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: typed }),
+      })
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        setMessage({ tone: 'bad', text: body?.error ?? 'This workspace could not be deleted.' })
+        return
+      }
+      // The account that asked is deleted with the workspace, so the session is gone with it.
+      await loadAuth()
+      window.location.assign('/app?workspace=deleted')
+    } catch {
+      setMessage({ tone: 'bad', text: 'The server could not be reached.' })
+    } finally {
+      setRemoving(false)
+    }
+  }
+
   if (error) return null
 
   const adminCount = members.filter((member) => member.role === 'admin' && member.status === 'active').length
@@ -306,6 +346,99 @@ export function WorkspacePanel() {
         </div>
       )}
       {issued && <p className="mt-1 text-micro text-slate-500">This link is shown once; send a new one if it is lost.</p>}
+
+      <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50/40 p-2.5">
+        <p className="text-micro font-semibold uppercase tracking-wide text-rose-700">Delete this workspace</p>
+        <p className="mt-1 text-meta text-slate-700">
+          Every board, lane and card in it goes, and so do the accounts of everybody in it. The
+          deployment stays; an administrator of it can bring the workspace back — empty — by signing
+          in. Nothing here can be undone.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button onClick={() => downloadWorkspace()} className={cn(BUTTON, 'flex items-center gap-1 text-micro')}>
+            <Download size={11} /> Export it first
+          </button>
+          <button
+            onClick={() => setDeleting(true)}
+            disabled={busy || removing}
+            className="ml-auto rounded-md bg-rose-600 px-2 py-1 text-meta font-medium text-white hover:bg-rose-500 disabled:opacity-40"
+          >
+            Delete this workspace…
+          </button>
+        </div>
+      </div>
+
+      {deleting && (
+        <DeleteWorkspaceDialog
+          name={name || 'this workspace'}
+          typed={typed}
+          onTyped={setTyped}
+          busy={removing}
+          onCancel={() => {
+            setDeleting(false)
+            setTyped('')
+          }}
+          onConfirm={() => void removeWorkspace()}
+        />
+      )}
     </section>
+  )
+}
+
+/** The typed confirmation, which the server checks as well. */
+function DeleteWorkspaceDialog({
+  name,
+  typed,
+  onTyped,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  name: string
+  typed: string
+  onTyped: (value: string) => void
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, onCancel, true, 'input')
+  const ready = typed.trim().toLowerCase() === name.toLowerCase()
+
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 p-4">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Delete this workspace"
+        className="w-full max-w-sm rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200"
+      >
+        <h3 className="text-title font-semibold text-slate-900">Delete “{name}”?</h3>
+        <p className="mt-1 text-meta text-slate-700">
+          Every board, lane and card in it, and everybody’s account. There is no way back: the
+          deployment can make an empty workspace again, but not this one. Type its name to confirm.
+        </p>
+        <input
+          value={typed}
+          onChange={(event) => onTyped(event.target.value)}
+          placeholder={name}
+          aria-label="Type the workspace name to confirm"
+          className={cn(FIELD, 'mt-2 w-full')}
+        />
+        <div className="mt-3 flex justify-end gap-2">
+          <button onClick={onCancel} className={BUTTON}>
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!ready || busy}
+            className="rounded-md bg-rose-600 px-2.5 py-1 text-meta font-semibold text-white hover:bg-rose-500 disabled:opacity-40"
+          >
+            {busy ? 'Deleting…' : 'Delete this workspace'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

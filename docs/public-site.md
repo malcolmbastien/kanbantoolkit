@@ -223,8 +223,8 @@ Each is a written decision before the page that depends on it is built. The firs
 the rest are open.
 
 1. **Nothing is sold** — *settled*. No pricing page, no plans, no merchant of record, no invoices, no
-   refund policy, no billing record. Tasks 153, 155 and 156 are cancelled and task 166 removes what
-   was built of them.
+   refund policy, no billing record. Tasks 153, 155 and 156 are cancelled, and task 166 removed what
+   was built of them: the columns, the panel and the audit action.
 2. **One workspace per instance** — *settled*. A deployment is a team, and the install creates it
    (task 163). There is no sign-up page and no workspace switcher.
 3. **No sign-in page on this site** — *settled*. A person signs in at their own instance, through the

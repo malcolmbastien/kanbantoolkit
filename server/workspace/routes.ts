@@ -17,13 +17,7 @@ import { acquire, heldByOther, heldLocks, lockOf, release, renew } from './locks
 import { parseItem, parseWorkspace } from './validate'
 import { alreadyApplied, writeItem, writeWorkspace } from './write'
 import { statement } from '../audit'
-import {
-  deleteWorkspace,
-  lastAdministratorRefusal,
-  readAccountPatch,
-  readWorkspaceAccount,
-  writeWorkspaceAccount,
-} from './account'
+import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
 function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
@@ -50,56 +44,6 @@ export function workspaceRoutes(runtime: Runtime) {
   })
 
   /**
-   * The workspace's own account: its owner, and what is billed.
-   *
-   * The owner is the account that pays for this workspace — a field, not a role, because a workspace
-   * may have several administrators and exactly one payer. Reading and writing it is the workspace
-   * administrator's act, on the workspace the session resolved: another workspace's bill is not
-   * this route's business, and there is no way to name one.
-   */
-  routes.get('/account', async (c) => {
-    const allowed = await requireWorkspace(c, runtime, 'workspace.settings')
-    if (allowed instanceof Response) return allowed
-    return c.json(await readWorkspaceAccount(allowed.db, allowed.workspaceId))
-  })
-
-  routes.patch('/account', async (c) => {
-    const allowed = await requireWorkspace(c, runtime, 'workspace.settings')
-    if (allowed instanceof Response) return allowed
-
-    const parsed = readAccountPatch(await c.req.json().catch(() => null))
-    if (!parsed.ok) return c.json({ error: parsed.reason }, 400)
-
-    // An owner is somebody in this workspace. Naming an outsider would make a stranger the payer.
-    if (parsed.ownerId) {
-      const member = await allowed.db.get(
-        'SELECT 1 AS seen FROM workspace_members WHERE workspace_id = ?1 AND user_id = ?2',
-        [allowed.workspaceId, parsed.ownerId],
-      )
-      if (!member) return c.json({ error: 'the owner must be a member of this workspace' }, 400)
-    }
-
-    const fields = [...Object.keys(parsed.updates), ...(parsed.ownerId ? ['owner_id'] : [])]
-    await writeWorkspaceAccount(
-      allowed.db,
-      allowed.workspaceId,
-      parsed,
-      [
-        statement({
-          actorId: allowed.user.id,
-          action: 'workspace.account',
-          targetType: 'workspace',
-          targetId: allowed.workspaceId,
-          // Field names only: the billing record is somebody's address, and a trail is not a copy.
-          data: { fields },
-        }),
-      ],
-    )
-
-    return c.json(await readWorkspaceAccount(allowed.db, allowed.workspaceId))
-  })
-
-  /**
    * End this workspace — and only this one.
    *
    * The workspace is the tenant: its administrator may close it, its members may not (`workspace.delete`
@@ -112,11 +56,11 @@ export function workspaceRoutes(runtime: Runtime) {
     if (allowed instanceof Response) return allowed
 
     const body = (await c.req.json().catch(() => null)) as { confirm?: unknown } | null
-    const account = await readWorkspaceAccount(allowed.db, allowed.workspaceId)
+    const name = await workspaceNameOf(allowed.db, allowed.workspaceId)
     const typed = typeof body?.confirm === 'string' ? body.confirm.trim() : ''
     // Checked here as well as in the interface: a confirmation only the client enforces is a
     // suggestion, and the interface is not the only way to call a route.
-    if (typed.toLowerCase() !== account.name.toLowerCase()) {
+    if (typed.toLowerCase() !== name.toLowerCase()) {
       return c.json({ error: 'type the workspace’s name to confirm' }, 400)
     }
 
@@ -135,7 +79,7 @@ export function workspaceRoutes(runtime: Runtime) {
         targetId: allowed.workspaceId,
         // The name of the workspace, and of the person ending it: their account is deleted in the
         // same transaction, so `actor_id` will be nulled and this is what keeps the sentence whole.
-        data: { name: account.name, by: allowed.user.name },
+        data: { name, by: allowed.user.name },
       }),
     )
 

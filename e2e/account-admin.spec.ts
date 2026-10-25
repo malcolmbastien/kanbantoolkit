@@ -24,33 +24,35 @@ async function signIn(page: Page) {
 const openAdmin = async (page: Page) => {
   await page.goto(`${ORIGIN}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
-  await expect(page.getByRole('heading', { name: 'Workspace account' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'This workspace' })).toBeVisible()
 }
 
 test.describe.configure({ mode: 'serial' })
 
-test('the workspace has an owner and a bill, and both are the administrator’s to set', async ({ page }) => {
+test('the workspace has a name and an end, and no bill at all', async ({ page }) => {
   await signIn(page)
   await openAdmin(page)
 
-  const panel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Workspace account' }) })
-  // The only member of this workspace is the person signed in, so the owner is herself.
-  await panel.getByLabel(/Owner/).selectOption({ index: 1 })
-  await panel.getByLabel('Billing email').fill('billing@atlas.example')
-  await panel.getByLabel('Company').fill('Atlas Ltd')
-  await panel.getByLabel('Plan').fill('Team')
-  await panel.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByText('Saved, and recorded in the audit.')).toBeVisible()
+  const panel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'This workspace' }) })
 
-  // The record is the server's, not the form's: a reload shows what was stored.
+  // The name is the administrator's to set, and the server is what remembers it.
+  await panel.getByLabel('Name').fill('Atlas Delivery')
+  await panel.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(panel.getByText('Saved.')).toBeVisible()
   await page.reload()
   await openAdmin(page)
-  const again = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Workspace account' }) })
-  await expect(again.getByLabel('Billing email')).toHaveValue('billing@atlas.example')
-  await expect(again.getByLabel('Company')).toHaveValue('Atlas Ltd')
+  await expect(page.locator('section').filter({ has: page.getByRole('heading', { name: 'This workspace' }) }).getByLabel('Name')).toHaveValue('Atlas Delivery')
 
-  // No card number, and the panel says so rather than hiding the limit.
-  await expect(page.getByText(/Card numbers are never stored here/)).toBeVisible()
+  // Nothing is sold, so there is nothing to bill: no owner, no address, no plan (task 166).
+  for (const gone of ['Owner', 'Billing email', 'Company', 'Plan', 'Billing reference']) {
+    await expect(panel.getByLabel(gone, { exact: false })).toHaveCount(0)
+  }
+  await expect(page.getByText(/Card numbers are never stored here/)).toHaveCount(0)
+  // And the route that carried the record is gone with it.
+  expect((await page.request.get(`${ORIGIN}/api/workspace/account`)).status()).toBe(404)
+
+  // The end of the workspace is here, behind a typed confirmation.
+  await expect(panel.getByRole('button', { name: 'Delete this workspace…' })).toBeVisible()
 })
 
 test('a member is removed, and the account goes with them', async ({ page, browser }) => {
@@ -125,10 +127,13 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
 
   await openAdmin(page)
 
-  // The name a person types is the instalment's, not a name one of them chose: this instance was
-  // deployed as `WORKSPACE_NAME="Team Atlas"` (task 163).
-  const { name } = (await (await page.request.get(`${ORIGIN}/api/workspace/account`)).json()) as { name: string }
-  expect(name).toBe('Team Atlas')
+  // The name a person types is the workspace's, and the server checks it. (The previous test
+  // renamed this one, which is the other half of the same promise: the name is the team's to keep.)
+  const read = (await (await page.request.get(`${ORIGIN}/api/admin/workspace`)).json()) as {
+    workspace: { name: string }
+  }
+  const name = read.workspace.name
+  expect(name.length).toBeGreaterThan(0)
 
   await page.getByRole('button', { name: 'Delete this workspace…' }).click()
   const dialog = page.getByRole('dialog', { name: 'Delete this workspace' })
@@ -182,8 +187,8 @@ test('a deleted workspace comes back for an administrator, and no second can be 
     expect((await api.post('/api/auth/dev', { data: { email: 'operator@example.com' } })).ok()).toBeTruthy()
     const reopened = await api.get('/api/workspace')
     expect(reopened.status()).toBe(200)
-    const account = (await (await api.get('/api/workspace/account')).json()) as { name: string }
-    expect(account.name).toBe('Team Atlas')
+    const panel = (await (await api.get('/api/admin/workspace')).json()) as { workspace: { name: string } }
+    expect(panel.workspace.name).toBe('Team Atlas')
 
     const session = (await (await api.get('/api/auth/session')).json()) as {
       workspaces: Array<{ role: string }>
