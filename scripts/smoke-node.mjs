@@ -72,11 +72,34 @@ try {
   check('health answers 200', health.status === 200, String(health.status))
   check('health says the database is reachable', (await health.json()).database === 'ok')
 
-  const page = await fetch(`${base}/?board=b-atlas&item=init-signup`)
-  // A place is a query string, so the SPA fallback has to answer a URL the file system has never
-  // heard of — and answer it with the app, not a 404.
+  // An instance is the application (task 173): `/` sends you to it, and the app's document answers
+  // any path beneath `/app`, because a place in a board is a query string rather than a path.
+  const root = await fetch(`${base}/`, { redirect: 'manual' })
+  check('/ sends you to the app', root.status === 302 && root.headers.get('location') === '/app', `${root.status} → ${root.headers.get('location')}`)
+
+  const page = await fetch(`${base}/app?board=b-atlas&item=init-signup`)
   check('a deep link serves the app', page.status === 200, String(page.status))
   check('a deep link serves HTML', (page.headers.get('content-type') ?? '').includes('text/html'))
+
+  const shell = await (await fetch(`${base}/app`)).text()
+  const asset = shell.match(/src="(\/assets\/[^"]+)/)?.[1]
+  check('the app document names its own chunk', Boolean(asset), asset ?? 'none')
+  if (asset) {
+    const chunk = await fetch(`${base}${asset}`)
+    check('the app’s chunk is served', chunk.status === 200, String(chunk.status))
+  }
+  check('the icon is served', (await fetch(`${base}/favicon.svg`)).status === 200)
+
+  // The project's site is not part of an instance: its pages are in the same build and must not be
+  // reachable from somebody's deployment.
+  for (const path of ['/install/', '/product/', '/privacy/', '/terms/', '/security/', '/sitemap.xml', '/security.txt']) {
+    check(`${path} is not an instance page`, (await fetch(`${base}${path}`)).status === 404, path)
+  }
+
+  const missing = await fetch(`${base}/no/such/place`)
+  check('an unknown path is a 404', missing.status === 404, String(missing.status))
+  check('the 404 is the instance’s own', (await missing.text()).includes('Flowline instance for'))
+  check('an instance is not indexed', (await (await fetch(`${base}/robots.txt`)).text()).includes('Disallow: /'))
 
   const report = await fetch(`${base}/api/errors`, {
     method: 'POST',

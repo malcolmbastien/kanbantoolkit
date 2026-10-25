@@ -14,7 +14,6 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
 import { serve, upgradeWebSocket } from '@hono/node-server'
 import type { Handler } from 'hono'
-import { serveStatic } from '@hono/node-server/serve-static'
 import { WebSocketServer } from 'ws'
 import { createApp } from './app'
 import { consoleMailer } from './mail'
@@ -24,6 +23,7 @@ import { WORKSPACE_ID } from './auth/session'
 import { migrate } from './migrate'
 import type { Migration } from './migrate'
 import { openSqlite } from './sqlite'
+import { workspaceName } from './config'
 
 const port = Number(process.env.PORT ?? 8787)
 const databasePath = process.env.DB_PATH ?? 'flowline.db'
@@ -106,6 +106,47 @@ const app = createApp(
   },
 )
 
+/**
+ * The page an instance answers a wrong address with.
+ *
+ * Self-contained — no stylesheet, no script, no link into the project's site — and it names the
+ * workspace, because an address that does not exist raises exactly one question: which deployment is
+ * this? The only way on is the application.
+ */
+function notFoundPage(workspace: string): string {
+  const name = workspace.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Not found — ${name}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root { color-scheme: light }
+      body {
+        margin: 0; min-height: 100vh; display: grid; place-items: center;
+        background: #ffffff; color: #172b3c;
+        font: 16px/1.65 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        padding: 2rem;
+      }
+      main { max-width: 28rem }
+      p { color: #526374 }
+      a { color: #086dbf; font-weight: 600 }
+      code { background: #f4f7fa; padding: 0.1em 0.35em; border-radius: 4px }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>There is nothing at this address.</h1>
+      <p>This is the Flowline instance for <strong>${name}</strong>. The application is at <code>/app</code>.</p>
+      <p><a href="/app">Open the board</a></p>
+    </main>
+  </body>
+</html>
+`
+}
+
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -119,7 +160,14 @@ const TYPES: Record<string, string> = {
   '.webmanifest': 'application/manifest+json',
 }
 
-/** A file inside the static directory, or nothing — never a path that climbs out of it. */
+/**
+ * A file **an instance serves**, or nothing — never a path that climbs out of the static directory.
+ *
+ * The allowlist is the point (task 173): an instance is the application, so it serves the app's own
+ * document and assets, its icon, and nothing else. The project's site pages live in the same build
+ * and are deliberately not reachable here — a team's instance should not answer `/install/` with
+ * this project's marketing page or `/privacy/` with a notice about the demo.
+ */
 function staticFile(pathname: string): string | undefined {
   const clean = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '')
   const full = join(staticDir, clean)
@@ -130,35 +178,40 @@ function staticFile(pathname: string): string | undefined {
   return existsSync(index) && statSync(index).isFile() ? index : undefined
 }
 
-// Files first: the site's stylesheet and drawings, the app's chunks, robots and sitemap.
-app.use('*', serveStatic({ root: staticDir }))
-
 /**
- * The app, under `/app` and only there (task 151). `/app` and anything beneath it is the app's own
- * document, because the board's places are a query string, not a path.
- */
-app.get('/app', () => {
-  const page = join(staticDir, 'app/index.html')
-  return new Response(readFileSync(page), { headers: { 'content-type': TYPES['.html'] } })
-})
-app.get('/app/*', () => {
-  const page = join(staticDir, 'app/index.html')
-  return new Response(readFileSync(page), { headers: { 'content-type': TYPES['.html'] } })
-})
-
-/**
- * Everything else is a page of the site, or nothing.
+ * What an instance answers.
  *
- * The single-page fallback is gone on purpose: an unknown address answers the 404 page *with a 404*,
- * so a crawler and a person are told the same true thing.
+ * It is the application and nothing else (task 173): `/` sends you to the app, the app's own document
+ * and assets are served, the API answers under `/api`, and every other address is this instance's
+ * 404. The project's site — `/install/`, `/product/`, `/privacy/`, its sitemap and its `security.txt`
+ * — is not part of an instance and is not served here.
  */
-app.get('*', (c) => {
-  const page = staticFile(new URL(c.req.url).pathname)
-  if (page) {
-    return new Response(readFileSync(page), { headers: { 'content-type': TYPES[extname(page)] ?? 'application/octet-stream' } })
-  }
-  const notFound = join(staticDir, '404.html')
-  return new Response(existsSync(notFound) ? readFileSync(notFound) : 'Not found', {
+app.get('/', (c) => c.redirect('/app', 302))
+
+/** The app's document, at `/app` and anywhere beneath it: a place in a board is a query string. */
+const shell = () => new Response(readFileSync(join(staticDir, 'app/index.html')), { headers: { 'content-type': TYPES['.html'] } })
+app.get('/app', shell)
+app.get('/app/*', shell)
+
+/** The app's own files: its chunks under `/assets`, and the icon its document asks for. */
+app.get('/assets/*', (c) => {
+  const file = staticFile(new URL(c.req.url).pathname)
+  if (!file) return c.notFound()
+  return new Response(readFileSync(file), { headers: { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' } })
+})
+app.get('/favicon.svg', () => new Response(readFileSync(join(staticDir, 'favicon.svg')), { headers: { 'content-type': TYPES['.svg'] } }))
+
+/** An instance is one team's private work: no crawler has any business here. */
+app.get('/robots.txt', () => new Response('User-agent: *\nDisallow: /\n', { headers: { 'content-type': TYPES['.txt'] } }))
+
+/**
+ * Everything else is nothing, and says so with a 404 — the instance's own page, not the project's.
+ * It names the workspace, because "which deployment am I looking at" is the question a wrong address
+ * actually raises.
+ */
+app.notFound((c) => {
+  if (c.req.method !== 'GET') return c.json({ error: 'not found' }, 404)
+  return new Response(notFoundPage(workspaceName(process.env)), {
     status: 404,
     headers: { 'content-type': TYPES['.html'] },
   })

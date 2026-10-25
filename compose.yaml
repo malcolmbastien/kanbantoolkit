@@ -46,6 +46,10 @@ services:
       # AUTH_OIDC_USERINFO_ENDPOINT: ""
       # AUTH_OIDC_LABEL: ""
       #
+      # Where this project's own site is, if you want the app's sign-in surface to link its terms
+      # and privacy pages. Leave it unset and the app says whose policies apply instead of linking.
+      # PROJECT_URL: "https://flowline.example"
+      #
       # Mail, if you want magic links. A relay on this machine may be plain SMTP; anything else must
       # offer STARTTLS, and a deployment with neither still runs.
       # SMTP_URL: "smtp://user:pass@host:587"

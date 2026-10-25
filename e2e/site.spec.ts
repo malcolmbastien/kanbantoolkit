@@ -97,8 +97,10 @@ test('the pages that sold something are gone, and they answer 404', async ({ req
       expect(response.status(), `${origin || 'static'}${path}`).toBe(404)
       expect(await response.text()).toContain('There is nothing at this address')
     }
-    // And the page that replaced them is there.
-    expect((await request.get(`${origin}/install/`)).status(), origin || 'static').toBe(200)
+    // The project's site keeps its install page; an instance is the application and does not serve
+    // the project's pages at all (task 173).
+    const install = await request.get(`${origin}/install/`)
+    expect(install.status(), `${origin || 'static'}/install/`).toBe(origin ? 404 : 200)
   }
 })
 
@@ -108,11 +110,17 @@ test('the terms stand beside the door, and every page carries the support addres
   await page.goto(`${SELF_HOSTED}/app`)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
 
+  // The pages are the *project's*, and the instance links them where they actually live — this
+  // e2e's instance is told the static host's address in `PROJECT_URL`.
   const terms = page.getByRole('link', { name: 'terms' })
-  await expect(terms).toHaveAttribute('href', '/terms/')
-  await expect(page.getByRole('link', { name: 'privacy notice' })).toHaveAttribute('href', '/privacy/')
-  // A link that resolves: the page the promise points at is the page that exists.
+  await expect(terms).toHaveAttribute('href', 'http://localhost:4173/terms/')
+  await expect(page.getByRole('link', { name: 'privacy notice' })).toHaveAttribute(
+    'href',
+    'http://localhost:4173/privacy/',
+  )
+  // A link that resolves — on the site, not on the instance, which serves the application alone.
   expect((await request.get('/terms/')).status()).toBe(200)
+  expect((await request.get(`${SELF_HOSTED}/terms/`)).status()).toBe(404)
 
   // And the support address is a link that opens, in the footer of every page rather than on a page
   // of its own.

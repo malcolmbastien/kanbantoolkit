@@ -12,7 +12,7 @@
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { Database, Statement } from '../db'
-import { DEFAULT_WORKSPACE_NAME, devAuth, providers, publicUrl, salt, workspaceName } from '../config'
+import { DEFAULT_WORKSPACE_NAME, devAuth, projectUrl, providers, publicUrl, salt, workspaceName } from '../config'
 import type { Runtime } from '../runtime'
 import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
 import { MIN_LENGTH, acceptable, dummyHash, hash, verify } from './password'
@@ -299,6 +299,9 @@ export function authRoutes(runtime: Runtime) {
       setup: db ? await setupOpen(db, c.env) : false,
       // Whether this deployment can send a link: the magic-link door exists only where a relay does.
       mail: Boolean(runtime.mail),
+      // Where this project's own terms and privacy pages live, when the deployment knows. The app
+      // links them from the sign-in surface; without it, the sentence says whose policies apply.
+      project: projectUrl(c.env) ?? null,
       dev: devAuth(c.env),
     })
   })

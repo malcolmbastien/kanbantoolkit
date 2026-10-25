@@ -18,6 +18,12 @@ That builds the image from this checkout, creates the database on a named volume
 migrations and answers on <http://localhost:8787/app>. The port is bound to `127.0.0.1`: a reverse
 proxy is the way in, and [tls.md](tls.md) is that part.
 
+**An instance serves the application and nothing else.** `/` sends you to `/app`; `/assets`, the icon
+and `/api` answer; anything else is the instance's own 404, naming the workspace. This project's
+website — `/install/`, `/privacy/`, its sitemap — is a separate deployment and is not part of your
+instance. The one thing an instance links back here for is the terms and privacy pages, and only when
+`PROJECT_URL` tells it where this site is.
+
 Two values are worth setting before the machine has a public address, and neither is required to try
 it:
 

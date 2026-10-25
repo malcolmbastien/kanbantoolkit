@@ -121,7 +121,15 @@ describe('the provider registry', () => {
     const { request } = instance({ AUTH_DEV: '1' })
     const answer = await request('/api/auth/providers')
     // A development switch is a way in, so this is not an installation waiting to be set up.
-    expect(await answer.json()).toEqual({ providers: [], password: false, setup: false, mail: false, dev: true })
+    expect(await answer.json()).toEqual({
+      providers: [],
+      password: false,
+      setup: false,
+      mail: false,
+      // No PROJECT_URL on this instance, so the app links no terms — it says whose they are instead.
+      project: null,
+      dev: true,
+    })
   })
 })
 

@@ -386,10 +386,26 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
         </button>
       ))}
 
-      {/* The terms belong beside the door, before anybody walks through it (task 150, R2). */}
+      {/* The terms belong beside the door, before anybody walks through it — and they are the
+          *project's*, not this instance's: they describe the software and the project's site, and
+          both say so. An instance's own policies are its operator's, and no page here can be them. */}
       <p className="mt-1.5 px-1.5 text-micro text-slate-600">
-        By continuing you agree to the <a href="/terms/" className="underline">terms</a> and the{' '}
-        <a href="/privacy/" className="underline">privacy notice</a>.
+        {auth.project ? (
+          <>
+            By continuing you agree to Flowline’s{' '}
+            <a href={`${auth.project}/terms/`} className="underline">
+              terms
+            </a>{' '}
+            and{' '}
+            <a href={`${auth.project}/privacy/`} className="underline">
+              privacy notice
+            </a>
+            . They cover the software and the project’s site; this instance’s policies are its
+            operator’s.
+          </>
+        ) : (
+          <>Flowline is free software. This instance’s terms and privacy policy are its operator’s.</>
+        )}
       </p>
 
       {auth.dev && (

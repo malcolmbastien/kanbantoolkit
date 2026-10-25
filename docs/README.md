@@ -19,10 +19,11 @@ its database — and their own address, their own accounts, their own data. It d
 project's website: the marketing pages, the privacy notice about *this* deployment, and the project's
 `security.txt` all belong to the project's own origin, not to somebody's instance.
 
-> **Today's container is not there yet.** It copies the whole build, so an instance also serves the
-> project's site pages at `/install/`, `/privacy/` and the rest. They are not part of an instance, and
-> an instance should answer `/` with its own application — that is a recorded task, not a design
-> question.
+An instance answers `/` by sending you to `/app`, and serves the application, its assets and its API.
+Ask it for `/install/`, `/privacy/` or the project's sitemap and you get **its own** 404 — not this
+project's pages at somebody else's address. The only pages of this project an instance links are the
+terms and the privacy notice, and it points at them here, on this site, when `PROJECT_URL` says where
+that is.
 
 ## If you are installing it
 

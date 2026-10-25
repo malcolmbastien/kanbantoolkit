@@ -37,6 +37,8 @@ export interface AuthState {
   setup: boolean
   /** Whether this deployment can send a link — a relay is configured. */
   mail: boolean
+  /** Where this project's own site is, when the deployment knows: the terms and privacy pages. */
+  project: string | null
   /** Whether this instance has been asked what it offers. Until it has, nothing is drawn. */
   loaded: boolean
 }
@@ -50,6 +52,7 @@ const NONE: AuthState = {
   password: false,
   setup: false,
   mail: false,
+  project: null,
   loaded: false,
 }
 
@@ -78,6 +81,7 @@ export async function loadAuth(): Promise<AuthState> {
     password?: boolean
     setup?: boolean
     mail?: boolean
+    project?: string | null
   }>('/api/auth/providers')
   if (!offered?.providers) return NONE
 
@@ -105,6 +109,7 @@ export async function loadAuth(): Promise<AuthState> {
     password: offered.password === true,
     setup: offered.setup === true,
     mail: offered.mail === true,
+    project: typeof offered.project === 'string' ? offered.project : null,
     loaded: true,
   }
   useAuth.setState(next)

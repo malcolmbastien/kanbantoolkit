@@ -118,6 +118,25 @@ export function providers(env: unknown): Provider[] {
  */
 export const DEFAULT_WORKSPACE_NAME = 'Flowline'
 
+/**
+ * Where this project's own site is, for the two pages the app links to.
+ *
+ * The terms and the privacy notice on an instance are the **project's**, not the operator's: they
+ * describe the software and this project's site, and both say so. So the sign-in surface links them
+ * only when the deployment knows where they live — `PROJECT_URL` — and says whose policies apply
+ * without a link when it does not. A link to a domain nobody serves is worse than a sentence.
+ */
+export function projectUrl(env: unknown): string | undefined {
+  const configured = value(env, 'PROJECT_URL')
+  if (!configured) return undefined
+  try {
+    const url = new URL(configured)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? configured.replace(/\/+$/, '') : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** What this deployment calls the team it is for. */
 export function workspaceName(env: unknown): string {
   return (value(env, 'WORKSPACE_NAME') ?? DEFAULT_WORKSPACE_NAME).slice(0, 120)

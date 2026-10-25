@@ -13,6 +13,10 @@ Then open <http://localhost:8787/app>. The database is created on the volume by 
 migrations run on boot, and the first person to sign in administers the instance and its one
 workspace.
 
+The container runs an **instance of the application**: `/` redirects to `/app`, and the project's
+website is not inside it. `/install/`, `/privacy/` and the rest answer the instance's own 404 — they
+belong to this project's site, at this project's address.
+
 `compose.yaml` is deliberately short: a service, a port bound to loopback, a named volume, and the
 environment. Nothing else is needed to run it, and nothing else is hidden.
 

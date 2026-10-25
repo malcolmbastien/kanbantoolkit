@@ -19,9 +19,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# The repository, minus what .dockerignore keeps out.
+# The repository, minus what .dockerignore keeps out. `build:app` compiles the client and nothing
+# else: an instance is the application, and the project's website is a different build for a
+# different origin (task 173).
 COPY . .
-RUN npm run build
+RUN npm run build:app
 
 # ---- runtime -------------------------------------------------------------------------------------
 FROM node:26-alpine
@@ -42,9 +44,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# What the server reads: the built client and site, the API, the migrations, and the domain rules it
-# imports. Nothing else from the repository is needed to answer a request.
-COPY --from=build /app/dist ./dist
+# What the server reads: the built client, the API, the migrations, and the domain rules it imports.
+# Not the project's site pages, which are in the same build and belong to a different deployment.
+COPY --from=build /app/dist/app ./dist/app
+COPY --from=build /app/dist/assets ./dist/assets
+COPY --from=build /app/dist/favicon.svg ./dist/favicon.svg
 COPY --from=build /app/server ./server
 COPY --from=build /app/migrations ./migrations
 COPY --from=build /app/src/domain ./src/domain

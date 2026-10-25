@@ -41,7 +41,9 @@ export default defineConfig({
        * the first server serves — proof that the two entries are one application.
        */
       command:
-        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e.db && AUTH_DEV=1 PORT=4174 DB_PATH=node_modules/.tmp/e2e.db STATIC_DIR=dist npm run --silent server',
+        // `PROJECT_URL` is the static host, because the terms and privacy pages an instance links are
+        // the project's, served there (task 173).
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e.db && AUTH_DEV=1 PROJECT_URL=http://localhost:4173 PORT=4174 DB_PATH=node_modules/.tmp/e2e.db STATIC_DIR=dist npm run --silent server',
       url: 'http://localhost:4174/api/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
