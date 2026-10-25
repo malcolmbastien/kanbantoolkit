@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
 import { LifeBuoy, LogOut, Settings2, ShieldCheck, UserRound } from 'lucide-react'
 import { useStore } from '@/store'
 
-// A dialog nobody has opened yet is not part of the first download.
+// A dialog nobody has opened yet is not part of the first download — and neither is the sign-in
+// surface, which a person uses once and then never again.
 const ProfileDialog = lazy(() => import('./ProfileDialog').then((module) => ({ default: module.ProfileDialog })))
-import { devSignIn, loadAuth, passwordSignIn, setupInstance, signOut, startSignIn, useAuth } from '@/lib/auth'
+const SignInPanel = lazy(() => import('./SignInPanel').then((module) => ({ default: module.SignInPanel })))
+import { loadAuth, signOut, useAuth } from '@/lib/auth'
 import type { AuthUser } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
@@ -23,22 +24,6 @@ export function AccountMenu() {
   const [open, setOpen] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied',
   )
-  const denied = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'denied'
-  // A closed account lands here: there is nobody left to show a panel to, so the sign-in surface
-  // says what happened where the person now is. Read once, at mount, because the URL is rewritten
-  // to the current view a moment later and the note must outlive that.
-  const [closed] = useState(
-    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth') === 'closed',
-  )
-  const [email, setEmail] = useState('')
-  // The password door: only drawn when an account here has a password (task 154.3).
-  const [password, setPassword] = useState('')
-  const [refused, setRefused] = useState(false)
-  // The first run: a fresh instance has no accounts, so it has no sign-in — it has an installation.
-  const [setupName, setSetupName] = useState('')
-  const [setupError, setSetupError] = useState<string | undefined>()
-  // Twelve hours unless this is asked for: a shared machine should not stay open for a month.
-  const [remember, setRemember] = useState(false)
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -78,59 +63,7 @@ export function AccountMenu() {
     setUser(match?.id)
   }
 
-  async function onDev(event: FormEvent) {
-    event.preventDefault()
-    if (!email.includes('@')) return
-    setBusy(true)
-    const user = await devSignIn(email, undefined, remember)
-    setBusy(false)
-    if (!user) return
-    signedIn(user)
-    setEmail('')
-    setOpen(false)
-  }
 
-  async function onPassword(event: FormEvent) {
-    event.preventDefault()
-    if (!email.includes('@') || !password) return
-    setBusy(true)
-    setRefused(false)
-    const ok = await passwordSignIn(email, password, remember)
-    if (!ok) {
-      setBusy(false)
-      setRefused(true)
-      return
-    }
-    // The cookie is the session; asking again says who it belongs to, which is what draws the menu.
-    const next = await loadAuth()
-    setBusy(false)
-    setPassword('')
-    if (!next.user) {
-      setRefused(true)
-      return
-    }
-    signedIn(next.user)
-    setEmail('')
-    setOpen(false)
-  }
-
-  async function onSetup(event: FormEvent) {
-    event.preventDefault()
-    if (!email.includes('@') || !password) return
-    setBusy(true)
-    setSetupError(undefined)
-    const answer = await setupInstance({ name: setupName.trim(), email, password })
-    if (!answer.ok) {
-      setBusy(false)
-      setSetupError(answer.error)
-      return
-    }
-    const next = await loadAuth()
-    setBusy(false)
-    setPassword('')
-    if (next.user) signedIn(next.user)
-    setOpen(false)
-  }
 
   async function onSignOut() {
     setBusy(true)
@@ -222,169 +155,15 @@ export function AccountMenu() {
               </button>
             </>
           ) : (
-            <>
-              {denied && (
-                <p className="mx-1.5 mb-2 rounded-md bg-rose-50 px-2 py-1 text-meta text-rose-800">
-                  Sign-in was not accepted. This instance only admits the people it invited.
-                </p>
-              )}
-              {closed && (
-                <p className="mx-1.5 mb-2 rounded-md bg-emerald-50 px-2 py-1 text-meta text-emerald-900">
-                  The account was closed. Everything it held has been removed. Signing in again begins a new
-                  one.
-                </p>
-              )}
-
-              <label className="mb-1.5 flex items-start gap-1.5 px-1.5 text-micro text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(event) => setRemember(event.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  Keep me signed in for 30 days
-                  <span className="block text-slate-500">Otherwise this browser signs out after 12 hours.</span>
-                </span>
-              </label>
-
-              {auth.setup && (
-                <form onSubmit={onSetup} className="px-1.5 pb-2">
-                  <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">First run</p>
-                  <p className="pb-1.5 text-micro text-slate-600">
-                    This instance has no accounts yet. The account you make here administers it and its one
-                    workspace — there are no default credentials to use instead.
-                  </p>
-                  <input
-                    value={setupName}
-                    onChange={(event) => setSetupName(event.target.value)}
-                    placeholder="Your name"
-                    aria-label="Your name"
-                    className="w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
-                  />
-                  <input
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    type="email"
-                    autoComplete="username"
-                    placeholder="you@example.com"
-                    aria-label="Email address"
-                    className="mt-1 w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
-                  />
-                  <input
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="a password of at least 12 characters"
-                    aria-label="Password"
-                    className="mt-1 w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
-                  />
-                  {setupError && (
-                    <p className="mt-1 rounded-md bg-rose-50 px-1.5 py-1 text-micro text-rose-800">{setupError}</p>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={busy || !email.includes('@') || !password}
-                    className="mt-1 w-full rounded-md bg-slate-900 px-1.5 py-1 text-meta font-medium text-white hover:bg-slate-800 disabled:opacity-40"
-                  >
-                    {busy ? 'Creating…' : 'Create the administrator'}
-                  </button>
-                </form>
-              )}
-
-              {auth.password && !auth.setup && (
-                <form onSubmit={onPassword} className="px-1.5 pb-2">
-                  <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">Password</p>
-                  <input
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    type="email"
-                    autoComplete="username"
-                    placeholder="you@example.com"
-                    aria-label="Email address"
-                    className="w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
-                  />
-                  <input
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder="your password"
-                    aria-label="Password"
-                    className="mt-1 w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
-                  />
-                  {refused && (
-                    <p className="mt-1 rounded-md bg-rose-50 px-1.5 py-1 text-micro text-rose-800">
-                      That address and password do not match.
-                    </p>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={busy || !email.includes('@') || !password}
-                    className="mt-1 w-full rounded-md bg-slate-900 px-1.5 py-1 text-meta font-medium text-white hover:bg-slate-800 disabled:opacity-40"
-                  >
-                    {busy ? 'Signing in…' : 'Sign in'}
-                  </button>
-                </form>
-              )}
-
-              {auth.providers.length > 0 && !auth.setup && (
-                <p className="px-1.5 pb-1.5 text-micro uppercase tracking-wide text-slate-400">
-                  {auth.password ? 'or continue with' : 'Sign in with'}
-                </p>
-              )}
-              {auth.providers.map((provider) => (
-                <button
-                  key={provider.id}
-                  onClick={() => startSignIn(provider.id, remember)}
-                  className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                >
-                  <span className="grid size-5 place-items-center rounded border border-slate-200 text-micro font-semibold text-slate-500">
-                    {provider.label.charAt(0)}
-                  </span>
-                  Continue with {provider.label}
-                </button>
-              ))}
-
-              {/* The terms belong beside the door, before anybody walks through it (task 150, R2). */}
-              <p className="mt-1.5 px-1.5 text-micro text-slate-600">
-                By continuing you agree to the <a href="/terms/" className="underline">terms</a> and the{' '}
-                <a href="/privacy/" className="underline">privacy notice</a>.
-              </p>
-
-              {auth.dev && (
-                <p className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-micro text-amber-900">
-                  Development sign-in is on: anybody can be anybody. Never leave it on for an instance
-                  people rely on.
-                </p>
-              )}
-
-              {auth.access === 'open' && !auth.dev && (
-                <p className="mt-1 rounded-md bg-slate-50 px-1.5 py-1 text-micro text-slate-600">
-                  This instance lets anyone with a provider sign in, as a viewer.
-                </p>
-              )}
-
-              {auth.dev && (
-                <form onSubmit={onDev} className="mt-1 border-t border-slate-200 pt-2">
-                  <p className="px-1.5 pb-1 text-micro uppercase tracking-wide text-slate-400">Development</p>
-                  <input
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
-                  />
-                  <button
-                    type="submit"
-                    disabled={busy || !email.includes('@')}
-                    className="mt-1 w-full rounded-md bg-slate-900 px-1.5 py-1 text-meta font-medium text-white hover:bg-slate-800 disabled:opacity-40"
-                  >
-                    {busy ? 'Signing in…' : 'Sign in as this address'}
-                  </button>
-                </form>
-              )}
-            </>
+            <Suspense fallback={null}>
+              <SignInPanel
+                onSignedIn={(user) => {
+                  signedIn(user)
+                  // Signing in is the end of the menu's business: the trigger becomes the person.
+                  setOpen(false)
+                }}
+              />
+            </Suspense>
           )}
         </div>
       )}
