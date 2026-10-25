@@ -170,7 +170,7 @@ for (const [name, text] of [
 for (const file of html) {
   const text = readFileSync(file, 'utf8')
   const where = file.replace(`${DIST}/`, '')
-  for (const [tag, attributes] of text.matchAll(/<img\s([^>]*)>/g)) {
+  for (const [, attributes] of text.matchAll(/<img\s([^>]*)>/g)) {
     if (!/\salt="[^"]+"/.test(attributes)) fail(`${where}: an image has no alt text`)
     if (!/\swidth="\d+"/.test(attributes) || !/\sheight="\d+"/.test(attributes)) {
       fail(`${where}: an image has no explicit width and height`)
