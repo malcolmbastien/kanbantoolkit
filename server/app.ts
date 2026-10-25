@@ -67,7 +67,7 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
     if (!db) return c.json({ ok: false, database: 'not configured' }, 503)
     try {
       await db.get('SELECT 1 AS one')
-      return c.json({ ok: true, database: 'ok' })
+      return c.json({ ok: true, database: 'ok', ...(runtime.version ? { version: runtime.version } : {}) })
     } catch {
       return c.json({ ok: false, database: 'unreachable' }, 503)
     }

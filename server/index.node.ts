@@ -61,6 +61,14 @@ const live = process.env.LIVE !== '0'
  */
 const mail = process.env.MAIL_CONSOLE === '1' ? consoleMailer() : smtpMailer(process.env)
 
+/**
+ * The version this instance is, read once from the package it shipped with.
+ *
+ * The image carries `package.json` for exactly this, and `/api/health` reports it — so three
+ * containers on three machines can be told apart by curling them, rather than by remembering.
+ */
+const version = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string }).version
+
 const app = createApp(
   {
     database: () => db,
@@ -70,6 +78,7 @@ const app = createApp(
     // The bell, from this runtime's side: one process, one map of listeners.
     ...(live && { live: { publish: (_env: unknown, workspaceId: string, revision: number) => publish(workspaceId, revision) } }),
     ...(mail && { mail }),
+    ...(version && { version }),
   },
   {
     /**

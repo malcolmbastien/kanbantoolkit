@@ -125,6 +125,92 @@ jobs:
         if: failure()
         run: docker compose logs --no-color || true
 
+  # Publishing, once the image above has been proved (task 172). What goes to the registry is built
+  # again for both architectures — a multi-platform manifest cannot be the single-architecture image
+  # the previous job ran — so the last step of *this* job pulls the published digest and repeats the
+  # assertions. A tag nobody has run is a tag somebody else will run first.
+  #
+  # The repository is private today, so the package is private too: `docker pull` needs a GitHub
+  # token until the repository is public. docs/docker.md says so rather than handing out a command
+  # that fails.
+  publish:
+    name: publish
+    needs: [image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: What it is called
+        id: image
+        # ghcr paths are lowercase, and a repository name is not necessarily.
+        run: |
+          echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Both architectures, three tags
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # A tag is never overwritten except `latest`, which is "the last green main" and not a
+          # release: a deployment should pin the commit or the version.
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.version }}
+            ${{ steps.image.outputs.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.image.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+
+      - name: What was published
+        run: echo "published ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}"
+
+      - name: The published image is the one that works
+        env:
+          PUBLISHED: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
+          VERSION: ${{ steps.image.outputs.version }}
+        run: |
+          docker pull "$PUBLISHED"
+          docker volume create flowline-published
+          docker run -d --name flowline-published -p 127.0.0.1:8787:8787 -v flowline-published:/data \
+            -e AUTH_DEV=1 -e WORKSPACE_NAME="Team Atlas" "$PUBLISHED"
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:8787/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          # It answers, it knows which version it is, it is not root, and it made its own database.
+          curl -s http://127.0.0.1:8787/api/health | grep -q "\"version\":\"$VERSION\""
+          test "$(docker exec flowline-published id -u)" = "10001"
+          docker exec flowline-published test -f /data/flowline.db
+          # And the first sign-in is the workspace, as it is in the image that build tested.
+          curl -s -c /tmp/jar -X POST http://127.0.0.1:8787/api/auth/dev \
+            -H 'content-type: application/json' -d '{"email":"ada@example.com"}' >/dev/null
+          curl -s -b /tmp/jar http://127.0.0.1:8787/api/admin/workspace | grep -q '"name":"Team Atlas"'
+
+      - name: Logs, when a published image failed
+        if: failure()
+        run: docker logs flowline-published || true
+
   # The flows unit tests cannot see: the drag, the drawer, board design and the workspace file,
   # through the built app. It waits on the checks so a broken unit run does not spend two minutes
   # installing a browser to prove it, and publishing waits on this in turn.

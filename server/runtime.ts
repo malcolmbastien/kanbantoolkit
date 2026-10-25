@@ -32,4 +32,11 @@ export interface Runtime {
    * A route asks whether it is there; it never asks which runtime it is on.
    */
   mail?: Mail
+  /**
+   * The version this build is, when the runtime can say.
+   *
+   * An operator running three containers needs to tell them apart; `/api/health` is where they look,
+   * and "which build is this" is a question a deployment answers better than a person remembers.
+   */
+  version?: string
 }

@@ -20,6 +20,35 @@ belong to this project's site, at this project's address.
 `compose.yaml` is deliberately short: a service, a port bound to loopback, a named volume, and the
 environment. Nothing else is needed to run it, and nothing else is hidden.
 
+## The published image
+
+CI builds the image on every push and tests it — health, the unprivileged user, the database it
+creates, the first sign-in — and on `main` it publishes that build to a registry for `amd64` and
+`arm64`:
+
+```bash
+docker run -d --name flowline -p 127.0.0.1:8787:8787 -v flowline-data:/data \
+  ghcr.io/<owner>/flowline:latest
+```
+
+Or, in a compose file, replace `build: .` with `image: ghcr.io/<owner>/flowline:<version>`.
+
+Three tags, and what each one means:
+
+| Tag | What it is |
+| --- | --- |
+| `<commit>` | that exact commit, and nothing else — what a deployment should pin |
+| `<version>` | the release, from `package.json` |
+| `latest` | the last green `main` — not a release, and the tag to use only for a trial |
+
+> **The repository is private today, so the package is private too.** Pulling it needs a GitHub
+> token (`docker login ghcr.io`) until the repository is public. The clone-and-build path above
+> works without one, which is why it is still the first road in this page.
+
+The container reports which build it is: `curl -s localhost:8787/api/health` answers
+`{"ok":true,"database":"ok","version":"0.1.0"}`. Three instances on three machines can be told apart
+without remembering.
+
 ## The volume is the instance
 
 | | |

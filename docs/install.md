@@ -24,6 +24,10 @@ website — `/install/`, `/privacy/`, its sitemap — is a separate deployment a
 instance. The one thing an instance links back here for is the terms and privacy pages, and only when
 `PROJECT_URL` tells it where this site is.
 
+A published image exists too — `ghcr.io/<owner>/flowline`, tagged by commit, by version and `latest` —
+once the repository is public; [docker.md](docker.md) has the command and what the tags mean. Until
+then, building from the checkout above is the road that works.
+
 Two values are worth setting before the machine has a public address, and neither is required to try
 it:
 
