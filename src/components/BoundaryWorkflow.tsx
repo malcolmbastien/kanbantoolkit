@@ -49,6 +49,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
   const issueTypes = useStore((s) => s.issueTypes)
   const edges = useStore((s) => s.edges)
   const boundaryId = useStore((s) => s.boundaryId)
+  const toggleBoundary = useStore((s) => s.toggleBoundary)
 
   const graph = { items, edges, links, placements, lanes }
   const entries = boundaryEntries(graph, boardId)
@@ -68,7 +69,16 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
   const typeOf = (id: string): IssueType => issueTypes.find((t) => t.id === id) ?? { id, name: 'Item', color: '#64748b' }
 
   return (
-    <section data-workflow="boundary" aria-labelledby="boundary-workflow-title" className="space-y-2.5">
+    <section
+      data-workflow="boundary"
+      aria-labelledby="boundary-workflow-title"
+      className="space-y-2.5"
+      // The same courtesy as the board: pressing the section's own ground — an empty column, the
+      // band — ends the focus. A press on a card is the card's business.
+      onPointerDown={(event) => {
+        if (boundaryId && !(event.target as HTMLElement).closest?.('[data-boundary-card]')) toggleBoundary(boundaryId)
+      }}
+    >
       <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-2 w-2 shrink-0 rounded-full bg-amber-600" />

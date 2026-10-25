@@ -1258,6 +1258,10 @@ export const useStore = create<Store>()(
           selectedItemId,
           multiSelect: [],
           lensId,
+          // Opening or closing a card ends the boundary lens. It is a highlight of *one*
+          // relationship, and a card's own panel is the next focus — leaving the board dimmed
+          // behind the drawer would say two things at once.
+          boundaryId: null,
           ...(selectedItemId
             ? {
                 showFilters: false,

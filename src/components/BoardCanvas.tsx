@@ -850,6 +850,16 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       <div
         ref={pan.ref}
         {...pan.handlers}
+        // A press anywhere that is not the boundary card itself ends its focus mode — clicking
+        // off it is how a reader says "I am done with that". A press on a card also opens that
+        // card, which `openItem` treats as the next focus; this is the case where nothing was
+        // clicked but the ground.
+        onPointerDown={(event) => {
+          if (boundaryId && !(event.target as HTMLElement).closest?.('[data-boundary-card],[data-waiting-on]')) {
+            toggleBoundary(boundaryId)
+          }
+          pan.handlers.onPointerDown(event)
+        }}
         className={cn(
           'min-h-0 flex-1 overflow-auto p-3',
           // The surface is draggable, so it says so — and holds the selection still while

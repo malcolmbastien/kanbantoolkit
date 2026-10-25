@@ -70,6 +70,36 @@ test('both ends name each other, and either one enters the focus state', async (
   await expect(title).toHaveAttribute('aria-pressed', 'true')
 })
 
+test('clicking away ends the focus, and a card takes it over', async ({ page }) => {
+  await openBoard(page)
+
+  const identity = page.locator('[data-boundary-card="init-identity"]')
+  const title = identity.getByRole('button', { name: 'Identity platform', exact: true })
+  const other = page.locator('[data-card-id="st-usage-billing"]')
+
+  // Focus a boundary card: everything else recedes.
+  await identity.getByText('Open · live blockage').click()
+  await expect(title).toHaveAttribute('aria-pressed', 'true')
+  await expect(other).toHaveClass(/opacity-40/)
+
+  // Selecting another card ends the focus and does what a card does: it opens its drawer.
+  await other.click()
+  await expect(title).toHaveAttribute('aria-pressed', 'false')
+  await expect(other).not.toHaveClass(/opacity-40/)
+  await expect(page.locator('[data-item-panel]')).toHaveAttribute(
+    'aria-label',
+    'Card details: Add usage-based billing events',
+  )
+  await page.keyboard.press('Escape')
+
+  // Clicking the board's ground ends it too, and opens nothing.
+  await identity.getByText('Open · live blockage').click()
+  await expect(title).toHaveAttribute('aria-pressed', 'true')
+  await page.locator('[data-workflow="cards"]').first().click({ position: { x: 4, y: 4 } })
+  await expect(title).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.locator('[data-item-panel]')).toHaveCount(0)
+})
+
 test('a coordination board has no boundary workflow', async ({ page }) => {
   // The programme board renders bands, not a cards workflow: there is no edge of *this* board to show.
   await page.goto('/app?board=b-delivery')
