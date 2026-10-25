@@ -30,7 +30,7 @@ test('boundary work is a workflow below the cards, in the four typed stages', as
   await expect(page.locator('[aria-label="Boundary — waiting on"]')).toHaveCount(0)
 })
 
-test('both ends name each other, and following either one selects the other', async ({ page }) => {
+test('both ends name each other, and either one enters the focus state', async ({ page }) => {
   await openBoard(page)
 
   const identity = page.locator('[data-boundary-card="init-identity"]')
@@ -43,20 +43,31 @@ test('both ends name each other, and following either one selects the other', as
   // external things, and each is named — a count would have hidden one of them.
   const sso = page.locator('[data-card-id="st-enterprise-sso"]')
   await expect(sso.locator('[data-waiting-on] button')).toHaveCount(2)
-  const chip = sso.getByRole('button', { name: 'Waiting on Identity platform' })
 
-  await chip.click()
-  // Selected at both ends, and said in words — not only in colour.
+  // The card itself is the control: pressing its face selects it, with no separate button to find.
+  const title = identity.getByRole('button', { name: 'Identity platform', exact: true })
+  await identity.getByText('Open · live blockage').click()
+  await expect(title).toHaveAttribute('aria-pressed', 'true')
   await expect(identity).toContainText('linked')
-  await expect(identity.getByRole('button', { name: /showing its cards/ })).toHaveAttribute('aria-pressed', 'true')
   // Unrelated cards recede while the relationship is the thing being read.
   await expect(page.locator('[data-card-id="st-usage-billing"]')).toHaveClass(/opacity-40/)
 
-  // Keyboard operable: the boundary end is a button, and Enter clears what it set.
-  await identity.getByRole('button', { name: /showing its cards/ }).focus()
-  await page.keyboard.press('Enter')
-  await expect(identity.getByRole('button', { name: /show its cards/ })).toHaveAttribute('aria-pressed', 'false')
+  // The same face clears it: one control, two states.
+  await identity.getByText('Open · live blockage').click()
+  await expect(title).toHaveAttribute('aria-pressed', 'false')
   await expect(page.locator('[data-card-id="st-usage-billing"]')).not.toHaveClass(/opacity-40/)
+
+  // Keyboard: the name is a button, so Enter does what the click did.
+  await title.focus()
+  await page.keyboard.press('Enter')
+  await expect(title).toHaveAttribute('aria-pressed', 'true')
+  await expect(identity).toContainText('linked')
+
+  // From the other end, the chip selects the same card and takes the reader to it.
+  await identity.getByText('Open · live blockage').click()
+  await expect(title).toHaveAttribute('aria-pressed', 'false')
+  await sso.getByRole('button', { name: 'Waiting on Identity platform' }).click()
+  await expect(title).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('a coordination board has no boundary workflow', async ({ page }) => {

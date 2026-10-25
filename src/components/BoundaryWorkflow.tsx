@@ -172,9 +172,13 @@ function BoundaryCard({
     <article
       data-boundary-card={entry.dependency.id}
       aria-labelledby={`boundary-${entry.dependency.id}`}
+      // The card itself is the way in: pressing anywhere on it selects it and shows the cards on
+      // this board that wait for it. The title below is the keyboard's door to the same act — a
+      // card that can only be selected with a pointer is half a control.
+      onClick={select}
       className={cn(
-        'rounded-lg border bg-white p-2.5 shadow-md transition',
-        selected ? 'border-slate-900 ring-2 ring-slate-900' : 'border-slate-300/80',
+        'cursor-pointer rounded-lg border bg-white p-2.5 shadow-md transition hover:shadow-lg',
+        selected ? 'border-slate-900 ring-2 ring-slate-900' : 'border-slate-300/80 hover:border-slate-400',
       )}
     >
       <div className="flex items-center gap-1.5">
@@ -187,7 +191,10 @@ function BoundaryCard({
           </span>
         )}
         <button
-          onClick={() => openItem(entry.dependency.id)}
+          onClick={(event) => {
+            event.stopPropagation()
+            openItem(entry.dependency.id)
+          }}
           className="ml-auto flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-micro font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
           title={`Open ${entry.dependency.title} on ${homeBoard}`}
         >
@@ -195,8 +202,20 @@ function BoundaryCard({
         </button>
       </div>
 
-      <h3 id={`boundary-${entry.dependency.id}`} className="mt-1 line-clamp-2 text-meta font-semibold leading-snug text-slate-900">
-        {entry.dependency.title}
+      <h3 id={`boundary-${entry.dependency.id}`} className="mt-1">
+        <button
+          onClick={(event) => {
+            // The card's own click is the same act; stopping here would be pointless, but the
+            // button must not fire it twice.
+            event.stopPropagation()
+            select()
+          }}
+          aria-pressed={selected}
+          className="w-full rounded text-left text-meta font-semibold leading-snug text-slate-900 outline-none transition hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+          title={selected ? 'Clear the highlight' : 'Show the cards on this board that wait on it'}
+        >
+          <span className="line-clamp-2">{entry.dependency.title}</span>
+        </button>
       </h3>
 
       <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -215,7 +234,10 @@ function BoundaryCard({
           {dependents.map((dependent) => (
             <li key={dependent.id}>
               <button
-                onClick={() => openItem(dependent.id)}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  openItem(dependent.id)
+                }}
                 className="flex w-full items-center gap-1 rounded text-left text-micro text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
                 title={`Open ${dependent.title}`}
               >
@@ -226,7 +248,13 @@ function BoundaryCard({
           ))}
         </ul>
         {hidden > 0 && (
-          <button onClick={() => setExpanded(true)} className="mt-0.5 text-micro font-medium text-indigo-700 hover:underline">
+          <button
+            onClick={(event) => {
+              event.stopPropagation()
+              setExpanded(true)
+            }}
+            className="mt-0.5 text-micro font-medium text-indigo-700 hover:underline"
+          >
             +{hidden} more
           </button>
         )}
@@ -236,17 +264,10 @@ function BoundaryCard({
         <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[entry.stage])} />
         <span className="shrink-0 font-semibold text-slate-700">{STAGE_LABELS[entry.stage]}</span>
         <span className="ml-auto">read-only</span>
-        <button
-          onClick={select}
-          className={cn(
-            'shrink-0 rounded border px-1.5 py-0.5 font-medium transition',
-            selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-100',
-          )}
-          aria-pressed={selected}
-          title={selected ? 'Clear the highlight' : 'Highlight the cards on this board that wait on it'}
-        >
-          {selected ? 'showing its cards' : 'show its cards'}
-        </button>
+        {/* The affordance, not a second control: the card and its name are the control. */}
+        <span className={cn('shrink-0', selected ? 'font-semibold text-slate-900' : 'text-slate-500')}>
+          · {selected ? 'showing its cards' : 'click to show its cards'}
+        </span>
       </div>
     </article>
   )
