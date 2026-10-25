@@ -2,6 +2,27 @@
 
 **Work is a graph. Boards are views. Types are yours.**
 
+Flowline is a board for a team's flow and for the read management makes of it — on your own machine:
+one Node process, one SQLite file, and no service in between.
+
+<img src="site/img/board.webp" alt="The Flowline board: four typed columns — Backlog, Not Started, In Progress and Done — with initiatives across the top and the cards that make them up below, each headlined by its type and showing a rollup percentage." width="960">
+
+```bash
+git clone https://github.com/flowline/flowline && cd flowline
+npm ci && npm run build && PORT=8787 npm run server   # then open http://localhost:8787/app
+```
+
+The workspace is named by the installation (`WORKSPACE_NAME`, default `Flowline`), and the first
+account to sign in administers it. There is no sign-up: an instance *is* a workspace.
+
+| | |
+| --- | --- |
+| **Install** | [the install page](site/pages/install.html) — the same commands, what the process reads, the honest limits |
+| **Docs** | [`docs/`](docs/) — the two runtimes, the data model, backups, and where it is going |
+| **Licence** | [AGPL-3.0-or-later](LICENSE) — run it, change it; a modified version you run for other people publishes its changes |
+| **Contributing** | [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| **The one rule** | [AGENTS.md](AGENTS.md) — no Firebase, no Google tracking, no Google Cloud or AI, no Google Fonts |
+
 Flowline is a prototype built from [`flowline-mvp-prd.md`](./flowline-mvp-prd.md) and then
 generalised (see [`docs/data-model-v2.md`](./docs/data-model-v2.md)). It replaces the fixed
 `Initiative > Epic > Story` hierarchy with:

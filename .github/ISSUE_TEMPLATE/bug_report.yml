@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in Flowline does not do what it says it does.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If this is a **security** problem, do not open an issue — write to security@flowline.example
+        (see [SECURITY.md](../blob/main/SECURITY.md)).
+
+        The smallest reproduction is worth more than a long description: a board, a card, and the
+        click that goes wrong.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered, starting from a fresh board where you can.
+      placeholder: |
+        1. Open a team board and add a card
+        2. Drag it onto Done
+        3. …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Where it runs
+      options:
+        - The static build — no server (dist/ on any host)
+        - The Node entry (self-hosted, a SQLite file)
+        - The Cloudflare Worker (D1)
+        - The public demo instance
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: The commit, tag or version — `git rev-parse --short HEAD`, or the version on the changelog page.
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and screen
+      description: The browser, its version, and roughly how wide the window was — a board is a grid and width matters.
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Anything from the console or the server
+      description: |
+        Errors, a stack, the server's own output. Do not paste a session cookie, an invitation link,
+        or the contents of a workspace you would not share.
+    validations:
+      required: false

@@ -1,0 +1,51 @@
+name: Feature request
+description: A way this could work better, or a rule it gets wrong.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Flowline is a small product with a long list of things it deliberately does not do (see
+        [AGENTS.md](../blob/main/AGENTS.md)). A request is much easier to judge when it says what
+        problem it answers, not only what the button should say.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and where the current shape gets in the way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What you would expect instead
+      description: The behaviour, not the implementation — what a person sees and can do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried, or what would do instead
+      description: A workaround, another tool, or the smaller change that would be enough.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where it belongs
+      options:
+        - The board and its lanes
+        - Cards, hierarchy and types
+        - Initiatives, objectives and rollups
+        - People, roles and invitations
+        - Offline, sync and the live channel
+        - Export, import and backups
+        - Running it (install, upgrade, configuration)
+        - The site or the documentation
+        - Something else
+    validations:
+      required: true

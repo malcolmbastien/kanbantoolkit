@@ -225,6 +225,30 @@ else {
   if (!/href="\/help\/"[^>]*>Help</.test(nav)) fail('the navigation has no Help item')
 }
 
+// ---- R1: the licence is decided, written, and named where a person looks (task 165) ----
+const licence = existsSync('LICENSE') ? readFileSync('LICENSE', 'utf8') : ''
+if (!/GNU AFFERO GENERAL PUBLIC LICENSE/.test(licence) || !/Version 3, 19 November 2007/.test(licence)) {
+  fail('LICENSE is not the GNU Affero General Public License, version 3')
+}
+const declared = JSON.parse(readFileSync('package.json', 'utf8')).license
+if (declared !== 'AGPL-3.0-or-later') {
+  fail(`package.json declares "${declared}"; the project ships AGPL-3.0-or-later`)
+}
+const footer = /<footer class="site-footer"[\s\S]*?<\/footer>/.exec(homePage)?.[0] ?? ''
+if (!footer.includes('AGPL-3.0')) fail('the footer does not name the licence')
+if (!readFileSync(join(DIST, 'install/index.html'), 'utf8').includes('Affero General Public')) {
+  fail('the install page does not name the licence')
+}
+
+// ---- R2: the project's surface: the documents a contributor and a reporter read ----
+for (const document of ['CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'LICENSE']) {
+  if (!existsSync(document)) fail(`${document} is missing from the repository root`)
+}
+const readme = readFileSync('README.md', 'utf8')
+for (const link of ['CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'LICENSE', 'docs/']) {
+  if (!readme.includes(link)) fail(`the README does not point at ${link}`)
+}
+
 // ---- R2: the install page carries the commands, and does not pretend a package exists ----
 const install = readFileSync(join(DIST, 'install/index.html'), 'utf8')
 if (!/<pre><code>[\s\S]*npm run build[\s\S]*npm run server[\s\S]*<\/code><\/pre>/.test(install)) {

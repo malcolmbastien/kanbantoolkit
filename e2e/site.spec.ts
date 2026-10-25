@@ -29,6 +29,8 @@ test('the front page is the site, and it is readable with no JavaScript at all',
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Docs' })).toBeVisible()
     // Nothing on the page sells anything (task 164).
     await expect(page.getByRole('link', { name: 'Pricing' })).toHaveCount(0)
+    // The licence is decided and named where a person looks for it (task 165).
+    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'AGPL-3.0 licence' })).toBeVisible()
   } finally {
     await context.close()
   }
