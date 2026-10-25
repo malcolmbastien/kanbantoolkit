@@ -1,0 +1,23 @@
+# What the image does not need.
+#
+# The build stage copies the repository and compiles it; everything here is either rebuilt from
+# something else or was never part of the application. Keeping it out is not tidiness — a `dist/` or
+# a `node_modules/` that arrives from the host can silently disagree with the lockfile, and a `.git`
+# directory in an image is a copy of the history nobody asked for.
+
+.git
+.github
+node_modules
+dist
+test-results
+playwright-report
+*.db
+*.db-wal
+*.db-shm
+backups
+
+# Not read at runtime, and not needed to build. `e2e/` stays: `tsconfig.json` references its
+# tsconfig, so removing it breaks the typecheck that `npm run build` runs first.
+*.log
+.opencode
+.taskmaster

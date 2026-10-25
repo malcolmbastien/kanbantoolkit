@@ -73,6 +73,58 @@ jobs:
       - name: The Node entry answers
         run: npm run smoke:node
 
+  # The image, built and run for real (task 128): a Dockerfile that is never built is a guess, and
+  # a container that starts but cannot reach its database is worse than one that does not start.
+  # This builds from the checkout, runs against a fresh volume, signs in through the development
+  # door, then replaces the container with the same volume to prove the work outlives it.
+  image:
+    name: image
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # Built as `flowline:local`, the tag compose.yaml expects, so the next steps run the file an
+      # operator runs rather than a lookalike.
+      - name: Build
+        run: docker build -t flowline:local .
+
+      - name: One command, one volume
+        run: |
+          AUTH_DEV=1 WORKSPACE_NAME="Team Atlas" ERROR_SALT=ci docker compose up -d
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:8787/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8787/api/health
+
+      - name: It is not root, and it made its own database
+        run: |
+          test "$(docker compose exec -T flowline id -u)" = "10001"
+          docker compose exec -T flowline test -f /data/flowline.db
+
+      - name: The first sign-in is the workspace
+        run: |
+          curl -s -c /tmp/jar -X POST http://127.0.0.1:8787/api/auth/dev \
+            -H 'content-type: application/json' -d '{"email":"ada@example.com"}' >/dev/null
+          curl -s -b /tmp/jar http://127.0.0.1:8787/api/admin/workspace \
+            | grep -q '"name":"Team Atlas"'
+
+      - name: The work outlives the container
+        run: |
+          docker compose down
+          AUTH_DEV=1 docker compose up -d
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:8787/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -s -b /tmp/jar http://127.0.0.1:8787/api/auth/session | grep -q 'ada@example.com'
+
+      - name: Logs, when something went wrong
+        if: failure()
+        run: docker compose logs --no-color || true
+
   # The flows unit tests cannot see: the drag, the drawer, board design and the workspace file,
   # through the built app. It waits on the checks so a broken unit run does not spend two minutes
   # installing a browser to prove it, and publishing waits on this in turn.

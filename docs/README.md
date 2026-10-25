@@ -16,6 +16,9 @@ Follow these in order. Each one is short, and each ends where the next begins.
 | 4. **[Upgrade](upgrade.md)** | what a release does to your database, and how to go back |
 | 5. **[Backup and restore](backup.md)** | the copy, the schedule, and the drill that proves it |
 
+Prefer a container to a systemd unit? **[In a container](docker.md)** is the same path with
+`docker compose up -d` as the whole install.
+
 A fresh machine can go from nothing to a running instance in about ten minutes, and most of that is
 the build.
 

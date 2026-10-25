@@ -12,6 +12,9 @@ git clone https://github.com/flowline/flowline && cd flowline
 npm ci && npm run build && PORT=8787 npm run server   # then open http://localhost:8787/app
 ```
 
+Or, with Docker: `docker compose up -d` — one command, one volume, the same image. Both roads are in
+[`docs/install.md`](docs/install.md) and [`docs/docker.md`](docs/docker.md).
+
 The workspace is named by the installation (`WORKSPACE_NAME`, default `Flowline`), and the first
 account to sign in administers it. There is no sign-up: an instance *is* a workspace.
 

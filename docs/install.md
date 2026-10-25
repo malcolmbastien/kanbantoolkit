@@ -47,6 +47,21 @@ workspace takes the name the installation gave it. Everybody after that arrives 
 
 `dist/` is build output: it can be deleted and rebuilt from the repository at any time.
 
+**One file serves one instance.** The database is SQLite, and its locking is not a network protocol:
+two processes writing the same file corrupt it. Scaling out means Postgres behind the same interface
+(`server/db.ts`), not a second instance on the same volume. This is a design decision — one
+deployment per team — not a limitation to work around.
+
+## Or in a container
+
+```bash
+docker compose up -d
+```
+
+One command, one container, one volume, and the same image built from this checkout.
+[docker.md](docker.md) is that road in full: the volume, the backups taken inside the container, the
+non-root user, and what SQLite means when you are tempted to run a second one.
+
 ## Checking it is up
 
 ```bash
@@ -105,4 +120,5 @@ recovery is a restore, not a rollback.
 ---
 
 **Last verified:** 0.1.0, on a clean machine, following only this page: clone, build, run, open
-`/app`, sign in, `curl /api/health`.
+`/app`, sign in, `curl /api/health` — and again as a container, `docker compose up -d`, with the same
+result.

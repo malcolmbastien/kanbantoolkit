@@ -49,6 +49,11 @@ and the app says so rather than drawing a button.
 | `AUTH_OIDC_SCOPE` | `openid email profile` | What Flowline asks for. It needs an address and a name, and nothing more. |
 | `AUTH_DEV` | off | `AUTH_DEV=1` turns on a development identity: sign in with an address, no provider, no password. **Never set it on an instance anybody can reach** — it is a door with no lock. |
 
+**There is no mail relay**, and nothing to configure for one. Invitations are links an administrator
+makes and sends however they like; the server never writes to an address. That is a decision, not a
+missing feature: a self-hosted instance with no SMTP is a valid instance, and a shared secret is one
+fewer thing to leak.
+
 The redirect URI to register with a provider is `PUBLIC_URL` + `/api/auth/callback`. Register the
 https address, not the http one: the provider checks it, and a mismatch is the most common reason a
 sign-in fails.
