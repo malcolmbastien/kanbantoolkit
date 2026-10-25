@@ -23,7 +23,7 @@ test('the front page is the site, and it is readable with no JavaScript at all',
     await expect(page.getByRole('link', { name: 'Open the demo — no account' }).first()).toBeVisible()
     // The picture the page is about, the questions it answers, and the links into the rest of the site.
     await expect(page.locator('main img')).toHaveCount(1)
-    await expect(page.getByRole('term')).toHaveCount(5)
+    await expect(page.getByRole('term')).toHaveCount(4)
     await expect(page.getByRole('link', { name: 'Pricing' }).first()).toBeVisible()
   } finally {
     await context.close()

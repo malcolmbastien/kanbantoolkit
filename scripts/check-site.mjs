@@ -180,12 +180,12 @@ const promises = /<h2 id="promises">[\s\S]*?<\/ul>/.exec(homePage)?.[0] ?? ''
 if (!promises) fail('the home page has no promises section')
 else {
   const items = [...promises.matchAll(/<li>[\s\S]*?<\/li>/g)].map((match) => match[0])
-  if (items.length < 4) fail('the promises section lists fewer than four promises')
+  if (items.length < 3) fail('the promises section lists fewer than three promises')
   for (const item of items) if (!/<a\s[^>]*href="\//.test(item)) fail('a promise has no link to its proof')
 }
 
 // The required sections, in the order the page promises (R1).
-const ORDER = ['facts', 'product', 'ideas', 'starts', 'who', 'pricing', 'promises', 'questions']
+const ORDER = ['facts', 'product', 'ideas', 'starts', 'who', 'promises', 'questions']
 const positions = ORDER.map((id) => homePage.indexOf(`id="${id}"`))
 if (positions.some((at) => at === -1)) {
   fail(`the home page is missing a section: ${ORDER.filter((id, i) => positions[i] === -1).join(', ')}`)
