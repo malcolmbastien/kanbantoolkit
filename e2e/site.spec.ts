@@ -122,6 +122,20 @@ test('the terms stand beside the door, and every page carries the support addres
   }
 })
 
+test('security.txt parses, expires in the future, and points at the policy', async ({ request }) => {
+  const response = await request.get('/security.txt')
+  expect(response.status()).toBe(200)
+  const text = await response.text()
+  const field = (name: string) => text.match(new RegExp(`^${name}: (.+)$`, 'm'))?.[1]
+
+  expect(field('Contact')).toMatch(/^mailto:security@/)
+  expect(field('Policy')).toMatch(/\/security\/$/)
+  expect(field('Canonical')).toMatch(/\/security\.txt$/)
+  const expires = Date.parse(field('Expires') ?? '')
+  expect(Number.isFinite(expires)).toBe(true)
+  expect(expires).toBeGreaterThan(Date.now())
+})
+
 test('the home page and the product page have no barrier a machine can find', async ({ page }) => {
   for (const path of ['/', '/product/']) {
     await page.goto(path)

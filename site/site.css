@@ -624,6 +624,14 @@ main > h3 {
   color: var(--blue);
 }
 
+.footer-note-inline {
+  margin: 0.5rem 0 0;
+  max-width: 16rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
 .footer-note {
   grid-column: 1 / -1;
   margin: 0;

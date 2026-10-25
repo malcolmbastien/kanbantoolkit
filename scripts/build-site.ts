@@ -32,6 +32,15 @@ const ORIGIN = (process.env.SITE_URL ?? 'https://flowline.example').replace(/\/+
 const REPO = (process.env.REPO_URL ?? 'https://github.com/flowline/flowline').replace(/\/+$/, '')
 
 /**
+ * The two addresses a reader might need, and the only two that appear anywhere on the site.
+ *
+ * They are configuration, not copy: a self-hoster's support address is their own, and the page that
+ * names it should not have to be edited to say so.
+ */
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@flowline.example'
+const SECURITY_EMAIL = process.env.SECURITY_EMAIL ?? 'security@flowline.example'
+
+/**
  * The pages the app used to answer, and the parameters that mean one of them.
  *
  * A link like `/?board=b-atlas` is now a link to the *site*, so the home page carries twenty lines
@@ -142,6 +151,8 @@ function render(page: Page, layout: string): string {
     .replaceAll('{{content}}', page.body)
     // After the content, so a page may use the same placeholders the layout does.
     .replaceAll('{{repo}}', REPO)
+    .replaceAll('{{supportEmail}}', escape(SUPPORT_EMAIL))
+    .replaceAll('{{securityEmail}}', escape(SECURITY_EMAIL))
     // A page may own the body: the home page's hero gradient is full-bleed, which needs the body
     // rather than the column every other page sits in.
     .replaceAll('{{bodyClass}}', page.path === '/' ? ' class="home"' : '')
@@ -164,6 +175,29 @@ function robots(): string {
     'Disallow: /api',
     '',
     `Sitemap: ${ORIGIN}/sitemap.xml`,
+    '',
+  ].join('\n')
+}
+
+/**
+ * `security.txt` — the machine-readable half of the disclosure policy (RFC 9116).
+ *
+ * It is written at the root rather than at `/.well-known/security.txt` because the deployment target
+ * — Cloudflare's static assets — does not serve dot-directories, and a discovery file that 404s on
+ * the host it is deployed to is worse than one in the location the RFC allows as the alternative
+ * when the preferred one is not available.
+ *
+ * `Expires` is a year out and is checked: a security.txt whose date has passed tells a researcher the
+ * policy is abandoned, which is worse than having none.
+ */
+function securityTxt(): string {
+  const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+  return [
+    `Contact: mailto:${SECURITY_EMAIL}`,
+    `Expires: ${expires}`,
+    `Canonical: ${ORIGIN}/security.txt`,
+    `Policy: ${ORIGIN}/security/`,
+    'Preferred-Languages: en',
     '',
   ].join('\n')
 }
@@ -210,6 +244,7 @@ function main(): void {
   if (existsSync(join(SITE, 'img'))) cpSync(join(SITE, 'img'), join(DIST, 'img'), { recursive: true })
 
   writeFileSync(join(DIST, 'robots.txt'), robots())
+  writeFileSync(join(DIST, 'security.txt'), securityTxt())
   writeFileSync(join(DIST, 'sitemap.xml'), sitemap(pages))
 
   // A stale page from a previous build would be served forever otherwise — and a page that was

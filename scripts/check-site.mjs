@@ -323,6 +323,32 @@ for (const file of html) {
   }
 }
 
+// ---- R1/R2: security.txt exists, parses, expires in the future, and agrees with the page (task 159) ----
+const securityTxt = join(DIST, 'security.txt')
+if (!existsSync(securityTxt)) {
+  fail('no security.txt at the root — RFC 9116 allows it there when the dot-directory is not served')
+} else {
+  const fields = new Map(
+    readFileSync(securityTxt, 'utf8')
+      .split('\n')
+      .filter((line) => line.includes(':'))
+      .map((line) => [line.slice(0, line.indexOf(':')).trim(), line.slice(line.indexOf(':') + 1).trim()]),
+  )
+  for (const field of ['Contact', 'Expires', 'Canonical', 'Policy']) {
+    if (!fields.has(field)) fail(`security.txt has no ${field}`)
+  }
+  const expires = Date.parse(fields.get('Expires') ?? '')
+  if (!Number.isFinite(expires)) fail('security.txt has an Expires that is not a date')
+  else if (expires < Date.now()) fail(`security.txt expired on ${fields.get('Expires')}`)
+  if (!fields.get('Canonical')?.startsWith(`${ORIGIN}/`)) fail('security.txt Canonical is not this origin')
+  if (fields.get('Policy') !== `${ORIGIN}/security/`) fail('security.txt Policy does not point at /security/')
+
+  // The file and the page say the same thing: one address, one policy.
+  const securityPage = readFileSync(join(DIST, 'security/index.html'), 'utf8')
+  const contact = (fields.get('Contact') ?? '').replace(/^mailto:/, '')
+  if (!securityPage.includes(contact)) fail(`security.txt contacts ${contact}, and /security/ does not name it`)
+}
+
 // ---- R6: what machines are told ----
 const robots = readFileSync(join(DIST, 'robots.txt'), 'utf8')
 for (const expected of ['User-agent: *', 'Allow: /', 'Disallow: /app', `Sitemap: ${ORIGIN}/sitemap.xml`]) {
