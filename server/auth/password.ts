@@ -19,9 +19,10 @@
  * composition rule produces `Password1!` and rejects a passphrase.
  *
  * **The cost is real CPU, and Cloudflare's free plan allows 10 ms per request.** 600 000 iterations
- * is well past that: a Worker deployment that offers passwords needs the paid plan, or a front door
- * that does the hashing elsewhere. This is recorded here because it is the one place the choice of
- * algorithm meets the runtime's bill — task 154.3 decides which deployments get the door.
+ * is about six times that, in a runtime that counts every millisecond spent hashing. It is recorded
+ * here because this is the one place the choice of algorithm meets the machine's bill — and the three
+ * ways out (paid plan, the Node entry, an identity provider) are in `docs/server-runtime.md`. This
+ * project's own deployment binds no database, so it has no accounts and never hashes anything.
  */
 
 /** The cost, today. Raising it is a one-line change that old hashes survive. */

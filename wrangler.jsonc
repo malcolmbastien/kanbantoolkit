@@ -34,9 +34,18 @@
   "previews": {},
   "observability": { "enabled": true }
 
-  // The error log. Create it once, then uncomment this block with the id the command prints:
+  // The database. Create it once, then uncomment this block with the id the command prints:
   //   npx wrangler d1 create flowline-errors
   //   npx wrangler d1 migrations apply flowline-errors --remote
+  //
+  // Uncommenting this is what turns this deployment from *the project's site and demo* into an
+  // instance: accounts, sessions, invitations and passwords all live in this database, and without
+  // it every route that needs one answers 503 while the demo keeps working from localStorage.
+  //
+  // If you do uncomment it, read the CPU note in docs/server-runtime.md first. On the Workers **free**
+  // plan one PBKDF2 password check (~60 ms) is six times the 10 ms CPU budget a request is given, and
+  // the password door will answer 1102 instead of signing anybody in. The paid plan, the Node entry
+  // and an identity provider are the three ways out; the note has all three.
   //
   // "d1_databases": [
   //   {

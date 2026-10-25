@@ -97,8 +97,12 @@ A Worker reads bindings rather than variables it can invent. `wrangler.jsonc` de
 | `DB` | the D1 database — uncomment the `d1_databases` block and put the id `wrangler d1 create` prints |
 | `WORKSPACE_CHANNEL` | the Durable Object that holds the live sockets, one per workspace |
 
-Without `DB` the API answers `503` and says the database is not configured. Without
-`WORKSPACE_CHANNEL`, clients poll — nothing else changes.
+Without `DB` the API answers `503` and says the database is not configured, and no sign-in surface is
+drawn: that is the state the project's own deployment is in, where the Worker serves the site and the
+demo and nothing else. Uncommenting it makes the deployment an instance — read
+[Passwords on Workers](server-runtime.md#passwords-on-workers-cost-more-cpu-than-the-free-plan-gives)
+first, because the free plan's CPU budget cannot cover a password check. Without `WORKSPACE_CHANNEL`,
+clients poll — nothing else changes.
 
 ## Checking what an instance actually offers
 

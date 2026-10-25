@@ -20,6 +20,48 @@ every card, every rule — because the workspace lives in the browser. That is n
 and it must stay true: a person with no Docker, no SMTP and no identity provider still has a working
 board. The server adds accounts, sharing and a second device, and takes nothing away.
 
+### What this project deploys, and what a team deploys
+
+Those three tiers are what the code can do; they are not all what **this** project runs. The site
+behind `flowline.flowline-team.workers.dev` is the static tier plus the demo: `wrangler.jsonc` binds no
+database, so `/api/health` answers `503 {"database":"not configured"}`, every route that needs one
+refuses, and `/api/auth/providers` reports no doors at all — the sign-in surface does not render,
+because there is nothing to sign in to. The demo keeps working because its workspace is in
+`localStorage`, exactly as a static copy on any host does.
+
+**Uncommenting the `d1_databases` block is what makes a Worker deployment an instance.** That is the
+self-hosted tier on someone else's account, and it is a supported deployment — but it comes with a CPU
+budget that the Node entry does not have.
+
+### Passwords on Workers cost more CPU than the free plan gives
+
+Hashing a password is deliberately expensive work, and it all counts as CPU time:
+
+| | |
+| --- | --- |
+| One PBKDF2-HMAC-SHA256 hash at 600 000 iterations | **~60 ms** (measured: 61 ms to hash, 60 ms to verify) |
+| Workers Free, CPU per request | **10 ms** |
+| Workers Paid, CPU per request | 5 minutes (default 30 s) |
+
+So on the free plan one password check is about six times the whole request budget, and the runtime
+terminates the invocation — Cloudflare's `1102 Worker exceeded resource limits` — rather than signing
+anybody in. Cloudflare's own guidance is blunter than that table: *"heavy workloads that handle
+authentication … typically use 10–20 ms"*, which is already at or over the free limit before the
+hashing starts.
+
+There are three ways out, and lowering the iteration count is not one of them:
+
+1. **The paid plan.** 60 ms against 30 s is nothing, and `limits.cpu_ms` can raise it further.
+2. **The Node entry.** A process on a machine the team owns, with no CPU meter — the documented
+   deployment, and the one `/install/` describes.
+3. **An identity provider.** With OIDC configured, nobody types a password into a Worker at all; the
+   issuer does the expensive part. On Cloudflare this is also the free answer, and Cloudflare Access
+   in front of the whole deployment is the same idea one layer out.
+
+600 000 iterations is OWASP's current recommendation for PBKDF2-HMAC-SHA256. Choosing a number that
+fits 10 ms would mean choosing one roughly sixty times weaker, silently — which is why the product
+does not offer a knob for it.
+
 ## The contract: a `fetch` handler
 
 The API is a function from `Request` to `Response`. Hono exposes one as `app.fetch`; the repository
