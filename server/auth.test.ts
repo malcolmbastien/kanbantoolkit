@@ -119,7 +119,8 @@ describe('the provider registry', () => {
   it('is honest about what this instance offers', async () => {
     const { request } = instance({ AUTH_DEV: '1' })
     const answer = await request('/api/auth/providers')
-    expect(await answer.json()).toEqual({ providers: [], password: false, dev: true })
+    // A development switch is a way in, so this is not an installation waiting to be set up.
+    expect(await answer.json()).toEqual({ providers: [], password: false, setup: false, dev: true })
   })
 })
 
@@ -535,5 +536,81 @@ describe('the password door', () => {
     const actions = (await db.all<{ action: string }>('SELECT action FROM audit_events ORDER BY at')).map((row) => row.action)
     expect(actions).toContain('signin.refused')
     expect(actions).toContain('signin')
+  })
+})
+
+describe('the first run', () => {
+  const PASSWORD = 'correct horse battery staple'
+
+  it('is open only while the instance has no accounts', async () => {
+    const { request } = instance({})
+    expect(await (await request('/api/auth/setup')).json()).toEqual({ available: true })
+    expect(await (await request('/api/auth/providers')).json()).toMatchObject({ setup: true })
+  })
+
+  it('creates the administrator, the workspace and the session in one act', async () => {
+    const { request, db } = instance({ WORKSPACE_NAME: 'Team Atlas' })
+
+    const created = await request('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Ada', email: 'ada@example.com', password: PASSWORD }),
+    })
+    expect(created.status).toBe(200)
+    const token = cookie(created, 'fl_session')
+    expect(token).toBeTruthy()
+
+    // The account is an administrator of the deployment and of its workspace, and the workspace is
+    // the installation's, named by it.
+    const session = (await (await request('/api/auth/session', { headers: { cookie: `fl_session=${token}` } })).json()) as {
+      user: { name: string; email: string } | null
+      instanceRole: string | null
+      workspaces: Array<{ role: string }>
+    }
+    expect(session.user?.email).toBe('ada@example.com')
+    expect(session.instanceRole).toBe('admin')
+    expect(session.workspaces[0]?.role).toBe('admin')
+    expect(await db.get("SELECT name FROM workspaces WHERE id = 'workspace'")).toEqual({ name: 'Team Atlas' })
+
+    const workspace = await request('/api/workspace', { headers: { cookie: `fl_session=${token}` } })
+    expect(workspace.status).toBe(200)
+  })
+
+  it('closes behind itself', async () => {
+    const { request } = instance({})
+    const body = JSON.stringify({ name: 'Ada', email: 'ada@example.com', password: PASSWORD })
+    const headers = { 'content-type': 'application/json' }
+
+    expect((await request('/api/auth/setup', { method: 'POST', headers, body })).status).toBe(200)
+    expect(await (await request('/api/auth/setup')).json()).toEqual({ available: false })
+    expect((await request('/api/auth/setup', { method: 'POST', headers, body })).status).toBe(409)
+  })
+
+  it('refuses a short password with a sentence, and makes nothing', async () => {
+    const { request, db } = instance({})
+    const refused = await request('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Ada', email: 'ada@example.com', password: 'short' }),
+    })
+    expect(refused.status).toBe(400)
+    expect(((await refused.json()) as { error: string }).error).toContain('12 characters')
+    expect(await db.get('SELECT COUNT(*) AS n FROM users')).toEqual({ n: 0 })
+  })
+
+  it('signs the same person in with the password it just took', async () => {
+    const { request } = instance({})
+    await request('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Ada', email: 'ada@example.com', password: PASSWORD }),
+    })
+
+    const again = await request('/api/auth/password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com', password: PASSWORD }),
+    })
+    expect(again.status).toBe(200)
   })
 })

@@ -33,6 +33,8 @@ export interface AuthState {
   dev: boolean
   /** Whether any account here has a password — the door exists only when somebody can walk it. */
   password: boolean
+  /** Whether this deployment has no accounts yet: the first run, not a sign-in. */
+  setup: boolean
   /** Whether this instance has been asked what it offers. Until it has, nothing is drawn. */
   loaded: boolean
 }
@@ -44,6 +46,7 @@ const NONE: AuthState = {
   live: 'poll',
   dev: false,
   password: false,
+  setup: false,
   loaded: false,
 }
 
@@ -66,7 +69,9 @@ async function read<T>(path: string): Promise<T | null> {
 }
 
 export async function loadAuth(): Promise<AuthState> {
-  const offered = await read<{ providers?: AuthProvider[]; dev?: boolean; password?: boolean }>('/api/auth/providers')
+  const offered = await read<{ providers?: AuthProvider[]; dev?: boolean; password?: boolean; setup?: boolean }>(
+    '/api/auth/providers',
+  )
   if (!offered?.providers) return NONE
 
   const session = await read<{
@@ -91,6 +96,7 @@ export async function loadAuth(): Promise<AuthState> {
       : null,
     dev: offered.dev === true,
     password: offered.password === true,
+    setup: offered.setup === true,
     loaded: true,
   }
   useAuth.setState(next)
@@ -132,6 +138,27 @@ export async function signOut(): Promise<void> {
     // A server that is not there holds no session to end.
   }
   useAuth.setState({ user: null })
+}
+
+/**
+ * The first run: the account that administers a fresh instance.
+ *
+ * Answers with the sentence the server gave when it refuses, because there is nothing useful to say
+ * on the client about a password that is too short or an instance that already has an account.
+ */
+export async function setupInstance(input: { name: string; email: string; password: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const response = await fetch('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    if (response.ok) return { ok: true }
+    const body = (await response.json().catch(() => null)) as { error?: string } | null
+    return { ok: false, error: body?.error ?? 'That could not be created.' }
+  } catch {
+    return { ok: false, error: 'The server could not be reached.' }
+  }
 }
 
 /**

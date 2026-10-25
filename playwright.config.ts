@@ -71,5 +71,17 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
+    {
+      /**
+       * A deployment with no accounts at all — the only state the first run is reachable in
+       * (task 154.4). Its database is deleted on every start, so the instance really is fresh, and
+       * it deliberately has no `AUTH_DEV`: the first administrator is made with a password.
+       */
+      command:
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-setup.db && WORKSPACE_NAME="Team Atlas" PORT=4177 DB_PATH=node_modules/.tmp/e2e-setup.db STATIC_DIR=dist npm run --silent server',
+      url: 'http://localhost:4177/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
   ],
 })

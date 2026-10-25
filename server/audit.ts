@@ -16,6 +16,7 @@ import type { Database, Statement } from './db'
 /** The closed vocabulary. A new kind of access change is a new member here, and a decision. */
 export type AuditAction =
   | 'signin'
+  | 'signin.setup'
   | 'signin.refused'
   | 'signout'
   | 'invite.create'

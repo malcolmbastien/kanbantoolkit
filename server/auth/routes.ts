@@ -15,7 +15,7 @@ import type { Database, Statement } from '../db'
 import { DEFAULT_WORKSPACE_NAME, devAuth, providers, publicUrl, salt, workspaceName } from '../config'
 import type { Runtime } from '../runtime'
 import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
-import { dummyHash, verify } from './password'
+import { MIN_LENGTH, acceptable, dummyHash, hash, verify } from './password'
 import { issueSession, revoke, sessionCookie, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
 import { admitsDomain, settings } from '../instance'
@@ -107,6 +107,24 @@ function seatOf(userId: string, role: string, invitedBy: string | null = null): 
     sql: 'INSERT INTO workspace_members (workspace_id, user_id, role, invited_by) VALUES (?1, ?2, ?3, ?4)',
     params: [WORKSPACE_ID, userId, role, invitedBy],
   }
+}
+
+/** Whether this deployment has no accounts at all. */
+async function nobodyYet(db: Database): Promise<boolean> {
+  return ((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM users'))?.n ?? 0) === 0
+}
+
+/**
+ * Whether the first run is the way in.
+ *
+ * It is for a deployment that would otherwise be locked out: no accounts, and no other door to make
+ * one — no identity provider, no development switch. An instance with a provider does not need it
+ * (its first arrival becomes the administrator, task 163), and offering both would put two ways to
+ * create the first account on one screen.
+ */
+async function setupOpen(db: Database, env: unknown): Promise<boolean> {
+  if (providers(env).length > 0 || devAuth(env)) return false
+  return nobodyYet(db)
 }
 
 /** Whether this deployment has its workspace — a deleted one is re-opened by an administrator. */
@@ -275,6 +293,9 @@ export function authRoutes(runtime: Runtime) {
     return c.json({
       providers: providers(c.env).map(({ id, label }) => ({ id, label })),
       password: withPassword,
+      // A deployment with no accounts is an installation, not a sign-in: the client draws the first
+      // run instead of a form nobody could complete.
+      setup: db ? await setupOpen(db, c.env) : false,
       dev: devAuth(c.env),
     })
   })
@@ -467,6 +488,70 @@ export function authRoutes(runtime: Runtime) {
   })
 
   /**
+   * The first run (task 154.4).
+   *
+   * An instance with no accounts at all is not a sign-in form — it is an installation waiting for
+   * the person who runs it. This is the one act that makes the first account, and it closes behind
+   * itself: `available` is true only while `users` is empty, and the POST refuses at `409` the moment
+   * anything exists. There are no default credentials anywhere in the product, which is why this
+   * surface has to exist at all.
+   */
+  auth.get('/setup', async (c) => {
+    const db = runtime.database(c.env)
+    if (!db) return c.json({ available: false })
+    return c.json({ available: await setupOpen(db, c.env) })
+  })
+
+  auth.post('/setup', async (c) => {
+    const db = runtime.database(c.env)
+    if (!db) return c.json({ error: 'not configured' }, 503)
+    if (!(await nobodyYet(db))) return c.json({ error: 'this instance already has an account' }, 409)
+    if (!(await setupOpen(db, c.env))) {
+      return c.json({ error: 'this instance has another way to sign the first person in — use it' }, 409)
+    }
+
+    const body = (await c.req.json().catch(() => null)) as { name?: unknown; email?: unknown; password?: unknown } | null
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const password = typeof body?.password === 'string' ? body.password : ''
+    if (!email.includes('@')) return c.json({ error: 'an address is required' }, 400)
+    if (!acceptable(password)) return c.json({ error: `a password needs at least ${MIN_LENGTH} characters` }, 400)
+
+    const ipHash = await addressHash(runtime, c.env, c.req.raw)
+    if (await overLimit(db, runtime.clientIp(c.req.raw), c.env)) {
+      return c.json({ error: 'too many attempts' }, 429)
+    }
+
+    const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim().slice(0, 120) : humanise(email.split('@')[0])
+    const userId = `u_${randomToken(12)}`
+
+    // One transaction, the same one a first arrival through a provider writes: the account, the door
+    // to the deployment, the workspace and the seat in it. No moment at which an instance has an
+    // administrator with nothing to administer.
+    await db.batch([
+      { sql: 'INSERT INTO users (id, name, email, password_hash) VALUES (?1, ?2, ?3, ?4)', params: [userId, name, email, await hash(password)] },
+      { sql: "INSERT INTO instance_members (user_id, role) VALUES (?1, 'admin')", params: [userId] },
+      ...installWorkspaceStatements(c.env),
+      seatOf(userId, 'admin'),
+      {
+        sql: "INSERT INTO audit_events (actor_id, action, target_type, target_id) VALUES (?1, 'signin.setup', 'user', ?1)",
+        params: [userId],
+      },
+    ])
+
+    const session = await issueSession(db, userId, { userAgent: c.req.header('user-agent'), ipHash })
+    const cookie = sessionCookie(c.env, c.req.raw)
+    setCookie(c, cookie.name, session.token, {
+      httpOnly: true,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: session.maxAge,
+      secure: cookie.secure,
+    })
+    await record(db, { actorId: userId, action: 'signin', targetType: 'password', ipHash })
+    return c.json({ user: await userById(db, userId) })
+  })
+
+  /**
    * The password door (task 154.3).
    *
    * One sentence for every refusal — an address that does not exist, an account that is closed, a
@@ -486,6 +571,7 @@ export function authRoutes(runtime: Runtime) {
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     const password = typeof body?.password === 'string' ? body.password : ''
     if (!email.includes('@') || !password) return c.json({ error: 'an address and a password are required' }, 400)
+    if (password.length > 1024) return c.json({ error: 'that password is too long' }, 400)
 
     const ipHash = await addressHash(runtime, c.env, c.req.raw)
     if (await overLimit(db, runtime.clientIp(c.req.raw), c.env)) {

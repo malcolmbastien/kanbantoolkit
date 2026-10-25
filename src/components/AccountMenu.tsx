@@ -5,7 +5,7 @@ import { useStore } from '@/store'
 
 // A dialog nobody has opened yet is not part of the first download.
 const ProfileDialog = lazy(() => import('./ProfileDialog').then((module) => ({ default: module.ProfileDialog })))
-import { devSignIn, loadAuth, passwordSignIn, signOut, startSignIn, useAuth } from '@/lib/auth'
+import { devSignIn, loadAuth, passwordSignIn, setupInstance, signOut, startSignIn, useAuth } from '@/lib/auth'
 import type { AuthUser } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +34,9 @@ export function AccountMenu() {
   // The password door: only drawn when an account here has a password (task 154.3).
   const [password, setPassword] = useState('')
   const [refused, setRefused] = useState(false)
+  // The first run: a fresh instance has no accounts, so it has no sign-in — it has an installation.
+  const [setupName, setSetupName] = useState('')
+  const [setupError, setSetupError] = useState<string | undefined>()
   // Twelve hours unless this is asked for: a shared machine should not stay open for a month.
   const [remember, setRemember] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -57,7 +60,7 @@ export function AccountMenu() {
     return () => document.removeEventListener('pointerdown', away)
   }, [open])
 
-  if (!auth.loaded || (auth.providers.length === 0 && !auth.dev && !auth.password)) return null
+  if (!auth.loaded || (auth.providers.length === 0 && !auth.dev && !auth.password && !auth.setup)) return null
 
   /**
    * Until the workspace lives on the server, the account and the workspace's own person are two
@@ -108,6 +111,24 @@ export function AccountMenu() {
     }
     signedIn(next.user)
     setEmail('')
+    setOpen(false)
+  }
+
+  async function onSetup(event: FormEvent) {
+    event.preventDefault()
+    if (!email.includes('@') || !password) return
+    setBusy(true)
+    setSetupError(undefined)
+    const answer = await setupInstance({ name: setupName.trim(), email, password })
+    if (!answer.ok) {
+      setBusy(false)
+      setSetupError(answer.error)
+      return
+    }
+    const next = await loadAuth()
+    setBusy(false)
+    setPassword('')
+    if (next.user) signedIn(next.user)
     setOpen(false)
   }
 
@@ -227,7 +248,52 @@ export function AccountMenu() {
                 </span>
               </label>
 
-              {auth.password && (
+              {auth.setup && (
+                <form onSubmit={onSetup} className="px-1.5 pb-2">
+                  <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">First run</p>
+                  <p className="pb-1.5 text-micro text-slate-600">
+                    This instance has no accounts yet. The account you make here administers it and its one
+                    workspace — there are no default credentials to use instead.
+                  </p>
+                  <input
+                    value={setupName}
+                    onChange={(event) => setSetupName(event.target.value)}
+                    placeholder="Your name"
+                    aria-label="Your name"
+                    className="w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
+                  />
+                  <input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    type="email"
+                    autoComplete="username"
+                    placeholder="you@example.com"
+                    aria-label="Email address"
+                    className="mt-1 w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
+                  />
+                  <input
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="a password of at least 12 characters"
+                    aria-label="Password"
+                    className="mt-1 w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
+                  />
+                  {setupError && (
+                    <p className="mt-1 rounded-md bg-rose-50 px-1.5 py-1 text-micro text-rose-800">{setupError}</p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={busy || !email.includes('@') || !password}
+                    className="mt-1 w-full rounded-md bg-slate-900 px-1.5 py-1 text-meta font-medium text-white hover:bg-slate-800 disabled:opacity-40"
+                  >
+                    {busy ? 'Creating…' : 'Create the administrator'}
+                  </button>
+                </form>
+              )}
+
+              {auth.password && !auth.setup && (
                 <form onSubmit={onPassword} className="px-1.5 pb-2">
                   <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">Password</p>
                   <input
@@ -263,7 +329,7 @@ export function AccountMenu() {
                 </form>
               )}
 
-              {auth.providers.length > 0 && (
+              {auth.providers.length > 0 && !auth.setup && (
                 <p className="px-1.5 pb-1.5 text-micro uppercase tracking-wide text-slate-400">
                   {auth.password ? 'or continue with' : 'Sign in with'}
                 </p>
