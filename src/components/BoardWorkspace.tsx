@@ -5,6 +5,7 @@ import { InlineEdit } from './InlineEdit'
 import { NewBoardDialog } from './NewBoardDialog'
 import { TemplateEditor } from './TemplateEditor'
 import { boardsByBand } from '@/domain/board'
+import { useMay } from '@/lib/permissions'
 import { readWorkspaceFile } from '@/domain/workspace'
 import { downloadWorkspace } from '@/lib/exportWorkspace'
 import { formatBytes, requestPersistence, useStorageStatus } from '@/lib/storage'
@@ -46,6 +47,14 @@ export function BoardWorkspace() {
   const storageUsage = useStorageStatus((s) => s.usage)
   const storageQuota = useStorageStatus((s) => s.quota)
   const storagePersisted = useStorageStatus((s) => s.persisted)
+  // The role's half of the matrix: this screen is the way into every board, so a Viewer must not
+  // be offered a New board, a duplicate, a template or an import that would answer 403.
+  const may = useMay()
+  const canCreate = may('board.create')
+  const canManage = may('board.settings')
+  const canDelete = may('board.delete')
+  const canTemplates = may('template.manage')
+  const canImport = may('workspace.import')
   const [q, setQ] = useState('')
   const [showNewBoard, setShowNewBoard] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -195,13 +204,15 @@ export function BoardWorkspace() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={() => setShowNewBoard(true)}
-              className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-              title="Create a board in this organisation"
-            >
-              <Plus size={13} /> New board
-            </button>
+            {canCreate && (
+              <button
+                onClick={() => setShowNewBoard(true)}
+                className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                title="Create a board in this organisation"
+              >
+                <Plus size={13} /> New board
+              </button>
+            )}
             <div className="relative">
               <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -323,50 +334,58 @@ export function BoardWorkspace() {
                           <ChartNoAxesGantt size={13} />
                         </a>
 
-                        <div className="relative">
-                          <button
-                            onClick={() => setMenuFor(menuFor === b.id ? null : b.id)}
-                            className={cn(
-                              'grid h-6 w-6 place-items-center rounded transition',
-                              menuFor === b.id ? 'bg-slate-100 text-slate-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-700',
-                            )}
-                            title={`More — ${b.name}`}
-                          >
-                            <MoreVertical size={14} />
-                          </button>
+                        {(canCreate || canManage || canDelete) && (
+                          <div className="relative">
+                            <button
+                              onClick={() => setMenuFor(menuFor === b.id ? null : b.id)}
+                              className={cn(
+                                'grid h-6 w-6 place-items-center rounded transition',
+                                menuFor === b.id ? 'bg-slate-100 text-slate-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-700',
+                              )}
+                              title={`More — ${b.name}`}
+                            >
+                              <MoreVertical size={14} />
+                            </button>
 
-                          {menuFor === b.id && (
-                            <>
-                              <div className="fixed inset-0 z-20" onClick={() => setMenuFor(null)} />
-                              <div className="absolute right-0 z-30 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-xl">
-                                <MenuRow
-                                  icon={<CopyPlus size={13} />}
-                                  label="Duplicate"
-                                  hint="columns and settings, not its cards"
-                                  onClick={() => { duplicateBoard(b.id); setMenuFor(null) }}
-                                />
-                                <MenuRow
-                                  icon={b.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-                                  label={b.archived ? 'Restore' : 'Archive'}
-                                  hint={b.archived ? 'put it back in play' : 'file it away, keep its links'}
-                                  onClick={() => {
-                                    if (b.archived) unarchiveBoard(b.id)
-                                    else archiveBoard(b.id)
-                                    setMenuFor(null)
-                                  }}
-                                />
-                                <MenuRow
-                                  icon={<Trash2 size={13} />}
-                                  label="Delete"
-                                  hint={lastBoard ? 'the last board cannot be deleted' : 'permanent'}
-                                  danger
-                                  disabled={lastBoard}
-                                  onClick={() => { setMenuFor(null); remove(b) }}
-                                />
-                              </div>
-                            </>
-                          )}
-                        </div>
+                            {menuFor === b.id && (
+                              <>
+                                <div className="fixed inset-0 z-20" onClick={() => setMenuFor(null)} />
+                                <div className="absolute right-0 z-30 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-xl">
+                                  {canCreate && (
+                                    <MenuRow
+                                      icon={<CopyPlus size={13} />}
+                                      label="Duplicate"
+                                      hint="columns and settings, not its cards"
+                                      onClick={() => { duplicateBoard(b.id); setMenuFor(null) }}
+                                    />
+                                  )}
+                                  {canManage && (
+                                    <MenuRow
+                                      icon={b.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                                      label={b.archived ? 'Restore' : 'Archive'}
+                                      hint={b.archived ? 'put it back in play' : 'file it away, keep its links'}
+                                      onClick={() => {
+                                        if (b.archived) unarchiveBoard(b.id)
+                                        else archiveBoard(b.id)
+                                        setMenuFor(null)
+                                      }}
+                                    />
+                                  )}
+                                  {canDelete && (
+                                    <MenuRow
+                                      icon={<Trash2 size={13} />}
+                                      label="Delete"
+                                      hint={lastBoard ? 'the last board cannot be deleted' : 'permanent'}
+                                      danger
+                                      disabled={lastBoard}
+                                      onClick={() => { setMenuFor(null); remove(b) }}
+                                    />
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -376,124 +395,127 @@ export function BoardWorkspace() {
           </div>
         </div>
 
-        {/* Templates — board designs, reusable when creating boards. */}
-        <section className="mt-4">
-          <div className="mb-1 flex items-center gap-2 px-1">
-            <LayoutTemplate size={12} className="text-slate-400" />
-            <span className="text-micro font-bold uppercase tracking-wide text-slate-600">Templates</span>
-            <span className="text-micro font-semibold tabular-nums text-slate-600">{boardTemplates.length}</span>
-            <button
-              onClick={() => (creatingTemplate ? cancelCreateTemplate() : setCreatingTemplate(true))}
-              className={cn(
-                'ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1 text-meta font-medium transition',
-                creatingTemplate
-                  ? 'border-indigo-400/60 bg-indigo-50 text-indigo-700'
-                  : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
-              )}
-              title="Create a template to start boards from"
-            >
-              <Plus size={13} /> New template
-            </button>
-          </div>
-
-          {creatingTemplate && (
-            <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
-              <input
-                autoFocus
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') createTemplate()
-                  else if (e.key === 'Escape') cancelCreateTemplate()
-                }}
-                placeholder="Template name…"
-                aria-label="New template name"
-                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-              <select
-                value={templateBand}
-                onChange={(e) => setTemplateBand(e.target.value as BoardBand)}
-                aria-label="New template board type"
-                className="rounded-md border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-              >
-                {BOARD_BANDS.map((b) => (
-                  <option key={b} value={b}>
-                    {BAND_STYLES[b].label}
-                  </option>
-                ))}
-              </select>
+        {/* Templates — board designs, reusable when creating boards. A design is the
+            administrator's, so a role that may not manage one is not shown the list. */}
+        {canTemplates && (
+          <section className="mt-4">
+            <div className="mb-1 flex items-center gap-2 px-1">
+              <LayoutTemplate size={12} className="text-slate-400" />
+              <span className="text-micro font-bold uppercase tracking-wide text-slate-600">Templates</span>
+              <span className="text-micro font-semibold tabular-nums text-slate-600">{boardTemplates.length}</span>
               <button
-                onClick={createTemplate}
-                disabled={!templateName.trim()}
-                className="rounded-md bg-indigo-500 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
+                onClick={() => (creatingTemplate ? cancelCreateTemplate() : setCreatingTemplate(true))}
+                className={cn(
+                  'ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1 text-meta font-medium transition',
+                  creatingTemplate
+                    ? 'border-indigo-400/60 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
+                )}
+                title="Create a template to start boards from"
               >
-                Create
+                <Plus size={13} /> New template
               </button>
-              <button
-                onClick={cancelCreateTemplate}
-                className="rounded-md border border-slate-300 px-2.5 py-1 text-meta font-medium text-slate-600 hover:text-slate-800"
-              >
-                Cancel
-              </button>
-              <span className="text-meta text-slate-600">The board type it will create, and its starting columns.</span>
             </div>
-          )}
 
-          {boardTemplates.length === 0 && !creatingTemplate ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-6 text-center text-meta text-slate-600">
-              No templates yet. Create one here, or save a board’s design from its settings.
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
-              {boardTemplates.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-200"
+            {creatingTemplate && (
+              <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
+                <input
+                  autoFocus
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') createTemplate()
+                    else if (e.key === 'Escape') cancelCreateTemplate()
+                  }}
+                  placeholder="Template name…"
+                  aria-label="New template name"
+                  className="w-56 rounded-md border border-slate-300 px-2 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+                <select
+                  value={templateBand}
+                  onChange={(e) => setTemplateBand(e.target.value as BoardBand)}
+                  aria-label="New template board type"
+                  className="rounded-md border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
                 >
-                  {renamingId === t.id ? (
-                    <InlineEdit
-                      autoEdit
-                      value={t.name}
-                      ariaLabel="Template name"
-                      onSave={(next) => {
-                        renameBoardTemplate(t.id, next)
-                        setRenamingId(null)
-                      }}
-                      onDone={() => setRenamingId(null)}
-                      className="min-w-0 flex-1"
-                      inputClassName="w-full rounded border border-indigo-300 px-1.5 py-0.5 text-body font-semibold text-slate-800 outline-none"
-                    />
-                  ) : (
+                  {BOARD_BANDS.map((b) => (
+                    <option key={b} value={b}>
+                      {BAND_STYLES[b].label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={createTemplate}
+                  disabled={!templateName.trim()}
+                  className="rounded-md bg-indigo-500 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={cancelCreateTemplate}
+                  className="rounded-md border border-slate-300 px-2.5 py-1 text-meta font-medium text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+                <span className="text-meta text-slate-600">The board type it will create, and its starting columns.</span>
+              </div>
+            )}
+
+            {boardTemplates.length === 0 && !creatingTemplate ? (
+              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-6 text-center text-meta text-slate-600">
+                No templates yet. Create one here, or save a board’s design from its settings.
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
+                {boardTemplates.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-200"
+                  >
+                    {renamingId === t.id ? (
+                      <InlineEdit
+                        autoEdit
+                        value={t.name}
+                        ariaLabel="Template name"
+                        onSave={(next) => {
+                          renameBoardTemplate(t.id, next)
+                          setRenamingId(null)
+                        }}
+                        onDone={() => setRenamingId(null)}
+                        className="min-w-0 flex-1"
+                        inputClassName="w-full rounded border border-indigo-300 px-1.5 py-0.5 text-body font-semibold text-slate-800 outline-none"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setRenamingId(t.id)}
+                        className="group flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                        title={`Rename ${t.name}`}
+                      >
+                        <span className="truncate text-body font-semibold text-slate-800">{t.name}</span>
+                        <Pencil size={11} className="shrink-0 text-slate-300 transition group-hover:text-indigo-500" />
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => setRenamingId(t.id)}
-                      className="group flex min-w-0 flex-1 items-center gap-1.5 text-left"
-                      title={`Rename ${t.name}`}
+                      onClick={() => setPreviewId(t.id)}
+                      className="flex shrink-0 items-center gap-1 rounded border border-slate-300 px-2 py-0.5 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                      title={`Preview ${t.name}`}
                     >
-                      <span className="truncate text-body font-semibold text-slate-800">{t.name}</span>
-                      <Pencil size={11} className="shrink-0 text-slate-300 transition group-hover:text-indigo-500" />
+                      <Eye size={11} /> Preview
                     </button>
-                  )}
 
-                  <button
-                    onClick={() => setPreviewId(t.id)}
-                    className="flex shrink-0 items-center gap-1 rounded border border-slate-300 px-2 py-0.5 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                    title={`Preview ${t.name}`}
-                  >
-                    <Eye size={11} /> Preview
-                  </button>
-
-                  <button
-                    onClick={() => removeTemplate(t)}
-                    className="shrink-0 rounded p-1 text-slate-600 transition hover:text-rose-500"
-                    title={`Delete ${t.name}`}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                    <button
+                      onClick={() => removeTemplate(t)}
+                      className="shrink-0 rounded p-1 text-slate-600 transition hover:text-rose-500"
+                      title={`Delete ${t.name}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Workspace data — the organisation, out and back into files. The export is what
             the app persists, at the shape it was written in; the import replaces everything,
@@ -539,24 +561,28 @@ export function BoardWorkspace() {
               >
                 <Download size={13} /> Export
               </button>
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                title="Import a workspace file — replaces everything here"
-              >
-                <Upload size={13} /> Import…
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".json,application/json"
-                className="hidden"
-                onChange={(e) => {
-                  void onImportFile(e.target.files?.[0])
-                  // Reading the same file again must fire again.
-                  e.target.value = ''
-                }}
-              />
+              {canImport && (
+                <>
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                    title="Import a workspace file — replaces everything here"
+                  >
+                    <Upload size={13} /> Import…
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={(e) => {
+                      void onImportFile(e.target.files?.[0])
+                      // Reading the same file again must fire again.
+                      e.target.value = ''
+                    }}
+                  />
+                </>
+              )}
             </div>
           </div>
         </section>

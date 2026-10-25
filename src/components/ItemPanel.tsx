@@ -45,6 +45,7 @@ import { useReturnFocus } from '@/lib/useDialogFocus'
 import { usePresence, heldByOther } from '@/lib/presence'
 import { dropLease, takeLease } from '@/lib/lease'
 import { useAuth } from '@/lib/auth'
+import { useMay } from '@/lib/permissions'
 import { useSync } from '@/lib/sync'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
@@ -160,6 +161,12 @@ export function ItemPanel({ itemId }: Props) {
   const locks = usePresence((s) => s.locks)
   const held = heldByOther(locks, itemId)
   const account = useAuth((s) => s.user)
+  // What this person may do here. A Viewer reads the card and leaves a note; everything that
+  // changes it is closed rather than dropped, because a field that is missing says less than a
+  // field that is closed and a sentence saying why.
+  const may = useMay()
+  const canWrite = may('item.write')
+  const locked = Boolean(held) || !canWrite
   const refusal = useSync((s) => s.refusals[itemId])
 
   // A refusal that was only a lease ends when the lease does: the card is editable again without
@@ -503,13 +510,15 @@ export function ItemPanel({ itemId }: Props) {
             >
               <Eye size={15} />
             </IconButton>
-            <IconButton
-              title="More — duplicate, archive, delete"
-              active={moreOpen}
-              onClick={() => setMoreOpen((o) => !o)}
-            >
-              <MoreHorizontal size={15} />
-            </IconButton>
+            {canWrite && (
+              <IconButton
+                title="More — duplicate, archive, delete"
+                active={moreOpen}
+                onClick={() => setMoreOpen((o) => !o)}
+              >
+                <MoreHorizontal size={15} />
+              </IconButton>
+            )}
             <IconButton title="Close" danger onClick={() => close(null)}>
               <X size={16} />
             </IconButton>
@@ -599,7 +608,7 @@ export function ItemPanel({ itemId }: Props) {
               On {itemBoard.name}
             </span>
           )}
-          {item.blocked ? (
+          {canWrite && (item.blocked ? (
             <button
               onClick={() => unblockItem(item.id)}
               className="ml-auto flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 text-meta font-semibold text-white transition hover:bg-rose-700"
@@ -618,7 +627,7 @@ export function ItemPanel({ itemId }: Props) {
             >
               <Flag size={12} /> Mark blocked
             </button>
-          )}
+          ))}
         </div>
 
         {item.blocked && item.blockedReason && (
@@ -658,7 +667,7 @@ export function ItemPanel({ itemId }: Props) {
         {/* The title is the panel's heading: the one thing at the size the reading happens at. */}
         <input
           value={item.title}
-          disabled={Boolean(held)}
+          disabled={locked}
           onFocus={() => startTextEdit(item.id, 'title', item.title)}
           onBlur={() => endTextEdit('title')}
           onChange={(e) => setItemFields(item.id, { title: e.target.value })}
@@ -731,12 +740,20 @@ export function ItemPanel({ itemId }: Props) {
         </div>
       )}
 
+      {!canWrite && (
+        <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-2 text-meta text-slate-700">
+          You are a <span className="font-semibold">Viewer</span> here, so this card is read-only. A note
+          at the bottom is yours to leave.
+        </div>
+      )}
+
       {/* ---- Body ---------------------------------------------------------------- */}
       {/* The panel is the one place a card's own words are worth copying, so it opts back in.
           A lease somebody else holds disables every control inside, without hiding a word of it:
-          reading is free, and a reader must never be shown a field that would refuse them. */}
+          reading is free, and a reader must never be shown a field that would refuse them. The
+          same is true of a Viewer's role, which closes the fields and not the tab bar above them. */}
       <fieldset
-        disabled={Boolean(held)}
+        disabled={locked}
         className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"
       >
       <div className="min-h-0 flex-1 select-text space-y-5 overflow-y-auto px-4 py-4 text-meta">
@@ -1510,8 +1527,11 @@ export function ItemPanel({ itemId }: Props) {
           </Section>
         )}
       </div>
+      </fieldset>
 
-      {/* ---- The composer: one line, and what it will do ------------------------- */}
+      {/* ---- The composer: one line, and what it will do -------------------------
+          Outside the fieldset on purpose: `item.comment` is a Viewer's, so the one control a
+          read-only role keeps is the one it may actually use. */}
       <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-2.5">
         <div className="flex items-center gap-2">
           <input
@@ -1543,7 +1563,6 @@ export function ItemPanel({ itemId }: Props) {
           <span>Markdown supported</span>
         </div>
       </div>
-      </fieldset>
     </aside>
   )
 }

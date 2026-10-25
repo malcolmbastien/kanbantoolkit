@@ -5,6 +5,7 @@ import { KIND_LABEL, rankEntries, type PaletteEntry, type PaletteKind } from '@/
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
+import { useMay } from '@/lib/permissions'
 
 interface Props {
   onNewCard: () => void
@@ -45,6 +46,12 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
   const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
   const beginEdit = useStore((s) => s.beginEdit)
   const editMode = useStore((s) => s.editMode)
+  // The palette lists verbs, and a verb a role may not use is a 403 with a search box in front
+  // of it. A Viewer keeps the reading half: every view, every board, every card.
+  const may = useMay()
+  const canWrite = may('item.write')
+  const canDesign = may('board.design')
+  const canSettings = may('board.settings')
 
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -99,16 +106,20 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
   /** The app's own verbs, each one the same call the button makes. */
   const actions: (PaletteEntry & { run: () => void })[] = useMemo(
     () => [
-      ...(makesCards
+      ...(makesCards && canWrite
         ? [{ id: 'action:new-card', kind: 'action' as PaletteKind, label: 'New card', hint: 'Add a card to this board', keywords: 'create add task story bug', run: onNewCard }]
         : []),
-      { id: 'action:new-initiative', kind: 'action', label: 'New initiative', hint: 'Add an initiative to this board', keywords: 'create outcome', run: onNewInitiative },
-      ...(editMode
+      ...(canWrite
+        ? [{ id: 'action:new-initiative', kind: 'action' as PaletteKind, label: 'New initiative', hint: 'Add an initiative to this board', keywords: 'create outcome', run: onNewInitiative }]
+        : []),
+      ...(editMode || !canDesign
         ? []
         : [{ id: 'action:edit', kind: 'action' as PaletteKind, label: 'Edit board design', hint: 'Split, add, rename and delete lanes', keywords: 'lanes columns rows wip', run: beginEdit }]),
       { id: 'action:filters', kind: 'action', label: 'Filters', hint: 'Narrow the cards shown on this board', keywords: 'find narrow', run: toggleFilters },
       { id: 'action:legend', kind: 'action', label: 'Legend', hint: 'What this board means and how to read it', keywords: 'help explain colours', run: toggleLegend },
-      { id: 'action:settings', kind: 'action', label: 'Board settings', hint: 'Band, WIP enforcement, default drop cell', keywords: 'configure', run: toggleBoardSettings },
+      ...(canSettings
+        ? [{ id: 'action:settings', kind: 'action' as PaletteKind, label: 'Board settings', hint: 'Band, WIP enforcement, default drop cell', keywords: 'configure', run: toggleBoardSettings }]
+        : []),
       { id: 'action:board', kind: 'action', label: 'Go to the board', hint: 'Leave whatever view is open', keywords: 'back home', run: setBoard },
       { id: 'action:dashboard', kind: 'action', label: 'Dashboard', hint: "This board's initiatives", keywords: 'summary overview', run: () => setDashboard(true) },
       { id: 'action:timeline', kind: 'action', label: 'Timeline', hint: "This board's initiatives over time", keywords: 'dates gantt', run: () => setTimeline(true) },
@@ -118,7 +129,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
       { id: 'action:objectives', kind: 'action', label: 'Objectives & KRs', hint: 'Where objectives and their coverage live', keywords: 'okr goals', run: () => setObjectives(true) },
       { id: 'action:boards', kind: 'action', label: 'All boards', hint: 'The board workspace', keywords: 'workspace switch', run: () => setBoards(true) },
     ],
-    [beginEdit, editMode, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setObjectives, setTimeline, toggleBoardSettings, toggleFilters, toggleLegend],
+    [beginEdit, canDesign, canSettings, canWrite, editMode, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setObjectives, setTimeline, toggleBoardSettings, toggleFilters, toggleLegend],
   )
 
   const liveBoards = boards.filter((b) => !b.archived)

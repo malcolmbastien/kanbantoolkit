@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { cardsIn, dragCardTo, laneRegion } from './support'
 
 /**
  * The first run, on a deployment with no accounts at all (task 154.4).
@@ -144,3 +145,110 @@ test('an administrator hands over a reset link, and it sets the password', async
   const spent = await request.post(`${ORIGIN}/api/auth/link/${new URL(link).searchParams.get('link')}`)
   expect(spent.status()).toBe(410)
 })
+
+test('a Viewer reads the board, and is offered nothing that would refuse', async ({ page, browser, request }) => {
+  // The administrator puts a workspace on the server: the copy the app offers when the account has
+  // nothing and the browser has boards. (Board structure travels by import; cards travel one by one.)
+  await page.goto(`${ORIGIN}/app`)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByLabel('Email address').fill('ada@example.com')
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()
+  await expect(page.getByRole('button', { name: /Ada Lovelace/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Copy to account' }).click()
+  await page.getByRole('button', { name: 'Copy workspace' }).click()
+  await expect(page.getByRole('button', { name: 'Copy to account' })).toHaveCount(0)
+  const stored = await (await page.request.get(`${ORIGIN}/api/workspace`)).json()
+  expect(stored.boards.length).toBeGreaterThan(0)
+
+  const other = await browser.newContext()
+  let note = ''
+  try {
+    const grace = await other.newPage()
+    await grace.goto(`${ORIGIN}/app`)
+    await grace.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await grace.getByLabel('Email address').fill('grace@example.com')
+    await grace.getByLabel('Password').fill('another good passphrase')
+    await grace.getByRole('button', { name: 'Sign in', exact: true }).last().click()
+    await expect(grace.getByRole('button', { name: /Grace Hopper/ })).toBeVisible()
+
+    // The workspace home: every board, and no way to make, copy, archive, template or import one.
+    await grace.goto(`${ORIGIN}/app?view=boards`)
+    await expect(grace.getByRole('button', { name: 'Team Atlas', exact: true })).toBeVisible()
+    await expect(grace.getByRole('button', { name: 'New board' })).toHaveCount(0)
+    await expect(grace.getByRole('button', { name: /^New template/ })).toHaveCount(0)
+    await expect(grace.getByRole('button', { name: /Import/ })).toHaveCount(0)
+
+    // The board itself draws, and the lane's footer — the one way to add work — is not there.
+    await grace.getByRole('button', { name: 'Team Atlas', exact: true }).click()
+    await expect(grace.locator('[data-workflow="cards"]')).toBeVisible()
+    await expect(grace.getByRole('button', { name: 'Add card to Backlog' })).toHaveCount(0)
+    await expect(grace.locator('[data-workflow="cards"] [data-card-id]').first()).toBeVisible()
+
+    // A drag lifts nothing: the card the pointer started on is still in the column it was in.
+    const backlog = await cardsIn(grace, 'Backlog')
+    const done = await laneRegion(grace, 'Done').boundingBox()
+    if (!done) throw new Error('The Done column has no box to aim at.')
+    await dragCardTo(grace, backlog[0], { x: done.x + done.width / 2, y: done.y + 40 })
+    expect(await cardsIn(grace, 'Backlog')).toEqual(backlog)
+
+    // The card opens. Everything that writes is closed, and the panel says why.
+    await grace.locator('[data-workflow="cards"] [data-card-id]').first().click()
+    const panel = grace.locator('[data-item-panel]')
+    await expect(panel).toBeVisible()
+    await expect(panel.getByText('You are a Viewer here')).toBeVisible()
+    await expect(panel.getByLabel('Title')).toBeDisabled()
+    await expect(panel.getByRole('button', { name: /More — duplicate/ })).toHaveCount(0)
+    await expect(panel.getByRole('button', { name: 'Mark blocked' })).toHaveCount(0)
+
+    // The one control that is a Viewer's. It reaches the server, which is the half a screenshot
+    // cannot show.
+    note = 'Read it — looks right to me.'
+    await panel.getByLabel('Leave a note').fill(note)
+    await panel.getByLabel('Leave a note').press('Enter')
+    await panel.getByRole('button', { name: 'Activity' }).click()
+    await expect(panel.getByText(note)).toBeVisible()
+
+    // The palette offers the reading verbs and none of the writing ones.
+    await grace.keyboard.press('Control+k')
+    const palette = grace.getByRole('dialog', { name: 'Command palette' })
+    await expect(palette).toBeVisible()
+    await expect(palette.getByRole('button', { name: /All boards/ })).toBeVisible()
+    await expect(palette.getByRole('button', { name: /New card/ })).toHaveCount(0)
+    await expect(palette.getByRole('button', { name: /New initiative/ })).toHaveCount(0)
+    await expect(palette.getByRole('button', { name: /Edit board design/ })).toHaveCount(0)
+    await expect(palette.getByRole('button', { name: /Board settings/ })).toHaveCount(0)
+    await grace.keyboard.press('Escape')
+  } finally {
+    await other.close()
+  }
+
+  // The note is in the card's history on the server, signed by Grace — not merely on her screen.
+  const cookie = await cookieFor('grace@example.com', 'another good passphrase')
+  const detail = await (await request.get(`${ORIGIN}/api/workspace`, { headers: { cookie } })).json()
+  type Entry = { kind: string; note?: string }
+  const card = detail.items.find((i: { log?: Entry[] }) =>
+    (i.log ?? []).some((e) => e.kind === 'noted' && e.note === note),
+  ) as { id: string; rev?: number; title: string } | undefined
+  expect(card, 'the note the Viewer left is in the item’s log').toBeTruthy()
+
+  // And the interface and the server agree: a direct write is refused, in the matrix's own words.
+  // The comment composer above is the exception the matrix makes, not a hole in it.
+  const refused = await request.patch(`${ORIGIN}/api/workspace/items/${card!.id}`, {
+    headers: { cookie },
+    data: { baseRev: card!.rev ?? 0, item: { ...card, title: 'Changed by a Viewer' } },
+  })
+  expect(refused.status()).toBe(403)
+  expect((await refused.json()).error).toBe('a viewer may not item.write')
+})
+
+/** A session cookie for a person, from a context that has none — the API's own door. */
+async function cookieFor(email: string, password: string): Promise<string> {
+  const response = await fetch(`${ORIGIN}/api/auth/password`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  return (response.headers.get('set-cookie') ?? '').split(';')[0]
+}

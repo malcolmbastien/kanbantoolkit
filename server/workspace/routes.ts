@@ -9,6 +9,8 @@
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { requireWorkspace } from '../access'
+import { can } from '../../src/domain/roles'
+import type { Item } from '../../src/domain/types'
 import { WORKSPACE_ID } from '../auth/session'
 import { itemBelongsElsewhere, readItem, readItemsByIds, readWorkspace } from './read'
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
@@ -218,7 +220,9 @@ export function workspaceRoutes(runtime: Runtime) {
    * asked to merge by hand.
    */
   routes.patch('/items/:id', async (c) => {
-    const allowed = await requireWorkspace(c, runtime, 'item.write')
+    // The door is `item.comment` — the least a change to a card can need — and the change itself
+    // decides whether that is enough: a Viewer may append a note and nothing else (below).
+    const allowed = await requireWorkspace(c, runtime, 'item.comment')
     if (allowed instanceof Response) return allowed
 
     const id = c.req.param('id')
@@ -254,6 +258,14 @@ export function workspaceRoutes(runtime: Runtime) {
     }
     if (current && (current.rev ?? 0) !== baseRev) return c.json({ error: 'moved past', item: current }, 409)
 
+    // A Viewer may comment and nothing else. The matrix grants `item.comment` and withholds
+    // `item.write`, and a comment travels the same road as any other change to a card — so rather
+    // than a second endpoint with a second shape, the change is judged for what it is. Judged after
+    // the revision, so a Viewer whose base is stale is told to catch up rather than refused.
+    if (!can(allowed.workspaceRole, 'item.write') && !commentOnly(current, item, allowed.user.id)) {
+      return c.json({ error: `a ${allowed.workspaceRole} may not item.write` }, 403)
+    }
+
     const stored = { ...item, rev: baseRev + 1 }
     await writeItem(allowed.db, stored, allowed.workspaceId, key)
     // The change is announced only after it landed: a nudge for a write that failed would make a
@@ -263,4 +275,46 @@ export function workspaceRoutes(runtime: Runtime) {
   })
 
   return routes
+}
+
+/**
+ * Whether a change is a comment and nothing more — the one write a Viewer may make.
+ *
+ * Every field but the log must be exactly what is stored, the stored log must be an unchanged
+ * prefix of the incoming one, and each entry appended must be a note attributed to the caller or
+ * to nobody. Anything else — a title, a tag, a checklist, a log entry that rewrites history or
+ * claims another author — is refused by the same door an editor walks through.
+ *
+ * Comparing by value rather than by JSON, because the two sides are built by different code (the
+ * store writes, the reader reads) and key order is not a fact about a card.
+ */
+function commentOnly(stored: Item | undefined, incoming: Item, byId: string): boolean {
+  // An item the server has never seen would be a creation, and creating is `item.write`.
+  if (!stored) return false
+
+  const keys = new Set([...Object.keys(stored), ...Object.keys(incoming)])
+  keys.delete('log')
+  keys.delete('rev')
+  for (const key of keys) {
+    const field = key as keyof Item
+    if (!same(stored[field], incoming[field])) return false
+  }
+
+  const before = stored.log ?? []
+  const after = incoming.log ?? []
+  if (after.length <= before.length) return false
+  if (!before.every((entry, index) => same(entry, after[index]))) return false
+  return after.slice(before.length).every((entry) => entry.kind === 'noted' && (!entry.by || entry.by === byId))
+}
+
+/** Deep equality, ignoring key order: an array by position, an object by its own keys. */
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  const one = a as Record<string, unknown>
+  const two = b as Record<string, unknown>
+  const keys = Object.keys(one)
+  if (keys.length !== Object.keys(two).length) return false
+  return keys.every((key) => key in two && same(one[key], two[key]))
 }

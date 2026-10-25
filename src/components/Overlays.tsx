@@ -1,6 +1,7 @@
 import { CornerDownRight, X } from 'lucide-react'
 import { CardMenu } from './CardMenu'
 import { useStore } from '@/store'
+import { useMay } from '@/lib/permissions'
 
 /**
  * The things that float above whatever board you are looking at: the card menu, and the chip
@@ -19,6 +20,9 @@ export function Overlays() {
   const childPickId = useStore((s) => s.childPickId)
   const cancelChildPick = useStore((s) => s.cancelChildPick)
   const items = useStore((s) => s.items)
+  // Every line in the card menu changes a card, and a Viewer changes none — so the menu does not
+  // open. Reading is unaffected: the card, its panel and its history are still there.
+  const may = useMay()
 
   const chip =
     'fixed bottom-4 left-4 z-40 flex max-w-[min(26rem,80vw)] items-center gap-2 rounded-lg border border-indigo-400/60 bg-indigo-600 px-3 py-2 text-meta font-medium text-white shadow-2xl'
@@ -58,7 +62,7 @@ export function Overlays() {
           </button>
         </div>
       )}
-      {cardMenu && (
+      {cardMenu && may('item.write') && (
         <CardMenu
           itemIds={multiSelect.includes(cardMenu.itemId) ? multiSelect : [cardMenu.itemId]}
           x={cardMenu.x}

@@ -199,7 +199,14 @@ describe('the lifecycle', () => {
        ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = excluded.role`,
       [person.id, 'viewer'],
     )
-    expect((await person.call('/api/workspace/items/i-1', writeCard)).status).toBe(403)
+    // The write is well-formed — based on the revision the server holds — so the only reason to
+    // refuse it is the role, which is what this asserts. (A stale base would answer 409, which
+    // says nothing about authority.)
+    const afterRoleChange = {
+      method: 'PATCH',
+      body: JSON.stringify({ baseRev: 2, item: { id: 'i-1', title: 'Again', typeId: 't-card', createdAt: 0 } }),
+    }
+    expect((await person.call('/api/workspace/items/i-1', afterRoleChange)).status).toBe(403)
     expect((await person.call('/api/workspace')).status).toBe(200)
 
     // A removal is the door itself: the same cookie is nobody.
@@ -276,5 +283,112 @@ describe('the safe guards', () => {
 
     expect((await person.call(`/api/admin/users/${person.id}/deactivate`, { method: 'POST' })).status).toBe(409)
     expect((await person.call(`/api/admin/users/${person.id}`, { method: 'DELETE' })).status).toBe(409)
+  })
+})
+
+/**
+ * A comment is the one write a Viewer has.
+ *
+ * The matrix grants `item.comment` and withholds `item.write`, and a note travels the same road as
+ * any other change to a card — so the route judges the change rather than offering a second
+ * endpoint. What it must not do is let the note carry a title, a tag, a rewritten history or
+ * somebody else's name.
+ */
+describe('a Viewer may comment, and only comment', () => {
+  /** The card as the browser would hold it: what the server has, plus one note. */
+  const card = (extra: Record<string, unknown> = {}, log: Array<Record<string, unknown>> = []) => ({
+    id: 'i-1',
+    title: 'A card',
+    typeId: 't-card',
+    createdAt: 0,
+    rev: 1,
+    ...extra,
+    ...(log.length ? { log } : {}),
+  })
+
+  const note = (by?: string, text = 'Looks right to me') => ({
+    id: 'e-note',
+    at: 1,
+    kind: 'noted',
+    ...(by ? { by } : {}),
+    note: text,
+  })
+
+  const patch = (item: unknown) => ({
+    method: 'PATCH',
+    body: JSON.stringify({ baseRev: 1, item }),
+  })
+
+  async function viewer() {
+    const world = await createWorld()
+    await world.signIn('owner@example.com', 'instance')
+    return { ...world, person: await world.signIn('viewer@example.com', 'viewer') }
+  }
+
+  // `world` is the fixture's name; the helper above reads better as a sentence.
+  const createWorld = world
+
+  it('accepts a note, and moves the revision like any other change', async () => {
+    const { db, person } = await viewer()
+
+    const answer = await person.call('/api/workspace/items/i-1', patch(card({}, [note(person.id)])))
+    expect(answer.status).toBe(200)
+    expect(((await answer.json()) as { item: { rev: number } }).item.rev).toBe(2)
+
+    // The card's own words are untouched; the note is in its history.
+    expect(await db.get('SELECT title, rev FROM items WHERE id = ?1', ['i-1'])).toEqual({ title: 'A card', rev: 2 })
+    expect(await db.get('SELECT kind, note, by_user FROM item_log WHERE item_id = ?1', ['i-1'])).toEqual({
+      kind: 'noted',
+      note: 'Looks right to me',
+      by_user: person.id,
+    })
+  })
+
+  it('accepts a note with no author named, because a note need not claim one', async () => {
+    const { person } = await viewer()
+    expect((await person.call('/api/workspace/items/i-1', patch(card({}, [note()])))).status).toBe(200)
+  })
+
+  it('refuses a note carrying a change to the card', async () => {
+    const { db, person } = await viewer()
+    const before = await db.get('SELECT * FROM items WHERE id = ?1', ['i-1'])
+
+    const answer = await person.call('/api/workspace/items/i-1', patch(card({ title: 'Renamed' }, [note(person.id)])))
+    expect(answer.status).toBe(403)
+    // Byte-identical: not the title, not the revision, not the log.
+    expect(await db.get('SELECT * FROM items WHERE id = ?1', ['i-1'])).toEqual(before)
+    expect(await db.get('SELECT * FROM item_log WHERE item_id = ?1', ['i-1'])).toBeUndefined()
+  })
+
+  it('refuses a log that rewrites an entry, or that claims another author', async () => {
+    const { db, person } = await viewer()
+    const first = note(person.id, 'First')
+    const accepted = await person.call('/api/workspace/items/i-1', patch(card({}, [first])))
+    expect(accepted.status).toBe(200)
+
+    // History is a prefix: the note that landed stays as it landed.
+    const rewritten = await person.call(
+      '/api/workspace/items/i-1',
+      { method: 'PATCH', body: JSON.stringify({ baseRev: 2, item: card({ rev: 2 }, [{ ...first, note: 'Edited' }, note(person.id)]) }) },
+    )
+    expect(rewritten.status).toBe(403)
+
+    // And nothing may be signed by somebody else.
+    const forged = await person.call(
+      '/api/workspace/items/i-1',
+      { method: 'PATCH', body: JSON.stringify({ baseRev: 2, item: card({ rev: 2 }, [first, note('u-someone-else')]) }) },
+    )
+    expect(forged.status).toBe(403)
+
+    expect(await db.get('SELECT note FROM item_log WHERE item_id = ?1', ['i-1'])).toEqual({ note: 'First' })
+  })
+
+  it('refuses a creation outright: making a card is `item.write`', async () => {
+    const { person } = await viewer()
+    const answer = await person.call(
+      '/api/workspace/items/i-new',
+      { method: 'PATCH', body: JSON.stringify({ baseRev: 0, item: { id: 'i-new', title: 'New', typeId: 't-card', createdAt: 0 } }) },
+    )
+    expect(answer.status).toBe(403)
   })
 })
