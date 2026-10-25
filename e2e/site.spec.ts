@@ -24,7 +24,11 @@ test('the front page is the site, and it is readable with no JavaScript at all',
     // The picture the page is about, the questions it answers, and the links into the rest of the site.
     await expect(page.locator('main img')).toHaveCount(1)
     await expect(page.getByRole('term')).toHaveCount(4)
-    await expect(page.getByRole('link', { name: 'Pricing' }).first()).toBeVisible()
+    // The two things a visitor can do, and where the documentation is.
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Install' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Docs' })).toBeVisible()
+    // Nothing on the page sells anything (task 164).
+    await expect(page.getByRole('link', { name: 'Pricing' })).toHaveCount(0)
   } finally {
     await context.close()
   }
@@ -76,6 +80,20 @@ test('the app is under /app, and answers deep links there', async ({ request }) 
     expect(await page.text()).toContain('id="root"')
     // A path under it is still the app: the board's places are a query string.
     expect((await request.get(`${origin}/app/some/deep/link`)).status()).toBe(200)
+  }
+})
+
+test('the pages that sold something are gone, and they answer 404', async ({ request }) => {
+  // Nothing is for sale and nobody signs up for a workspace: the three pages that assumed a hosted
+  // service are deleted, on the static host and on the Node entry alike (task 164).
+  for (const origin of ['', SELF_HOSTED]) {
+    for (const path of ['/pricing/', '/signin/', '/signup/', '/self-host/']) {
+      const response = await request.get(`${origin}${path}`)
+      expect(response.status(), `${origin || 'static'}${path}`).toBe(404)
+      expect(await response.text()).toContain('There is nothing at this address')
+    }
+    // And the page that replaced them is there.
+    expect((await request.get(`${origin}/install/`)).status(), origin || 'static').toBe(200)
   }
 })
 
@@ -137,7 +155,7 @@ test('no public page fetches anything from another origin', async ({ page }) => 
     if (!url.pathname.startsWith('/app') && !local) foreign.push(request.url())
   })
 
-  for (const path of ['/', '/pricing/', '/help/', '/self-host/', '/changelog/', '/status/', '/privacy/', '/terms/', '/security/', '/sub-processors/', '/signup/']) {
+  for (const path of ['/', '/install/', '/help/', '/changelog/', '/status/', '/privacy/', '/terms/', '/security/', '/sub-processors/']) {
     await page.goto(path)
     await expect(page.locator('main h1')).toBeVisible()
   }

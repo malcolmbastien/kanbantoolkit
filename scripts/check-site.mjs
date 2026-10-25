@@ -97,11 +97,17 @@ for (const file of html) {
   }
   if (!/href="\/site\.css"/.test(text)) fail(`${where}: does not load the site stylesheet`)
 
-  for (const [, url] of text.matchAll(/(?:src|href)="([^"]+)"/g)) {
-    if (url.startsWith('/') || url.startsWith('#')) continue
-    if (url.startsWith('mailto:')) continue
-    if (url.startsWith(ORIGIN)) continue
+  // An *asset* may not leave this origin: that is the promise with no cookie banner behind it.
+  for (const [, url] of text.matchAll(/<(?:img|script|link|source)\s[^>]*(?:src|href)="([^"]+)"/g)) {
+    if (url.startsWith('/') || url.startsWith(ORIGIN)) continue
     fail(`${where}: requests ${url}, which is not this origin`)
+  }
+  // A *link* may: the source, the licence and the docs live in the repository, and the site points
+  // at them rather than copying them (task 164). It must still be a secure address.
+  for (const [, url] of text.matchAll(/<a\s[^>]*href="([^"]+)"/g)) {
+    if (url.startsWith('/') || url.startsWith('#') || url.startsWith('mailto:')) continue
+    if (url.startsWith(ORIGIN) || url.startsWith('https://')) continue
+    fail(`${where}: links to ${url}, which is not local and not https`)
   }
 }
 
@@ -195,7 +201,37 @@ if (positions.some((at) => at === -1)) {
 
 // ---- R4: both actions are links, and they go where they say ----
 if (!/<a[^>]+href="\/app"[^>]*>Open the demo/.test(homePage)) fail('the home page has no demo link to /app')
-if (!/<a[^>]+href="\/signin"[^>]*>Start free/.test(homePage)) fail('the home page has no Start free link to /signin')
+if (!/<a[^>]+href="\/install\/"[^>]*>Install/.test(homePage)) fail('the home page has no Install link to /install/')
+
+// ---- R1/R4: the site sells nothing, and the three selling pages are gone ----
+//
+// A price, a plan and a sign-up were the shape of a hosted service (task 164). The site may not
+// imply one anywhere — not in a nav item, not in a sentence, not in a leftover link.
+const SOLD = ['/pricing', '/signin', '/signup', 'Start free', 'free plan', 'per month', 'per seat', 'subscription']
+for (const file of html) {
+  const text = readFileSync(file, 'utf8')
+  const where = file.replace(`${DIST}/`, '')
+  for (const phrase of SOLD) {
+    if (text.includes(phrase)) fail(`${where}: still carries "${phrase}"`)
+  }
+}
+
+// The navigation's second item is Install, and Docs points at the documentation.
+const nav = /<nav class="site-nav"[\s\S]*?<\/nav>/.exec(homePage)?.[0] ?? ''
+if (!nav) fail('the home page has no main navigation')
+else {
+  if (!/href="\/install\/"[^>]*>Install</.test(nav)) fail('the navigation has no Install item')
+  if (!/href="https:\/\/[^"]+"[^>]*>Docs</.test(nav)) fail('the navigation has no Docs link')
+  if (!/href="\/help\/"[^>]*>Help</.test(nav)) fail('the navigation has no Help item')
+}
+
+// ---- R2: the install page carries the commands, and does not pretend a package exists ----
+const install = readFileSync(join(DIST, 'install/index.html'), 'utf8')
+if (!/<pre><code>[\s\S]*npm run build[\s\S]*npm run server[\s\S]*<\/code><\/pre>/.test(install)) {
+  fail('the install page has no block with the build and the run command')
+}
+if (!install.includes('Git clone') && !/git clone https:\/\//.test(install)) fail('the install page does not say where the code comes from')
+if (install.includes('{{repo}}')) fail('the install page still carries the repository placeholder')
 
 // ---- R5/V5: every internal link resolves to something that was built ----
 const resolve = (href) => {

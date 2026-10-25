@@ -113,7 +113,7 @@ function staticFile(pathname: string): string | undefined {
   const full = join(staticDir, clean)
   if (!full.startsWith(normalize(staticDir))) return undefined
   if (existsSync(full) && statSync(full).isFile()) return full
-  // A page lives at a directory: `/pricing/` is `dist/pricing/index.html`.
+  // A page lives at a directory: `/install/` is `dist/install/index.html`.
   const index = join(full, 'index.html')
   return existsSync(index) && statSync(index).isFile() ? index : undefined
 }

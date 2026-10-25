@@ -1,0 +1,72 @@
+<!--
+title: Install — Flowline
+description: Flowline runs on your machine: one Node process, one SQLite file and a directory of static files. The same routes and rules as the Cloudflare build, with no service in between.
+path: /install/
+-->
+<h1>Install it</h1>
+<p class="lede">
+  Flowline is free software. It is one Node process, one SQLite file and a directory of static
+  files — the same routes and the same rules as the Cloudflare Worker build, with no service in
+  between and nobody to ask.
+</p>
+
+<h2>What you need</h2>
+<ul class="points">
+  <li><strong>Node 26</strong>, and a directory you own. The repository has no build service and no binary to trust.</li>
+  <li><strong>A reverse proxy for TLS</strong> — Caddy, nginx, Traefik; anything that can terminate HTTPS and forward to a port.</li>
+  <li><strong>A backup</strong>: one file, copied somewhere else, on a schedule. The file is the database, and the backups are yours.</li>
+</ul>
+
+<h2>The three commands</h2>
+<pre><code>git clone {{repo}} flowline
+cd flowline &amp;&amp; npm ci &amp;&amp; npm run build
+PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server</code></pre>
+<p>
+  The build writes the site and the app into <code>dist/</code>, and the first run of the server
+  applies the schema migrations and leaves you a database file. There is no account to create first
+  and no key to paste.
+</p>
+<p class="note">
+  There is no container image or package yet, so the commands above are the whole story: a clone, a
+  build and a process. Point your proxy at the port, keep the process alive with whatever you already
+  use to keep processes alive, and the job is done.
+</p>
+
+<h2>What it reads</h2>
+<p>
+  Everything is configuration, and everything has a default that works:
+</p>
+<ul class="points">
+  <li><code>PORT</code> — the port to listen on. Defaults to <code>8787</code>.</li>
+  <li><code>DB_PATH</code> — the SQLite file. Defaults to <code>./flowline.db</code>.</li>
+  <li><code>STATIC_DIR</code> — where the built site and app are. Defaults to <code>./dist</code>.</li>
+  <li><code>LIVE</code> — set it to <code>0</code> to switch the live channel off. The app then polls the same feed, which is what a process with no socket server does anyway.</li>
+  <li><code>SITE_URL</code> — the canonical address, for links that leave the app.</li>
+</ul>
+<p>
+  The sign-in providers are optional, and an instance with none still runs: the board works, and the
+  app says in words that it has no way in configured rather than drawing a button that cannot work.
+  The full reference, including the provider variables, is in the documentation.
+</p>
+
+<h2>The honest limits</h2>
+<ul class="points">
+  <li><strong>One instance, one team.</strong> A deployment is a workspace; the first account to sign in is its administrator. There is no second workspace to switch to, because there is no service above this one.</li>
+  <li><strong>The file is the database.</strong> A single SQLite file, with WAL, which is why the backup is a copy and not an export.</li>
+  <li><strong>You own the upgrades.</strong> A release may add a migration; the server applies it at start and stops if it cannot, rather than serving a database the code does not understand.</li>
+</ul>
+
+<h2>The licence</h2>
+<p>
+  The licence is in the repository and named in its first screen. It is the same licence the
+  documentation and the source are under: read it, change it, run it — and if you run a modified
+  version for other people, check what it asks of you.
+</p>
+
+<h2>Where to go next</h2>
+<p>
+  The documentation lives with the code: <a href="{{repo}}/blob/main/docs/README.md">the docs</a>
+  cover configuration, upgrading, backup and restore, and the architecture. The
+  <a href="/help/">help page</a> answers the questions people actually ask, and
+  <a href="/app">the demo</a> is the whole product with no install at all.
+</p>

@@ -12,7 +12,7 @@
  *   node scripts/build-site.ts
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 const ROOT = process.cwd()
@@ -21,6 +21,15 @@ const DIST = join(ROOT, 'dist')
 
 /** The canonical origin: one value for canonicals, Open Graph and the sitemap. */
 const ORIGIN = (process.env.SITE_URL ?? 'https://flowline.example').replace(/\/+$/, '')
+
+/**
+ * The repository — where the source, the licence and the docs actually live.
+ *
+ * The site is a project's site (task 164), so its Docs, Source and Licence links point at the code
+ * rather than at copies of it. Like the origin, it is one value: a placeholder until the project is
+ * published, and a single constant when it is.
+ */
+const REPO = (process.env.REPO_URL ?? 'https://github.com/flowline/flowline').replace(/\/+$/, '')
 
 /**
  * The pages the app used to answer, and the parameters that mean one of them.
@@ -67,7 +76,7 @@ interface Processor {
 }
 
 interface Page {
-  /** Where it is served, e.g. `/pricing/` or `/404.html`. */
+  /** Where it is served, e.g. `/install/` or `/404.html`. */
   path: string
   title: string
   description: string
@@ -131,11 +140,13 @@ function render(page: Page, layout: string): string {
     .replaceAll('{{canonical}}', canonical)
     .replaceAll('{{origin}}', ORIGIN)
     .replaceAll('{{content}}', page.body)
+    // After the content, so a page may use the same placeholders the layout does.
+    .replaceAll('{{repo}}', REPO)
     .replaceAll('{{processors}}', processors())
     .replaceAll('{{head}}', head)
 }
 
-/** Where a page's file goes: `/pricing/` → `dist/pricing/index.html`, `/404.html` as it says. */
+/** Where a page's file goes: `/install/` → `dist/install/index.html`, `/404.html` as it says. */
 function fileFor(path: string): string {
   if (path.endsWith('/')) return join(DIST, path, 'index.html')
   return join(DIST, path)
@@ -198,8 +209,18 @@ function main(): void {
   writeFileSync(join(DIST, 'robots.txt'), robots())
   writeFileSync(join(DIST, 'sitemap.xml'), sitemap(pages))
 
-  // A stale page from a previous build would be served forever otherwise.
-  for (const stale of ['404.html.tmp']) rmSync(join(DIST, stale), { force: true })
+  // A stale page from a previous build would be served forever otherwise — and a page that was
+  // *deleted* on purpose (task 164) would look like a page that still exists. `vite build` empties
+  // the directory, but this script is also run on its own.
+  const expected = new Set(pages.map((page) => fileFor(page.path)))
+  for (const name of readdirSync(DIST)) {
+    if (name === 'app' || name === 'assets' || name === 'img') continue
+    const path = join(DIST, name)
+    if (!statSync(path).isDirectory()) continue
+    const index = join(path, 'index.html')
+    if (existsSync(index) && !expected.has(index)) rmSync(path, { recursive: true, force: true })
+  }
+  rmSync(join(DIST, '404.html.tmp'), { force: true })
 
   console.log(`site: ${pages.length} pages, sitemap and robots written to dist/ (${ORIGIN})`)
 }
