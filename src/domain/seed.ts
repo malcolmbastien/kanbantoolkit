@@ -16,7 +16,7 @@ export { BUILT_IN_TEMPLATES } from './demo'
  * demonstrates nothing:
  *
  * - **Team Atlas is waiting on Team Nova.** SSO cannot start until the identity platform lands, so
- *   the boundary lane on Atlas has something to pin, and the initiative above it carries a
+ *   the boundary workflow on Atlas has something to show, and the initiative above it carries a
  *   dependency risk.
  * - **Two cards are blocked**, one of them in Backlog — blocked work that nobody has picked up.
  * - **Some work is stale, some is unowned, one initiative has nothing under it yet**, so the health
@@ -363,7 +363,7 @@ export function createSeed(): FlowState {
   })
 
   // The Atlas card that waits on the identity platform belongs to the SSO outcome it is for —
-  // without this it rolls up to nothing and the story the boundary lane tells has no shape.
+  // without this it rolls up to nothing and the story the boundary workflow tells has no shape.
   decompose('init-sso', ['st-enterprise-sso'])
   decompose('init-identity', ['st-identity-contract', 'st-identity-contract-v1', 'st-scim'])
   decompose('init-audit', ['st-audit-backfill', 'st-audit-retention', 'st-auth-retire'])
@@ -374,7 +374,7 @@ export function createSeed(): FlowState {
   /* ---------------------------------------------------------------- *
    * Dependencies — links, never a status. The one that matters is the
    * first: Team Atlas cannot finish SSO until Team Nova's identity
-   * platform is done, so it shows up in the boundary lane on Atlas.
+   * platform is done, so it shows up in the boundary workflow on Atlas.
    * ---------------------------------------------------------------- */
 
   link('init-identity', 'st-enterprise-sso', { reason: 'SSO is built on the identity platform' })

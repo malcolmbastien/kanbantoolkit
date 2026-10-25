@@ -24,10 +24,12 @@ const DIST = 'dist'
  * starts on sign-in and so cannot be a screen of its own — and 163 when the move rule left the store
  * for `src/domain/move.ts` (task 169), where the REST API and an agent's `move_item` ask the same
  * function. The rule is on the first-download path because a drag uses it, and its refusal sentences
- * are part of it. A raise belongs in this comment, with a reason, which is what makes it a decision
- * rather than a regression.
+ * are part of it — and 164 for the boundary workflow (task 174), which replaced the sticky rail with
+ * a section below the cards: it is part of the board surface, drawn on first paint, and its named
+ * links are what make the edge of the board legible. A raise belongs in this comment, with a reason,
+ * which is what makes it a decision rather than a regression.
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 163)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 164)
 
 let manifest
 try {

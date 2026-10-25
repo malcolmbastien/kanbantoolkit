@@ -120,7 +120,7 @@ export interface ViewState {
    */
   savedFilters: SavedFilter[]
   /**
-   * An external dependency (from the boundary lane) being inspected; the local
+   * An external dependency (from the boundary workflow) being inspected; the local
    * cards that wait on it are highlighted on the board. View-only.
    */
   boundaryId: string | null

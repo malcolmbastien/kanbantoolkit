@@ -1,6 +1,7 @@
 import { Archive, Download, Info, SlidersHorizontal } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
+import { BoundaryWorkflow } from './BoundaryWorkflow'
 import { BoardSummary } from './BoardSummary'
 import { KindFilter } from './KindFilter'
 import { ManagementBoard } from './ManagementBoard'
@@ -196,6 +197,10 @@ export function BoardView({ requestMove }: Props) {
           </div>
           <BoardCanvas boardId={boardId} interactive={editable} onMove={requestMove} />
         </section>
+
+        {/* Boundary work: the edge of this board, as a workflow of its own — below the cards, in
+            the same four stages, and read-only. It renders nothing when nothing crosses the edge. */}
+        <BoundaryWorkflow boardId={boardId} />
       </div>
     </div>
   )

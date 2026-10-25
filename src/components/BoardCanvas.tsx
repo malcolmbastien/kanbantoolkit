@@ -4,11 +4,9 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronsRight,
-  Link2,
   Plus,
 } from 'lucide-react'
-import { BoundaryPin } from './BoundaryPin'
-import { BoundaryConnectors } from './BoundaryConnectors'
+import { focusBoundary } from './BoundaryWorkflow'
 import { Card, type CardParent } from './Card'
 import { LaneEditControls } from './LaneCtl'
 import { DragLayer } from './DragLayer'
@@ -31,7 +29,8 @@ import {
   waitsOn,
   type Graph,
 } from '@/domain/derive'
-import { boardCardTypeId, externalDependenciesOnBoard, tagsOf } from '@/domain/board'
+import { boardCardTypeId, tagsOf } from '@/domain/board'
+import { externalWaits } from '@/domain/boundary'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_PILL } from '@/lib/colors'
@@ -65,8 +64,10 @@ interface Ctx {
   boards: Board[]
   editMode: boolean
   filters: CardFilters
-  /** External dependency (boundary lane) whose local dependents are highlighted. */
+  /** External dependency (the boundary workflow) whose local dependents are highlighted. */
   boundaryId: string | null
+  /** Select a boundary card from a dependent's chip, and take the reader to it. */
+  onBoundary: (dependencyId: string, title: string) => void
   /** Multi-select group (shift+click). */
   multiSelect: string[]
   toggleMultiSelect: (id: string) => void
@@ -74,6 +75,8 @@ interface Ctx {
   selectedItemId: string | null
   /** Cards to render. */
   boardItems: Item[]
+  /** The board being read — needed for the boundary links, which are about the edge of *this* board. */
+  boardId: string
   /** The focused item, for the lineage highlight. */
   lensId: string | null
   /** The card waiting for a parent, if any. See `startParentPick`. */
@@ -470,9 +473,14 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               selected={ctx.selectedItemId === c.id}
               dropTarget={ctx.drag.dropTargetId === c.id}
               boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}
+              waitingOn={externalWaits(c.id, graph, ctx.boardId).map((wait) => ({ id: wait.dependency.id, title: wait.dependency.title }))}
+              onBoundary={ctx.onBoundary}
               multi={ctx.multiSelect.includes(c.id)}
               dimmed={
                 (ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)) ||
+                // A selected boundary card is the thing being read: everything that does not wait
+                // on it recedes, so the relationship is visible across the whole board.
+                (ctx.boundaryId !== null && !waitsOn(c.id, ctx.boundaryId, graph)) ||
                 // Waiting for a parent, only the initiatives are choices.
                 (ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative')
               }
@@ -641,6 +649,12 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const filters = useStore((s) => s.filters)
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
+  // From this end, selecting never toggles off: the chip is a link to the boundary card, and a
+  // second press should take you there again rather than put the light out.
+  const onBoundary = (dependencyId: string, title: string) => {
+    if (boundaryId !== dependencyId) toggleBoundary(dependencyId)
+    focusBoundary(dependencyId, title)
+  }
   const multiSelect = useStore((s) => s.multiSelect)
   const toggleMultiSelect = useStore((s) => s.toggleMultiSelect)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -696,9 +710,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
 
   const effectiveLane = new Map<string, string>()
   for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
-
-  const external = externalDependenciesOnBoard(graph, boardId)
-  const typeOf = (typeId: string): IssueType => issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   // The card in the air, and the single gap it would land in. The gesture itself is shared with
   // the initiatives workflow; only where the card lands is this surface's own.
@@ -785,7 +796,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const lifting = lift !== null
 
   const ctx: Ctx = {
-    lanes, items, issueTypes, graph, users, boards, editMode, filters, boundaryId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
+    lanes, items, issueTypes, graph, users, boards, editMode, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
     initiativeScope: initiativeScope(filters, graph),
     interactive,
@@ -862,47 +873,6 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
           {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-meta text-slate-600">This board has no lanes.</p>}
         </div>
       </div>
-      {external.length > 0 && (
-        // The rail sits outside the board's scroller, so it holds its place while the columns
-        // move under it — the dependencies do not scroll away with the work that waits on them.
-        <aside
-          aria-label="Boundary — waiting on"
-          className="sticky top-0 max-h-[calc(100vh-8rem)] w-[248px] shrink-0 self-start overflow-y-auto border-l border-slate-200 bg-slate-50/80 p-2.5"
-        >
-          <div className="mb-2 flex items-center gap-1.5 px-1">
-            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-700 ring-1 ring-amber-200">
-              <Link2 size={12} />
-            </span>
-            <span className="text-micro font-bold uppercase tracking-wider text-slate-600">Boundary · waiting on</span>
-            <span className="ml-auto rounded-full bg-white px-1.5 py-0.5 text-micro font-bold tabular-nums text-slate-600 ring-1 ring-slate-200">
-              {external.length}
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {external.map((d) => (
-              <BoundaryPin
-                key={d.link.id}
-                dep={d}
-                dependencyType={typeOf(d.dependency.typeId)}
-                boardName={boards.find((b) => b.id === placements.find((p) => p.itemId === d.dependency.id)?.boardId)?.name ?? '—'}
-                // The dependency's own stage and standing, read the way a card's are — so the pin
-                // can say how far along the thing outside the board has got.
-                stage={rollupOf(d.dependency.id, graph).bucket}
-                status={statusOf(d.dependency.id, graph)}
-                selected={boundaryId === d.dependency.id}
-                dependentCount={boardItems.filter((i) => waitsOn(i.id, d.dependency.id, graph)).length}
-                onSelect={toggleBoundary}
-                onOpen={openItem}
-              />
-            ))}
-          </div>
-        </aside>
-      )}
-      <BoundaryConnectors
-        containerRef={rowRef}
-        boundaryId={boundaryId}
-        cardIds={boundaryId ? boardItems.filter((i) => waitsOn(i.id, boundaryId, graph)).map((i) => i.id) : []}
-      />
     </div>
   )
 

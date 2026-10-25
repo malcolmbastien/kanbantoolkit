@@ -1,4 +1,4 @@
-import { decompositionChildren, decompositionParent, descendants, isArchived, openDependenciesOf, rollupOf, type DependencyInfo, type Graph } from './derive'
+import { decompositionChildren, decompositionParent, descendants, rollupOf, type Graph } from './derive'
 import {
   addLaneNode,
   childrenOf,
@@ -569,24 +569,6 @@ export function initiativeRanks(
     if (rank) rank.push(i)
   }
   return byCell
-}
-
-/** Open dependencies of on-board work that live on another board (boundary pins). */
-export function externalDependenciesOnBoard(graph: Graph, boardId: string): DependencyInfo[] {
-  const onBoard = new Set(graph.placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
-  const seen = new Set<string>()
-  const out: DependencyInfo[] = []
-  for (const p of graph.placements.filter((pl) => pl.boardId === boardId)) {
-    // Archived work is off the board — it produces no boundary pins.
-    if (isArchived(graph.items.find((i) => i.id === p.itemId))) continue
-    for (const dep of openDependenciesOf(p.itemId, graph)) {
-      if (!onBoard.has(dep.dependency.id) && !dep.dependency.archived && !seen.has(dep.dependency.id)) {
-        seen.add(dep.dependency.id)
-        out.push(dep)
-      }
-    }
-  }
-  return out
 }
 
 /**

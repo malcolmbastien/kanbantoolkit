@@ -102,8 +102,16 @@ interface Props {
   /** Locked (edit mode): no drag, no click-to-open, no lens. */
   locked?: boolean
   selected?: boolean
-  /** Highlighted because it waits on the selected boundary-lane dependency. */
+  /** Highlighted because it waits on the selected boundary card. */
   boundary?: boolean
+  /**
+   * The external work this card is still waiting on, named. Always drawn — the relationship is a
+   * fact about the card, not something a reader has to select a pin to discover — and each chip is
+   * the way to the boundary card at the other end.
+   */
+  waitingOn?: Wait[]
+  /** Select a boundary card from this end of the relationship. */
+  onBoundary?: (dependencyId: string, title: string) => void
   /** Part of the multi-select group (shift+click). */
   multi?: boolean
   /**
@@ -188,10 +196,47 @@ const cardKeyboard = (
   },
 })
 
+export interface Wait {
+  /** The external dependency. */
+  id: string
+  title: string
+}
+
+/**
+ * "Waiting on …", named and always there.
+ *
+ * A card that waits on work outside the board says so on its face, and the chip is the way to the
+ * boundary card at the other end: the boundary workflow is below the cards, so without this the
+ * relationship is only visible from one direction.
+ */
+function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (dependencyId: string, title: string) => void }) {
+  if (!waits?.length) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1" data-waiting-on>
+      {waits.map((wait) => (
+        <button
+          key={wait.id}
+          onClick={(event) => {
+            // The chip is a link, not "open this card".
+            event.stopPropagation()
+            onBoundary?.(wait.id, wait.title)
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+          title={`Waiting on “${wait.title}” — outside this board. Select it in the boundary workflow below.`}
+          className="flex min-w-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-900 ring-1 ring-amber-300 transition hover:bg-amber-100"
+        >
+          <Link2 size={11} className="shrink-0" />
+          <span className="max-w-[15rem] truncate">Waiting on {wait.title}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const held = heldByOther(usePresence((state) => state.locks), item.id)
   const dragProps =
     draggable && !locked
@@ -222,7 +267,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
   const lensCls = cn(
     lens === 'out' ? 'opacity-40 saturate-50' : '',
     boundary
-      ? 'ring-2 ring-amber-400'
+      ? 'ring-2 ring-slate-900'
       : multi
         ? 'ring-2 ring-indigo-600'
         : selected
@@ -341,7 +386,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             {
               key: 'boundary',
               label: 'waiting on',
-              why: 'Waiting on an external dependency — see the boundary lane',
+              why: 'Waiting on an external dependency — see the boundary workflow below the cards',
               tone: 'watch' as const,
             },
           ]
@@ -524,6 +569,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           {/* The warnings, as one set of badges in one place — always here, above the rule, so a
               reader scanning a column knows where to look. Never hidden, and never softened into
               the values around them. */}
+          <WaitChips waits={waitingOn} onBoundary={onBoundary} />
           {badges.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               {badges.map((b) => (
@@ -671,6 +717,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               above the telemetry row, so nothing there can be read as one of these. */}
           {blockedAlert}
           {rolledUpBlocked}
+          <WaitChips waits={waitingOn} onBoundary={onBoundary} />
           {summary.dependentsCount > 0 && (
             <span
               className="flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
@@ -708,14 +755,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                   title={`${summary.ageDays} days in this lane`}
                 >
                   <Clock size={11} /> {summary.ageDays}d in lane
-                </span>
-              )}
-              {boundary && (
-                <span
-                  className="flex shrink-0 items-center gap-0.5 text-micro font-semibold text-amber-600"
-                  title="Waiting on an external dependency — see the boundary lane"
-                >
-                  <Link2 size={11} /> waiting on
                 </span>
               )}
               {summary.done && <DoneStamp />}
@@ -796,6 +835,8 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
   if (a.draggable !== b.draggable || a.locked !== b.locked || a.lens !== b.lens) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
+  if (a.waitingOn?.length !== b.waitingOn?.length) return false
+  if (a.waitingOn && b.waitingOn && a.waitingOn.some((w, i) => w.id !== b.waitingOn![i].id || w.title !== b.waitingOn![i].title)) return false
   if (a.dropTarget !== b.dropTarget) return false
   if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title) return false
   // The kind is drawn, so a change to it re-renders. The list is the board's own array, which the

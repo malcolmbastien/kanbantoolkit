@@ -2626,7 +2626,7 @@
         "subtasks": []
       },
       {
-        "id": "150",
+        "id": 150,
         "title": "The public pages: what we do with your data, and how to reach us.",
         "description": "The privacy notice, the terms, a support address and a changelog — and links to the export and the closure that 119 and 126 actually build.",
         "status": "done",
@@ -2881,7 +2881,7 @@
         "testStrategy": "A template per transactional event with copy shared with the app; no tracking pixel or remote asset in any of them; one send per event under replay; a sending domain set up and listed as a sub-processor; and a self-hosted instance that works with no mail at all."
       },
       {
-        "id": "162",
+        "id": 162,
         "title": "A workspace is created from a sign-up page, by the person who will own it.",
         "description": "The public front door to the act that already exists: sign in, name the workspace, land in it — with the plan and the terms beside the form, and invitations that name the workspace they are for.",
         "status": "cancelled",
@@ -2898,7 +2898,7 @@
         "complexityReasoning": "A page and a form on top of an act that exists, plus one schema change: invitations must name the workspace they are for."
       },
       {
-        "id": "163",
+        "id": 163,
         "title": "The instance is the workspace: one deployment, one team.",
         "description": "Each workspace is a separately hosted instance. One workspace per deployment, created by the install, and no path to a second. The boundary stays; the multi-tenant product does not.",
         "status": "done",
@@ -2913,7 +2913,7 @@
         "complexityReasoning": "Scoped by the task’s own verification list."
       },
       {
-        "id": "164",
+        "id": 164,
         "title": "The site is a project’s site: install, not pricing.",
         "description": "No pricing page, no plan language. Install replaces it in the navigation, the home page and the sitemap, and the sign-up stubs go.",
         "status": "done",
@@ -2930,7 +2930,7 @@
         "complexityReasoning": "Scoped by the task’s own verification list."
       },
       {
-        "id": "165",
+        "id": 165,
         "title": "An open-source project’s surface: licence, contribution, security.",
         "description": "One OSI-approved licence, CONTRIBUTING, SECURITY, a code of conduct, the templates, and a README that reads like the site.",
         "status": "done",
@@ -2945,7 +2945,7 @@
         "complexityReasoning": "Scoped by the task’s own verification list."
       },
       {
-        "id": "166",
+        "id": 166,
         "title": "Remove the plans and the bill from the product.",
         "description": "The billing record, the plan vocabulary and the owner-as-payer leave the schema, the server and the UI, with a migration and the tests following.",
         "status": "done",
@@ -2963,7 +2963,7 @@
         "complexityReasoning": "Scoped by the task’s own verification list."
       },
       {
-        "id": "167",
+        "id": 167,
         "title": "The docs live with the code, and the site points at them.",
         "description": "One home for the documentation — markdown in the repository, rendered by GitHub — covering install, configure, upgrade, backup and the architecture, linked from the site rather than copied into it.",
         "status": "done",
@@ -2980,7 +2980,7 @@
         "complexityReasoning": "Five operator docs and two reader docs, plus a link check; the writing is the work, not the code."
       },
       {
-        "id": "168",
+        "id": 168,
         "title": "The identity provider provisions the team: SCIM 2.0.",
         "description": "A SCIM 2.0 endpoint an identity provider can call: users and groups, active=false as deactivation rather than deletion, a token minted once and revocable, and errors in SCIM's own shape.",
         "status": "done",
@@ -2997,7 +2997,7 @@
         "complexityReasoning": "A protocol surface with its own error shape and discovery documents, mapped onto acts that already exist (invite, deactivate, remove, group membership)."
       },
       {
-        "id": "169",
+        "id": 169,
         "title": "A REST API a script can rely on: /api/v1, and a contract that does not move.",
         "description": "A supported surface beside the app's own: boards, items, moves, objectives, people, search and the workspace file, authenticated by task 148's tokens, documented by an OpenAPI document that a test keeps true, and versioned with a written promise.",
         "status": "done",
@@ -3014,7 +3014,7 @@
         "complexityReasoning": "A contract rather than a route list: adapters over existing operations, a document that must stay in step, and a versioning promise that constrains every later change."
       },
       {
-        "id": "170",
+        "id": 170,
         "title": "An MCP server, so an agent reads and writes the board under the same rules.",
         "description": "The Model Context Protocol over the same operations as the app and the REST API: named tools that refuse in sentences, no write tool on a read-only token, and nothing that invents work the agent was not asked to write.",
         "status": "done",
@@ -3031,7 +3031,7 @@
         "complexityReasoning": "A protocol transport over acts that already exist; the difficulty is the safety boundary, not the plumbing."
       },
       {
-        "id": "171",
+        "id": 171,
         "title": "The Viewer role is read-only in the interface, not only in the API.",
         "description": "The role exists and the server enforces it; the interface has never asked. A Viewer is offered drag, add-card, board design and settings today and answered with a 403. Wire the matrix into the surfaces a person actually touches, and say read-only where it is.",
         "status": "done",
@@ -3046,7 +3046,7 @@
         "complexityReasoning": "Mechanical once the helper exists, but it touches four large components and every control that writes."
       },
       {
-        "id": "172",
+        "id": 172,
         "title": "A published image, so nobody has to build one.",
         "description": "CI already builds the instance image on every push; publish it to a registry, tagged by commit and by version, so a self-hoster runs one command instead of cloning and waiting for a build.",
         "status": "done",
@@ -3063,7 +3063,7 @@
         "complexityReasoning": "Mostly CI plumbing on a build that already exists; the care is in tags and in not publishing an untested artifact."
       },
       {
-        "id": "173",
+        "id": 173,
         "title": "An instance is the application, not the project’s site.",
         "description": "The Node entry serves the app at /app and nothing else: no marketing pages, no project 404, no project security.txt — and the image ships only what an instance needs.",
         "status": "done",
@@ -3076,6 +3076,17 @@
         "recommendedSubtasks": 0,
         "expansionPrompt": "",
         "complexityReasoning": "A routing change in one entry plus a decision about the terms links; the care is in not breaking the two other deployments."
+      },
+      {
+        "id": 174,
+        "title": "Boundary work becomes a workflow below the cards, with links a reader can follow",
+        "description": "The 'Boundary — waiting on' rail becomes a third, read-only board workflow below the cards workflow, with the standard four typed stages, and the connection between an external dependency and the cards that wait on it is explicit at both ends rather than a faint dashed curve.",
+        "details": "SYSTEM\nFlowline, the application in this repository. Read `src/components/BoardCanvas.tsx` (the boundary rail at ~869–905 and its `BoundaryConnectors` overlay), `src/components/BoundaryPin.tsx`, `src/components/BoundaryConnectors.tsx`, `src/components/Card.tsx` (the boundary highlight), `src/domain/board.ts` (`externalDependenciesOnBoard`), `src/domain/derive.ts` (`waitsOn`, `dependenciesOf`, `rollupOf`, `statusOf`), `src/domain/lanes.ts`, `src/domain/types.ts`, and the board model in `AGENTS.md`.\n\nTHE POINT\nToday the external dependencies of work on this board appear in a sticky rail on the right (\"Boundary · waiting on\"). The rail is outside the lane tree, has no stages, and reads as a list. Selecting a pin draws thin dashed amber curves to the dependent cards; the curves are easy to miss and do not say which card is at the other end. Make boundary work a first-class workflow, displayed below the cards workflow and using the same four typed stages, and make the association between a boundary card and its dependent cards legible from either end.\n\nREQUIREMENTS\n\nR1 — A boundary workflow below the cards workflow\n- Replace the sticky rail with a workflow section rendered below the cards workflow (and below the initiatives workflow, which precedes cards today).\n- Use the standard four typed stages: Backlog, Not Started, In Progress, Done, with the labels the rest of the board uses (`STAGE_LABELS`). These are typed stages, not a new editable vocabulary.\n- Render the section only when the board has at least one boundary dependency; otherwise render nothing. It does not appear on coordination boards that render no cards workflow.\n- Give it the same header shape as the other workflows: a name (\"Boundary — waiting on\"), a count, and a short explanation.\n\nR2 — Boundary work is derived and read-only\n- A boundary card is an external item, not placed on this board. Its stage is the dependency's own rollup bucket (`rollupOf(id).bucket`), read from its home board. Do not create placements and do not store a stage.\n- Boundary cards are not edited, not dragged between columns, and do not enter WIP counts, card counts, initiative counts or rollups. The recommended answer for whether selecting a boundary card can move the dependency on its home board is no — this surface is a lens, and moving external work here would be a second editor of another board's state.\n- The workflow should be a derived surface, not a third stored lane tree. The board model says two recursive lane trees (`workflow: 'cards' | 'initiatives'`); adding a third `workflow` value means auditing `rootLane`/`topLevelLanes`/`leafLanes`, board creation, templates, moves and persistence. Implement it as derived, or if it deliberately adds a third tree, update `AGENTS.md` and every workflow call site and say why.\n\nR3 — What the Done column means\n- The current query (`externalDependenciesOnBoard`) returns only open dependencies, so a Done column would always be empty. Settle this in the implementation. Recommended: show every boundary dependency that has at least one dependent on this board, including satisfied and closed ones, so the flow is a real flow and a cleared dependency can be read where it ended. Keep the link state (Open live blockage / Open planning risk / Satisfied / Closed) on the card. If open-only is kept instead, remove the Done column and say why, rather than shipping a column that can never hold anything.\n\nR4 — The connection between boundary and dependent cards\n- Make the relationship explicit in words at both ends, independent of selection:\n  - each boundary card names the card or cards on this board that wait on it, each as a real target that opens/focuses that card; if there are many, name the first few and expose the rest (a list or a \"+N\" disclosure);\n  - each dependent card in the cards workflow carries a clear \"Waiting on <dependency title>\" chip or line, visible without hunting, which targets the boundary card. Today the card only gets an amber edge/pip after a pin is selected.\n- Replace the faint dashed amber curve. Keep a connector only if it can say which two things it joins: thicker, solid or clearly patterned, high-contrast, with an endpoint/arrowhead at the dependent card and, where it helps, a label. The explicit named chips are the primary link; the connector is reinforcement. If a connector cannot be made legible across the now-longer distance between the workflows, omit it and rely on the paired names plus a focus/scroll action.\n- Selecting either end highlights both ends with a non-colour-only state (ring/background plus a text or icon marker), dims unrelated cards, and announces the relationship. Selection must be operable by keyboard and must not rely on amber alone. Scroll the dependent card into view (or offer a \"Show dependents\" action) when the two ends are far apart.\n- Ensure a boundary card with several dependents resolves each one; the current \"+N more\" must be expandable/readable, not just a count.\n\nR5 — Order and identity\n- One boundary card per external dependency, deduped by dependency id, as today. If a dependency has several dependent cards on this board, it appears once and names them all.\n- Within a column, order deterministically: live blockage first, then planning risk, then satisfied/closed, then by title; document the order.\n- Keep the dependency's type, link state, home board, and stage on the card. Use `chipColors` for the type chip so contrast is not assumed.\n\nR6 — Removal of the old surface\n- Remove the sticky right rail and its section once the workflow exists; there must be one boundary surface, not two.\n- Remove the old `BoundaryConnectors` dashed curve or replace it with the legible connector described above.\n- `boundaryId`/`toggleBoundary` may stay as the selection state, but the selected thing is a boundary card in the workflow, not a rail pin.\n\nTEST STRATEGY\nV1 — The boundary workflow renders below cards, with the four typed columns; absent when there are no external dependencies; not on coordination boards.\nV2 — Grouping: a dependency appears once in its rollup stage; multiple dependents are named; satisfied/closed handling matches the decision in R3; order is deterministic; no placements or writes are created.\nV3 — Each boundary card names its dependents and each dependent card names its boundary item; following either name opens/focuses the other end.\nV4 — Selection highlights both ends, is keyboard operable, does not rely on colour alone, and works with several dependents.\nV5 — No stale rail remains; no faint dashed curve remains (or the replacement is visible and labelled); no boundary item leaks into card/initiative counts, WIP, rollups or filters.\nV6 — `npm test`, `npm run build`, and the e2e accessibility checks pass. Extend the existing `externalDependenciesOnBoard`/`waitsOn` tests and add a component or e2e test for the workflow and the paired link.\n\nDECISIONS TO WRITE DOWN\n- Derived vs stored third workflow (recommended derived).\n- Done column: include cleared dependencies (recommended) or keep open-only.\n- Whether a boundary card can move its dependency (recommended no).\n- Connector vs named links only (recommended named links plus a strong connector only if it remains legible).\n\nDONE — 2026-10-25 (CI green: checks, image, e2e, publish, deploy)\n**The four decisions, written down first.** (1) **Derived**, not a third lane tree: `src/domain/boundary.ts`\nreads the graph and returns entries; nothing is written, no workflow value was added, and\n`rootLane`/`topLevelLanes`/`leafLanes`, board creation, templates and persistence are untouched. (2) The\n**Done column holds cleared dependencies**: every state is included, not only the open ones, because a\nsatisfied dependency still had cards here waiting for it and the workflow is the history of the edge as\nwell as the list of what blocks today. (3) A boundary card **cannot move its dependency** — this is a\nlens, and moving external work here would be a second editor of another board's state. (4) **Named\nlinks, no connector**: a curve between two workflows that are now far apart cannot say which two\nthings it joins, so the relationship is the paired names plus a scroll. `BoundaryConnectors` is deleted.\n\n**R1.** A `Boundary — waiting on` section below the cards workflow (and so below the initiatives one),\nin the same four typed stages (`STAGES`/`STAGE_LABELS`, `STAGE_SURFACE` tints, `STAGE_ACCENT` edge).\nIt renders nothing when nothing crosses the edge, and a coordination board never reaches it — BoardView\nreturns `ManagementBoard` before the cards section exists.\n\n**R2.** Read-only, and structurally so: the columns are the dependency's own `rollupOf(...).bucket`\nread from its home board; no placement is created and no stage is stored. Nothing in it is a\n`data-card-id`, so it cannot enter card counts, WIP, initiative counts or a rollup — the e2e asserts\nthat directly.\n\n**R3/R5.** One entry per dependency (deduped by id, dependents merged), ordered within a column by\nstate (live blockage → planning risk → satisfied → closed) then title; the type chip uses\n`chipColors`, and the card carries the link state, the home board and its stage. The state is the\n*worst* among the links from this board — one live blockage makes the entry a live blockage.\n\n**R4.** Both ends name each other. A boundary card lists **every** dependent on this board, each a\nbutton that opens it, with `+N more` when the list is long (the old rail named the first and counted\nthe rest). Every dependent card wears a `Waiting on <title>` chip for each open external dependency —\nalways, not only after a selection — and the chip selects the boundary card and scrolls to it.\nSelecting either end rings both, dims every unrelated card, says it in words (`linked` badge /\n`showing its cards` / the chip itself), announces through the live region, and brings the other end\ninto view (`block: 'nearest'`, so an already-visible card does not move). Keyboard: both ends are real\nbuttons, so Enter/Space work; nothing depends on colour alone.\n\n**R6.** The rail, its `<aside>` and its pin component are deleted; `boundaryId`/`toggleBoundary`\nremain as the selection, and `?boundary=` deep links still select and now scroll the workflow to the\ncard.\n\nTests: **9 domain** (`boundary.test.ts`: dedupe, worst-state, stage from rollup, archived/own-board/\ninternal exclusions, state-then-title order, and \"writes nothing\" as a property of the input arrays) and\n**3 e2e** (`boundary.spec.ts`: the section below cards with four columns and no rail; both ends naming\neach other, selection by mouse and keyboard, dimming; a coordination board has none). 866 unit tests,\n73 e2e in a clean worktree with only these changes. The first download stepped 163 → 164 KB because the\nworkflow is part of the board surface drawn on first paint (`scripts/bundle-size.mjs` says why).\n",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
@@ -3087,7 +3098,8 @@
         "backlog"
       ],
       "created": "2026-10-22T12:22:21.350Z",
-      "description": "Tasks for backlog context"
+      "description": "Tasks for backlog context",
+      "updated": "2026-10-25T22:42:16.292Z"
     }
   }
 }
