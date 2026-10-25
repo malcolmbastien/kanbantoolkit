@@ -2620,7 +2620,7 @@
         "testStrategy": "VERIFICATION\n\nV1 - The default policy is provider-only and changes nothing today.\nV2 - Preview warns; enforce blocks.\nV3 - Only WebAuthn is accepted as the second factor.\nV4 - Recovery is explicit, audited and bannered.\nV5 - Enrolment revokes other sessions.\nV6 - The last administrator cannot be locked out.",
         "status": "pending",
         "dependencies": [
-          "138"
+          "154"
         ],
         "priority": "low",
         "subtasks": []
