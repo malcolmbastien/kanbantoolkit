@@ -591,6 +591,100 @@ main > h3 {
   margin-top: 2.5rem;
 }
 
+/* A legal page is scanned rather than read: headings a step down from the marketing pages, so eight
+   sections fit in a view or two, and the summary does the work the prose would otherwise do. */
+.legal h2 {
+  margin-top: 2.75rem;
+  font-size: clamp(1.2rem, 1.8vw, 1.5rem);
+  letter-spacing: -0.025em;
+}
+
+.legal h2:first-of-type {
+  margin-top: 0.5rem;
+}
+
+.legal p,
+.legal li {
+  font-size: 0.95rem;
+}
+
+/* The two legal pages: a summary box at the top, and a table that says where data lives. Both are
+   read once by somebody checking a claim, so they are scanned rather than read — a heading for each
+   answer, and nothing in a paragraph that could be a table row. */
+.in-short {
+  margin: 1.75rem 0 2rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.in-short p {
+  margin: 0 0 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.in-short ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.in-short li {
+  margin-bottom: 0.4rem;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.in-short strong {
+  color: var(--ink);
+}
+
+.updated {
+  margin: -0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+main table {
+  width: 100%;
+  margin: 1.25rem 0;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+main caption {
+  caption-side: top;
+  text-align: left;
+  padding-bottom: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+main th,
+main td {
+  padding: 0.6rem 0.65rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+
+main th {
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+main td {
+  color: var(--muted);
+}
+
 /* ---- footer ------------------------------------------------------------------------------------ */
 
 .site-footer {

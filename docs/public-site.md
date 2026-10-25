@@ -224,6 +224,10 @@ the rest are open.
 6. **Where the project lives** — **open**. The repository's URL, and therefore the Docs link, the
    source link and the place a security report goes. Everything here assumes GitHub; the value is one
    constant in the build (`REPO_URL`), not a page.
+6b. **Who operates this site, and the law that applies to it** — **open**. The terms have no
+   governing-law clause and no legal entity, unlike the sites this shape was taken from, because there
+   is no company yet. When there is one, the entity, its address and the jurisdiction go in `/terms`
+   §1 and §13 — and *that* is also the moment a DPA or an imprint page becomes meaningful.
 7. **The demo instance's identity** — **open**. `/privacy` and `/sub-processors` describe *this*
    deployment, so somebody has to run one, and it needs a name that is not "Flowline Cloud".
 

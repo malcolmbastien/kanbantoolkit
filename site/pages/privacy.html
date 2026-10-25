@@ -1,71 +1,134 @@
 <!--
-title: Privacy notice — Flowline
-description: What Flowline holds, who processes it, how long it keeps it, and how to take a workspace out or have it deleted — with links to the acts themselves.
+title: Privacy — Flowline
+description: What this website and its demo do with your data — nothing — and who is responsible for an instance you run yourself.
 path: /privacy/
 -->
-<h1>Privacy notice</h1>
+<div class="legal">
+<h1>Privacy</h1>
 <p class="lede">
-  What we hold, who sees it, how long it stays, and how to take it with you or have it removed. No
-  analytics, no advertising, no third-party scripts: the only things that see your work are the
-  services listed below, and each one is named.
+  This page is about <strong>this website and its demo</strong>. An instance you install is yours: you
+  hold the data, you decide what it is for, and your organisation’s own notice is the one that applies
+  — not this one.
+</p>
+<p class="updated">Last updated 25 October 2026</p>
+
+<div class="in-short">
+  <p>In short</p>
+  <ul>
+    <li><strong>This site collects nothing.</strong> No analytics, no advertising, no tracking scripts, no cookies.</li>
+    <li><strong>The demo runs in your browser.</strong> Its board lives in this browser’s storage and is never sent anywhere.</li>
+    <li><strong>There is no account here.</strong> You cannot sign in to this site, and there is no server-side copy of what you do in the demo.</li>
+    <li><strong>An instance you run is your own.</strong> This project has no access to it, no copy of it, and no way to read it.</li>
+    <li><strong>The only thing that sees a visit is the host</strong> serving these pages, which keeps request logs the way any web server does.</li>
+  </ul>
+</div>
+
+<h2>What this site is</h2>
+<p>
+  Two things: a handful of static pages like this one, and a demo at <code>/app</code> that is the
+  whole application running with no server at all. The pages are plain HTML and one stylesheet; the
+  demo is the same build a team installs, reading and writing only this browser’s storage. Neither
+  has an account system, because neither has a database.
 </p>
 
-<h2>What we hold</h2>
-<ul class="points">
-  <li><strong>Your account.</strong> A name, an email address, and the identity your provider verified when you signed in (or, on a deployment without a provider, the address you were invited with). The address is one somebody vouched for; Flowline does not let anybody type a different one.</li>
-  <li><strong>A password, if you have one.</strong> Stored as a <strong>hash</strong> — PBKDF2, with its own salt and its cost written into the hash — and never as the password. Nobody can read it back: not us, not an administrator. A reset is a link, not a lookup, and setting a new password ends every other session.</li>
-  <li><strong>Sign-in links.</strong> When this deployment has a mail relay, a link that signs you in is a row with an address, a hash of the token, and an expiry of fifteen minutes. It is spent on first use.</li>
-  <li><strong>Your workspace.</strong> Its boards, lanes, cards, placements, objectives and the words you put in them — the work itself.</li>
-  <li><strong>What happened.</strong> An audit trail of access changes — who invited whom, who changed a role, who signed in — kept for 90 days. It records field names, not the values of the work.</li>
-  <li><strong>Sessions.</strong> Stored as hashes, with the browser that opened them and when each was last used. An address is stored only as a salted hash, never as an address.</li>
-</ul>
+<h2>What is collected</h2>
 <p>
-  That is the whole of it. There is no billing record, no payment provider and no card: the software
-  is free, and an instance holds one team's work and nothing commercial beside it. A deployment that
-  configures a mail relay adds it to this list — the relay sees an address and the text of a sign-in
-  link, and nothing else.
+  <strong>Nothing about you.</strong> There is no analytics service, no advertising pixel, no session
+  cookie, no font requested from somebody else’s server, and no third-party script of any kind.
+  Opening these pages makes requests to this domain and to nothing else.
+</p>
+<p>
+  That is not a promise in prose: a test records every request the public pages make and fails the
+  build if one leaves this origin. <a href="/security/">The security page</a> lists what is claimed
+  there, and what is deliberately not claimed.
 </p>
 
-<h2>Who processes it</h2>
-<p>Only these, and only for what is described:</p>
-<ul class="points">
-{{processors}}
-</ul>
-
-<h2>How long it stays</h2>
+<h2>The demo</h2>
 <p>
-  A workspace stays until its administrator deletes it. Sessions end after twelve hours, or thirty
-  days when a browser asked to be remembered; the audit trail is kept for 90 days and then pruned.
-  Error reports are pruned with it.
-</p>
-
-<h2>Taking it with you</h2>
-<p>
-  <strong>Export a workspace</strong> from the board's own menu: the file is the workspace — boards,
-  lanes, cards, history and all — and it opens anywhere the app runs. It is the same file the
+  The demo keeps its workspace in your browser’s <code>localStorage</code> — boards, cards and all. It
+  is not transmitted, not backed up by us, and not visible to anybody but you. Clearing this site’s
+  data removes it, so export the workspace first if you want to keep it: the board’s own menu writes
+  it to a file, and that file is the data — the same file the
   <a href="{{repo}}/blob/main/docs/backup.md">backup runbook</a> restores from.
 </p>
 
-<h2>Having it deleted</h2>
+<h2>An instance you install</h2>
 <p>
-  Two different promises, and both are kept:
+  Flowline is software a team runs on its own machine. When you install it, <strong>you are the
+  controller of that data</strong>: the accounts, the boards, the audit trail and the database file all
+  live on hardware you choose, under your policy. This project has no access to it, holds no copy of
+  it, and cannot recover it for you — which is why the install guide puts backups first.
+</p>
+<p>
+  Some of what it does with that data is worth saying here, because it is about people rather than
+  rows. <strong>A person is removed</strong> by an administrator: their account, their ways in and their
+  sessions go, the work they did stays, and every place that names them reads “Former member”.
+  <strong>A workspace is deleted</strong> by its administrator, and its accounts are deleted with it —
+  which is the end of that instance’s data, not a copy of it somewhere here. Export anything you want
+  to keep before either act, because neither can be undone.
+</p>
+<p>
+  What the software stores when you run it is described where a person would look for it: the
+  <a href="{{repo}}/blob/main/docs/README.md">documentation</a> for the database and the audit trail,
+  and <a href="/security/">the security page</a> for the session and password handling. If you are
+  responsible for an instance, your own privacy notice — for your staff, your contractors, your
+  customers — is the one that has to be written, and no page here can stand in for it.
+</p>
+
+<h2>What the host sees</h2>
+<table>
+  <caption>The whole of what leaves a visit here</caption>
+  <thead>
+    <tr><th scope="col">Who</th><th scope="col">What they receive</th><th scope="col">Why</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>The host serving these pages</td>
+      <td>An address, a request, a user agent, and the time — the request log every web server keeps</td>
+      <td>To serve the page and to keep the site up</td>
+    </tr>
+    <tr>
+      <td>Nobody else</td>
+      <td>—</td>
+      <td>There is no analytics, no CDN of somebody else’s, and no form on this site to submit</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Who is behind this deployment</h2>
+<p>
+  Rendered from this deployment’s own configuration, so it cannot quietly go stale. The fuller page —
+  what each one is for, and what it is not — is <a href="/sub-processors/">sub-processors</a>.
 </p>
 <ul class="points">
-  <li><strong>A person is removed</strong> by a workspace administrator. Their account, their ways in and their sessions are deleted; the work they did stays, and every place that names them reads “Former member”.</li>
-  <li><strong>A workspace is deleted</strong> by its administrator, and its accounts are deleted with it. That is the end of it: to come back, somebody makes a new workspace and a new account.</li>
+{{processors}}
 </ul>
-
-<h2>If something goes wrong</h2>
 <p>
-  Write to <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>. We answer within two
-  working days. A security problem goes to
-  <a href="mailto:{{securityEmail}}">{{securityEmail}}</a> instead, and is answered
-  faster.
+  An instance you install has processors of your choosing — your host, your identity provider, your
+  mail relay — and its own list is the one you publish, because you are the controller of that
+  instance’s data.
+</p>
+
+<h2>Your rights</h2>
+<p>
+  Because this site holds nothing about you, there is nothing to access, correct or erase. The one
+  exception is a message you send us: a support or security report is kept as long as it takes to
+  answer and follow up, and you can ask for it to be deleted by writing again from the same address.
 </p>
 
 <h2>Changes</h2>
 <p>
-  When this notice changes, the change is in the repository's history with its date — this page has
-  no separate change log. The processors above are the ones this deployment actually uses: adding one
-  to the product without adding it here fails a test.
+  When this page changes, the date at the top changes with it, and the change is in this repository’s
+  history — there is no separate change log. It is worth re-reading if you are relying on it for
+  something, because nothing else records it for you.
 </p>
+
+<h2>Contact</h2>
+<p>
+  <a href="mailto:{{supportEmail}}">{{supportEmail}}</a> for anything about this page — answered within
+  two working days — and
+  <a href="mailto:{{securityEmail}}">{{securityEmail}}</a> for a security problem — the address in
+  <a href="/security.txt">security.txt</a>, which is the machine-readable half of
+  <a href="/security/">the security page</a>.
+</p>
+</div>
