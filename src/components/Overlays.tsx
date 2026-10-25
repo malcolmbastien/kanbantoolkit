@@ -1,7 +1,29 @@
+import { lazy, Suspense } from 'react'
 import { CornerDownRight, X } from 'lucide-react'
 import { CardMenu } from './CardMenu'
 import { useStore } from '@/store'
 import { useMay } from '@/lib/permissions'
+
+/**
+ * The consent screen is only ever seen from a link a tool printed, so it is not part of the first
+ * download: a board must not carry a dialog about credentials it will not show.
+ */
+const ApprovalPrompt = lazy(() => import('./ApprovalPrompt').then((m) => ({ default: m.ApprovalPrompt })))
+
+/**
+ * The code this page was opened with, read once at module load.
+ *
+ * Before any effect runs, because the app's own URL state normalises the query as it starts (`useUrl`
+ * writes the board and the view it settles on) and a parameter that arrived in a link must survive
+ * that. A tool's approval is the one thing on this page that came from outside it.
+ */
+const APPROVAL_CODE = (() => {
+  try {
+    return new URLSearchParams(window.location.search).get('approve')
+  } catch {
+    return null
+  }
+})()
 
 /**
  * The things that float above whatever board you are looking at: the card menu, and the chip
@@ -61,6 +83,13 @@ export function Overlays() {
             <X size={12} />
           </button>
         </div>
+      )}
+      {/* A tool asking to be connected: a question about the person, not about a board, so it is
+          above whatever is being looked at. Loaded only when the address says so. */}
+      {APPROVAL_CODE && (
+        <Suspense fallback={null}>
+          <ApprovalPrompt code={APPROVAL_CODE} />
+        </Suspense>
       )}
       {cardMenu && may('item.write') && (
         <CardMenu

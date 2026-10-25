@@ -31,6 +31,11 @@ export type AuditAction =
   | 'user.erase'
   | 'session.revoke'
   | 'identity.unlink'
+  // Machine credentials (task 148): minted, revoked, and approved through a device code. The value
+  // is never in the data — an audit trail that could be replayed is not an audit trail.
+  | 'token.create'
+  | 'token.revoke'
+  | 'token.approve'
   | 'user.deactivate'
   | 'user.activate'
   | 'instance.access'

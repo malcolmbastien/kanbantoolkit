@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { mySessions, revokeSession, signOutEverywhere, type SessionInfo } from '@/lib/sessions'
+import { useAuth } from '@/lib/auth'
+import { TokenPanel } from './TokenPanel'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 
 /**
@@ -40,6 +42,8 @@ const when = (value: string) =>
 
 export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved(): void }) {
   const dialogRef = useRef<HTMLDivElement>(null)
+  // The role decides which scopes a token may be minted for; the server decides again at mint.
+  const account = useAuth((state) => state.user)
   // A modal like every other: the caret is in it until it closes, and then it goes back.
   useDialogFocus(dialogRef, onClose)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -288,6 +292,8 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
                 </button>
               )}
             </div>
+
+            <TokenPanel role={account?.role} instanceRole={account?.instanceRole} />
 
             <div className="flex items-center justify-end gap-2 pt-1">
               <button onClick={onClose} className="rounded-md border border-slate-200 px-2.5 py-1 text-meta font-medium text-slate-600 hover:text-slate-900">

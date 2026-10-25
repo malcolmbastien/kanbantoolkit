@@ -8,8 +8,7 @@
 
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
-import { requireWorkspace } from '../access'
-import { can } from '../../src/domain/roles'
+import { refusalFor, requireWorkspace } from '../access'
 import type { Item } from '../../src/domain/types'
 import { WORKSPACE_ID } from '../auth/session'
 import { itemBelongsElsewhere, readItem, readItemsByIds, readWorkspace } from './read'
@@ -258,12 +257,12 @@ export function workspaceRoutes(runtime: Runtime) {
     }
     if (current && (current.rev ?? 0) !== baseRev) return c.json({ error: 'moved past', item: current }, 409)
 
-    // A Viewer may comment and nothing else. The matrix grants `item.comment` and withholds
-    // `item.write`, and a comment travels the same road as any other change to a card — so rather
-    // than a second endpoint with a second shape, the change is judged for what it is. Judged after
-    // the revision, so a Viewer whose base is stale is told to catch up rather than refused.
-    if (!can(allowed.workspaceRole, 'item.write') && !commentOnly(current, item, allowed.user.id)) {
-      return c.json({ error: `a ${allowed.workspaceRole} may not item.write` }, 403)
+    // Which act the change is. A note is `item.comment` — the door — and anything else is
+    // `item.write`, which both the role and the credential have to allow. Judged after the revision,
+    // so a Viewer whose base is stale is told to catch up rather than refused.
+    if (!commentOnly(current, item, allowed.user.id)) {
+      const refused = refusalFor(allowed, 'item.write')
+      if (refused) return c.json(refused, 403)
     }
 
     const stored = { ...item, rev: baseRev + 1 }

@@ -24,7 +24,8 @@
     "test:e2e": "playwright test",
     "site:check": "node scripts/check-site.mjs",
     "docs:check": "node scripts/check-docs.mjs",
-    "shots": "tsx scripts/shots.ts"
+    "shots": "tsx scripts/shots.ts",
+    "flowline": "node scripts/flowline.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

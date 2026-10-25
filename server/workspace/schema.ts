@@ -21,5 +21,8 @@ export const WORKSPACE_SCHEMA = 1
  * 22 is the password column (task 154.3): a database without it cannot sign anybody in, which is a
  * read this code must not attempt. 23 adds the magic-link table (154.7), for the same reason: a route
  * that offers a link must not fail on a database that has no table to put it in.
+ *
+ * 24 adds the machine credentials (task 148): the token and device-code tables. The bearer door reads
+ * them on every request, so a database without them would answer 401 to a credential that is valid.
  */
-export const REQUIRED_SCHEMA = 23
+export const REQUIRED_SCHEMA = 24

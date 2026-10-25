@@ -18,18 +18,28 @@ import type { Context } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { can } from '../src/domain/roles'
 import type { Action, Role } from '../src/domain/roles'
+import { covers, type Scope } from '../src/domain/scopes'
 import { sessionCookie, sessionCookieName, userForToken, WORKSPACE_ID } from './auth/session'
 import type { AuthUser } from './auth/session'
 import type { Database } from './db'
 import { effectiveRole } from './groups'
 import { schemaVersion } from './migrate'
 import type { Runtime } from './runtime'
+import { callerForSecret } from './tokens'
 import { REQUIRED_SCHEMA } from './workspace/schema'
 
 export interface Caller {
   db: Database
   user: AuthUser
   instanceRole: 'admin' | 'member'
+  /**
+   * What a bearer credential may reach, when the caller is a token. `undefined` means a session —
+   * a person at a browser, holding everything their role grants. A token can only ever narrow that,
+   * never widen it: the role is still read from the tables on every request.
+   */
+  scopes?: Scope[]
+  /** Which token this is, for the audit trail and for "revoke the one that is calling". */
+  tokenId?: string
 }
 
 export interface WorkspaceCaller extends Caller {
@@ -111,6 +121,23 @@ export async function resolveWorkspace(
   return only ? { id: only.id, role: 'admin', source: 'instance' } : undefined
 }
 
+/**
+ * The two questions a permission is, in one place.
+ *
+ * A route's door asks for the least the request needs; a route whose *change* might need more than
+ * its door asked for — the item PATCH that may be a comment or a rewrite — asks again with the
+ * action the change actually needs. Both answers are 403, and the sentences differ on purpose: a
+ * person reading one learns their role's limit, a script author learns their token's.
+ */
+export function refusalFor(
+  caller: { workspaceRole: Role; scopes?: Scope[] },
+  action: Action,
+): { error: string } | undefined {
+  if (!can(caller.workspaceRole, action)) return { error: `a ${caller.workspaceRole} may not ${action}` }
+  if (caller.scopes && !covers(caller.scopes, action)) return { error: `this credential may not ${action}` }
+  return undefined
+}
+
 function fail(c: Hono, body: Record<string, unknown>, status: 401 | 403 | 404 | 503): Response {
   return c.json(body, status) as unknown as Response
 }
@@ -125,11 +152,27 @@ export async function requireUser(c: Hono, runtime: Runtime): Promise<Caller | R
   const db = runtime.database(c.env)
   if (!db) return fail(c, { error: 'not configured' }, 503)
 
-  const token = getCookie(c, sessionCookie(c.env, c.req.raw).name)
-  if (!token) return fail(c, { error: 'sign in to use this workspace' }, 401)
+  // Two credentials, one door. A session is a person at a browser; a bearer token is a tool that
+  // says who it is acting for. A bearer is never a *fallback*: one that does not resolve is a 401,
+  // because trying the cookie after it would hide a rotated or revoked secret behind a working
+  // browser tab.
+  const bearer = bearerOf(c.req.header('authorization'))
+  let user: AuthUser | undefined
+  let scopes: Scope[] | undefined
+  let tokenId: string | undefined
 
-  const user = await userForToken(db, token)
-  if (!user) return fail(c, { error: 'sign in to use this workspace' }, 401)
+  if (bearer) {
+    const found = await callerForSecret(db, bearer)
+    if (!found) return fail(c, { error: 'that credential is not valid' }, 401)
+    user = found.user
+    scopes = found.scopes
+    tokenId = found.tokenId
+  } else {
+    const token = getCookie(c, sessionCookie(c.env, c.req.raw).name)
+    if (!token) return fail(c, { error: 'sign in to use this workspace' }, 401)
+    user = await userForToken(db, token)
+    if (!user) return fail(c, { error: 'sign in to use this workspace' }, 401)
+  }
 
   const instance = await db.get<{ role: string }>('SELECT role FROM instance_members WHERE user_id = ?1', [user.id])
   if (!instance) return fail(c, { error: 'not a member of this instance' }, 403)
@@ -138,7 +181,18 @@ export async function requireUser(c: Hono, runtime: Runtime): Promise<Caller | R
     return fail(c, { error: 'this instance has not finished migrating' }, 503)
   }
 
-  return { db, user, instanceRole: instance.role === 'admin' ? 'admin' : 'member' }
+  return {
+    db,
+    user,
+    instanceRole: instance.role === 'admin' ? 'admin' : 'member',
+    ...(scopes ? { scopes, tokenId } : {}),
+  }
+}
+
+/** The secret in `Authorization: Bearer …`, or nothing. Only the scheme this server issues. */
+function bearerOf(header: string | undefined): string | undefined {
+  const match = /^Bearer\s+(\S+)$/i.exec(header ?? '')
+  return match?.[1]
 }
 
 /**
@@ -193,6 +247,11 @@ export async function requireInstanceAdmin(c: Hono, runtime: Runtime): Promise<C
   const caller = await requireUser(c, runtime)
   if (caller instanceof Response) return caller
   if (caller.instanceRole !== 'admin') return fail(c, { error: 'administrators only' }, 403)
+  // The instance's own administration is not a workspace scope, and a token reaches it only when it
+  // was minted for it — by an administrator, for an administrator.
+  if (caller.scopes && !caller.scopes.includes('instance:admin')) {
+    return fail(c, { error: 'this credential may not administer the instance' }, 403)
+  }
   return caller
 }
 
@@ -223,7 +282,9 @@ export async function requireWorkspace(
   // that this instance holds a workspace somebody cannot see.
   if (!resolved) return fail(c, { error: 'no such workspace' }, 404)
 
-  if (!can(resolved.role, action)) return fail(c, { error: `a ${resolved.role} may not ${action}` }, 403)
+  // The role is the ceiling; the scope, when there is one, is what a tool was minted for.
+  const refused = refusalFor({ workspaceRole: resolved.role, scopes: caller.scopes }, action)
+  if (refused) return fail(c, refused, 403)
 
   return { ...caller, workspaceId: resolved.id, workspaceRole: resolved.role, roleSource: resolved.source }
 }

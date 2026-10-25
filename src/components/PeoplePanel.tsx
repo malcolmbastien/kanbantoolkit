@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { ROLES } from '@/domain/roles'
+import { TokenPanel } from './TokenPanel'
 import { RoleSelect } from './RoleSelect'
 import { cn } from '@/lib/utils'
 import { useDialogFocus } from '@/lib/useDialogFocus'
@@ -518,6 +519,15 @@ export function PeoplePanel() {
                 Sign out everywhere
               </button>
             </div>
+
+            {/* The credentials this person's scripts hold. An administrator sees them in order to
+                revoke one (R5), and mints one here when a daemon has nobody to sit at a browser
+                (R9). The value is never available — there is nothing to reveal. */}
+            <TokenPanel
+              userId={person.id}
+              role={person.effectiveRole ?? person.role}
+              instanceRole={person.instanceRole}
+            />
 
             {detail?.invite && (
               <div>

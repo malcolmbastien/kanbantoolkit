@@ -98,6 +98,14 @@ function sentence(event: Event): string {
       return `${who} removed ${whom} from this workspace.`
     case 'workspace.invite':
       return `${who} invited somebody into this workspace.`
+    // Machine credentials (task 148). The value is never in the trail, so there is nothing here to
+    // redact: a credential is named, revoked and approved, and never shown.
+    case 'token.create':
+      return `${who} made a credential named “${String(data.name ?? 'a tool')}”.`
+    case 'token.revoke':
+      return `${who} revoked a credential.`
+    case 'token.approve':
+      return `${who} agreed to connect “${String(data.tool ?? 'a tool')}”.`
     default:
       return `${who} did ${event.action}.`
   }

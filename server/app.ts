@@ -19,6 +19,7 @@ import { auditRoutes } from './audit-routes'
 import { groupsRoutes } from './groups'
 import { workspaceRoutes as workspaceInstanceRoutes } from './workspace-instance'
 import { inviteLinkRoutes } from './invite-links'
+import { tokenAdminRoutes, tokenRoutes } from './token-routes'
 import { meRoutes } from './me'
 import { workspaceMembersRoutes } from './workspace-members'
 import { authRoutes } from './auth/routes'
@@ -122,6 +123,8 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
   app.route('/api/admin/groups', groupsRoutes(runtime))
   app.route('/api/invite', inviteLinkRoutes(runtime))
   app.route('/api/me', meRoutes(runtime))
+  app.route('/api/tokens', tokenRoutes(runtime))
+  app.route('/api/admin', tokenAdminRoutes(runtime))
   app.route('/api/admin/workspace', workspaceMembersRoutes(runtime))
   app.route('/api/workspace', workspaceRoutes(runtime))
   // Creating a workspace, which is a new tenant rather than a write inside one.

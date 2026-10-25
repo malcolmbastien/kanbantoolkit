@@ -252,3 +252,48 @@ async function cookieFor(email: string, password: string): Promise<string> {
   })
   return (response.headers.get('set-cookie') ?? '').split(';')[0]
 }
+
+test('an agent connects itself, and the person approves it in the browser', async ({ page, request }) => {
+  // A tool asks for a code: no session, which is exactly what a CLI started from a shell has.
+  const asked = (await (
+    await request.post(`${ORIGIN}/api/tokens/device`, { data: { name: 'nightly export', scopes: ['boards:read'] } })
+  ).json()) as { device_code: string; user_code: string; verification_uri: string }
+  expect(asked.verification_uri).toContain(`/app?approve=`)
+
+  // The administrator signs in, and opens the address the tool printed.
+  await page.goto(`${ORIGIN}/app`)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByLabel('Email address').fill('ada@example.com')
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()
+  await expect(page.getByRole('button', { name: /Ada Lovelace/ })).toBeVisible()
+
+  await page.goto(asked.verification_uri)
+  const consent = page.getByRole('dialog', { name: 'Approve a tool' })
+  await expect(consent).toBeVisible()
+  // R10: the screen names the tool, what it will be able to do, and for how long.
+  await expect(consent.getByText('nightly export')).toBeVisible()
+  await expect(consent.getByText('read boards').first()).toBeVisible()
+  await expect(consent.getByText(/90 days/)).toBeVisible()
+
+  await consent.getByRole('button', { name: 'Approve' }).click()
+  await expect(consent.getByText(/Approved/)).toBeVisible()
+
+  // The tool's half: the code buys the secret once, and the secret reads.
+  const first = await request.post(`${ORIGIN}/api/tokens/device/token`, { data: { device_code: asked.device_code } })
+  expect(first.status()).toBe(200)
+  const { secret, token } = (await first.json()) as { secret: string; token: { name: string; scopes: string[] } }
+  expect(token.scopes).toEqual(['boards:read'])
+  expect((await request.get(`${ORIGIN}/api/workspace`, { headers: { authorization: `Bearer ${secret}` } })).status()).toBe(200)
+  // …and the code is spent.
+  expect(
+    (await request.post(`${ORIGIN}/api/tokens/device/token`, { data: { device_code: asked.device_code } })).status(),
+  ).toBe(410)
+
+  // It is on her account, listed, and the list carries no secret.
+  const listed = await page.request.get(`${ORIGIN}/api/tokens`)
+  expect(listed.status()).toBe(200)
+  const text = await listed.text()
+  expect(text).toContain('nightly export')
+  expect(text).not.toContain(secret)
+})

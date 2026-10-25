@@ -21,6 +21,83 @@ so a demotion or a removal takes effect on the next request rather than at the n
 Writes are JSON with `Content-Type: application/json`, which a cross-site form cannot send — that and
 `SameSite=Lax` are what stand in for a CSRF token here.
 
+## Machine credentials
+
+A tool has no browser and cannot hold a cookie, so it signs in with a **bearer token** instead:
+
+```
+Authorization: Bearer flt_…
+```
+
+A token is minted once, shown once, stored as SHA-256, scoped, expiring and revocable. It is a
+credential for a *person*: whatever it does, the audit says whose it was.
+
+**Two ceilings, both checked on every request.** The first is the token's **scopes** — what the tool
+was allowed to ask for. The second is the owner's **role**, read from `workspace_members` at that
+moment. A demotion tightens every token its owner holds, with nothing to revoke; a token can only
+ever narrow a role, never widen it.
+
+| Scope | Reaches |
+| --- | --- |
+| `boards:read` | the boards, and search |
+| `items:read` | cards and initiatives |
+| `people:read` | the team roster |
+| `items:comment` | a note on a card, and nothing else |
+| `boards:write` | create a board; change its design, settings and templates *where the role allows* |
+| `items:write` | create, edit, move, block and delete cards; commenting is included |
+| `objectives:write` | objectives and key results |
+| `workspace:admin` | the workspace's settings, people, data and end |
+| `instance:admin` | the instance's accounts, invitations and access rules |
+
+`board.design`, `board.settings` and `board.delete` are administrator acts in the matrix, so an
+editor's `boards:write` token creates boards and cannot redesign one. Minting refuses a scope the
+person could not exercise *at all* (`422`, naming it) — a Viewer cannot hold `items:write` — which is
+why `items:comment` is a scope of its own.
+
+| Route | Authority | What it does |
+| --- | --- | --- |
+| `GET /api/tokens` | the session | this person's tokens, without their secrets |
+| `POST /api/tokens` | the session | `{ name, scopes, expiresInDays? }` → `201 { token, secret }`; **the only time the secret is answered** |
+| `DELETE /api/tokens/:id` | the session | revoke; the next request with it is `401` |
+| `GET /api/tokens/self` | either credential | which credential is asking, and its scopes (`null` for a session) |
+| `GET /api/admin/users/:id/tokens` | `instance:admin` | somebody else's, for revoking one (R5) |
+| `POST /api/admin/users/:id/tokens` | `instance:admin` | mint for a daemon, within **that person's** role (R9) |
+| `DELETE /api/admin/users/:id/tokens/:tokenId` | `instance:admin` | revoke, audited |
+
+Expiry is 90 days unless asked otherwise; `expiresInDays: null` means never, for a machine nobody will
+revisit. Revoked and expired rows stay, marked, because "which credential was this" is a question an
+audit asks after the fact.
+
+### A tool connects itself
+
+An administrator minting a secret by hand and pasting it somewhere is the part of this design that
+does not scale, so there is a device flow:
+
+| Route | Authority | What it does |
+| --- | --- | --- |
+| `POST /api/tokens/device` | none | `{ name, scopes }` → `{ device_code, user_code, verification_uri, expires_in }` |
+| `GET /api/tokens/device/:code` | the session | what the approval screen shows: the tool's name, the scopes, the expiry |
+| `POST /api/tokens/device/approve` | the session | `{ user_code, scopes? }` — the scopes may be narrowed, never widened |
+| `POST /api/tokens/device/token` | none | `{ device_code }` → `428` while pending, `200 { secret }` once, `410` after |
+
+The short code lives ten minutes, is single-use in both directions, and says nothing about who the
+tool is until a person presses Approve. The CLI does the whole dance:
+
+```
+npm run flowline -- login --url http://localhost:8787
+```
+
+It prints eight characters and an `/app?approve=…` URL, waits, and writes the secret to
+`~/.config/flowline/token` with mode `0600` — or to `FLOWLINE_TOKEN_FILE`. `flowline whoami` says
+whose credential it is and what it may reach; `flowline token` prints it for a pipe. The secret never
+passes through a clipboard, a shell history or a chat message.
+
+### One credential, one owner
+
+A token belongs to a person, and an account's deletion takes its tokens with it. An administrator can
+list and revoke somebody's, and never sees a value: the row holds a hash, so there is nothing to
+reveal. Minting *for* somebody else is checked against **their** role, not the administrator's.
+
 ## Statuses
 
 | | |
@@ -30,6 +107,8 @@ Writes are JSON with `Content-Type: application/json`, which a cross-site form c
 | `403` | it knows you, and you may not |
 | `404` | there is nothing here for you — including work in a workspace you are not in, because naming it would confirm it exists |
 | `409` | a disagreement: a revision moved, a name is taken, a workspace already exists |
+| `422` | the body asked for something this server will not grant — a scope a role cannot hold, a name that is empty |
+| `428` | a device code nobody has approved yet; the tool should keep waiting |
 | `410` | this invitation is used, expired or revoked (all three look the same from outside) |
 | `423` | a card is held by somebody else's lease |
 | `503` | the database is not configured, is behind the code's schema, or cannot be reached |
