@@ -4,6 +4,26 @@ Flowline is a board for a team's flow and for the read management makes of it, o
 one Node process, one SQLite file, and no service in between. This directory is the documentation —
 it lives with the code, so the version you are reading is the version you cloned.
 
+## What is in this repository
+
+Three things, and they are not the same thing:
+
+| | What it is | Where it runs |
+| --- | --- | --- |
+| **The application** | `src/`, `server/`, `worker/`, `migrations/` — the board, its API and its schema | **your machine**, as an instance |
+| **The website** | `site/`, built by `scripts/build-site.ts` — the project's own front door | this project's origin, and nowhere else |
+| **The documentation** | `docs/` — the files you are reading | GitHub, from the clone you already have |
+
+**An instance is the application.** A team that runs `docker compose up -d` gets the board, its API and
+its database — and their own address, their own accounts, their own data. It does not get this
+project's website: the marketing pages, the privacy notice about *this* deployment, and the project's
+`security.txt` all belong to the project's own origin, not to somebody's instance.
+
+> **Today's container is not there yet.** It copies the whole build, so an instance also serves the
+> project's site pages at `/install/`, `/privacy/` and the rest. They are not part of an instance, and
+> an instance should answer `/` with its own application — that is a recorded task, not a design
+> question.
+
 ## If you are installing it
 
 Follow these in order. Each one is short, and each ends where the next begins.

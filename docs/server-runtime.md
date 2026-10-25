@@ -22,7 +22,9 @@ board. The server adds accounts, sharing and a second device, and takes nothing 
 
 ### What this project deploys, and what a team deploys
 
-Those three tiers are what the code can do; they are not all what **this** project runs. The site
+Those three tiers are what the code can do; they are not all what **this** project runs. The site and
+the documentation are the project's own — [the index](README.md) says what is in this repository, and
+what an instance is — and an instance is the application. The site
 behind `flowline.flowline-team.workers.dev` is the static tier plus the demo: `wrangler.jsonc` binds no
 database, so `/api/health` answers `503 {"database":"not configured"}`, every route that needs one
 refuses, and `/api/auth/providers` reports no doors at all — the sign-in surface does not render,

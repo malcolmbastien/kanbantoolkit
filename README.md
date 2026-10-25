@@ -24,6 +24,10 @@ account to make administers it. There is no sign-up: an instance *is* a workspac
 [`docs/install.md`](docs/install.md), and the container's own details in
 [`docs/docker.md`](docs/docker.md).
 
+This repository holds three things that are easy to confuse: **the application** — what an instance
+runs; **the website** — the project's own front door, deployed here and nowhere else; and **the
+documentation** — the markdown in [`docs/`](docs/). Installing Flowline gets you the first of those.
+
 | | |
 | --- | --- |
 | **Install** | [the install page](site/pages/install.html) — the same commands, what the process reads, the honest limits |
