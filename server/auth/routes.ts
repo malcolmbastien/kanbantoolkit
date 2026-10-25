@@ -16,6 +16,7 @@ import { DEFAULT_WORKSPACE_NAME, devAuth, providers, publicUrl, salt, workspaceN
 import type { Runtime } from '../runtime'
 import { AuthError, NotAdmitted, authorizeUrl, exchangeCode, pkceChallenge, profile, randomToken, sha256 } from './oauth'
 import { MIN_LENGTH, acceptable, dummyHash, hash, verify } from './password'
+import { LINK_MINUTES, consumeLink, mintLink } from './links'
 import { issueSession, revoke, sessionCookie, userById, userForToken, WORKSPACE_ID } from './session'
 import { record } from '../audit'
 import { admitsDomain, settings } from '../instance'
@@ -616,6 +617,86 @@ export function authRoutes(runtime: Runtime) {
     })
     const user = await userById(db, account.id)
     return c.json({ user })
+  })
+
+  /**
+   * Ask for a sign-in link (task 154.7).
+   *
+   * Always `204`, whether the address has an account or not, and never a word about which: the answer
+   * a stranger gets and the answer a member gets are the same. The mail is sent only when there is a
+   * relay and an active account — and a deployment without a relay does not have this door at all, so
+   * the route answers `404` rather than pretending.
+   */
+  auth.post('/link', async (c) => {
+    const db = runtime.database(c.env)
+    if (!db) return c.json({ error: 'not configured' }, 503)
+    if (!runtime.mail) return c.json({ error: 'not found' }, 404)
+
+    const body = (await c.req.json().catch(() => null)) as { email?: unknown } | null
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+    if (!email.includes('@')) return c.body(null, 204)
+
+    const ipHash = await addressHash(runtime, c.env, c.req.raw)
+    if (await overLimit(db, runtime.clientIp(c.req.raw), c.env)) return c.json({ error: 'too many attempts' }, 429)
+
+    const account = await db.get<{ email: string }>(
+      "SELECT email FROM users WHERE lower(email) = ?1 AND status = 'active'",
+      [email],
+    )
+    if (account) {
+      const { token } = await mintLink(db, account.email, 'signin', ipHash)
+      const url = `${publicUrl(c.env, c.req.raw)}/app?link=${encodeURIComponent(token)}`
+      await runtime.mail.send({
+        to: account.email,
+        subject: 'Your Flowline sign-in link',
+        text: [
+          `Somebody asked to sign in as ${account.email}. If it was you, open this link:`,
+          '',
+          url,
+          '',
+          `It works once, and it expires in ${LINK_MINUTES} minutes.`,
+          'If it was not you, ignore this message — nothing has changed.',
+        ].join('\n'),
+      })
+      await record(db, { action: 'signin.refused', targetType: 'link', data: { reason: 'sent' }, ipHash })
+    }
+
+    return c.body(null, 204)
+  })
+
+  /**
+   * Spend a sign-in or reset link.
+   *
+   * `POST` rather than `GET` on purpose: mail gateways and link scanners prefetch URLs, and a link
+   * that a scanner can spend is a link that fails for the person it was written for. The app calls
+   * this after it opens.
+   */
+  auth.post('/link/:token', async (c) => {
+    const db = runtime.database(c.env)
+    if (!db) return c.json({ error: 'not configured' }, 503)
+
+    const spent = await consumeLink(db, c.req.param('token'))
+    if (!spent) return c.json({ error: 'this link is not available' }, 410)
+
+    const account = await db.get<{ id: string }>(
+      "SELECT id FROM users WHERE lower(email) = ?1 AND status = 'active'",
+      [spent.email],
+    )
+    if (!account) return c.json({ error: 'this link is not available' }, 410)
+
+    const ipHash = await addressHash(runtime, c.env, c.req.raw)
+    const session = await issueSession(db, account.id, { userAgent: c.req.header('user-agent'), ipHash })
+    const cookie = sessionCookie(c.env, c.req.raw)
+    setCookie(c, cookie.name, session.token, {
+      httpOnly: true,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: session.maxAge,
+      secure: cookie.secure,
+    })
+    await record(db, { actorId: account.id, action: 'signin', targetType: 'link', ipHash })
+
+    return c.json({ user: await userById(db, account.id), reset: spent.purpose === 'reset' })
   })
 
   auth.post('/signout', async (c) => {

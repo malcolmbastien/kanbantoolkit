@@ -159,6 +159,27 @@ export function WorkspacePanel() {
     })
   }
 
+  /**
+   * A one-time password link for a member, minted here because the deployment may have no mail relay
+   * (task 154.7). It is shown once, in the same place an invitation is, and handed over how the
+   * administrator likes.
+   */
+  async function reset(member: Member) {
+    setMessage(undefined)
+    const response = await fetch(`/api/admin/workspace/members/${member.id}/reset`, { method: 'POST' })
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null
+      return setMessage({ tone: 'bad', text: body?.error ?? 'That link could not be made.' })
+    }
+    const { url } = (await response.json()) as { url: string }
+    setIssued(url)
+    setCopied(false)
+    setMessage({
+      tone: 'ok',
+      text: `${member.name} can set a password with this link. It works once, in the next fifteen minutes.`,
+    })
+  }
+
   async function invite() {
     setBusy(true)
     setMessage(undefined)
@@ -298,6 +319,13 @@ export function WorkspacePanel() {
                       className={cn(BUTTON, 'px-1.5 text-micro')}
                     >
                       {member.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button
+                      onClick={() => void reset(member)}
+                      title="A one-time link that lets them set a password — no mail needed"
+                      className={cn(BUTTON, 'px-1.5 text-micro')}
+                    >
+                      Reset
                     </button>
                     <button
                       onClick={() => remove(member)}

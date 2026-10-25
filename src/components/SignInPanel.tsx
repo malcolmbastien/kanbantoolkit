@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   acceptInvite,
+  changePassword,
+  consumeLink,
   devSignIn,
   inviteToken,
+  linkToken,
   loadAuth,
   passwordSignIn,
   readInvite,
+  requestLink,
   setupInstance,
   startSignIn,
   useAuth,
@@ -41,6 +45,11 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
   const [invite, setInvite] = useState<{ email: string; role: string } | 'unavailable' | null>(null)
   const [inviteName, setInviteName] = useState('')
   const [inviteError, setInviteError] = useState<string | undefined>()
+  // A link in the address bar: it signs the person in, or asks for the password they came to reset.
+  const link = linkToken()
+  const [linkState, setLinkState] = useState<'signing' | 'reset' | 'unavailable' | null>(link ? 'signing' : null)
+  const [resetError, setResetError] = useState<string | undefined>()
+  const [asked, setAsked] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -52,6 +61,44 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
       live = false
     }
   }, [token])
+
+  useEffect(() => {
+    if (!link) return
+    let live = true
+    void consumeLink(link).then((answer) => {
+      if (!live) return
+      if (!answer) return setLinkState('unavailable')
+      if (answer.reset) return setLinkState('reset')
+      onSignedIn(answer.user)
+    })
+    return () => {
+      live = false
+    }
+    // Once, for the link the page was opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [link])
+
+  async function onReset(event: FormEvent) {
+    event.preventDefault()
+    if (!password) return
+    setBusy(true)
+    setResetError(undefined)
+    const refusal = await changePassword(password)
+    setBusy(false)
+    setPassword('')
+    if (refusal) {
+      setResetError(refusal)
+      return
+    }
+    const next = await loadAuth()
+    if (next.user) onSignedIn(next.user)
+  }
+
+  async function onAskLink() {
+    if (!email.includes('@')) return
+    setAsked(true)
+    await requestLink(email)
+  }
 
   async function onJoin(event: FormEvent) {
     event.preventDefault()
@@ -144,6 +191,38 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
         <p className="mx-1.5 mb-2 rounded-md bg-emerald-50 px-2 py-1 text-meta text-emerald-900">
           The account was closed. Everything it held has been removed. Signing in again begins a new one.
         </p>
+      )}
+
+      {link && linkState === 'unavailable' && (
+        <p className="mx-1.5 mb-2 rounded-md bg-rose-50 px-2 py-1 text-meta text-rose-800">
+          That link is not available — it has been used, has expired, or was never one. Ask for another.
+        </p>
+      )}
+
+      {link && linkState === 'reset' && (
+        <form onSubmit={onReset} className="px-1.5 pb-2">
+          <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">Reset</p>
+          <p className="pb-1.5 text-meta text-slate-700">
+            Choose the password this account will use from now on. Signing in elsewhere is ended when you save.
+          </p>
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            type="password"
+            autoComplete="new-password"
+            placeholder="a password of at least 12 characters"
+            aria-label="New password"
+            className="w-full rounded-md border border-slate-200 px-1.5 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400"
+          />
+          {resetError && <p className="mt-1 rounded-md bg-rose-50 px-1.5 py-1 text-micro text-rose-800">{resetError}</p>}
+          <button
+            type="submit"
+            disabled={busy || !password}
+            className="mt-1 w-full rounded-md bg-slate-900 px-1.5 py-1 text-meta font-medium text-white hover:bg-slate-800 disabled:opacity-40"
+          >
+            {busy ? 'Saving…' : 'Save the password'}
+          </button>
+        </form>
       )}
 
       {token && invite && (
@@ -242,7 +321,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
         </form>
       )}
 
-      {auth.password && !auth.setup && !(token && invite) && (
+      {auth.password && !auth.setup && !(token && invite) && !link && (
         <form onSubmit={onPassword} className="px-1.5 pb-2">
           <p className="pb-1 text-micro uppercase tracking-wide text-slate-400">Password</p>
           <input
@@ -275,6 +354,17 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
           >
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
+          {auth.mail && (
+            <p className="pt-1 text-micro text-slate-600">
+              {asked ? (
+                'If that address has an account, a link is on its way. It works once, and expires in 15 minutes.'
+              ) : (
+                <button type="button" onClick={() => void onAskLink()} className="underline">
+                  Email me a link instead
+                </button>
+              )}
+            </p>
+          )}
         </form>
       )}
 

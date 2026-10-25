@@ -10,6 +10,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hash } from './auth/password'
+import type { Mail } from './mail'
 import { createApp } from './app'
 import { issueSession, revoke, userForToken } from './auth/session'
 import { sha256 } from './auth/oauth'
@@ -36,9 +37,9 @@ const OIDC = {
   AUTH_OIDC_LABEL: 'Test IdP',
 }
 
-function instance(env: Record<string, string> = {}) {
+function instance(env: Record<string, string> = {}, mail?: Mail) {
   const db = database()
-  const app = createApp({ database: () => db, clientIp: () => '203.0.113.7' })
+  const app = createApp({ database: () => db, clientIp: () => '203.0.113.7', ...(mail ? { mail } : {}) })
   return {
     db,
     request: (path: string, init?: RequestInit) => app.request(path, init, env),
@@ -701,5 +702,128 @@ describe('an invitation with a password', () => {
     for (const path of ['/api/invite/not-a-token']) {
       expect((await request(path)).status).toBe(410)
     }
+  })
+})
+
+describe('sign-in links', () => {
+  const PASSWORD = 'correct horse battery staple'
+
+  /** A deployment with a mail relay, an administrator, and whatever the mailer was asked to send. */
+  async function withMail() {
+    const sent: Array<{ to: string; subject: string; text: string }> = []
+    const mail: Mail = { send: async (message) => void sent.push(message) }
+    const world = instance({}, mail)
+    await world.request('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Ada', email: 'ada@example.com', password: PASSWORD }),
+    })
+    const ask = (email: string) =>
+      world.request('/api/auth/link', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+    const spend = (token: string) => world.request(`/api/auth/link/${token}`, { method: 'POST' })
+    return { ...world, sent, ask, spend }
+  }
+
+  it('sends one link to an address that has an account, and says the same thing either way', async () => {
+    const { ask, sent } = await withMail()
+
+    expect((await ask('ada@example.com')).status).toBe(204)
+    expect(sent).toHaveLength(1)
+    expect(sent[0].to).toBe('ada@example.com')
+    expect(sent[0].text).toContain('/app?link=')
+    expect(sent[0].text).toContain('15 minutes')
+
+    // The same answer for an address with no account, and nothing sent.
+    expect((await ask('nobody@example.com')).status).toBe(204)
+    expect(sent).toHaveLength(1)
+  })
+
+  it('signs the person in once, and refuses the second use', async () => {
+    const { ask, spend, sent, request } = await withMail()
+    await ask('ada@example.com')
+    const token = new URL(sent[0].text.match(/https?:\/\/\S+/)![0]).searchParams.get('link')!
+
+    const first = await spend(token)
+    expect(first.status).toBe(200)
+    expect(((await first.json()) as { reset: boolean }).reset).toBe(false)
+    const cookie = first.headers.get('set-cookie')!.match(/fl_session=([^;]+)/)![1]
+    expect((await request('/api/auth/session', { headers: { cookie: `fl_session=${cookie}` } })).status).toBe(200)
+
+    expect((await spend(token)).status).toBe(410)
+  })
+
+  it('refuses an expired link and a made-up one, the same way', async () => {
+    const { db, spend, sent, ask } = await withMail()
+    await ask('ada@example.com')
+    const token = new URL(sent[0].text.match(/https?:\/\/\S+/)![0]).searchParams.get('link')!
+
+    // Backdate it: the row is the only place the expiry lives.
+    await db.run('UPDATE magic_links SET expires_at = ?1', [new Date(Date.now() - 60_000).toISOString()])
+    expect((await spend(token)).status).toBe(410)
+    expect((await spend('not-a-token')).status).toBe(410)
+  })
+
+  it('does not have the door at all without a relay', async () => {
+    const world = instance({})
+    const answer = await world.request('/api/auth/link', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com' }),
+    })
+    expect(answer.status).toBe(404)
+  })
+
+  it('hands an administrator a reset link, which sets a password and ends the other sessions', async () => {
+    const { request, db } = await withMail()
+    const admin = await request('/api/auth/password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com', password: PASSWORD }),
+    })
+    const adminCookie = `fl_session=${cookie(admin, 'fl_session')}`
+    const id = ((await db.get("SELECT id FROM users WHERE email = 'ada@example.com'")) as { id: string }).id
+
+    // A second session — the one that a password change should end.
+    const tablet = await request('/api/auth/password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com', password: PASSWORD }),
+    })
+    const tabletCookie = `fl_session=${cookie(tablet, 'fl_session')}`
+
+    const minted = await request(`/api/admin/workspace/members/${id}/reset`, {
+      method: 'POST',
+      headers: { cookie: adminCookie },
+    })
+    expect(minted.status).toBe(200)
+    const { url } = (await minted.json()) as { url: string }
+    const token = new URL(url).searchParams.get('link')!
+
+    const spent = await request(`/api/auth/link/${token}`, { method: 'POST' })
+    expect(spent.status).toBe(200)
+    expect(((await spent.json()) as { reset: boolean }).reset).toBe(true)
+    const resetCookie = `fl_session=${cookie(spent, 'fl_session')}`
+
+    // The reset screen sets the password; the tab that did it stays, the other one ends.
+    const changed = await request('/api/me/password', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: resetCookie },
+      body: JSON.stringify({ password: 'a completely new password' }),
+    })
+    expect(changed.status).toBe(204)
+    expect((await request('/api/me', { headers: { cookie: tabletCookie } })).status).toBe(401)
+    expect((await request('/api/me', { headers: { cookie: resetCookie } })).status).toBe(200)
+
+    // And the new password is the one that signs in.
+    const again = await request('/api/auth/password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ada@example.com', password: 'a completely new password' }),
+    })
+    expect(again.status).toBe(200)
   })
 })

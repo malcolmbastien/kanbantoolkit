@@ -35,6 +35,8 @@ export interface AuthState {
   password: boolean
   /** Whether this deployment has no accounts yet: the first run, not a sign-in. */
   setup: boolean
+  /** Whether this deployment can send a link — a relay is configured. */
+  mail: boolean
   /** Whether this instance has been asked what it offers. Until it has, nothing is drawn. */
   loaded: boolean
 }
@@ -47,6 +49,7 @@ const NONE: AuthState = {
   dev: false,
   password: false,
   setup: false,
+  mail: false,
   loaded: false,
 }
 
@@ -69,9 +72,13 @@ async function read<T>(path: string): Promise<T | null> {
 }
 
 export async function loadAuth(): Promise<AuthState> {
-  const offered = await read<{ providers?: AuthProvider[]; dev?: boolean; password?: boolean; setup?: boolean }>(
-    '/api/auth/providers',
-  )
+  const offered = await read<{
+    providers?: AuthProvider[]
+    dev?: boolean
+    password?: boolean
+    setup?: boolean
+    mail?: boolean
+  }>('/api/auth/providers')
   if (!offered?.providers) return NONE
 
   const session = await read<{
@@ -97,6 +104,7 @@ export async function loadAuth(): Promise<AuthState> {
     dev: offered.dev === true,
     password: offered.password === true,
     setup: offered.setup === true,
+    mail: offered.mail === true,
     loaded: true,
   }
   useAuth.setState(next)
@@ -115,6 +123,58 @@ const INVITE =
 
 export function inviteToken(): string | undefined {
   return INVITE
+}
+
+/** The sign-in or reset link this page was opened with, if it was opened with one. */
+export function linkToken(): string | undefined {
+  return LINK
+}
+
+const LINK = typeof window === 'undefined' ? undefined : (new URLSearchParams(window.location.search).get('link') ?? undefined)
+
+/**
+ * Ask for a sign-in link.
+ *
+ * The answer is always the same, whatever the server decided — that is the point of the flow, so the
+ * client says "if that address has an account" and never confirms one.
+ */
+export async function requestLink(email: string): Promise<void> {
+  try {
+    await fetch('/api/auth/link', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+  } catch {
+    // The sentence is the same whether the request worked or not: nothing here tells an address apart.
+  }
+}
+
+/** Spend the link in the address bar. `null` means it is used, expired, or was never one. */
+export async function consumeLink(token: string): Promise<{ user: AuthUser; reset: boolean } | null> {
+  try {
+    const response = await fetch(`/api/auth/link/${encodeURIComponent(token)}`, { method: 'POST' })
+    if (!response.ok) return null
+    return (await response.json()) as { user: AuthUser; reset: boolean }
+  } catch {
+    return null
+  }
+}
+
+/** Set a password for the signed-in account. Returns the refusal's sentence, or nothing on success. */
+export async function changePassword(password: string): Promise<string | undefined> {
+  try {
+    const response = await fetch('/api/me/password', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
+    if (response.ok) return undefined
+    const body = (await response.json().catch(() => null)) as { error?: string } | null
+    return body?.error ?? 'That could not be saved.'
+  } catch {
+    return 'The server could not be reached.'
+  }
 }
 
 /** What an invitation link says before anybody accepts it: a masked address, a role, an expiry. */

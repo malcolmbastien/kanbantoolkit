@@ -19,6 +19,7 @@ export const WORKSPACE_SCHEMA = 1
  * one this code has stopped reading, so the rule is the same: refuse rather than guess.
  *
  * 22 is the password column (task 154.3): a database without it cannot sign anybody in, which is a
- * read this code must not attempt.
+ * read this code must not attempt. 23 adds the magic-link table (154.7), for the same reason: a route
+ * that offers a link must not fail on a database that has no table to put it in.
  */
-export const REQUIRED_SCHEMA = 22
+export const REQUIRED_SCHEMA = 23

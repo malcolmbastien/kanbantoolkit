@@ -26,7 +26,7 @@ export function AccountMenu() {
     const query = new URLSearchParams(window.location.search)
     // A refused sign-in opens the menu to say why, and an invitation link opens it because the whole
     // reason the person is here is to accept one.
-    return query.get('auth') === 'denied' || Boolean(query.get('invite'))
+    return query.get('auth') === 'denied' || Boolean(query.get('invite')) || Boolean(query.get('link'))
   })
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)

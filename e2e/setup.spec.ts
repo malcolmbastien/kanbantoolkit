@@ -104,3 +104,43 @@ test('an invitation is where the second person chooses a password', async ({ pag
   const spent = await request.get(`${ORIGIN}/api/invite/${new URL(link).searchParams.get('invite')}`)
   expect(spent.status()).toBe(410)
 })
+
+test('an administrator hands over a reset link, and it sets the password', async ({ page, browser, request }) => {
+  // The same administrator, signing in with the password she chose.
+  await page.goto(`${ORIGIN}/app`)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByLabel('Email address').fill('ada@example.com')
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()
+  await expect(page.getByRole('button', { name: /Ada Lovelace/ })).toBeVisible()
+
+  await page.goto(`${ORIGIN}/app?view=boards`)
+  await page.getByRole('button', { name: /^Admin/ }).click()
+  const roster = page.locator('section').filter({ has: page.getByRole('heading', { name: 'This workspace' }) })
+  const row = roster.locator('tr', { hasText: 'grace@example.com' })
+  await row.getByRole('button', { name: 'Reset' }).click()
+  const link = await roster.getByLabel('Invitation link').inputValue()
+  expect(link).toContain('link=')
+
+  // The person who forgot their password opens it and chooses a new one — no mail involved, which is
+  // the point for a deployment with no relay.
+  const other = await browser.newContext()
+  try {
+    const grace = await other.newPage()
+    await grace.goto(link)
+    await expect(grace.getByText('Choose the password this account will use')).toBeVisible()
+    await grace.getByLabel('New password').fill('another good passphrase')
+    await grace.getByRole('button', { name: 'Save the password' }).click()
+    await expect(grace.getByRole('button', { name: /Grace Hopper/ })).toBeVisible()
+  } finally {
+    await other.close()
+  }
+
+  // The new password is the one that works, and the link is spent.
+  const signedIn = await request.post(`${ORIGIN}/api/auth/password`, {
+    data: { email: 'grace@example.com', password: 'another good passphrase' },
+  })
+  expect(signedIn.status()).toBe(200)
+  const spent = await request.post(`${ORIGIN}/api/auth/link/${new URL(link).searchParams.get('link')}`)
+  expect(spent.status()).toBe(410)
+})

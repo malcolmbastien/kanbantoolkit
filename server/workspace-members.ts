@@ -11,8 +11,10 @@
 
 import { Hono } from 'hono'
 import { requireWorkspace } from './access'
-import { statement } from './audit'
+import { record, statement } from './audit'
 import { WORKSPACE_ID } from './auth/session'
+import { mintLink } from './auth/links'
+import { publicUrl } from './config'
 import { DEFAULT_WORKSPACE_NAME } from './config'
 import { mayAdminister } from '../src/domain/roster'
 import { accountRemovalStatements, isLastDeploymentAdministrator } from './workspace/account'
@@ -263,6 +265,35 @@ export function workspaceMembersRoutes(runtime: Runtime) {
     ])
 
     return c.body(null, 204)
+  })
+
+  /**
+   * A one-time link that lets somebody set a password — without mail (task 154.7).
+   *
+   * The deployment with no relay has no "email me a link", so the administrator mints the same thing
+   * and hands it over: single use, fifteen minutes, hashed at rest. Shown once, because the only copy
+   * is the one being displayed; nothing about it reaches the audit beyond the act.
+   */
+  routes.post('/members/:id/reset', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.members')
+    if (caller instanceof Response) return caller
+
+    const member = await caller.db.get<{ id: string; email: string }>(
+      `SELECT u.id, u.email FROM workspace_members w JOIN users u ON u.id = w.user_id
+        WHERE w.workspace_id = ?1 AND w.user_id = ?2`,
+      [caller.workspaceId, c.req.param('id')],
+    )
+    if (!member) return c.json({ error: 'no such member' }, 404)
+
+    const { token, expiresAt } = await mintLink(caller.db, member.email, 'reset')
+    await record(caller.db, {
+      actorId: caller.user.id,
+      action: 'password.set',
+      targetType: 'user',
+      targetId: member.id,
+      data: { reset: 'minted' },
+    })
+    return c.json({ url: `${publicUrl(c.env, c.req.raw)}/app?link=${encodeURIComponent(token)}`, expiresAt })
   })
 
   /**

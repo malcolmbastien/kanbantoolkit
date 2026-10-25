@@ -13,6 +13,7 @@ import { Hono } from 'hono'
 import { deleteCookie, getCookie } from 'hono/cookie'
 import { requireUser } from './access'
 import { statement } from './audit'
+import { MIN_LENGTH, acceptable, hash } from './auth/password'
 import {
   describeDevice,
   pruneSessions,
@@ -257,6 +258,38 @@ export function meRoutes(runtime: Runtime) {
     return c.json({ revoked: ended })
   })
 
+  /**
+   * A password of one's own (task 154.7).
+   *
+   * Setting one ends every *other* session: a password is a credential, and a change to it is the
+   * moment to assume somebody else may be holding the old one. This session stays — the person is
+   * here, and signing them out of the tab they are looking at is a bug dressed as caution.
+   */
+  routes.patch('/password', async (c) => {
+    const caller = await requireUser(c, runtime)
+    if (caller instanceof Response) return caller
+
+    const body = (await c.req.json().catch(() => null)) as { password?: unknown } | null
+    const password = typeof body?.password === 'string' ? body.password : ''
+    if (!acceptable(password)) return c.json({ error: `a password needs at least ${MIN_LENGTH} characters` }, 400)
+
+    const now = new Date().toISOString()
+    const current = await sessionIdOf(getCookie(c, sessionCookie(c.env, c.req.raw).name))
+    await caller.db.batch([
+      {
+        sql: 'UPDATE users SET password_hash = ?1, updated_at = ?2 WHERE id = ?3',
+        params: [await hash(password), now, caller.user.id],
+      },
+      {
+        sql: 'UPDATE sessions SET revoked_at = ?1 WHERE user_id = ?2 AND revoked_at IS NULL AND id <> ?3',
+        params: [now, caller.user.id, current ?? ''],
+      },
+      statement({ actorId: caller.user.id, action: 'password.set', targetType: 'user', targetId: caller.user.id }),
+    ])
+
+    return c.body(null, 204)
+  })
+
   routes.get('/identities', async (c) => {
     const caller = await requireUser(c, runtime)
     if (caller instanceof Response) return caller
@@ -269,17 +302,19 @@ export function meRoutes(runtime: Runtime) {
   })
 
   /**
-   * Unlink a door. The last one is refused: an account nobody can sign in to is a person locked out
-   * by their own click, and there is no administrator-side "reset" to undo it.
+   * Unlink a door. The last one is refused **unless a password exists** (task 154.7): an account
+   * nobody can sign in to is a person locked out by their own click, and since the password door and
+   * the administrator's reset link there is a way back — but only for somebody who has one of them.
    */
   routes.delete('/identities/:provider/:subject', async (c) => {
     const caller = await requireUser(c, runtime)
     if (caller instanceof Response) return caller
 
-    const count = await caller.db.get<{ n: number }>('SELECT COUNT(*) AS n FROM identities WHERE user_id = ?1', [
-      caller.user.id,
+    const [count, account] = await Promise.all([
+      caller.db.get<{ n: number }>('SELECT COUNT(*) AS n FROM identities WHERE user_id = ?1', [caller.user.id]),
+      caller.db.get<{ password_hash: string | null }>('SELECT password_hash FROM users WHERE id = ?1', [caller.user.id]),
     ])
-    if ((count?.n ?? 0) <= 1) {
+    if ((count?.n ?? 0) <= 1 && !account?.password_hash) {
       return c.json({ error: 'this is the only way into your account; link another before removing it' }, 409)
     }
 
