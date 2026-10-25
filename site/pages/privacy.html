@@ -12,14 +12,18 @@ path: /privacy/
 
 <h2>What we hold</h2>
 <ul class="points">
-  <li><strong>Your account.</strong> A name, an email address, and the identity your provider verified when you signed in. The address is the one the provider vouched for; Flowline does not let anybody type a different one.</li>
+  <li><strong>Your account.</strong> A name, an email address, and the identity your provider verified when you signed in (or, on a deployment without a provider, the address you were invited with). The address is one somebody vouched for; Flowline does not let anybody type a different one.</li>
+  <li><strong>A password, if you have one.</strong> Stored as a <strong>hash</strong> — PBKDF2, with its own salt and its cost written into the hash — and never as the password. Nobody can read it back: not us, not an administrator. A reset is a link, not a lookup, and setting a new password ends every other session.</li>
+  <li><strong>Sign-in links.</strong> When this deployment has a mail relay, a link that signs you in is a row with an address, a hash of the token, and an expiry of fifteen minutes. It is spent on first use.</li>
   <li><strong>Your workspace.</strong> Its boards, lanes, cards, placements, objectives and the words you put in them — the work itself.</li>
   <li><strong>What happened.</strong> An audit trail of access changes — who invited whom, who changed a role, who signed in — kept for 90 days. It records field names, not the values of the work.</li>
   <li><strong>Sessions.</strong> Stored as hashes, with the browser that opened them and when each was last used. An address is stored only as a salted hash, never as an address.</li>
 </ul>
 <p>
   That is the whole of it. There is no billing record, no payment provider and no card: the software
-  is free, and an instance holds one team's work and nothing commercial beside it.
+  is free, and an instance holds one team's work and nothing commercial beside it. A deployment that
+  configures a mail relay adds it to this list — the relay sees an address and the text of a sign-in
+  link, and nothing else.
 </p>
 
 <h2>Who processes it</h2>

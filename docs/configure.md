@@ -39,8 +39,11 @@ The identity provider is **the one you already run**. There is no vendor built i
 list of endpoints to keep current: any OIDC issuer works — Google Workspace, Entra, Keycloak,
 authentik, Okta — because they all speak the same protocol.
 
-Every provider is optional, and an instance with none is a valid instance — it simply has no way in,
-and the app says so rather than drawing a button.
+Every provider is optional, and an instance with none is a valid instance: the doors that do not need
+one are still there. A **password** works wherever an account has one — the first administrator sets
+one at first run, an invitation is where a colleague chooses theirs — and a **magic link** appears
+when a mail relay is configured. With neither a provider nor a relay, an instance is still reachable
+by password and by the reset link an administrator mints.
 
 | Variable | Default | What it does |
 | --- | --- | --- |

@@ -203,6 +203,12 @@ code changes to add one. The first person to arrive administers the instance and
 everyone after them is a member, or arrives with the role an invitation gave their address. The same
 **verified** address through two providers is one account, not two.
 
+An instance with no provider is not locked out: a **password** works wherever an account has one. The
+first run creates the first administrator (only while it is the only way in), an invitation is where a
+colleague chooses theirs, and a **magic link** — a fifteen-minute single-use email — is there when a
+mail relay is configured (`SMTP_URL`, `MAIL_FROM`). Without a relay, an administrator mints the same
+reset link and hands it over; either way, setting a password ends every other session.
+
 The switch is off unless it is asked for by name, because an instance that is merely running locally
 is not an instance anyone should be able to walk into.
 

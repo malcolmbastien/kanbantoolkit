@@ -11,6 +11,8 @@ path: /security/
 
 <h2>How it is built</h2>
 <ul class="points">
+  <li><strong>A password is a hash and nothing else.</strong> PBKDF2-HMAC-SHA256 at 600 000 iterations, a random salt per password, the cost written into the stored value so it can be raised later. Nobody — administrator included — can read one back. A reset is a fifteen-minute single-use link, and setting a new password ends every other session.</li>
+  <li><strong>The first run exists only while it is the only way in.</strong> On a deployment with no accounts and no identity provider, one surface creates the first administrator; it closes at the first account and refuses afterwards. There are no default credentials anywhere.</li>
   <li><strong>Sessions are opaque and hashed.</strong> The browser holds a random token; the database holds a hash of it, the browser it was opened on, and when it was last used. A session lasts twelve hours, or thirty days if the person asked to be remembered at sign-in. Signing out deletes the row; an administrator can end one, or all of somebody's.</li>
   <li><strong>Authority is read on every request.</strong> One matrix decides what a role may do, and it is consulted live rather than cached in the session — a demotion takes effect on the next request, not the next sign-in. A group can carry a role for several people at once, and is a way in rather than a decoration.</li>
   <li><strong>A workspace is a scope, not a filter.</strong> Every row of work names its workspace, and which workspace a request is about is decided by the session — never by the client. Asking for something in a workspace you are not in answers "there is nothing here", the same as asking for something that does not exist, because naming it would confirm it exists.</li>

@@ -83,5 +83,17 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
+    {
+      /**
+       * A deployment with a mail relay — the console one, writing to a file the test can read
+       * (task 154.7). The magic-link door only exists where mail does, so proving it in a browser
+       * needs an instance that has one; and a test that parsed a real mailbox would not be a test.
+       */
+      command:
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-mail.db node_modules/.tmp/mail.log && MAIL_CONSOLE=1 WORKSPACE_NAME="Team Atlas" PORT=4178 DB_PATH=node_modules/.tmp/e2e-mail.db STATIC_DIR=dist npm run --silent server > node_modules/.tmp/mail.log 2>&1',
+      url: 'http://localhost:4178/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
   ],
 })
