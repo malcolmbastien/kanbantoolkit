@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Archive, Download, Info, SlidersHorizontal } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
@@ -11,6 +12,7 @@ import { activeFilterCount } from '@/domain/filters'
 import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
 import { downloadText } from '@/lib/download'
+import { useStillScroll } from '@/lib/useStillScroll'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -54,6 +56,11 @@ export function BoardView({ requestMove }: Props) {
   const signedIn = useAuth((state) => state.user !== null)
   // Drag empty workflow space to move the board. See usePanScroll.
   const pan = usePanScroll<HTMLDivElement>()
+  // The board scroller and what is inside it, held still across height changes (a card moving
+  // between columns is the usual one). Above the early return below, so the hook order is the same
+  // for an aggregating board and a team board.
+  const contentRef = useRef<HTMLDivElement>(null)
+  useStillScroll(pan.ref, contentRef, undefined, boardId)
 
   // Coordination/strategic boards aggregate; operational boards render the flow.
   if (isAggregating(board)) return <ManagementBoard boardId={boardId} />
@@ -157,7 +164,18 @@ export function BoardView({ requestMove }: Props) {
         </div>
       </div>
 
-      <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 space-y-6 overflow-y-auto p-4', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
+      <div
+        ref={pan.ref}
+        {...pan.handlers}
+        // The board's height is its tallest column, so a card moving between columns changes it
+        // while nobody asked the view to move. The browser's own anchoring is turned off here and
+        // `useStillScroll` keeps the reader's place instead — one mechanism, the same in every
+        // browser, and testable.
+        style={{ overflowAnchor: 'none' }}
+        data-board-scroll
+        className={cn('min-h-0 flex-1 overflow-y-auto p-4', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}
+      >
+        <div ref={contentRef} className="space-y-6">
         {/* Initiatives workflow — this team's initiatives, by rollup. The strategic surface:
             a tinted band of its own, so a reader knows which workflow they are looking at
             before reading a single column. */}
@@ -201,6 +219,7 @@ export function BoardView({ requestMove }: Props) {
         {/* Boundary work: the edge of this board, as a workflow of its own — below the cards, in
             the same four stages, and read-only. It renders nothing when nothing crosses the edge. */}
         <BoundaryWorkflow boardId={boardId} />
+        </div>
       </div>
     </div>
   )
