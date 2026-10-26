@@ -97,7 +97,10 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
         </span>
       </div>
 
-      <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+      {/* Four stages in one row, as the cards workflow's columns are: the board is read across, and
+          a column that wrapped to a second row would break that reading. Below the width four
+          columns need, the row scrolls sideways instead — the same answer the lanes give. */}
+      <div className="flex gap-2.5 overflow-x-auto overscroll-x-contain pb-1.5">
         {STAGES.map((stage) => {
           const inStage = boundaryInStage(entries, stage)
           return (
@@ -106,7 +109,10 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
               data-boundary-stage={stage}
               role="group"
               aria-label={`${STAGE_LABELS[stage]} — boundary`}
-              className={cn('flex min-h-[140px] flex-col overflow-hidden rounded-xl border border-slate-300/80 shadow-sm', STAGE_SURFACE[stage])}
+              className={cn(
+                'flex min-h-[140px] min-w-[196px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-300/80 shadow-sm',
+                STAGE_SURFACE[stage],
+              )}
               style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}` }}
             >
               <div className="mx-1 mt-1 mb-0.5 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 shadow-sm">
