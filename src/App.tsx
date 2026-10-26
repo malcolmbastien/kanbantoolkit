@@ -90,7 +90,7 @@ export default function App() {
   // Escape, or a click on any empty part of the screen, dismisses the topmost
   // layer: a confirm dialog or card menu handles its own; otherwise the current
   // selection — a multi-select group, or a single card open in the panel.
-  // Clicks on a card (to toggle/open it), the bulk bar, or a panel are left alone.
+  // Clicks on a card or an item row (to toggle/open it), the bulk bar, or a panel are left alone.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
@@ -117,6 +117,7 @@ export default function App() {
       const target = e.target as HTMLElement | null
       if (
         target?.closest('[data-card-id]') ||
+        target?.closest('[data-item-row]') ||
         target?.closest('[data-bulk-actions]') ||
         target?.closest('[data-item-panel]') ||
         target?.closest('[data-confirm-dialog]') ||

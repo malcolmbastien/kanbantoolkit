@@ -34,7 +34,7 @@ const props = (patch: Partial<CardProps> = {}): CardProps => ({
 
 describe('card memo', () => {
   it('skips a card nothing has changed about', () => {
-    // Fresh objects every time — the summaries and the parent chips are built per render — and
+    // Fresh objects every time — the summaries and the parent labels are built per render — and
     // still equal, which is the case the board is made of.
     expect(cardPropsEqual(props(), props())).toBe(true)
     expect(cardPropsEqual(props({ parent: { id: 'p', title: 'P', type } }), props({ parent: { id: 'p', title: 'P', type } }))).toBe(true)

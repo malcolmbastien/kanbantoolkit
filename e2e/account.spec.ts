@@ -68,10 +68,22 @@ test('an edit made offline waits, and lands when the connection comes back', asy
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
 
-  // A card the server has not seen, so this test is about the queue rather than about a conflict
-  // with the edit the test above made. It is also opened while there is a line: the drawer is its
-  // own chunk (task 110), and a first open with no connection is a different failure.
-  await page.locator('[data-workflow="cards"] [data-card-id]').nth(1).click()
+  // The board draws this browser's own copy first and the account's workspace a moment later, and
+  // the two order the cards differently — a position is only the same card once the server's copy
+  // is on screen. The edit the test above made is the landmark that says it is.
+  await expect(page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'This reached the server' })).toHaveCount(1)
+
+  // A card no earlier test has opened. Its lease would still be live for up to a minute after the
+  // page that took it closed, and the drawer shuts its fields while somebody else holds the pen —
+  // which is the subject of a test of its own, not this one. "Written on a train" is left out too,
+  // so a retry starts from a card the server has not already been told about. It is also opened
+  // while there is a line: the drawer is its own chunk (task 110), and a first open with no
+  // connection is a different failure.
+  const card = page
+    .locator('[data-workflow="cards"] [data-card-id]')
+    .filter({ hasNotText: /This reached the server|Written on a train/ })
+    .first()
+  await card.click()
   await expect(page.getByLabel('Title')).toBeVisible()
 
   await context.setOffline(true)

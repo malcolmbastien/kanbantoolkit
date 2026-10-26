@@ -203,7 +203,8 @@ export const STAGE_ACCENT: Record<Stage, string> = STAGE_COLOR
  *
  * The three levels of the board, and they are deliberate:
  *
- *   page     `bg-slate-300`  — the ground, one clear step below white;
+ *   page     `bg-board-ground` — the ground, a touch lighter than slate-300, still a clear
+ *                                step below white;
  *   column   these tints     — an object on the ground, still light;
  *   card     `bg-white`      — the brightest plane, lifted by its shadow.
  *

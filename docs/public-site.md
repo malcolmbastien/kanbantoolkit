@@ -117,9 +117,11 @@ One screen must answer three questions: what is this, why is it different, and w
    machine, from one process and one file. Each links to the page that proves it.
 9. **Questions** — four, with real answers: Do I need an account? What happens offline? How do we run
    it ourselves? Do you train anything on our data?
-10. **Footer** — product (what it does, install, changelog, status), using it (help, docs, the demo),
-    trust (privacy, terms, security, sub-processors), the project (source, contribute, licence) and
-    the support address.
+10. **Footer** — the brand and one quiet line of small print (the licence, the privacy notice, "no
+    tracking, no cookies" and the security address), then two groups: **Product** (the board, private
+    by default, the live demo, install) and **Project** (the documentation, the REST and MCP docs,
+    GitHub, the support address). Four groups of promotional labels was more footer than product;
+    the shape is super-productivity's — a name, a handful of destinations, the licence said once.
 
 **There is no cost section and no "how is this free?" section.** There is nothing to sell and nothing
 to explain away, and a paragraph about being free is still a paragraph about money. What stands in

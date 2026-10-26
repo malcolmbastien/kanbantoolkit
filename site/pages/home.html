@@ -1,105 +1,253 @@
 <!--
-title: Flowline — the truth is derived, not typed
-description: A board for the team's flow and management's read of it, from the same work. One card on several boards, status rolled up from the work below, edits that land offline — and no trackers.
+title: Flowline — The open-source Kanban board for modern teams
+description: An open-source Kanban board for teams and their leaders: day-to-day work rolls up into the bigger picture, with no trackers and data you can keep private.
 path: /
 -->
-<section class="hero">
-  <div class="hero-copy">
-    <p class="eyebrow">A board for teams, and for the people who read them</p>
-    <h1>The truth is derived, <span>not typed.</span></h1>
-    <p class="lede">
-      Your team's flow and your management's read of it, from the same work. A card is one item with a
-      parent, an owner and a history; the board is one view of it, and the rollup is another. Nothing is
-      written down twice, because there is only one thing to write.
-    </p>
-    <p class="cta">
-      <a class="button" href="/app">Open the demo — no account</a>
-      <a class="quiet" href="/install/">Install it</a>
-    </p>
-  </div>
+<section class="hero" id="product">
+  <div class="wrap">
+    <div class="hero-copy">
+      <h1>The Open Source <br class="hero-break" /><span>Kanban Board for Modern Teams</span></h1>
+      <p class="lede">
+        Keep day-to-day work and the bigger picture in one place. Your team gets the detail it needs,
+        leaders get a view they can trust, and your data stays private.
+      </p>
+      <p class="cta">
+        <a class="button" href="/app">Open the demo — no account</a>
+        <a class="quiet" href="{{repo}}">GitHub</a>
+      </p>
+    </div>
 
-  <figure class="shot" id="product">
-    <img src="/img/board.webp" width="1440" height="1200" alt="The Flowline board: four typed columns — Backlog, Not Started, In Progress and Done — with three initiatives above them and the cards that make them up below, each headlined by its type and showing a rollup percentage." />
-    <figcaption>
-      The shipped board, as it draws with no account: initiatives across the top, the team's own columns
-      below, and the work that decides both.
-    </figcaption>
-  </figure>
+    <div class="showcase" id="showcase">
+      <input type="radio" name="showcase" id="shot-0" checked />
+      <input type="radio" name="showcase" id="shot-1" />
+      <input type="radio" name="showcase" id="shot-2" />
+      <input type="radio" name="showcase" id="shot-3" />
+
+      <div class="showcase-tabs" role="group" aria-label="Product views">
+        <label for="shot-0">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="13" rx="1"/></svg>
+          The board
+        </label>
+        <label for="shot-1">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1"/><rect x="3" y="13" width="18" height="7" rx="1"/></svg>
+          Your team's steps
+        </label>
+        <label for="shot-2">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          The big picture
+        </label>
+        <label for="shot-3">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v4M5 17v-3h14v3"/></svg>
+          What's blocked
+        </label>
+      </div>
+
+      <div class="showcase-frame">
+        <figure class="slide slide-0">
+          <img src="/img/home-board.webp" width="1000" height="833" alt="The Flowline board: the bigger initiatives across the top and the team's own columns below, with the cards that make them up." />
+          <figcaption>
+            <span class="dot" aria-hidden="true"></span>
+            See the work your team does and the bigger picture it serves, side by side.
+          </figcaption>
+        </figure>
+        <figure class="slide slide-1">
+          <img src="/img/home-lanes.webp" width="1000" height="548" alt="A split column: its cells side by side, each with the name the team gave it, its card count, and the cards inside." />
+          <figcaption>
+            <span class="dot" aria-hidden="true"></span>
+            Split a step into the stages your team actually uses, with limits that keep work moving.
+          </figcaption>
+        </figure>
+        <figure class="slide slide-2">
+          <img src="/img/home-initiatives.webp" width="1000" height="366" alt="The big picture: three initiatives under their stage headings, each with progress, size and the work beneath it." />
+          <figcaption>
+            <span class="dot" aria-hidden="true"></span>
+            Progress and health come from the work itself, so nobody has to keep a status up to date.
+          </figcaption>
+        </figure>
+        <figure class="slide slide-3">
+          <img src="/img/home-drawer.webp" width="460" height="1115" alt="A card open in its panel, showing its parent, its history and the work it depends on." />
+          <figcaption>
+            <span class="dot" aria-hidden="true"></span>
+            See what is waiting on what, and which pieces of work are affected.
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <ul class="facts" id="facts">
+      <li><a href="/app"><strong>Works offline</strong> Keep working when the connection drops. Changes are saved as you go.</a></li>
+      <li><a href="{{repo}}/blob/main/docs/backup.md"><strong>Your data stays yours</strong> Everything lives in one place you control, ready to export whenever you want.</a></li>
+      <li><a href="/privacy/"><strong>No tracking</strong> No ads, no analytics, and nothing following you around the web.</a></li>
+      <li><a href="{{repo}}/blob/main/LICENSE"><strong>Open source</strong> Free to use, change, and run on your own terms.</a></li>
+    </ul>
+  </div>
 </section>
 
-<ul class="facts" id="facts">
-  <li><a href="/product/#many-boards"><strong>One card, several boards.</strong> It keeps its identity, its history and its owner wherever it is read.</a></li>
-  <li><a href="/product/#stages"><strong>Status is rolled up.</strong> Not a field somebody sets: the work below decides it.</a></li>
-  <li><a href="/product/#offline"><strong>Edits land offline.</strong> They wait, in order, and go when the line comes back.</a></li>
-  <li><a href="/product/#no-trackers"><strong>No trackers.</strong> No third-party scripts, no analytics, no fonts from elsewhere.</a></li>
-</ul>
+<section class="home-band" id="ideas">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">For the whole team</p>
+      <h2>Your team gets the detail. Leaders get the view.</h2>
+      <p>
+        One place for the work and the picture it adds up to. Nothing is entered twice, nothing falls
+        out of sync, and nobody spends Tuesday assembling a status the work already answers.
+      </p>
+    </div>
 
-<section class="band" id="ideas">
-  <div class="band-head">
-    <h2>Three ideas, and what they mean for you</h2>
+    <div class="split">
+      <article class="panel">
+        <p class="panel-badge tactical">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m8 9 2 2-2 2M13 13h3"/></svg>
+          For the team
+        </p>
+        <h3>Work the way your team does</h3>
+        <p>
+          Split a step into the stages your team actually uses, and set a sensible limit on how much
+          work is in flight. The view above still reads correctly.
+        </p>
+        <ul class="checked">
+          <li>Find and open anything in a few keystrokes</li>
+          <li>Clear signals when work is blocked or waiting</li>
+          <li>Limits that keep work moving instead of piling up</li>
+        </ul>
+      </article>
+
+      <article class="panel">
+        <p class="panel-badge strategic">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-6 4 3 5-8"/></svg>
+          For leaders
+        </p>
+        <h3>Progress you don't have to chase</h3>
+        <p>
+          Progress, age and risk come straight from the work. Nobody has to type a status update or
+          chase a slide.
+        </p>
+        <ul class="checked">
+          <li>A clear read on what is on track and what needs attention</li>
+          <li>See what depends on whom across teams</li>
+          <li>Time-to-finish trends without anyone logging time</li>
+        </ul>
+      </article>
+    </div>
   </div>
-  <div class="cards cards-3">
-    <p>
-      <strong>Work is a graph.</strong> Cards, initiatives, objectives and the edges between them are
-      items in one model, not folders in a tree. The consequence: the same card can be read on the team's
-      board and on the programme's without being copied, so it cannot disagree with itself.
+</section>
+
+<section class="home-band alt" id="starts">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Private by default</p>
+      <h2>Private, dependable and ready when you are</h2>
+      <p>No lock-in and no trackers. Run it on your own machines, or keep it entirely offline.</p>
+    </div>
+
+    <div class="bento">
+      <article class="bento-item span-2">
+        <p class="icon-box">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg>
+        </p>
+        <h3>Your work stays with you</h3>
+        <p>
+          Changes save as you make them, so the app stays quick and keeps working when the connection
+          doesn't. Everything comes back in order when you're online.
+        </p>
+      </article>
+
+      <article class="bento-item">
+        <p class="icon-box green">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="m4 4 16 16"/></svg>
+        </p>
+        <h3>Nothing following you</h3>
+        <p>
+          No ads, no analytics and no third-party scripts. Your work is never used to train anything,
+          and it never leaves the place you put it.
+        </p>
+      </article>
+
+      <article class="bento-item">
+        <p class="icon-box amber">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v6h6M8 14h8M8 18h5"/></svg>
+        </p>
+        <h3>Take your work with you</h3>
+        <p>
+          Download everything you've built in one go, in formats you can open elsewhere. You always
+          own your workspace.
+        </p>
+      </article>
+
+      <article class="bento-item span-2">
+        <p class="icon-box">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 7 3 3-3 3M12 15h6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg>
+        </p>
+        <h3>Run it yourself</h3>
+        <p>
+          Start on a laptop, a private server or your own cloud. No complicated setup and no external
+          database to manage.
+        </p>
+        <p><a href="/install/">See how to run it</a></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="home-band" id="who">
+  <div class="wrap">
+    <p class="strip strip-alone strip-link">
+      <a href="/app">Explore the demo</a>
     </p>
-    <p>
-      <strong>Facts are derived.</strong> A rollup, a status, a dependency that has cleared, a stale
-      initiative — each is computed from the work, never entered. The consequence: nobody's Tuesday is
-      spent updating a status that the cards already answer, and the number cannot drift from the work.
+  </div>
+</section>
+
+<section class="home-band alt" id="ledger">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">The details</p>
+      <h2 id="promises">Privacy &amp; Trust</h2>
+      <p>Three promises, each with the page that backs it up.</p>
+    </div>
+    <ul class="promises">
+      <li><strong>Nothing follows you.</strong> No ads, no analytics and no third-party scripts. <a href="/privacy/">What we hold</a>.</li>
+      <li><strong>Your work is yours.</strong> Download everything at any time, in a format you can open elsewhere. <a href="{{repo}}/blob/main/docs/backup.md">How to export</a>.</li>
+      <li><strong>Run it yourself.</strong> Your own machine, your own copy, your own rules. <a href="/install/">See how</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="home-band" id="questions">
+  <div class="wrap narrow">
+    <div class="section-head">
+      <p class="kicker">FAQ</p>
+      <h2>Straightforward answers</h2>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>Do I need an account to try it?<span class="plus" aria-hidden="true"></span></summary>
+        <p>No. The demo is a complete board with example work already in it. Accounts are optional and only matter when you run your own copy.</p>
+      </details>
+      <details>
+        <summary>What happens when I'm offline?<span class="plus" aria-hidden="true"></span></summary>
+        <p>Changes are saved as you make them, even without a connection. When you're back online, they're sent in the order you made them.</p>
+      </details>
+      <details>
+        <summary>Do you train AI on our work?<span class="plus" aria-hidden="true"></span></summary>
+        <p>No. Nothing is collected and nothing scrapes your work. Your notes, names and files never leave the place you put them.</p>
+      </details>
+      <details>
+        <summary>How do we run it ourselves and keep it safe?<span class="plus" aria-hidden="true"></span></summary>
+        <p>It comes with simple instructions for running it on your own machine or server. Everything is kept in one file you can copy or download whenever you like. <a href="/install/">See how to run it</a>.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band" id="install">
+  <div class="wrap cta-row">
+    <div>
+      <h2>Set up your team's board in minutes.</h2>
+      <p>One place for your work. No trackers. Free and open source.</p>
+    </div>
+    <p class="cta-actions">
+      <a class="button-light" href="/app">Open the demo</a>
+      <a class="button" href="{{repo}}">View GitHub</a>
     </p>
-    <p>
-      <strong>One truth, two audiences.</strong> The team shapes its own columns and names them what it
-      likes; management reads the same work at a higher altitude. The consequence: a board can be
-      reorganised without the portfolio becoming wrong, because the portfolio is not a copy of the board.
-    </p>
   </div>
-</section>
-
-<section class="band" id="starts">
-  <div class="band-head">
-    <h2>How it starts</h2>
-  </div>
-  <ol class="steps">
-    <li><strong>Open the demo.</strong> A seeded board, no account, no card. It is the whole product, not a tour.</li>
-    <li><strong>Shape a board.</strong> Four typed columns, split however your team actually works — and your own names for them.</li>
-    <li><strong>Install it when it needs to be yours.</strong> One process and one file on a machine you own; invite the people who do the work, then read the same work above it.</li>
-  </ol>
-</section>
-
-<section class="band" id="who">
-  <div class="band-head">
-    <h2>Who it is for</h2>
-  </div>
-  <div class="cards cards-3 audience">
-    <p><strong>A programme whose board no longer matches the work.</strong> The columns drifted, the status is a week old, and the slide is a third thing again.</p>
-    <p><strong>A team whose column names are its own.</strong> Not somebody else's idea of a pipeline, and not one that has to be renamed to fit a report.</p>
-    <p><strong>Somebody who reads for a living, and is tired of asking.</strong> The numbers are there because the work is; nobody has to be chased for them.</p>
-  </div>
-</section>
-
-<section class="band">
-  <h2 id="promises">The promises that are unusual</h2>
-  <ul class="points promises">
-    <li><strong>No trackers.</strong> No analytics, no advertising, no third-party scripts — the page you are reading makes no request off this domain. <a href="/privacy/">What we hold</a>.</li>
-    <li><strong>Your export always works.</strong> The board's menu writes the whole workspace as one file; the file is the data. <a href="{{repo}}/blob/main/docs/backup.md">How to export</a>.</li>
-    <li><strong>It runs on your own machine.</strong> One Node process and one SQLite file, the same routes and the same rules — and no service between you and it. <a href="/install/">Install it</a>.</li>
-  </ul>
-</section>
-
-<section class="band" id="questions">
-  <div class="band-head">
-    <h2>Four questions</h2>
-  </div>
-  <dl class="questions">
-    <dt>Do I need an account?</dt>
-    <dd>Not to look. <a href="/app">The demo</a> is the shipped board with seeded work and no session. An account belongs to an instance you run yourself.</dd>
-    <dt>What happens offline?</dt>
-    <dd>An edit you make with no connection is held, in order, and sent when the line comes back. The app says how many are waiting; nothing is silently dropped.</dd>
-    <dt>How do we run it ourselves?</dt>
-    <dd>Clone it, build it, run it: <a href="/install/">three commands</a>. The same routes and rules run on a Node process and on a Cloudflare Worker, and both entries are in the repository.</dd>
-    <dt>Do you train anything on our data?</dt>
-    <dd>No. Your work is not used to train anything, and there is no third party in the path to read it — the <a href="/privacy/">privacy notice</a> lists every service that touches it.</dd>
-  </dl>
 </section>

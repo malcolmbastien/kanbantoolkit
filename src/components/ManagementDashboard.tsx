@@ -1,18 +1,61 @@
-import { CalendarClock, Download, Layers, Target } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import {
+  AlarmClock,
+  CalendarClock,
+  CircleAlert,
+  CircleDashed,
+  Download,
+  Flag,
+  Layers,
+  Ruler,
+  SquareArrowOutUpRight,
+  Target,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
 import { boardInitiatives, initiativeTypeById, tagsOf } from '@/domain/board'
+import { ATTENTION_TILES, boardAttention, type AttentionKey } from '@/domain/attention'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
 import { csvFilename, dashboardCsv } from '@/domain/csv'
 import { childrenOf, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
 import { laneAges, medianOf, STALE_AFTER_DAYS } from '@/domain/filters'
-import { BAND_ACCENT, stageChip } from '@/lib/colors'
+import { BAND_ACCENT, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_COLOR, stageChip } from '@/lib/colors'
 import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Stage } from '@/domain/types'
 
 const barColor = (pct: number) => (pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
+
+/** Each tile's mark, and the accent it reads in. Only overdue and stale raise their voice. */
+const ATTENTION_ICON: Record<AttentionKey, LucideIcon> = {
+  unfinished: CircleDashed,
+  overdue: CircleAlert,
+  stale: AlarmClock,
+  unassigned: UserRound,
+  noPriority: Flag,
+  noEstimate: Ruler,
+}
+
+const ATTENTION_ACCENT: Record<AttentionKey, string> = {
+  unfinished: 'text-slate-500',
+  overdue: 'text-rose-600',
+  stale: 'text-amber-600',
+  unassigned: 'text-slate-500',
+  noPriority: 'text-slate-500',
+  noEstimate: 'text-slate-500',
+}
+
+const ATTENTION_HINT: Record<AttentionKey, string> = {
+  unfinished: 'Every unfinished item on this board — the population each count below is taken from',
+  overdue: 'Past its target date and not done',
+  stale: `Committed work past ${STALE_AFTER_DAYS} days in its lane with nothing moving`,
+  unassigned: 'Nobody is assigned to it',
+  noPriority: 'No priority is set',
+  noEstimate: 'No size estimate is set',
+}
 
 /** Days in a column, quiet: a whole number of days, or one decimal for an in-between median. */
 const daysLabel = (n: number | undefined) =>
@@ -44,7 +87,12 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   const issueTypes = useStore((s) => s.issueTypes)
   const boards = useStore((s) => s.boards)
   const openItem = useStore((s) => s.openItem)
+  const setView = useStore((s) => s.setView)
   const selectedItemId = useStore((s) => s.selectedItemId)
+  // Narrowing the review list is view state: it never touches the board's saved filters, and it
+  // belongs to this board, so switching boards starts from "all signals" again.
+  const [attentionFilter, setAttentionFilter] = useState<AttentionKey | null>(null)
+  useEffect(() => setAttentionFilter(null), [boardId])
 
   const graph: Graph = { items, edges, links, placements, lanes }
   // The cards workflow's columns, each reading how long its work has sat still — derived
@@ -100,6 +148,29 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   const doneInitiatives = rows.filter((r) => r.roll.bucket === 'done').length
   const atRisk = rows.filter((r) => r.health.level === 'atRisk').length
 
+  // The dashboard's first question — what is at risk of being forgotten — read from the work the
+  // board renders. Team boards read their cards; coordination boards read their own initiatives.
+  const attention = boardAttention(graph, boardId, issueTypes, { boards })
+  const signalRows = attention.rows.filter((r) => r.signals.length > 0)
+  // "No estimate" exists only where cards do: an initiative has none by design, so the tile is
+  // absent rather than a zero, and the band closes up around it.
+  const attentionTiles = ATTENTION_TILES.filter((tile) => tile.key !== 'noEstimate' || attention.hasEstimate)
+  const visibleRows =
+    attentionFilter === null
+      ? signalRows
+      : attentionFilter === 'unfinished'
+        ? attention.rows
+        : attention.rows.filter((r) => r.signals.some((s) => s.key === attentionFilter))
+  // The summary is what ties the tiles to the table: it says, in words, what the selection is
+  // currently doing — and it is announced when the selection changes.
+  const activeTileLabel = ATTENTION_TILES.find((tile) => tile.key === attentionFilter)?.label ?? 'Signal'
+  const attentionSummary =
+    attentionFilter === null
+      ? `${signalRows.length} item${signalRows.length === 1 ? '' : 's'} ${signalRows.length === 1 ? 'needs' : 'need'} a look`
+      : attentionFilter === 'unfinished'
+        ? `Unfinished · ${attention.rows.length} item${attention.rows.length === 1 ? '' : 's'}`
+        : `${activeTileLabel} · ${visibleRows.length} of ${signalRows.length} item${signalRows.length === 1 ? '' : 's'}`
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
       <div className="mx-auto w-full max-w-5xl">
@@ -134,6 +205,77 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           </div>
         </div>
 
+        {/* Time in column — the board's high-level shape: how many cards sit in each column,
+            and how long they have been there. Laid out as the board itself: four cells, left to
+            right, one per typed column. The count leads; the oldest age still speaks at the same
+            staleness threshold the card's own aging cue does. */}
+        <section className="mb-4">
+          <div className="mb-2 flex flex-wrap items-end gap-x-4 gap-y-1">
+            <div>
+              <h2 className="text-heading font-semibold text-slate-800">Time in column</h2>
+              <p className="text-meta text-slate-600">How many cards sit in each column, and how long they have been there.</p>
+            </div>
+            <span className="ml-auto text-meta text-slate-500">Stale after {STALE_AFTER_DAYS}+ days</span>
+          </div>
+
+          {columns.length === 0 ? (
+            <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-meta text-slate-600 shadow-sm">
+              The cards workflow has no columns yet.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-slate-300 shadow-sm">
+              <div className="grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-4">
+                {columns.map(({ lane, cards, oldest, median }) => {
+                  const stage = lane.stage ?? 'inProgress'
+                  const name = lane.name || STAGE_LABELS[stage]
+                  const stale = oldest !== undefined && oldest >= STALE_AFTER_DAYS
+                  return (
+                    <div key={lane.id} className="bg-white px-4 py-2.5">
+                      <span className="flex items-center gap-1.5 text-meta text-slate-600">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STAGE_COLOR[stage] }} />
+                        <span className="truncate">{name}</span>
+                      </span>
+                      <div
+                        className="mt-0.5 flex items-baseline gap-1.5"
+                        title={`${cards} card${cards === 1 ? '' : 's'} in ${name}`}
+                      >
+                        <span
+                          className={cn(
+                            'text-heading font-bold leading-none tabular-nums',
+                            cards === 0 ? 'text-slate-400' : 'text-slate-800',
+                          )}
+                        >
+                          {cards}
+                        </span>
+                        <span className="text-micro text-slate-500">cards</span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5 text-micro text-slate-600">
+                        <span
+                          className={cn(stale && 'font-semibold text-amber-700')}
+                          title={
+                            stale
+                              ? 'A card has sat still past the staleness threshold — the same moment a card starts showing its age'
+                              : undefined
+                          }
+                        >
+                          oldest {daysLabel(oldest)}
+                        </span>
+                        <span className="text-slate-400">·</span>
+                        <span>median {daysLabel(median)}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <p className="mt-2 text-micro text-slate-600">
+            Read from each placement's lane stamp — never stored on the item and never acting: nothing is auto-moved or
+            flagged. The clock starts when a card enters its lane, so splitting a column re-stamps the cards it reshapes.
+          </p>
+        </section>
+
         {/* Table */}
         <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
           <table className="w-full border-collapse text-left">
@@ -153,6 +295,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                 return (
                   <tr
                     key={item.id}
+                    data-item-row={item.id}
                     onClick={() => openItem(item.id)}
                     className={cn(
                       'cursor-pointer border-b border-slate-100 transition last:border-0 hover:bg-slate-50',
@@ -239,54 +382,176 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           </table>
         </div>
 
-        {/* Time in column — where time sits, per column of this board's cards workflow.
-            A stuck column is a number before it is a feeling, and the oldest number speaks
-            at the same staleness threshold the card's own aging cue does. */}
-        <section className="mt-4 overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-slate-100 px-4 py-2 text-micro font-semibold uppercase tracking-wide text-slate-600">
-            Time in column
+        {/* Needs attention — the board's own first question, and the filter for the list below.
+            Tiles and table share one card, so a number reads as a way into the items it counts
+            rather than as a separate report. */}
+        <section className="mb-4 mt-4">
+          <div className="mb-2 flex flex-wrap items-end gap-x-4 gap-y-1">
+            <div>
+              <h2 className="text-heading font-semibold text-slate-800">Needs attention</h2>
+              <p className="text-meta text-slate-600">Unfinished work on this board. Select a signal to filter the items below.</p>
+            </div>
+            <span className="ml-auto text-meta text-slate-500">Stale after {STALE_AFTER_DAYS}+ days</span>
           </div>
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-slate-200 text-micro uppercase tracking-wide text-slate-600">
-                <th className="px-4 py-2 font-semibold">Column</th>
-                <th className="px-4 py-2 font-semibold">Cards</th>
-                <th className="px-4 py-2 font-semibold">Oldest</th>
-                <th className="px-4 py-2 font-semibold">Median</th>
-              </tr>
-            </thead>
-            <tbody>
-              {columns.map(({ lane, cards, oldest, median }) => {
-                const stale = oldest !== undefined && oldest >= STALE_AFTER_DAYS
-                return (
-                  <tr key={lane.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-1.5 font-medium text-slate-700">
-                      {lane.name || STAGE_LABELS[lane.stage ?? 'inProgress']}
-                    </td>
-                    <td className="px-4 py-1.5 tabular-nums text-slate-600">{cards}</td>
-                    <td
-                      className={cn('px-4 py-1.5 tabular-nums', stale ? 'text-amber-700' : 'text-slate-600')}
-                      title={stale ? 'A card has sat still past the staleness threshold — the same moment a card starts showing its age' : undefined}
+
+          {signalRows.length === 0 ? (
+            <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-meta text-slate-600 shadow-sm">
+              Nothing needs attention here — no unfinished item carries a signal.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
+              <div
+                className={cn(
+                  'grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-3',
+                  attentionTiles.length === 6 ? 'xl:grid-cols-6' : 'xl:grid-cols-5',
+                )}
+              >
+                {attentionTiles.map((tile) => {
+                  const Icon = ATTENTION_ICON[tile.key]
+                  const active = attentionFilter === tile.key
+                  const count = attention.counts[tile.key]
+                  return (
+                    <button
+                      key={tile.key}
+                      type="button"
+                      aria-pressed={active}
+                      title={ATTENTION_HINT[tile.key]}
+                      onClick={() => setAttentionFilter(active ? null : tile.key)}
+                      className={cn(
+                        'flex flex-col items-start gap-0.5 bg-white px-4 py-2.5 text-left transition hover:bg-slate-50',
+                        active && 'bg-slate-100 ring-2 ring-inset ring-slate-400',
+                      )}
                     >
-                      {daysLabel(oldest)}
-                    </td>
-                    <td className="px-4 py-1.5 tabular-nums text-slate-600">{daysLabel(median)}</td>
+                      <span className="flex items-center gap-1.5 text-meta text-slate-600">
+                        <Icon size={13} className={ATTENTION_ACCENT[tile.key]} />
+                        {tile.label}
+                      </span>
+                      <span
+                        className={cn(
+                          'text-heading font-bold leading-none tabular-nums',
+                          count === 0 ? 'text-slate-400' : 'text-slate-800',
+                        )}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* The line that makes the relationship explicit: the same card, and a summary
+                  that says what the tiles are currently doing to the table beneath them. */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-slate-200 bg-slate-50 px-4 py-2">
+                <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">Items to review</span>
+                <span className="text-meta text-slate-600" aria-live="polite" data-attention-summary>
+                  {attentionSummary}
+                </span>
+                {attentionFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setAttentionFilter(null)}
+                    className="ml-auto rounded border border-slate-300 bg-white px-2 py-0.5 text-micro font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Clear filter
+                  </button>
+                )}
+              </div>
+
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
+                    <th className="px-4 py-2 font-semibold">Item</th>
+                    <th className="px-4 py-2 font-semibold">Status</th>
+                    <th className="px-4 py-2 font-semibold">Age</th>
+                    <th className="px-4 py-2 font-semibold">Signals</th>
+                    <th className="w-16 px-2 py-2 font-semibold">
+                      Open<span className="sr-only"> on board</span>
+                    </th>
                   </tr>
-                )
-              })}
-              {columns.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-meta text-slate-600">
-                    The cards workflow has no columns yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <p className="border-t border-slate-100 px-4 py-2 text-micro text-slate-600">
-            Read from each placement's lane stamp — never stored on the item and never acting: nothing is auto-moved or
-            flagged. The clock starts when a card enters its lane, so splitting a column re-stamps the cards it reshapes.
-          </p>
+                </thead>
+                <tbody>
+                  {visibleRows.map(({ item, status, ageDays: age, signals }) => {
+                    const type = typeOf(item.typeId)
+                    return (
+                      <tr
+                        key={item.id}
+                        data-item-row={item.id}
+                        onClick={() => openItem(item.id)}
+                        className={cn(
+                          'cursor-pointer border-b border-slate-100 transition last:border-0 hover:bg-slate-50',
+                          selectedItemId === item.id && 'bg-indigo-50',
+                        )}
+                      >
+                        <td className="max-w-[320px] px-4 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="shrink-0 rounded px-1 py-px text-micro font-bold uppercase tracking-wide"
+                              style={{ backgroundColor: type.color, color: '#fff' }}
+                            >
+                              {type.name}
+                            </span>
+                            <span className="truncate text-body font-semibold text-slate-800" title={item.title}>
+                              {item.title}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-meta text-slate-600">{status}</td>
+                        <td
+                          className="px-4 py-2 text-meta tabular-nums text-slate-600"
+                          title={
+                            age === undefined
+                              ? 'This placement predates the lane stamp, so its age is unknown'
+                              : `${age} days in its current lane`
+                          }
+                        >
+                          {age === undefined ? '—' : `${age}d`}
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {signals.length === 0 ? (
+                              <span className="text-meta text-slate-400">—</span>
+                            ) : (
+                              signals.map((signal) => (
+                                <span
+                                  key={signal.key}
+                                  title={signal.why}
+                                  className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[signal.tone])}
+                                >
+                                  {signal.label}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </td>
+                        <td className="w-16 px-2 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setView('board')
+                              openItem(item.id)
+                            }}
+                            title={`Open on ${board?.name ?? 'the board'}`}
+                            aria-label={`Open ${item.title} on ${board?.name ?? 'the board'}`}
+                            className="rounded p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                          >
+                            <SquareArrowOutUpRight size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {visibleRows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-meta text-slate-600">
+                        No item carries this signal.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         <p className="mt-3 text-meta text-slate-600">

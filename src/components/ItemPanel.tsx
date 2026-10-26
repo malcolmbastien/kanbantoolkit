@@ -506,6 +506,17 @@ export function ItemPanel({ itemId }: Props) {
       {/* ---- Header: the controls, what it is, what it is called, and the three views ---- */}
       <header className="shrink-0 border-b border-slate-200 px-4 pb-3 pt-3">
         <div className="flex items-center gap-2">
+          {/* A drawer opened from somewhere that is not the board can take the reader to the
+              cell; that is the one thing this header has to offer besides the card itself. */}
+          {somewhereToGo && (
+            <button
+              onClick={() => goTo(item.id)}
+              title={`Open this card on ${itemBoard?.name ?? 'its board'}`}
+              className="flex shrink-0 items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-micro font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            >
+              <SquareArrowOutUpRight size={12} /> Open on board
+            </button>
+          )}
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             <IconButton
               title={focusOn ? 'Stop focusing this line' : 'Focus this line on the board'}

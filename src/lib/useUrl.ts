@@ -28,11 +28,10 @@ export function useUrl() {
   const boardId = useStore((s) => s.boardId)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const view = useStore(viewOf)
-  // The document's name, derived the same way the URL is: the open card, the view, the board.
-  // A scalar, so a rename of the open card reaches the title as it is typed.
+  // The document's name, derived the same way the URL is: the board and the view. The open card
+  // is deliberately not read here — opening a drawer must not rename the page.
   const title = useStore((s) =>
     titleFor({
-      card: s.items.find((i) => i.id === s.selectedItemId)?.title,
       view: viewOf(s),
       board: s.boards.find((b) => b.id === s.boardId)?.name,
     }),

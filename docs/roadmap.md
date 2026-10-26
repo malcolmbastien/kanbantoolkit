@@ -86,6 +86,24 @@ be taken back.
 
 **Ends with:** `docker compose up` and a working instance someone else can run.
 
+## Phase 5 — The public site (151–161)
+
+The app is the product and, until now, the whole site: `/` boots a board, and nothing exists that a
+person could read before opening it. This phase is the pages around the application — the front door,
+the price, the way in, the trust set, help, status and the emails — and the commercial spine that
+makes "paid" more than a word. `docs/public-site.md` holds the inventory, the content of each page,
+and the decisions that must be taken before the page that depends on them.
+
+- **151** — the site is static, the app moves to `/app`, and a link that exists today still lands.
+- **152, 153** — what this is, and what it costs, with the limits generated from code the server reads.
+- **154, 155, 156** — the door, the money, and the account's own plan and invoices.
+- **150, 157** — what we do with your data, and the pages a buyer's lawyer asks for.
+- **158, 159, 160, 161** — help, status and support, self-hosting, and the emails.
+
+**Ends with:** a stranger who has never heard of Flowline reading the home page, opening the demo
+without an account, making a free account and a team board, paying for the portfolio when they need
+it, and cancelling back to free without writing to anybody.
+
 ## What ships when
 
 | After | A person can | Tier |
@@ -97,6 +115,8 @@ be taken back.
 | 122, 123 | invite members; share a board read-only and revoke it | both |
 | 119 | restore the workspace from a backup | both |
 | 128 | run the whole thing themselves | self-host |
+| 151, 152, 153 | read what this is and what it costs, and open the demo without an account | public site |
+| 154, 155, 156 | make a free account, pay for the portfolio, and fall back to free without asking anybody | paid |
 
 ## Not planned, and why
 

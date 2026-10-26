@@ -61,6 +61,14 @@ const SHOTS: Shot[] = [
   { name: 'flights', path: '/app?view=dashboard' },
 ]
 
+/**
+ * The home page's showcase shows one picture per tab, so those four are written twice: the full
+ * capture, for the product page where a single shot is the subject, and a narrower copy for the
+ * tabbed frame. The home page's transfer budget counts every image it names, and a 1440px capture
+ * shown at 900 is bytes nobody sees.
+ */
+const SHOWCASE = ['board', 'lanes', 'initiatives', 'drawer']
+
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true })
 
@@ -112,6 +120,19 @@ async function main(): Promise<void> {
   } finally {
     await browser.close()
     server.kill()
+  }
+
+  // The same four pictures at the width the home page's frame draws them. 1000px is enough for a
+  // 58rem frame on a 2x screen at the size the tab shows; quality 72 is the point where the board's
+  // column rules still read.
+  for (const name of SHOWCASE) {
+    const file = join(OUT, `home-${name}.webp`)
+    await sharp(join(OUT, `${name}.webp`))
+      .resize({ width: 1000, withoutEnlargement: true })
+      .webp({ quality: 72 })
+      .toFile(file)
+    const meta = await sharp(file).metadata()
+    console.log(`  home-${name}.webp — ${meta.width}px wide`)
   }
 
   console.log(`shots: ${SHOTS.length} written to site/img/`)

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  * wider column the shadow was the wrong shape for the place it was offering.
  *
  * The height is still the card's own, and that is the measurement the gap is really about: an
- * initiative carrying a parent chip and a blocked row is taller than a plain card, and a card
+ * initiative carrying a parent label and a blocked row is taller than a plain card, and a card
  * wearing a checklist is taller still.
  *
  * Both surfaces draw it — the cards workflow's lanes and the initiatives workflow's cells — so

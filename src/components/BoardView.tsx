@@ -80,7 +80,7 @@ export function BoardView({ requestMove }: Props) {
   // against the surface it commands. The bar is always present because the Filters control
   // always is; the rest of it appears only when it has something functional to say.
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-300">
+    <div className="flex h-full min-h-0 flex-col bg-board-ground">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 py-1.5 text-meta text-slate-600 backdrop-blur-sm">
         <button
           onClick={toggleLegend}

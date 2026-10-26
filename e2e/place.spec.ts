@@ -8,23 +8,26 @@ test('the title follows the place, and going back returns it', async ({ page }) 
   // an app that names itself with `document.title` leaves empty.
   await expect.poll(() => page.title()).toBe('Team Atlas · Flowline')
 
-  // A journey is a step in history — a view — so back returns to the board.
+  // A journey is a step in history — a view — so back returns to the board. The board leads the
+  // name and the view follows it, because the board is the page and the view is a surface of it.
   await page.getByRole('button', { name: 'Dashboard' }).click()
-  await expect.poll(() => page.title()).toBe('Dashboard · Team Atlas · Flowline')
+  await expect.poll(() => page.title()).toBe('Team Atlas · Dashboard · Flowline')
 
   await page.goBack()
   await expect.poll(() => page.title()).toBe('Team Atlas · Flowline')
 })
 
-test('an open card is the title, and closing it returns the board’s', async ({ page }) => {
+test('opening a card does not rename the page, and closing it leaves the board’s', async ({ page }) => {
   await openBoard(page)
   const [id] = await cardsIn(page, 'Backlog')
   await page.locator(`[data-card-id="${id}"]`).click()
 
-  const cardTitle = await page.getByLabel('Title').inputValue()
-  await expect.poll(() => page.title()).toBe(`${cardTitle} · Team Atlas · Flowline`)
+  // The open card is deliberately not part of the name (see `src/lib/title.ts`): a tab that
+  // changes every time a drawer opens makes the board harder to find, not easier.
+  await expect(page.getByLabel('Title')).toBeVisible()
+  await expect.poll(() => page.title()).toBe('Team Atlas · Flowline')
 
-  // An open card is a place, not a step: closing it is how the board comes back.
+  // Closing it returns the board — which, on this page, is where it already was.
   await page.keyboard.press('Escape')
   await expect.poll(() => page.title()).toBe('Team Atlas · Flowline')
 })

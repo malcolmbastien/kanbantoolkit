@@ -6,6 +6,13 @@
     'Apple Color Emoji', 'Segoe UI Emoji';
 
   /*
+   * The board's ground. It was slate-300, which read a shade too dark under the white cards;
+   * this is the same slate hue lifted a step, still clearly below the column tints and the card.
+   * One token so a later adjustment is one line rather than a hunt for the class.
+   */
+  --color-board-ground: #d5dde8;
+
+  /*
    * The type scale. Sizes used to be arbitrary — `text-[10px]` here, `text-[11px]` there,
    * `text-[9px]` in a few places — which is how the interface drifted below the size at which
    * text is readable. Five named steps, and nothing below `micro`.

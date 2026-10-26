@@ -17,20 +17,22 @@ test('the front page is the site, and it is readable with no JavaScript at all',
   const page = await context.newPage()
   try {
     await page.goto('/')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('The truth is derived')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Kanban Board for Modern Teams')
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
     await expect(page.getByRole('contentinfo')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Open the demo — no account' }).first()).toBeVisible()
-    // The picture the page is about, the questions it answers, and the links into the rest of the site.
-    await expect(page.locator('main img')).toHaveCount(1)
-    await expect(page.getByRole('term')).toHaveCount(4)
+    // The four pictures the page is about (the board, a split column, the initiatives, the panel)
+    // and the four questions it answers.
+    await expect(page.locator('main img')).toHaveCount(4)
+    await expect(page.getByRole('heading', { name: 'Straightforward answers' })).toBeVisible()
+    await expect(page.locator('.faq details')).toHaveCount(4)
     // The two things a visitor can do, and where the documentation is.
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Install' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Docs' })).toBeVisible()
     // Nothing on the page sells anything (task 164).
     await expect(page.getByRole('link', { name: 'Pricing' })).toHaveCount(0)
     // The licence is decided and named where a person looks for it (task 165).
-    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'AGPL-3.0 licence' })).toBeVisible()
+    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'AGPL-3.0', exact: true }).first()).toBeVisible()
   } finally {
     await context.close()
   }
@@ -164,8 +166,8 @@ test('the home page holds at 320 pixels wide', async ({ page }) => {
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   )
   expect(overflow).toBeLessThanOrEqual(0)
-  // And it is still the page: the heading, the demo action, the questions.
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('The truth is derived')
+  // And it is still the page: the heading and the demo action.
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Kanban Board for Modern Teams')
   await expect(page.getByRole('link', { name: 'Open the demo — no account' }).first()).toBeVisible()
 })
 
