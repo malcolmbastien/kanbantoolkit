@@ -103,7 +103,6 @@ const workspace: Workspace = {
       title: 'Sign in with a provider',
       description: 'One OIDC issuer, and no passwords.',
       typeId: 't-card',
-      size: 3,
       initiativeTypeId: 'k-bet',
       tagIds: ['g-ux'],
       assignees: ['u-ada'],

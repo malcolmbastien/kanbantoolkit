@@ -117,7 +117,7 @@ export const TOOLS: ToolSpec[] = [
   {
     name: 'create_item',
     description:
-      'Create a card or an initiative on a board, and place it. `typeId` decides which: the Initiative type makes an initiative, which is placed in the initiatives workflow and may not carry a size (its size is the work below it). The lane defaults to the board’s drop cell. `parentId` rolls it up to an initiative. Returns the item with its revision and cell. Refused when the board, lane, type, parent, tag or assignee does not exist, or when the lane belongs to the other workflow.',
+      'Create a card or an initiative on a board, and place it. `typeId` decides which: the Initiative type makes an initiative, which is placed in the initiatives workflow and which is placed in the initiatives workflow. The lane defaults to the board’s drop cell. `parentId` rolls it up to an initiative. Returns the item with its revision and cell. Refused when the board, lane, type, parent, tag or assignee does not exist, or when the lane belongs to the other workflow.',
     scope: 'items:write',
     action: 'item.write',
     inputSchema: object(
@@ -128,7 +128,6 @@ export const TOOLS: ToolSpec[] = [
         laneId: id('The cell. Omitted uses the board’s drop cell.'),
         description: text('Optional, markdown.'),
         parentId: id('Optional: the initiative this rolls up to.'),
-        size: { type: 'number', description: 'Optional estimate. Refused on an initiative.' },
         priority: { type: 'string', enum: ['urgent', 'high', 'medium', 'low'] },
         assignees: { type: 'array', items: { type: 'string' }, description: 'People ids from list_people.' },
         tagIds: { type: 'array', items: { type: 'string' }, description: 'Tags defined on the board.' },
@@ -142,7 +141,7 @@ export const TOOLS: ToolSpec[] = [
   {
     name: 'update_item',
     description:
-      'Change the fields a person writes: title, description, type, size, priority, assignees, tags, target dates, parent. `baseRev` is required and is the revision from get_item — a revision that has moved is refused with the current item, so read it and decide rather than forcing. An initiative is never retyped and never carries a size; a parent must be an initiative and nothing can be its own ancestor.',
+      'Change the fields a person writes: title, description, type, priority, assignees, tags, target dates, parent. `baseRev` is required and is the revision from get_item — a revision that has moved is refused with the current item, so read it and decide rather than forcing. An initiative is never retyped; a parent must be an initiative and nothing can be its own ancestor.',
     scope: 'items:write',
     action: 'item.write',
     inputSchema: object(
@@ -152,7 +151,6 @@ export const TOOLS: ToolSpec[] = [
         title: { type: 'string' },
         description: { type: ['string', 'null'] },
         typeId: { type: 'string' },
-        size: { type: ['number', 'null'] },
         priority: { type: ['string', 'null'], enum: ['urgent', 'high', 'medium', 'low', null] },
         assignees: { type: 'array', items: { type: 'string' } },
         tagIds: { type: 'array', items: { type: 'string' } },

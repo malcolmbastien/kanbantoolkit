@@ -285,7 +285,6 @@ export interface Item {
   title: string
   description?: string
   typeId: string
-  size?: number
   /**
    * An initiative's kind — a board's own label for it (see `InitiativeType`), never a card's:
    * `setInitiativeKind` refuses one on a card. Absent means None. This is *not* `typeId`, which

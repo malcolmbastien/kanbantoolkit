@@ -12,7 +12,7 @@ IssueType  { id, name, color }                              # custom, editable i
 Board      { id, name }
 Lane       { id, boardId, parentId, order, name,            # recursive tree
              orientation?, stage?, wipLimit? }              # stage lives on top-level columns
-Item       { id, title, typeId, size?, assignee?, ... }     # no board/state/level field
+Item       { id, title, typeId, assignee?, ... }            # no board/state/level field
 Edge       { decomposition | dependency | attribution }
 Placement  { id, boardId, itemId, laneId }                  # the card's board + cell
 ```

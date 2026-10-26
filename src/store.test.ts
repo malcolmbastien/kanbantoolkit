@@ -643,21 +643,6 @@ describe('store actions', () => {
     expect('status' in migrated.links[0]).toBe(false)
   })
 
-  it('migrateState drops an estimate on an initiative and keeps one on a card', () => {
-    const migrated = migrateState({
-      issueTypes: [
-        { id: 't-initiative', name: 'Initiative', color: '#6366f1' },
-        { id: 't-story', name: 'User Story', color: '#0ea5e9' },
-      ],
-      items: [
-        { id: 'init', title: 'An initiative', typeId: 't-initiative', createdAt: 0, size: 8 },
-        { id: 'card', title: 'A card', typeId: 't-story', createdAt: 0, size: 3 },
-      ],
-    }) as { items: { id: string; size?: number }[] }
-    expect(migrated.items.find((i) => i.id === 'init')!.size).toBeUndefined()
-    expect(migrated.items.find((i) => i.id === 'card')!.size).toBe(3)
-  })
-
   it('migrateState keeps one objective per initiative, dropping the rest', () => {
     // State from before the rule: one initiative mapped to two objectives. The first is kept —
     // the choice that was made first — and the others were choices the model no longer offers.
@@ -912,19 +897,19 @@ describe('store actions', () => {
     expect(migrated.keyResults[0].progress).toBeUndefined()
   })
 
-  it('an estimate belongs to a card: an initiative refuses one', () => {
-    const sizeOf = (id: string) => s().items.find((i) => i.id === id)!.size
-
-    s().setItemFields('st-email', { size: 8 })
-    expect(sizeOf('st-email')).toBe(8)
-    // An initiative's size is the sum of the sizes of the items below it, so the field is refused
-    // by the model rather than only hidden by the panel — the same shape as the type guard.
-    s().setItemFields('init-signup', { size: 8 })
-    expect(sizeOf('init-signup')).toBeUndefined()
-    // A patch that carries a size *and* something else keeps the something else.
-    s().setItemFields('init-signup', { size: 8, priority: 'high' })
-    expect(sizeOf('init-signup')).toBeUndefined()
-    expect(s().items.find((i) => i.id === 'init-signup')!.priority).toBe('high')
+  it('migrateState drops a card’s estimate, and any rollup size with it', () => {
+    // The board stopped counting points: state written before that loses the field, so a number
+    // the model no longer has cannot come back through a reload, an import or a backup.
+    const migrated = migrateState({
+      items: [
+        { id: 'a', title: 'A', typeId: 't-story', createdAt: 0, size: 8 },
+        { id: 'b', title: 'B', typeId: 't-story', createdAt: 0 },
+        { id: 'c', title: 'C', typeId: 't-initiative', createdAt: 0, size: 13 },
+      ],
+    }) as unknown as { items: Record<string, unknown>[] }
+    expect(migrated.items.map((i) => 'size' in i)).toEqual([false, false, false])
+    // Everything else about the item survives untouched.
+    expect(migrated.items[0]).toEqual({ id: 'a', title: 'A', typeId: 't-story', createdAt: 0 })
   })
 
   it('an initiative serves one objective: mapping it to a second moves it', () => {
@@ -1071,7 +1056,6 @@ describe('store actions', () => {
     expect(copyId).not.toBe(src.id)
     expect(copy.title).toBe('Build signup form copy')
     expect(copy.typeId).toBe(src.typeId)
-    expect(copy.size).toBe(src.size)
     expect(copy.description).toBe('Prompt: who is exposed, and to what?')
 
     // None of the original's commitments come with it.
@@ -1559,8 +1543,8 @@ describe('store actions', () => {
     expect(log('df-signup')).toEqual([])
 
     // The decisions, each in its own words — and in the order they were made.
-    s().setItemFields('st-email', { size: 5, priority: 'urgent', targetEndDate: '2026-12-01' })
-    expect(editedNotes('st-email')).toEqual(['size: 3 → 5', 'priority: none → urgent', 'target end: none → 2026-12-01'])
+    s().setItemFields('st-email', { priority: 'urgent', targetEndDate: '2026-12-01' })
+    expect(editedNotes('st-email')).toEqual(['priority: none → urgent', 'target end: none → 2026-12-01'])
     s().setItemFields('st-email', { assignees: ['u-mb'] })
     expect(editedNotes('st-email').at(-1)).toBe('assignees: nobody → Maya Blake')
     // A retype is named by what the types are called…
@@ -2278,11 +2262,7 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === 'st-signup-form')?.lastMoveReason).toBeUndefined()
   })
 
-  it('bulk size, target dates, block/unblock and assignee removal', () => {
-    s().setItemsSize(['st-email', 'st-sso'], 8)
-    expect(s().items.find((i) => i.id === 'st-email')?.size).toBe(8)
-    expect(s().items.find((i) => i.id === 'st-sso')?.size).toBe(8)
-
+  it('bulk target dates, block/unblock and assignee removal', () => {
     s().setItemsTargetStart(['st-email'], '2026-01-05')
     s().setItemsTargetEnd(['st-email'], '2026-02-05')
     expect(s().items.find((i) => i.id === 'st-email')?.targetStartDate).toBe('2026-01-05')
@@ -2370,7 +2350,6 @@ describe("an item's revision", () => {
 
   const mutators: { name: string; run: () => void; target: string }[] = [
     { name: 'setItemFields', run: () => s().setItemFields(card, { title: 'Renamed' }), target: card },
-    { name: 'setItemFields (size)', run: () => s().setItemFields(card, { size: 13 }), target: card },
     { name: 'toggleItemTag', run: () => s().toggleItemTag('b-atlas', card, freshTag()), target: card },
     { name: 'addAssignee', run: () => s().addAssignee(card, freshPerson()), target: card },
     { name: 'addItemsAssignee', run: () => s().addItemsAssignee([card, other], 'Jonah Tran'), target: other },

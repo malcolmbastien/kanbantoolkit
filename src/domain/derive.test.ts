@@ -18,7 +18,6 @@ import {
   openDescendants,
   openDependenciesOf,
   rollupOf,
-  sizedBelow,
   statusOf,
   withChecklistEntry,
   withChecklistEntryText,
@@ -40,15 +39,8 @@ describe('generic hierarchy — parent / child', () => {
   const s = createFixture()
   const g = graphOf(s)
 
-  it('weighs progress by size, and counts every leaf in the denominator', () => {
-    const item = (id: string, size: number | undefined, extra: Partial<Item> = {}): Item => ({
-      id,
-      title: id,
-      typeId: 't-story',
-      createdAt: 0,
-      ...(size === undefined ? {} : { size }),
-      ...extra,
-    })
+  it('counts the issues below, and the percentage is the finished share of them', () => {
+    const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-story', createdAt: 0, ...extra })
     const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
     const lane = (id: string, stage: 'done' | 'inProgress' | 'backlog'): Lane => ({
       id,
@@ -60,94 +52,48 @@ describe('generic hierarchy — parent / child', () => {
       workflow: 'cards',
     })
     const at = (itemId: string, laneId: string) => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId })
-    /** One delivered leaf and two under way, with the given sizes — `undefined` is unsized. */
-    const g = (sizes: [number | undefined, number | undefined, number | undefined], backlog = false): Graph => ({
-      items: [item('init', undefined, { typeId: 't-initiative' }), item('a', sizes[0], { resolvedAt: 1 }), item('b', sizes[1]), item('c', sizes[2])],
+    /** One delivered leaf and two under way — every leaf one share, whatever the work in it is. */
+    const g = (backlog = false): Graph => ({
+      items: [item('init', { typeId: 't-initiative' }), item('a', { resolvedAt: 1 }), item('b'), item('c')],
       edges: [edge('init', 'a'), edge('init', 'b'), edge('init', 'c')],
       links: [],
       placements: [at('a', 'done'), at('b', 'ip'), at('c', backlog ? 'backlog' : 'ip')],
       lanes: [lane('done', 'done'), lane('ip', 'inProgress'), lane('backlog', 'backlog')],
     })
 
-    // Equal pieces — unsized, so one point each — are the old count exactly: 1 of 3.
-    const even = rollupOf('init', g([undefined, undefined, undefined]))
-    expect(even.percent).toBe(33)
-    expect([even.done, even.total]).toEqual([1, 3]) // the counts stay counts, beside it
-
-    // Finish the big one and it counts for most of the work: 13 of 13 + 2 + 2.
-    expect(rollupOf('init', g([13, 2, 2])).percent).toBe(76)
-    // The same three pieces with the *small* one finished read far lower — the count cannot see
-    // the difference, which is the whole reason for weighting.
-    expect(rollupOf('init', g([2, 13, 13])).percent).toBe(7)
+    // One issue done of three below it: a third of the bar, and the counts say the same thing.
+    const third = rollupOf('init', g())
+    expect(third.percent).toBe(33)
+    expect([third.done, third.total]).toEqual([1, 3])
 
     // A Backlog leaf counts in the denominator: unplanned work is work, so it drags the number
     // back rather than flattering it.
-    const withBacklog = rollupOf('init', g([13, 2, 2], true))
-    expect(withBacklog.percent).toBe(76) // 13 of 17 — the queued 2 counts
+    const withBacklog = rollupOf('init', g(true))
+    expect(withBacklog.percent).toBe(33)
     expect(withBacklog.uncommitted).toBe(1)
 
-    // Two of five delivered is 50, whatever the commitment of the rest: the number is the work.
-    const nearly = rollupOf('init', {
-      ...g([2, 3, 5], true),
-      placements: [at('a', 'done'), at('b', 'done'), at('c', 'backlog')],
-    })
-    expect(nearly.percent).toBe(50)
-    expect(nearly.bucket).not.toBe('done')
-
-    // Three equal unsized pieces, one of them still in Backlog: 1 of 3.
-    expect(rollupOf('init', g([undefined, undefined, undefined], true)).percent).toBe(33)
-
-    // A two-leaf initiative, so the arithmetic is plain: `a` is delivered, `b` is not.
-    const two = (delivered: number | undefined, left: number | undefined, leftStage: 'backlog' | 'ip' = 'ip'): Graph => ({
-      items: [item('init', undefined, { typeId: 't-initiative' }), item('a', delivered, { resolvedAt: 1 }), item('b', left)],
+    // Two leaves, one delivered: a half — and with both done, all of it, which is the one case a
+    // bucket reads as done.
+    const two = (both: boolean): Graph => ({
+      items: [item('init', { typeId: 't-initiative' }), item('a', { resolvedAt: 1 }), item('b', both ? { resolvedAt: 1 } : {})],
       edges: [edge('init', 'a'), edge('init', 'b')],
       links: [],
-      placements: [at('a', 'done'), at('b', leftStage)],
+      placements: [at('a', 'done'), at('b', both ? 'done' : 'ip')],
       lanes: [lane('done', 'done'), lane('ip', 'inProgress'), lane('backlog', 'backlog')],
     })
-    expect(rollupOf('init', two(8, 2, 'backlog')).percent).toBe(80) // 8 of 10
-    expect(rollupOf('init', two(undefined, undefined, 'backlog')).percent).toBe(50) // unsized = 1
-    expect(rollupOf('init', two(undefined, 1, 'backlog')).percent).toBe(50) // …and a sized 1 is the same
+    expect(rollupOf('init', two(false)).percent).toBe(50)
+    expect(rollupOf('init', two(true)).percent).toBe(100)
+    expect(rollupOf('init', two(true)).bucket).toBe('done')
+
     // The value is a whole number in the range 0 to 100, in every shape.
-    for (const p of [
-      rollupOf('init', two(8, 2, 'backlog')).percent,
-      rollupOf('init', two(undefined, undefined)).percent,
-      rollupOf('init', two(1, undefined, 'backlog')).percent,
-      rollupOf('init', g([13, 2, 2], true)).percent,
-    ]) {
+    for (const p of [rollupOf('init', g()).percent, rollupOf('init', two(false)).percent, rollupOf('init', g(true)).percent]) {
       expect(Number.isInteger(p)).toBe(true)
       expect(p).toBeGreaterThanOrEqual(0)
       expect(p).toBeLessThanOrEqual(100)
     }
 
-    // The bucket reads the leaves' stages and not the percentage: sizes never move a status.
-    expect(rollupOf('init', g([1, 1, 1])).bucket).toBe(rollupOf('init', g([13, 2, 2])).bucket)
-  })
-
-  it('adds up the work below, counting an unsized leaf as one point', () => {
-    const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-story', createdAt: 0, ...extra })
-    const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
-    const g: Graph = {
-      items: [
-        item('init', { typeId: 't-initiative', size: 21 }),
-        item('epic', { size: 5 }),
-        item('a', { size: 2 }),
-        item('b'), // unsized: one point, so a size and a count never disagree
-        item('c', { size: 8 }),
-        item('lonely', { typeId: 't-initiative', size: 13 }),
-      ],
-      edges: [edge('init', 'epic'), edge('epic', 'a'), edge('epic', 'b'), edge('init', 'c')],
-      links: [],
-      placements: [],
-      lanes: [],
-    }
-    // Two levels deep: the sum is of the leaves, whatever the shape above them.
-    expect(rollupOf('init', g).size).toBe(2 + 1 + 8)
-    // An item's own size is not "below" it.
-    expect(rollupOf('epic', g).size).toBe(3)
-    expect(rollupOf('a', g).size).toBe(0)
-    // And an initiative with nothing under it reads 0 — not its own claim of 13.
-    expect(rollupOf('lonely', g).size).toBe(0)
+    // The bucket reads the leaves' stages, and nothing else.
+    expect(rollupOf('init', two(false)).bucket).toBe('inProgress')
   })
 
   it('depth is derived from the parent chain', () => {
@@ -313,7 +259,7 @@ describe('an objective is as far along as the work that serves it', () => {
 
   it('is the rollup of the leaves below the initiatives attributed to it', () => {
     const graph: Graph = {
-      items: [item('obj'), initiative('one'), item('a', { size: 8, resolvedAt: 1 }), item('b', { size: 2 })],
+      items: [item('obj'), initiative('one'), item('a', { resolvedAt: 1 }), item('b')],
       edges: [decomp('one', 'a'), decomp('one', 'b'), attr('obj', 'one')],
       links: [],
       placements: [at('a', 'done'), at('b', 'ip')],
@@ -321,21 +267,21 @@ describe('an objective is as far along as the work that serves it', () => {
     }
     // The same shape and the same answer an initiative reports, because it is the same function.
     expect(objectiveRollup('obj', graph)).toEqual(rollupOf('one', graph))
-    expect(objectiveRollup('obj', graph)!.percent).toBe(80)
+    expect(objectiveRollup('obj', graph)!.percent).toBe(50) // one of the two leaves below it
   })
 
   it('aggregates several initiatives instead of averaging them', () => {
     const graph: Graph = {
-      items: [item('obj'), initiative('one'), initiative('two'), item('a', { size: 2, resolvedAt: 1 }), item('b', { size: 13 })],
+      items: [item('obj'), initiative('one'), initiative('two'), item('a', { resolvedAt: 1 }), item('b')],
       edges: [decomp('one', 'a'), decomp('two', 'b'), attr('obj', 'one'), attr('obj', 'two')],
       links: [],
       placements: [at('a', 'done'), at('b', 'backlog')],
       lanes: [lane('done', 'done'), lane('backlog', 'backlog')],
     }
-    // One delivered 2-point leaf against one Backlog 13-point leaf: 2 of 15, not the average of
-    // 100% and 0%.
-    expect(objectiveRollup('obj', graph)!.percent).toBe(13)
-    expect(objectiveRollup('obj', graph)!.size).toBe(15)
+    // One delivered leaf against one still in Backlog: one of two, not the average of 100% and 0%.
+    expect(objectiveRollup('obj', graph)!.percent).toBe(50)
+    expect(objectiveRollup('obj', graph)!.done).toBe(1)
+    expect(objectiveRollup('obj', graph)!.total).toBe(2)
   })
 
   it('counts a leaf once, however many attributed initiatives sit above it', () => {
@@ -343,14 +289,13 @@ describe('an objective is as far along as the work that serves it', () => {
     // leaves are below both of them. Counting them twice would move the number for a reason
     // nobody could see.
     const graph: Graph = {
-      items: [item('obj'), initiative('one'), initiative('two'), item('a', { size: 4, resolvedAt: 1 }), item('b', { size: 4 })],
+      items: [item('obj'), initiative('one'), initiative('two'), item('a', { resolvedAt: 1 }), item('b')],
       edges: [decomp('one', 'two'), decomp('two', 'a'), decomp('two', 'b'), attr('obj', 'one'), attr('obj', 'two')],
       links: [],
       placements: [at('a', 'done'), at('b', 'ip')],
       lanes: [lane('done', 'done'), lane('ip', 'inProgress')],
     }
     expect(objectiveRollup('obj', graph)!.total).toBe(2)
-    expect(objectiveRollup('obj', graph)!.size).toBe(8)
     expect(objectiveRollup('obj', graph)!.percent).toBe(50)
   })
 
@@ -473,7 +418,7 @@ describe('rollup — a parent status is determined by the lowest-level work', ()
       return p
     })
     const roll = rollupOf('init-signup', graphOf(s2))
-    expect(roll.percent).toBe(87) // four of five leaves delivered, weighted by size
+    expect(roll.percent).toBe(80) // four of five leaves delivered
     expect(roll.bucket).not.toBe('done')
   })
 })
@@ -637,38 +582,28 @@ describe('checklist — sub-tasks inside a card', () => {
   })
 })
 
-describe('a size below', () => {
+describe('a rollup is a count', () => {
   const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: null, order: 0, name: id, workflow: 'cards', stage })
   const place = (itemId: string, laneId: string): Placement => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId, rank: 0 })
-  const item = (id: string, size?: number): Item => ({ id, title: id, typeId: 't-card', createdAt: 0, ...(size === undefined ? {} : { size }) })
+  const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-card', createdAt: 0, ...extra })
   const edge = (from: string, to: string): Edge => ({ id: `e-${to}`, kind: 'decomposition', from, to })
 
-  const withChildren = (sizes: Array<number | undefined>): Graph => ({
-    items: [item('init'), ...sizes.map((size, i) => item(`c${i}`, size))],
+  const withChildren = (count: number): Graph => ({
+    items: [item('init'), ...Array.from({ length: count }, (_, i) => item(`c${i}`))],
     lanes: [lane('todo', 'backlog')],
-    placements: [place('init', 'todo'), ...sizes.map((_, i) => place(`c${i}`, 'todo'))],
+    placements: [place('init', 'todo'), ...Array.from({ length: count }, (_, i) => place(`c${i}`, 'todo'))],
     links: [],
-    edges: sizes.map((_, i) => edge('init', `c${i}`)),
+    edges: Array.from({ length: count }, (_, i) => edge('init', `c${i}`)),
   })
 
-  it('is false when nothing below carries an estimate — however many cards there are', () => {
-    const graph = withChildren([undefined, undefined, undefined])
-    // The rollup counts an unsized leaf as one, which is right for weighting a percentage and is
-    // exactly why the card must not read that number out as points.
-    expect(rollupOf('init', graph).size).toBe(3)
-    expect(sizedBelow('init', graph)).toBe(false)
-  })
-
-  it('is true as soon as one leaf below is sized, whatever the others are', () => {
-    const graph = withChildren([undefined, 5])
-    expect(sizedBelow('init', graph)).toBe(true)
-    expect(rollupOf('init', graph).size).toBe(6)
-  })
-
-  it('is false for an initiative with nothing below, and for a card’s own size', () => {
-    expect(sizedBelow('init', withChildren([]))).toBe(false)
-    // A card's size is its own, not a rollup: "below" is only about the work underneath.
-    const own: Graph = { ...withChildren([]), items: [item('card', 8)], placements: [place('card', 'todo')] }
-    expect(sizedBelow('card', own)).toBe(false)
+  it('counts the work below — one issue, one share — and has nothing to weigh', () => {
+    // A childless item is its own leaf, the way `leafItems` answers for it: one issue, itself. The
+    // face hides the percentage when nothing is below, so that 1 is never read as "1 of 1 done"
+    // about work that does not exist.
+    const alone = rollupOf('init', withChildren(0))
+    expect([alone.done, alone.total]).toEqual([0, 1])
+    expect(rollupOf('init', withChildren(3)).total).toBe(3)
+    // The field is gone from the model, so it cannot creep back through a rollup.
+    expect('size' in rollupOf('init', withChildren(2))).toBe(false)
   })
 })

@@ -84,10 +84,12 @@ difference is worth reading: the first is the token you chose, the second is the
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
 | `POST /workspace` | `workspace:admin` | restore a file into an empty instance |
 
-An item is a card or an initiative; the `typeId` is what makes it one, not a different resource. An
-initiative's size is the sum of the work below it, so `size` on one is refused. An initiative is
-placed in the initiatives workflow and a card in the cards workflow — the two trees are independent,
-and a route that tries to cross them answers `422 wrong_workflow`.
+An item is a card or an initiative; the `typeId` is what makes it one, not a different resource.
+There is no `size` field: the board counts issues, not points, and progress is the number of them
+finished over the number below. A request that sends one is answered `422 invalid` and names the
+field, rather than dropping a number the client believes it set. An initiative is placed in the
+initiatives workflow and a card in the cards workflow — the two trees are independent, and a route
+that tries to cross them answers `422 wrong_workflow`.
 
 ## Conventions
 

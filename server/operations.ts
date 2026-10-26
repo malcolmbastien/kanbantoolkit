@@ -61,7 +61,6 @@ export const compactItem = (item: Item, placement?: Placement) => ({
   title: item.title,
   typeId: item.typeId,
   ...(item.initiativeTypeId ? { initiativeTypeId: item.initiativeTypeId } : {}),
-  ...(item.size !== undefined ? { size: item.size } : {}),
   ...(item.priority ? { priority: item.priority } : {}),
   ...(item.assignees?.length ? { assignees: item.assignees } : {}),
   ...(item.tagIds?.length ? { tagIds: item.tagIds } : {}),
@@ -427,6 +426,10 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
     }
   }
 
+  // The board stopped counting points. A client that still sends `size` hears so, rather than
+  // having a number it believes in quietly dropped on the floor.
+  if ('size' in body) return no(422, 'invalid', '`size` is gone: this board counts issues, not points', { field: 'size' })
+
   const now = Date.now()
   const draft: Item = {
     id,
@@ -434,7 +437,6 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
     typeId,
     createdAt: now,
     ...(typeof body.description === 'string' ? { description: body.description } : {}),
-    ...(typeof body.size === 'number' ? { size: body.size } : {}),
     ...(typeof body.priority === 'string' ? { priority: body.priority as Item['priority'] } : {}),
     ...(Array.isArray(body.assignees) ? { assignees: body.assignees.filter((a): a is string => typeof a === 'string') } : {}),
     ...(Array.isArray(body.tagIds) ? { tagIds: body.tagIds.filter((t): t is string => typeof t === 'string') } : {}),
@@ -446,9 +448,6 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
   // The shape check is the server's own parser, not a second one written here.
   const item = parseItem(draft)
   if (!item) return no(422, 'invalid', 'that is not an item this server can store')
-  if (initiative && item.size !== undefined) {
-    return no(422, 'invalid', 'an initiative has no estimate of its own — its size is the sum of the work below it', { field: 'size' })
-  }
   for (const assignee of item.assignees ?? []) {
     if (!state.users.some((u) => u.id === assignee)) {
       return no(422, 'invalid', '`assignees` must be people on this instance', { field: 'assignees', id: assignee })
@@ -507,6 +506,8 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
   if (typeof body.baseRev !== 'number' || !Number.isInteger(body.baseRev) || body.baseRev < 0) {
     return no(422, 'invalid', '`baseRev` is required: read the item, then send the revision you read', { field: 'baseRev' })
   }
+  // As on a create: `size` is not a field any more, and a client that sends one is told.
+  if ('size' in body) return no(422, 'invalid', '`size` is gone: this board counts issues, not points', { field: 'size' })
 
   if (key) {
     const applied = await appliedItemOf(caller.db, key)
@@ -550,16 +551,6 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
     }
     next.typeId = body.typeId
     changes.push('type')
-  }
-  if (body.size !== undefined) {
-    if (isInitiativeItem(current, state.issueTypes)) {
-      return no(422, 'invalid', 'an initiative has no estimate of its own — its size is the sum of the work below it', { field: 'size' })
-    }
-    if (body.size !== null && (typeof body.size !== 'number' || body.size < 0)) {
-      return no(422, 'invalid', '`size` must be a number of 0 or more, or null', { field: 'size' })
-    }
-    next.size = typeof body.size === 'number' ? body.size : undefined
-    changes.push('size')
   }
   if (body.priority !== undefined) {
     const allowed = ['urgent', 'high', 'medium', 'low']

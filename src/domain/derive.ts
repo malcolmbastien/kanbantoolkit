@@ -298,18 +298,6 @@ export function leafItems(id: string, graph: Graph): Item[] {
   return out
 }
 
-/**
- * Whether anything *below* this item carries an estimate of its own.
- *
- * A rollup counts an unsized leaf as one point, so that size and count never disagree about how
- * many pieces there are — which is right for weighting a percentage and wrong for a number a
- * person reads as an estimate. An initiative whose cards have no sizes has no size below it: the
- * sum would be a count wearing "pts", so there is nothing to show rather than "0 pts" or "3 pts".
- */
-export function sizedBelow(id: string, graph: Graph): boolean {
-  return leafItems(id, graph).some((leaf) => leaf.id !== id && leaf.size !== undefined)
-}
-
 export type RollupBucket = Stage
 
 export interface Rollup {
@@ -317,26 +305,19 @@ export interface Rollup {
   done: number
   inProgress: number
   notStarted: number
-  /** Leaves still in Backlog — uncommitted inventory, excluded from `percent`. */
+  /** Leaves still in Backlog — uncommitted inventory, still counted in `percent`. */
   uncommitted: number
   /**
-   * The done work as a percentage of the committed work, **weighted by size** — an unsized leaf
-   * counts as one point, so a 13 beside a 2 is not two equal pieces of work. Backlog leaves are
-   * out of both halves: a partly-planned initiative does not read 0% because of work nobody has
-   * committed to yet.
+   * The finished issues as a percentage of **everything below** — one issue, one share. Backlog
+   * leaves are in it: unplanned work is still work, so adding a card moves the number back rather
+   * than leaving the bar where it was.
    */
   percent: number
-  /**
-   * The work *below*, in points: the sum of the leaf descendants' sizes, with an unsized leaf
-   * counting as 1 so a count and a size never disagree about how many pieces there are. Zero for
-   * anything with nothing under it — including a card, whose work is itself and not below it.
-   */
-  size: number
   bucket: RollupBucket
 }
 
 export function rollupOf(id: string, graph: Graph): Rollup {
-  return rollupFrom(id, leafItems(id, graph), graph)
+  return rollupFrom(leafItems(id, graph), graph)
 }
 
 /**
@@ -346,23 +327,17 @@ export function rollupOf(id: string, graph: Graph): Rollup {
  * below the initiatives that serve one objective. One implementation, so an initiative and an
  * objective can never disagree about what "how far along" means.
  */
-function rollupFrom(id: string, leaves: Item[], graph: Graph): Rollup {
+function rollupFrom(leaves: Item[], graph: Graph): Rollup {
   const total = leaves.length
   const isBacklog = (l: Item) => stageOf(l.id, graph) === 'backlog'
   const backlog = leaves.filter(isBacklog).length
   const committed = total - backlog
   const done = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).resolved).length
   const started = leaves.filter((l) => !isBacklog(l) && statusOf(l.id, graph).started).length
-  // Progress is the size of the delivered work over the size of *all* the work below it, the
-  // Backlog included: unplanned work is still work, so adding a card moves the number back. The
-  // counts above stay counts — they say how many pieces there are, and the two never have to agree.
-  const points = (l: Item) => l.size ?? 1
-  const allPoints = leaves.reduce((sum, l) => sum + points(l), 0)
-  const donePoints = leaves.reduce((sum, l) => (!isBacklog(l) && statusOf(l.id, graph).resolved ? sum + points(l) : sum), 0)
-  const percent = allPoints === 0 ? 0 : Math.round((donePoints / allPoints) * 100)
-  // `leafItems` answers with the item itself when it has no children, so the sum is taken over
-  // the leaves *other* than the item: what is below, not what is here.
-  const size = leaves.reduce((sum, l) => (l.id === id ? sum : sum + (l.size ?? 1)), 0)
+  // Progress is the number of finished issues over the number of issues below: no weighting, and
+  // nothing to weight with. The counts beside it are the same numbers, which is the point — a bar
+  // a reader can check against the pips above it.
+  const percent = total === 0 ? 0 : Math.round((done / total) * 100)
 
   // A parent is as advanced as the work beneath it, but never claims completion early:
   // everything done → done; anything under way → inProgress; anything committed →
@@ -382,7 +357,6 @@ function rollupFrom(id: string, leaves: Item[], graph: Graph): Rollup {
     notStarted: Math.max(0, committed - started),
     uncommitted: backlog,
     percent: Math.min(100, percent),
-    size,
     bucket,
   }
 }
@@ -434,7 +408,7 @@ export function attributedObjectives(itemId: string, edges: Edge[], objectives: 
  * Each leaf counts once, however many attributed initiatives sit above it: an initiative can be
  * attributed to the same objective as its own parent, and a leaf counted twice would move the
  * number for a reason nobody could see. `id` is the objective, which is never one of its own
- * leaves, so the rollup's `size` is the whole of the work below it.
+ * leaves, so the percentage is over the whole of the work below it.
  */
 export function objectiveRollup(objectiveId: string, graph: Graph): Rollup | undefined {
   const initiatives = graph.edges.filter((e) => e.kind === 'attribution' && e.from === objectiveId).map((e) => e.to)
@@ -443,7 +417,7 @@ export function objectiveRollup(objectiveId: string, graph: Graph): Rollup | und
   for (const initiative of initiatives) {
     for (const leaf of leafItems(initiative, graph)) leaves.set(leaf.id, leaf)
   }
-  return rollupFrom(objectiveId, [...leaves.values()], graph)
+  return rollupFrom([...leaves.values()], graph)
 }
 
 /**

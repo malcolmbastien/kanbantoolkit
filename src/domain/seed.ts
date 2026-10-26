@@ -188,12 +188,10 @@ export function createSeed(): FlowState {
   decompose('init-reliability', ['init-slo'])
 
   card('st-signup-screens', 'Design the signup screens', 't-story', 'b-atlas', a.done, 'done', 62, 40, {
-    size: 3,
     assignees: ['u-rk'],
     priority: 'medium',
   })
   card('st-signup-rebuild', 'Rebuild the signup form', 't-story', 'b-atlas', a.dev, 'inProgress', 30, 6, {
-    size: 5,
     assignees: ['u-rk', 'u-mb'],
     priority: 'high',
     description: 'One page, one field at a time.\n\nAcceptance: works on a phone, measured, and behind a flag.',
@@ -205,14 +203,12 @@ export function createSeed(): FlowState {
     ],
   })
   card('st-signup-validation', 'Signup validation on retry', 't-bug', 'b-atlas', a.test!, 'inProgress', 12, 3, {
-    size: 2,
     assignees: ['u-mb'],
     priority: 'high',
     targetStartDate: day(-6),
     targetEndDate: day(-1),
   })
   card('st-enterprise-sso', 'Add SSO for enterprise tenants', 't-story', 'b-atlas', a.dev, 'inProgress', 21, 5, {
-    size: 5,
     assignees: ['u-jt'],
     priority: 'urgent',
     blocked: true,
@@ -221,11 +217,9 @@ export function createSeed(): FlowState {
     targetEndDate: day(24),
   })
   card('st-pricing-cache', 'Cache the pricing catalogue', 't-task', 'b-atlas', a.dev, 'inProgress', 16, 2, {
-    size: 3,
     assignees: ['u-ds'],
   })
   card('st-payment-retries', 'Payment retries on soft decline', 't-story', 'b-atlas', a.test!, 'inProgress', 24, 4, {
-    size: 5,
     assignees: ['u-ds', 'u-mb'],
     priority: 'urgent',
     targetStartDate: day(-10),
@@ -236,35 +230,29 @@ export function createSeed(): FlowState {
     ],
   })
   card('st-invoice-numbering', 'Migrate invoice numbering', 't-story', 'b-atlas', a.ns, 'notStarted', 19, 9, {
-    size: 3,
     // Nobody on it, and overdue: committed work with no owner is exactly what health is for.
     targetStartDate: day(-8),
     targetEndDate: day(-3),
   })
   card('st-coupon-retire', 'Retire the legacy coupon service', 't-task', 'b-atlas', a.ns, 'notStarted', 26, 11, {
-    size: 5,
     assignees: ['u-ds'],
     blocked: true,
     blockedReason: 'Needs a decision on grandfathered pricing',
     targetEndDate: day(31),
   })
   card('st-usage-billing', 'Add usage-based billing events', 't-story', 'b-atlas', a.backlog, 'backlog', 8, 8, {
-    size: 8,
     assignees: ['u-ds'],
     priority: 'high',
     targetEndDate: day(45),
   })
   card('st-pricing-experiment', 'Split the pricing experiment framework', 't-spike', 'b-atlas', a.backlog, 'backlog', 9, 9, {
-    size: 2,
   })
   card('st-trial-funnel', 'Instrument the trial funnel', 't-story', 'b-atlas', a.backlog, 'backlog', 6, 6, {
-    size: 3,
     assignees: ['u-lm'],
     priority: 'medium',
     targetEndDate: day(14),
   })
   card('st-rate-limit-msg', 'Rate limit messaging', 't-story', 'b-atlas', a.done, 'done', 70, 44, {
-    size: 3,
     assignees: ['u-rk'],
     archived: true,
     archivedAt: ago(43),
@@ -293,7 +281,6 @@ export function createSeed(): FlowState {
   decompose('init-reliability', ['init-observability'])
 
   card('st-identity-contract', 'Define the identity contract', 't-story', 'b-nova', n.dev, 'inProgress', 34, 12, {
-    size: 8,
     assignees: ['u-jt', 'u-ds'],
     priority: 'urgent',
     description: 'One contract, three consumers: Atlas, the admin console, and the partner API.',
@@ -305,19 +292,16 @@ export function createSeed(): FlowState {
     targetEndDate: day(9),
   })
   card('st-lakehouse-ingest', 'Lakehouse ingest pipeline', 't-story', 'b-nova', n.dev, 'inProgress', 28, 10, {
-    size: 13,
     assignees: ['u-ds'],
     priority: 'medium',
     targetStartDate: day(-20),
     targetEndDate: day(-5),
   })
   card('st-error-budget', 'Error budget dashboard', 't-story', 'b-nova', n.dev, 'inProgress', 22, 7, {
-    size: 5,
     assignees: ['u-rk'],
     targetEndDate: day(21),
   })
   card('st-scim', 'SCIM provisioning spike', 't-spike', 'b-nova', n.test!, 'inProgress', 20, 5, {
-    size: 3,
     assignees: ['u-jt'],
     checklist: [
       { id: 'cl-scim-1', text: 'Read the spec', done: true },
@@ -326,37 +310,30 @@ export function createSeed(): FlowState {
     ],
   })
   card('st-audit-retention', 'Audit log retention', 't-story', 'b-nova', n.test!, 'inProgress', 26, 6, {
-    size: 2,
     assignees: ['u-lm'],
     priority: 'high',
     targetEndDate: day(16),
   })
   card('st-trial-eligibility', 'Trial eligibility rules', 't-story', 'b-nova', n.ns, 'notStarted', 18, 8, {
-    size: 5,
     assignees: ['u-lm'],
     targetEndDate: day(28),
   })
   card('st-cost-attribution', 'Cost attribution per tenant', 't-story', 'b-nova', n.backlog, 'backlog', 11, 11, {
-    size: 8,
     priority: 'high',
     targetEndDate: day(60),
   })
   card('st-audit-backfill', 'Backfill the audit index', 't-task', 'b-nova', n.backlog, 'backlog', 10, 10, {
-    size: 5,
   })
   card('st-auth-retire', 'Retire the legacy auth endpoint', 't-story', 'b-nova', n.backlog, 'backlog', 15, 15, {
-    size: 3,
     assignees: ['u-jt'],
     blocked: true,
     blockedReason: 'Security review pending',
     targetEndDate: day(40),
   })
   card('st-identity-contract-v1', 'Identity contract v1', 't-story', 'b-nova', n.done, 'done', 80, 52, {
-    size: 5,
     assignees: ['u-jt'],
   })
   card('st-register-export', 'Export the register as CSV', 't-story', 'b-nova', n.done, 'done', 66, 41, {
-    size: 3,
     assignees: ['u-lm'],
     archived: true,
     archivedAt: ago(40),

@@ -31,7 +31,6 @@ import {
   lineageOf,
   objectiveRollup,
   rollupOf,
-  sizedBelow,
   type Graph,
 } from '@/domain/derive'
 import { boardInitiativeTypes, boardTags, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
@@ -189,9 +188,6 @@ export function ItemPanel({ itemId }: Props) {
   const dependents = dependentsOf(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
   const roll = rollupOf(item.id, graph)
-  // A size below is the sum of the *sizes* under it; when nothing under it carries one, the sum is
-  // a count wearing "pts", and there is no estimate to show.
-  const sized = sizedBelow(item.id, graph)
   const stage = roll.bucket
   const log = item.log ?? []
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
@@ -913,8 +909,10 @@ export function ItemPanel({ itemId }: Props) {
                 {/* Type and Kind — the labels a card or an initiative wears. A card's type is the
                     one you choose; an initiative's type is what makes it one, so it is fixed (the
                     ⋯ menu says so) and only its kind is a choice. */}
+                {/* Full width: a card shows Type, an initiative shows Kind, and never both — so
+                    half a row would leave a hole where a field used to be. */}
                 {!typeIsFixed && (
-                  <Field label="Type">
+                  <Field label="Type" className="col-span-2">
                     <select
                       value={item.typeId}
                       onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
@@ -928,7 +926,7 @@ export function ItemPanel({ itemId }: Props) {
                 )}
 
                 {isInitiative && (
-                  <Field label="Kind">
+                  <Field label="Kind" className="col-span-2">
                     <select
                       value={item.initiativeTypeId ?? ''}
                       onChange={(e) => setInitiativeKind(item.id, e.target.value || undefined)}
@@ -1036,43 +1034,6 @@ export function ItemPanel({ itemId }: Props) {
                     })}
                   </div>
                 </Field>
-
-                {isInitiative ? (
-                  /* An initiative has no estimate: its size is the sum of the sizes of the items
-                     below it. So the field reads rather than writes, and says why. */
-                  <Field label="Size below">
-                    {/* Read, not written — the shape Status wears, for the same reason. */}
-                    <div
-                      className="flex min-h-[30px] items-center"
-                      title={
-                        sized
-                          ? 'The sizes of the leaf work below this initiative, unsized work counting as 1 — never entered'
-                          : 'Nothing below it carries an estimate yet'
-                      }
-                    >
-                      <span className={cn('text-meta font-semibold tabular-nums', sized ? 'text-slate-700' : 'text-slate-500')}>
-                        {sized ? `${roll.size} pts` : '—'}
-                      </span>
-                    </div>
-                  </Field>
-                ) : (
-                  <Field label="Estimate">
-                    {/* A number and its unit, so the well is only as wide as the value — a
-                        half-column field with a two-character answer in it reads as empty. */}
-                    <div className={cn(WELL, 'w-fit')}>
-                      <input
-                        type="number"
-                        min={0}
-                        value={item.size ?? ''}
-                        onChange={(e) => setItemFields(item.id, { size: e.target.value === '' ? undefined : Number(e.target.value) })}
-                        placeholder="—"
-                        aria-label="Estimate in points"
-                        className="w-14 min-w-0 bg-transparent text-meta font-semibold tabular-nums text-slate-700 outline-none"
-                      />
-                      <span className="text-meta text-slate-600">pts</span>
-                    </div>
-                  </Field>
-                )}
 
                 <Field label="Target dates" className="col-span-2">
                   <div className={WELL}>
@@ -1716,7 +1677,7 @@ function ObjectiveProgress({ objectiveId }: { objectiveId: string }) {
         <div className="h-full bg-indigo-500 transition-all" style={{ width: `${roll.percent}%` }} />
       </div>
       <div className="text-micro text-slate-600">
-        {roll.total} {roll.total === 1 ? 'item' : 'items'} below, {roll.size} pts
+        {roll.done} of {roll.total} done
       </div>
     </div>
   )

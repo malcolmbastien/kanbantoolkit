@@ -76,7 +76,6 @@ export function createFixture(): FlowState {
 
   // Cards — Team Atlas.
   item('st-signup-design', 'Design signup screens', 't-story', {
-    size: 3,
     createdAt: T - 58 * DAY,
     // Long in the making, delivered this week: the slowest card on the board, and the one the
     // flow view's tail is honest about.
@@ -89,7 +88,6 @@ export function createFixture(): FlowState {
     ],
   })
   item('st-signup-form', 'Build signup form', 't-story', {
-    size: 5,
     createdAt: T - 20 * DAY,
     assignees: ['u-rk', 'u-mb'],
     log: [
@@ -105,7 +103,6 @@ export function createFixture(): FlowState {
     ],
   })
   item('st-email', 'Email verification', 't-story', {
-    size: 3,
     createdAt: T - 35 * DAY,
     log: [
       { id: 'log-email-1', at: T - 35 * DAY, kind: 'created' },
@@ -117,7 +114,6 @@ export function createFixture(): FlowState {
     ],
   })
   item('st-sso', 'SSO buttons', 't-story', {
-    size: 2,
     blocked: true,
     blockedReason: 'Gateway contract not ready',
     createdAt: T - 18 * DAY,
@@ -128,7 +124,7 @@ export function createFixture(): FlowState {
       { id: 'log-sso-2', at: T - 12 * DAY, kind: 'blocked', note: 'Gateway contract not ready' },
     ],
   })
-  item('df-signup', 'Signup validation on retry', 't-bug', { size: 2 })
+  item('df-signup', 'Signup validation on retry', 't-bug')
 
   /**
    * Team Atlas' delivered history: cards that were created, worked, done and filed away. They keep
@@ -140,14 +136,12 @@ export function createFixture(): FlowState {
     id: string,
     title: string,
     typeId: string,
-    size: number,
     created: number,
     started: number,
     worked: number,
     done: number,
   ) =>
     item(id, title, typeId, {
-      size,
       createdAt: created,
       resolvedAt: done,
       archived: true,
@@ -161,20 +155,19 @@ export function createFixture(): FlowState {
       ],
     })
 
-  filed('st-export-csv', 'Export the register as CSV', 't-story', 3, T - 64 * DAY, T - 62 * DAY, T - 56 * DAY, T - 49 * DAY)
-  filed('st-scim-spike', 'Spike: SCIM provisioning', 't-spike', 2, T - 60 * DAY, T - 59 * DAY, T - 52 * DAY, T - 44 * DAY)
-  filed('st-billing-handoff', 'Billing portal handoff', 't-story', 5, T - 52 * DAY, T - 48 * DAY, T - 45 * DAY, T - 37 * DAY)
-  filed('st-audit-log', 'Audit log retention', 't-story', 2, T - 45 * DAY, T - 44 * DAY, T - 40 * DAY, T - 30 * DAY)
-  filed('st-ratelimit-ui', 'Rate limit messaging', 't-story', 3, T - 38 * DAY, T - 37 * DAY, T - 29 * DAY, T - 23 * DAY)
-  filed('st-onboarding-email', 'Onboarding email sequence', 't-story', 3, T - 33 * DAY, T - 27 * DAY, T - 24 * DAY, T - 16 * DAY)
-  filed('st-legacy-import', 'Import legacy accounts', 't-story', 5, T - 26 * DAY, T - 25 * DAY, T - 20 * DAY, T - 9 * DAY)
+  filed('st-export-csv', 'Export the register as CSV', 't-story', T - 64 * DAY, T - 62 * DAY, T - 56 * DAY, T - 49 * DAY)
+  filed('st-scim-spike', 'Spike: SCIM provisioning', 't-spike', T - 60 * DAY, T - 59 * DAY, T - 52 * DAY, T - 44 * DAY)
+  filed('st-billing-handoff', 'Billing portal handoff', 't-story', T - 52 * DAY, T - 48 * DAY, T - 45 * DAY, T - 37 * DAY)
+  filed('st-audit-log', 'Audit log retention', 't-story', T - 45 * DAY, T - 44 * DAY, T - 40 * DAY, T - 30 * DAY)
+  filed('st-ratelimit-ui', 'Rate limit messaging', 't-story', T - 38 * DAY, T - 37 * DAY, T - 29 * DAY, T - 23 * DAY)
+  filed('st-onboarding-email', 'Onboarding email sequence', 't-story', T - 33 * DAY, T - 27 * DAY, T - 24 * DAY, T - 16 * DAY)
+  filed('st-legacy-import', 'Import legacy accounts', 't-story', T - 26 * DAY, T - 25 * DAY, T - 20 * DAY, T - 9 * DAY)
 
   // Cards — Team Nova.
-  item('st-welcome-copy', 'Welcome copy', 't-story', { size: 1 })
-  item('st-tour', 'Guided tour', 't-story', { size: 5, assignees: ['u-lm'] })
-  item('st-gateway-contract', 'Define gateway contract', 't-story', { size: 5, assignees: ['u-jt'] })
+  item('st-welcome-copy', 'Welcome copy', 't-story')
+  item('st-tour', 'Guided tour', 't-story', { assignees: ['u-lm'] })
+  item('st-gateway-contract', 'Define gateway contract', 't-story', { assignees: ['u-jt'] })
   item('st-ratelimit', 'Rate limiting', 't-story', {
-    size: 3,
     blocked: true,
     blockedReason: 'Awaiting capacity review',
     log: [
@@ -182,7 +175,7 @@ export function createFixture(): FlowState {
       { id: 'log-rl-2', at: T + 5 * 3_600_000, kind: 'blocked', note: 'Awaiting capacity review' },
     ],
   })
-  item('sp-gateway', 'Spike: gateway options', 't-spike', { size: 2 })
+  item('sp-gateway', 'Spike: gateway options', 't-spike')
 
   // A filed-away initiative: off the boards, but still linked and searchable.
   item('init-legacy', 'Legacy SSO migration', 't-initiative', {
@@ -195,7 +188,6 @@ export function createFixture(): FlowState {
     ],
   })
   item('st-legacy-a', 'Retire legacy auth endpoint', 't-story', {
-    size: 3,
     archived: true,
     archivedAt: T + 86_400_000,
     log: [

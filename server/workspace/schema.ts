@@ -26,5 +26,10 @@ export const WORKSPACE_SCHEMA = 1
  * them on every request, so a database without them would answer 401 to a credential that is valid.
  * 25 adds SCIM (task 168): the provisioning token and the IdP's own id for a person. The `/scim/v2`
  * door reads both, so the same rule — refuse rather than guess.
+ *
+ * 26 drops `items.size`: the board stopped counting points, and a database that still carries the
+ * column is one this code has stopped reading. It is not an additive read like the ones above, which
+ * is exactly why the number moves: a self-hoster on 25 is served by code that would ignore a field
+ * their rows still hold, and the honest answer is to migrate, not to half-read it.
  */
-export const REQUIRED_SCHEMA = 25
+export const REQUIRED_SCHEMA = 26

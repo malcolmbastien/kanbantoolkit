@@ -12,7 +12,6 @@ import {
   FolderInput,
   Minus,
   MoreHorizontal,
-  Ruler,
   Shapes,
   ShieldCheck,
   Tag,
@@ -39,7 +38,7 @@ interface Props {
   onClose: () => void
 }
 
-type Panel = 'move' | 'priority' | 'assignee' | 'type' | 'kind' | 'size' | 'start' | 'end' | 'block'
+type Panel = 'move' | 'priority' | 'assignee' | 'type' | 'kind' | 'start' | 'end' | 'block'
 
 const ITEM = 'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta text-slate-700 transition hover:bg-slate-100'
 const FIELD = 'min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-400'
@@ -72,7 +71,6 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const setItemsKind = useStore((s) => s.setItemsKind)
   const addItemsAssignee = useStore((s) => s.addItemsAssignee)
   const removeItemsAssignee = useStore((s) => s.removeItemsAssignee)
-  const setItemsSize = useStore((s) => s.setItemsSize)
   const setItemsTargetStart = useStore((s) => s.setItemsTargetStart)
   const setItemsTargetEnd = useStore((s) => s.setItemsTargetEnd)
   const blockItems = useStore((s) => s.blockItems)
@@ -332,29 +330,6 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
       )
     }
 
-    if (open === 'size') {
-      const apply = () => setItemsSize(itemIds, draft.trim() === '' ? undefined : Math.max(0, Number(draft) || 0))
-      return wrap(
-        <div className="flex items-center gap-1 px-2.5 py-1.5">
-          <input
-            type="number"
-            min={0}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') run(apply)
-            }}
-            placeholder="points"
-            className={FIELD}
-          />
-          <button onClick={() => run(apply)} className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white">
-            Set
-          </button>
-        </div>,
-        'w-48',
-      )
-    }
-
     if (open === 'start' || open === 'end') {
       const apply = (date: string | undefined) =>
         open === 'start' ? setItemsTargetStart(itemIds, date) : setItemsTargetEnd(itemIds, date)
@@ -472,9 +447,6 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
             initiatives workflow reads it. */}
         {!selectionHasInitiative && header('type', <Tag size={13} />, 'Type')}
         {selectionAllInitiatives && header('kind', <Shapes size={13} />, 'Kind')}
-        {/* An initiative has no estimate of its own: its size is the sum of the sizes of the
-            items below it, so there is nothing here to set. */}
-        {!selectionHasInitiative && header('size', <Ruler size={13} />, 'Size', single ? String(only?.size ?? '') : '')}
         {header('start', <CalendarClock size={13} />, 'Target start', single ? only?.targetStartDate ?? '' : '')}
         {header('end', <CalendarClock size={13} />, 'Target end', single ? only?.targetEndDate ?? '' : '')}
         {!allBlocked && header('block', <Ban size={13} />, 'Block…')}

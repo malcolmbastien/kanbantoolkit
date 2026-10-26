@@ -97,7 +97,6 @@ function addItem(statements: Statement[], item: Item, workspaceId: string): void
       title: item.title,
       description: value(item.description),
       type_id: item.typeId,
-      size: value(item.size),
       initiative_type_id: value(item.initiativeTypeId),
       tag_ids: json(item.tagIds),
       assignees: json(item.assignees),

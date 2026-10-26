@@ -97,7 +97,7 @@ export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
         name: 'Feature Preparation',
         orientation: 'columns',
         wipLimit: 10,
-        description: 'Business case showing value, cost of delay, size estimate and design outline.',
+        description: 'Business case showing value, cost of delay and a design outline.',
       },
       { key: 'k3', parentKey: 'k2', order: 0, name: 'In Progress', wipLimit: 3 },
       { key: 'k4', parentKey: 'k2', order: 1, name: 'Ready', wipLimit: 10 },
@@ -262,7 +262,7 @@ n.backlog.wipLimit = 2
 
 // Demo lane policies (shown via the lane's info icon).
 a.ns.description =
-  'Pull one card at a time. A card may only enter once it is sized and has a clear owner.'
+  'Pull one card at a time. A card may only enter once it has a clear owner.'
 a.test!.description =
   'Definition of done: reviewed, automated checks green, and deployed to staging before it can move to Done.'
   return {

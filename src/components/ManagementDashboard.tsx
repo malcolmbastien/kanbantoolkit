@@ -7,7 +7,6 @@ import {
   Download,
   Flag,
   Layers,
-  Ruler,
   SquareArrowOutUpRight,
   Target,
   UserRound,
@@ -36,7 +35,6 @@ const ATTENTION_ICON: Record<AttentionKey, LucideIcon> = {
   stale: AlarmClock,
   unassigned: UserRound,
   noPriority: Flag,
-  noEstimate: Ruler,
 }
 
 const ATTENTION_ACCENT: Record<AttentionKey, string> = {
@@ -45,7 +43,6 @@ const ATTENTION_ACCENT: Record<AttentionKey, string> = {
   stale: 'text-amber-600',
   unassigned: 'text-slate-500',
   noPriority: 'text-slate-500',
-  noEstimate: 'text-slate-500',
 }
 
 const ATTENTION_HINT: Record<AttentionKey, string> = {
@@ -54,7 +51,6 @@ const ATTENTION_HINT: Record<AttentionKey, string> = {
   stale: `Committed work past ${STALE_AFTER_DAYS} days in its lane with nothing moving`,
   unassigned: 'Nobody is assigned to it',
   noPriority: 'No priority is set',
-  noEstimate: 'No size estimate is set',
 }
 
 /** Days in a column, quiet: a whole number of days, or one decimal for an in-between median. */
@@ -152,9 +148,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   // board renders. Team boards read their cards; coordination boards read their own initiatives.
   const attention = boardAttention(graph, boardId, issueTypes, { boards })
   const signalRows = attention.rows.filter((r) => r.signals.length > 0)
-  // "No estimate" exists only where cards do: an initiative has none by design, so the tile is
-  // absent rather than a zero, and the band closes up around it.
-  const attentionTiles = ATTENTION_TILES.filter((tile) => tile.key !== 'noEstimate' || attention.hasEstimate)
+  const attentionTiles = ATTENTION_TILES
   const visibleRows =
     attentionFilter === null
       ? signalRows

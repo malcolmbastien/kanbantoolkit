@@ -277,7 +277,6 @@ export function stressBoard(cards = 300, types: IssueType[] = [], now = Date.now
     const title = `${pick(VERBS)} ${pick(OBJECTS)}`
     const createdAt = now - Math.floor(5 + rand() * 115) * DAY
     const assignees = chance(0.25) ? [] : [...new Set([pick(PEOPLE).id, ...(chance(0.35) ? [pick(PEOPLE).id] : [])])]
-    const size = pick([1, 2, 3, 3, 5, 5, 8, 13])
 
     // Where it sits now, then the walk that got it there — the history the flow view reads.
     let roll = rand() * totalWeight
@@ -314,7 +313,6 @@ export function stressBoard(cards = 300, types: IssueType[] = [], now = Date.now
       id,
       title,
       typeId: pick(cardTypeList).id,
-      size,
       createdAt,
       log,
       ...(assignees.length > 0 ? { assignees } : {}),

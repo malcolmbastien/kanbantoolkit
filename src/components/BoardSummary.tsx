@@ -18,7 +18,6 @@ import {
   openDescendants,
   canPlaceInSection,
   rollupOf,
-  sizedBelow,
   statusOf,
   uncommittedBelow,
   type Graph,
@@ -393,7 +392,6 @@ export function BoardSummary({
           uncommittedBelow: uncommittedBelow(c.id, graph),
           openDescendants: openDescendants(c.id, graph).length,
           rollupPercent: rollupOf(c.id, graph).percent,
-          sizeBelow: sizedBelow(c.id, graph) ? rollupOf(c.id, graph).size : undefined,
           done: isComplete(c.id, graph),
           checklist: checklistProgress(c),
         }}

@@ -129,11 +129,8 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
     })
   }
 
-  // The work below, against what the initiative itself says. One arithmetic warning, and the
-  // smaller half of the pair Businessmap raises an exclamation mark for: the work is due after the
-  // initiative is. Its sibling — the work being bigger than the initiative estimates — has no
-  // input left, because an initiative has no estimate: its size is the sum of the items below it.
-  // A watch, never a block, and an initiative with nothing below it raises nothing.
+  // The work below, against what the initiative itself says: the work is due after the
+  // initiative is. A watch, never a block, and an initiative with nothing below it raises nothing.
   const ownEnd = parseDay(item?.targetEndDate)?.getTime()
   if (ownEnd !== undefined) {
     const later = open.filter((i) => {

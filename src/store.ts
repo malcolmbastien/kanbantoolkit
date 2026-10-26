@@ -211,7 +211,6 @@ export interface Actions {
   clearItemsAssignees: (itemIds: string[]) => void
   /** Remove one assignee (by user id) from every listed item. */
   removeItemsAssignee: (itemIds: string[], userId: string) => void
-  setItemsSize: (itemIds: string[], size: number | undefined) => void
   setItemsTargetStart: (itemIds: string[], date: string | undefined) => void
   setItemsTargetEnd: (itemIds: string[], date: string | undefined) => void
   /** Block every listed item (an optional reason, recorded in each item's log). */
@@ -347,7 +346,7 @@ export interface Actions {
   addStressBoard: (cards: number) => void
   /**
    * Copy a card: the same shape, none of the original's commitments. The copy carries the
-   * title, type, size, description and a fresh checklist (new entry ids, nothing ticked) —
+   * title, type, description and a fresh checklist (new entry ids, nothing ticked) —
    * never assignees, dates, priority, blocking, resolvedAt, a parent or links.
    *
    * A copy lands where the original sits, so it needs a cell: copying an item that has no
@@ -770,14 +769,13 @@ const moved = (lanes: Lane[], boardId: string, from: string | undefined, to: str
   movedEntry(lanes, boardId, from, to, { id: uid, at: Date.now(), by: currentAuthor, why })
 
 /**
- * The field edits worth keeping in a history: the decisions — a retype, a resize, a
+ * The field edits worth keeping in a history: the decisions — a retype, a
  * reprioritisation, a re-date, a reassignment. Free text is not here, because it arrives one
  * keystroke at a time (see `logTextEdit`), and neither are `blocked`/`resolvedAt`, which have
  * their own events and their own clocks.
  */
 const FIELD_LOG: { key: keyof Item; label: string }[] = [
   { key: 'typeId', label: 'type' },
-  { key: 'size', label: 'size' },
   { key: 'priority', label: 'priority' },
   { key: 'targetStartDate', label: 'target start' },
   { key: 'targetEndDate', label: 'target end' },
@@ -1103,18 +1101,15 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return rest
     })
   }
-  // v32: an initiative has no estimate — its size is the sum of the sizes of the items below it.
-  // State from before the rule loses the estimate on an initiative and keeps it on a card, so a
-  // number the model would refuse cannot come back through a reload or an import.
-  if (Array.isArray(p.items) && Array.isArray(p.issueTypes)) {
-    const initiativeType = (p.issueTypes as { id: string; name: string }[]).find((t) => t.name === 'Initiative')?.id
-    if (initiativeType) {
-      p.items = (p.items as (Item & { size?: number })[]).map((i) => {
-        if (i.typeId !== initiativeType || !('size' in i)) return i
-        const { size: _gone, ...rest } = i
-        return rest
-      })
-    }
+  // v34: the board stopped counting points — a card has no estimate, and progress is the number
+  // of issues done over the number below. State written before that loses the field, so a number
+  // the model no longer has cannot come back through a reload, an import or a backup.
+  if (Array.isArray(p.items)) {
+    p.items = (p.items as (Item & { size?: number })[]).map((i) => {
+      if (!('size' in i)) return i
+      const { size: _gone, ...rest } = i
+      return rest
+    })
   }
   // v29: a board carries its own description — the legend opens with it. Backfill with the
   // empty string, which the legend then prompts about.
@@ -1161,7 +1156,7 @@ export const PERSIST_KEY = 'flowline-state-v3'
 /** Chosen once (R4): the store is given an adapter and never asks which one it was given. */
 const repository = chooseRepository()
 /** The current persisted workspace shape — every schema change bumps it with a migrate. */
-export const PERSIST_VERSION = 33
+export const PERSIST_VERSION = 34
 /**
  * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
  * guess is not what a person's workspace gets.
@@ -1491,10 +1486,6 @@ export const useStore = create<Store>()(
             return { ...i, assignees: next.length > 0 ? next : undefined }
           }),
         })
-      },
-      setItemsSize: (itemIds, size) => {
-        const ids = new Set(itemIds)
-        set({ items: writeItems(get(), (i) => (ids.has(i.id) ? { ...i, size } : i)) })
       },
       setItemsTargetStart: (itemIds, targetStartDate) => {
         const ids = new Set(itemIds)
@@ -2024,9 +2015,8 @@ export const useStore = create<Store>()(
           typeId: src.typeId,
           createdAt: Date.now(),
           log: [logEntry('created')],
-          // Shape, not state: the size, description and steps are what make this record the
+          // Shape, not state: the description and the steps are what make this record the
           // record it is; the assignees, dates and reasons are judgements about *that* card.
-          ...(src.size !== undefined ? { size: src.size } : {}),
           ...(src.description !== undefined ? { description: src.description } : {}),
           // A copied checklist is a fresh set of steps, never a set already ticked.
           ...(src.checklist?.length
@@ -2233,12 +2223,7 @@ export const useStore = create<Store>()(
             // here too: the rule is the model's, not the UI's.
             const allowed = !patch.typeId || canRetype(i, patch.typeId, state.issueTypes)
             const { typeId: _reserved, ...rest } = patch
-            // An initiative has no estimate — its size is the sum of the sizes of the items below
-            // it — so the field is dropped for one, the same way the type is. The panel's control
-            // is hidden for an initiative too; this is the rule rather than the courtesy.
-            const { size: _noEstimate, ...noSize } = allowed ? patch : rest
-            const fields = isInitiativeItem(i, state.issueTypes) ? noSize : allowed ? patch : rest
-            const next: Item = { ...i, ...fields }
+            const next: Item = { ...i, ...(allowed ? patch : rest) }
             // What changed is part of the record — and a change the model refused changed
             // nothing, so it says nothing.
             const entries = fieldEditEntries(i, next, state)

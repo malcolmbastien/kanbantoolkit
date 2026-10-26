@@ -163,7 +163,7 @@ export function ObjectivesView() {
                           <div className="h-full bg-indigo-500 transition-all" style={{ width: `${roll.percent}%` }} />
                         </div>
                         <div className="text-micro text-slate-600">
-                          {roll.total} {roll.total === 1 ? 'item' : 'items'} below, {roll.size} pts
+                          {roll.done} of {roll.total} {roll.total === 1 ? 'issue' : 'issues'} done
                         </div>
                       </div>
                     ) : (

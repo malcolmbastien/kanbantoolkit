@@ -161,8 +161,6 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
 
     const description = maybeText(row.description)
     if (description !== undefined) item.description = description
-    const size = maybeCount(row.size)
-    if (size !== undefined) item.size = size
     const initiativeTypeId = maybeText(row.initiative_type_id)
     if (initiativeTypeId !== undefined) item.initiativeTypeId = initiativeTypeId
     const tagIds = parse<string[]>(row.tag_ids)

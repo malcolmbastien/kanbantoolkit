@@ -312,7 +312,7 @@ describe('writing', () => {
     expect(error.error.details.item).toMatchObject({ title: 'First', rev: 2 })
   })
 
-  it('refuses a size on an initiative, in the domain’s words', async () => {
+  it('places an initiative in its own workflow, and knows nothing of an estimate', async () => {
     const { signIn, token } = await world()
     const person = await signIn('editor@example.com', 'editor')
     const writer = await token(person, ['items:write', 'boards:read'], 'writer')
@@ -332,13 +332,14 @@ describe('writing', () => {
     })
     expect(placed.status).toBe(201)
 
-    // …and an estimate on it is refused: its size is the sum of the work below it.
+    // The board stopped counting points, so `size` is not a field a client can send — and the
+    // server says so rather than dropping a number the client believes it set.
     const sized = await writer.call('/items', {
       method: 'POST',
       body: body({ boardId: 'b-1', title: 'Another outcome', typeId: 't-init', laneId: 'l-cell-backlog', size: 8 }),
     })
     expect(sized.status).toBe(422)
-    expect(((await sized.json()) as { error: { code: string } }).error.code).toBe('invalid')
+    expect(((await sized.json()) as { error: { code: string; message: string } }).error.message).toContain('counts issues, not points')
   })
 })
 

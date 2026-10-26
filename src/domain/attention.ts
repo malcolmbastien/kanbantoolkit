@@ -10,18 +10,17 @@ import type { Board, IssueType, Item, Placement, Stage } from './types'
  * every count.
  *
  * This is a reading surface and nothing else. Every signal is derived from state the model
- * already keeps — the placement's lane and stamp, the assignees, the priority, the size and the
- * target date — so nothing is stored, nothing is flagged, and no rule can disagree with the card
- * it describes. The band and the list read one array (`rows`), which is why a tile's number and
- * the rows carrying its signal are the same fact.
+ * already keeps — the placement's lane and stamp, the assignees, the priority and the target
+ * date — so nothing is stored, nothing is flagged, and no rule can disagree with the card it
+ * describes. The band and the list read one array (`rows`), which is why a tile's number and the
+ * rows carrying its signal are the same fact.
  *
  * The population is what the board actually renders. A board with a cards workflow reads its
- * cards; a coordination board, which makes no cards, reads its own initiatives. The signals an
- * initiative can carry are the ones it can actually answer for: it has no estimate by design, so
- * it is never counted against one.
+ * cards; a coordination board, which makes no cards, reads its own initiatives. Both read the
+ * same rules, because an initiative answers for the same facts a card does.
  */
 
-export type AttentionSignalKey = 'overdue' | 'stale' | 'unassigned' | 'noPriority' | 'noEstimate'
+export type AttentionSignalKey = 'overdue' | 'stale' | 'unassigned' | 'noPriority'
 
 /** Every tile in the band, in reading order — Unfinished first, because it is the population. */
 export type AttentionKey = 'unfinished' | AttentionSignalKey
@@ -53,7 +52,6 @@ export interface AttentionCounts {
   stale: number
   unassigned: number
   noPriority: number
-  noEstimate: number
 }
 
 export interface Attention {
@@ -62,8 +60,6 @@ export interface Attention {
   /** Every attention item, those with signals first. The counts are taken from this array. */
   rows: AttentionRow[]
   counts: AttentionCounts
-  /** Whether "no estimate" is a meaningful signal here: never on an initiative. */
-  hasEstimate: boolean
 }
 
 /** The band's tiles, in the order they read. The label is the tile; the key is the count. */
@@ -73,14 +69,12 @@ export const ATTENTION_TILES: { key: AttentionKey; label: string }[] = [
   { key: 'stale', label: 'Stale' },
   { key: 'unassigned', label: 'Unassigned' },
   { key: 'noPriority', label: 'No priority' },
-  { key: 'noEstimate', label: 'No estimate' },
 ]
 
 const COMMITTED = new Set<Stage>(['notStarted', 'inProgress'])
 
 /**
- * Read a board's attention: the population it renders, every row with its signals, the counts,
- * and whether the estimate signal exists here.
+ * Read a board's attention: the population it renders, every row with its signals, and the counts.
  *
  * A programme or portfolio board is aggregating, not working: it makes no cards, even when the
  * lane tree still carries an empty cards workflow (the demo's coordination boards do). The same
@@ -101,10 +95,9 @@ export function boardAttention(
     stale: 0,
     unassigned: 0,
     noPriority: 0,
-    noEstimate: 0,
   }
   for (const row of rows) for (const signal of row.signals) counts[signal.key] += 1
-  return { population: makesCards ? 'cards' : 'initiatives', rows: orderRows(rows), counts, hasEstimate: makesCards }
+  return { population: makesCards ? 'cards' : 'initiatives', rows: orderRows(rows), counts }
 }
 
 /**
@@ -191,17 +184,6 @@ function cardSignals(item: Item, stage: Stage, age: number | undefined, now: num
       key: 'noPriority',
       label: 'No priority',
       why: 'No priority is set',
-      tone: 'watch',
-    })
-  }
-
-  // An initiative has no estimate by design, and can never reach this branch: the population for
-  // this rule is a cards workflow. `size: 0` is an estimate of nothing, not the absence of one.
-  if (item.size === undefined) {
-    signals.push({
-      key: 'noEstimate',
-      label: 'No estimate',
-      why: 'No size is estimated',
       tone: 'watch',
     })
   }

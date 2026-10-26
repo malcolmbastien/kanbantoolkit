@@ -1,7 +1,7 @@
 import { ChartNoAxesGantt } from 'lucide-react'
 import { Card } from './Card'
 import { boardInitiatives } from '@/domain/board'
-import { blockedBelow, checklistProgress, decompositionChildren, dependentsOf, isComplete, openDescendants, rollupOf, sizedBelow, statusOf, uncommittedBelow, type Graph } from '@/domain/derive'
+import { blockedBelow, checklistProgress, decompositionChildren, dependentsOf, isComplete, openDescendants, rollupOf, statusOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { layoutTimeline } from '@/domain/timelineLayout'
 import { parseDay } from '@/domain/filters'
 import { STAGE_LABELS } from '@/domain/lanes'
@@ -354,7 +354,6 @@ export function TimelineView({ boardId }: { boardId: string }) {
                             uncommittedBelow: uncommittedBelow(item.id, graph),
                             openDescendants: openDescendants(item.id, graph).length,
                             rollupPercent: rollupOf(item.id, graph).percent,
-                            sizeBelow: sizedBelow(item.id, graph) ? rollupOf(item.id, graph).size : undefined,
                             done: isComplete(item.id, graph),
                             checklist: checklistProgress(item),
                           }}

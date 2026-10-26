@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Ban, Check, ChevronDown, Clock, CornerDownRight, Link2, ListChecks, Lock, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
+import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR } from '@/lib/colors'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { FORMER_MEMBER, initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
@@ -25,13 +25,8 @@ export interface CardSummary {
    */
   uncommittedBelow?: number
   openDescendants: number
-  /** For parents: % of leaf descendants done (derived rollup). */
+  /** For parents: the share of leaf descendants done (derived rollup). */
   rollupPercent?: number
-  /**
-   * For parents: the size of the work below, in points — what an initiative has instead of an
-   * estimate of its own. Never entered; the same number the panel's "Size below" reads.
-   */
-  sizeBelow?: number
   /** Checklist progress inside the card (sub-tasks). */
   checklist?: { done: number; total: number }
   /** Every leaf below is done — the card, or the initiative, is finished. See `DoneStamp`. */
@@ -528,7 +523,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 <span
                   className="text-body font-bold tabular-nums"
                   style={{ color: pct >= 100 ? '#047857' : pct > 0 ? '#4338ca' : '#475569' }}
-                  title="Rollup — the share of leaf work done, weighted by size"
+                  title="Rollup — the share of the issues below that are done"
                 >
                   {pct}%
                 </span>
@@ -592,20 +587,11 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             </div>
           )}
 
-          {/* Under the rule at the foot of it: what the work below it is worth, and who has it.
-              An initiative has no estimate of its own, so its size is the one under it. Its
-              lineage is above, with the title. */}
-          {((summary.sizeBelow ?? 0) > 0 || assignees.length > 0) && (
+          {/* Under the rule at the foot of it: who has it. Nothing below is weighed — how far
+              along the work is, is the bar above, and it counts issues rather than adding them
+              up. */}
+          {assignees.length > 0 && (
             <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
-              {(summary.sizeBelow ?? 0) > 0 && (
-                <span
-                  className="shrink-0 rounded border bg-white px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
-                  style={{ borderColor: tintOn(type.color, 0.6) }}
-                  title={`Size below — ${summary.sizeBelow} point${summary.sizeBelow === 1 ? '' : 's'}, from the work under this initiative`}
-                >
-                  {summary.sizeBelow} pts
-                </span>
-              )}
               <span className="ml-auto flex shrink-0 items-center -space-x-1.5">
                 {assignees.slice(0, 3).map((u) => (
                   <Avatar key={u.id} user={u} />
@@ -685,14 +671,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </span>
           <span className="flex shrink-0 items-center gap-1.5">
             <PriorityBadge priority={item.priority} />
-            {item.size ? (
-              <span
-                className="rounded-full bg-slate-200/70 px-2 py-0.5 text-micro font-semibold tabular-nums text-slate-700"
-                title={`Estimate — ${item.size} point${item.size === 1 ? '' : 's'}`}
-              >
-                {item.size} pts
-              </span>
-            ) : null}
           </span>
         </div>
 

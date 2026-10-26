@@ -18,7 +18,7 @@ can still read the card and move it around the board.
 
 | Write | Examples | Governed by the lock |
 | --- | --- | --- |
-| **Content** | title, description, type, size, priority, tags, people, dates, checklist, kind | **Yes** |
+| **Content** | title, description, type, priority, tags, people, dates, checklist, kind | **Yes** |
 | **Relationships** | parent, dependencies, attribution | **Yes** — these are facts about the card, whoever edits them and from wherever |
 | **Arrangement** | moving it between lanes, reordering it within a lane | **No** |
 

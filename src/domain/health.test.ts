@@ -160,7 +160,6 @@ describe('initiative health', () => {
   it('names no cards for the rule about the shape of the whole', () => {
     // "Nothing has moved for nine days" is a statement about all the work below, not a list of it.
     const graph = healthy()
-    graph.items[0] = { ...graph.items[0], size: 1 }
     graph.placements = graph.placements.map((p) => ({ ...p, laneEnteredAt: NOW - 9 * DAY }))
     const shaped = initiativeHealth('init', graph, NOW).flags
     expect(shaped.map((f) => f.flag)).toEqual(['stale'])
@@ -172,8 +171,7 @@ describe('initiative health', () => {
 
   it('says when the work below is due after the initiative is due', () => {
     const graph = healthy()
-    // An initiative has no estimate of its own, so there is nothing to compare the work below
-    // against: the size warning has no input and no rule. The date warning is the one left.
+    // The work below, against the initiative's own date: the one arithmetic warning there is.
     graph.items[0] = { ...graph.items[0], targetEndDate: '2026-10-30' }
     graph.items[1] = { ...graph.items[1], targetEndDate: '2026-11-15' }
     const late = initiativeHealth('init', graph, NOW)

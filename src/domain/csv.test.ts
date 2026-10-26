@@ -127,7 +127,6 @@ describe('csv', () => {
     expect(at(signup, 'Progress %')).toBe(String(roll.percent))
     expect(at(signup, 'Done')).toBe(String(roll.done))
     expect(at(signup, 'Total')).toBe(String(roll.total))
-    expect(at(signup, 'Cumulative size')).toBe(String(roll.size)) // beside the counts it sits with
     expect(at(signup, 'Status')).toBe('In Progress')
     expect(at(signup, 'Overdue')).toBe('no')
     expect(at(signup, 'Blocked below')).toBe(String(blockedBelow('init-signup', graph)))

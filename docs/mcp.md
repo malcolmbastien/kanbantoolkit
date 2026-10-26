@@ -95,8 +95,8 @@ Writes:
 
 | Tool | Scope | What it refuses |
 | --- | --- | --- |
-| `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the other workflow; a size on an initiative |
-| `update_item` | `items:write` | a stale `baseRev` (with the current item); a retype into or out of Initiative; a size on an initiative; a parent that is not an initiative or would make a cycle |
+| `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the other workflow; a `size` (the board counts issues, not points) |
+| `update_item` | `items:write` | a stale `baseRev` (with the current item); a retype into or out of Initiative; a `size`; a parent that is not an initiative or would make a cycle |
 | `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell or the reverse; an initiative across its section |
 | `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or its own descendant |
 

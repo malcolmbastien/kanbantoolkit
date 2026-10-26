@@ -98,7 +98,7 @@ export function boardCsv(boardId: string, graph: Graph, types: IssueType[], user
 /** A management dashboard row, exactly as the dashboard computes it. */
 export interface DashboardCsvRow {
   item: Item
-  roll: { bucket: Stage; percent: number; done: number; total: number; inProgress: number; size: number }
+  roll: { bucket: Stage; percent: number; done: number; total: number; inProgress: number }
   blocked: number
   overdue: boolean
   health: InitiativeHealth
@@ -116,7 +116,6 @@ export const DASHBOARD_CSV_HEADER = [
   'Done',
   'Total',
   'In progress',
-  'Cumulative size',
   'Target start',
   'Target end',
   'Status',
@@ -140,7 +139,6 @@ export function dashboardCsv(rows: DashboardCsvRow[], types: IssueType[]): strin
       roll.done,
       roll.total,
       roll.inProgress,
-      roll.size,
       item.targetStartDate ?? '',
       item.targetEndDate ?? '',
       STAGE_LABELS[roll.bucket],
