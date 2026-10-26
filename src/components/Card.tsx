@@ -168,8 +168,8 @@ const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ?
 /**
  * The keyboard half of a card.
  *
- * A card is a **group**, not a button: it holds its own controls (the actions menu, the child
- * pips), and ARIA forbids interactive children inside a button. So it is a focusable
+ * A card is a **group**, not a button: it holds its own controls (the actions menu, the parent
+ * chip), and ARIA forbids interactive children inside a button. So it is a focusable
  * group with a name — Enter or Space opens it, Shift+F10 (or the Menu key) opens its menu, which
  * is exactly what those two gestures do with a mouse.
  */
@@ -458,6 +458,23 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             </span>
           </div>
 
+          {/* What it rolls up to, directly under the title — part of reading what the card is,
+              not one of its measurements. The foot of the card is reserved for those: its
+              sub-tasks, how long it has sat, and who has it. */}
+          {parent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpen(parent.id)
+              }}
+              title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open`}
+              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-600 transition hover:text-slate-900"
+            >
+              <CornerDownRight size={12} className="shrink-0 text-slate-400" />
+              <span className="min-w-0 truncate">{parent.title}</span>
+            </button>
+          )}
+
           {/* What is below it, and how far along: the children's own stages as pips, then the
               rollup. The pips say it on their own — a count beside them only repeated what the
               colours already show. The bar underneath is the same number, wider. */}
@@ -565,21 +582,11 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             </div>
           )}
 
-          {/* Under the rule at the foot of it: its lineage, what the work below it is worth,
-              and who has it. An initiative has no estimate of its own, so its size is the one
-              under it. */}
-          {(parent || (summary.sizeBelow ?? 0) > 0 || assignees.length > 0) && (
+          {/* Under the rule at the foot of it: what the work below it is worth, and who has it.
+              An initiative has no estimate of its own, so its size is the one under it. Its
+              lineage is above, with the title. */}
+          {((summary.sizeBelow ?? 0) > 0 || assignees.length > 0) && (
             <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
-              {parent && (
-                <span
-                  className="flex min-w-0 items-center gap-1"
-                  title={`Rolls up to ${parent.type.name}: ${parent.title}`}
-                >
-                  <CornerDownRight size={11} className="shrink-0 text-slate-400" />
-                  <span className="sr-only">Rolls up to </span>
-                  <span className="min-w-0 max-w-[14rem] truncate">{parent.title}</span>
-                </span>
-              )}
               {(summary.sizeBelow ?? 0) > 0 && (
                 <span
                   className="shrink-0 rounded border bg-white px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
@@ -679,11 +686,30 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </span>
         </div>
 
-        {/* Tier 2 — the title, then what the card is saying. */}
+        {/* Tier 2 — the title, then the lineage that places it, then what the card is saying. */}
         <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
           <div className={cn('line-clamp-2 break-words text-title font-semibold leading-snug', summary.done ? 'text-slate-700' : 'text-slate-900')}>
             {item.title}
           </div>
+
+          {/* What it rolls up to: read as part of the title, not as one of the card's
+              measurements. The foot is reserved for those — its sub-tasks, its age in the lane and
+              who has it — so a card at the bottom of a column reads the same shape every time. */}
+          {parent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                // Shift+click still selects the card — the lineage is part of it.
+                if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
+                else onOpen(parent.id)
+              }}
+              title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
+              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-600 transition hover:text-slate-900"
+            >
+              <CornerDownRight size={12} className="shrink-0 text-slate-400" />
+              <span className="min-w-0 truncate">{parent.title}</span>
+            </button>
+          )}
 
           {/* The board's own words for it — the card's vocabulary, quieter than its facts. */}
           {Boolean(tags?.length) && (
@@ -708,22 +734,10 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           )}
         </div>
 
-        {/* Tier 3 — lineage, execution telemetry and ownership, on one quiet rule at the foot. */}
-        {(parent || hasChecklist || aged || boundary || summary.done || assignees.length > 0) && (
+        {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
+        {(hasChecklist || aged || summary.done || assignees.length > 0) && (
           <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              {/* The lineage is context, not a door: it sits at the foot with the other quiet
-                  facts. Clicking it selects the card, because the card is what was clicked. */}
-              {parent && (
-                <span
-                  className="flex min-w-0 items-center gap-1 text-micro text-slate-600"
-                  title={`Rolls up to ${parent.type.name}: ${parent.title}`}
-                >
-                  <CornerDownRight size={11} className="shrink-0 text-slate-400" />
-                  <span className="sr-only">Rolls up to </span>
-                  <span className="min-w-0 max-w-[14rem] truncate">{parent.title}</span>
-                </span>
-              )}
               {hasChecklist && (
                 <span
                   className="flex shrink-0 items-center gap-1 rounded bg-white px-1.5 py-0.5 text-micro text-slate-600 ring-1 ring-slate-200"
