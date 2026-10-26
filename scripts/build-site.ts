@@ -12,6 +12,7 @@
  *   node scripts/build-site.ts
  */
 
+import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
@@ -37,6 +38,23 @@ const REPO = (process.env.REPO_URL ?? 'https://github.com/flowline/flowline').re
  * They are configuration, not copy: a self-hoster's support address is their own, and the page that
  * names it should not have to be edited to say so.
  */
+/**
+ * The stylesheet's version: the first ten hex of its own content.
+ *
+ * `/site.css` is cached for a day — a page that revalidates its HTML still gets the CSS from cache —
+ * so a deploy that changes the styles and keeps the URL hands a returning visitor the old sheet
+ * against the new markup. That is exactly what happened once: the new home page's carousel met the
+ * previous stylesheet and the icons rendered at three hundred pixels. The URL carries the content,
+ * so a new sheet is a new address and the cache can stay generous.
+ */
+const cssVersion = (() => {
+  try {
+    return createHash('sha256').update(readFileSync(join(SITE, 'site.css'))).digest('hex').slice(0, 10)
+  } catch {
+    return 'dev'
+  }
+})()
+
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@flowline.example'
 const SECURITY_EMAIL = process.env.SECURITY_EMAIL ?? 'security@flowline.example'
 
@@ -157,6 +175,7 @@ function render(page: Page, layout: string): string {
     // rather than the column every other page sits in.
     .replaceAll('{{bodyClass}}', page.path === '/' ? ' class="home"' : '')
     .replaceAll('{{processors}}', processors())
+    .replaceAll('{{cssVersion}}', cssVersion)
     .replaceAll('{{head}}', head)
 }
 

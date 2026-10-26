@@ -10,6 +10,7 @@
 // an output that only exists after `vite build` cannot be asserted before it.
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import sharp from 'sharp'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
@@ -95,7 +96,7 @@ for (const file of html) {
   if (scripts.some((body) => !body.includes("location.replace('/app'"))) {
     fail(`${where}: an inline script that is not the legacy redirect`)
   }
-  if (!/href="\/site\.css"/.test(text)) fail(`${where}: does not load the site stylesheet`)
+  if (!/href="\/site\.css(\?v=[a-f0-9]+)?"/.test(text)) fail(`${where}: does not load the site stylesheet`)
 
   // An *asset* may not leave this origin: that is the promise with no cookie banner behind it.
   for (const [, url] of text.matchAll(/<(?:img|script|link|source)\s[^>]*(?:src|href)="([^"]+)"/g)) {
@@ -329,6 +330,30 @@ for (const processor of processors) {
   }
 }
 if (subProcessors.includes('{{processors}}')) fail('/sub-processors/ still carries the processor placeholder')
+
+// ---- Every picture says how big it is, and the number is the file's ----
+// A stale width/height is a layout shift while the picture loads and, worse, a page that states
+// something untrue about its own files — which is what happened when the board was redesigned and
+// the screenshots were regenerated at new heights. The fix is not to remember: it is to compare.
+for (const file of html) {
+  const where = file.replace(`${DIST}/`, '')
+  const text = readFileSync(file, 'utf8')
+  for (const [tag] of text.matchAll(/<img[^>]*>/g)) {
+    const src = /src="([^"]+)"/.exec(tag)?.[1]
+    const width = Number(/width="(\d+)"/.exec(tag)?.[1])
+    const height = Number(/height="(\d+)"/.exec(tag)?.[1])
+    if (!src?.startsWith('/img/') || !width || !height) continue
+    const picture = join(DIST, src)
+    if (!existsSync(picture)) {
+      fail(`${where}: ${src} is missing`)
+      continue
+    }
+    const meta = await sharp(picture).metadata()
+    if (meta.width !== width || meta.height !== height) {
+      fail(`${where}: ${src} is ${meta.width}×${meta.height}, and the page says ${width}×${height}`)
+    }
+  }
+}
 
 // ---- R3: the support address is a link that opens, in the footer of every page ----
 for (const file of html) {
