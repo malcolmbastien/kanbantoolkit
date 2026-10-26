@@ -1,6 +1,5 @@
 import {
   blockedBelowItems,
-  descendants,
   leafItems,
   openDependenciesOf,
   openDescendants,
@@ -22,10 +21,14 @@ import { parseDay, STALE_AFTER_DAYS } from './filters'
  *
  * Two tones, because the difference matters to a reader: `risk` is a hard stop someone else can
  * see (blocked work, a dependency that is not done), `watch` is something to look at (nothing
- * moving, nobody on it, nothing underneath, committed over uncommitted).
+ * moving, nobody on it, committed over uncommitted).
+ *
+ * **An initiative with nothing below it raises nothing.** Having no work yet is a state, not a
+ * finding: the card already shows it by having no pips and no rollup, and a badge that says
+ * "nothing below" is the interface telling a reader what the absence already told them.
  */
 
-export type HealthFlag = 'blocked' | 'waiting' | 'stale' | 'unowned' | 'unplanned' | 'uncommitted' | 'outlasted'
+export type HealthFlag = 'blocked' | 'waiting' | 'stale' | 'unowned' | 'uncommitted' | 'outlasted'
 
 export interface HealthFlagInfo {
   flag: HealthFlag
@@ -39,10 +42,9 @@ export interface HealthFlagInfo {
    * reader *to* the work rather than only tell them it exists.
    *
    * Absent where the rule is about the shape of the whole subtree rather than about particular
-   * cards (`stale`) or about there being none at all (`unplanned`): listing the
-   * entire work below under "nothing has moved" would be a list of everything, which is not
-   * navigation. The count in the label is always this list's length when it is here, so a badge
-   * and the cards it points at can never disagree.
+   * cards (`stale`): listing the entire work below under "nothing has moved" would be a list of
+   * everything, which is not navigation. The count in the label is always this list's length when
+   * it is here, so a badge and the cards it points at can never disagree.
    */
   items?: string[]
 }
@@ -124,16 +126,6 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
       why: `${unowned.length} committed card${plural(unowned.length)} below ${unowned.length === 1 ? 'has' : 'have'} no owner`,
       tone: 'watch',
       items: unowned.map((i) => i.id),
-    })
-  }
-
-  // Nothing underneath at all: an initiative with no decomposition has nothing to roll up.
-  if (descendants(id, graph).length === 0) {
-    flags.push({
-      flag: 'unplanned',
-      label: 'nothing below',
-      why: 'No work sits under it yet, so nothing rolls up to it',
-      tone: 'watch',
     })
   }
 

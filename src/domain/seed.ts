@@ -284,7 +284,7 @@ export function createSeed(): FlowState {
   item('init-audit', 'Audit & compliance', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2027-01-31' })
   item('init-lakehouse', 'Lakehouse cutover', 't-initiative', { assignees: ['u-ds'], targetEndDate: '2027-03-31' })
   item('init-observability', 'Observability', 't-initiative', { assignees: ['u-rk'], targetEndDate: '2027-02-28' })
-  // Nothing under it yet — the "nothing below" health rule, on purpose.
+  // Nothing under it yet — the board shows the absence by having no pips and no rollup.
   item('init-data-quality', 'Data quality guardrails', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2027-04-30' })
 
   decompose('init-sso', ['init-identity'])
@@ -416,7 +416,7 @@ export function createSeed(): FlowState {
   place('init-audit', 'b-nova', n.init.ip.id)
   place('init-lakehouse', 'b-nova', n.init.ip.id)
   place('init-observability', 'b-nova', n.init.ip.id)
-  place('init-data-quality', 'b-nova', n.init.backlog.id) // unplanned, and it says so
+  place('init-data-quality', 'b-nova', n.init.backlog.id) // nothing below it, and that is all it says
 
   /* ---------------------------------------------------------------- *
    * What kind of initiative each one is. The kinds are the board's, so an

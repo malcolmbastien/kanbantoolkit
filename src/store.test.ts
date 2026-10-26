@@ -1543,8 +1543,9 @@ describe('store actions', () => {
     expect(after.flags.map((f) => f.flag)).toEqual(['unowned'])
     expect(after.level).toBe('watch')
 
-    // And an initiative with nothing under it has nothing to roll up.
-    expect(initiativeHealth('init-explore', graph()).flags.map((f) => f.flag)).toEqual(['unplanned'])
+    // And an initiative with nothing under it has nothing to roll up — a state, not a finding, so
+    // it raises no flag at all.
+    expect(initiativeHealth('init-explore', graph()).flags).toEqual([])
   })
 
   it('the log is the item\'s own history: comments, and the changes that were decisions', () => {

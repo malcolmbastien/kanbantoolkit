@@ -168,8 +168,8 @@ const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ?
 /**
  * The keyboard half of a card.
  *
- * A card is a **group**, not a button: it holds its own controls (the actions menu, the parent
- * chip), and ARIA forbids interactive children inside a button. So it is a focusable
+ * A card is a **group**, not a button: it holds its own controls (the actions menu, the child
+ * pips), and ARIA forbids interactive children inside a button. So it is a focusable
  * group with a name — Enter or Space opens it, Shift+F10 (or the Menu key) opens its menu, which
  * is exactly what those two gestures do with a mouse.
  */
@@ -342,7 +342,10 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
   const checklistPct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0
 
   if (wide) {
-    const pct = summary.rollupPercent
+    // A rollup is a statement about the work below. An initiative with nothing under it has no
+    // percentage to show and no bar to fill: both would say "0%" about work that has not been
+    // planned, which is a different fact and the wrong one.
+    const pct = summary.childCount > 0 ? summary.rollupPercent : undefined
     // The children's own stages, in the columns' order — so the pips read left to right the way
     // the board does, and "how much green" is a glance rather than a count.
     const stageOrder: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
@@ -354,15 +357,12 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
       .join(', ')
     const MAX_PIPS = 12
     // One set, one place. The health rules are the source — the same words and tones the
-    // dashboard reads — with the two exceptions the card is responsible for: "nothing below" is
-    // already said where the pips would be, and a blockage rolled up from team cards keeps the
-    // softer tone the card has always given it, so a programme reader is not shouted at with a
-    // fact three levels down. "Waiting on" joins them: it is the one warning the health rules do
-    // not own, because it is about the item itself rather than the work below it.
+    // dashboard reads — with two exceptions the card is responsible for: a blockage rolled up
+    // from team cards keeps the softer tone the card has always given it, so a programme reader is
+    // not shouted at with a fact three levels down; and "Waiting on" joins them, because it is the
+    // one warning the health rules do not own — it is about the item itself, not the work below.
     const badges: { key: string; label: string; why: string; tone: 'risk' | 'watch' }[] = [
-      ...(flags ?? [])
-        .filter((f) => f.flag !== 'unplanned')
-        .map((f) => {
+      ...(flags ?? []).map((f) => {
           const soft = f.flag === 'blocked' && blockedTone === 'aggregate'
           return {
             key: f.flag,
@@ -458,21 +458,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             </span>
           </div>
 
-          {/* What it rolls up to, directly under the title — the same place a card puts it. */}
-          {parent && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onOpen(parent.id)
-              }}
-              title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open`}
-              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-600 transition hover:text-slate-900"
-            >
-              <CornerDownRight size={12} className="shrink-0 text-slate-400" />
-              <span className="min-w-0 truncate">{parent.title}</span>
-            </button>
-          )}
-
           {/* What is below it, and how far along: the children's own stages as pips, then the
               rollup. The pips say it on their own — a count beside them only repeated what the
               colours already show. The bar underneath is the same number, wider. */}
@@ -509,9 +494,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                 ))}
                 {pips.length > MAX_PIPS && <span className="font-semibold text-slate-600">+{pips.length - MAX_PIPS}</span>}
               </span>
-            ) : (
-              <span title="Nothing is broken down under this initiative yet">nothing below</span>
-            )}
+            ) : null}
             <span className="ml-auto flex items-center gap-1.5">
               {summary.done && <DoneStamp />}
               {pct !== undefined && (
@@ -525,9 +508,11 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               )}
             </span>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full transition-all" style={{ width: `${pct ?? 0}%`, backgroundColor: barColor(pct) }} />
-          </div>
+          {pct !== undefined && (
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor(pct) }} />
+            </div>
+          )}
 
           {/* The board's own words for it, above the rule. */}
           {Boolean(tags?.length) && (
@@ -580,10 +565,21 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             </div>
           )}
 
-          {/* Under the rule at the foot of it: what the work below it is worth, and who has it.
-              An initiative has no estimate of its own, so its size is the one under it. */}
-          {(summary.sizeBelow !== undefined || assignees.length > 0) && (
+          {/* Under the rule at the foot of it: its lineage, what the work below it is worth,
+              and who has it. An initiative has no estimate of its own, so its size is the one
+              under it. */}
+          {(parent || summary.sizeBelow !== undefined || assignees.length > 0) && (
             <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
+              {parent && (
+                <span
+                  className="flex min-w-0 items-center gap-1"
+                  title={`Rolls up to ${parent.type.name}: ${parent.title}`}
+                >
+                  <CornerDownRight size={11} className="shrink-0 text-slate-400" />
+                  <span className="sr-only">Rolls up to </span>
+                  <span className="min-w-0 max-w-[14rem] truncate">{parent.title}</span>
+                </span>
+              )}
               {summary.sizeBelow !== undefined && (
                 <span
                   className="shrink-0 rounded border bg-white px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
@@ -683,27 +679,11 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </span>
         </div>
 
-        {/* Tier 2 — the title, then the lineage that places it, then what the card is saying. */}
+        {/* Tier 2 — the title, then what the card is saying. */}
         <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
           <div className={cn('line-clamp-2 break-words text-title font-semibold leading-snug', summary.done ? 'text-slate-700' : 'text-slate-900')}>
             {item.title}
           </div>
-
-          {parent && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                // Shift+click still selects the card — the lineage is part of it.
-                if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
-                else onOpen(parent.id)
-              }}
-              title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
-              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-600 transition hover:text-slate-900"
-            >
-              <CornerDownRight size={12} className="shrink-0 text-slate-400" />
-              <span className="min-w-0 truncate">{parent.title}</span>
-            </button>
-          )}
 
           {/* The board's own words for it — the card's vocabulary, quieter than its facts. */}
           {Boolean(tags?.length) && (
@@ -728,10 +708,22 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           )}
         </div>
 
-        {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
-        {(hasChecklist || aged || boundary || summary.done || assignees.length > 0) && (
+        {/* Tier 3 — lineage, execution telemetry and ownership, on one quiet rule at the foot. */}
+        {(parent || hasChecklist || aged || boundary || summary.done || assignees.length > 0) && (
           <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              {/* The lineage is context, not a door: it sits at the foot with the other quiet
+                  facts. Clicking it selects the card, because the card is what was clicked. */}
+              {parent && (
+                <span
+                  className="flex min-w-0 items-center gap-1 text-micro text-slate-600"
+                  title={`Rolls up to ${parent.type.name}: ${parent.title}`}
+                >
+                  <CornerDownRight size={11} className="shrink-0 text-slate-400" />
+                  <span className="sr-only">Rolls up to </span>
+                  <span className="min-w-0 max-w-[14rem] truncate">{parent.title}</span>
+                </span>
+              )}
               {hasChecklist && (
                 <span
                   className="flex shrink-0 items-center gap-1 rounded bg-white px-1.5 py-0.5 text-micro text-slate-600 ring-1 ring-slate-200"

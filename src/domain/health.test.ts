@@ -107,18 +107,18 @@ describe('initiative health', () => {
     expect(initiativeHealth('init', graph, NOW).flags).toEqual([])
   })
 
-  it('raises uncovered work, an empty initiative, and committed-over-uncommitted', () => {
+  it('raises uncovered work and committed-over-uncommitted, and says nothing about an empty initiative', () => {
     // Nobody on the committed cards below.
     const unowned = healthy()
     unowned.items = unowned.items.map((i) => ({ ...i, assignees: [] }))
     expect(initiativeHealth('init', unowned, NOW).flags.map((f) => f.flag)).toEqual(['unowned'])
     expect(initiativeHealth('init', unowned, NOW).flags[0].label).toBe('3 unowned')
 
-    // Nothing underneath at all.
+    // Nothing underneath at all is a state, not a finding: no badge, and no level.
     const empty: Graph = { ...healthy(), edges: [], placements: [] }
     const h = initiativeHealth('init', empty, NOW)
-    expect(h.flags.map((f) => f.flag)).toEqual(['unplanned'])
-    expect(h.level).toBe('watch')
+    expect(h.flags).toEqual([])
+    expect(h.level).toBe('healthy')
 
     // Committed over uncommitted inventory — the anomaly the card warns about, said once.
     const over = healthy()
@@ -157,9 +157,8 @@ describe('initiative health', () => {
     }
   })
 
-  it('names no cards for the rules about the shape of the whole, or about there being none', () => {
-    // "Nothing has moved for nine days" is a statement about all the work below, not a list of it;
-    // and an initiative with nothing under it has nothing to point at.
+  it('names no cards for the rule about the shape of the whole', () => {
+    // "Nothing has moved for nine days" is a statement about all the work below, not a list of it.
     const graph = healthy()
     graph.items[0] = { ...graph.items[0], size: 1 }
     graph.placements = graph.placements.map((p) => ({ ...p, laneEnteredAt: NOW - 9 * DAY }))
@@ -167,9 +166,8 @@ describe('initiative health', () => {
     expect(shaped.map((f) => f.flag)).toEqual(['stale'])
     for (const f of shaped) expect(f.items).toBeUndefined()
 
-    const empty = initiativeHealth('init', { ...healthy(), edges: [], placements: [] }, NOW).flags
-    expect(empty.map((f) => f.flag)).toEqual(['unplanned'])
-    expect(empty[0].items).toBeUndefined()
+    // An initiative with nothing under it raises nothing at all, so there is nothing to name.
+    expect(initiativeHealth('init', { ...healthy(), edges: [], placements: [] }, NOW).flags).toEqual([])
   })
 
   it('says when the work below is due after the initiative is due', () => {
@@ -194,7 +192,7 @@ describe('initiative health', () => {
 
     // Neither rule fires on an initiative with nothing below it.
     const empty: Graph = { ...graph, edges: [], placements: [] }
-    expect(initiativeHealth('init', empty, NOW).flags.map((f) => f.flag)).toEqual(['unplanned'])
+    expect(initiativeHealth('init', empty, NOW).flags).toEqual([])
   })
 
   it('lists the risks before the things to watch, and counts both in the level', () => {
