@@ -28,6 +28,7 @@ import { boardInitiatives, initiativeCellOf, initiativeRanks, initiativeTypeById
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { stillScrolling } from '@/lib/useStillScroll'
 import {
   ArrowLeftRight,
   BetweenHorizontalStart,
@@ -299,6 +300,9 @@ export function BoardSummary({
    * surface and its workflow's horizontal one.
    */
   const revealCard = (id: string) => {
+    // The view is being moved on purpose, through a smooth scroll: tell the board's scroll keeper to
+    // stand down until it has landed, or a resize in the middle of it would undo the journey.
+    stillScrolling()
     requestAnimationFrame(() => {
       document
         .querySelector<HTMLElement>(`[data-card-id="${CSS.escape(id)}"]`)

@@ -1,6 +1,19 @@
 import { useEffect, useRef, type RefObject } from 'react'
 
 /**
+ * A deliberate scroll is in flight, so the keeper stands down.
+ *
+ * A smooth scroll — the pip's reveal is one — is many scroll events over a few hundred milliseconds,
+ * and a resize that lands in the middle of it would compute its delta from a half-finished animation
+ * and drag the page back to where the scroll started. The app says when it is moving the view; the
+ * keeper takes no view of its own until it has landed.
+ */
+let standDownUntil = 0
+export function stillScrolling(ms = 800): void {
+  standDownUntil = performance.now() + ms
+}
+
+/**
  * Keep what the reader is looking at still when the page's height changes under them.
  *
  * A board's height is its tallest column, so a card moving between two columns — or the drawer
@@ -73,8 +86,10 @@ export function useStillScroll(
     }
 
     // A scroll is the reader moving, and it is recorded on the next frame rather than in the handler
-    // (the position they stopped at is the one to hold). A resize arriving before that frame sees a
-    // scroll position that no longer matches and re-anchors, so the two never fight.
+    // (the position they stopped at is the one to hold). The moment of the last scroll is kept too:
+    // a smooth scroll — the pip's reveal is one — is many scroll events over a few hundred
+    // milliseconds, and a resize that lands in the middle of it would compute a delta from a
+    // half-finished animation and drag the page back to where the scroll started.
     let queued = false
     const onScroll = () => {
       if (queued) return
@@ -85,6 +100,8 @@ export function useStillScroll(
       })
     }
 
+
+
     const settle = () => {
       const current = anchor.current
       if (!current || !current.node.isConnected) {
@@ -93,7 +110,7 @@ export function useStillScroll(
       }
       // Somebody moved since the anchor was taken — a scroll, or the app revealing a card. Their
       // place wins; take the anchor again rather than pulling the page back.
-      if (box.scrollTop !== current.scrollTop) {
+      if (box.scrollTop !== current.scrollTop || performance.now() < standDownUntil) {
         record()
         return
       }
