@@ -3,15 +3,17 @@ import { useEffect, useRef, type RefObject } from 'react'
 /**
  * Keep what the reader is looking at still when the page's height changes under them.
  *
- * A board's height is its tallest column, so a card moving between two columns can make the page
- * shorter or taller while nothing the reader did asked the view to move. Browsers' own scroll
- * anchoring tries to hold the content still, but it is not universal, it picks its own anchor, and
- * the board would rather have one mechanism it can reason about: this hook turns the browser's off
- * (`overflow-anchor: none`, applied by the caller) and keeps its own.
+ * A board's height is its tallest column, so a card moving between two columns — or the drawer
+ * opening and narrowing every column — can make the page shorter or taller while nothing the reader
+ * did asked the view to move. Browsers' own scroll anchoring tries to hold the content still, but it
+ * is not universal, it picks its own anchor, and on this page it was the browser deciding what the
+ * reader was reading. The board turns it off (`overflow-anchor: none`, applied by the caller) and
+ * keeps its own.
  *
- * The anchor is the first thing at the top of the viewport — a card, a boundary card, a lane — held
- * with its distance from the scroller's top edge. When the content resizes, the scroll moves by
- * exactly the distance that thing moved, so it stays where the reader had it:
+ * The anchor is the first card wholly at the top of the viewport — held with its distance from the
+ * scroller's top edge and the scroll position it was taken at. When the content resizes and nobody
+ * has scrolled since, the view moves by exactly the distance that card moved, so it stays where the
+ * reader had it:
  *
  * - content growing above the viewport scrolls the view down by the same amount;
  * - content shrinking above it scrolls the view up — and at the bottom, where the browser clamps the
@@ -19,8 +21,9 @@ import { useEffect, useRef, type RefObject } from 'react'
  * - content changing *inside* the viewport moves the things below it, and the anchor above them is
  *   what is held, so the page does not jump under the pointer.
  *
- * A scroll always re-anchors rather than compensates: the reader moved on purpose, and a resize
- * arriving after their scroll must not fight it.
+ * A scroll means somebody moved on purpose — the reader, or the app revealing a card — and the
+ * anchor is taken again rather than compensated for: the page must not drag itself back to where it
+ * was before the reader (or `revealCard`) arrived.
  */
 export function useStillScroll(
   scroller: RefObject<HTMLElement | null>,
@@ -38,8 +41,8 @@ export function useStillScroll(
    */
   key?: unknown,
 ): void {
-  // The anchor: a node and where its top edge sat, relative to the scroller's viewport.
-  const anchor = useRef<{ node: HTMLElement; top: number } | null>(null)
+  // The anchor: a node, where its top edge sat, and the scroll position that was true of it.
+  const anchor = useRef<{ node: HTMLElement; top: number; scrollTop: number } | null>(null)
 
   useEffect(() => {
     const box = scroller.current
@@ -60,55 +63,53 @@ export function useStillScroll(
         const chosen =
           measured.find(({ rect }) => rect.top >= bounds.top - 1 && rect.top < bounds.bottom) ??
           measured.find(({ rect }) => rect.bottom > bounds.top + 4 && rect.top < bounds.bottom)
-        return chosen ? { node: chosen.node, top: chosen.rect.top } : null
+        return chosen ? { node: chosen.node, top: chosen.rect.top, scrollTop: box.scrollTop } : null
       }
       // Cards first — they are what moves when the page's height changes. A lane is the fallback
       // for a board with no cards in view (an empty column, a collapsed board).
-      anchor.current = pick([...area.querySelectorAll<HTMLElement>('[data-card-id], [data-boundary-card]')]) ?? pick([...area.querySelectorAll<HTMLElement>(selector)])
+      anchor.current =
+        pick([...area.querySelectorAll<HTMLElement>('[data-card-id], [data-boundary-card]')]) ??
+        pick([...area.querySelectorAll<HTMLElement>(selector)])
     }
 
-    // A scroll is the reader moving, and it is recorded on the next frame rather than in the
-    // handler: the position they stopped at is the one to hold. A resize that arrives *before* that
-    // frame is part of the same movement, so it re-anchors instead of compensating — but a flag that
-    // waits for the next resize would go stale (a scrolled-to place, then a card opened a minute
-    // later, would look like one gesture), which is why it is cleared by the frame and not by the
-    // next resize.
-    let pending = false
+    // A scroll is the reader moving, and it is recorded on the next frame rather than in the handler
+    // (the position they stopped at is the one to hold). A resize arriving before that frame sees a
+    // scroll position that no longer matches and re-anchors, so the two never fight.
+    let queued = false
     const onScroll = () => {
-      if (pending) return
-      pending = true
+      if (queued) return
+      queued = true
       requestAnimationFrame(() => {
-        pending = false
+        queued = false
         record()
       })
     }
 
     const settle = () => {
       const current = anchor.current
-      if (pending || !current) {
-        pending = false
+      if (!current || !current.node.isConnected) {
         record()
         return
       }
-      // The anchor was the card that moved out of the board: there is nothing to hold, so start
-      // again from what is on screen now.
-      if (!current.node.isConnected) {
+      // Somebody moved since the anchor was taken — a scroll, or the app revealing a card. Their
+      // place wins; take the anchor again rather than pulling the page back.
+      if (box.scrollTop !== current.scrollTop) {
         record()
         return
       }
-      const top = current.node.getBoundingClientRect().top
-      const delta = top - current.top
+      const delta = current.node.getBoundingClientRect().top - current.top
       if (Math.abs(delta) >= 1) box.scrollTop += delta
       current.top = current.node.getBoundingClientRect().top
+      current.scrollTop = box.scrollTop
     }
 
     record()
     box.addEventListener('scroll', onScroll, { passive: true })
     const observer = new ResizeObserver(settle)
     observer.observe(area)
-    // A viewport change reflows the board (the same cards, different widths), so the anchor has to
-    // be taken again rather than compensated for: at a new viewport the reader's place is the old
-    // content, and the browser's own resize handling should decide it.
+    // A viewport change reflows the board (the same cards, different widths), so the anchor is taken
+    // again rather than compensated for: at a new viewport the reader's place is the old content,
+    // and the browser's own resize handling should decide it.
     const onResize = () => record()
     window.addEventListener('resize', onResize)
 
