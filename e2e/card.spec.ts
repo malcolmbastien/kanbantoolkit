@@ -2,10 +2,9 @@ import { expect, test } from '@playwright/test'
 import { openBoard } from './support'
 
 /**
- * The card face reads top-down: what frames the card — the work it rolls up to — then what the card
- * *is*, its type and title, then what it is asking a reader to look at, and finally, on one quiet
- * rule at the foot, its measurements: its sub-tasks, how long it has sat in the lane, and who has
- * it.
+ * The card face reads top-down: what the card *is* — its type and title, then the work it rolls up
+ * to — then what it is asking a reader to look at, and finally, on one quiet rule at the foot, its
+ * measurements: its sub-tasks, how long it has sat in the lane, and who has it.
  *
  * The roll-up is a decoration, not a door. It has spent releases in the foot row, where it crowded
  * exactly the facts that row is reserved for, and as a link, where pressing a card's own face opened
@@ -36,7 +35,7 @@ async function face(page: import('@playwright/test').Page, id: string) {
   })
 }
 
-test('the roll-up sits above the title, and the foot keeps its measurements', async ({ page }) => {
+test('the roll-up sits under the title, and the foot keeps its measurements', async ({ page }) => {
   await openBoard(page)
 
   // The seeded card that has all of them: a parent, a checklist, a lane age and an assignee.
@@ -47,8 +46,8 @@ test('the roll-up sits above the title, and the foot keeps its measurements', as
   expect(shape.age, 'the card has a lane age').not.toBeNull()
   expect(shape.people, 'the card has an assignee').not.toBeNull()
 
-  // Above the title: the parent is the line that frames the card, read before the card's words.
-  expect(shape.rollup!.bottom, 'the roll-up sits above the title').toBeLessThanOrEqual(shape.title!.top)
+  // Under the title: the card's own words first, then the parent it sits under.
+  expect(shape.rollup!.top, 'the roll-up sits under the title').toBeGreaterThanOrEqual(shape.title!.bottom)
   // …and nothing on it is a control.
   expect(shape.control, 'the roll-up holds nothing to press').toBeNull()
 

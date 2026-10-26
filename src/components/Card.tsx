@@ -53,7 +53,7 @@ export interface CardSymbol {
 }
 
 /**
- * What the card rolls up to, as a line above its title.
+ * What the card rolls up to, as a line under its title.
  *
  * A decoration, not a door. It says what frames the card the reader is looking at, and it is part
  * of reading that card — so it is plain text, with no hover, no cursor and nothing to click. When
@@ -460,10 +460,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         {kind && <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />}
 
         <div className="flex flex-1 flex-col gap-2 p-3">
-          {/* What it rolls up to, above the title: the fact that frames the card, read before
-              what the card says rather than as one of its measurements. */}
-          {parent && <RollupLine parent={parent} />}
-
           {/* The title, at the size the reading happens at. Beside it the one small judgement it
               carries: priority. */}
           <div className="flex items-start gap-2">
@@ -483,6 +479,11 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               <PriorityBadge priority={item.priority} />
             </span>
           </div>
+
+          {/* What it rolls up to, under the title: the parent the card sits under, read as part
+              of the card's own words — and as plain text, so a press on the card's face opens
+              this card and no other. */}
+          {parent && <RollupLine parent={parent} />}
 
           {/* What is below it, and how far along: the children's own stages as pips, then the
               rollup. The pips say it on their own — a count beside them only repeated what the
@@ -695,16 +696,16 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </span>
         </div>
 
-        {/* Tier 2 — the lineage that frames it, the title, then what the card is saying. */}
+        {/* Tier 2 — the title, then the lineage that places it, then what the card is saying. */}
         <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
-          {/* Above the title, as plain text: the parent is what frames the card, and it is read
-              before the card's own words. Nothing here is a control — pressing a card must open
-              that card, never the one it rolls up to. */}
-          {parent && <RollupLine parent={parent} />}
-
           <div className={cn('line-clamp-2 break-words text-title font-semibold leading-snug', summary.done ? 'text-slate-700' : 'text-slate-900')}>
             {item.title}
           </div>
+
+          {/* Under the title, as plain text: the parent the card sits under, read as part of the
+              card's own words. Nothing here is a control — pressing a card must open that card,
+              never the one it rolls up to. */}
+          {parent && <RollupLine parent={parent} />}
 
           {/* The board's own words for it — the card's vocabulary, quieter than its facts. */}
           {Boolean(tags?.length) && (
