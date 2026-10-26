@@ -126,7 +126,8 @@ test('the four stages stay in one row, and the row scrolls instead of wrapping',
   // of its neighbours and start left of the one before it.
   expect(new Set(wide.map((s) => s.top)).size, 'all four stages sit on one row').toBe(1)
   expect(wide.map((s) => s.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
-  expect(wide.map((s) => s.left)).toEqual([...wide.map((s) => s.left)].sort((a, b) => a - b))
+  const lefts = wide.map((s) => s.left)
+  expect(lefts, 'the stages read left to right in their typed order').toEqual([...lefts].sort((a, b) => a - b))
   expect((await rowWidths()).scroll, 'four columns fit, so nothing scrolls').toBeLessThanOrEqual(
     (await rowWidths()).client + 1,
   )

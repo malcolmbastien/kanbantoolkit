@@ -52,6 +52,28 @@ export interface CardSymbol {
   title: string
 }
 
+/**
+ * What the card rolls up to, as a line above its title.
+ *
+ * A decoration, not a door. It says what frames the card the reader is looking at, and it is part
+ * of reading that card — so it is plain text, with no hover, no cursor and nothing to click. When
+ * it was a control, pressing a card's face here opened a *different* card in the drawer, which is
+ * the one thing a card's face must never do. The parent is still reachable, from the card's own
+ * panel and from its menu.
+ */
+function RollupLine({ parent }: { parent: CardParent }) {
+  return (
+    <span
+      className="flex min-w-0 items-center gap-1 text-micro font-medium text-slate-500"
+      title={`Rolls up to ${parent.type.name}: ${parent.title}`}
+    >
+      <CornerDownRight size={11} className="shrink-0 text-slate-400" aria-hidden />
+      <span className="sr-only">Rolls up to </span>
+      <span className="min-w-0 truncate">{parent.title}</span>
+    </span>
+  )
+}
+
 interface Props {
   item: Item
   type: IssueType
@@ -168,8 +190,8 @@ const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ?
 /**
  * The keyboard half of a card.
  *
- * A card is a **group**, not a button: it holds its own controls (the actions menu, the parent
- * chip), and ARIA forbids interactive children inside a button. So it is a focusable
+ * A card is a **group**, not a button: it holds its own controls (the actions menu, the child
+ * pips), and ARIA forbids interactive children inside a button. So it is a focusable
  * group with a name — Enter or Space opens it, Shift+F10 (or the Menu key) opens its menu, which
  * is exactly what those two gestures do with a mouse.
  */
@@ -438,6 +460,10 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
         {kind && <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />}
 
         <div className="flex flex-1 flex-col gap-2 p-3">
+          {/* What it rolls up to, above the title: the fact that frames the card, read before
+              what the card says rather than as one of its measurements. */}
+          {parent && <RollupLine parent={parent} />}
+
           {/* The title, at the size the reading happens at. Beside it the one small judgement it
               carries: priority. */}
           <div className="flex items-start gap-2">
@@ -457,23 +483,6 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               <PriorityBadge priority={item.priority} />
             </span>
           </div>
-
-          {/* What it rolls up to, directly under the title — part of reading what the card is,
-              not one of its measurements. The foot of the card is reserved for those: its
-              sub-tasks, how long it has sat, and who has it. */}
-          {parent && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onOpen(parent.id)
-              }}
-              title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open`}
-              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-600 transition hover:text-slate-900"
-            >
-              <CornerDownRight size={12} className="shrink-0 text-slate-400" />
-              <span className="min-w-0 truncate">{parent.title}</span>
-            </button>
-          )}
 
           {/* What is below it, and how far along: the children's own stages as pips, then the
               rollup. The pips say it on their own — a count beside them only repeated what the
@@ -686,30 +695,16 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           </span>
         </div>
 
-        {/* Tier 2 — the title, then the lineage that places it, then what the card is saying. */}
+        {/* Tier 2 — the lineage that frames it, the title, then what the card is saying. */}
         <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
+          {/* Above the title, as plain text: the parent is what frames the card, and it is read
+              before the card's own words. Nothing here is a control — pressing a card must open
+              that card, never the one it rolls up to. */}
+          {parent && <RollupLine parent={parent} />}
+
           <div className={cn('line-clamp-2 break-words text-title font-semibold leading-snug', summary.done ? 'text-slate-700' : 'text-slate-900')}>
             {item.title}
           </div>
-
-          {/* What it rolls up to: read as part of the title, not as one of the card's
-              measurements. The foot is reserved for those — its sub-tasks, its age in the lane and
-              who has it — so a card at the bottom of a column reads the same shape every time. */}
-          {parent && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                // Shift+click still selects the card — the lineage is part of it.
-                if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
-                else onOpen(parent.id)
-              }}
-              title={`Rolls up to ${parent.type.name}: ${parent.title} — click to open, shift+click to select`}
-              className="flex min-w-0 items-center gap-1 text-left text-micro font-medium text-slate-600 transition hover:text-slate-900"
-            >
-              <CornerDownRight size={12} className="shrink-0 text-slate-400" />
-              <span className="min-w-0 truncate">{parent.title}</span>
-            </button>
-          )}
 
           {/* The board's own words for it — the card's vocabulary, quieter than its facts. */}
           {Boolean(tags?.length) && (
