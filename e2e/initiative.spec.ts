@@ -23,14 +23,20 @@ test('an initiative with nothing below shows no rollup and says nothing about it
   await expect(empty).not.toContainText('nothing below')
   // No percentage, which is also the progress bar: both are drawn from the same rollup.
   await expect(empty).not.toContainText(/%/)
+  // And no points: a size below is the sum of the work's own estimates, and there is none.
+  await expect(empty).not.toContainText('pts')
 
   // The same card with work below still has its rollup — the rule is about emptiness, not bars.
   const withWork = page.locator('[data-card-id="init-lakehouse"]')
   await expect(withWork).toContainText(/\d+%/)
+  await expect(withWork).toContainText(/\d+ pts/)
 
   // And the drawer agrees: no warning about there being nothing underneath.
   await empty.click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
   await expect(panel).not.toContainText('nothing below')
+  // The field is still there — it is a record — but it says there is no estimate, not "0 pts".
+  await expect(panel).toContainText('Size below')
+  await expect(panel).not.toContainText('0 pts')
 })

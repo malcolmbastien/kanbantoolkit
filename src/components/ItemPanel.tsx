@@ -31,6 +31,7 @@ import {
   lineageOf,
   objectiveRollup,
   rollupOf,
+  sizedBelow,
   type Graph,
 } from '@/domain/derive'
 import { boardInitiativeTypes, boardTags, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
@@ -188,6 +189,9 @@ export function ItemPanel({ itemId }: Props) {
   const dependents = dependentsOf(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
   const roll = rollupOf(item.id, graph)
+  // A size below is the sum of the *sizes* under it; when nothing under it carries one, the sum is
+  // a count wearing "pts", and there is no estimate to show.
+  const sized = sizedBelow(item.id, graph)
   const stage = roll.bucket
   const log = item.log ?? []
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
@@ -1029,9 +1033,15 @@ export function ItemPanel({ itemId }: Props) {
                     {/* Read, not written — the shape Status wears, for the same reason. */}
                     <div
                       className="flex min-h-[30px] items-center"
-                      title="The sizes of the leaf work below this initiative, unsized work counting as 1 — never entered"
+                      title={
+                        sized
+                          ? 'The sizes of the leaf work below this initiative, unsized work counting as 1 — never entered'
+                          : 'Nothing below it carries an estimate yet'
+                      }
                     >
-                      <span className="text-meta font-semibold tabular-nums text-slate-700">{roll.size} pts</span>
+                      <span className={cn('text-meta font-semibold tabular-nums', sized ? 'text-slate-700' : 'text-slate-500')}>
+                        {sized ? `${roll.size} pts` : '—'}
+                      </span>
                     </div>
                   </Field>
                 ) : (

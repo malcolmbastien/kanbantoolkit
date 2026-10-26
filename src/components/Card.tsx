@@ -568,7 +568,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           {/* Under the rule at the foot of it: its lineage, what the work below it is worth,
               and who has it. An initiative has no estimate of its own, so its size is the one
               under it. */}
-          {(parent || summary.sizeBelow !== undefined || assignees.length > 0) && (
+          {(parent || (summary.sizeBelow ?? 0) > 0 || assignees.length > 0) && (
             <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
               {parent && (
                 <span
@@ -580,7 +580,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
                   <span className="min-w-0 max-w-[14rem] truncate">{parent.title}</span>
                 </span>
               )}
-              {summary.sizeBelow !== undefined && (
+              {(summary.sizeBelow ?? 0) > 0 && (
                 <span
                   className="shrink-0 rounded border bg-white px-1.5 py-px text-micro font-semibold tabular-nums text-slate-700"
                   style={{ borderColor: tintOn(type.color, 0.6) }}

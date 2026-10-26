@@ -18,6 +18,7 @@ import {
   openDescendants,
   openDependenciesOf,
   rollupOf,
+  sizedBelow,
   statusOf,
   withChecklistEntry,
   withChecklistEntryText,
@@ -633,5 +634,41 @@ describe('checklist — sub-tasks inside a card', () => {
     // An entry that is not there is left alone, and the original is untouched.
     expect(withChecklistEntryText(c, 'nope', 'X').checklist).toEqual(c.checklist)
     expect(c.checklist?.[0].text).toBe('One')
+  })
+})
+
+describe('a size below', () => {
+  const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: null, order: 0, name: id, workflow: 'cards', stage })
+  const place = (itemId: string, laneId: string): Placement => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId, rank: 0 })
+  const item = (id: string, size?: number): Item => ({ id, title: id, typeId: 't-card', createdAt: 0, ...(size === undefined ? {} : { size }) })
+  const edge = (from: string, to: string): Edge => ({ id: `e-${to}`, kind: 'decomposition', from, to })
+
+  const withChildren = (sizes: Array<number | undefined>): Graph => ({
+    items: [item('init'), ...sizes.map((size, i) => item(`c${i}`, size))],
+    lanes: [lane('todo', 'backlog')],
+    placements: [place('init', 'todo'), ...sizes.map((_, i) => place(`c${i}`, 'todo'))],
+    links: [],
+    edges: sizes.map((_, i) => edge('init', `c${i}`)),
+  })
+
+  it('is false when nothing below carries an estimate — however many cards there are', () => {
+    const graph = withChildren([undefined, undefined, undefined])
+    // The rollup counts an unsized leaf as one, which is right for weighting a percentage and is
+    // exactly why the card must not read that number out as points.
+    expect(rollupOf('init', graph).size).toBe(3)
+    expect(sizedBelow('init', graph)).toBe(false)
+  })
+
+  it('is true as soon as one leaf below is sized, whatever the others are', () => {
+    const graph = withChildren([undefined, 5])
+    expect(sizedBelow('init', graph)).toBe(true)
+    expect(rollupOf('init', graph).size).toBe(6)
+  })
+
+  it('is false for an initiative with nothing below, and for a card’s own size', () => {
+    expect(sizedBelow('init', withChildren([]))).toBe(false)
+    // A card's size is its own, not a rollup: "below" is only about the work underneath.
+    const own: Graph = { ...withChildren([]), items: [item('card', 8)], placements: [place('card', 'todo')] }
+    expect(sizedBelow('card', own)).toBe(false)
   })
 })

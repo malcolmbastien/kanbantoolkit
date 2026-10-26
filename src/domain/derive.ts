@@ -298,6 +298,18 @@ export function leafItems(id: string, graph: Graph): Item[] {
   return out
 }
 
+/**
+ * Whether anything *below* this item carries an estimate of its own.
+ *
+ * A rollup counts an unsized leaf as one point, so that size and count never disagree about how
+ * many pieces there are — which is right for weighting a percentage and wrong for a number a
+ * person reads as an estimate. An initiative whose cards have no sizes has no size below it: the
+ * sum would be a count wearing "pts", so there is nothing to show rather than "0 pts" or "3 pts".
+ */
+export function sizedBelow(id: string, graph: Graph): boolean {
+  return leafItems(id, graph).some((leaf) => leaf.id !== id && leaf.size !== undefined)
+}
+
 export type RollupBucket = Stage
 
 export interface Rollup {

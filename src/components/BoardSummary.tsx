@@ -18,6 +18,7 @@ import {
   openDescendants,
   canPlaceInSection,
   rollupOf,
+  sizedBelow,
   statusOf,
   uncommittedBelow,
   type Graph,
@@ -279,7 +280,7 @@ export function BoardSummary({
       at,
       0,
       // The card's own measurements, so the shadow is the shape that will land there — an
-      // initiative carrying a parent chip and a blocked row is taller than a plain card.
+      // initiative carrying a parent label and a blocked row is taller than a plain card.
       <DropGap key="drop-gap" height={lift?.height} />,
     )
     return out
@@ -388,7 +389,7 @@ export function BoardSummary({
           uncommittedBelow: uncommittedBelow(c.id, graph),
           openDescendants: openDescendants(c.id, graph).length,
           rollupPercent: rollupOf(c.id, graph).percent,
-          sizeBelow: rollupOf(c.id, graph).size,
+          sizeBelow: sizedBelow(c.id, graph) ? rollupOf(c.id, graph).size : undefined,
           done: isComplete(c.id, graph),
           checklist: checklistProgress(c),
         }}
