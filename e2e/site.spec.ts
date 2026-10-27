@@ -139,7 +139,7 @@ test('security.txt parses, expires in the future, and points at the policy', asy
   const text = await response.text()
   const field = (name: string) => text.match(new RegExp(`^${name}: (.+)$`, 'm'))?.[1]
 
-  expect(field('Contact')).toMatch(/^https:\/\/github\.com\/.*\/security\/advisories/)
+  expect(field('Contact')).toMatch(/^https:\/\/github\.com\/.*\/issues/)
   expect(field('Policy')).toMatch(/\/security\/$/)
   expect(field('Canonical')).toMatch(/\/security\.txt$/)
   const expires = Date.parse(field('Expires') ?? '')

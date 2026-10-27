@@ -68,9 +68,9 @@ describe('the privacy notice', () => {
 
 describe('support and changes', () => {
   it('publishes where a question goes, and a response expectation', () => {
-    // A link, not a mailbox: the issue tracker is where a question belongs, and the private advisory
-    // form is where a vulnerability belongs. Both are configuration (SUPPORT_URL / SECURITY_URL), so
-    // the pages carry the placeholder the build fills rather than a literal.
+    // A link, not a mailbox: the issue tracker is where a question — and a vulnerability — belongs.
+    // It is configuration (SUPPORT_URL), so the pages carry the placeholder the build fills rather
+    // than a literal.
     for (const page of [notice, terms, layout]) {
       expect(page).toMatch(/href="\{\{(support|security)Url\}\}"/)
       expect(page).not.toMatch(/mailto:/)

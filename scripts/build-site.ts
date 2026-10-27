@@ -56,15 +56,15 @@ const cssVersion = (() => {
 })()
 
 /**
- * Where a question and a vulnerability go.
+ * Where a question, a bug and a vulnerability go: one tracker, one link.
  *
- * Links rather than mailboxes, because a project that publishes an address owes somebody's mailbox
- * to whoever writes to it, and this one is run by one person: the issue tracker is where a question
- * belongs, and GitHub's private advisories are where a vulnerability belongs. A self-hoster points
- * both at their own tracker with `SUPPORT_URL` and `SECURITY_URL`.
+ * A link rather than a mailbox, because a project that publishes an address owes somebody's inbox
+ * to whoever writes to it, and this one is run by one person. It is also the same link for a
+ * security report as for anything else — a project at this stage would rather hear it than have a
+ * form nobody knows about standing between the report and the maintainer. A self-hoster points it
+ * at their own tracker with `SUPPORT_URL`.
  */
 const SUPPORT_URL = process.env.SUPPORT_URL ?? 'https://github.com/malcolmbastien/flowline/issues/new/choose'
-const SECURITY_URL = process.env.SECURITY_URL ?? 'https://github.com/malcolmbastien/flowline/security/advisories/new'
 
 /**
  * The pages the app used to answer, and the parameters that mean one of them.
@@ -178,7 +178,7 @@ function render(page: Page, layout: string): string {
     // After the content, so a page may use the same placeholders the layout does.
     .replaceAll('{{repo}}', REPO)
     .replaceAll('{{supportUrl}}', escape(SUPPORT_URL))
-    .replaceAll('{{securityUrl}}', escape(SECURITY_URL))
+    .replaceAll('{{securityUrl}}', escape(SUPPORT_URL))
     // A page may own the body: the home page's hero gradient is full-bleed, which needs the body
     // rather than the column every other page sits in.
     .replaceAll('{{bodyClass}}', page.path === '/' ? ' class="home"' : '')
@@ -220,7 +220,7 @@ function robots(): string {
 function securityTxt(): string {
   const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
   return [
-    `Contact: ${SECURITY_URL}`,
+    `Contact: ${SUPPORT_URL}`,
     `Expires: ${expires}`,
     `Canonical: ${ORIGIN}/security.txt`,
     `Policy: ${ORIGIN}/security/`,

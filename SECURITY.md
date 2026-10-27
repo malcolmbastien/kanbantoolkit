@@ -6,10 +6,13 @@ this project does with a report.
 
 ## Reporting a vulnerability
 
-Use the repository's **[private advisory form](https://github.com/malcolmbastien/flowline/security/advisories/new)**.
-It reaches the maintainer without the report becoming public, and it keeps the report, the fix and
-the credit in one place. Please do not open a public issue for a vulnerability, and do not test
-against somebody else's instance: run your own.
+**Open an issue** — [the same tracker](https://github.com/malcolmbastien/flowline/issues/new/choose)
+as a bug, because a project this size would rather hear about a hole than have a process standing
+between the report and the maintainer. Do not test against somebody else's instance: run your own.
+
+If the detail is the dangerous part — a working exploit, a piece of somebody's data — say so in the
+first line without the detail, and the maintainer will carry the rest of the conversation somewhere
+private before you post it. Credit is yours unless you would rather not have it.
 
 A report is easiest to act on with:
 
@@ -27,7 +30,7 @@ A report is easiest to act on with:
   when a fix can land. If it is not one, the reasoning, in plain words.
 - **A fix, or an explanation.** Anything that lets one workspace read or change another's work, or
   takes an account without its owner, is fixed before it is discussed in public.
-- **Credit if you want it** — in the changelog entry that carries the fix. Say so in the first
+- **Credit if you want it** — in the release note that carries the fix. Say so in the first
   message; anonymous is fine too.
 
 There is no bug bounty. This is a small project and it pays in gratitude and fixes.

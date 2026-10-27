@@ -5,9 +5,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        If this is a **security** problem, do not open an issue — use the repository's private
-        [advisory form](https://github.com/malcolmbastien/flowline/security/advisories/new) (see
-        [SECURITY.md](../blob/main/SECURITY.md)).
+        A **security** problem is welcome here as an issue like anything else. If part of it is the
+        dangerous part, say so in the first line and the maintainer will take the rest somewhere
+        private before you post it — [SECURITY.md](../blob/main/SECURITY.md) has what a report needs
+        either way.
 
         The smallest reproduction is worth more than a long description: a board, a card, and the
         click that goes wrong.
