@@ -67,7 +67,7 @@ describe('the privacy notice', () => {
 })
 
 describe('support and changes', () => {
-  it('publishes where a question goes, and a response expectation', () => {
+  it('publishes where a question goes', () => {
     // A link, not a mailbox: the issue tracker is where a question — and a vulnerability — belongs.
     // It is configuration (SUPPORT_URL), so the pages carry the placeholder the build fills rather
     // than a literal.
@@ -75,8 +75,8 @@ describe('support and changes', () => {
       expect(page).toMatch(/href="\{\{(support|security)Url\}\}"/)
       expect(page).not.toMatch(/mailto:/)
     }
-    // The sentence wraps in the source; the promise is what matters.
-    expect(notice.replace(/\s+/g, ' ')).toContain('within two working days')
+    // Nothing is promised about how quickly a question is read: a project of one person does not
+    // publish a turnaround it has not agreed to. The link and the words around it are the claim.
   })
 })
 
