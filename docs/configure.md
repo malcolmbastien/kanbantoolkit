@@ -93,9 +93,9 @@ These are read by `npm run build`, not by the server. They end up in the files i
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `SITE_URL` | `https://flowline.example` | The canonical origin: every page's `<link rel="canonical">`, the Open Graph URLs and `sitemap.xml`. Set it to the real address or search engines will index the placeholder. |
-| `REPO_URL` | `https://github.com/flowline/flowline` | Where the source, the licence and these docs live. The site's Docs, Source and Licence links are built from it. |
-| `SUPPORT_EMAIL` | `support@flowline.example` | The address in the footer of every page, with the response expectation beside it. A self-hoster's own. |
-| `SECURITY_EMAIL` | `security@flowline.example` | The address in `security.txt`, on the security page, and in the privacy notice. Also the one `security.txt`'s `Expires` is there to keep honest. |
+| `REPO_URL` | `https://github.com/malcolmbastien/flowline` | Where the source, the licence and these docs live. The site's Docs, Source and Licence links are built from it. |
+| `SUPPORT_URL` | the repository's issue form | Where the footer's “Questions & bugs” points, with the response expectation beside it. A self-hoster points it at their own tracker. |
+| `SECURITY_URL` | the repository's private advisory form | The link in `security.txt`, on the security page, and in the privacy notice. `https://` only: this project publishes no mailbox for anybody to answer. |
 
 ## Cloudflare
 

@@ -67,13 +67,13 @@ describe('the privacy notice', () => {
 })
 
 describe('support and changes', () => {
-  it('publishes an address and a response expectation', () => {
-    // The address is in the footer of every page (the site layout) and on the notice itself; there is
-    // no help page to carry it since 2026-10-24.
-    // The address is configuration now (SUPPORT_EMAIL / SECURITY_EMAIL), so the pages carry the
-    // placeholder the build fills rather than a literal.
+  it('publishes where a question goes, and a response expectation', () => {
+    // A link, not a mailbox: the issue tracker is where a question belongs, and the private advisory
+    // form is where a vulnerability belongs. Both are configuration (SUPPORT_URL / SECURITY_URL), so
+    // the pages carry the placeholder the build fills rather than a literal.
     for (const page of [notice, terms, layout]) {
-      expect(page).toMatch(/mailto:(\{\{(support|security)Email\}\}|[a-z]+@)/)
+      expect(page).toMatch(/href="\{\{(support|security)Url\}\}"/)
+      expect(page).not.toMatch(/mailto:/)
     }
     // The sentence wraps in the source; the promise is what matters.
     expect(notice.replace(/\s+/g, ' ')).toContain('within two working days')

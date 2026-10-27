@@ -6,8 +6,10 @@ this project does with a report.
 
 ## Reporting a vulnerability
 
-Write to **security@flowline.example**. Please do not open a public issue for a vulnerability, and
-do not test against somebody else's instance: run your own.
+Use the repository's **[private advisory form](https://github.com/malcolmbastien/flowline/security/advisories/new)**.
+It reaches the maintainer without the report becoming public, and it keeps the report, the fix and
+the credit in one place. Please do not open a public issue for a vulnerability, and do not test
+against somebody else's instance: run your own.
 
 A report is easiest to act on with:
 

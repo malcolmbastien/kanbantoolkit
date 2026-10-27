@@ -50,9 +50,13 @@ an appointed representative at an online or offline event.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community
-leaders responsible for enforcement at support@flowline.example. All complaints will be reviewed and
-investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project
+maintainer through the repository's
+[private report form](https://github.com/malcolmbastien/flowline/security/advisories/new) — it is
+the private channel this project has, it is read by the maintainer alone, and it is the same form
+whether the problem is a vulnerability or a person. Anything happening on GitHub itself can also be
+reported through GitHub's own [Report abuse](https://github.com/contact/report-abuse). All complaints
+will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any
 incident.

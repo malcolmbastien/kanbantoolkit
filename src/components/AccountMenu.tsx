@@ -142,11 +142,13 @@ export function AccountMenu() {
                 </button>
               )}
 
-              {/* Somebody inside still needs the way to a person. The site's help page was removed
-                  on 2026-10-24 — its answers live in the documentation, which the app cannot link
-                  without knowing the repository — so this is the address itself. */}
+              {/* Somebody inside still needs a way out to a person. The project answers on its own
+                  tracker rather than in a mailbox — an address published in an app is somebody's
+                  inbox for as long as the app exists — so this is the repository's issue form. */}
               <a
-                href="mailto:support@flowline.example"
+                href="https://github.com/malcolmbastien/flowline/issues/new/choose"
+                target="_blank"
+                rel="noreferrer noopener"
                 className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               >
                 <LifeBuoy size={13} /> Help &amp; support

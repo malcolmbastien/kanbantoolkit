@@ -124,11 +124,12 @@ test('the terms stand beside the door, and every page carries the support addres
   expect((await request.get('/terms/')).status()).toBe(200)
   expect((await request.get(`${SELF_HOSTED}/terms/`)).status()).toBe(404)
 
-  // And the support address is a link that opens, in the footer of every page rather than on a page
-  // of its own.
+  // And where a question goes is a link that opens, in the footer of every page rather than on a
+  // page of its own — and it is not a mailbox, because this project answers on its tracker.
   for (const path of ['/', '/install/', '/privacy/']) {
     const html = await (await request.get(path)).text()
-    expect(html, path).toContain('mailto:support@flowline.example')
+    expect(html, path).toContain('https://github.com/malcolmbastien/flowline/issues')
+    expect(html, path).not.toContain('mailto:')
   }
 })
 
@@ -138,7 +139,7 @@ test('security.txt parses, expires in the future, and points at the policy', asy
   const text = await response.text()
   const field = (name: string) => text.match(new RegExp(`^${name}: (.+)$`, 'm'))?.[1]
 
-  expect(field('Contact')).toMatch(/^mailto:security@/)
+  expect(field('Contact')).toMatch(/^https:\/\/github\.com\/.*\/security\/advisories/)
   expect(field('Policy')).toMatch(/\/security\/$/)
   expect(field('Canonical')).toMatch(/\/security\.txt$/)
   const expires = Date.parse(field('Expires') ?? '')

@@ -13,6 +13,11 @@ Two documents say more about this codebase than any style guide:
 - **[`docs/server-runtime.md`](docs/server-runtime.md)** — the two runtimes, the boundary between
   `src/`, `server/` and `worker/`, and why nothing in `server/` may import a Cloudflare binding.
 
+`.taskmaster/` is how this work is planned: the task backlog, its PRD and the complexity report the
+planning tool keeps. It is notes rather than product — nothing in it is needed to build, test or run
+the app — and comments in the code cite its task numbers (`task 174`) rather than restating the
+reasoning, which is why it is published alongside the code.
+
 The domain is in `src/domain/`: pure functions, no framework, no store, no network. If a rule can be
 written as a function of the data, it belongs there and it is unit tested. Everything else is a thin
 layer that calls it.

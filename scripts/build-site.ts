@@ -30,7 +30,7 @@ const ORIGIN = (process.env.SITE_URL ?? 'https://flowline.example').replace(/\/+
  * rather than at copies of it. Like the origin, it is one value: a placeholder until the project is
  * published, and a single constant when it is.
  */
-const REPO = (process.env.REPO_URL ?? 'https://github.com/flowline/flowline').replace(/\/+$/, '')
+const REPO = (process.env.REPO_URL ?? 'https://github.com/malcolmbastien/flowline').replace(/\/+$/, '')
 
 /**
  * The two addresses a reader might need, and the only two that appear anywhere on the site.
@@ -55,8 +55,16 @@ const cssVersion = (() => {
   }
 })()
 
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@flowline.example'
-const SECURITY_EMAIL = process.env.SECURITY_EMAIL ?? 'security@flowline.example'
+/**
+ * Where a question and a vulnerability go.
+ *
+ * Links rather than mailboxes, because a project that publishes an address owes somebody's mailbox
+ * to whoever writes to it, and this one is run by one person: the issue tracker is where a question
+ * belongs, and GitHub's private advisories are where a vulnerability belongs. A self-hoster points
+ * both at their own tracker with `SUPPORT_URL` and `SECURITY_URL`.
+ */
+const SUPPORT_URL = process.env.SUPPORT_URL ?? 'https://github.com/malcolmbastien/flowline/issues/new/choose'
+const SECURITY_URL = process.env.SECURITY_URL ?? 'https://github.com/malcolmbastien/flowline/security/advisories/new'
 
 /**
  * The pages the app used to answer, and the parameters that mean one of them.
@@ -169,8 +177,8 @@ function render(page: Page, layout: string): string {
     .replaceAll('{{content}}', page.body)
     // After the content, so a page may use the same placeholders the layout does.
     .replaceAll('{{repo}}', REPO)
-    .replaceAll('{{supportEmail}}', escape(SUPPORT_EMAIL))
-    .replaceAll('{{securityEmail}}', escape(SECURITY_EMAIL))
+    .replaceAll('{{supportUrl}}', escape(SUPPORT_URL))
+    .replaceAll('{{securityUrl}}', escape(SECURITY_URL))
     // A page may own the body: the home page's hero gradient is full-bleed, which needs the body
     // rather than the column every other page sits in.
     .replaceAll('{{bodyClass}}', page.path === '/' ? ' class="home"' : '')
@@ -212,7 +220,7 @@ function robots(): string {
 function securityTxt(): string {
   const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
   return [
-    `Contact: mailto:${SECURITY_EMAIL}`,
+    `Contact: ${SECURITY_URL}`,
     `Expires: ${expires}`,
     `Canonical: ${ORIGIN}/security.txt`,
     `Policy: ${ORIGIN}/security/`,

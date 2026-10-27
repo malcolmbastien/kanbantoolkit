@@ -355,13 +355,18 @@ for (const file of html) {
   }
 }
 
-// ---- R3: the support address is a link that opens, in the footer of every page ----
+// ---- R3: where a question goes is a link that opens, in the footer of every page ----
+//
+// A link rather than a mailbox: a published address owes somebody's inbox to whoever writes to it,
+// and this project answers on its own tracker. The same check therefore also refuses a `mailto:` —
+// on any page, not only the footer — because an address that appears in one place has to be
+// answered in one place.
 for (const file of html) {
+  const where = file.replace(`${DIST}/`, '')
   const text = readFileSync(file, 'utf8')
   const footer = /<footer class="site-footer"[\s\S]*?<\/footer>/.exec(text)?.[0] ?? ''
-  if (!/href="mailto:support@[^"]+"/.test(footer)) {
-    fail(`${file.replace(`${DIST}/`, '')}: the footer has no support mailto:`)
-  }
+  if (!/href="https:\/\/[^"]+"/.test(footer)) fail(`${where}: the footer has no link to where a question goes`)
+  if (/mailto:/.test(text)) fail(`${where}: the page offers a mailbox, and this project answers on its tracker`)
 }
 
 // ---- R1/R2: security.txt exists, parses, expires in the future, and agrees with the page (task 159) ----
@@ -384,9 +389,10 @@ if (!existsSync(securityTxt)) {
   if (!fields.get('Canonical')?.startsWith(`${ORIGIN}/`)) fail('security.txt Canonical is not this origin')
   if (fields.get('Policy') !== `${ORIGIN}/security/`) fail('security.txt Policy does not point at /security/')
 
-  // The file and the page say the same thing: one address, one policy.
+  // The file and the page say the same thing: one link, one policy.
   const securityPage = readFileSync(join(DIST, 'security/index.html'), 'utf8')
-  const contact = (fields.get('Contact') ?? '').replace(/^mailto:/, '')
+  const contact = fields.get('Contact') ?? ''
+  if (!contact.startsWith('https://')) fail(`security.txt Contact is ${contact}, and this project has no mailbox`)
   if (!securityPage.includes(contact)) fail(`security.txt contacts ${contact}, and /security/ does not name it`)
 }
 
