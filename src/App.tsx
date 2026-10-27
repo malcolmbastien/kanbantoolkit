@@ -17,6 +17,7 @@ import { TopBar } from './components/TopBar'
 import { boardCardTypeId, defaultDropLane, initiativeTypeId, isAggregating } from './domain/board'
 import { leafLanes } from './domain/lanes'
 import { useUrl } from './lib/useUrl'
+import { useSignedInPerson } from './lib/identity'
 import { isBoardSurface, useStore } from './store'
 
 /**
@@ -72,7 +73,6 @@ export default function App() {
   const issueTypes = useStore((s) => s.issueTypes)
 
   const selectBoard = useStore((s) => s.selectBoard)
-  const resetDemo = useStore((s) => s.resetDemo)
   const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
   const beginEdit = useStore((s) => s.beginEdit)
   const moveCard = useStore((s) => s.moveCard)
@@ -81,6 +81,10 @@ export default function App() {
   // The URL: read once for what the link asked for, then kept in step with where the app is —
   // and followed when the back button moves. See `lib/useUrl`.
   useUrl()
+
+  // Who this browser is, when an account says so: the workspace's own person, kept in step with
+  // the session so "My work" and the author of a change read the account that is signed in.
+  useSignedInPerson()
 
   // Auto-archive (a user-set rule): file Done items once they age past the threshold.
   useEffect(() => {
@@ -226,7 +230,6 @@ export default function App() {
         onOpenBoardSettings={toggleBoardSettings}
         onAddCard={quickAdd}
         onAddInitiative={quickAddInitiative}
-        onReset={resetDemo}
       />
 
       <StorageBanner />

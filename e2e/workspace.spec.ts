@@ -8,6 +8,47 @@ import { addCardTo, openBoard } from './support'
  * what comes back.
  */
 
+/**
+ * The demo, reset.
+ *
+ * Starting the demo over is not a thing you do to a board — it replaces the whole workspace this
+ * browser holds — so it lives in the admin screen, beside the copies and the storage. This walks
+ * the arc: gone from the toolbar, found in Admin, and actually reset.
+ */
+test('the demo is reset from the admin screen, not from the board toolbar', async ({ page }) => {
+  await openBoard(page)
+
+  // The board's toolbar is for the board. There is no Reset beside Edit board any more.
+  await expect(page.getByRole('button', { name: 'Reset', exact: true })).toHaveCount(0)
+
+  // Make one change that the demo does not have, so the reset has something to undo.
+  const [renamed] = await page.locator('[data-workflow="cards"] [data-card-id]').evaluateAll((elements) =>
+    elements.map((element) => (element as HTMLElement).dataset.cardId!),
+  )
+  await page.locator(`[data-card-id="${renamed}"]`).click()
+  await page.getByLabel('Title').fill('A card the demo does not have')
+  await page.keyboard.press('Escape')
+  await expect(page.locator(`[data-card-id="${renamed}"]`)).toContainText('A card the demo does not have')
+
+  // The admin screen holds it, and says what it does before it does it.
+  await page.goto('/app?view=admin')
+  const demo = page.locator('[data-demo-reset]')
+  await expect(demo).toBeVisible()
+  await demo.getByRole('button', { name: 'Reset to the demo…' }).click()
+  await expect(page.getByRole('dialog', { name: 'Start the demo over?' })).toBeVisible()
+  await page.getByRole('button', { name: 'Reset the demo' }).click()
+
+  // The workspace is the demo's again: the change is gone, and the demo's own board is back.
+  await expect(async () => {
+    const state = await stored(page)
+    expect(state.items).toBeGreaterThan(0)
+  }).toPass()
+  await page.getByRole('button', { name: 'Flowline' }).click()
+  await expect(page.getByText('Every board in the organisation')).toBeVisible()
+  await openBoard(page)
+  await expect(page.locator(`[data-card-id="${renamed}"]`)).not.toContainText('A card the demo does not have')
+})
+
 /** The Boards screen, where the workspace's files live. */
 async function openWorkspace(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Flowline' }).click()

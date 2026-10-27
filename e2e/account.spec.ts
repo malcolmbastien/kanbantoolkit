@@ -37,6 +37,51 @@ test('a person signs in, stays signed in across a reload, and signs out', async 
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
 })
 
+async function signInAsMaya(page: import('@playwright/test').Page) {
+  await page.goto(`${SELF_HOSTED}/app`)
+  const account = page.getByRole('button', { name: /Maya Blake/ })
+  if (await account.isVisible().catch(() => false)) return
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await page.getByRole('button', { name: 'Sign in as this address' }).click()
+  await expect(account).toBeVisible()
+}
+
+test('the corner is the session, and My work is the work assigned to it', async ({ page }) => {
+  await signInAsMaya(page)
+
+  // The nav says who is here — and a reload does not forget them, which is what the corner is for.
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+
+  // My work is *mine* now: it says whose it is, and offers no way to become somebody else.
+  await page.goto(`${SELF_HOSTED}/app?view=mywork`)
+  await expect(page.getByText(/Signed in as/)).toBeVisible()
+  await expect(page.getByLabel('Whose work to show')).toHaveCount(0)
+
+  // The person the view resolved is the workspace's own Maya, and every item assigned to her —
+  // and nothing else — is on the list. The expectation is read from the workspace itself, so the
+  // assertion is about the filter rather than about the rendering of whatever the view chose.
+  const workspace = await page.evaluate(() => {
+    const raw = window.localStorage.getItem('flowline-state-v3')
+    return (JSON.parse(raw ?? '{}') as { state?: Record<string, unknown> }).state ?? {}
+  })
+  const maya = (workspace.users as Array<{ id: string; name: string }>).find((person) => person.name === 'Maya Blake')!
+  const placed = new Set((workspace.placements as Array<{ itemId: string }>).map((placement) => placement.itemId))
+  const assigned = (workspace.items as Array<{ id: string; assignees?: string[]; archived?: boolean }>)
+    .filter((item) => !item.archived && placed.has(item.id) && item.assignees?.includes(maya.id))
+    .map((item) => item.id)
+
+  await expect(page.locator('[data-my-work-person]')).toHaveAttribute('data-my-work-person', maya.id)
+  const shown = await page
+    .locator('[data-my-work-item]')
+    .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).dataset.myWorkItem!))
+
+  expect(assigned.length, 'the demo assigns her work to begin with').toBeGreaterThan(0)
+  expect([...new Set(shown)].sort()).toEqual([...new Set(assigned)].sort())
+})
+
 test('an edit made while signed in reaches the server', async ({ page }) => {
   // The team board, because that is the one whose cards are cards.
   await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)

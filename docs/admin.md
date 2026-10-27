@@ -150,7 +150,7 @@ What exists:
 | Sign-in routes | `server/auth/routes.ts` | providers, start, callback, session, signout, dev |
 | Session handling | `server/auth/session.ts` | issue, read, revoke; no listing, no last seen |
 | Account menu | `src/components/AccountMenu.tsx` | name, email, role label, sign out |
-| Admin screen | `src/components/AdminView.tsx` | **browser-local snapshots only** — not instance admin |
+| Admin screen | `src/components/AdminView.tsx` | the browser's own workspace — snapshots, storage and the demo reset — beside the workspace and instance panels |
 
 Four findings worth stating plainly:
 

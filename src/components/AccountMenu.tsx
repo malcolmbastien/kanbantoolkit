@@ -8,14 +8,16 @@ const ProfileDialog = lazy(() => import('./ProfileDialog').then((module) => ({ d
 const SignInPanel = lazy(() => import('./SignInPanel').then((module) => ({ default: module.SignInPanel })))
 import { loadAuth, signOut, useAuth } from '@/lib/auth'
 import type { AuthUser } from '@/lib/auth'
+import { personFor } from '@/lib/identity'
 import { cn } from '@/lib/utils'
 
 /**
  * Who you are here.
  *
- * The control only exists when the instance offers a way in: with no provider configured — or no
- * server at all — it renders nothing, which keeps the static tier exactly as it was. Signing in is
- * additive in this task; the workspace still lives in the browser until task 118 moves it.
+ * The control only exists when the instance offers a way in — or when somebody *is* in: a session
+ * outlives the provider that made it, and a signed-in person must always be able to see who they
+ * are and to leave. With no provider and no session — the static tier, or a deployment that has
+ * closed its doors — it renders nothing, exactly as before.
  */
 export function AccountMenu() {
   const auth = useAuth()
@@ -49,13 +51,14 @@ export function AccountMenu() {
     return () => document.removeEventListener('pointerdown', away)
   }, [open])
 
-  if (!auth.loaded || (auth.providers.length === 0 && !auth.dev && !auth.password && !auth.setup)) return null
+  const hasDoor = auth.providers.length > 0 || auth.dev || auth.password || auth.setup
+  if (!auth.loaded || (!auth.user && !hasDoor)) return null
 
   /**
-   * Until the workspace lives on the server, the account and the workspace's own person are two
-   * identities. The bridge is a name match: if the workspace already knows somebody by this name,
-   * the account becomes them — which is what makes "my work" and a change's author right today.
-   * Task 118 replaces the guess with a record.
+   * The account is the authority; which person it *is* in this workspace is `personFor`'s question,
+   * and `useSignedInPerson` keeps the store in step with it from then on (including after a reload,
+   * which is when the old bridge forgot). Signing out has no account left to read, so it clears the
+   * pick here.
    */
   function signedIn(user: AuthUser | null) {
     useAuth.setState({ user })
@@ -63,8 +66,7 @@ export function AccountMenu() {
       setUser(undefined)
       return
     }
-    const match = users.find((candidate) => candidate.name.toLowerCase() === user.name.toLowerCase())
-    setUser(match?.id)
+    setUser(personFor(user, users)?.id)
   }
 
 

@@ -5,6 +5,7 @@ import { myWork, type MyWorkEntry } from '@/domain/mywork'
 import { initialsOf } from '@/domain/users'
 import { chipColors } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/lib/auth'
 import { useStore } from '@/store'
 
 /**
@@ -26,6 +27,12 @@ export function MyWorkView() {
   const boardId = useStore((s) => s.boardId)
   const openItem = useStore((s) => s.openItem)
   const setMyWork = useStore((s) => s.setMyWork)
+
+  // Who is signed in, when the instance says: on an account, this view is *yours* — the picker is
+  // the demo's way of saying who you are, and asking a signed-in person to also pick themselves
+  // would let them read somebody else's work under the words "my work".
+  const account = useAuth((s) => s.user)
+  const signedIn = Boolean(account)
 
   const groups = useMemo(() => myWork(items, placements, lanes, boards, meUserId), [items, placements, lanes, boards, meUserId])
   const me = users.find((u) => u.id === meUserId)
@@ -76,6 +83,12 @@ export function MyWorkView() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3">
+            {signedIn ? (
+              <span className="flex items-center gap-1.5 text-meta text-slate-600" data-my-work-person={meUserId ?? ''}>
+                <UserRound size={12} className="text-sky-700" />
+                Signed in as <strong className="font-semibold text-slate-800">{me?.name ?? account!.name}</strong>
+              </span>
+            ) : (
             <label className="flex items-center gap-1.5 text-meta text-slate-600">
               Looking at
               <select
@@ -92,10 +105,20 @@ export function MyWorkView() {
                 ))}
               </select>
             </label>
+            )}
           </div>
         </div>
 
-        {!meUserId ? (
+        {signedIn && !me ? (
+          <div className="rounded-lg border border-slate-300 bg-white px-4 py-8 text-center">
+            <p className="text-body font-semibold text-slate-800">This workspace has no person for your account.</p>
+            <p className="mx-auto mt-1 max-w-md text-meta text-slate-600">
+              You are signed in as {account!.name} ({account!.email}), and no one by that name is on this
+              workspace — so there is nothing here to assign to you yet. An administrator adds people
+              from Admin, and the work assigned to them is what this view shows.
+            </p>
+          </div>
+        ) : !meUserId ? (
           <div className="rounded-lg border border-slate-300 bg-white px-4 py-8 text-center">
             <p className="text-body font-semibold text-slate-800">Who is here?</p>
             <p className="mx-auto mt-1 max-w-md text-meta text-slate-600">

@@ -8,7 +8,7 @@ import { AuditPanel, HealthPanel } from './AuditPanels'
 import { AccessPanel } from './AccessPanel'
 import { GroupsPanel } from './GroupsPanel'
 import { useAuth } from '@/lib/auth'
-import { ArrowLeft, History } from 'lucide-react'
+import { ArrowLeft, History, RotateCcw } from 'lucide-react'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
 import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
 
@@ -28,8 +28,14 @@ export function AdminView() {
   // not they run the instance.
   const workspaceAdmin = useAuth((s) => s.user?.role === 'admin' || s.user?.instanceRole === 'admin')
   const importWorkspace = useStore((s) => s.importWorkspace)
+  const resetDemo = useStore((s) => s.resetDemo)
   const setView = useStore((s) => s.setView)
   const askConfirm = useStore((s) => s.askConfirm)
+  // A reset is about the copy in this browser, and only the demo tier has one of its own: once an
+  // account is behind the workspace, the server is the record and a local reset would be undone by
+  // the next load. So the control belongs here, where the browser's copy is administered — and it
+  // is absent on an account, where it would be a lie.
+  const signedIn = useAuth((s) => Boolean(s.user))
   const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([])
   const [snapshotError, setSnapshotError] = useState<string | null>(null)
 
@@ -127,6 +133,40 @@ export function AdminView() {
             </ul>
           )}
         </section>
+
+        {/* The demo, made fresh again. It lives here rather than on the board's toolbar because it
+            is not a thing you do to a board: it replaces the whole workspace this browser holds,
+            which is what this screen is about. */}
+        {!signedIn && (
+          <section data-demo-reset className="mt-3 rounded-lg border border-slate-300 bg-white px-4 py-3">
+            <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-slate-600">
+              <RotateCcw size={12} /> Demo data
+            </div>
+            <p className="mt-0.5 text-meta text-slate-600">
+              Start the demo over: its boards, cards and people, exactly as a fresh browser opens it.
+              What is here now is replaced, and a snapshot of it is kept first, so the reset itself can
+              be undone from the list above.
+            </p>
+            <button
+              onClick={() =>
+                askConfirm({
+                  title: 'Start the demo over?',
+                  body: 'Every board, lane and card in this browser is replaced by the demo workspace. A snapshot of what is here is kept first, so this can be undone.',
+                  confirmLabel: 'Reset the demo',
+                  danger: true,
+                  onConfirm: () => {
+                    void writeSnapshot(persistedSlice(useStore.getState()), PERSIST_VERSION)
+                    resetDemo()
+                    void listSnapshots().then(setSnapshots)
+                  },
+                })
+              }
+              className="mt-2 rounded-md border border-slate-300 px-2 py-1 text-meta font-medium text-slate-700 transition hover:border-rose-300 hover:text-rose-700"
+            >
+              Reset to the demo…
+            </button>
+          </section>
+        )}
       </div>
     </div>
   )

@@ -16,6 +16,7 @@
 import { create } from 'zustand'
 import { PERSIST_VERSION, useStore } from '@/store'
 import { useAuth } from './auth'
+import { personFor } from './identity'
 import { queue } from './queue'
 
 /**
@@ -107,12 +108,10 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
   const { schema: _schema, meUserId: _me, ...slice } = body
   useStore.getState().importWorkspace(slice, PERSIST_VERSION)
 
-  // Until accounts and workspace people are linked (task 122), the bridge stays a name.
+  // One rule for which person an account is here — the same one "My work" and the author of a
+  // change read, so the three cannot disagree about who just adopted this workspace.
   const account = useAuth.getState().user
-  const person = account
-    ? useStore.getState().users.find((user) => user.name.toLowerCase() === account.name.toLowerCase())
-    : undefined
-  useStore.getState().setUser(person?.id)
+  useStore.getState().setUser(personFor(account, useStore.getState().users)?.id)
 
   useWorkspaceSync.setState({ offer: false, error: undefined })
   return 'adopted'

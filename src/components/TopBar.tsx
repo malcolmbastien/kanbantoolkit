@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, RotateCcw, Settings, Target, TrendingUp, UserRound, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, Target, TrendingUp, UserRound, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { AccountMenu } from './AccountMenu'
 import { SyncNotice } from './SyncNotice'
@@ -41,7 +41,6 @@ interface Props {
   onOpenBoardSettings: () => void
   onAddCard: () => void
   onAddInitiative: () => void
-  onReset: () => void
 }
 
 export function TopBar(props: Props) {
@@ -52,7 +51,7 @@ export function TopBar(props: Props) {
   const mayDesign = may('board.design')
   const maySettings = may('board.settings')
 
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onShowObjectives, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative, onReset } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onShowObjectives, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
@@ -258,14 +257,6 @@ export function TopBar(props: Props) {
             <Pencil size={13} /> Edit board
           </button>
           ))}
-
-        <button
-          onClick={onReset}
-          className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
-          title="Reset the demo data"
-        >
-          <RotateCcw size={13} /> Reset
-        </button>
 
         {/* The one moment a workspace can move to the server, and a change that did not land. */}
         <ImportNotice />
