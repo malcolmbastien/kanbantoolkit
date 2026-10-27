@@ -21,6 +21,11 @@ of tickets.
 The demo is the application itself: on a first visit it seeds a complete board, keeps the work in
 your browser, and asks you for nothing. Nothing is collected and no account is needed.
 
+**The time is not in the work — it is in the waiting.** Flowline puts the wait where it can be read:
+how many days a card has sat in its lane, what it is blocked on, what it is waiting for on another
+board, and which committed work below has nobody's name on it. None of that is a second report, and
+none of it is entered twice — it is read from the cards that are already there.
+
 ## How it works
 
 1. **The team works on its board.** Cards move through four fixed stages — **Backlog → Not Started →
