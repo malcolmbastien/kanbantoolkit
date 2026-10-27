@@ -25,6 +25,7 @@
     "site:check": "node scripts/check-site.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "shots": "tsx scripts/shots.ts",
+    "demo": "tsx scripts/demo-clip.ts",
     "flowline": "node scripts/flowline.mjs",
     "mcp": "tsx server/mcp.ts"
   },
