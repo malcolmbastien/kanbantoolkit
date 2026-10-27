@@ -12,7 +12,7 @@ of tickets.
 [**Open the demo**](https://flowline.flowline-team.workers.dev/app) — nothing to sign up for ·
 [Run it yourself](#run-it) · [Documentation](docs/README.md)
 
-[![CI](https://github.com/malcolmbastien/flowline/actions/workflows/ci.yml/badge.svg)](https://github.com/malcolmbastien/flowline/actions/workflows/ci.yml) &nbsp; [![Licence](https://img.shields.io/github/license/malcolmbastien/flowline?color=brightgreen)](LICENSE)
+[![CI](https://github.com/malcolmbastien/flowline/actions/workflows/ci.yml/badge.svg)](https://github.com/malcolmbastien/flowline/actions/workflows/ci.yml) &nbsp; [![Licence](https://img.shields.io/badge/licence-AGPL--3.0-brightgreen)](LICENSE)
 
 <img src="docs/img/demo.gif" alt="A card dragged from Backlog into In Progress, then opened in the side drawer beside the board" width="880">
 
