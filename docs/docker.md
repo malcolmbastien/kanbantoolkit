@@ -4,7 +4,7 @@ One instance, one container, one volume. The image is built from this repository
 else: no registry account, no base image with the app baked somewhere you cannot see.
 
 ```bash
-git clone https://github.com/flowline/flowline flowline
+git clone https://github.com/malcolmbastien/flowline flowline
 cd flowline
 docker compose up -d
 ```
@@ -28,10 +28,10 @@ creates, the first sign-in — and on `main` it publishes that build to a regist
 
 ```bash
 docker run -d --name flowline -p 127.0.0.1:8787:8787 -v flowline-data:/data \
-  ghcr.io/<owner>/flowline:latest
+  ghcr.io/malcolmbastien/flowline:latest
 ```
 
-Or, in a compose file, replace `build: .` with `image: ghcr.io/<owner>/flowline:<version>`.
+Or, in a compose file, replace `build: .` with `image: ghcr.io/malcolmbastien/flowline:<version>`.
 
 Three tags, and what each one means:
 
@@ -41,9 +41,11 @@ Three tags, and what each one means:
 | `<version>` | the release, from `package.json` |
 | `latest` | the last green `main` — not a release, and the tag to use only for a trial |
 
-> **The repository is private today, so the package is private too.** Pulling it needs a GitHub
-> token (`docker login ghcr.io`) until the repository is public. The clone-and-build path above
-> works without one, which is why it is still the first road in this page.
+> **The package carries its own visibility, not the repository's.** A package created while the
+> repository was private stays private until somebody changes it: **Packages → flowline → Package
+> settings → Change visibility**. If a `docker pull` asks for credentials, that is the switch. The
+> clone-and-build path above needs no registry at all, which is why it is still the first road in
+> this page.
 
 The container reports which build it is: `curl -s localhost:8787/api/health` answers
 `{"ok":true,"database":"ok","version":"0.1.0"}`. Three instances on three machines can be told apart
@@ -106,7 +108,7 @@ http.
 docker exec flowline npm run backup -- backup /data/flowline.db /data/backups   # 1. a copy
 git pull --ff-only                                                              # 2. the new code
 docker compose up -d --build                                                    # 3. rebuild, restart
-docker compose logs --tail 20 flowline                                          # 4. schema v21, or why not
+docker compose logs --tail 20 flowline                                          # 4. the schema it reached, or why not
 ```
 
 A release that adds a migration applies it on boot, inside the transaction, and stops the container
@@ -134,7 +136,7 @@ worth. If you outgrow it, the answer is a different database behind the same int
 docker compose ps                       # healthy
 curl -s localhost:8787/api/health       # {"ok":true,"database":"ok"}
 docker exec flowline id                 # uid=10001(flowline) — not root
-docker compose logs --tail 5 flowline   # flowline schema v21
+docker compose logs --tail 5 flowline   # flowline schema vN — the migration it reached
 ```
 
 ---

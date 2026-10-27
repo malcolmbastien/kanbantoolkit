@@ -27,15 +27,15 @@ sudo systemctl restart flowline                    # 4. boot: migrations, then s
 journalctl -u flowline -n 20 --no-pager            # 5. what happened
 ```
 
-Step 5 prints one line at start:
+Step 5 prints one line at start — the migration the database reached:
 
 ```
-flowline schema v21
+flowline schema vN
 ```
 
 If it prints nothing and exits, the migration refused — see *When a migration stops* below. If it
-prints `(applied 21)` after the version, this boot moved the schema and you should read the release's
-changelog entry for what changed.
+prints `(applied 20, 21, …)` after the version, this boot moved the schema and you should read the
+release's notes for what changed.
 
 ## Which releases need a backup
 

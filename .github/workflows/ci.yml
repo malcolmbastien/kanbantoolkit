@@ -130,9 +130,9 @@ jobs:
   # the previous job ran — so the last step of *this* job pulls the published digest and repeats the
   # assertions. A tag nobody has run is a tag somebody else will run first.
   #
-  # The repository is private today, so the package is private too: `docker pull` needs a GitHub
-  # token until the repository is public. docs/docker.md says so rather than handing out a command
-  # that fails.
+  # A package carries its own visibility rather than the repository's: one created while the
+  # repository was private stays private until it is changed under Packages → flowline. docs/docker.md
+  # says so rather than handing out a command that fails.
   publish:
     name: publish
     needs: [image]

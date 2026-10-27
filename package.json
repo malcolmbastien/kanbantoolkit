@@ -1,5 +1,19 @@
 {
   "name": "flowline",
+  "description": "An open-source Kanban board for teams and their leaders: the team's own board, and the wider view of the same work.",
+  "homepage": "https://flowline.flowline-team.workers.dev/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/malcolmbastien/flowline.git"
+  },
+  "keywords": [
+    "kanban",
+    "project-management",
+    "portfolio-management",
+    "initiatives",
+    "self-hosted",
+    "open-source"
+  ],
   "private": true,
   "version": "0.1.0",
   "license": "AGPL-3.0-or-later",

@@ -10,7 +10,7 @@ itself, and asks you for nothing until it is running.
 ## One command, with Docker
 
 ```bash
-git clone https://github.com/flowline/flowline flowline
+git clone https://github.com/malcolmbastien/flowline flowline
 cd flowline && docker compose up -d
 ```
 
@@ -24,9 +24,9 @@ website — `/install/`, `/privacy/`, its sitemap — is a separate deployment a
 instance. The one thing an instance links back here for is the terms and privacy pages, and only when
 `PROJECT_URL` tells it where this site is.
 
-A published image exists too — `ghcr.io/<owner>/flowline`, tagged by commit, by version and `latest` —
-once the repository is public; [docker.md](docker.md) has the command and what the tags mean. Until
-then, building from the checkout above is the road that works.
+A published image exists too — `ghcr.io/malcolmbastien/flowline`, built by CI on every green `main`
+and tagged by commit, by version and `latest`; [docker.md](docker.md) has the command and what the
+tags mean. Building from the checkout above always works and needs no registry.
 
 Two values are worth setting before the machine has a public address, and neither is required to try
 it:
@@ -45,7 +45,7 @@ unprivileged user, and what SQLite means when you are tempted to run a second on
 Node 26, a directory you own, and a reverse proxy for TLS:
 
 ```bash
-git clone https://github.com/flowline/flowline flowline
+git clone https://github.com/malcolmbastien/flowline flowline
 cd flowline && npm ci && npm run build
 PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server
 ```
@@ -54,7 +54,7 @@ The build writes the site and the app into `dist/`. The server applies every pen
 start and prints the schema version it reached:
 
 ```
-flowline schema v23
+flowline schema vN
 ```
 
 ## What the first run does

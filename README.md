@@ -107,3 +107,5 @@ see [`docs/install.md`](docs/install.md) and [`docs/docker.md`](docs/docker.md).
 
 Flowline is free software under the GNU Affero General Public License, version 3 or later. Run it,
 change it, and share your changes when you offer it to other people.
+
+Copyright © 2026 Malcolm Bastien.
