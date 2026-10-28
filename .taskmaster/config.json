@@ -2,14 +2,14 @@
   "models": {
     "main": {
       "provider": "openai-compatible",
-      "modelId": "deepseek-v4-pro",
+      "modelId": "deepseek-v4.1-flash",
       "maxTokens": 65536,
       "temperature": 0.2,
       "baseURL": "http://127.0.0.1:8788/v1"
     },
     "research": {
       "provider": "openai-compatible",
-      "modelId": "deepseek-v4-flash",
+      "modelId": "deepseek-v4.1-flash",
       "maxTokens": 65536,
       "temperature": 0.1,
       "baseURL": "http://127.0.0.1:8788/v1"
