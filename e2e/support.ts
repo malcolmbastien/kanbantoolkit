@@ -85,3 +85,53 @@ export async function dropAtEnd(page: Page, cardId: string, laneName: string): P
   const box = await boxOf(lane(page, laneName))
   await dragCardTo(page, cardId, { x: box.x + box.width / 2, y: box.y + box.height - 10 })
 }
+
+/**
+ * The instance's front door.
+ *
+ * A deployment with a way in shows the sign-in screen before it shows a board — there is no account
+ * menu to open, because there is nothing behind it yet. The development door is the one these specs
+ * use: an address, and the person is made (or met) by the instance.
+ */
+export async function signInOnInstance(
+  page: Page,
+  origin: string,
+  who: { email: string; name: string } = { email: 'maya.blake@example.com', name: 'Maya Blake' },
+): Promise<void> {
+  await page.goto(`${origin}/app`)
+  const field = page.getByPlaceholder('you@example.com')
+  await expect(field).toBeVisible({ timeout: 20_000 })
+  await field.fill(who.email)
+  await page.getByRole('button', { name: 'Sign in as this address' }).click()
+  await expect(page.getByRole('button', { name: new RegExp(who.name) })).toBeVisible({ timeout: 20_000 })
+}
+
+/** Make a board on a workspace that has none. */
+export async function makeBoard(page: Page, name = 'Team Atlas'): Promise<void> {
+  const newBoard = page.getByRole('button', { name: 'New board' }).first()
+  await expect(newBoard).toBeVisible({ timeout: 20_000 })
+  await newBoard.click()
+  await page.getByLabel('New board name').fill(name)
+  await page.getByRole('button', { name: 'Create board' }).click()
+  await expect(page.getByRole('button', { name, exact: true })).toBeVisible({ timeout: 20_000 })
+}
+
+/**
+ * Sign in to an instance and stand on its board, making the board if this is a fresh workspace.
+ *
+ * A deployment starts empty — nothing is seeded behind the administrator's back — so a spec that
+ * wants a card makes the board it needs, the way a person does.
+ */
+export async function openInstanceBoard(
+  page: Page,
+  origin: string,
+  name = 'Team Atlas',
+  who: { email: string; name: string } = { email: 'maya.blake@example.com', name: 'Maya Blake' },
+): Promise<void> {
+  await signInOnInstance(page, origin, who)
+  await page.goto(`${origin}/app?view=boards`)
+  const empty = page.getByText('This workspace is empty')
+  if (await empty.isVisible().catch(() => false)) await makeBoard(page, name)
+  await page.getByRole('button', { name, exact: true }).first().click()
+  await expect(page.locator('[data-workflow="cards"]')).toBeVisible({ timeout: 20_000 })
+}

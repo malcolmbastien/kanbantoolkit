@@ -95,6 +95,28 @@ export async function lastAdministratorRefusal(db: Database, workspaceId: string
   }
   return undefined
 }
+/**
+ * A member of a workspace is one of its people.
+ *
+ * The workspace's roster (`people`) is what a card's assignee, a change's author and "my work" point
+ * at, while the *account* lives in `users`. On an instance imported from a file the two arrive
+ * together; on a fresh instance the account is made by signing in, and nothing had written the
+ * person it is. This is that write: idempotent, by id, on every workspace call — so a member is on
+ * the roster from the first thing they read, and an invitation that adds somebody needs no second
+ * step to make them a person here.
+ */
+export async function ensurePersonRow(
+  db: Database,
+  workspaceId: string,
+  user: { id: string; name: string; avatarUrl?: string },
+): Promise<void> {
+  await db.run(
+    `INSERT INTO people (id, workspace_id, name, avatar_url) VALUES (?1, ?2, ?3, ?4)
+     ON CONFLICT (id) DO UPDATE SET name = excluded.name`,
+    [user.id, workspaceId, user.name, user.avatarUrl ?? null],
+  )
+}
+
 export async function deleteWorkspace(db: Database, workspaceId: string, audit: Statement): Promise<void> {
   await db.batch([
     // Children first, through the parent the scope already names.
@@ -112,6 +134,7 @@ export async function deleteWorkspace(db: Database, workspaceId: string, audit: 
       params: [workspaceId],
     },
     // The workspace's own rows.
+    { sql: 'DELETE FROM workspace_structure WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM placements WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM edges WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM links WHERE workspace_id = ?1', params: [workspaceId] },

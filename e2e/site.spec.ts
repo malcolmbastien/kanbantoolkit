@@ -107,10 +107,10 @@ test('the pages that sold something are gone, and they answer 404', async ({ req
 })
 
 test('the terms stand beside the door, and every page carries the support address', async ({ page, request }) => {
-  // The door is on the instance with a server, because an account menu is what a server offers: the
-  // static tier has no ways in and so has nothing to stand the terms beside.
+  // The door is the instance's own front screen — a deployment with a way in shows it before it
+  // shows a board — and the terms stand beside it.
   await page.goto(`${SELF_HOSTED}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByText('Sign in to this instance')).toBeVisible()
 
   // The pages are the *project's*, and the instance links them where they actually live — this
   // e2e's instance is told the static host's address in `PROJECT_URL`.

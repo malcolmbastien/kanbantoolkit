@@ -7,8 +7,7 @@ import { useStore } from '@/store'
 const ProfileDialog = lazy(() => import('./ProfileDialog').then((module) => ({ default: module.ProfileDialog })))
 const SignInPanel = lazy(() => import('./SignInPanel').then((module) => ({ default: module.SignInPanel })))
 import { loadAuth, signOut, useAuth } from '@/lib/auth'
-import type { AuthUser } from '@/lib/auth'
-import { personFor } from '@/lib/identity'
+import { signedInAs } from '@/lib/identity'
 import { cn } from '@/lib/utils'
 
 /**
@@ -33,13 +32,10 @@ export function AccountMenu() {
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  const users = useStore((s) => s.users)
-  const setUser = useStore((s) => s.setUser)
 
-  // Asked once, into the one store the write path also reads.
-  useEffect(() => {
-    void loadAuth()
-  }, [])
+  // Asked once by the instance gate above this; asking again here would be a second question with
+  // the same answer.
+
 
   // A popover that stays put while you click inside it, and gets out of the way otherwise.
   useEffect(() => {
@@ -54,28 +50,13 @@ export function AccountMenu() {
   const hasDoor = auth.providers.length > 0 || auth.dev || auth.password || auth.setup
   if (!auth.loaded || (!auth.user && !hasDoor)) return null
 
-  /**
-   * The account is the authority; which person it *is* in this workspace is `personFor`'s question,
-   * and `useSignedInPerson` keeps the store in step with it from then on (including after a reload,
-   * which is when the old bridge forgot). Signing out has no account left to read, so it clears the
-   * pick here.
-   */
-  function signedIn(user: AuthUser | null) {
-    useAuth.setState({ user })
-    if (!user) {
-      setUser(undefined)
-      return
-    }
-    setUser(personFor(user, users)?.id)
-  }
-
 
 
   async function onSignOut() {
     setBusy(true)
     await signOut()
     setBusy(false)
-    signedIn(null)
+    signedInAs(null)
     setOpen(false)
   }
 
@@ -166,7 +147,7 @@ export function AccountMenu() {
             <Suspense fallback={null}>
               <SignInPanel
                 onSignedIn={(user) => {
-                  signedIn(user)
+                  signedInAs(user)
                   // Signing in is the end of the menu's business: the trigger becomes the person.
                   setOpen(false)
                 }}

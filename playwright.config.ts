@@ -75,6 +75,21 @@ export default defineConfig({
     },
     {
       /**
+       * An instance of its own for the live channel's socket.
+       *
+       * The channel needs a workspace with a card in it, and a *workspace* is one per instance — so
+       * sharing the instance the account specs work against would have this test replace the design
+       * they are reading, and the two would fail each other at random. One instance per spec file
+       * that writes a whole workspace.
+       */
+      command:
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-live.db && AUTH_DEV=1 PORT=4179 DB_PATH=node_modules/.tmp/e2e-live.db STATIC_DIR=dist npm run --silent server',
+      url: 'http://localhost:4179/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      /**
        * A deployment with no accounts at all — the only state the first run is reachable in
        * (task 154.4). Its database is deleted on every start, so the instance really is fresh, and
        * it deliberately has no `AUTH_DEV`: the first administrator is made with a password.

@@ -35,5 +35,9 @@ export const WORKSPACE_SCHEMA = 1
  * 27 adds `items.created_by_id`, and backfills it from `item_log`. It is additive, and the backfill
  * is the reason the number moves: a database that has not run it answers "nobody" for work whose log
  * says otherwise, and a half-answer is worse than a refusal to serve until it is upgraded.
+ *
+ * 28 adds `workspace_structure`: the revision of the board design, which the design write checks
+ * before it replaces a board. A database without it would refuse every design write as stale, which
+ * is a read this code cannot make honestly — so a database behind it is refused at the door instead.
  */
-export const REQUIRED_SCHEMA = 27
+export const REQUIRED_SCHEMA = 28

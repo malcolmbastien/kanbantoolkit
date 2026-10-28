@@ -178,8 +178,6 @@ export function BoardSummary({
       return { section, stage, cells, byCell, held, total }
     })
 
-  if (sections.length === 0) return <p className="p-3 text-meta text-slate-600">This board has no typed columns.</p>
-
   const isInitiatives = variant === 'initiatives'
   // The board the person is actually reading — the band's host when this is a band.
   const readBoard = boards.find((b) => b.id === (viewedBoardId ?? boardId))
@@ -254,6 +252,12 @@ export function BoardSummary({
   const cancelParentPick = useStore((s) => s.cancelParentPick)
   const childPickId = useStore((s) => s.childPickId)
   const openCardMenu = useStore((s) => s.openCardMenu)
+
+  // A board with no typed columns says so — but only here, after every hook. The guard used to sit
+  // above them, which made a board that gained its first column render *more* hooks than the render
+  // before (React's #310). An empty workspace makes that the ordinary case: the design arrives, and
+  // the sections arrive with it.
+  if (sections.length === 0) return <p className="p-3 text-meta text-slate-600">This board has no typed columns.</p>
   // An initiative may only be rearranged within its own section, and never onto the cell
   // it already sits in — so those are the only cells worth highlighting.
 

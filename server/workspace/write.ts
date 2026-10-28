@@ -16,6 +16,7 @@ import { WORKSPACE_ROW } from './types'
 
 /** Children before parents, so a delete never trips a foreign key. */
 const TABLES = [
+  'workspace_structure',
   'item_log',
   'item_checklist',
   'placements',
@@ -48,6 +49,7 @@ type Row = Record<string, unknown>
  * carries the workspace as its identity rather than as a second column saying the same thing.
  */
 const SCOPED = new Set([
+  'workspace_structure',
   'people',
   'issue_types',
   'boards',
@@ -331,6 +333,13 @@ export async function writeWorkspace(
   for (const link of workspace.links) {
     add(statements, 'links', { id: link.id, from_id: link.from, to_id: link.to, reason: value(link.reason) }, workspaceId)
   }
+
+  // An imported design is the first one this workspace has: the revision says so, and a client that
+  // adopts it knows which design its next write is based on.
+  statements.push({
+    sql: 'INSERT INTO workspace_structure (workspace_id, rev) VALUES (?1, 1) ON CONFLICT (workspace_id) DO UPDATE SET rev = 1',
+    params: [workspaceId],
+  })
 
   for (const objective of workspace.objectives) {
     add(statements, 'objectives', {

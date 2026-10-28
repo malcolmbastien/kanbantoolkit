@@ -78,6 +78,7 @@ difference is worth reading: the first is the token you chose, the second is the
 | `POST /items` | `items:write` | create a card or an initiative and place it |
 | `PATCH /items/{itemId}` | `items:write` | change its fields; `baseRev` is required |
 | `POST /boards/{boardId}/items/{itemId}/move` | `items:write` | move it into a cell, at a position |
+| `PUT /workspace/structure` | `board.design` | write the board design — boards, lanes and placements — as one document, with the revision it began from |
 | `GET /objectives` | `objectives:write` | objectives with their completeness and key results |
 | `GET /people` | `people:read` | names and ids, so an assignment names a person |
 | `GET /search?q=` | `items:read` | the app's own search: a substring of the title, not a query language |

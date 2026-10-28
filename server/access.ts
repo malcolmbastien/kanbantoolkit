@@ -22,6 +22,7 @@ import { covers, type Scope } from '../src/domain/scopes'
 import { sessionCookie, sessionCookieName, userForToken, WORKSPACE_ID } from './auth/session'
 import type { AuthUser } from './auth/session'
 import type { Database } from './db'
+import { ensurePersonRow } from './workspace/account'
 import { effectiveRole } from './groups'
 import { schemaVersion } from './migrate'
 import type { Runtime } from './runtime'
@@ -285,6 +286,10 @@ export async function requireWorkspace(
   // The role is the ceiling; the scope, when there is one, is what a tool was minted for.
   const refused = refusalFor({ workspaceRole: resolved.role, scopes: caller.scopes }, action)
   if (refused) return fail(c, refused, 403)
+
+  // The account is one of this workspace's people: the roster is what an assignee, an author and
+  // "my work" point at, and on a fresh instance nothing else writes it.
+  await ensurePersonRow(caller.db, resolved.id, caller.user)
 
   return { ...caller, workspaceId: resolved.id, workspaceRole: resolved.role, roleSource: resolved.source }
 }

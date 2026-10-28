@@ -28,8 +28,13 @@ const DIST = 'dist'
  * a section below the cards: it is part of the board surface, drawn on first paint, and its named
  * links are what make the edge of the board legible. A raise belongs in this comment, with a reason,
  * which is what makes it a decision rather than a regression.
+ *
+ * 165 is the instance's front door. A deployment with a server asks it who is here before it draws
+ * anything — the gate, the sign-in screen it shows when the answer is nobody, and the design write
+ * that keeps a board on the server rather than in one browser. None of the three can be a screen
+ * loaded later: the gate has to answer before the first board is drawn.
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 164)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 165)
 
 let manifest
 try {

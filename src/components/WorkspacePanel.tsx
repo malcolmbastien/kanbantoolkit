@@ -253,6 +253,10 @@ export function WorkspacePanel() {
   return (
     <section className="mt-6 rounded-xl bg-white p-4 ring-1 ring-slate-200">
       <h2 className="text-body font-semibold text-slate-900">This workspace</h2>
+      <p className="mt-0.5 text-meta text-slate-600">
+        Its name, its members and their roles, and the way out of it. An administrator of this
+        workspace sees this; an instance administrator sees the rest of Admin beside it.
+      </p>
 
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <label className={LABEL}>
@@ -279,7 +283,10 @@ export function WorkspacePanel() {
         </p>
       )}
 
-      <table className="mt-3 w-full table-fixed border-collapse text-left">
+      <h3 className="mt-4 text-meta font-bold uppercase tracking-wide text-slate-600">
+        Members &amp; roles
+      </h3>
+      <table className="mt-1 w-full table-fixed border-collapse text-left">
         <thead>
           <tr className="border-b border-slate-200 text-micro uppercase tracking-wide text-slate-500">
             <th className="py-1.5 font-semibold">Member</th>

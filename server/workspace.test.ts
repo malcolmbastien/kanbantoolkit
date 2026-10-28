@@ -16,7 +16,7 @@ import type { Database } from './db'
 import { fromSqlite } from './sqlite'
 import { readWorkspace } from './workspace/read'
 import { acquire, LEASE_MS, lockOf, release } from './workspace/locks'
-import type { Item } from '../src/domain/types'
+import type { Board, Item, Lane } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
 import { writeWorkspace } from './workspace/write'
 
@@ -243,6 +243,9 @@ describe('the workspace', () => {
       ...workspace,
       schema: 1,
       meUserId: 'u-ada',
+      // The write that put this workspace here was an import, so its design is the first one: a
+      // client that adopts it knows which design its next write is based on.
+      structureRev: 1,
       lanes: [...workspace.lanes].sort(byId),
     })
   })
@@ -270,6 +273,101 @@ describe('the workspace', () => {
 
     const response = await request('/api/workspace', { headers: { cookie } })
     expect(response.status).toBe(200)
+  })
+})
+
+describe('writing the board design', () => {
+  const board = (over: Partial<Board> = {}): Board => ({
+    id: 'b-new',
+    name: 'A new board',
+    band: 'team',
+    description: '',
+    ...over,
+  })
+  const lane = (over: Partial<Lane> = {}): Lane => ({
+    id: 'l-backlog',
+    boardId: 'b-new',
+    parentId: null,
+    order: 0,
+    name: 'Backlog',
+    workflow: 'cards',
+    stage: 'backlog',
+    ...over,
+  })
+
+  async function designer(role: 'admin' | 'editor' | 'viewer' = 'admin') {
+    const db = database()
+    await writeWorkspace(db, { ...workspace, boards: [], lanes: [], placements: [] }, 'workspace')
+    const { cookie } = await signedIn(db)
+    if (role !== 'admin') await db.run('UPDATE workspace_members SET role = ?1 WHERE user_id = ?2', [role, 'u-ada'])
+    const request = instance(db)
+    // The design the workspace was written with is its first: the next write says so.
+    const rev = ((await (await request('/api/workspace', { headers: { cookie } })).json()) as { structureRev: number }).structureRev
+    const put = (body: unknown, signed = true) =>
+      request('/api/workspace/structure', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', ...(signed ? { cookie } : {}) },
+        body: JSON.stringify(body),
+      })
+    return { db, request, put, cookie, rev }
+  }
+
+  it('writes a board, its lanes and a placement as one design, and answers the new revision', async () => {
+    const { db, put, request, cookie, rev } = await designer()
+    await db.run(
+      "INSERT INTO items (id, workspace_id, title, type_id, created_at) VALUES ('i-card', 'workspace', 'A card', 't-card', 0)",
+    )
+
+    const response = await put({
+      rev,
+      design: { boards: [board()], lanes: [lane(), lane({ id: 'l-done', order: 1, name: 'Done', stage: 'done' })], placements: [{ id: 'p-1', boardId: 'b-new', itemId: 'i-card', laneId: 'l-backlog', rank: 0 }] },
+    })
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as { rev: number }).rev).toBe(rev + 1)
+
+    // It is really there, and it reads back as a workspace.
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace & { structureRev: number }
+    expect(body.boards.map((b) => b.id)).toEqual(['b-new'])
+    expect(body.lanes.map((l) => l.name)).toEqual(['Backlog', 'Done'])
+    expect(body.placements.map((p) => p.itemId)).toEqual(['i-card'])
+    expect(body.structureRev).toBe(rev + 1)
+  })
+
+  it('refuses a design based on a revision that has moved, and says which one is there', async () => {
+    const { put, rev } = await designer()
+    await put({ rev, design: { boards: [board()], lanes: [lane()], placements: [] } })
+
+    const stale = await put({ rev, design: { boards: [board({ name: 'Renamed' })], lanes: [lane()], placements: [] } })
+    expect(stale.status).toBe(409)
+    expect(await stale.json()).toMatchObject({ rev: rev + 1 })
+  })
+
+  it('skips a placement whose card the server has not met yet, and keeps the rest', async () => {
+    const { put, rev } = await designer()
+    const response = await put({
+      rev,
+      design: {
+        boards: [board()],
+        lanes: [lane()],
+        placements: [{ id: 'p-late', boardId: 'b-new', itemId: 'i-not-here', laneId: 'l-backlog', rank: 0 }],
+      },
+    })
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as { skipped: number }).skipped).toBe(1)
+  })
+
+  it('is a designer’s write: a viewer is refused, and nobody signed in is nobody', async () => {
+    const { put, rev } = await designer('viewer')
+    expect((await put({ rev, design: { boards: [board()], lanes: [lane()], placements: [] } })).status).toBe(403)
+
+    const anonymous = await designer()
+    expect((await anonymous.put({ rev: anonymous.rev, design: {} }, false)).status).toBe(401)
+  })
+
+  it('refuses a body that is not a design, or one without the revision it began from', async () => {
+    const { put, rev } = await designer()
+    expect((await put({ design: { boards: [], lanes: [], placements: [] } })).status).toBe(400)
+    expect((await put({ rev, design: 'boards' })).status).toBe(400)
   })
 })
 
@@ -483,7 +581,10 @@ describe('importing a workspace', () => {
     expect(body.items.map((item) => item.title)).toEqual(['A card from the browser'])
     // The revision comes across too: R2 says every entity and every log, including rev.
     expect(body.items[0].rev).toBe(4)
-    expect(body.users).toHaveLength(1)
+    // The file's people, and the account that read it: a member of a workspace is one of its people,
+    // which is what an assignee and an author point at.
+    expect(body.users.map((person) => person.id)).toContain('u-ada')
+    expect(body.users.length).toBeGreaterThanOrEqual(1)
     expect(body.placements).toHaveLength(1)
   })
 

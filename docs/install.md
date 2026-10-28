@@ -60,8 +60,12 @@ kanbantoolkit schema vN
 ## What the first run does
 
 - **Opens the way in.** A deployment with no accounts answers its first visit with a **first run**
-  surface — name, address, password — in the account menu. The account it makes administers the
-  instance and its one workspace; there are no default credentials to fall back on.
+  surface — name, address, password — as the page itself, before anything else is drawn. The account
+  it makes administers the instance and its one workspace; there are no default credentials to fall
+  back on.
+- **Starts empty.** Signing in lands on a workspace with no boards, nothing seeded behind the
+  administrator's back. A board is made from *Boards → New board*, and people are brought in from
+  *Admin → This workspace*.
 - **Names the workspace**, from `WORKSPACE_NAME` (default `Kanban Toolkit`).
 - **Creates the database.** By hand that is `./kanbantoolkit.db` beside the process; in the container it is
   `/data/kanbantoolkit.db` on the volume.

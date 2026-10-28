@@ -7,6 +7,7 @@ import { canPlaceInSection, decompositionParent, descendants, statusOf, uncommit
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
+import { workspaceVocabulary } from '@/domain/demo'
 import { quarantineUnreadable } from '@/lib/quarantine'
 import { announce } from '@/lib/announce'
 import { chooseRepository } from '@/lib/repository'
@@ -245,8 +246,14 @@ export interface Actions {
   /** Whose work My work shows (undefined until the person picks themselves). */
   setUser: (id: string | undefined) => void
   resetDemo: () => void
-  /** Replace the workspace with an imported one; validated at the picker, trusted, migrated and whitelisted here. */
-  importWorkspace: (state: Record<string, unknown>, version: number) => void
+  /**
+   * Replace the workspace with an imported one; validated at the picker, trusted, migrated and
+   * whitelisted here. A file with no boards is refused unless the caller says it means it: an
+   * account's empty workspace is a real answer, and a file with nothing in it is not a workspace.
+   */
+  importWorkspace: (state: Record<string, unknown>, version: number, options?: { allowEmpty?: boolean }) => void
+  /** Begin from an empty workspace, with the app's own vocabulary and nothing else. */
+  startEmptyWorkspace: () => void
 
   addIssueType: (name: string, color: string) => string
   updateIssueType: (id: string, patch: Partial<IssueType>) => void
@@ -585,6 +592,20 @@ function writeItems(state: Pick<Store, 'items'>, change: (item: Item) => Item): 
   // waits on a network. The answer arrives later, and it is the version that is kept.
   if (sent.length) enqueue(sent)
   return result
+}
+
+/**
+ * A new item, on its way to the server as well as into the store.
+ *
+ * Making a card is a write like any other, and the server hears about one the same way whether a
+ * card was typed into or created: with the item and the revision behind it — which, for a card
+ * nobody has seen before, is the first one. Without this a card made on an instance lived only in
+ * the browser that made it, while the board it sat on went to the server.
+ */
+function createdItem(item: Item): Item {
+  const first: Item = { ...item, rev: 1 }
+  enqueue([{ item: first, baseRev: 0 }])
+  return first
 }
 
 /**
@@ -1696,7 +1717,7 @@ export const useStore = create<Store>()(
         set({ editMode: false, draft: null, boards: d.boards, lanes: d.lanes, placements: d.placements, boardId: d.boardId })
       },
       resetDemo: () => set({ ...createSeed(), meUserId: undefined, ...initialView }),
-      importWorkspace: (state, version) => {
+      importWorkspace: (state, version, options) => {
         // Validation happened at the file picker; here the migrated shape is whitelisted —
         // only what the app persists comes across, so an unknown key cannot leak in — and
         // every entity the file does not mention starts empty.
@@ -1721,11 +1742,21 @@ export const useStore = create<Store>()(
         }
         const data: Record<string, unknown> = {}
         for (const k of WORKSPACE_KEYS) data[k] = k in migrated ? migrated[k] : blank[k]
+        // A workspace without a vocabulary cannot hold a card — a board made in it has no type to
+        // make one with. So a file that carries none gets the app's own: the issue types and the
+        // board templates belong to the application rather than to anyone's data.
+        const vocabulary = workspaceVocabulary()
+        if (!Array.isArray(data.issueTypes) || (data.issueTypes as unknown[]).length === 0) data.issueTypes = vocabulary.issueTypes
+        if (!Array.isArray(data.boardTemplates) || (data.boardTemplates as unknown[]).length === 0) {
+          data.boardTemplates = vocabulary.boardTemplates
+        }
         const boards = data.boards as { id: string }[]
-        if (boards.length === 0) return
+        if (boards.length === 0 && !options?.allowEmpty) return
         const ids = new Set(boards.map((b) => b.id))
-        // Land on the workspace's own board when it exists, else the first one written.
-        const boardId = typeof data.boardId === 'string' && ids.has(data.boardId) ? data.boardId : boards[0].id
+        // Land on the workspace's own board when it exists, else the first one written. A workspace
+        // with no boards is a real answer — a fresh instance is one — and it lands on the board
+        // list, which is where a board is made rather than a board with nothing in it.
+        const boardId = typeof data.boardId === 'string' && ids.has(data.boardId) ? data.boardId : boards[0]?.id
         // The workspace was replaced, not the session's place in it: whatever surface the
         // person is on (a board, the workspace, the timeline) keeps showing, now fed by the
         // imported data. Focus-like state (selection, filters, drafting, settling) resets.
@@ -1736,10 +1767,42 @@ export const useStore = create<Store>()(
           showDashboard: s.showDashboard,
           showTimeline: s.showTimeline,
           showArchive: s.showArchive,
-          showBoards: s.showBoards,
+          // An empty workspace has nothing else to show, so it says so on the board list.
+          showBoards: boards.length === 0 ? true : s.showBoards,
           showMyWork: s.showMyWork,
         }
         set({ ...view, ...data, boardId } as Partial<Store>)
+      },
+
+      /**
+       * A workspace with nothing in it, keeping the vocabulary every workspace has.
+       *
+       * This is what a fresh instance gives its first administrator: no boards, no cards, no
+       * people — and the issue types and board templates the app ships, because a board with no
+       * type cannot hold a card, and "empty" means "nothing of yours yet" rather than "nothing at
+       * all".
+       */
+      startEmptyWorkspace: () => {
+        const { issueTypes, boardTemplates } = workspaceVocabulary()
+        set({
+          ...initialView,
+          showBoards: true,
+          users: [],
+          issueTypes,
+          boardTemplates,
+          boards: [],
+          lanes: [],
+          placements: [],
+          items: [],
+          edges: [],
+          links: [],
+          objectives: [],
+          keyResults: [],
+          savedFilters: [],
+          collapsedLanes: {},
+          meUserId: undefined,
+          boardId: undefined,
+        } as Partial<Store>)
       },
 
       addIssueType: (name, color) => {
@@ -1865,7 +1928,7 @@ export const useStore = create<Store>()(
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) }),
 
       addCard: ({ boardId, typeId, laneId, title }) => {
-        const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), ...creator(), log: [logEntry('created')] }
+        const item = createdItem({ id: uid(), title, typeId, createdAt: Date.now(), ...creator(), log: [logEntry('created')] })
         const placement: Placement = {
           id: uid(),
           boardId,
@@ -2030,7 +2093,7 @@ export const useStore = create<Store>()(
         // Design mode is not for making work. A placement made now would be dropped by Cancel
         // while the copy itself survived — a card left with no cell at all.
         if (state.editMode) return undefined
-        const item: Item = {
+        const item = createdItem({
           id: uid(),
           title: `${src.title} copy`,
           typeId: src.typeId,
@@ -2045,7 +2108,7 @@ export const useStore = create<Store>()(
           ...(src.checklist?.length
             ? { checklist: src.checklist.map((c) => ({ id: uid(), text: c.text, done: false })) }
             : {}),
-        }
+        })
         const placement: Placement = {
           id: uid(),
           boardId: state.boardId,
@@ -2469,7 +2532,7 @@ export const useStore = create<Store>()(
         const lane = leafLanes(state.lanes, boardId, 'initiatives')[0]
         const typeId = state.issueTypes.find((t) => t.name === 'Initiative')?.id ?? state.issueTypes[0]?.id
         if (!lane || !typeId) return
-        const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), ...creator(), log: [logEntry('created')] }
+        const item = createdItem({ id: uid(), title, typeId, createdAt: Date.now(), ...creator(), log: [logEntry('created')] })
         set({
           items: [...state.items, item],
           placements: [...state.placements, { id: uid(), boardId, itemId: item.id, laneId: lane.id, laneEnteredAt: Date.now() }],

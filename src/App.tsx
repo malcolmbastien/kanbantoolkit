@@ -18,6 +18,7 @@ import { boardCardTypeId, defaultDropLane, initiativeTypeId, isAggregating } fro
 import { leafLanes } from './domain/lanes'
 import { useUrl } from './lib/useUrl'
 import { useSignedInPerson } from './lib/identity'
+import { useStructureSync } from './lib/structure'
 import { isBoardSurface, useStore } from './store'
 
 /**
@@ -85,6 +86,10 @@ export default function App() {
   // Who this browser is, when an account says so: the workspace's own person, kept in step with
   // the session so "My work" and the author of a change read the account that is signed in.
   useSignedInPerson()
+
+  // The board design — boards, lanes, placements — is one document on the server, written when it
+  // changes. Items have their own path; this is the half that has no item to hang on.
+  useStructureSync()
 
   // Auto-archive (a user-set rule): file Done items once they age past the threshold.
   useEffect(() => {

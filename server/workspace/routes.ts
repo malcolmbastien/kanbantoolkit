@@ -19,6 +19,7 @@ import { parseItem, parseWorkspace } from './validate'
 import { alreadyApplied, writeItem, writeWorkspace } from './write'
 import { statement } from '../audit'
 import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
+import { readDesign, readStructureRev, writeDesign } from './structure'
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
 function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
@@ -41,7 +42,9 @@ export function workspaceRoutes(runtime: Runtime) {
     const workspace = await readWorkspace(allowed.db, allowed.workspaceId)
     // Whose workspace this is, answered by the session rather than by a pointer the browser keeps;
     // and which shape it is, so a client that cannot read it can say so instead of half-rendering.
-    return c.json({ ...workspace, schema: WORKSPACE_SCHEMA, meUserId: allowed.user.id })
+    // The design's revision travels with it: the next write has to say which design it began from.
+    const structureRev = await readStructureRev(allowed.db, allowed.workspaceId)
+    return c.json({ ...workspace, schema: WORKSPACE_SCHEMA, meUserId: allowed.user.id, structureRev })
   })
 
   /**
@@ -117,7 +120,51 @@ export function workspaceRoutes(runtime: Runtime) {
         data: { boards: workspace.boards.length, items: workspace.items.length },
       }),
     )
-    return c.json({ imported: { boards: workspace.boards.length, items: workspace.items.length } })
+    return c.json({
+      imported: { boards: workspace.boards.length, items: workspace.items.length },
+      structureRev: await readStructureRev(allowed.db, allowed.workspaceId),
+    })
+  })
+
+  /**
+   * Write the board design — boards, lanes and where every card sits — as one document.
+   *
+   * The tree is why this is a route of its own rather than three: a placement is a position in a
+   * lane, and a lane is a column of a board, so a half-written design is a board nobody can read.
+   * The sender says which revision it began from; a design that has moved past it is refused with
+   * the revision that is there, which is the same answer the item write gives to a stale card.
+   *
+   * `board.design` is the door: designing a board is an editor's work, and a Viewer is refused here
+   * as they are refused the Edit button.
+   */
+  routes.put('/structure', async (c) => {
+    const allowed = await requireWorkspace(c, runtime, 'board.design')
+    if (allowed instanceof Response) return allowed
+
+    const body = (await c.req.json().catch(() => null)) as { rev?: unknown; design?: unknown } | null
+    const rev = body?.rev
+    if (typeof rev !== 'number' || !Number.isInteger(rev) || rev < 0) {
+      return c.json({ error: 'the revision the design was based on is required' }, 400)
+    }
+
+    const design = readDesign(body?.design)
+    if (!design) return c.json({ error: 'not a board design' }, 400)
+
+    const current = await readStructureRev(allowed.db, allowed.workspaceId)
+    if (rev !== current) {
+      return c.json({ error: 'this board has been designed since you read it', rev: current }, 409)
+    }
+
+    const written = await writeDesign(allowed.db, allowed.workspaceId, design, current)
+    return c.json({
+      rev: current + 1,
+      boards: written.boards.length,
+      lanes: written.lanes.length,
+      placements: written.placed,
+      // Placements whose card the server has not met yet: they arrive behind their item, and the
+      // client sends the design again once its queue has drained.
+      skipped: written.skipped,
+    })
   })
 
   /**

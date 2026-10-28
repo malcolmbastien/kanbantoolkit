@@ -205,6 +205,18 @@ export interface DemoWorkspace {
 }
 
 /** Build the workspace: fresh lanes every call, so two datasets in one process cannot share them. */
+/**
+ * The vocabulary a workspace has before anybody puts anything in it.
+ *
+ * A new instance is empty of *work* — no boards, no cards, no people — but not of *kinds*: the issue
+ * types and the board templates are the app's, not the demo's, and a board made on a fresh instance
+ * needs a type to make a card with. Empty means "nothing of yours yet", not "nothing at all".
+ */
+export const workspaceVocabulary = (): { issueTypes: IssueType[]; boardTemplates: BoardTemplate[] } => ({
+  issueTypes: structuredClone(issueTypes),
+  boardTemplates: structuredClone(BUILT_IN_TEMPLATES),
+})
+
 export function demoWorkspace(): DemoWorkspace {
 const lanes: Lane[] = []
 let seq = 0

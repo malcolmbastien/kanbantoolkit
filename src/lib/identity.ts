@@ -25,6 +25,22 @@ export function personFor(
 }
 
 /**
+ * The account, in the store.
+ *
+ * One function for every door that signs somebody in — the account menu's popover and the instance's
+ * own sign-in screen — so the two cannot disagree about which person an account is. Signing out
+ * clears the person: there is no account left to read one from.
+ */
+export function signedInAs(user: AuthUser | null): void {
+  useAuth.setState({ user })
+  if (!user) {
+    useStore.getState().setUser(undefined)
+    return
+  }
+  useStore.getState().setUser(personFor(user, useStore.getState().users)?.id)
+}
+
+/**
  * Keep the store's "me" in step with the session.
  *
  * Set from the session on load, and not only when somebody presses Sign in: a reload used to begin

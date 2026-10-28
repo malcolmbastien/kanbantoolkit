@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Database, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Database, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload, Users } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { InlineEdit } from './InlineEdit'
 import { NewBoardDialog } from './NewBoardDialog'
@@ -249,11 +249,40 @@ export function BoardWorkspace() {
           </div>
         </div>
 
-        {groups.length === 0 && (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
-            {boards.length === 0 ? 'No boards yet.' : `No board matches “${q.trim()}”.`}
+        {boards.length === 0 ? (
+          <div className="rounded-xl border border-slate-300 bg-white px-6 py-10 text-center">
+            <p className="text-title font-semibold text-slate-900">This workspace is empty</p>
+            <p className="mx-auto mt-1 max-w-md text-meta text-slate-600">
+              A board is where the work lives: its stages, its columns and the cards in them. Make the
+              first one, then bring people in — the board is no use to a team of one.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              {canCreate && (
+                <button
+                  onClick={() => setShowNewBoard(true)}
+                  className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-meta font-semibold text-white transition hover:bg-indigo-500"
+                >
+                  <Plus size={13} /> New board
+                </button>
+              )}
+              {canManage && (
+                <button
+                  onClick={() => setView('admin')}
+                  className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  <Users size={13} /> Invite people
+                </button>
+              )}
+            </div>
+            <p className="mt-3 text-micro text-slate-500">
+              An empty workspace is a real one: nothing is seeded behind your back.
+            </p>
           </div>
-        )}
+        ) : groups.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
+            No board matches “{q.trim()}”.
+          </div>
+        ) : null}
 
         <div className="space-y-3">
           {/* A card per board. The flight level is a chip on the card and a filter above,

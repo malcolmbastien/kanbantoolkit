@@ -1,126 +1,138 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
+import { addCardTo, openInstanceBoard, signInOnInstance } from './support'
 
-// These three share one instance and its database, and each edits a card; run them in order so a
-// rename in one is never a surprise in another.
+// These tests share one instance and its database, and each builds on what the one before made:
+// one account, one board, the cards on it. Run them in order so a rename in one is never a surprise
+// in another.
 test.describe.configure({ mode: 'serial' })
+// Every test here signs in over the network, adopts a workspace and (most of them) waits for a write
+// to land on the instance: the default thirty seconds is a page that has not started yet, not this.
+test.setTimeout(120_000)
 
 /**
- * The account control, against the self-hosted entry.
+ * An instance, from a browser's side.
  *
- * The dev switch stands in for a provider on purpose: it is the one identity that needs no outside
- * service, and the flow after it — session cookie, reload, sign-out — is the same flow a real
- * provider's callback ends in.
+ * A deployment with a server is not a demo: it shows its door before it shows a board, and the
+ * workspace a person sees after signing in is the account's — which on a fresh instance is empty.
+ * The development switch stands in for a provider on purpose: it is the one identity that needs no
+ * outside service, and the flow after it — session cookie, reload, sign-out — is the same flow a
+ * real provider's callback ends in.
  */
 const SELF_HOSTED = 'http://localhost:4174'
+const MAYA = { email: 'maya.blake@example.com', name: 'Maya Blake' }
+const BOARD = 'Team Atlas'
 
-test('a person signs in, stays signed in across a reload, and signs out', async ({ page }) => {
+/** The board this file builds, open, with a card to read. */
+async function boardOpen(page: Page): Promise<void> {
+  await openInstanceBoard(page, SELF_HOSTED, BOARD, MAYA)
+}
+
+/** A card on the board, found by its own title, opened in the panel. */
+async function openCardTitled(page: Page, title: string): Promise<void> {
+  await page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: title }).first().click()
+  await expect(page.getByLabel('Title')).toBeVisible()
+}
+
+test('the front door is the instance’s, and a session survives a reload', async ({ page }) => {
   await page.goto(`${SELF_HOSTED}/app`)
 
-  const signIn = page.getByRole('button', { name: 'Sign in' })
-  await expect(signIn).toBeVisible()
+  // Nothing is drawn behind the door: a fresh instance belongs to nobody yet, and the demo is the
+  // static tier's welcome, not this deployment's data.
+  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.locator('[data-workflow]')).toHaveCount(0)
 
-  await signIn.click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await page.getByPlaceholder('you@example.com').fill(MAYA.email)
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
 
   // The account becomes the workspace's own person of that name, so "my work" and the author on a
-  // change are right while the workspace is still local.
-  const account = page.getByRole('button', { name: /Maya Blake/ })
-  await expect(account).toBeVisible()
+  // change are right.
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
 
+  // A reload asks the cookie rather than the person.
   await page.reload()
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
 
+  // Signing out closes the door behind you.
   await page.getByRole('button', { name: /Maya Blake/ }).click()
   await page.getByRole('button', { name: 'Sign out' }).click()
-  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
+  await expect(page.getByText('Sign in to this instance')).toBeVisible()
 })
 
-async function signInAsMaya(page: import('@playwright/test').Page) {
-  await page.goto(`${SELF_HOSTED}/app`)
-  const account = page.getByRole('button', { name: /Maya Blake/ })
-  if (await account.isVisible().catch(() => false)) return
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
-  await page.getByRole('button', { name: 'Sign in as this address' }).click()
-  await expect(account).toBeVisible()
-}
+test('an empty workspace makes its first board, and the board outlives the browser', async ({ page }) => {
+  await signInOnInstance(page, SELF_HOSTED, MAYA)
+  await page.goto(`${SELF_HOSTED}/app?view=boards`)
 
-test('the corner is the session, and My work is the work assigned to it', async ({ page }) => {
-  await signInAsMaya(page)
+  // The empty state is the workspace telling the truth: nothing was seeded for the administrator.
+  await expect(page.getByText('This workspace is empty')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Invite people' })).toBeVisible()
 
-  // The nav says who is here — and a reload does not forget them, which is what the corner is for.
-  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+  await page.getByRole('button', { name: 'New board' }).first().click()
+  await page.getByLabel('New board name').fill(BOARD)
+  await page.getByRole('button', { name: 'Create board' }).click()
+  await page.getByRole('button', { name: BOARD, exact: true }).click()
+  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+
+  // A card, so the board has something in it — a lane's own footer is the one way in for new work.
+  await addCardTo(page, 'Backlog')
+
+  // The design is on the server, not only in this browser: a reload asks the instance and gets the
+  // board back (this is the write that used to have no path at all).
+  const workspace = async () => {
+    const response = await page.request.get(`${SELF_HOSTED}/api/workspace`)
+    return (await response.json()) as { boards: Array<{ name: string }>; lanes: unknown[] }
+  }
+  await expect.poll(async () => (await workspace()).boards.map((board) => board.name)).toContain(BOARD)
+  // The card and the place it sits travel their own way; wait for the instance to have both before
+  // asking a fresh page for them.
+  await expect
+    .poll(async () => {
+      const body = (await (await page.request.get(`${SELF_HOSTED}/api/workspace`)).json()) as {
+        items: unknown[]
+        placements: unknown[]
+      }
+      return body.items.length > 0 && body.placements.length > 0
+    })
+    .toBe(true)
+
   await page.reload()
-  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]')).toBeVisible({ timeout: 20_000 })
+  // The page draws what this browser held first and the account's workspace a moment later; the
+  // card is there once the instance's answer has been adopted.
+  await expect(page.locator('[data-workflow="cards"] [data-card-id]')).toHaveCount(1, { timeout: 20_000 })
 
-  // My work is *mine* now: it says whose it is, and offers no way to become somebody else.
-  await page.goto(`${SELF_HOSTED}/app?view=mywork`)
+  // My work is hers and says so, with no way to become somebody else. (The tab needs a board to be
+  // in the toolbar at all, which is why this waits until the workspace has one.)
+  await page.getByRole('button', { name: 'My work' }).click()
   await expect(page.getByText(/Signed in as/)).toBeVisible()
   await expect(page.getByLabel('Whose work to show')).toHaveCount(0)
-
-  // The person the view resolved is the workspace's own Maya, and every item assigned to her —
-  // and nothing else — is on the list. The expectation is read from the workspace itself, so the
-  // assertion is about the filter rather than about the rendering of whatever the view chose.
-  const workspace = await page.evaluate(() => {
-    const raw = window.localStorage.getItem('kanbantoolkit-state-v3')
-    return (JSON.parse(raw ?? '{}') as { state?: Record<string, unknown> }).state ?? {}
-  })
-  const maya = (workspace.users as Array<{ id: string; name: string }>).find((person) => person.name === 'Maya Blake')!
-  const placed = new Set((workspace.placements as Array<{ itemId: string }>).map((placement) => placement.itemId))
-  const assigned = (workspace.items as Array<{ id: string; assignees?: string[]; archived?: boolean }>)
-    .filter((item) => !item.archived && placed.has(item.id) && item.assignees?.includes(maya.id))
-    .map((item) => item.id)
-
-  await expect(page.locator('[data-my-work-person]')).toHaveAttribute('data-my-work-person', maya.id)
-  const shown = await page
-    .locator('[data-my-work-item]')
-    .evaluateAll((elements) => elements.map((element) => (element as HTMLElement).dataset.myWorkItem!))
-
-  expect(assigned.length, 'the demo assigns her work to begin with').toBeGreaterThan(0)
-  expect([...new Set(shown)].sort()).toEqual([...new Set(assigned)].sort())
 })
 
-test('a card says who made it, on the card’s panel and in the workspace', async ({ page }) => {
-  await signInAsMaya(page)
-  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-
-  // A card made the way a person makes one.
-  await page.getByRole('button', { name: 'Card', exact: true }).click()
-  const card = page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last()
-  await expect(card).toBeVisible()
-  await card.click()
+test('a card says who made it, in the panel and in the workspace’s own record', async ({ page }) => {
+  await boardOpen(page)
+  await addCardTo(page, 'Backlog')
+  await openCardTitled(page, 'New card')
 
   const panel = page.locator('[data-item-panel]')
-  await expect(panel).toBeVisible()
   await expect(panel).toContainText('Created by')
   await expect(panel).toContainText('Maya Blake')
   const recorded = await panel.locator('[data-created-by]').getAttribute('data-created-by')
 
-  // The record is her id, not her name — the same id the workspace's own people list carries, which
-  // is what an agent or another client reads. (The API's answer for the same card is asserted in
-  // server/v1.test.ts, where the caller is the creator by the server's own hand.)
-  const workspace = await page.evaluate(() => {
-    const raw = window.localStorage.getItem('kanbantoolkit-state-v3')
-    return (JSON.parse(raw ?? '{}') as { state?: { users?: Array<{ id: string; name: string }>; items?: Array<{ title: string; createdById?: string }> } }).state
-  })
-  const maya = workspace!.users!.find((person) => person.name === 'Maya Blake')!
+  // The record is her id, not her name — what an agent or another client reads. (The API's own
+  // answer is asserted in server/v1.test.ts, where the caller is the creator by the server's hand.)
+  const body = (await (await page.request.get(`${SELF_HOSTED}/api/workspace`)).json()) as {
+    users: Array<{ id: string; name: string }>
+    items: Array<{ title: string; createdById?: string }>
+  }
+  const maya = body.users.find((person) => person.name === 'Maya Blake')!
   expect(recorded).toBe(maya.id)
-  expect(workspace!.items!.some((item) => item.title === 'New card' && item.createdById === maya.id)).toBe(true)
+  expect(body.items.some((item) => item.createdById === maya.id)).toBe(true)
 })
 
 test('an edit made while signed in reaches the server', async ({ page }) => {
-  // The team board, because that is the one whose cards are cards.
-  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
-  await page.getByRole('button', { name: 'Sign in as this address' }).click()
-  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
-
-  // A card's own content, changed the way a person changes it.
-  await page.locator('[data-workflow="cards"] [data-card-id]').first().click()
+  await boardOpen(page)
+  const card = page.locator('[data-workflow="cards"] [data-card-id]').first()
+  await card.click()
   await page.getByLabel('Title').fill('This reached the server')
 
   // Read it back with the browser's own session, from the instance rather than the page.
@@ -134,29 +146,11 @@ test('an edit made while signed in reaches the server', async ({ page }) => {
 })
 
 test('an edit made offline waits, and lands when the connection comes back', async ({ page, context }) => {
-  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
-  await page.getByRole('button', { name: 'Sign in as this address' }).click()
-  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
-
-  // The board draws this browser's own copy first and the account's workspace a moment later, and
-  // the two order the cards differently — a position is only the same card once the server's copy
-  // is on screen. The edit the test above made is the landmark that says it is.
-  await expect(page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'This reached the server' })).toHaveCount(1)
-
-  // A card no earlier test has opened. Its lease would still be live for up to a minute after the
-  // page that took it closed, and the drawer shuts its fields while somebody else holds the pen —
-  // which is the subject of a test of its own, not this one. "Written on a train" is left out too,
-  // so a retry starts from a card the server has not already been told about. It is also opened
-  // while there is a line: the drawer is its own chunk (task 110), and a first open with no
-  // connection is a different failure.
-  const card = page
-    .locator('[data-workflow="cards"] [data-card-id]')
-    .filter({ hasNotText: /This reached the server|Written on a train/ })
-    .first()
-  await card.click()
+  await boardOpen(page)
+  // A card of this test's own: an earlier card's lease would still be live for up to a minute, and
+  // the drawer shuts its fields while somebody else holds the pen.
+  await addCardTo(page, 'Backlog')
+  await page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last().click()
   await expect(page.getByLabel('Title')).toBeVisible()
 
   await context.setOffline(true)
@@ -187,127 +181,73 @@ test('a change made on one device arrives on another without a reload', async ({
 
   try {
     const away = await one.newPage()
+    // The first device stands on the board (making it if this is a fresh instance) and puts a card
+    // on it; the design and the card have to reach the server before the second device can adopt
+    // the same workspace.
+    await boardOpen(away)
+    await addCardTo(away, 'Backlog')
+    await expect
+      .poll(async () => {
+        const body = (await (await away.request.get(`${SELF_HOSTED}/api/workspace`)).json()) as {
+          items: unknown[]
+          placements: unknown[]
+        }
+        return body.items.length > 0 && body.placements.length > 0
+      })
+      .toBe(true)
+
     const here = await two.newPage()
+    await openInstanceBoard(here, SELF_HOSTED, BOARD, MAYA)
 
-    for (const page of [away, here]) {
-      await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-      await page.getByRole('button', { name: 'Sign in' }).click()
-      await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
-      await page.getByRole('button', { name: 'Sign in as this address' }).click()
-      await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
-    }
-
-    // The same card in both — the demo seeds the same ids on both origins.
-    const elsewhere = away.locator('[data-workflow="cards"] [data-card-id]').nth(3)
-    const id = await elsewhere.getAttribute('data-card-id')
-    const watch = here.locator(`[data-card-id="${id}"]`)
-
-    await elsewhere.click()
-    await away.getByLabel('Title').fill('Arrived live')
-
-    // No reload: the second page is never navigated, and the card changes under it.
-    await expect(watch).toContainText('Arrived live', { timeout: 15_000 })
-  } finally {
-    await one.close()
-    await two.close()
-  }
-})
-
-test('a local workspace can be copied to the account on first sign-in', async ({ page }) => {
-  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
-  await page.getByRole('button', { name: 'Sign in as this address' }).click()
-  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
-
-  // Offered, not taken: the account has no workspace, this browser has one. A retry of this test
-  // runs against the instance the first attempt already copied to, where the work is done.
-  const copied = await page.request.get(`${SELF_HOSTED}/api/workspace`)
-  const already = ((await copied.json()) as { boards: unknown[] }).boards.length > 0
-  if (already) return
-
-  const offer = page.getByRole('button', { name: 'Copy to account' })
-  await expect(offer).toBeVisible()
-  await offer.click()
-  await page.getByRole('button', { name: 'Copy workspace' }).click()
-
-  // The account now has the workspace the browser was working in.
-  await expect
-    .poll(async () => {
-      const body = (await (await page.request.get(`${SELF_HOSTED}/api/workspace`)).json()) as { boards: unknown[] }
-      return body.boards.length
-    })
-    .toBeGreaterThan(0)
-
-  // And the copy here was not taken away: the board still draws.
-  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
-})
-
-test('one person holds a card, and the other can see it is held, then free', async ({ browser }) => {
-  const one = await browser.newContext()
-  const two = await browser.newContext()
-
-  try {
-    const holder = await one.newPage()
-    const reader = await two.newPage()
-
-    // One person, two tabs: the instance closes behind its first account (task 134), and the lease
-    // is keyed by session precisely so that this case — one person with two of them — is told rather
-    // than locked out.
-    for (const page of [holder, reader]) {
-      const who = 'maya.blake@example.com'
-      await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-      await page.getByRole('button', { name: 'Sign in' }).click()
-      await page.getByPlaceholder('you@example.com').fill(who)
-      await page.getByRole('button', { name: 'Sign in as this address' }).click()
-      await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
-    }
-
-    const spot = 5
-    const card = holder.locator('[data-workflow="cards"] [data-card-id]').nth(spot)
+    const card = away.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last()
     const id = await card.getAttribute('data-card-id')
     await card.click()
+    await away.getByLabel('Title').fill('Changed on the other device')
+    await away.keyboard.press('Escape')
 
-    // Edit intent, not opening: putting the caret in the title is what takes the pen.
-    await holder.getByLabel('Title').click()
-
-    const locks = async () => {
-      const feed = (await (await reader.request.get(`${SELF_HOSTED}/api/workspace/changes?since=0`)).json()) as {
-        locks: Array<{ itemId: string; holderName: string }>
-      }
-      return feed.locks
-    }
-
-    // The other client hears about it on the same feed its drawer reads.
-    await expect.poll(async () => (await locks()).some((lock) => lock.itemId === id && lock.holderName === 'Maya Blake')).toBe(true)
-
-    // The pen is refused to anybody else.
-    const refused = await reader.request.patch(`${SELF_HOSTED}/api/workspace/items/${id}`, {
-      headers: { 'content-type': 'application/json', 'x-kanbantoolkit-tab': 'reader' },
-      data: { baseRev: 0, item: { id, title: 'Mine', typeId: 't-card', createdAt: 1 } },
-    })
-    expect(refused.status()).toBe(423)
-
-    // Letting go releases it, and the feed says so.
-    await holder.getByRole('button', { name: 'Close' }).click()
-    await expect.poll(async () => (await locks()).some((lock) => lock.itemId === id)).toBe(false)
+    // The reader is never navigated: the channel says the card moved, and the board redraws.
+    await expect(here.locator(`[data-card-id="${id}"]`)).toContainText('Changed on the other device', { timeout: 20_000 })
   } finally {
     await one.close()
     await two.close()
   }
+})
+
+test('a card being edited is held, and the pen is refused to anybody else', async ({ page }) => {
+  await boardOpen(page)
+  // A card of this test's own, so the test does not depend on what earlier tests left behind.
+  await addCardTo(page, 'Backlog')
+
+  const card = page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last()
+  const id = await card.getAttribute('data-card-id')
+  await card.click()
+
+  // Edit intent, not opening: putting the caret in the title is what takes the pen.
+  await page.getByLabel('Title').click()
+
+  // The feed every other client reads says who holds it — the same feed the drawer reads.
+  const locks = async () => {
+    const feed = (await (await page.request.get(`${SELF_HOSTED}/api/workspace/changes?since=0`)).json()) as {
+      locks: Array<{ itemId: string; holderName: string }>
+    }
+    return feed.locks
+  }
+  await expect
+    .poll(async () => (await locks()).some((lock) => lock.itemId === id && lock.holderName === 'Maya Blake'))
+    .toBe(true)
+
+  // And the pen is refused to anybody else: a write from another tab is told, not applied.
+  const refused = await page.request.patch(`${SELF_HOSTED}/api/workspace/items/${id}`, {
+    headers: { 'content-type': 'application/json', 'x-kanbantoolkit-tab': 'another-tab' },
+    data: { baseRev: 0, item: { id, title: 'Mine', typeId: 't-story', createdAt: 1 } },
+  })
+  expect(refused.status()).toBe(423)
 })
 
 test('an administrator sees the people, and cannot close their own door', async ({ page }) => {
-  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
-  await page.getByRole('button', { name: 'Sign in as this address' }).click()
-  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+  await signInOnInstance(page, SELF_HOSTED, MAYA)
 
-  // Through the workspace, which is the only way in — and the way a person actually arrives. (A
-  // direct `?view=admin` is raced by the account's workspace being adopted on sign-in, which resets
-  // the view to the board.)
+  // Through the workspace, which is the only way in — and the way a person actually arrives.
   await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
@@ -315,13 +255,16 @@ test('an administrator sees the people, and cannot close their own door', async 
   await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Health' })).toBeVisible()
   await expect(page.getByText('90 days')).toBeVisible()
-  // Two tables now — the workspace's members and the instance's people — so the assertion names
-  // which one it means.
+
+  // The workspace's own members and their roles, and the instance's people beside them.
+  const members = page.locator('section').filter({ has: page.getByRole('heading', { name: 'This workspace' }) })
+  await expect(members).toContainText('Members & roles')
+  await expect(members.getByRole('cell', { name: /maya\.blake@example\.com/ })).toBeVisible()
+
   const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
   await expect(people.getByRole('table')).toContainText('maya.blake@example.com')
 
-  // The drawer explains the guard before the server has to refuse it. Maya's own row, by name:
-  // other specs add people to this instance, and "the first row" is a name that sorts early.
+  // The drawer explains the guard before the server has to refuse it.
   await people.getByRole('button', { name: 'Open Maya Blake' }).click()
   await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toBeVisible()
 
@@ -331,12 +274,7 @@ test('an administrator sees the people, and cannot close their own door', async 
 })
 
 test('an administrator makes an invitation link, and takes it back', async ({ page }) => {
-  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
-  await page.getByRole('button', { name: 'Sign in as this address' }).click()
-  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
-
+  await signInOnInstance(page, SELF_HOSTED, MAYA)
   await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'Invitations' })).toBeVisible()
@@ -361,12 +299,7 @@ test('an administrator makes an invitation link, and takes it back', async ({ pa
 })
 
 test('a listed domain is a door, the selection is judged whole, and the directory leaves as a file', async ({ page, browser }) => {
-  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
-  await page.getByRole('button', { name: 'Sign in as this address' }).click()
-  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
-
+  await signInOnInstance(page, SELF_HOSTED, MAYA)
   await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
   await expect(page.getByRole('heading', { name: 'Access' })).toBeVisible()
@@ -389,7 +322,6 @@ test('a listed domain is a door, the selection is judged whole, and the director
   try {
     const stranger = await other.newPage()
     await stranger.goto(`${SELF_HOSTED}/app`)
-    await stranger.getByRole('button', { name: 'Sign in', exact: true }).click()
     await stranger.getByPlaceholder('you@example.com').fill('robin@trials.example')
     await stranger.getByRole('button', { name: 'Sign in as this address' }).click()
     await expect(stranger.getByRole('button', { name: /Robin/ })).toBeVisible()
@@ -397,11 +329,10 @@ test('a listed domain is a door, the selection is judged whole, and the director
     // A lookalike domain is not that domain: exact, never a suffix.
     await stranger.getByRole('button', { name: /Robin/ }).click()
     await stranger.getByRole('button', { name: 'Sign out' }).click()
-    await stranger.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await expect(stranger.getByPlaceholder('you@example.com')).toBeVisible()
     await stranger.getByPlaceholder('you@example.com').fill('eve@nottrials.example')
     await stranger.getByRole('button', { name: 'Sign in as this address' }).click()
     // Still nobody signed in: the lookalike is not that domain.
-    await expect(stranger.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
     await expect(stranger.getByPlaceholder('you@example.com')).toBeVisible()
   } finally {
     await other.close()

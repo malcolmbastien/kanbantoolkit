@@ -65,7 +65,21 @@ describe('what this browser should show, given the account', () => {
     expect(useStore.getState().meUserId).toBe('u-ada')
   })
 
-  it('offers to copy this one up when the account has nothing', async () => {
+  it('shows an empty workspace when the account has nothing — the demo is not work', async () => {
+    vi.stubGlobal('fetch', answers({ boards: [], schema: WORKSPACE_SCHEMA }))
+
+    // The browser holds the demo it was handed. That is not this person's workspace, so it is not
+    // offered and it is not adopted: an account with nothing shows nothing.
+    expect(await reflectAccount('u_ada')).toBe('empty')
+    expect(useWorkspaceSync.getState().offer).toBe(false)
+    expect(useStore.getState().boards).toEqual([])
+    expect(useStore.getState().showBoards).toBe(true)
+  })
+
+  it('offers to copy a workspace a person actually made', async () => {
+    // One edit is enough: the demo stops being the demo the moment somebody changes it.
+    const [board] = useStore.getState().boards
+    useStore.getState().renameBoard(board.id, 'Our own board')
     vi.stubGlobal('fetch', answers({ boards: [], schema: WORKSPACE_SCHEMA }))
 
     expect(await reflectAccount('u_ada')).toBe('offered')

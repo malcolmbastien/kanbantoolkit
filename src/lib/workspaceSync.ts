@@ -15,7 +15,9 @@
 
 import { create } from 'zustand'
 import { PERSIST_VERSION, useStore } from '@/store'
+import { noteStructureRev } from './structure'
 import { useAuth } from './auth'
+import { isDemoWorkspace } from './demo'
 import { personFor } from './identity'
 import { queue } from './queue'
 
@@ -92,20 +94,33 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
     return 'mismatch'
   }
 
+  const rev = typeof body.structureRev === 'number' ? body.structureRev : null
   const boards = Array.isArray(body.boards) ? body.boards : []
   if (boards.length === 0) {
-    // Nothing to show, and something worth offering.
-    if (useStore.getState().boards.length > 0 && !asked(userId)) {
+    // An account whose workspace is empty is a workspace with nothing in it — a fresh instance — and
+    // that is what it shows. The one exception is a browser that holds a *real* workspace from
+    // before the account existed: that one is offered a copy rather than replaced by emptiness.
+    const local = useStore.getState()
+    const localDemo = isDemoWorkspace({ boards: local.boards, lanes: local.lanes, items: local.items, placements: local.placements })
+    if (local.boards.length > 0 && !localDemo && !asked(userId)) {
       useWorkspaceSync.setState({ offer: true, error: undefined })
+      noteStructureRev(rev)
       return 'offered'
     }
+    // The account's workspace is empty, and empty is what it shows — its people included, because
+    // the roster is where an assignee and an author point.
+    useStore.getState().importWorkspace({ ...body }, PERSIST_VERSION, { allowEmpty: true })
+    const account = useAuth.getState().user
+    useStore.getState().setUser(personFor(account, useStore.getState().users)?.id)
+    noteStructureRev(rev)
+    useWorkspaceSync.setState({ offer: false, error: undefined })
     return 'empty'
   }
 
   // The account's workspace is the one to show. `schema` and `meUserId` are the server's, not the
   // workspace's: the browser decides who its person is, and the import's whitelist is what decides
   // which keys the store may take.
-  const { schema: _schema, meUserId: _me, ...slice } = body
+  const { schema: _schema, meUserId: _me, structureRev: _rev, ...slice } = body
   useStore.getState().importWorkspace(slice, PERSIST_VERSION)
 
   // One rule for which person an account is here — the same one "My work" and the author of a
@@ -113,6 +128,8 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
   const account = useAuth.getState().user
   useStore.getState().setUser(personFor(account, useStore.getState().users)?.id)
 
+  // The design just read is the one the next design write is based on.
+  noteStructureRev(rev)
   useWorkspaceSync.setState({ offer: false, error: undefined })
   return 'adopted'
 }
@@ -139,6 +156,9 @@ export async function copyToAccount(userId: string, workspace: Record<string, un
       return false
     }
 
+    const answer = (await response.json().catch(() => null)) as { structureRev?: number } | null
+    // The copy created the design, so its revision is where this browser's next design write starts.
+    if (typeof answer?.structureRev === 'number') noteStructureRev(answer.structureRev)
     remember(userId)
     useWorkspaceSync.setState({ busy: false, offer: false })
     return true

@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import { InstanceGate } from './components/InstanceGate'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { installErrorHandlers } from './lib/errors'
 import { startSnapshotSchedule } from './lib/snapshots'
@@ -38,7 +39,11 @@ window.setInterval(() => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      {/* The door: an instance asks who is here before it draws a board, and a static host draws the
+          demo at once. One entry point, and the server's answer is the difference. */}
+      <InstanceGate>
+        <App />
+      </InstanceGate>
     </ErrorBoundary>
   </StrictMode>,
 )

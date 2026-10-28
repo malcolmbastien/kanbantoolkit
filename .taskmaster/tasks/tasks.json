@@ -3165,13 +3165,25 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-10-28T00:33:05.150Z"
+      },
+      {
+        "id": "176",
+        "title": "An instance opens on its door, with an empty workspace",
+        "description": "A deployment with a server shows its sign-in surface before it shows anything else, and the workspace behind it is the account's — empty on a fresh instance, where a person makes the first board and invites the team. The board design (boards, lanes, placements) is written to the server, so a board made there exists for everyone rather than in one browser.",
+        "details": "Routes: PUT /api/workspace/structure (one document + the revision it began from, 409 on a stale one, board.design), GET /api/workspace carries structureRev, and migration 0028 adds workspace_structure (REQUIRED_SCHEMA 28). Client: lib/structure.ts writes on a debounce after the item queue has drained and re-sends when a placement was skipped; lib/auth.ts gains 'instance' (a door or a session) and always resolves 'loaded'; components/InstanceGate.tsx renders the splash, then SignInPanel as the page, then the app; startEmptyWorkspace keeps the app's issue types and templates; a signed-in account becomes a person of the workspace (ensurePersonRow). Fixed on the way: a hook-order crash in BoardSummary when a board gains its first column, new cards never being sent, placements skipped and never retried, and may() treating an unknown role as allow-everything on an instance. Tests: server/workspace.test.ts (design round trip, stale revision, viewer refused, skipped placement), e2e/account.spec.ts rewritten around an empty instance, setup.spec (fresh install: door, empty workspace, New board, invite), a11y/groups/sessions/account-admin/live adapted, and a dedicated instance for the live socket.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-10-28T22:17:27.984Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-28T00:33:05.150Z",
-      "taskCount": 174,
-      "completedCount": 148,
+      "lastModified": "2026-10-28T22:17:27.984Z",
+      "taskCount": 175,
+      "completedCount": 149,
       "tags": [
         "backlog"
       ]

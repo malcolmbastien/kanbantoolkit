@@ -19,8 +19,16 @@ export function may(role: string | undefined, action: Action): boolean {
   return can(role, action)
 }
 
-/** The same question, for a component: it re-renders when the account or its role changes. */
+/**
+ * The same question, for a component: it re-renders when the account or its role changes.
+ *
+ * On an instance, an account whose role this page has not read yet is a **viewer** until it has:
+ * `may` answers yes to everything when it knows nothing, which is right for the static demo — where
+ * there are no roles at all — and wrong for a deployment, where "we do not know yet" must not be
+ * handed the Controls a Viewer is refused.
+ */
 export function useMay(): (action: Action) => boolean {
   const role = useAuth((state) => state.user?.role)
-  return (action) => may(role as Role | undefined, action)
+  const instance = useAuth((state) => state.instance)
+  return (action) => may(instance && !role ? 'viewer' : (role as Role | undefined), action)
 }

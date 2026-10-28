@@ -12,10 +12,10 @@ import { expect, test, type Page } from '@playwright/test'
 const ORIGIN = 'http://localhost:4176'
 
 async function signIn(page: Page) {
-  await page.goto(`${ORIGIN}/app?board=b-atlas`)
+  await page.goto(`${ORIGIN}/app`)
   const account = page.getByRole('button', { name: /Owner/ })
   if (await account.isVisible().catch(() => false)) return
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  // The instance's front door is the sign-in screen itself.
   await page.getByPlaceholder('you@example.com').fill('owner@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(account).toBeVisible()
@@ -156,9 +156,11 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
       return body.user
     })
     .toBeNull()
-  // The page was never navigated by the API call, so it is told to look again.
+  // The page was never navigated by the API call, so it is told to look again — and lands on the
+  // instance's front door, because there is no session left to draw anything with.
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
   // The deployment is still there, and so is the operator appointed before the deletion.
   expect((await page.request.get(`${ORIGIN}/api/auth/providers`)).ok()).toBeTruthy()
 })
@@ -171,8 +173,10 @@ test('a deleted workspace comes back for an administrator, and no second can be 
   try {
     // A stranger signing in is an account, not a seat: they are told where they stand, and given
     // nothing to press. There is no sign-up that would make them a team.
+    // The front door is the screen: the workspace was deleted, so nobody is signed in and there is
+    // nothing behind it.
     await page.goto(`${ORIGIN}/app?board=b-atlas`)
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
     await page.getByPlaceholder('you@example.com').fill('founder@example.com')
     await page.getByRole('button', { name: 'Sign in as this address' }).click()
     await expect(page.getByText('Not in this workspace')).toBeVisible()

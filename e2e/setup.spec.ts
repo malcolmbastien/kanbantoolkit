@@ -22,10 +22,13 @@ test('a fresh instance offers the first administrator, and closes behind them', 
   expect(await (await request.get(`${ORIGIN}/api/auth/providers`)).json()).toMatchObject({ setup: true })
 
   await page.goto(`${ORIGIN}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
 
-  // The surface says what it is, and there are no default credentials to fall back on.
+  // The front door is the page itself, and it says what it is: the first run, with no default
+  // credentials to fall back on. Behind it there is no board — a fresh deployment holds nobody's
+  // work, and the demo is the static tier's welcome rather than this instance's data.
+  await expect(page.getByText('Sign in to this instance')).toBeVisible()
   await expect(page.getByText('This instance has no accounts yet')).toBeVisible()
+  await expect(page.locator('[data-workflow]')).toHaveCount(0)
 
   await page.getByLabel('Your name').fill('Ada Lovelace')
   await page.getByLabel('Email address').fill('ada@example.com')
@@ -35,6 +38,8 @@ test('a fresh instance offers the first administrator, and closes behind them', 
   // Signed in, and looking at a workspace that is empty — a fresh deployment has no boards, which is
   // the honest state after an install rather than a demo board seeded behind the administrator's back.
   await expect(page.getByRole('button', { name: /Ada Lovelace/ })).toBeVisible()
+  await expect(page.getByText('This workspace is empty')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'New board' }).first()).toBeVisible()
   await expect(page.locator('[data-workflow="cards"]')).toHaveCount(0)
   const workspace = await (await page.request.get(`${ORIGIN}/api/workspace`)).json()
   expect(workspace.boards).toEqual([])
@@ -63,9 +68,9 @@ test('the first administrator is offered once, and the instance refuses a second
 })
 
 test('an invitation is where the second person chooses a password', async ({ page, browser, request }) => {
-  // The administrator the first test made, signing in the way the deployment now offers.
+  // The administrator the first test made, signing in the way the deployment now offers: the front
+  // door is the screen, so there is nothing to open first.
   await page.goto(`${ORIGIN}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByLabel('Email address').fill('ada@example.com')
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()
@@ -109,7 +114,6 @@ test('an invitation is where the second person chooses a password', async ({ pag
 test('an administrator hands over a reset link, and it sets the password', async ({ page, browser, request }) => {
   // The same administrator, signing in with the password she chose.
   await page.goto(`${ORIGIN}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByLabel('Email address').fill('ada@example.com')
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()
@@ -147,28 +151,39 @@ test('an administrator hands over a reset link, and it sets the password', async
 })
 
 test('a Viewer reads the board, and is offered nothing that would refuse', async ({ page, browser, request }) => {
-  // The administrator puts a workspace on the server: the copy the app offers when the account has
-  // nothing and the browser has boards. (Board structure travels by import; cards travel one by one.)
+  // The administrator makes the workspace a Viewer will read: one board, one card, on the server.
   await page.goto(`${ORIGIN}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByLabel('Email address').fill('ada@example.com')
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()
   await expect(page.getByRole('button', { name: /Ada Lovelace/ })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Copy to account' }).click()
-  await page.getByRole('button', { name: 'Copy workspace' }).click()
-  await expect(page.getByRole('button', { name: 'Copy to account' })).toHaveCount(0)
-  const stored = await (await page.request.get(`${ORIGIN}/api/workspace`)).json()
-  expect(stored.boards.length).toBeGreaterThan(0)
+  await page.goto(`${ORIGIN}/app?view=boards`)
+  await page.getByRole('button', { name: 'New board' }).first().click()
+  await page.getByLabel('New board name').fill('Team Atlas')
+  await page.getByRole('button', { name: 'Create board' }).click()
+  await page.getByRole('button', { name: 'Team Atlas', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Add card to Backlog' })).toBeVisible()
+  await page.getByRole('button', { name: 'Add card to Backlog' }).click()
+
+  // The board and its card have to reach the instance before another browser can read them.
+  await expect
+    .poll(async () => {
+      const body = (await (await page.request.get(`${ORIGIN}/api/workspace`)).json()) as {
+        boards: unknown[]
+        items: unknown[]
+        placements: unknown[]
+      }
+      return body.boards.length + body.items.length + body.placements.length
+    })
+    .toBeGreaterThanOrEqual(3)
 
   const other = await browser.newContext()
   let note = ''
   try {
     const grace = await other.newPage()
     await grace.goto(`${ORIGIN}/app`)
-    await grace.getByRole('button', { name: 'Sign in', exact: true }).click()
-    await grace.getByLabel('Email address').fill('grace@example.com')
+      await grace.getByLabel('Email address').fill('grace@example.com')
     await grace.getByLabel('Password').fill('another good passphrase')
     await grace.getByRole('button', { name: 'Sign in', exact: true }).last().click()
     await expect(grace.getByRole('button', { name: /Grace Hopper/ })).toBeVisible()
@@ -215,7 +230,9 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
     const palette = grace.getByRole('dialog', { name: 'Command palette' })
     await expect(palette).toBeVisible()
     await expect(palette.getByRole('button', { name: /All boards/ })).toBeVisible()
-    await expect(palette.getByRole('button', { name: /New card/ })).toHaveCount(0)
+    // The *action*, not the card: the palette also lists the work, and this workspace has a card
+    // called "New card" — so the row is found by the sentence under it.
+    await expect(palette.getByRole('button', { name: /New card Add a card to this board/ })).toHaveCount(0)
     await expect(palette.getByRole('button', { name: /New initiative/ })).toHaveCount(0)
     await expect(palette.getByRole('button', { name: /Edit board design/ })).toHaveCount(0)
     await expect(palette.getByRole('button', { name: /Board settings/ })).toHaveCount(0)
@@ -262,7 +279,6 @@ test('an agent connects itself, and the person approves it in the browser', asyn
 
   // The administrator signs in, and opens the address the tool printed.
   await page.goto(`${ORIGIN}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByLabel('Email address').fill('ada@example.com')
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()

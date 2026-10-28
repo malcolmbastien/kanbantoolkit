@@ -14,9 +14,9 @@ const PERSON = 'groupie@example.com'
 
 test.describe.configure({ mode: 'serial' })
 
+/** The instance's front door: the sign-in screen is the page, so there is no menu to open. */
 async function signIn(page: Page, who: string) {
   await page.goto(`${SELF_HOSTED}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByPlaceholder('you@example.com').fill(who)
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
 }

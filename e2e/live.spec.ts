@@ -8,31 +8,50 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test'
  * tested path rather than a claim. Both sign the same person in twice — two devices, one workspace.
  */
 
-const SOCKET = 'http://localhost:4174'
+// Its own instance: this spec writes a whole workspace, and a workspace is one per instance.
+const SOCKET = 'http://localhost:4179'
 const POLL = 'http://localhost:4175'
 
 /**
  * Two browser contexts, four servers and a build on a two-core runner: every wait is bounded, so a
  * control that never arrives fails with a sentence instead of hanging until the test gives up.
  */
-test.setTimeout(90_000)
+test.setTimeout(150_000)
 
 async function signIn(page: Page, origin: string) {
-  await page.goto(`${origin}/app?board=b-atlas`)
-  // A page in a context that is already signed in says who it is, and asking it to sign in again
-  // would wait for a button that is not there.
+  await page.goto(`${origin}/app`)
+  // A page in a context that is already signed in says who it is; otherwise the instance's front door
+  // is the sign-in screen itself.
   const account = page.getByRole('button', { name: /Maya Blake/ })
-  const signInButton = page.getByRole('button', { name: 'Sign in', exact: true })
+  const field = page.getByPlaceholder('you@example.com')
 
-  // One of the two is on screen within a moment on a machine that is not busy; on one that is,
-  // waiting is the whole difference between a slow page and a hung test.
-  await expect(account.or(signInButton)).toBeVisible({ timeout: 20_000 })
+  await expect(account.or(field)).toBeVisible({ timeout: 20_000 })
   if (await account.isVisible()) return
 
-  await signInButton.click()
-  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await field.fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(account).toBeVisible({ timeout: 20_000 })
+}
+
+/**
+ * The instance as the first device leaves it: a board, and one card to carry a change.
+ *
+ * Written through the two doors the app itself uses — an item, then the design that places it —
+ * rather than by clicking through an empty workspace. The transport is what this spec is about, and
+ * a board made by hand would only add minutes to it.
+ */
+async function boardWithCard(away: Page, origin: string): Promise<void> {
+  const item = { id: 'i-live', title: 'A card', typeId: 't-story', createdAt: Date.now() }
+  const made = await away.request.patch(`${origin}/api/workspace/items/${item.id}`, { data: { baseRev: 0, item } })
+  expect(made.ok()).toBeTruthy()
+
+  const design = {
+    boards: [{ id: 'b-live', name: 'Team Atlas', band: 'team', description: '' }],
+    lanes: [{ id: 'l-live', boardId: 'b-live', parentId: null, order: 0, name: 'Backlog', workflow: 'cards', stage: 'backlog' }],
+    placements: [{ id: 'p-live', boardId: 'b-live', itemId: item.id, laneId: 'l-live', rank: 0 }],
+  }
+  const placed = await away.request.put(`${origin}/api/workspace/structure`, { data: { rev: 0, design } })
+  expect(placed.ok()).toBeTruthy()
 }
 
 /**
@@ -40,39 +59,24 @@ async function signIn(page: Page, origin: string) {
  *
  * The write is made with the first context's own session, which is the same thing a person does
  * through the drawer; what is under test here is the *transport*, so the edit is the smallest
- * honest one. The reader signs in after the workspace is in place, so both devices look at the
- * same cards.
- *
- * A fresh instance has no workspace at all and offers to take the browser's on first sign-in; the
- * offer is taken here, because the point is what happens after the work exists.
+ * honest one. The reader signs in after the workspace is in place, so both devices look at the same
+ * card.
  */
 async function editedElsewhereArrives(one: BrowserContext, two: BrowserContext, origin: string) {
   const away = await one.newPage()
   await signIn(away, origin)
-
-  // A fresh instance offers to take this browser's workspace; one that already has it does not.
-  // The offer is given a moment to arrive rather than read the instant the account button appears.
-  const offer = away.getByRole('button', { name: 'Copy to account' })
-  await away.getByRole('button', { name: /Maya Blake/ }).waitFor()
-  if (await offer.isVisible().catch(() => false)) {
-    await offer.click()
-    await away.getByRole('button', { name: 'Copy workspace' }).click()
-    await expect
-      .poll(async () => {
-        const body = (await (await away.request.get(`${origin}/api/workspace`)).json()) as { boards: unknown[] }
-        return body.boards.length
-      })
-      .toBeGreaterThan(0)
-  }
+  await boardWithCard(away, origin)
 
   const here = await two.newPage()
   await signIn(here, origin)
+  // Straight to the board by its address: the workspace is the account's, and the board is there.
+  await here.goto(`${origin}/app?board=b-live`)
   await expect(here.locator('[data-workflow="cards"] [data-card-id]').first()).toBeVisible({ timeout: 20_000 })
 
   const workspace = (await (await away.request.get(`${origin}/api/workspace`)).json()) as {
     items: Array<{ id: string; title: string; rev?: number }>
   }
-  const item = workspace.items[3]
+  const item = workspace.items[0]
   const watch = here.locator(`[data-card-id="${item.id}"]`)
   await expect(watch).toBeVisible()
 

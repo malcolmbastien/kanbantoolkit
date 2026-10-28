@@ -54,8 +54,8 @@ test('a card open in its panel has none either', async ({ page }) => {
 })
 
 test('the admin screen, signed in, has none', async ({ page }) => {
+  // The instance's front door is the sign-in screen itself; there is no menu to open.
   await page.goto(`${SELF_HOSTED}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()

@@ -16,9 +16,9 @@ const PERSON = 'session-tester@example.com'
 
 test.describe.configure({ mode: 'serial' })
 
+/** The instance's front door: the sign-in screen is the page, so there is no menu to open. */
 async function signIn(page: Page, who = PERSON, remember = false) {
   await page.goto(`${SELF_HOSTED}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   if (remember) await page.getByLabel(/Keep me signed in/).check()
   await page.getByPlaceholder('you@example.com').fill(who)
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
@@ -37,7 +37,6 @@ test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext()
   const page = await context.newPage()
   await page.goto(`${SELF_HOSTED}/app`)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
   await page.getByRole('button', { name: 'Sign in as this address' }).click()
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
@@ -114,7 +113,10 @@ test('signing out everywhere ends this browser too', async ({ page }) => {
   const dialog = await openProfile(page)
   await dialog.getByRole('button', { name: 'Sign out everywhere' }).click()
 
-  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  // Signing out everywhere ends the session here too, so the page falls back to the instance's front
+  // door.
+  await expect(page.getByText('Sign in to this instance')).toBeVisible()
+  await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
   // The cookie it was holding is not a credential any more.
   expect((await page.request.get(`${SELF_HOSTED}/api/me`)).status()).toBe(401)
 })

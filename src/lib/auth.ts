@@ -39,8 +39,14 @@ export interface AuthState {
   mail: boolean
   /** Where this project's own site is, when the deployment knows: the terms and privacy pages. */
   project: string | null
-  /** Whether this instance has been asked what it offers. Until it has, nothing is drawn. */
+  /** Whether the instance has been asked what it offers. Until it has, nothing is drawn. */
   loaded: boolean
+  /**
+   * Whether this build is running on an instance — a server that answered — rather than on a static
+   * host. It is what decides whether a workspace is an account's or the browser's, so it is answered
+   * by the server rather than guessed from the address.
+   */
+  instance: boolean
 }
 
 const NONE: AuthState = {
@@ -54,6 +60,7 @@ const NONE: AuthState = {
   mail: false,
   project: null,
   loaded: false,
+  instance: false,
 }
 
 /**
@@ -83,7 +90,12 @@ export async function loadAuth(): Promise<AuthState> {
     mail?: boolean
     project?: string | null
   }>('/api/auth/providers')
-  if (!offered?.providers) return NONE
+  if (!offered?.providers) {
+    // No instance answered: the static tier. It still has to say so, or a caller waiting on `loaded`
+    // would wait for ever — and the demo would never draw.
+    useAuth.setState({ ...NONE, loaded: true, instance: false })
+    return useAuth.getState()
+  }
 
   const session = await read<{
     user: { id: string; name: string; email: string; avatarUrl?: string } | null
@@ -111,6 +123,15 @@ export async function loadAuth(): Promise<AuthState> {
     mail: offered.mail === true,
     project: typeof offered.project === 'string' ? offered.project : null,
     loaded: true,
+    // An instance is a deployment with a way in, or somebody already inside it. A static host that
+    // answers the question with nothing — no door, no session — is the demo, and the demo has no
+    // roles to enforce: every control is offered, because the browser is the whole workspace.
+    instance:
+      Boolean(session?.user) ||
+      (offered.providers?.length ?? 0) > 0 ||
+      offered.password === true ||
+      offered.setup === true ||
+      offered.dev === true,
   }
   useAuth.setState(next)
   return next
