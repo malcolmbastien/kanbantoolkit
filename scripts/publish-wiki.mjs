@@ -157,6 +157,14 @@ ${table('project')}
 | **[Security](${BLOB}/SECURITY.md)** | How to report a vulnerability, and what is out of scope. |
 | **[House rules](${BLOB}/AGENTS.md)** | The rules the project is built by, including the services it does not use. |
 | **[Licence](${BLOB}/LICENSE)** | AGPL-3.0-or-later. |
+
+## How these pages are kept honest
+
+- Every page exists once, in \`docs/\`, and this wiki is rendered from it — there is no second copy to
+  drift.
+- \`npm run docs:check\` fails when a link does not resolve, when a page is missing from the index, or
+  when a command the pages quote is not one the project runs.
+- The operator's pages say which release they were last verified against.
 `
 }
 
@@ -215,6 +223,17 @@ if (dryRun) {
   console.log(`wiki: ${written.length} pages rendered into ${relative(ROOT, PREVIEW)} (nothing published)`)
   console.log(written.join(', '))
   process.exit(0)
+}
+
+// The wiki publishes the documentation as committed. A page that exists only in somebody's working
+// tree is not what a reader of the repository can see, and putting it on a public wiki would publish
+// work that is still being written. `--dry-run` is the way to look at that work first.
+const dirtyDocs = run('git', ['status', '--porcelain', '--', 'docs'])
+if (dirtyDocs) {
+  console.error('The wiki publishes the committed documentation, and docs/ has changes that are not committed:')
+  for (const line of dirtyDocs.split('\n')) console.error(`  ${line}`)
+  console.error('Commit them first, or preview them with `npm run docs:wiki -- --dry-run`.')
+  process.exit(1)
 }
 
 // ---- publish ----
