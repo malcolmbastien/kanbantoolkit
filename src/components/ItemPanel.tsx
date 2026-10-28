@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, ArrowRight, Ban, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, UserRound, X } from 'lucide-react'
+import { Archive, ArrowRight, Ban, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
   attributedObjectives,
   checklistItems,
@@ -668,18 +668,6 @@ export function ItemPanel({ itemId }: Props) {
           className="mt-2 w-full rounded-lg border border-transparent bg-transparent text-heading font-semibold leading-snug text-slate-900 transition hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
         />
 
-        {/* Who made it, at the size of a fact rather than a field: a record written once, kept
-            beside the title because it is part of what the item is. Absent is absent — a card from
-            before the record existed says nothing rather than inventing a name. */}
-        {creator && (
-          <p data-created-by={creator.id} className="mt-1 flex items-center gap-1 text-micro text-slate-600">
-            <UserRound size={11} className="shrink-0 text-slate-400" />
-            Created by <span className="font-medium text-slate-700">{creator.name}</span>
-            <span className="text-slate-400">·</span>
-            <span title={new Date(item.createdAt).toLocaleString()}>{whenLabel(item.createdAt)}</span>
-          </p>
-        )}
-
         <div className="mt-3 flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
           {tabs.map((t) => {
             const on = tab === t.id
@@ -1047,6 +1035,30 @@ export function ItemPanel({ itemId }: Props) {
                       aria-label="Target end"
                       className="min-w-0 flex-1 bg-transparent text-meta text-slate-700 outline-none"
                     />
+                  </div>
+                </Field>
+                {/* Who made it: the record the server keeps, read where the item's other facts are
+                    read. Never a field — no box, no control — and when the item predates the record
+                    it says so, because a blank would read as "nobody made this". */}
+                <Field label="Created by" className="col-span-2">
+                  <div data-created-by={creator?.id ?? ''} className="flex min-h-[26px] items-center gap-1.5 text-meta text-slate-700">
+                    {creator ? (
+                      <>
+                        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-micro font-bold text-slate-600 ring-1 ring-slate-200">
+                          {initialsOf(creator.name)}
+                        </span>
+                        <span className="font-medium">{creator.name}</span>
+                        <span className="text-slate-400">·</span>
+                        <span className="text-slate-600" title={new Date(item.createdAt).toLocaleString()}>
+                          {whenLabel(item.createdAt)}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-slate-500">Not recorded</span>
+                        <span className="text-micro text-slate-500">— this card is older than the record</span>
+                      </>
+                    )}
                   </div>
                 </Field>
               </div>
