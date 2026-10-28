@@ -1,18 +1,18 @@
 <div align="center">
 
-# Flowline
+# Kanban Toolkit
 
 **One board for the team. One clear view for everyone else.**
 
-Flowline is a Kanban system for a team's own work, and a simple way to show that work to the people
+Kanban Toolkit is a Kanban system for a team's own work, and a simple way to show that work to the people
 outside the team. The team keeps its board; other groups read the same work as **initiatives** —
 progress, risk and what depends on what — without asking for a status update or keeping a second set
 of tickets.
 
-[**Open the demo**](https://flowline.flowline-team.workers.dev/app) — nothing to sign up for ·
+[**Open the demo**](https://kanbantoolkit.com/app) — nothing to sign up for ·
 [Run it yourself](#run-it) · [Documentation](docs/README.md)
 
-[![CI](https://github.com/malcolmbastien/flowline/actions/workflows/ci.yml/badge.svg)](https://github.com/malcolmbastien/flowline/actions/workflows/ci.yml) &nbsp; [![Licence](https://img.shields.io/badge/licence-AGPL--3.0-brightgreen)](LICENSE)
+[![CI](https://github.com/malcolmbastien/kanbantoolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/malcolmbastien/kanbantoolkit/actions/workflows/ci.yml) &nbsp; [![Licence](https://img.shields.io/badge/licence-AGPL--3.0-brightgreen)](LICENSE)
 
 <img src="docs/img/demo.gif" alt="A card dragged from Backlog into In Progress, then opened in the side drawer beside the board" width="880">
 
@@ -21,7 +21,7 @@ of tickets.
 The demo is the application itself: on a first visit it seeds a complete board, keeps the work in
 your browser, and asks you for nothing. Nothing is collected and no account is needed.
 
-**The time is not in the work — it is in the waiting.** Flowline puts the wait where it can be read:
+**The time is not in the work — it is in the waiting.** Kanban Toolkit puts the wait where it can be read:
 how many days a card has sat in its lane, what it is blocked on, what it is waiting for on another
 board, and which committed work below has nobody's name on it. None of that is a second report, and
 none of it is entered twice — it is read from the cards that are already there.
@@ -62,8 +62,8 @@ none of it is entered twice — it is read from the cards that are already there
 ## Run it
 
 ```bash
-git clone https://github.com/malcolmbastien/flowline flowline
-cd flowline
+git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
+cd kanbantoolkit
 docker compose up -d
 # open http://localhost:8787/app
 ```
@@ -77,10 +77,10 @@ runs the instance. There is nothing else to configure.
 Node 26 and a directory you own:
 
 ```bash
-git clone https://github.com/malcolmbastien/flowline flowline
-cd flowline
+git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
+cd kanbantoolkit
 npm ci && npm run build
-PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server
+PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
 ```
 
 The build writes the site and the application into `dist/`; the server applies every pending
@@ -98,7 +98,7 @@ see [`docs/install.md`](docs/install.md) and [`docs/docker.md`](docs/docker.md).
 - [`docs/backup.md`](docs/backup.md) — exporting and restoring your workspace.
 - [`docs/rest-api.md`](docs/rest-api.md) and [`docs/mcp.md`](docs/mcp.md) — the machine doors: a token,
   a REST API and an MCP server for an agent.
-- [The site](https://flowline.flowline-team.workers.dev/) — how the board works in the site's own
+- [The site](https://kanbantoolkit.com/) — how the board works in the site's own
   words, how to install it, and what it does with your data.
 
 ## Project
@@ -110,7 +110,7 @@ see [`docs/install.md`](docs/install.md) and [`docs/docker.md`](docs/docker.md).
 
 ## Licence
 
-Flowline is free software under the GNU Affero General Public License, version 3 or later. Run it,
+Kanban Toolkit is free software under the GNU Affero General Public License, version 3 or later. Run it,
 change it, and share your changes when you offer it to other people.
 
 Copyright © 2026 Malcolm Bastien.

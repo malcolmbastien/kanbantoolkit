@@ -12,7 +12,7 @@ import { defineConfig } from 'vitest/config'
  */
 function appWithoutTrailingSlash(): Plugin {
   return {
-    name: 'flowline-app-entry',
+    name: 'kanbantoolkit-app-entry',
     configureServer(server) {
       server.middlewares.use((request, _response, next) => {
         if (request.url === '/app' || request.url?.startsWith('/app?')) {

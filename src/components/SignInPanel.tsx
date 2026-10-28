@@ -392,7 +392,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
       <p className="mt-1.5 px-1.5 text-micro text-slate-600">
         {auth.project ? (
           <>
-            By continuing you agree to Flowline’s{' '}
+            By continuing you agree to Kanban Toolkit’s{' '}
             <a href={`${auth.project}/terms/`} className="underline">
               terms
             </a>{' '}
@@ -404,7 +404,7 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
             operator’s.
           </>
         ) : (
-          <>Flowline is free software. This instance’s terms and privacy policy are its operator’s.</>
+          <>Kanban Toolkit is free software. This instance’s terms and privacy policy are its operator’s.</>
         )}
       </p>
 

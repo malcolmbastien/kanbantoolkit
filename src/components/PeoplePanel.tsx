@@ -126,8 +126,8 @@ export function PeoplePanel() {
   // other to read the directory again rather than leaving a stale word in a row.
   useEffect(() => {
     const again = () => void load()
-    window.addEventListener('flowline:directory-changed', again)
-    return () => window.removeEventListener('flowline:directory-changed', again)
+    window.addEventListener('kanbantoolkit:directory-changed', again)
+    return () => window.removeEventListener('kanbantoolkit:directory-changed', again)
   }, [load])
 
   // A selection belongs to what is on screen: narrowing the list drops what is no longer visible,

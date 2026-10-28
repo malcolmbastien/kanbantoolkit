@@ -106,11 +106,11 @@ describe('the SMTP mailer', () => {
     open = stubServer
     const mail = smtpMailer({
       SMTP_URL: `smtp://ada:s3cret@127.0.0.1:${stubServer.port}`,
-      MAIL_FROM: 'flowline@example.com',
+      MAIL_FROM: 'kanbantoolkit@example.com',
     })
     expect(mail).toBeTruthy()
 
-    await mail!.send({ to: 'grace@example.com', subject: 'Your link', text: 'Here it is: https://flowline.example/app' })
+    await mail!.send({ to: 'grace@example.com', subject: 'Your link', text: 'Here it is: https://kanbantoolkit.example/app' })
 
     const verbs = stubServer.conversation.lines.map((line) => line.split(' ')[0].toUpperCase())
     expect(verbs[0]).toBe('EHLO')
@@ -123,20 +123,20 @@ describe('the SMTP mailer', () => {
     expect(stubServer.conversation.lines.find((line) => line.startsWith('AUTH PLAIN '))).toBe(
       `AUTH PLAIN ${Buffer.from('\u0000ada\u0000s3cret').toString('base64')}`,
     )
-    expect(stubServer.conversation.lines).toContain('MAIL FROM:<flowline@example.com>')
+    expect(stubServer.conversation.lines).toContain('MAIL FROM:<kanbantoolkit@example.com>')
     expect(stubServer.conversation.lines).toContain('RCPT TO:<grace@example.com>')
 
     // Plain text, the headers that matter, and the body untouched.
     expect(stubServer.conversation.data).toContain('To: grace@example.com')
     expect(stubServer.conversation.data).toContain('Subject: Your link')
     expect(stubServer.conversation.data).toContain('Content-Type: text/plain; charset=utf-8')
-    expect(stubServer.conversation.data).toContain('Here it is: https://flowline.example/app')
+    expect(stubServer.conversation.data).toContain('Here it is: https://kanbantoolkit.example/app')
   })
 
   it('dot-stuffs a body that begins with a dot, so nothing ends the message early', async () => {
     const stubServer = await stub()
     open = stubServer
-    const mail = smtpMailer({ SMTP_URL: `smtp://127.0.0.1:${stubServer.port}`, MAIL_FROM: 'flowline@example.com' })
+    const mail = smtpMailer({ SMTP_URL: `smtp://127.0.0.1:${stubServer.port}`, MAIL_FROM: 'kanbantoolkit@example.com' })
 
     await mail!.send({ to: 'grace@example.com', subject: 'S', text: '.hidden\n.\nnot a dot' })
 
@@ -146,7 +146,7 @@ describe('the SMTP mailer', () => {
   it('asks for STARTTLS when the server offers it', async () => {
     const stubServer = await stub({ advertiseStartTls: true })
     open = stubServer
-    const mail = smtpMailer({ SMTP_URL: `smtp://127.0.0.1:${stubServer.port}`, MAIL_FROM: 'flowline@example.com' })
+    const mail = smtpMailer({ SMTP_URL: `smtp://127.0.0.1:${stubServer.port}`, MAIL_FROM: 'kanbantoolkit@example.com' })
 
     // The stub answers the upgrade with a plain socket, so the handshake fails — which is the point:
     // the client asked for TLS and refused to continue without it.
@@ -157,6 +157,6 @@ describe('the SMTP mailer', () => {
   it('does not exist without a relay and a sender', () => {
     expect(smtpMailer({})).toBeUndefined()
     expect(smtpMailer({ SMTP_URL: 'smtp://127.0.0.1:25' })).toBeUndefined()
-    expect(smtpMailer({ MAIL_FROM: 'flowline@example.com' })).toBeUndefined()
+    expect(smtpMailer({ MAIL_FROM: 'kanbantoolkit@example.com' })).toBeUndefined()
   })
 })

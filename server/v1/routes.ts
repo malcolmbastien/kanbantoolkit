@@ -95,7 +95,7 @@ export async function requireToken(
       c,
       401,
       'token_required',
-      'this API is for token credentials: acquire one with `flowline login`, then send `Authorization: Bearer <token>`',
+      'this API is for token credentials: acquire one with `kanbantoolkit login`, then send `Authorization: Bearer <token>`',
     )
   }
 
@@ -391,6 +391,7 @@ const itemSchema = {
     id: { type: 'string' },
     title: { type: 'string' },
     typeId: { type: 'string' },
+    createdById: { type: 'string', description: 'Who made the item. Recorded by the server; never writable.' },
     initiativeTypeId: { type: 'string' },
     priority: { type: 'string', enum: ['urgent', 'high', 'medium', 'low'] },
     assignees: { type: 'array', items: { type: 'string' } },
@@ -534,7 +535,7 @@ export function openapi(table: RouteSpec[]) {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Flowline API',
+      title: 'Kanban Toolkit API',
       version: '1.0.0',
       description:
         'The supported surface. Within v1 a client may rely on every field here existing; fields may be added and never removed or retyped. See `docs/rest-api.md` for the promise and the conventions.',
@@ -542,7 +543,7 @@ export function openapi(table: RouteSpec[]) {
     servers: [{ url: '/api/v1' }],
     components: {
       securitySchemes: {
-        bearer: { type: 'http', scheme: 'bearer', description: 'A token from `flowline login`, or one minted in the app.' },
+        bearer: { type: 'http', scheme: 'bearer', description: 'A token from `kanbantoolkit login`, or one minted in the app.' },
       },
       schemas,
     },

@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
  * secret is shown here and nowhere else (the server keeps a hash), which is why the configs carry it
  * in the same panel rather than sending the person to find it again.
  *
- * The stdio config reads the token from the file `flowline login` writes where it can, because that
+ * The stdio config reads the token from the file `kanbantoolkit login` writes where it can, because that
  * is the better place for a secret; the pasted one is the shortcut for a machine where the CLI has
  * not run. Both are honest about the code the agent will run: the repository's own bridge.
  */
@@ -45,16 +45,16 @@ export function ConnectAgent() {
   }
 
   const httpConfig = secret
-    ? JSON.stringify({ mcpServers: { flowline: { type: 'http', url: `${origin}/mcp`, headers: { Authorization: `Bearer ${secret}` } } } }, null, 2)
+    ? JSON.stringify({ mcpServers: { kanbantoolkit: { type: 'http', url: `${origin}/mcp`, headers: { Authorization: `Bearer ${secret}` } } } }, null, 2)
     : ''
   const stdioConfig = secret
     ? JSON.stringify(
         {
           mcpServers: {
-            flowline: {
+            kanbantoolkit: {
               command: 'npx',
               args: ['tsx', 'server/mcp.ts'],
-              env: { FLOWLINE_URL: origin, FLOWLINE_TOKEN: secret },
+              env: { KANBANTOOLKIT_URL: origin, KANBANTOOLKIT_TOKEN: secret },
             },
           },
         },
@@ -114,7 +114,7 @@ export function ConnectAgent() {
             <pre className="mt-0.5 max-h-40 overflow-auto rounded bg-slate-900 px-2 py-1.5 text-micro text-slate-100">{stdioConfig}</pre>
             <p className="mt-1 text-micro text-slate-600">
               The stdio bridge forwards to this instance; it holds no rules of its own. On a machine where{' '}
-              <code>flowline login</code> has run, point <code>FLOWLINE_TOKEN_FILE</code> at the file instead of pasting the secret.
+              <code>kanbantoolkit login</code> has run, point <code>KANBANTOOLKIT_TOKEN_FILE</code> at the file instead of pasting the secret.
             </p>
           </div>
         </div>

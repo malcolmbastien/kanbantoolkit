@@ -18,8 +18,8 @@ The browser's own `localStorage` is a cache, not a backup. `docs/server-runtime.
 ## Self-hosted: the copy
 
 ```bash
-npm run backup -- backup ./flowline.db ./backups
-# backed up ./flowline.db → ./backups/flowline-2026-10-23T02-00-00-000.db (412 KB, keeping 30 days)
+npm run backup -- backup ./kanbantoolkit.db ./backups
+# backed up ./kanbantoolkit.db → ./backups/kanbantoolkit-2026-10-23T02-00-00-000.db (412 KB, keeping 30 days)
 ```
 
 The copy is taken with `VACUUM INTO`, which is a single read transaction: it is consistent while the
@@ -29,7 +29,7 @@ the one thing a backup must not do.
 Daily, from cron:
 
 ```cron
-0 2 * * *  cd /srv/flowline && npm run backup -- backup ./flowline.db ./backups >> ./backups/backup.log 2>&1
+0 2 * * *  cd /srv/kanbantoolkit && npm run backup -- backup ./kanbantoolkit.db ./backups >> ./backups/backup.log 2>&1
 ```
 
 **Retention** is 30 days by default (`--keep-days=30`), pruned by the file's own timestamp.
@@ -38,15 +38,15 @@ Daily, from cron:
 that fails is not a backup. Any of these, nightly, after the copy:
 
 ```bash
-rclone sync ./backups remote:flowline-backups
+rclone sync ./backups remote:kanbantoolkit-backups
 # or: restic backup ./backups
-# or: scp -r ./backups host:/elsewhere/flowline
+# or: scp -r ./backups host:/elsewhere/kanbantoolkit
 ```
 
 ## Self-hosted: putting it back
 
 ```bash
-npm run backup -- restore ./backups/flowline-2026-10-23T02-00-00-000.db ./flowline.db --force
+npm run backup -- restore ./backups/kanbantoolkit-2026-10-23T02-00-00-000.db ./kanbantoolkit.db --force
 # restored … (3 boards, 128 items)
 ```
 
@@ -62,12 +62,12 @@ Then restart the server. The migrations run on boot (`server/migrate.ts`).
 D1 keeps its own history, and it is the provider's to keep:
 
 - **Time Travel** — automatic, 30 days, restore to any minute:
-  `npx wrangler d1 time-travel restore flowline --timestamp=2026-10-22T02:00:00Z`
+  `npx wrangler d1 time-travel restore kanbantoolkit --timestamp=2026-10-22T02:00:00Z`
 - **An export**, for a copy outside Cloudflare:
-  `npx wrangler d1 export flowline --remote --output=flowline-2026-10-23.sql`
+  `npx wrangler d1 export kanbantoolkit --remote --output=kanbantoolkit-2026-10-23.sql`
 
 The export is the second copy: keep it somewhere that is not the same account. It is a `.sql` file
-and restoring it is `wrangler d1 execute flowline --remote --file=…`.
+and restoring it is `wrangler d1 execute kanbantoolkit --remote --file=…`.
 
 Neither of these is a daily task anyone performs — the schedule is the provider's, and R1 asks that
 it is visible and non-zero. Check it once a quarter, and check that the export job still runs.

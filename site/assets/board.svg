@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="A Flowline board with four typed columns">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="A Kanban Toolkit board with four typed columns">
   <rect width="960" height="540" fill="#f3f1ec"/>
   <rect x="16" y="16" width="928" height="508" rx="12" fill="#fbfaf8" stroke="#e2ded6"/>
   <g font-family="Georgia, serif" font-size="13" fill="#55657a">

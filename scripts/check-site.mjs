@@ -16,7 +16,7 @@ import { gzipSync } from 'node:zlib'
 
 const DIST = 'dist'
 const SITE_DIR = 'site'
-const ORIGIN = (process.env.SITE_URL ?? 'https://flowline.example').replace(/\/+$/, '')
+const ORIGIN = (process.env.SITE_URL ?? 'https://kanbantoolkit.example').replace(/\/+$/, '')
 /** The home page's whole transfer: HTML, the stylesheet, and the drawings on it. */
 const HOME_BUDGET_KB = 150
 

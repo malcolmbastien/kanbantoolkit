@@ -84,8 +84,15 @@ export function createSeed(): FlowState {
   const edges: Edge[] = []
   const links: ItemLink[] = []
 
+  /**
+   * Who made the demo's work: a small fixed rule rather than a hand-written name on forty items, so a
+   * picture of the product does not change between reloads. Cards are the engineer's, initiatives the
+   * product lead's — the two people a reader of this demo is most likely to meet in the panel.
+   */
+  const creatorOf = (id: string) => (id.startsWith('init-') ? 'u-mb' : 'u-rk')
+
   const item = (id: string, title: string, typeId: string, extra: Partial<Item> = {}) =>
-    items.push({ id, title, typeId, createdAt: ago(60), ...extra })
+    items.push({ id, title, typeId, createdAt: ago(60), createdById: creatorOf(id), ...extra })
 
   const place = (itemId: string, boardId: string, laneId: string, enteredAt?: number) =>
     placements.push({ id: `pl-${itemId}`, boardId, itemId, laneId, ...(enteredAt ? { laneEnteredAt: enteredAt } : {}) })
@@ -101,7 +108,7 @@ export function createSeed(): FlowState {
    * read the same arrival stamp.
    */
   const journey = (id: string, boardId: string, created: number, arrived: number, stage: Stage): ItemLogEntry[] => {
-    const log: ItemLogEntry[] = [{ id: `${id}-l1`, at: created, kind: 'created' }]
+    const log: ItemLogEntry[] = [{ id: `${id}-l1`, at: created, kind: 'created', by: creatorOf(id) }]
     const steps = STAGES.slice(0, STAGES.indexOf(stage) + 1)
     for (let i = 1; i < steps.length; i++) {
       log.push({

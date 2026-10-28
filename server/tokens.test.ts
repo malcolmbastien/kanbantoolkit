@@ -115,7 +115,7 @@ describe('a token is a credential with a ceiling', () => {
     }
 
     // R1: a recognisable, long secret, and the row holds its hash rather than itself.
-    expect(secret.startsWith('flt_')).toBe(true)
+    expect(secret.startsWith('ktk_')).toBe(true)
     expect(secret.length).toBeGreaterThan(40)
     expect(token.scopes).toEqual(['boards:read', 'items:comment'])
     expect(token.origin).toBe('self')
@@ -282,7 +282,7 @@ describe('the device flow: a tool asks, a person approves', () => {
     await signIn('owner@example.com', 'instance')
     const person = await signIn('person@example.com', 'editor')
 
-    const asked = await device(request, { name: 'flowline-cli on ada’s laptop', scopes: ['boards:read'] })
+    const asked = await device(request, { name: 'kanbantoolkit-cli on ada’s laptop', scopes: ['boards:read'] })
     expect(asked.user_code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)
     expect(asked.verification_uri).toContain(`/app?approve=`)
 
@@ -297,7 +297,7 @@ describe('the device flow: a tool asks, a person approves', () => {
     const shown = await person.call(`/api/tokens/device/${asked.user_code}`)
     expect(shown.status).toBe(200)
     const details = (await shown.json()) as { name: string; scopes: string[]; approved: boolean }
-    expect(details.name).toBe('flowline-cli on ada’s laptop')
+    expect(details.name).toBe('kanbantoolkit-cli on ada’s laptop')
     expect(details.scopes).toEqual(['boards:read'])
     expect(details.approved).toBe(false)
 
@@ -341,7 +341,7 @@ describe('the device flow: a tool asks, a person approves', () => {
     const trail = await db.get<{ data: string }>(
       "SELECT data FROM audit_events WHERE action = 'token.approve' ORDER BY at DESC LIMIT 1",
     )
-    expect(trail?.data).toContain('flowline-cli on ada’s laptop')
+    expect(trail?.data).toContain('kanbantoolkit-cli on ada’s laptop')
     expect(trail?.data).not.toContain(secret)
   })
 
@@ -373,7 +373,7 @@ describe('the device flow: a tool asks, a person approves', () => {
 
     expect((await person.call('/api/tokens/device/ZZZZ-ZZZZ')).status).toBe(404)
     expect(
-      (await request('/api/tokens/device/token', { method: 'POST', body: JSON.stringify({ device_code: 'flt_nope' }) })).status,
+      (await request('/api/tokens/device/token', { method: 'POST', body: JSON.stringify({ device_code: 'ktk_nope' }) })).status,
     ).toBe(410)
 
     // A tool may not exchange a code nobody approved, however long it waits.

@@ -242,7 +242,7 @@ describe('the HTTP door', () => {
     }
     expect(init.result.protocolVersion).toBe('2025-06-18')
     expect(init.result.capabilities.tools).toBeTruthy()
-    expect(init.result.serverInfo.name).toBe('flowline')
+    expect(init.result.serverInfo.name).toBe('kanbantoolkit')
 
     const ping = await reader.rpc({ jsonrpc: '2.0', id: 2, method: 'ping' })
     expect(ping.status).toBe(200)

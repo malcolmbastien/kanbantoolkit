@@ -22,7 +22,7 @@ import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './ac
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
 function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
-  const tab = c.req.header('x-flowline-tab')
+  const tab = c.req.header('x-kanbantoolkit-tab')
   return tab && tab.length <= 100 ? tab : 'tab'
 }
 

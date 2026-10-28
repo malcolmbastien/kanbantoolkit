@@ -6,15 +6,15 @@ test('the title follows the place, and going back returns it', async ({ page }) 
   await openBoard(page)
   // `page.title()` rather than `toHaveTitle`: the latter reads the navigation entry's title, which
   // an app that names itself with `document.title` leaves empty.
-  await expect.poll(() => page.title()).toBe('Team Atlas · Flowline')
+  await expect.poll(() => page.title()).toBe('Team Atlas · Kanban Toolkit')
 
   // A journey is a step in history — a view — so back returns to the board. The board leads the
   // name and the view follows it, because the board is the page and the view is a surface of it.
   await page.getByRole('button', { name: 'Dashboard' }).click()
-  await expect.poll(() => page.title()).toBe('Team Atlas · Dashboard · Flowline')
+  await expect.poll(() => page.title()).toBe('Team Atlas · Dashboard · Kanban Toolkit')
 
   await page.goBack()
-  await expect.poll(() => page.title()).toBe('Team Atlas · Flowline')
+  await expect.poll(() => page.title()).toBe('Team Atlas · Kanban Toolkit')
 })
 
 test('opening a card does not rename the page, and closing it leaves the board’s', async ({ page }) => {
@@ -25,11 +25,11 @@ test('opening a card does not rename the page, and closing it leaves the board�
   // The open card is deliberately not part of the name (see `src/lib/title.ts`): a tab that
   // changes every time a drawer opens makes the board harder to find, not easier.
   await expect(page.getByLabel('Title')).toBeVisible()
-  await expect.poll(() => page.title()).toBe('Team Atlas · Flowline')
+  await expect.poll(() => page.title()).toBe('Team Atlas · Kanban Toolkit')
 
   // Closing it returns the board — which, on this page, is where it already was.
   await page.keyboard.press('Escape')
-  await expect.poll(() => page.title()).toBe('Team Atlas · Flowline')
+  await expect.poll(() => page.title()).toBe('Team Atlas · Kanban Toolkit')
 })
 
 test('a crawler that runs no JavaScript still reads a useful page, and nothing of the workspace', async ({ request }) => {
@@ -38,7 +38,7 @@ test('a crawler that runs no JavaScript still reads a useful page, and nothing o
   const response = await request.get('/')
   const html = await response.text()
 
-  expect(html).toContain('<title>Flowline')
+  expect(html).toContain('<title>Kanban Toolkit')
   expect(html).toMatch(/property="og:title"/)
   expect(html).toMatch(/property="og:description"/)
   expect(html).toMatch(/name="twitter:card"/)

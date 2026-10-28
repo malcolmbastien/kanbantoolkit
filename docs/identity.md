@@ -17,7 +17,7 @@ One provider, configured by environment — `docs/configure.md` has every value:
 | `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | the client registered with that issuer |
 | `AUTH_OIDC_LABEL` | what the sign-in button says |
 
-The redirect URI to register is `https://<your instance>/api/auth/callback`. Flowline asks for
+The redirect URI to register is `https://<your instance>/api/auth/callback`. Kanban Toolkit asks for
 `openid email profile` and nothing more, and it refuses an identity whose address the provider has not
 verified.
 
@@ -72,7 +72,7 @@ the audit trail under `scim.user.create`, `scim.user.update`, `scim.user.delete`
 
 ### What each operation does to a person
 
-| SCIM | Flowline |
+| SCIM | Kanban Toolkit |
 | --- | --- |
 | `POST /Users` | an account (`users`), an instance membership, and a **workspace seat** carrying the token's role. No password: the directory is the door. |
 | `PATCH {"active": false}` | **deactivation** — the account stays, the name stays on the work, and their sessions end. Reversible with `active: true`. |

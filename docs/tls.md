@@ -1,6 +1,6 @@
 # TLS and the proxy
 
-Flowline does not terminate TLS. It listens on a port, on the loopback or on your private network,
+Kanban Toolkit does not terminate TLS. It listens on a port, on the loopback or on your private network,
 and a reverse proxy is what puts `https://` in front of it. That is the one thing every operator must
 get right: without it the session cookie is not secure, and the sign-in providers will not accept
 your redirect URI.
@@ -23,7 +23,7 @@ Caddy gets a certificate and renews it without being asked, which is why it is t
 configuration.
 
 ```caddy
-flowline.example {
+kanbantoolkit.example {
     encode zstd gzip
 
     # The app and the API.
@@ -50,17 +50,17 @@ flowline.example {
 ```
 
 Caddy passes `Upgrade` and `Connection` through by default, so the socket works with no extra
-directive. If you put Flowline behind another proxy in the same chain, keep HTTP/1.1 to this one.
+directive. If you put Kanban Toolkit behind another proxy in the same chain, keep HTTP/1.1 to this one.
 
 ## nginx
 
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name flowline.example;
+    server_name kanbantoolkit.example;
 
-    ssl_certificate     /etc/letsencrypt/live/flowline.example/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/flowline.example/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/kanbantoolkit.example/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kanbantoolkit.example/privkey.pem;
 
     client_max_body_size 8m;   # a workspace import is a few megabytes at most
 
@@ -89,7 +89,7 @@ the server the browser is on https, which is what makes the session cookie `Secu
 the cookie is issued for whatever the request's origin was — usually `http` behind a proxy, and then
 it is not `Secure`.
 
-**Do not put a second TLS hop in front of a provider callback.** `https://flowline.example/api/auth/callback`
+**Do not put a second TLS hop in front of a provider callback.** `https://kanbantoolkit.example/api/auth/callback`
 is the URI to register, exactly, with no trailing slash and no port.
 
 **The `noindex` header belongs to the app, not to the site.** `public/_headers` scopes it to `/app/*`
@@ -110,8 +110,8 @@ static directory can reach it, and nothing should be added that would.
 ## Checking it
 
 ```bash
-curl -sI https://flowline.example/app | grep -iE 'strict-transport|content-security|nosniff'
-curl -s  https://flowline.example/api/health
+curl -sI https://kanbantoolkit.example/app | grep -iE 'strict-transport|content-security|nosniff'
+curl -s  https://kanbantoolkit.example/api/health
 # {"ok":true,"database":"ok"}
 ```
 

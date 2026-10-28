@@ -11,9 +11,9 @@
 # that is http.
 
 services:
-  flowline:
+  kanbantoolkit:
     build: .
-    image: flowline:local
+    image: kanbantoolkit:local
     restart: unless-stopped
 
     ports:
@@ -24,7 +24,7 @@ services:
     environment:
       # The name of the team. The installation gives it, and it is what a person types to confirm
       # deleting the workspace later.
-      WORKSPACE_NAME: ${WORKSPACE_NAME:-Flowline}
+      WORKSPACE_NAME: ${WORKSPACE_NAME:-Kanban Toolkit}
       # The address the outside world uses: what a sign-in redirect URI is built from, and what
       # makes the session cookie Secure. Set it to your https address.
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
@@ -48,17 +48,17 @@ services:
       #
       # Where this project's own site is, if you want the app's sign-in surface to link its terms
       # and privacy pages. Leave it unset and the app says whose policies apply instead of linking.
-      # PROJECT_URL: "https://flowline.example"
+      # PROJECT_URL: "https://kanbantoolkit.example"
       #
       # Mail, if you want magic links. A relay on this machine may be plain SMTP; anything else must
       # offer STARTTLS, and a deployment with neither still runs.
       # SMTP_URL: "smtp://user:pass@host:587"
-      # MAIL_FROM: "flowline@example.com"
+      # MAIL_FROM: "kanbantoolkit@example.com"
 
     volumes:
       # The database. Removing the container keeps this; removing the volume does not, so a backup
       # of that volume is a backup of the instance (docs/backup.md).
-      - flowline-data:/data
+      - kanbantoolkit-data:/data
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8787/api/health"]
@@ -68,4 +68,4 @@ services:
       start_period: 15s
 
 volumes:
-  flowline-data:
+  kanbantoolkit-data:

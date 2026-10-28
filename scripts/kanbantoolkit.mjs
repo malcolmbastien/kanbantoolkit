@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * flowline — the small CLI (task 148, R7).
+ * kanbantoolkit — the small CLI (task 148, R7).
  *
  * It exists for one job: to get a machine credential into the hands of a tool without either an
  * administrator minting one by hand or the secret passing through a clipboard, a shell history or a
- * chat message. `flowline login` asks the instance for a short code, prints it, and waits. The person
+ * chat message. `kanbantoolkit login` asks the instance for a short code, prints it, and waits. The person
  * approves in the browser they are already signed in to; the secret arrives here, once, and is written
- * with mode 0600 (or into the file `FLOWLINE_TOKEN_FILE` names).
+ * with mode 0600 (or into the file `KANBANTOOLKIT_TOKEN_FILE` names).
  *
  * No dependencies, because a credential helper that has to be installed before it can be trusted is a
  * credential helper nobody runs. Node 20 or later — it uses the fetch the runtime already has.
  *
- *   npx flowline login --url http://localhost:8787
- *   flowline whoami
- *   flowline token        # prints it, for a script that would rather pipe than read a file
+ *   npx kanbantoolkit login --url http://localhost:8787
+ *   kanbantoolkit whoami
+ *   kanbantoolkit token        # prints it, for a script that would rather pipe than read a file
  */
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -22,25 +22,25 @@ import { dirname, join, resolve } from 'node:path'
 
 const DEFAULT_SCOPES = ['boards:read', 'items:read']
 
-const help = `flowline — connect a tool to this instance
+const help = `kanbantoolkit — connect a tool to this instance
 
-  flowline login [--url URL] [--name NAME] [--scopes a,b] [--days N] [--token-file PATH]
+  kanbantoolkit login [--url URL] [--name NAME] [--scopes a,b] [--days N] [--token-file PATH]
       Ask the instance for a code, wait for a person to approve it, and store the credential.
 
-  flowline whoami [--url URL] [--token-file PATH]
+  kanbantoolkit whoami [--url URL] [--token-file PATH]
       Ask the instance who the stored credential is.
 
-  flowline token [--token-file PATH]
+  kanbantoolkit token [--token-file PATH]
       Print the stored credential, for a command substitution.
 
 Options:
-  --url          This instance. Defaults to $FLOWLINE_URL, then http://localhost:8787.
-  --name         What the tool is called in the person's list. Default: "flowline on <hostname>".
+  --url          This instance. Defaults to $KANBANTOOLKIT_URL, then http://localhost:8787.
+  --name         What the tool is called in the person's list. Default: "kanbantoolkit on <hostname>".
   --scopes       Comma-separated: ${DEFAULT_SCOPES.join(', ')} (default), boards:write, items:write,
                  items:comment, objectives:write, people:read, workspace:admin, instance:admin.
   --days         How long the credential lasts, in whole days, or "never". Default: the instance's (90).
-  --token-file   Where to store it. Default: $FLOWLINE_TOKEN_FILE, then $XDG_CONFIG_HOME/flowline/token,
-                 then ~/.config/flowline/token.
+  --token-file   Where to store it. Default: $KANBANTOOLKIT_TOKEN_FILE, then $XDG_CONFIG_HOME/kanbantoolkit/token,
+                 then ~/.config/kanbantoolkit/token.
 `
 
 function parse(argv) {
@@ -58,9 +58,9 @@ function parse(argv) {
 }
 
 const tokenPath = (args) =>
-  resolve(args['token-file'] ?? process.env.FLOWLINE_TOKEN_FILE ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'flowline', 'token'))
+  resolve(args['token-file'] ?? process.env.KANBANTOOLKIT_TOKEN_FILE ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'kanbantoolkit', 'token'))
 
-const baseUrl = (args) => (args.url ?? process.env.FLOWLINE_URL ?? 'http://localhost:8787').replace(/\/+$/, '')
+const baseUrl = (args) => (args.url ?? process.env.KANBANTOOLKIT_URL ?? 'http://localhost:8787').replace(/\/+$/, '')
 
 function store(path, secret) {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
@@ -71,9 +71,9 @@ function store(path, secret) {
 }
 
 function readStored(path, args) {
-  const explicit = args['token-file'] ?? process.env.FLOWLINE_TOKEN_FILE
+  const explicit = args['token-file'] ?? process.env.KANBANTOOLKIT_TOKEN_FILE
   if (!existsSync(path)) {
-    console.error(`No credential at ${path}. Run "flowline login --url ${baseUrl(args)}" first.`)
+    console.error(`No credential at ${path}. Run "kanbantoolkit login --url ${baseUrl(args)}" first.`)
     process.exit(2)
   }
   return readFileSync(path, 'utf8').trim()
@@ -83,7 +83,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function login(args) {
   const url = baseUrl(args)
-  const name = args.name ?? `flowline on ${process.env.HOSTNAME ?? 'this machine'}`
+  const name = args.name ?? `kanbantoolkit on ${process.env.HOSTNAME ?? 'this machine'}`
   const scopes = (args.scopes ?? DEFAULT_SCOPES.join(','))
     .split(',')
     .map((scope) => scope.trim())
@@ -125,7 +125,7 @@ async function login(args) {
       store(path, secret)
       console.log(`  Connected. The credential is at ${path} (mode 0600).`)
       console.log('')
-      console.log(`    curl -H "Authorization: Bearer $(flowline token)" ${url}/api/workspace`)
+      console.log(`    curl -H "Authorization: Bearer $(kanbantoolkit token)" ${url}/api/workspace`)
       console.log('')
       return
     }
@@ -135,7 +135,7 @@ async function login(args) {
     process.exit(1)
   }
 
-  console.error('  The code expired before it was approved. Run "flowline login" again.')
+  console.error('  The code expired before it was approved. Run "kanbantoolkit login" again.')
   process.exit(1)
 }
 

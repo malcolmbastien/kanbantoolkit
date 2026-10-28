@@ -69,7 +69,7 @@ describe('the server schema', () => {
       workspace_id: 'workspace',
     })
     // …and the migration that made the workspace a row gave them theirs.
-    expect(await db.get("SELECT name FROM workspaces WHERE id = 'workspace'")).toEqual({ name: 'Flowline' })
+    expect(await db.get("SELECT name FROM workspaces WHERE id = 'workspace'")).toEqual({ name: 'Kanban Toolkit' })
   })
 
   it('takes the bill away and keeps the workspace it belonged to', async () => {

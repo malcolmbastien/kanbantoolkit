@@ -1,6 +1,6 @@
-# Flowline documentation
+# Kanban Toolkit documentation
 
-Flowline is a board for a team's flow and for the read management makes of it, on a machine you own:
+Kanban Toolkit is a board for a team's flow and for the read management makes of it, on a machine you own:
 one Node process, one SQLite file, and no service in between. This directory is the documentation —
 it lives with the code, so the version you are reading is the version you cloned.
 

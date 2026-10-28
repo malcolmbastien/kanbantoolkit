@@ -76,7 +76,7 @@ export function TopBar(props: Props) {
         <span className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
         </span>
-        <span className="text-title font-semibold tracking-tight text-slate-900">Flowline</span>
+        <span className="text-title font-semibold tracking-tight text-slate-900">Kanban Toolkit</span>
       </button>
 
       {/* The navigation is always here: where you can go does not depend on where you are.

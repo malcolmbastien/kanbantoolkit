@@ -128,7 +128,7 @@ test('the terms stand beside the door, and every page carries the support addres
   // page of its own — and it is not a mailbox, because this project answers on its tracker.
   for (const path of ['/', '/install/', '/privacy/']) {
     const html = await (await request.get(path)).text()
-    expect(html, path).toContain('https://github.com/malcolmbastien/flowline/issues')
+    expect(html, path).toContain('https://github.com/malcolmbastien/kanbantoolkit/issues')
     expect(html, path).not.toContain('mailto:')
   }
 })

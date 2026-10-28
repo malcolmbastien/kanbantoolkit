@@ -24,7 +24,7 @@ export interface QueuedWrite {
   at: number
 }
 
-const KEY = 'flowline-queue-v1'
+const KEY = 'kanbantoolkit-queue-v1'
 /** Beyond this the queue is full: the app says so rather than quietly dropping the oldest work. */
 export const QUEUE_LIMIT = 500
 

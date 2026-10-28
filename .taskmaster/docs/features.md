@@ -1,4 +1,4 @@
-# Flowline — Feature backlog (post-foundation)
+# Kanban Toolkit — Feature backlog (post-foundation)
 
 > MVP usability + OKR/rollup work. Excludes permissions, auth and user management.
 > The foundation (boards, typed lanes, Initiatives & Cards workflows, edit mode,

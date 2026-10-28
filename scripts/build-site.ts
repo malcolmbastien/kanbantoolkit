@@ -21,7 +21,7 @@ const SITE = join(ROOT, 'site')
 const DIST = join(ROOT, 'dist')
 
 /** The canonical origin: one value for canonicals, Open Graph and the sitemap. */
-const ORIGIN = (process.env.SITE_URL ?? 'https://flowline.example').replace(/\/+$/, '')
+const ORIGIN = (process.env.SITE_URL ?? 'https://kanbantoolkit.example').replace(/\/+$/, '')
 
 /**
  * The repository — where the source, the licence and the docs actually live.
@@ -30,7 +30,7 @@ const ORIGIN = (process.env.SITE_URL ?? 'https://flowline.example').replace(/\/+
  * rather than at copies of it. Like the origin, it is one value: a placeholder until the project is
  * published, and a single constant when it is.
  */
-const REPO = (process.env.REPO_URL ?? 'https://github.com/malcolmbastien/flowline').replace(/\/+$/, '')
+const REPO = (process.env.REPO_URL ?? 'https://github.com/malcolmbastien/kanbantoolkit').replace(/\/+$/, '')
 
 /**
  * The two addresses a reader might need, and the only two that appear anywhere on the site.
@@ -64,7 +64,7 @@ const cssVersion = (() => {
  * form nobody knows about standing between the report and the maintainer. A self-hoster points it
  * at their own tracker with `SUPPORT_URL`.
  */
-const SUPPORT_URL = process.env.SUPPORT_URL ?? 'https://github.com/malcolmbastien/flowline/issues/new/choose'
+const SUPPORT_URL = process.env.SUPPORT_URL ?? 'https://github.com/malcolmbastien/kanbantoolkit/issues/new/choose'
 
 /**
  * The pages the app used to answer, and the parameters that mean one of them.
@@ -195,7 +195,7 @@ function fileFor(path: string): string {
 
 function robots(): string {
   return [
-    '# Flowline. The public pages are readable by anybody; the app is not for indexing.',
+    '# Kanban Toolkit. The public pages are readable by anybody; the app is not for indexing.',
     'User-agent: *',
     'Allow: /',
     'Disallow: /app',

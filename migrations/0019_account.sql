@@ -9,7 +9,7 @@
 -- reference instead. A test asserts this table's shape, so a later "just one more field" has to say
 -- what it is doing here.
 
-ALTER TABLE instance_settings ADD COLUMN name TEXT NOT NULL DEFAULT 'Flowline';
+ALTER TABLE instance_settings ADD COLUMN name TEXT NOT NULL DEFAULT 'Kanban Toolkit';
 ALTER TABLE instance_settings ADD COLUMN billing_email TEXT;
 ALTER TABLE instance_settings ADD COLUMN company_name TEXT;
 ALTER TABLE instance_settings ADD COLUMN billing_reference TEXT;

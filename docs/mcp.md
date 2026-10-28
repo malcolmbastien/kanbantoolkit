@@ -1,6 +1,6 @@
 # The MCP server
 
-Flowline speaks [Model Context Protocol](https://modelcontextprotocol.io) so an agent can read and
+Kanban Toolkit speaks [Model Context Protocol](https://modelcontextprotocol.io) so an agent can read and
 write the board. It is not a second product: the tools are named after the acts a person has, they
 call the same operations as [`/api/v1`](rest-api.md), and they are decided by the same domain rules.
 A move an agent makes is a move — it can be refused by a WIP limit, it lands in the trail, and it
@@ -28,11 +28,11 @@ trail cannot say who filed the card.
 Either the CLI, in a terminal:
 
 ```bash
-npm run flowline -- login --url https://board.example.com
+npm run kanbantoolkit -- login --url https://board.example.com
 ```
 
 …which prints a code, waits for you to approve it in the browser, and writes the secret to
-`~/.config/flowline/token`; or **Admin → Connect an agent** in the app, which mints a scoped token and
+`~/.config/kanbantoolkit/token`; or **Admin → Connect an agent** in the app, which mints a scoped token and
 shows both configurations below with the secret in them, once.
 
 A token is a person's: it acts as its owner, it can never reach past their role, and every write it
@@ -43,10 +43,10 @@ makes is audited under their name. Mint it read-only unless the agent needs to w
 ```json
 {
   "mcpServers": {
-    "flowline": {
+    "kanbantoolkit": {
       "type": "http",
       "url": "https://board.example.com/mcp",
-      "headers": { "Authorization": "Bearer flt_…" }
+      "headers": { "Authorization": "Bearer ktk_…" }
     }
   }
 }
@@ -60,21 +60,21 @@ restart costs the agent nothing. `GET /mcp` answers `405` and says so.
 ```json
 {
   "mcpServers": {
-    "flowline": {
+    "kanbantoolkit": {
       "command": "npx",
       "args": ["tsx", "server/mcp.ts"],
       "env": {
-        "FLOWLINE_URL": "https://board.example.com",
-        "FLOWLINE_TOKEN_FILE": "/home/you/.config/flowline/token"
+        "KANBANTOOLKIT_URL": "https://board.example.com",
+        "KANBANTOOLKIT_TOKEN_FILE": "/home/you/.config/kanbantoolkit/token"
       }
     }
   }
 }
 ```
 
-`FLOWLINE_TOKEN` works instead of the file if you must; the file is better, because that is where the
+`KANBANTOOLKIT_TOKEN` works instead of the file if you must; the file is better, because that is where the
 CLI keeps it and a config that travels does not carry a secret. The bridge needs the repository (or
-the image, run with `docker exec -i flowline tsx server/mcp.ts`); everything else runs on the
+the image, run with `docker exec -i kanbantoolkit tsx server/mcp.ts`); everything else runs on the
 instance.
 
 ## The tools
@@ -95,8 +95,8 @@ Writes:
 
 | Tool | Scope | What it refuses |
 | --- | --- | --- |
-| `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the other workflow; a `size` (the board counts issues, not points) |
-| `update_item` | `items:write` | a stale `baseRev` (with the current item); a retype into or out of Initiative; a `size`; a parent that is not an initiative or would make a cycle |
+| `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the other workflow; a `size` (the board counts issues, not points); a `createdById` — the server records the caller as the creator |
+| `update_item` | `items:write` | a stale `baseRev` (with the current item); a retype into or out of Initiative; a `size`; a `createdById`; a parent that is not an initiative or would make a cycle |
 | `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell or the reverse; an initiative across its section |
 | `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or its own descendant |
 
@@ -144,7 +144,7 @@ may not invent work, and nothing in this server will do it for the model.
 ## Out of scope, on purpose
 
 - **Prompts and sampling.** This is a server that lets an agent read and write the board, not a chat
-  product inside Flowline.
+  product inside Kanban Toolkit.
 - **Server-initiated streams.** No `GET /mcp` event stream: the tools are request/response, and a
   stream nobody uses is a connection somebody has to keep alive.
 - **An unauthenticated local mode.** The trail has to be able to say who acted.

@@ -1,7 +1,7 @@
 /**
  * Reading a workspace file back in. Writing is a one-liner the component owns (a JSON
  * download of the persisted slice, plus metadata), but what may be read back is a domain
- * rule: a file is either a complete Flowline workspace of a version this build understands,
+ * rule: a file is either a complete Kanban Toolkit workspace of a version this build understands,
  * or it is rejected with the reason — an import of a shaped-but-partial file would pretend
  * missing work does not exist.
  */
@@ -21,16 +21,16 @@ const REQUIRED_ARRAYS = ['boards', 'lanes', 'items', 'placements', 'issueTypes']
 
 export function readWorkspaceFile(json: unknown, currentVersion: number): WorkspaceRead {
   if (typeof json !== 'object' || json === null || Array.isArray(json)) {
-    return { ok: false, error: 'That file is not a Flowline workspace.' }
+    return { ok: false, error: 'That file is not a Kanban Toolkit workspace.' }
   }
   const file = json as Record<string, unknown>
-  if (file.app !== 'flowline') return { ok: false, error: 'That file is not a Flowline workspace.' }
+  if (file.app !== 'kanbantoolkit') return { ok: false, error: 'That file is not a Kanban Toolkit workspace.' }
   const version = file.version
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
     return { ok: false, error: 'The file does not say which workspace shape it was written in.' }
   }
   if (version > currentVersion) {
-    return { ok: false, error: `The file was written by a newer Flowline — workspace shape ${version}, and this build understands ${currentVersion}.` }
+    return { ok: false, error: `The file was written by a newer Kanban Toolkit — workspace shape ${version}, and this build understands ${currentVersion}.` }
   }
   const state = file.state
   if (typeof state !== 'object' || state === null || Array.isArray(state)) {

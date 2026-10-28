@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "flowline",
+  "name": "kanbantoolkit",
   "compatibility_date": "2026-10-19",
 
   // The static build, served from the edge. When the workspace gets a server, this file gains
@@ -35,11 +35,11 @@
   "observability": { "enabled": true }
 
   // The database. Create it once, then uncomment this block with the id the command prints:
-  //   npx wrangler d1 create flowline-errors
-  //   npx wrangler d1 migrations apply flowline-errors --remote
+  //   npx wrangler d1 create kanbantoolkit-errors
+  //   npx wrangler d1 migrations apply kanbantoolkit-errors --remote
   //
   // This file is **this project's own deployment** — the site and the demo at
-  // flowline.flowline-team.workers.dev. It is not how you self-host: a team cloning the repository runs
+  // kanbantoolkit.com. It is not how you self-host: a team cloning the repository runs
   // `docker compose up -d` and never opens this file (docs/install.md).
   //
   // Uncommenting the block below is what turns *this* deployment from the site and demo into an
@@ -55,7 +55,7 @@
   // "d1_databases": [
   //   {
   //     "binding": "DB",
-  //     "database_name": "flowline-errors",
+  //     "database_name": "kanbantoolkit-errors",
   //     "database_id": "<the id from wrangler d1 create>",
   //     "migrations_dir": "migrations"
   //   }

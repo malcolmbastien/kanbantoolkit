@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
 -- id, so it already says which workspace it belongs to.
 
 -- The one workspace this instance already had, named for it.
-INSERT OR IGNORE INTO workspaces (id, name) VALUES ('workspace', 'Flowline');
+INSERT OR IGNORE INTO workspaces (id, name) VALUES ('workspace', 'Kanban Toolkit');
 
 -- a person in a workspace
 ALTER TABLE people ADD COLUMN workspace_id TEXT REFERENCES workspaces (id);

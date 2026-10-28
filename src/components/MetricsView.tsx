@@ -78,7 +78,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
             <div className="text-heading font-semibold text-slate-800">{board?.name ?? 'Board'}</div>
             <div className="text-meta text-slate-600">
               The cards workflow, read from each card's own history — nothing to maintain. That history
-              starts the day Flowline began recording moves, so the earliest weeks are thin.
+              starts the day Kanban Toolkit began recording moves, so the earliest weeks are thin.
             </div>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2">

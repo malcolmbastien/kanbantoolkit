@@ -793,7 +793,7 @@ export function adminRoutes(runtime: Runtime) {
       headers: {
         'content-type': 'text/csv; charset=utf-8',
         // The date is in the name so two exports a week apart do not silently replace each other.
-        'content-disposition': `attachment; filename="flowline-people-${new Date().toISOString().slice(0, 10)}.csv"`,
+        'content-disposition': `attachment; filename="kanbantoolkit-people-${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     })
   })

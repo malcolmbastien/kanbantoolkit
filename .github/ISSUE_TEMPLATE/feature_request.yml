@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Flowline is a small product with a long list of things it deliberately does not do (see
+        Kanban Toolkit is a small product with a long list of things it deliberately does not do (see
         [AGENTS.md](../blob/main/AGENTS.md)). A request is much easier to judge when it says what
         problem it answers, not only what the button should say.
 

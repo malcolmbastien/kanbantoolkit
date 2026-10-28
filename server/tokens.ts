@@ -25,9 +25,9 @@ import type { Database } from './db'
 
 /**
  * The prefix is a courtesy to every log, proxy and secret scanner on the way: a value beginning
- * `flt_` is recognisably a Flowline token, so a leak can be found and a redaction can be written.
+ * `ktk_` is recognisably a Kanban Toolkit token, so a leak can be found and a redaction can be written.
  */
-export const TOKEN_PREFIX = 'flt_'
+export const TOKEN_PREFIX = 'ktk_'
 
 /** R3: ninety days unless the person minting it chose otherwise. */
 export const DEFAULT_DAYS = 90

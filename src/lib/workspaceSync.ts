@@ -36,7 +36,7 @@ interface WorkspaceSync {
 
 export const useWorkspaceSync = create<WorkspaceSync>(() => ({ offer: false, busy: false }))
 
-const ASKED = 'flowline-import-asked:'
+const ASKED = 'kanbantoolkit-import-asked:'
 
 function asked(userId: string): boolean {
   try {

@@ -18,7 +18,7 @@ const HEARTBEAT_MS = 15_000
 const holding = new Set<string>()
 let timer: ReturnType<typeof setInterval> | undefined
 
-const headers = (): HeadersInit => ({ 'x-flowline-tab': TAB })
+const headers = (): HeadersInit => ({ 'x-kanbantoolkit-tab': TAB })
 
 async function take(itemId: string): Promise<boolean> {
   try {

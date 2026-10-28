@@ -51,7 +51,7 @@ an appointed representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project
-maintainer by [opening an issue](https://github.com/malcolmbastien/flowline/issues/new/choose). If
+maintainer by [opening an issue](https://github.com/malcolmbastien/kanbantoolkit/issues/new/choose). If
 what you have to say should not be public, say only that you have a report and would like it kept
 private, and the maintainer will reply with a way to send the rest. Anything happening on GitHub
 itself can also be reported through GitHub's own

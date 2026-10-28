@@ -750,6 +750,16 @@ function ensureUser(users: User[], name: string): { id: string; users: User[] } 
  */
 let currentAuthor: string | undefined
 
+/**
+ * The creator, at the moment an item is made.
+ *
+ * The same source the log's `by` comes from — this browser's person — and absent when nobody has said
+ * who they are, which is the honest answer for a workspace that predates the record. A field of its
+ * own rather than only the log entry, because the creator is a fact about the item that the API, an
+ * agent and the panel all read without walking a history.
+ */
+const creator = (): { createdById?: string } => (currentAuthor ? { createdById: currentAuthor } : {})
+
 const logEntry = (kind: ItemLogEntry['kind'], note?: string): ItemLogEntry => ({
   id: uid(),
   at: Date.now(),
@@ -1101,6 +1111,17 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return rest
     })
   }
+  // v35: an item records who created it. State written before the field has the answer in its own
+  // log — the 'created' entry carries `by` whenever the person was known — so the field is filled
+  // from there rather than left blank for ever. An item whose log says nothing stays without one:
+  // a name invented for it would be a guess dressed as a fact.
+  if (Array.isArray(p.items)) {
+    p.items = (p.items as (Item & { createdById?: string })[]).map((i) => {
+      if (i.createdById) return i
+      const by = (i.log ?? []).find((entry) => entry.kind === 'created')?.by
+      return by ? { ...i, createdById: by } : i
+    })
+  }
   // v34: the board stopped counting points — a card has no estimate, and progress is the number
   // of issues done over the number below. State written before that loses the field, so a number
   // the model no longer has cannot come back through a reload, an import or a backup.
@@ -1151,12 +1172,12 @@ export function migratePersisted(persisted: unknown, version: number): Partial<S
  * Exported for testing.
  */
 /** The key the workspace lives under. Named once: the boot check reads it before the store does. */
-export const PERSIST_KEY = 'flowline-state-v3'
+export const PERSIST_KEY = 'kanbantoolkit-state-v3'
 
 /** Chosen once (R4): the store is given an adapter and never asks which one it was given. */
 const repository = chooseRepository()
 /** The current persisted workspace shape — every schema change bumps it with a migrate. */
-export const PERSIST_VERSION = 34
+export const PERSIST_VERSION = 35
 /**
  * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
  * guess is not what a person's workspace gets.
@@ -1844,7 +1865,7 @@ export const useStore = create<Store>()(
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) }),
 
       addCard: ({ boardId, typeId, laneId, title }) => {
-        const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), log: [logEntry('created')] }
+        const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), ...creator(), log: [logEntry('created')] }
         const placement: Placement = {
           id: uid(),
           boardId,
@@ -2014,6 +2035,8 @@ export const useStore = create<Store>()(
           title: `${src.title} copy`,
           typeId: src.typeId,
           createdAt: Date.now(),
+          // A copy is made by whoever makes it, not by whoever made the original.
+          ...creator(),
           log: [logEntry('created')],
           // Shape, not state: the description and the steps are what make this record the
           // record it is; the assignees, dates and reasons are judgements about *that* card.
@@ -2222,8 +2245,11 @@ export const useStore = create<Store>()(
             // The panel's type control is hidden for an initiative, but the guard lives
             // here too: the rule is the model's, not the UI's.
             const allowed = !patch.typeId || canRetype(i, patch.typeId, state.issueTypes)
-            const { typeId: _reserved, ...rest } = patch
-            const next: Item = { ...i, ...(allowed ? patch : rest) }
+            // The creator records an act that has already happened, so a patch that carries one is
+            // ignored rather than obeyed; the type is reserved by the rule above, and only a retype
+            // the model allows gets through.
+            const { typeId, createdById: _creator, ...rest } = patch
+            const next: Item = { ...i, ...rest, ...(allowed && typeId ? { typeId } : {}) }
             // What changed is part of the record — and a change the model refused changed
             // nothing, so it says nothing.
             const entries = fieldEditEntries(i, next, state)
@@ -2443,7 +2469,7 @@ export const useStore = create<Store>()(
         const lane = leafLanes(state.lanes, boardId, 'initiatives')[0]
         const typeId = state.issueTypes.find((t) => t.name === 'Initiative')?.id ?? state.issueTypes[0]?.id
         if (!lane || !typeId) return
-        const item: Item = { id: uid(), title, typeId, createdAt: Date.now() }
+        const item: Item = { id: uid(), title, typeId, createdAt: Date.now(), ...creator(), log: [logEntry('created')] }
         set({
           items: [...state.items, item],
           placements: [...state.placements, { id: uid(), boardId, itemId: item.id, laneId: lane.id, laneEnteredAt: Date.now() }],

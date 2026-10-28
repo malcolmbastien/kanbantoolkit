@@ -1,25 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Archive,
-  ArrowRight,
-  Ban,
-  CalendarDays,
-  Check,
-  ChevronDown,
-  Copy,
-  CornerLeftUp,
-  Eye,
-  Flag,
-  Minus,
-  MoreHorizontal,
-  Plus,
-  Send,
-  SquareArrowOutUpRight,
-  Target,
-  Trash2,
-  TriangleAlert,
-  X,
-} from 'lucide-react'
+import { Archive, ArrowRight, Ban, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, UserRound, X } from 'lucide-react'
 import {
   attributedObjectives,
   checklistItems,
@@ -385,6 +365,8 @@ export function ItemPanel({ itemId }: Props) {
    * Undefined only when nobody was named at all.
    */
   const authorOf = (entry: ItemLogEntry) => nameOfUser(users, entry.by)
+  /** Who made it, when the record exists — it does not for work written before the field did. */
+  const creator = item.createdById ? users.find((u) => u.id === item.createdById) : undefined
 
   /**
    * One item as a row in a list: how it stands, what it is called, and where it lives — the three
@@ -686,6 +668,18 @@ export function ItemPanel({ itemId }: Props) {
           className="mt-2 w-full rounded-lg border border-transparent bg-transparent text-heading font-semibold leading-snug text-slate-900 transition hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
         />
 
+        {/* Who made it, at the size of a fact rather than a field: a record written once, kept
+            beside the title because it is part of what the item is. Absent is absent — a card from
+            before the record existed says nothing rather than inventing a name. */}
+        {creator && (
+          <p data-created-by={creator.id} className="mt-1 flex items-center gap-1 text-micro text-slate-600">
+            <UserRound size={11} className="shrink-0 text-slate-400" />
+            Created by <span className="font-medium text-slate-700">{creator.name}</span>
+            <span className="text-slate-400">·</span>
+            <span title={new Date(item.createdAt).toLocaleString()}>{whenLabel(item.createdAt)}</span>
+          </p>
+        )}
+
         <div className="mt-3 flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
           {tabs.map((t) => {
             const on = tab === t.id
@@ -950,7 +944,7 @@ export function ItemPanel({ itemId }: Props) {
                       Full width, because a name is not a half-column's worth of room. */}
                   <div className="flex flex-wrap items-center gap-1">
                     <input
-                      list="flowline-assignees"
+                      list="kanbantoolkit-assignees"
                       value={assigneeDraft}
                       onChange={(e) => setAssigneeDraft(e.target.value)}
                       onKeyDown={(e) => {
@@ -982,7 +976,7 @@ export function ItemPanel({ itemId }: Props) {
                         </span>
                       )
                     })}
-                    <datalist id="flowline-assignees">
+                    <datalist id="kanbantoolkit-assignees">
                       {users.map((u) => (
                         <option key={u.id} value={u.name} />
                       ))}

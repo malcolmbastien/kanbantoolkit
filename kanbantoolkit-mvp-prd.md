@@ -1,4 +1,4 @@
-# PRD — Flowline (working title)
+# PRD — Kanban Toolkit (working title)
 
 **MVP scoped to prove one thing: work is a graph, and boards are views over it.**
 
@@ -23,7 +23,7 @@ None of this is a bug in Trello, Jira, or LeanKit. It's the predictable decay of
 
 Three derived facts, versus the typed fields every competitor uses:
 
-| Fact | Competitor | Flowline |
+| Fact | Competitor | Kanban Toolkit |
 |---|---|---|
 | Item level | typed field | computed from decomposition DAG |
 | Dependency state | typed field | computed from both endpoints' current state |
@@ -39,7 +39,7 @@ Derivation makes the model honest. These principles make it *worth using*. They 
 
 **It is a joy to use.** Fast, quiet, predictable. Interactions land where the user expects, a board reads at a glance, and nothing asks for information the graph already knows. Joy is not decoration here — it is the absence of friction and the presence of trust: the tool does what you mean, the first time.
 
-**It respects time.** Every manual update is a tax the tool chose to levy. Flowline derives what it can — level, status, dependency state, roll-up — so nobody hand-maintains a fact the system already knows. The measure is not features shipped; it is the answers a person reaches in seconds instead of by chasing six boards and a spreadsheet.
+**It respects time.** Every manual update is a tax the tool chose to levy. Kanban Toolkit derives what it can — level, status, dependency state, roll-up — so nobody hand-maintains a fact the system already knows. The measure is not features shipped; it is the answers a person reaches in seconds instead of by chasing six boards and a spreadsheet.
 
 **The human is in control — no AI slop.** Nothing on the board is generated, guessed, or changed behind the user's back. No auto-status, no invented summaries, no recommendation that quietly becomes a fact. Every consequential state is either *derived* from the user's own structure or *set explicitly by a person*, with a reason recorded. If a capability cannot show its work, it does not ship. The user decides what they want, and keeps it.
 
@@ -58,7 +58,7 @@ This is the payoff of derivation. Roll-up is not a report someone writes and kee
 
 Agile asks for two things that pull against each other: **self-organization**, teams deciding how they work, and **transparency**, management being able to see where things stand. Most tools resolve that by picking a side. Hold every team to a standard board and you get comparability at the cost of ownership; let every team invent its own board and you get ownership at the cost of any view above it.
 
-Flowline separates the two instead. A team's **card workflow** is theirs: its columns, its splits, its policies, reworked whenever they like. Their **initiative workflow** is the *external representation of the same work* — initiatives in the four typed stages. Neither is a copy of the other and nothing is entered twice, because the initiative view is derived from where the cards actually are. A team can reshape its board on Tuesday without asking anyone, and the portfolio is still correct on Wednesday, because it was never a transcription of the board to begin with.
+Kanban Toolkit separates the two instead. A team's **card workflow** is theirs: its columns, its splits, its policies, reworked whenever they like. Their **initiative workflow** is the *external representation of the same work* — initiatives in the four typed stages. Neither is a copy of the other and nothing is entered twice, because the initiative view is derived from where the cards actually are. A team can reshape its board on Tuesday without asking anyone, and the portfolio is still correct on Wednesday, because it was never a transcription of the board to begin with.
 
 That separation is the point, and it is what makes the two agile virtues compatible rather than traded off: teams manage their workflow and their cards as they see fit, and management gets the information it needs, without either side telling the other how to work.
 
@@ -192,7 +192,7 @@ A LeanKit-style sliced board: vertical lanes (state columns) crossed by horizont
 
 ```
 ┌─ Top bar ─────────────────────────────────────────────┐
-│ ⊞ Flowline   [Board ▾]  Scope: Core Experience ▾      │
+│ ⊞ Kanban Toolkit   [Board ▾]  Scope: Core Experience ▾      │
 │ Resolution: ◉ Epic (L2)  ○ Initiative (L1)  ○ Story (L3)  ⚙ 🔍  ⊡ 100%  │
 ├──┬────────────────────────────────────────────────────┤
 │  │  Backlog │ Analyze │ In Progress │ Ready │ Done     │

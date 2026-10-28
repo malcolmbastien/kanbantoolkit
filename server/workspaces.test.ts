@@ -76,7 +76,7 @@ describe('every entity names its workspace', () => {
       expect.objectContaining({ name: 'workspace_id' }),
     )
     expect(await db.get<{ id: string }>('SELECT id FROM workspace')).toBeUndefined()
-    expect(await db.all('SELECT id, name FROM workspaces')).toEqual([{ id: 'workspace', name: 'Flowline' }])
+    expect(await db.all('SELECT id, name FROM workspaces')).toEqual([{ id: 'workspace', name: 'Kanban Toolkit' }])
   })
 
   it('refuses a row written without one', async () => {

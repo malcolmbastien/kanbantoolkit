@@ -5,14 +5,14 @@
 //
 //   client  ──▶  http://localhost:8788/v1/...  ──▶  https://opencode.ai/zen/go/v1/...
 //
-// Zero dependencies. Dev tooling only — the Flowline app runtime never uses this.
+// Zero dependencies. Dev tooling only — the Kanban Toolkit app runtime never uses this.
 
 import http from 'node:http'
 
 const PORT = Number(process.env.OPENCODE_GO_PROXY_PORT ?? 8788)
 const TARGET = 'https://opencode.ai/zen/go'
 const SESSION = process.env.OPENCODE_GO_SESSION ?? crypto.randomUUID()
-const UA = 'flowline-taskmaster/0.1'
+const UA = 'kanbantoolkit-taskmaster/0.1'
 
 const HOP_BY_HOP = new Set([
   'connection',

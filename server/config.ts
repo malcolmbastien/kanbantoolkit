@@ -39,7 +39,7 @@ function value(env: unknown, key: string): string | undefined {
 
 /** Mixed into the stored address hash, so the table holds a hash rather than a person's address. */
 export function salt(env: unknown): string {
-  return value(env, 'ERROR_SALT') ?? 'flowline'
+  return value(env, 'ERROR_SALT') ?? 'kanbantoolkit'
 }
 
 /**
@@ -72,7 +72,7 @@ export function devAuth(env: unknown): boolean {
 /**
  * The provider this instance offers: the operator's own OIDC issuer.
  *
- * There is no vendor in this file, and that is the point. A team that runs Flowline already has an
+ * There is no vendor in this file, and that is the point. A team that runs Kanban Toolkit already has an
  * identity provider — Google Workspace, Entra, Keycloak, authentik — and each of them speaks OIDC.
  * Naming two of them here would have meant a third and a fourth later, a table of endpoints to keep
  * current, and a deployment that cannot use the provider it actually has.
@@ -116,7 +116,7 @@ export function providers(env: unknown): Provider[] {
  * One instance is one team (task 163), so the name belongs to the installation rather than to a
  * person filling in a form: `WORKSPACE_NAME` is set once, beside the port and the database path.
  */
-export const DEFAULT_WORKSPACE_NAME = 'Flowline'
+export const DEFAULT_WORKSPACE_NAME = 'Kanban Toolkit'
 
 /**
  * Where this project's own site is, for the two pages the app links to.

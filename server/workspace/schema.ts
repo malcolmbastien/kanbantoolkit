@@ -31,5 +31,9 @@ export const WORKSPACE_SCHEMA = 1
  * column is one this code has stopped reading. It is not an additive read like the ones above, which
  * is exactly why the number moves: a self-hoster on 25 is served by code that would ignore a field
  * their rows still hold, and the honest answer is to migrate, not to half-read it.
+ *
+ * 27 adds `items.created_by_id`, and backfills it from `item_log`. It is additive, and the backfill
+ * is the reason the number moves: a database that has not run it answers "nobody" for work whose log
+ * says otherwise, and a half-answer is worse than a refusal to serve until it is upgraded.
  */
-export const REQUIRED_SCHEMA = 26
+export const REQUIRED_SCHEMA = 27

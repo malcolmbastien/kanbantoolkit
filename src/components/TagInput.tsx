@@ -36,7 +36,7 @@ export function TagInput({
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
-  const listId = 'flowline-tag-options'
+  const listId = 'kanbantoolkit-tag-options'
 
   const on = new Set(carried)
   const term = query.trim()
@@ -92,7 +92,7 @@ export function TagInput({
         aria-expanded={open}
         aria-controls={listId}
         aria-autocomplete="list"
-        aria-activedescendant={open && options[active] ? `flowline-tag-option-${active}` : undefined}
+        aria-activedescendant={open && options[active] ? `kanbantoolkit-tag-option-${active}` : undefined}
         aria-label="Add a tag"
         value={query}
         onChange={(e) => {
@@ -142,7 +142,7 @@ export function TagInput({
             options.map((option, i) => (
               <button
                 key={option.kind === 'tag' ? option.tag.id : 'create'}
-                id={`flowline-tag-option-${i}`}
+                id={`kanbantoolkit-tag-option-${i}`}
                 role="option"
                 aria-selected={i === active}
                 // Keep the caret in the field: a pick and you carry on typing the next one.

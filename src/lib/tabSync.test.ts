@@ -3,7 +3,7 @@ import { syncFromStorage, tabSynced, useTabSync } from './tabSync'
 
 // Two tabs are two adapters over one storage; the module state (`seen`, `applying`) is the tab's
 // own, so each test starts by reading, as a boot does.
-const NAME = 'flowline-state-v3'
+const NAME = 'kanbantoolkit-state-v3'
 const data = new Map<string, string>()
 const base = {
   getItem: (key: string) => data.get(key) ?? null,

@@ -1,18 +1,18 @@
 <!--
-title: Install — Flowline
-description: Flowline on your machine: one command with Docker, or three with Node. One process, one SQLite file, the same routes and rules as the Cloudflare build, and no service in between.
+title: Install — Kanban Toolkit
+description: Kanban Toolkit on your machine: one command with Docker, or three with Node. One process, one SQLite file, the same routes and rules as the Cloudflare build, and no service in between.
 path: /install/
 -->
 <h1>Install it</h1>
 <p class="lede">
-  Flowline is free software, and it is the same application however you run it: the same routes, the
+  Kanban Toolkit is free software, and it is the same application however you run it: the same routes, the
   same SQLite schema and the same server as the Cloudflare build. One Node process, one file, a
   directory of static pages — no service in between, and nobody to ask.
 </p>
 
 <h2 id="container">One command, if you have Docker</h2>
-<pre><code>git clone {{repo}} flowline
-cd flowline &amp;&amp; docker compose up -d</code></pre>
+<pre><code>git clone {{repo}} kanbantoolkit
+cd kanbantoolkit &amp;&amp; docker compose up -d</code></pre>
 <p>
   That builds the image, creates the database on a volume, applies the migrations and answers on
   <code>http://localhost:8787/app</code>. The port is bound to loopback: a reverse proxy is the way
@@ -21,9 +21,9 @@ cd flowline &amp;&amp; docker compose up -d</code></pre>
 </p>
 
 <h2 id="commands">Or three commands, if you would rather see the parts</h2>
-<pre><code>git clone {{repo}} flowline
-cd flowline &amp;&amp; npm ci &amp;&amp; npm run build
-PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server</code></pre>
+<pre><code>git clone {{repo}} kanbantoolkit
+cd kanbantoolkit &amp;&amp; npm ci &amp;&amp; npm run build
+PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server</code></pre>
 <p>
   This is what the image does, in the open: a clone, a build, a process. The build writes the site
   and the app into <code>dist/</code>; the first start applies the schema migrations and leaves you a
@@ -33,7 +33,7 @@ PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server</code></pre>
 <h2 id="first-run">What happens on the first run</h2>
 <ul class="points">
   <li><strong>The migrations run</strong> — inside a transaction, at start, before the first request is answered.</li>
-  <li><strong>The workspace is created</strong>, named by the installation (<code>WORKSPACE_NAME</code>, default <code>Flowline</code>).</li>
+  <li><strong>The workspace is created</strong>, named by the installation (<code>WORKSPACE_NAME</code>, default <code>Kanban Toolkit</code>).</li>
   <li><strong>The first person to sign in administers it</strong> — the instance and its one workspace. Everybody after them arrives by invitation.</li>
 </ul>
 
@@ -43,7 +43,7 @@ PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server</code></pre>
   it.
 </p>
 <ul class="points">
-  <li><strong>TLS.</strong> Flowline does not terminate it. A proxy does, with a certificate, and <code>PUBLIC_URL</code> tells the server what that address is — which is also what makes the session cookie secure.</li>
+  <li><strong>TLS.</strong> Kanban Toolkit does not terminate it. A proxy does, with a certificate, and <code>PUBLIC_URL</code> tells the server what that address is — which is also what makes the session cookie secure.</li>
   <li><strong>Updates.</strong> You pull, build and restart. A release that adds a migration applies it at boot, and the server refuses to start rather than serve a database it does not understand.</li>
   <li><strong>Backups.</strong> One file, copied somewhere else, on a schedule — and a restore you have actually run once. The copy is <code>npm run backup</code>; it takes a consistent snapshot while the server keeps running.</li>
   <li><strong>Support.</strong> There is nobody on a rota. The help page and the documentation are the ones written for this software, and they are the ones this instance is running.</li>
@@ -55,7 +55,7 @@ PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server</code></pre>
 </p>
 <ul class="points">
   <li><code>PORT</code> — the port to listen on. Defaults to <code>8787</code>.</li>
-  <li><code>DB_PATH</code> — the SQLite file. Defaults to <code>./flowline.db</code>; in the image, <code>/data/flowline.db</code>.</li>
+  <li><code>DB_PATH</code> — the SQLite file. Defaults to <code>./kanbantoolkit.db</code>; in the image, <code>/data/kanbantoolkit.db</code>.</li>
   <li><code>STATIC_DIR</code> — where the built site and app are. Defaults to <code>./dist</code>.</li>
   <li><code>WORKSPACE_NAME</code> — what the team is called. Set it before the first sign-in.</li>
   <li><code>PUBLIC_URL</code> — the address the outside world uses. Behind a proxy, the https one.</li>
@@ -89,9 +89,9 @@ PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server</code></pre>
   back, start — and the command checks the restored database's integrity and says what it restored,
   not just that a file moved.
 </p>
-<pre><code>npm run backup -- backup ./flowline.db ./backups
+<pre><code>npm run backup -- backup ./kanbantoolkit.db ./backups
 # … upgrade, and if it goes wrong:
-npm run backup -- restore ./backups/flowline-2026-10-24T02-00-00.db ./flowline.db --force</code></pre>
+npm run backup -- restore ./backups/kanbantoolkit-2026-10-24T02-00-00.db ./kanbantoolkit.db --force</code></pre>
 <p>
   A restore you have never run is a hope. The documentation has the drill, and the test suite runs
   one on every push.
@@ -99,7 +99,7 @@ npm run backup -- restore ./backups/flowline-2026-10-24T02-00-00.db ./flowline.d
 
 <h2 id="licence">The licence</h2>
 <p>
-  Flowline is free software under the <a href="{{repo}}/blob/main/LICENSE">GNU Affero General Public
+  Kanban Toolkit is free software under the <a href="{{repo}}/blob/main/LICENSE">GNU Affero General Public
   License, version 3 or later</a>. Read it, change it, run your changes — for yourself, or for a
   team, for nothing. The one thing it asks is the point of the licence: a modified version, run for
   other people over a network, offers them its source.

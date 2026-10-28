@@ -68,7 +68,7 @@ describe('one instance, one workspace', () => {
     const { db, signIn } = await world()
     await signIn('ada@example.com')
     const row = await db.get<{ name: string }>("SELECT name FROM workspaces WHERE id = 'workspace'")
-    expect(row?.name).toBe('Flowline')
+    expect(row?.name).toBe('Kanban Toolkit')
   })
 
   it('makes the first person the workspace’s administrator, and refuses a second workspace', async () => {

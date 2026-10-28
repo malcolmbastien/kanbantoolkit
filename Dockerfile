@@ -1,11 +1,11 @@
-# Flowline, as a container.
+# Kanban Toolkit, as a container.
 #
 # Two stages, because the build needs the whole repository and the runtime needs almost none of it:
 # the first compiles the client and the site, the second carries the server, the migrations and the
 # built files. Nothing in the runtime stage can see `.git`, the tests or the source maps.
 #
-#   docker build -t flowline .
-#   docker run -p 8787:8787 -v flowline-data:/data flowline
+#   docker build -t kanbantoolkit .
+#   docker run -p 8787:8787 -v kanbantoolkit-data:/data kanbantoolkit
 #
 # The database lives on the volume at /data, so replacing the container replaces the code and keeps
 # the work. The image runs as an unprivileged user and ships no credentials.
@@ -32,7 +32,7 @@ FROM node:26-alpine
 # the image would otherwise have to guess: where the build is, where the database is, and the port.
 ENV NODE_ENV=production \
     PORT=8787 \
-    DB_PATH=/data/flowline.db \
+    DB_PATH=/data/kanbantoolkit.db \
     STATIC_DIR=/app/dist
 
 WORKDIR /app
@@ -56,12 +56,12 @@ COPY --from=build /app/tsconfig.json ./tsconfig.json
 
 # A fixed, unprivileged user with an explicit id, and a data directory it owns. The database is
 # created here on first run by the migrations, so the volume needs no preparation.
-RUN addgroup -g 10001 -S flowline \
- && adduser -u 10001 -S -G flowline -h /app flowline \
+RUN addgroup -g 10001 -S kanbantoolkit \
+ && adduser -u 10001 -S -G kanbantoolkit -h /app kanbantoolkit \
  && mkdir -p /data \
- && chown -R flowline:flowline /data /app
+ && chown -R kanbantoolkit:kanbantoolkit /data /app
 
-USER flowline
+USER kanbantoolkit
 
 VOLUME ["/data"]
 EXPOSE 8787

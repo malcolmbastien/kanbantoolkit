@@ -217,7 +217,7 @@ describe('the cookie', () => {
 
   it('takes the production prefix and Secure when the instance is https, even behind a proxy', async () => {
     // The request arrives over http — this is what a proxy does — while PUBLIC_URL says https.
-    const { request, signIn } = await world({ AUTH_DEV: '1', PUBLIC_URL: 'https://flowline.example' })
+    const { request, signIn } = await world({ AUTH_DEV: '1', PUBLIC_URL: 'https://kanbantoolkit.example' })
     const { header, cookie } = await signIn('ada@example.com')
 
     expect(header).toContain('__Host-fl_session=')

@@ -77,10 +77,10 @@ describe('a workspace this build cannot read', () => {
     const kept = quarantine()!
     const file = keptWorkspaceFile(kept)
     const parsed = JSON.parse(file.text) as { app: string; version: number; state: { boards: { name: string }[] } }
-    expect(parsed.app).toBe('flowline')
+    expect(parsed.app).toBe('kanbantoolkit')
     expect(parsed.version).toBe(34)
     expect(parsed.state.boards[0].name).toBe('Atlas')
-    expect(file.filename).toMatch(/^flowline-kept-\d{4}-\d{2}-\d{2}\.json$/)
+    expect(file.filename).toMatch(/^kanbantoolkit-kept-\d{4}-\d{2}-\d{2}\.json$/)
   })
 
   it('forgets a copy only when asked', () => {

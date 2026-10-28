@@ -8,7 +8,7 @@ import type { ViewName } from './url'
  * and the product is always last. The open card is deliberately not part of the name: a tab that
  * changes every time a drawer opens makes the board harder to find, not easier.
  */
-const PRODUCT = 'Flowline'
+const PRODUCT = 'Kanban Toolkit'
 
 const VIEW_LABEL: Record<ViewName, string | null> = {
   board: null,

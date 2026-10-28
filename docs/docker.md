@@ -4,8 +4,8 @@ One instance, one container, one volume. The image is built from this repository
 else: no registry account, no base image with the app baked somewhere you cannot see.
 
 ```bash
-git clone https://github.com/malcolmbastien/flowline flowline
-cd flowline
+git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
+cd kanbantoolkit
 docker compose up -d
 ```
 
@@ -27,11 +27,11 @@ creates, the first sign-in — and on `main` it publishes that build to a regist
 `arm64`:
 
 ```bash
-docker run -d --name flowline -p 127.0.0.1:8787:8787 -v flowline-data:/data \
-  ghcr.io/malcolmbastien/flowline:latest
+docker run -d --name kanbantoolkit -p 127.0.0.1:8787:8787 -v kanbantoolkit-data:/data \
+  ghcr.io/malcolmbastien/kanbantoolkit:latest
 ```
 
-Or, in a compose file, replace `build: .` with `image: ghcr.io/malcolmbastien/flowline:<version>`.
+Or, in a compose file, replace `build: .` with `image: ghcr.io/malcolmbastien/kanbantoolkit:<version>`.
 
 Three tags, and what each one means:
 
@@ -42,7 +42,7 @@ Three tags, and what each one means:
 | `latest` | the last green `main` — not a release, and the tag to use only for a trial |
 
 > **The package carries its own visibility, not the repository's.** A package created while the
-> repository was private stays private until somebody changes it: **Packages → flowline → Package
+> repository was private stays private until somebody changes it: **Packages → kanbantoolkit → Package
 > settings → Change visibility**. If a `docker pull` asks for credentials, that is the switch. The
 > clone-and-build path above needs no registry at all, which is why it is still the first road in
 > this page.
@@ -55,26 +55,26 @@ without remembering.
 
 | | |
 | --- | --- |
-| `docker compose down` | stops and removes the container; **the work stays** on `flowline-data` |
+| `docker compose down` | stops and removes the container; **the work stays** on `kanbantoolkit-data` |
 | `docker compose down -v` | removes the volume too — the workspace, its accounts and its history |
 | `docker compose up -d --build` | rebuilds from the checkout and starts again, on the same volume |
 
-The database is `/data/flowline.db` inside the container. It is one SQLite file, and the volume is
+The database is `/data/kanbantoolkit.db` inside the container. It is one SQLite file, and the volume is
 what makes it outlive the image. Back it up with the same command a bare-metal instance uses, run
 inside the container:
 
 ```bash
-docker exec flowline npm run backup -- backup /data/flowline.db /data/backups
+docker exec kanbantoolkit npm run backup -- backup /data/kanbantoolkit.db /data/backups
 ```
 
-`docker exec flowline npm run backup -- restore <file> /data/flowline.db --force` is the other half,
+`docker exec kanbantoolkit npm run backup -- restore <file> /data/kanbantoolkit.db --force` is the other half,
 and [backup.md](backup.md) is the drill that proves both. A copy of the volume taken with the
 container stopped is the same thing, provided you stop the container first — a running database is
 being written to.
 
 ## What the image does and does not do
 
-- **Runs as an unprivileged user** (`flowline`, uid 10001) with only its own data directory writable.
+- **Runs as an unprivileged user** (`kanbantoolkit`, uid 10001) with only its own data directory writable.
 - **Ships no credentials and no debug port.** The only port is 8787, and the only way in is a
   provider you configured or an invitation.
 - **Says whether it can serve.** `GET /api/health` is the container's own healthcheck, with a
@@ -89,7 +89,7 @@ its default, and what an unset one does.
 ```bash
 cat > .env <<'EOF'
 WORKSPACE_NAME=Team Atlas
-PUBLIC_URL=https://flowline.example
+PUBLIC_URL=https://kanbantoolkit.example
 ERROR_SALT=replace-with-a-secret
 EOF
 docker compose up -d
@@ -105,10 +105,10 @@ http.
 ## Upgrading
 
 ```bash
-docker exec flowline npm run backup -- backup /data/flowline.db /data/backups   # 1. a copy
+docker exec kanbantoolkit npm run backup -- backup /data/kanbantoolkit.db /data/backups   # 1. a copy
 git pull --ff-only                                                              # 2. the new code
 docker compose up -d --build                                                    # 3. rebuild, restart
-docker compose logs --tail 20 flowline                                          # 4. the schema it reached, or why not
+docker compose logs --tail 20 kanbantoolkit                                          # 4. the schema it reached, or why not
 ```
 
 A release that adds a migration applies it on boot, inside the transaction, and stops the container
@@ -135,8 +135,8 @@ worth. If you outgrow it, the answer is a different database behind the same int
 ```bash
 docker compose ps                       # healthy
 curl -s localhost:8787/api/health       # {"ok":true,"database":"ok"}
-docker exec flowline id                 # uid=10001(flowline) — not root
-docker compose logs --tail 5 flowline   # flowline schema vN — the migration it reached
+docker exec kanbantoolkit id                 # uid=10001(kanbantoolkit) — not root
+docker compose logs --tail 5 kanbantoolkit   # kanbantoolkit schema vN — the migration it reached
 ```
 
 ---

@@ -60,6 +60,7 @@ export const compactItem = (item: Item, placement?: Placement) => ({
   id: item.id,
   title: item.title,
   typeId: item.typeId,
+  ...(item.createdById ? { createdById: item.createdById } : {}),
   ...(item.initiativeTypeId ? { initiativeTypeId: item.initiativeTypeId } : {}),
   ...(item.priority ? { priority: item.priority } : {}),
   ...(item.assignees?.length ? { assignees: item.assignees } : {}),
@@ -429,6 +430,9 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
   // The board stopped counting points. A client that still sends `size` hears so, rather than
   // having a number it believes in quietly dropped on the floor.
   if ('size' in body) return no(422, 'invalid', '`size` is gone: this board counts issues, not points', { field: 'size' })
+  if ('createdById' in body) {
+    return no(422, 'invalid', '`createdById` is the caller, recorded by the server — it is not a field to send', { field: 'createdById' })
+  }
 
   const now = Date.now()
   const draft: Item = {
@@ -436,6 +440,8 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
     title: typeof body.title === 'string' ? body.title : '',
     typeId,
     createdAt: now,
+    // Who made it is the caller, not a field in the body: the record of an act, written once.
+    createdById: caller.user.id,
     ...(typeof body.description === 'string' ? { description: body.description } : {}),
     ...(typeof body.priority === 'string' ? { priority: body.priority as Item['priority'] } : {}),
     ...(Array.isArray(body.assignees) ? { assignees: body.assignees.filter((a): a is string => typeof a === 'string') } : {}),
@@ -508,6 +514,10 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
   }
   // As on a create: `size` is not a field any more, and a client that sends one is told.
   if ('size' in body) return no(422, 'invalid', '`size` is gone: this board counts issues, not points', { field: 'size' })
+  // And the creator records an act that has already happened; a later edit cannot restate it.
+  if ('createdById' in body) {
+    return no(422, 'invalid', '`createdById` records who made the item, and is not a field to change', { field: 'createdById' })
+  }
 
   if (key) {
     const applied = await appliedItemOf(caller.db, key)

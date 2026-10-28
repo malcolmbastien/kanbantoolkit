@@ -1,6 +1,6 @@
 # Configure
 
-Everything Flowline reads is an environment variable, and every one of them has a default that
+Everything Kanban Toolkit reads is an environment variable, and every one of them has a default that
 works. Set nothing and you get a running board with no way in — which is a valid instance, and the
 static tier is exactly that.
 
@@ -26,12 +26,12 @@ from an environment, which is what lets one set of routes run on both.
 | Variable | Default | What it does, and what happens when it is unset |
 | --- | --- | --- |
 | `PORT` | `8787` | The port the Node entry listens on. Unset is the default; a proxy forwards to it. |
-| `DB_PATH` | `./flowline.db` | The SQLite file. Unset puts it beside the working directory. The file **is** the instance. |
+| `DB_PATH` | `./kanbantoolkit.db` | The SQLite file. Unset puts it beside the working directory. The file **is** the instance. |
 | `STATIC_DIR` | `./dist` | Where the built site and app are. Unset assumes `dist/` under the working directory. |
-| `WORKSPACE_NAME` | `Flowline` | What the installation calls the team. Applied when the workspace is created, and re-applied only to the name the row was created with — never over a name a person chose. |
+| `WORKSPACE_NAME` | `Kanban Toolkit` | What the installation calls the team. Applied when the workspace is created, and re-applied only to the name the row was created with — never over a name a person chose. |
 | `PUBLIC_URL` | the request's own origin | The address the outside world uses. It is what a sign-in redirect URI is built from, and `https` in it is what decides the session cookie's `Secure` attribute. Behind a proxy, set it. |
 | `LIVE` | on | Set to `0` to switch the live channel off. The app then polls the same feed, which is what it does on any host without a socket server. |
-| `ERROR_SALT` | `flowline` | Mixed into the hash of a reporter's address before it is stored. Set it to a secret in production: the salt is what stops an address being recovered from a hash. |
+| `ERROR_SALT` | `kanbantoolkit` | Mixed into the hash of a reporter's address before it is stored. Set it to a secret in production: the salt is what stops an address being recovered from a hash. |
 | `PROJECT_URL` | unset | Where this project's own site is, if the instance should link its terms and privacy pages. Set, the sign-in surface links them; unset, it says whose policies apply with no link. Never this instance's own address. |
 | `API_RATE_LIMIT` | `120` | Requests a minute one token may make against `/api/v1`. Generous for a script and low enough that a runaway loop is a `429` rather than an outage. The window is per token and kept in memory, so a restart grants a fresh one — it is a guard, not an accounting system. |
 
@@ -52,7 +52,7 @@ by password and by the reset link an administrator mints.
 | `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | — | Your issuer's client credentials. Both are required; either one alone leaves the door closed. |
 | `AUTH_OIDC_AUTHORIZE_ENDPOINT`, `AUTH_OIDC_TOKEN_ENDPOINT`, `AUTH_OIDC_USERINFO_ENDPOINT` | — | Where that issuer lives. All three are required, and all three are used as given. |
 | `AUTH_OIDC_LABEL` | the issuer's host | What the button says. `login.example.com` is a better label than "your provider" when a person has two of them open. |
-| `AUTH_OIDC_SCOPE` | `openid email profile` | What Flowline asks for. It needs an address and a name, and nothing more. |
+| `AUTH_OIDC_SCOPE` | `openid email profile` | What Kanban Toolkit asks for. It needs an address and a name, and nothing more. |
 | `AUTH_DEV` | off | `AUTH_DEV=1` turns on a development identity: sign in with an address, no provider, no password. **Never set it on an instance anybody can reach** — it is a door with no lock. |
 
 ## Provisioning
@@ -92,8 +92,8 @@ These are read by `npm run build`, not by the server. They end up in the files i
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `SITE_URL` | `https://flowline.example` | The canonical origin: every page's `<link rel="canonical">`, the Open Graph URLs and `sitemap.xml`. Set it to the real address or search engines will index the placeholder. |
-| `REPO_URL` | `https://github.com/malcolmbastien/flowline` | Where the source, the licence and these docs live. The site's Docs, Source and Licence links are built from it. |
+| `SITE_URL` | `https://kanbantoolkit.example` | The canonical origin: every page's `<link rel="canonical">`, the Open Graph URLs and `sitemap.xml`. Set it to the real address or search engines will index the placeholder. |
+| `REPO_URL` | `https://github.com/malcolmbastien/kanbantoolkit` | Where the source, the licence and these docs live. The site's Docs, Source and Licence links are built from it. |
 | `SUPPORT_URL` | the repository's issue form | Where the footer's “Questions & bugs” points, with the response expectation beside it — and where `security.txt`, the security page and the privacy notice send a security report too. One tracker, no mailbox to answer. A self-hoster points it at their own. |
 
 ## Cloudflare
@@ -116,7 +116,7 @@ clients poll — nothing else changes.
 ## Checking what an instance actually offers
 
 ```bash
-curl -s https://flowline.example/api/auth/providers
+curl -s https://kanbantoolkit.example/api/auth/providers
 # {"providers":[{"id":"oidc","label":"login.example.com"}],"dev":false}
 ```
 

@@ -114,7 +114,7 @@ export function snapshotScheduler(opts: {
 // ---------------------------------------------------------------------------------------------
 // The ring itself
 
-const DB_NAME = 'flowline-snapshots'
+const DB_NAME = 'kanbantoolkit-snapshots'
 const STORE = 'snapshots'
 
 let dbPromise: Promise<IDBDatabase> | null = null

@@ -912,6 +912,43 @@ describe('store actions', () => {
     expect(migrated.items[0]).toEqual({ id: 'a', title: 'A', typeId: 't-story', createdAt: 0 })
   })
 
+  it('records who created an item, and will not restate it later', () => {
+    s().selectBoard('b-atlas')
+    s().setUser('u-mb')
+    const lane = s().lanes.find((l) => l.boardId === 'b-atlas' && l.workflow === 'cards' && l.stage === 'backlog')!.id
+    s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: lane, title: 'Made by Maya' })
+    const made = s().items.find((i) => i.title === 'Made by Maya')!
+    expect(made.createdById).toBe('u-mb')
+    // The log says the same thing, because it is written from the same identity.
+    expect(made.log?.find((e) => e.kind === 'created')?.by).toBe('u-mb')
+
+    // An edit does not rewrite who made it, and a patch that carries a creator is ignored rather
+    // than obeyed: it records an act that has already happened.
+    s().setItemFields(made.id, { title: 'Made by Maya, edited', createdById: 'u-rk' } as never)
+    const edited = s().items.find((i) => i.id === made.id)!
+    expect(edited.title).toBe('Made by Maya, edited')
+    expect(edited.createdById).toBe('u-mb')
+
+    // A copy is made by whoever copies it. The fixture's card predates the record, so it has no
+    // creator — and the copy made by u-mb still says who made it, which is the point of the field
+    // being written at the door rather than read from the original.
+    s().setUser('u-mb')
+    expect(s().items.find((i) => i.id === 'st-signup-form')!.createdById).toBeUndefined()
+    const copyId = s().duplicateCard('st-signup-form')!
+    expect(s().items.find((i) => i.id === copyId)!.createdById).toBe('u-mb')
+  })
+
+  it('migrateState fills the creator from the item’s own log, and invents nobody', () => {
+    const migrated = migrateState({
+      items: [
+        { id: 'a', title: 'A', typeId: 't-story', createdAt: 0, log: [{ id: 'l1', at: 0, kind: 'created', by: 'u-mb' }] },
+        { id: 'b', title: 'B', typeId: 't-story', createdAt: 0, log: [{ id: 'l2', at: 0, kind: 'created' }] },
+        { id: 'c', title: 'C', typeId: 't-story', createdAt: 0, createdById: 'u-rk' },
+      ],
+    }) as unknown as { items: Array<{ id: string; createdById?: string }> }
+    expect(migrated.items.map((i) => i.createdById)).toEqual(['u-mb', undefined, 'u-rk'])
+  })
+
   it('an initiative serves one objective: mapping it to a second moves it', () => {
     const serves = (itemId: string) =>
       s().edges.filter((e) => e.kind === 'attribution' && e.to === itemId).map((e) => e.from)
@@ -2641,7 +2678,7 @@ describe('workspace import', () => {
   beforeEach(() => resetToFixture())
 
   /** The current workspace as an export would write it. */
-  const exportOf = () => ({ app: 'flowline', exportedAt: '2026-10-16T09:00:00.000Z', version: PERSIST_VERSION, state: { ...persistedSlice(s()) } })
+  const exportOf = () => ({ app: 'kanbantoolkit', exportedAt: '2026-10-16T09:00:00.000Z', version: PERSIST_VERSION, state: { ...persistedSlice(s()) } })
 
   it('the exported file restores exactly what it carried, and what a file omits starts empty', () => {
     const backup = exportOf()

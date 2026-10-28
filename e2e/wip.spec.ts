@@ -59,7 +59,7 @@ test('a reason lands the card where it was dropped, and is recorded on it', asyn
 
   // ...and on the card itself, as the workspace holds it.
   const stored = await page.evaluate((id) => {
-    const raw = window.localStorage.getItem('flowline-state-v3')
+    const raw = window.localStorage.getItem('kanbantoolkit-state-v3')
     if (!raw) return null
     const state = (JSON.parse(raw) as { state: { items: { id: string; lastMoveReason?: string }[] } }).state
     return state.items.find((item) => item.id === id)?.lastMoveReason ?? null

@@ -64,7 +64,7 @@ describe('workspace members', () => {
       members: Array<{ name: string; role: string }>
     }
 
-    expect(body.workspace.name).toBe('Flowline')
+    expect(body.workspace.name).toBe('Kanban Toolkit')
     expect(body.members.map((member) => `${member.name}:${member.role}`).sort()).toEqual(['Ada:admin', 'Grace:editor'])
   })
 

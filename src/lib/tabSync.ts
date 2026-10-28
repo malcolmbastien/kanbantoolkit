@@ -144,7 +144,7 @@ export function listenForTabs(name: string, adopt: (state: Record<string, unknow
   window.addEventListener('storage', onStorage)
 
   if (typeof BroadcastChannel !== 'undefined') {
-    channel = new BroadcastChannel('flowline-workspace')
+    channel = new BroadcastChannel('kanbantoolkit-workspace')
     channel.onmessage = take
   }
 

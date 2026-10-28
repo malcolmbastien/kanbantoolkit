@@ -1,6 +1,6 @@
-# Flowline — Core Experience MVP (prototype PRD)
+# Kanban Toolkit — Core Experience MVP (prototype PRD)
 
-> Scoped derivative of `flowline-mvp-prd.md`. The full PRD is the north star; **this**
+> Scoped derivative of `kanbantoolkit-mvp-prd.md`. The full PRD is the north star; **this**
 > document defines the slice we build first. Goal: a local-first prototype that lets a
 > reviewer *feel* the two load-bearing ideas in one sitting:
 >
@@ -8,7 +8,7 @@
 
 ## Product principles (inherited from the full PRD)
 
-These are build constraints, not aspirations. See `flowline-mvp-prd.md` §2.1–2.2.
+These are build constraints, not aspirations. See `kanbantoolkit-mvp-prd.md` §2.1–2.2.
 
 1. **A joy to use** — fast, quiet, predictable; a board reads at a glance.
 2. **Respect the user's time** — derive what the graph already knows (level, status,

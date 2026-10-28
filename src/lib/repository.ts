@@ -73,7 +73,7 @@ async function sendItem(item: Item, baseRev: number, key?: string): Promise<Comm
       method: 'PATCH',
       // The same tab the lease was taken with: without it the server would see a write from
       // somebody else and refuse the holder their own card.
-      headers: { 'content-type': 'application/json', 'x-flowline-tab': TAB },
+      headers: { 'content-type': 'application/json', 'x-kanbantoolkit-tab': TAB },
       body: JSON.stringify({ baseRev, item, ...(key ? { key } : {}) }),
     })
 

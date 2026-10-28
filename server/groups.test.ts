@@ -83,7 +83,7 @@ async function world() {
   const pen = (cookie: string, card: string) =>
     request(`/api/workspace/items/${card}/lock`, {
       method: 'POST',
-      headers: { cookie, 'x-flowline-tab': 'test' },
+      headers: { cookie, 'x-kanbantoolkit-tab': 'test' },
     })
 
   return { db, request, dev, id, admin, as, json, group, pen, ada, grace, linus }

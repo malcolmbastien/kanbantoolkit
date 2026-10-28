@@ -1,6 +1,6 @@
 # One application, three places to run it
 
-Flowline is meant to be both a service and a project: something you can use at a URL, and something
+Kanban Toolkit is meant to be both a service and a project: something you can use at a URL, and something
 a team can run on a machine they own. That is a constraint on the code, not a plan for two of them.
 There is one repository, one client, one API and one schema; what varies between deployments is
 where the process runs and where the database lives.
@@ -25,7 +25,7 @@ board. The server adds accounts, sharing and a second device, and takes nothing 
 Those three tiers are what the code can do; they are not all what **this** project runs. The site and
 the documentation are the project's own — [the index](README.md) says what is in this repository, and
 what an instance is — and an instance is the application. The site
-behind `flowline.flowline-team.workers.dev` is the static tier plus the demo: `wrangler.jsonc` binds no
+behind `kanbantoolkit.com` is the static tier plus the demo: `wrangler.jsonc` binds no
 database, so `/api/health` answers `503 {"database":"not configured"}`, every route that needs one
 refuses, and `/api/auth/providers` reports no doors at all — the sign-in surface does not render,
 because there is nothing to sign in to. The demo keeps working because its workspace is in
@@ -96,7 +96,7 @@ cannot run.
 ## The tenant is the deployment
 
 One deployment is one team. A **workspace** is not something a person makes from a form: it comes
-with the installation, is named by it (`WORKSPACE_NAME`, defaulting to `Flowline`), and the first
+with the installation, is named by it (`WORKSPACE_NAME`, defaulting to `Kanban Toolkit`), and the first
 account to sign in administers it. Everybody else arrives by invitation, and the API refuses a second
 workspace with a sentence rather than a 404 — `POST /api/workspaces` exists to say so (task 163).
 

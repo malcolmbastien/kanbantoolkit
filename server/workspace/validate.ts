@@ -130,6 +130,8 @@ export function parseItem(input: unknown): Item | null {
 
   const description = text(raw.description, LIMITS.description)
   if (description !== undefined) item.description = description
+  const createdById = text(raw.createdById, LIMITS.id)
+  if (createdById !== undefined) item.createdById = createdById
   const initiativeTypeId = text(raw.initiativeTypeId, LIMITS.id)
   if (initiativeTypeId !== undefined) item.initiativeTypeId = initiativeTypeId
   const tagIds = strings(raw.tagIds)

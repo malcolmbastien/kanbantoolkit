@@ -651,7 +651,7 @@ export function authRoutes(runtime: Runtime) {
       const url = `${publicUrl(c.env, c.req.raw)}/app?link=${encodeURIComponent(token)}`
       await runtime.mail.send({
         to: account.email,
-        subject: 'Your Flowline sign-in link',
+        subject: 'Your Kanban Toolkit sign-in link',
         text: [
           `Somebody asked to sign in as ${account.email}. If it was you, open this link:`,
           '',

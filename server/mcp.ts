@@ -7,10 +7,10 @@
  * a remote one are the same caller with the same limits. Nothing is decided here, and nothing is
  * cached — a revocation is felt on the next message.
  *
- *   FLOWLINE_URL=https://board.example.com FLOWLINE_TOKEN=flt_… npx tsx server/mcp.ts
+ *   KANBANTOOLKIT_URL=https://board.example.com KANBANTOOLKIT_TOKEN=ktk_… npx tsx server/mcp.ts
  *
- * The token may also come from the file `flowline login` writes (`FLOWLINE_TOKEN_FILE`, or the
- * default `~/.config/flowline/token`), which is how the CLI already stores it. Stdout is the
+ * The token may also come from the file `kanbantoolkit login` writes (`KANBANTOOLKIT_TOKEN_FILE`, or the
+ * default `~/.config/kanbantoolkit/token`), which is how the CLI already stores it. Stdout is the
  * protocol channel and carries nothing else; anything a person should read goes to stderr.
  */
 
@@ -42,9 +42,9 @@ function argument(name: string): string | undefined {
   return index >= 0 ? process.argv[index + 1] : undefined
 }
 
-/** The stored credential: the same file `flowline login` writes, with the same default. */
+/** The stored credential: the same file `kanbantoolkit login` writes, with the same default. */
 function storedToken(): string | undefined {
-  const path = argument('token-file') ?? process.env.FLOWLINE_TOKEN_FILE ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'flowline', 'token')
+  const path = argument('token-file') ?? process.env.KANBANTOOLKIT_TOKEN_FILE ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'kanbantoolkit', 'token')
   try {
     return readFileSync(path, 'utf8').trim() || undefined
   } catch {
@@ -53,12 +53,12 @@ function storedToken(): string | undefined {
 }
 
 export async function main(): Promise<void> {
-  const url = (argument('url') ?? process.env.FLOWLINE_URL ?? 'http://localhost:8787').replace(/\/+$/, '')
-  const token = argument('token') ?? process.env.FLOWLINE_TOKEN ?? storedToken()
+  const url = (argument('url') ?? process.env.KANBANTOOLKIT_URL ?? 'http://localhost:8787').replace(/\/+$/, '')
+  const token = argument('token') ?? process.env.KANBANTOOLKIT_TOKEN ?? storedToken()
 
   if (!token) {
     console.error(
-      `No credential. Run "flowline login --url ${url}" once, or set FLOWLINE_TOKEN. This bridge speaks MCP on stdin/stdout and needs a token to act as somebody.`,
+      `No credential. Run "kanbantoolkit login --url ${url}" once, or set KANBANTOOLKIT_TOKEN. This bridge speaks MCP on stdin/stdout and needs a token to act as somebody.`,
     )
     process.exit(2)
   }
@@ -72,12 +72,12 @@ export async function main(): Promise<void> {
       })
       return { status: answer.status, text: await answer.text() }
     } catch (error) {
-      console.error(`Flowline is unreachable at ${url}: ${error instanceof Error ? error.message : String(error)}`)
+      console.error(`Kanban Toolkit is unreachable at ${url}: ${error instanceof Error ? error.message : String(error)}`)
       return { status: 503, text: '' }
     }
   }
 
-  console.error(`Flowline MCP bridge: ${url}`)
+  console.error(`Kanban Toolkit MCP bridge: ${url}`)
   const lines = createInterface({ input: process.stdin, crlfDelay: Infinity })
   for await (const line of lines) {
     const answer = await bridgeLine(line, post)

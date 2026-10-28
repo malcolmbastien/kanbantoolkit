@@ -10,7 +10,7 @@
  */
 
 /** The key the workspace itself lives under. */
-export const WORKSPACE_KEY = 'flowline-state-v3'
+export const WORKSPACE_KEY = 'kanbantoolkit-state-v3'
 /** Where an unreadable one is kept. A second copy gets `.2`, a third `.3`, and so on. */
 export const KEPT_PREFIX = `${WORKSPACE_KEY}.unreadable`
 
@@ -128,9 +128,9 @@ export function keptWorkspaceFile(kept: KeptWorkspace): { filename: string; text
   const parsed = parse(kept.raw)
   const state = parsed && 'state' in parsed ? parsed.state : parsed
   return {
-    filename: `flowline-kept-${new Date().toISOString().slice(0, 10)}.json`,
+    filename: `kanbantoolkit-kept-${new Date().toISOString().slice(0, 10)}.json`,
     text: JSON.stringify(
-      { app: 'flowline', exportedAt: new Date().toISOString(), version: kept.found ?? 0, state },
+      { app: 'kanbantoolkit', exportedAt: new Date().toISOString(), version: kept.found ?? 0, state },
       null,
       2,
     ),

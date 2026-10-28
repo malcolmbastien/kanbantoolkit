@@ -52,8 +52,8 @@ const workspace: Workspace = {
 let scratch: string | undefined
 
 function working(): string {
-  scratch = mkdtempSync(join(tmpdir(), 'flowline-backup-'))
-  const path = join(scratch, 'flowline.db')
+  scratch = mkdtempSync(join(tmpdir(), 'kanbantoolkit-backup-'))
+  const path = join(scratch, 'kanbantoolkit.db')
 
   const raw = new DatabaseSync(path)
   for (const file of readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort()) {
@@ -109,7 +109,7 @@ describe('a backup of a self-hosted workspace', () => {
   })
 
   it('keeps a window, and forgets what is older than it', () => {
-    const directory = join(scratch ?? mkdtempSync(join(tmpdir(), 'flowline-prune-')), 'backups')
+    const directory = join(scratch ?? mkdtempSync(join(tmpdir(), 'kanbantoolkit-prune-')), 'backups')
     const live = working()
     const old = backupDatabase({ from: live, directory, now: new Date('2026-09-01T02:00:00Z') })
     const recent = backupDatabase({ from: live, directory, now: new Date('2026-10-23T02:00:00Z') })
@@ -124,6 +124,6 @@ describe('a backup of a self-hosted workspace', () => {
   })
 
   it('says so when there is nothing to copy', () => {
-    expect(() => backupDatabase({ from: '/nowhere/flowline.db', directory: '/tmp' })).toThrow(/no database/)
+    expect(() => backupDatabase({ from: '/nowhere/kanbantoolkit.db', directory: '/tmp' })).toThrow(/no database/)
   })
 })

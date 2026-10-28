@@ -9,7 +9,7 @@ import { downloadText } from './download'
  */
 export function workspaceBackup() {
   return {
-    app: 'flowline',
+    app: 'kanbantoolkit',
     exportedAt: new Date().toISOString(),
     version: PERSIST_VERSION,
     state: persistedSlice(useStore.getState()),
@@ -19,7 +19,7 @@ export function workspaceBackup() {
 export function downloadWorkspace(): void {
   const backup = workspaceBackup()
   downloadText(
-    `flowline-${new Date().toISOString().slice(0, 10)}.json`,
+    `kanbantoolkit-${new Date().toISOString().slice(0, 10)}.json`,
     JSON.stringify(backup, null, 2),
     'application/json',
   )

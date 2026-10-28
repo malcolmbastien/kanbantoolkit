@@ -1,7 +1,7 @@
-# Flowline — admin, identity, and roles
+# Kanban Toolkit — admin, identity, and roles
 
 > Design, not code. What Windshift does for sign-in, profiles, user management, active/inactive
-> accounts and workspace roles; what Flowline already has; and the admin surface a Flowline user
+> accounts and workspace roles; what Kanban Toolkit already has; and the admin surface a Kanban Toolkit user
 > would need before a team can be handed an instance.
 
 **Status:** design only. Task 117 shipped sign-in. Task 118 has not moved the workspace to the
@@ -10,7 +10,7 @@ first server-side write is stored, because every log entry, invitation and sessi
 it has to be migrated afterwards.
 
 **Licence note.** Windshift is AGPL-3.0. This document copies *behaviour and data shape*, not code.
-Nothing from its repository should be lifted into Flowline; the AGPL would reach the whole app.
+Nothing from its repository should be lifted into Kanban Toolkit; the AGPL would reach the whole app.
 
 **Sources reviewed:** [Users and Groups](https://windshift.sh/docs/06-admin/09-users-and-groups),
 [Workspace Roles](https://windshift.sh/docs/06-admin/10-workspace-roles),
@@ -130,9 +130,9 @@ permission cache immediately, so a revoked person does not keep a cached "yes".
 
 ---
 
-## 2. What Flowline has today
+## 2. What Kanban Toolkit has today
 
-Flowline starts from a better place in one respect: **there is no password to manage**. Sign-in is
+Kanban Toolkit starts from a better place in one respect: **there is no password to manage**. Sign-in is
 OAuth/OIDC only, with Google, Microsoft and one self-hosted provider, plus `AUTH_DEV=1`. That
 removes password reset, password policy, TOTP and breach-checking from the whole product. It must
 stay that way.
@@ -177,7 +177,7 @@ every new admin call must fail soft exactly as `src/lib/auth.ts` already does.
 
 ### 3.1 Three layers, not one
 
-Copy Windshift's separation, but with Flowline's smaller vocabulary:
+Copy Windshift's separation, but with Kanban Toolkit's smaller vocabulary:
 
 ```
 instance access     who may sign in at all        instance_role: admin | member
@@ -228,7 +228,7 @@ capitalised; the wire values are lower case.
 Two rows are genuinely a product decision and should be settled before implementation:
 
 - **Board design.** Windshift's Editor may edit items but not workspace configuration; the
-  analogous Flowline line is *work* versus *board design*. Lane surgery can throw away a column's
+  analogous Kanban Toolkit line is *work* versus *board design*. Lane surgery can throw away a column's
   shape, and it is asynchronous for everyone looking at the board, so keeping it with Administrator
   is the safer default.
 - **Attribution.** Mapping an initiative to an objective is a management act, but it is also
@@ -271,11 +271,11 @@ These are the non-obvious parts, and each one prevents a real failure:
    out.
 5. **No "everyone fallback".** Windshift grants combined Viewer/Editor/Tester when no explicit role
    exists, and turns it off once any Viewer assignment is made. That is a migration convenience for
-   an existing product, not a security model. Flowline should have **no implicit edit rights**: a
+   an existing product, not a security model. Kanban Toolkit should have **no implicit edit rights**: a
    member with no `workspace_members` row is a Viewer of the public surfaces at most, or has no
    access to that workspace at all. Make it explicit, with a test.
 6. **A role change is effective on the next request.** Read `workspace_members.role` in the
-   middleware; do not cache it in the session. Flowline's scale does not justify Windshift's
+   middleware; do not cache it in the session. Kanban Toolkit's scale does not justify Windshift's
    15-minute permission cache, and a stale cache is a bug that looks like a security hole.
 7. **A role does not change who you are.** History keeps the author; an inactive or removed member's
    name still appears on the log, rendered as "Former member" if the account is erased.
@@ -338,7 +338,7 @@ networks. If it is ever added, it is an operator setting with `log` as the defau
 
 ### 3.6 Audit
 
-Windshift's audit log is the feature Flowline will miss most after the first "who removed that
+Windshift's audit log is the feature Kanban Toolkit will miss most after the first "who removed that
 column?" conversation. One append-only table, written by the same middleware that performs the
 mutation, not by each handler separately.
 
@@ -537,7 +537,7 @@ Admin
 
 **People table** — avatar + name, email, workspace role, status, last active, provider, joined.
 Sort by last active or name; filter by role and status; search name and email. The row opens a
-drawer rather than a full page, because every other person-shaped surface in Flowline is a drawer.
+drawer rather than a full page, because every other person-shaped surface in Kanban Toolkit is a drawer.
 
 **Row menu** — Edit profile, Change role, Resend invitation (if pending), Deactivate/Activate,
 Revoke sessions, Delete, Erase. Destructive items are last, separated, and require typing the email
@@ -634,7 +634,7 @@ attributable.
 
 ## 8. What not to copy
 
-| Windshift | Why Flowline should not | What to do instead |
+| Windshift | Why Kanban Toolkit should not | What to do instead |
 | --- | --- | --- |
 | Password sign-in, reset, TOTP, SSH keys | OIDC removes the entire credential surface, and every credential is a support burden | Stay OAuth/OIDC only; add a second factor only if a real deployment requires it |
 | SAML, LDAP, SCIM | Pro/enterprise integrations; OIDC covers self-hosters and small teams | One configurable OIDC provider; revisit on demand |
@@ -645,19 +645,19 @@ attributable.
 | IP binding (`strict`), permission caches | Breaks mobile users; a stale cache looks like a breach | Read the role per request; no IP binding |
 | Agents, service accounts | Needs an API, token scopes and an owner model; no current customer | Defer behind API tokens |
 | Calendar feeds, leave, personal labels, themes | Profile features of another product | Identity, regional settings, sessions, erasure |
-| "Tester" as a role | Flowline has no test module; a role with nothing to gate is noise | Three roles only |
+| "Tester" as a role | Kanban Toolkit has no test module; a role with nothing to gate is noise | Three roles only |
 
 The general rule: copy the **separation** (instance vs workspace, user-owned profile vs
 administrator-owned access) and the **guardrails** (last admin, self-protection, inactive means
 sessions end, audit every change). Do not copy the **breadth**, which exists because Windshift sells
-to enterprises with twenty roles and directory sync. Flowline's advantage is that it can be
+to enterprises with twenty roles and directory sync. Kanban Toolkit's advantage is that it can be
 understood in an afternoon.
 
 ---
 
 ## 9. Open questions
 
-1. **One workspace or many?** The schema above supports many; the UI today has one. If Flowline is
+1. **One workspace or many?** The schema above supports many; the UI today has one. If Kanban Toolkit is
    one workspace per instance forever, `workspace_members` can carry `workspace_id = 'default'` and
    the complexity is invisible. Decide before 118.2 so the table is not renamed later.
 2. **Can an instance administrator read a workspace they are not a member of?** Windshift says yes

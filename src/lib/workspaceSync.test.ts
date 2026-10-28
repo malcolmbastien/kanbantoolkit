@@ -131,7 +131,7 @@ describe('copying this workspace to the account', () => {
 
     expect(await copyToAccount('u-ada', { boards: [{ id: 'b-1' }] })).toBe(true)
     expect(useWorkspaceSync.getState().offer).toBe(false)
-    expect(data.get('flowline-import-asked:u-ada')).toBe('1')
+    expect(data.get('kanbantoolkit-import-asked:u-ada')).toBe('1')
   })
 
   it('keeps the offer, and says why, when the server refuses', async () => {

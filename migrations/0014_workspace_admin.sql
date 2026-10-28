@@ -5,7 +5,7 @@
 -- "come into this instance" and "come into this workspace": they are different promises even when
 -- there is one workspace to come into.
 
-ALTER TABLE workspace ADD COLUMN name TEXT NOT NULL DEFAULT 'Flowline';
+ALTER TABLE workspace ADD COLUMN name TEXT NOT NULL DEFAULT 'Kanban Toolkit';
 ALTER TABLE workspace ADD COLUMN description TEXT NOT NULL DEFAULT '';
 
 ALTER TABLE invites ADD COLUMN scope TEXT NOT NULL DEFAULT 'instance' CHECK (scope IN ('instance', 'workspace'));

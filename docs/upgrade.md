@@ -11,7 +11,7 @@ restore — not a rollback. Migrations here are one-way: they move the data forw
 would not read the new shape.
 
 ```bash
-npm run backup -- backup ./flowline.db ./backups
+npm run backup -- backup ./kanbantoolkit.db ./backups
 ```
 
 [backup.md](backup.md) is the whole procedure, including the drill that proves the copy is good.
@@ -19,18 +19,18 @@ npm run backup -- backup ./flowline.db ./backups
 ## The steps
 
 ```bash
-cd /srv/flowline
-npm run backup -- backup ./flowline.db ./backups   # 1. a copy, while the server runs
+cd /srv/kanbantoolkit
+npm run backup -- backup ./kanbantoolkit.db ./backups   # 1. a copy, while the server runs
 git pull --ff-only                                 # 2. the new code
 npm ci && npm run build                            # 3. install, typecheck, bundle, site
-sudo systemctl restart flowline                    # 4. boot: migrations, then serve
-journalctl -u flowline -n 20 --no-pager            # 5. what happened
+sudo systemctl restart kanbantoolkit                    # 4. boot: migrations, then serve
+journalctl -u kanbantoolkit -n 20 --no-pager            # 5. what happened
 ```
 
 Step 5 prints one line at start — the migration the database reached:
 
 ```
-flowline schema vN
+kanbantoolkit schema vN
 ```
 
 If it prints nothing and exits, the migration refused — see *When a migration stops* below. If it
@@ -66,11 +66,11 @@ database. That is deliberate: a wrong answer is worse than none.
 ## Rolling back
 
 ```bash
-sudo systemctl stop flowline
-npm run backup -- restore ./backups/flowline-<the one from before>.db ./flowline.db --force
+sudo systemctl stop kanbantoolkit
+npm run backup -- restore ./backups/kanbantoolkit-<the one from before>.db ./kanbantoolkit.db --force
 git checkout v<the previous tag>
 npm ci && npm run build
-sudo systemctl start flowline
+sudo systemctl start kanbantoolkit
 ```
 
 The restore refuses to overwrite without `--force`, and checks `PRAGMA integrity_check` and the row

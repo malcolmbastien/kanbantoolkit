@@ -86,7 +86,7 @@ export function GroupsPanel() {
       await load()
       // The People table on this same screen shows the role a group grants, so it is told to read
       // the directory again rather than showing yesterday's answer beside today's group.
-      window.dispatchEvent(new Event('flowline:directory-changed'))
+      window.dispatchEvent(new Event('kanbantoolkit:directory-changed'))
       return true
     } catch {
       setMessage({ tone: 'bad', text: 'The server could not be reached.' })

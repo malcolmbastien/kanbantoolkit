@@ -1,6 +1,6 @@
 # Install
 
-Flowline is one Node process, one SQLite file and a directory of static files. This page takes a
+Kanban Toolkit is one Node process, one SQLite file and a directory of static files. This page takes a
 machine with nothing on it to a running instance; [configure.md](configure.md) is what to set once it
 runs, and [tls.md](tls.md) is what to put in front of it.
 
@@ -10,8 +10,8 @@ itself, and asks you for nothing until it is running.
 ## One command, with Docker
 
 ```bash
-git clone https://github.com/malcolmbastien/flowline flowline
-cd flowline && docker compose up -d
+git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
+cd kanbantoolkit && docker compose up -d
 ```
 
 That builds the image from this checkout, creates the database on a named volume, applies the
@@ -24,7 +24,7 @@ website — `/install/`, `/privacy/`, its sitemap — is a separate deployment a
 instance. The one thing an instance links back here for is the terms and privacy pages, and only when
 `PROJECT_URL` tells it where this site is.
 
-A published image exists too — `ghcr.io/malcolmbastien/flowline`, built by CI on every green `main`
+A published image exists too — `ghcr.io/malcolmbastien/kanbantoolkit`, built by CI on every green `main`
 and tagged by commit, by version and `latest`; [docker.md](docker.md) has the command and what the
 tags mean. Building from the checkout above always works and needs no registry.
 
@@ -33,8 +33,8 @@ it:
 
 | | |
 | --- | --- |
-| `WORKSPACE_NAME` | what the team is called. It is what a person types to confirm deleting the workspace later, so set it before the first sign-in. Defaults to `Flowline`. |
-| `PUBLIC_URL` | the address the outside world uses — `https://flowline.example` behind a proxy. It is what a sign-in redirect is built from, and what makes the session cookie `Secure`. |
+| `WORKSPACE_NAME` | what the team is called. It is what a person types to confirm deleting the workspace later, so set it before the first sign-in. Defaults to `Kanban Toolkit`. |
+| `PUBLIC_URL` | the address the outside world uses — `https://kanbantoolkit.example` behind a proxy. It is what a sign-in redirect is built from, and what makes the session cookie `Secure`. |
 
 `docker compose down` stops it and keeps the work; `down -v` removes the volume with it.
 [docker.md](docker.md) is this road in full: the volume, backups taken inside the container, the
@@ -45,16 +45,16 @@ unprivileged user, and what SQLite means when you are tempted to run a second on
 Node 26, a directory you own, and a reverse proxy for TLS:
 
 ```bash
-git clone https://github.com/malcolmbastien/flowline flowline
-cd flowline && npm ci && npm run build
-PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server
+git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
+cd kanbantoolkit && npm ci && npm run build
+PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
 ```
 
 The build writes the site and the app into `dist/`. The server applies every pending migration on
 start and prints the schema version it reached:
 
 ```
-flowline schema vN
+kanbantoolkit schema vN
 ```
 
 ## What the first run does
@@ -62,18 +62,18 @@ flowline schema vN
 - **Opens the way in.** A deployment with no accounts answers its first visit with a **first run**
   surface — name, address, password — in the account menu. The account it makes administers the
   instance and its one workspace; there are no default credentials to fall back on.
-- **Names the workspace**, from `WORKSPACE_NAME` (default `Flowline`).
-- **Creates the database.** By hand that is `./flowline.db` beside the process; in the container it is
-  `/data/flowline.db` on the volume.
+- **Names the workspace**, from `WORKSPACE_NAME` (default `Kanban Toolkit`).
+- **Creates the database.** By hand that is `./kanbantoolkit.db` beside the process; in the container it is
+  `/data/kanbantoolkit.db` on the volume.
 
 Everybody after the first person arrives by invitation, as the role the invitation names. There is no
 sign-up page: an instance *is* a workspace.
 
 ## What it writes, and what that means
 
-- **`flowline.db`** — the SQLite database, in WAL mode. This file **is** the instance: accounts,
+- **`kanbantoolkit.db`** — the SQLite database, in WAL mode. This file **is** the instance: accounts,
   boards, cards, history and the audit trail. Back it up; see [backup.md](backup.md).
-- **`flowline.db-wal`** and **`flowline.db-shm`** — SQLite's write-ahead log, beside it. They are part
+- **`kanbantoolkit.db-wal`** and **`kanbantoolkit.db-shm`** — SQLite's write-ahead log, beside it. They are part
   of the database: `npm run backup` copies them correctly, and a plain `cp` of the `.db` alone can
   miss the newest writes.
 - **`dist/`** — build output. It can be deleted and rebuilt from the repository at any time.
@@ -100,18 +100,18 @@ alive on your machine; with systemd the whole unit is:
 
 ```ini
 [Unit]
-Description=Flowline
+Description=Kanban Toolkit
 After=network.target
 
 [Service]
 Type=simple
-User=flowline
-WorkingDirectory=/srv/flowline
+User=kanbantoolkit
+WorkingDirectory=/srv/kanbantoolkit
 Environment=PORT=8787
-Environment=DB_PATH=/srv/flowline/flowline.db
-Environment=STATIC_DIR=/srv/flowline/dist
+Environment=DB_PATH=/srv/kanbantoolkit/kanbantoolkit.db
+Environment=STATIC_DIR=/srv/kanbantoolkit/dist
 Environment=WORKSPACE_NAME=Team Atlas
-Environment=PUBLIC_URL=https://flowline.example
+Environment=PUBLIC_URL=https://kanbantoolkit.example
 ExecStart=/usr/bin/npm run server
 Restart=on-failure
 RestartSec=3
@@ -121,7 +121,7 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-sudo systemctl enable --now flowline
+sudo systemctl enable --now kanbantoolkit
 ```
 
 The server handles `SIGTERM` by finishing the request it is on; `Restart=on-failure` covers a crash,

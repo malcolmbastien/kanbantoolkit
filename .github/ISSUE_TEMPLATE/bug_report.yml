@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Flowline does not do what it says it does.
+description: Something in Kanban Toolkit does not do what it says it does.
 labels: [bug]
 body:
   - type: markdown

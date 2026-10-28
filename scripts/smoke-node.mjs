@@ -20,8 +20,8 @@ const dist = join(root, 'dist')
 
 if (!existsSync(join(dist, 'index.html'))) fail('run `npm run build` first — the Node entry serves the build')
 
-const workspace = mkdtempSync(join(tmpdir(), 'flowline-node-'))
-const databasePath = join(workspace, 'flowline.db')
+const workspace = mkdtempSync(join(tmpdir(), 'kanbantoolkit-node-'))
+const databasePath = join(workspace, 'kanbantoolkit.db')
 
 function fail(message) {
   console.error(`smoke: ${message}`)
@@ -98,7 +98,7 @@ try {
 
   const missing = await fetch(`${base}/no/such/place`)
   check('an unknown path is a 404', missing.status === 404, String(missing.status))
-  check('the 404 is the instance’s own', (await missing.text()).includes('Flowline instance for'))
+  check('the 404 is the instance’s own', (await missing.text()).includes('Kanban Toolkit instance for'))
   check('an instance is not indexed', (await (await fetch(`${base}/robots.txt`)).text()).includes('Disallow: /'))
 
   const report = await fetch(`${base}/api/errors`, {

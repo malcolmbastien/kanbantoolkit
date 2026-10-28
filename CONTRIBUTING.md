@@ -1,9 +1,9 @@
-# Contributing to Flowline
+# Contributing to Kanban Toolkit
 
-Flowline is **AGPL-3.0-or-later** software you install and run yourself. Contributions are welcome on
+Kanban Toolkit is **AGPL-3.0-or-later** software you install and run yourself. Contributions are welcome on
 those terms — there is no CLA and no copyright assignment.
 
-If something is broken or missing, an [issue](https://github.com/malcolmbastien/flowline/issues) is
+If something is broken or missing, an [issue](https://github.com/malcolmbastien/kanbantoolkit/issues) is
 the place to say so. A pull request is welcome too; what follows is the whole of the process.
 
 ## Running it

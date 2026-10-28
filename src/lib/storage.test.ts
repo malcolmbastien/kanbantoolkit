@@ -30,27 +30,27 @@ describe('the storage the workspace lives in', () => {
 
   it('knows a write landed, and never claims one did when it threw', () => {
     const storage = guardedStorage()
-    storage.setItem('flowline-state-v3', '{"a":1}')
+    storage.setItem('kanbantoolkit-state-v3', '{"a":1}')
     expect(failed()).toBe(false)
-    expect(data.get('flowline-state-v3')).toBe('{"a":1}')
+    expect(data.get('kanbantoolkit-state-v3')).toBe('{"a":1}')
 
     throwing = true
     // The throw is swallowed: a full disk must not take the app down with it.
-    expect(() => storage.setItem('flowline-state-v3', '{"a":2}')).not.toThrow()
+    expect(() => storage.setItem('kanbantoolkit-state-v3', '{"a":2}')).not.toThrow()
     expect(failed()).toBe(true)
     // The old copy is still what the browser holds.
-    expect(data.get('flowline-state-v3')).toBe('{"a":1}')
+    expect(data.get('kanbantoolkit-state-v3')).toBe('{"a":1}')
 
     // And a later success clears the warning: the workspace is safe again.
     throwing = false
-    storage.setItem('flowline-state-v3', '{"a":3}')
+    storage.setItem('kanbantoolkit-state-v3', '{"a":3}')
     expect(failed()).toBe(false)
   })
 
   it('catches a write that was accepted and kept nothing', () => {
     const storage = guardedStorage()
     silent = true
-    storage.setItem('flowline-state-v3', '{"a":1}')
+    storage.setItem('kanbantoolkit-state-v3', '{"a":1}')
     // From the write alone there is nothing to know...
     expect(failed()).toBe(false)
     // ...but reading it back is the truth.
@@ -58,7 +58,7 @@ describe('the storage the workspace lives in', () => {
     expect(failed()).toBe(true)
 
     silent = false
-    storage.setItem('flowline-state-v3', '{"a":2}')
+    storage.setItem('kanbantoolkit-state-v3', '{"a":2}')
     verifyStorage()
     expect(failed()).toBe(false)
   })

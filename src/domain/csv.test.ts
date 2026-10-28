@@ -139,7 +139,7 @@ describe('csv', () => {
   it('names the file after the board, without punctuation a filesystem minds', () => {
     expect(csvFilename('Team Atlas', 'cards')).toBe('team-atlas-cards.csv')
     expect(csvFilename('R&D / Ops (2026)', 'initiatives')).toBe('r-d-ops-2026-initiatives.csv')
-    expect(csvFilename('   ', 'cards')).toBe('flowline-cards.csv')
+    expect(csvFilename('   ', 'cards')).toBe('kanbantoolkit-cards.csv')
   })
 
   it('the dashboard export and the board export are different shapes on purpose', () => {

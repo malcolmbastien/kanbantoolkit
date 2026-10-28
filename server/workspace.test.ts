@@ -103,6 +103,7 @@ const workspace: Workspace = {
       title: 'Sign in with a provider',
       description: 'One OIDC issuer, and no passwords.',
       typeId: 't-card',
+      createdById: 'u-ada',
       initiativeTypeId: 'k-bet',
       tagIds: ['g-ux'],
       assignees: ['u-ada'],
@@ -521,7 +522,7 @@ describe('the lease on a card', () => {
     const { cookie } = await signedIn(db)
     const request = instance(db)
     const as = (tab: string, path: string, init: RequestInit = {}) =>
-      request(path, { ...init, headers: { ...(init.headers ?? {}), cookie, 'x-flowline-tab': tab } })
+      request(path, { ...init, headers: { ...(init.headers ?? {}), cookie, 'x-kanbantoolkit-tab': tab } })
     return { db, request, as }
   }
 

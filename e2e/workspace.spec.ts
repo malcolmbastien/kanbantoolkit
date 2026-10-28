@@ -43,7 +43,7 @@ test('the demo is reset from the admin screen, not from the board toolbar', asyn
     const state = await stored(page)
     expect(state.items).toBeGreaterThan(0)
   }).toPass()
-  await page.getByRole('button', { name: 'Flowline' }).click()
+  await page.getByRole('button', { name: 'Kanban Toolkit' }).click()
   await expect(page.getByText('Every board in the organisation')).toBeVisible()
   await openBoard(page)
   await expect(page.locator(`[data-card-id="${renamed}"]`)).not.toContainText('A card the demo does not have')
@@ -51,14 +51,14 @@ test('the demo is reset from the admin screen, not from the board toolbar', asyn
 
 /** The Boards screen, where the workspace's files live. */
 async function openWorkspace(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Flowline' }).click()
+  await page.getByRole('button', { name: 'Kanban Toolkit' }).click()
   await expect(page.getByText('Every board in the organisation')).toBeVisible()
 }
 
 /** The workspace as the browser holds it: the board names and how many items there are. */
 async function stored(page: Page): Promise<{ boards: string[]; items: number }> {
   return page.evaluate(() => {
-    const raw = window.localStorage.getItem('flowline-state-v3')
+    const raw = window.localStorage.getItem('kanbantoolkit-state-v3')
     const state = raw
       ? (JSON.parse(raw) as { state?: { boards?: { name: string }[]; items?: unknown[] } }).state
       : undefined
@@ -88,7 +88,7 @@ test('the exported file is the workspace, and importing it into a clean origin r
       version: number
       state: { boards: { name: string }[]; items: unknown[] }
     }
-    expect(backup.app).toBe('flowline')
+    expect(backup.app).toBe('kanbantoolkit')
     expect(backup.state.items).toHaveLength(exported.items)
     expect(backup.state.boards.map((board) => board.name)).toEqual(exported.boards)
 
@@ -101,7 +101,7 @@ test('the exported file is the workspace, and importing it into a clean origin r
 
       await openWorkspace(b)
       await b.locator('input[type="file"]').setInputFiles({
-        name: 'flowline.json',
+        name: 'kanbantoolkit.json',
         mimeType: 'application/json',
         buffer: Buffer.from(text),
       })
@@ -128,6 +128,6 @@ test('a file that is not a workspace is refused, and changes nothing', async ({ 
     buffer: Buffer.from('{"nope":true}'),
   })
 
-  await expect(page.getByText(/not a Flowline workspace/i)).toBeVisible()
+  await expect(page.getByText(/not a Kanban Toolkit workspace/i)).toBeVisible()
   expect(await stored(page)).toEqual(before)
 })

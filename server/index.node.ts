@@ -5,7 +5,7 @@
  * the same object the Worker exports, so a self-hosted instance and the hosted one cannot drift
  * apart without this file changing.
  *
- *   PORT=8787 DB_PATH=./flowline.db STATIC_DIR=./dist npm run server
+ *   PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
  *
  * This is the entry `task 129` proves in CI. The packaged image is task 128's job.
  */
@@ -26,7 +26,7 @@ import { openSqlite } from './sqlite'
 import { workspaceName } from './config'
 
 const port = Number(process.env.PORT ?? 8787)
-const databasePath = process.env.DB_PATH ?? 'flowline.db'
+const databasePath = process.env.DB_PATH ?? 'kanbantoolkit.db'
 const staticDir = process.env.STATIC_DIR ?? './dist'
 const db = openSqlite(databasePath)
 
@@ -43,7 +43,7 @@ const migrations: Migration[] = readdirSync(migrationsDir)
   }))
 
 const schema = await migrate(db, migrations)
-console.log(`flowline schema v${schema.version}${schema.applied.length ? ` (applied ${schema.applied.join(', ')})` : ''}`)
+console.log(`kanbantoolkit schema v${schema.version}${schema.applied.length ? ` (applied ${schema.applied.join(', ')})` : ''}`)
 
 /**
  * The live channel is this process's own: one socket server, one map of listeners. It is switched
@@ -148,7 +148,7 @@ function notFoundPage(workspace: string): string {
   <body>
     <main>
       <h1>There is nothing at this address.</h1>
-      <p>This is the Flowline instance for <strong>${name}</strong>. The application is at <code>/app</code>.</p>
+      <p>This is the Kanban Toolkit instance for <strong>${name}</strong>. The application is at <code>/app</code>.</p>
       <p><a href="/app">Open the board</a></p>
     </main>
   </body>
@@ -245,7 +245,7 @@ serve(
   (info) => {
     // The port is printed because a smoke test and a container both need to know it, and `PORT=0`
     // is how a test avoids colliding with whatever else is on the machine.
-    console.log(`flowline listening on http://127.0.0.1:${info.port}`)
+    console.log(`kanbantoolkit listening on http://127.0.0.1:${info.port}`)
     if (!live) console.log('live channel off: clients will poll the feed')
   },
 )

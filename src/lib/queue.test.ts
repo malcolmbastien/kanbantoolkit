@@ -48,10 +48,10 @@ describe('the queue of changes that have not been sent', () => {
   })
 
   it('is empty rather than broken when the stored value is not a queue', () => {
-    data.set('flowline-queue-v1', '{"not":"a queue"}')
+    data.set('kanbantoolkit-queue-v1', '{"not":"a queue"}')
     expect(queue.all()).toEqual([])
 
-    data.set('flowline-queue-v1', 'not json at all')
+    data.set('kanbantoolkit-queue-v1', 'not json at all')
     expect(queue.all()).toEqual([])
   })
 })

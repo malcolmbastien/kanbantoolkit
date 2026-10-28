@@ -21,7 +21,7 @@ vi.stubGlobal('localStorage', {
   },
 })
 
-const NAME = 'flowline-state-v3'
+const NAME = 'kanbantoolkit-state-v3'
 const envelope = (state: Record<string, unknown>) => JSON.stringify({ state, version: 33 })
 
 describe('where the workspace lives', () => {

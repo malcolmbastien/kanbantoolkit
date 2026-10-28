@@ -128,7 +128,7 @@ export function BoardWorkspace() {
     }
     const read = readWorkspaceFile(json, PERSIST_VERSION)
     if (!read.ok || !read.state) {
-      setImportError(read.error ?? 'That file is not a Flowline workspace.')
+      setImportError(read.error ?? 'That file is not a Kanban Toolkit workspace.')
       return
     }
     setImportError(null)

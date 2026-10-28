@@ -25,7 +25,7 @@ export interface Restored {
   items: number
 }
 
-const PREFIX = 'flowline-'
+const PREFIX = 'kanbantoolkit-'
 
 /** `2026-10-23T02:00:00.000Z` → `2026-10-23T02-00-00-000`. A filename, not a parsed date. */
 function stamp(date: Date): string {

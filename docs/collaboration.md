@@ -1,4 +1,4 @@
-# Flowline — collaboration
+# Kanban Toolkit — collaboration
 
 > Design, not code. A team tool needs one person to hold a card's pen at a time: this is how that
 > is scoped, arbitrated, and made safe when a lease lapses — and what the app must already be able
@@ -95,7 +95,7 @@ Lock { itemId, userId, sessionId, holderName, acquiredAt, expiresAt }
 Acquire is a single conditional write — `… WHERE expires_at < now()` — so the race is settled by
 the store, not the client. In Postgres that is one `INSERT … ON CONFLICT … DO UPDATE … WHERE`
 statement; behind a Durable Object it is a single-threaded compare-and-set. Locks are **never**
-persisted in `flowline-state-v3`: they are session state, like selection and filters.
+persisted in `kanbantoolkit-state-v3`: they are session state, like selection and filters.
 
 ## Protocol
 

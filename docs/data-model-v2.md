@@ -1,4 +1,4 @@
-# Flowline — generic model (v2)
+# Kanban Toolkit — generic model (v2)
 
 > Supersedes the fixed `initiative > epic > story` hierarchy. Types are user-defined
 > labels; the hierarchy is structural (parent/child); a card's board and cell are explicit
@@ -12,7 +12,7 @@ IssueType  { id, name, color }                              # custom, editable i
 Board      { id, name }
 Lane       { id, boardId, parentId, order, name,            # recursive tree
              orientation?, stage?, wipLimit? }              # stage lives on top-level columns
-Item       { id, title, typeId, assignee?, ... }            # no board/state/level field
+Item       { id, title, typeId, createdById?, assignee?, ... }   # no board/state/level field
 Edge       { decomposition | dependency | attribution }
 Placement  { id, boardId, itemId, laneId }                  # the card's board + cell
 ```

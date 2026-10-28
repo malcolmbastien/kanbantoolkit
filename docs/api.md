@@ -30,7 +30,7 @@ Writes are JSON with `Content-Type: application/json`, which a cross-site form c
 A tool has no browser and cannot hold a cookie, so it signs in with a **bearer token** instead:
 
 ```
-Authorization: Bearer flt_…
+Authorization: Bearer ktk_…
 ```
 
 A token is minted once, shown once, stored as SHA-256, scoped, expiring and revocable. It is a
@@ -88,12 +88,12 @@ The short code lives ten minutes, is single-use in both directions, and says not
 tool is until a person presses Approve. The CLI does the whole dance:
 
 ```
-npm run flowline -- login --url http://localhost:8787
+npm run kanbantoolkit -- login --url http://localhost:8787
 ```
 
 It prints eight characters and an `/app?approve=…` URL, waits, and writes the secret to
-`~/.config/flowline/token` with mode `0600` — or to `FLOWLINE_TOKEN_FILE`. `flowline whoami` says
-whose credential it is and what it may reach; `flowline token` prints it for a pipe. The secret never
+`~/.config/kanbantoolkit/token` with mode `0600` — or to `KANBANTOOLKIT_TOKEN_FILE`. `kanbantoolkit whoami` says
+whose credential it is and what it may reach; `kanbantoolkit token` prints it for a pipe. The secret never
 passes through a clipboard, a shell history or a chat message.
 
 ### One credential, one owner

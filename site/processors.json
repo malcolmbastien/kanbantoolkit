@@ -2,7 +2,7 @@
   {
     "id": "oidc",
     "name": "your identity provider",
-    "sees": "whatever the provider an operator configured sees. Flowline asks it for an address and a name, and receives nothing else.",
+    "sees": "whatever the provider an operator configured sees. Kanban Toolkit asks it for an address and a name, and receives nothing else.",
     "role": "identity provider, when an operator brings their own"
   },
   {

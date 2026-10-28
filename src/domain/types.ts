@@ -1,4 +1,4 @@
-// Flowline domain model (v2).
+// Kanban Toolkit domain model (v2).
 //
 // Generic parent/child hierarchy + user-defined issue types + LeanKit-style lane
 // boards. A card's board and cell are explicit Placement records; there is no
@@ -285,6 +285,11 @@ export interface Item {
   title: string
   description?: string
   typeId: string
+  /**
+   * Who created it: a user id, written once when the item is made and never edited. Absent on work
+   * that predates the record — a name invented for it would be a guess dressed as a fact.
+   */
+  createdById?: string
   /**
    * An initiative's kind — a board's own label for it (see `InitiativeType`), never a card's:
    * `setInitiativeKind` refuses one on a card. Absent means None. This is *not* `typeId`, which

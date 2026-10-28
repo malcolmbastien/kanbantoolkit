@@ -1,10 +1,10 @@
 {
-  "name": "flowline",
+  "name": "kanbantoolkit",
   "description": "An open-source Kanban board for teams and their leaders: the team's own board, and the wider view of the same work.",
-  "homepage": "https://flowline.flowline-team.workers.dev/",
+  "homepage": "https://kanbantoolkit.com/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/malcolmbastien/flowline.git"
+    "url": "git+https://github.com/malcolmbastien/kanbantoolkit.git"
   },
   "keywords": [
     "kanban",
@@ -40,7 +40,7 @@
     "docs:check": "node scripts/check-docs.mjs",
     "shots": "tsx scripts/shots.ts",
     "demo": "tsx scripts/demo-clip.ts",
-    "flowline": "node scripts/flowline.mjs",
+    "kanbantoolkit": "node scripts/kanbantoolkit.mjs",
     "mcp": "tsx server/mcp.ts"
   },
   "dependencies": {

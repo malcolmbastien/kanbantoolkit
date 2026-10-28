@@ -150,7 +150,7 @@ describe('the directory as a file', () => {
     const response = await request('/api/admin/users.csv', { headers: { cookie: adaCookie } })
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/csv')
-    expect(response.headers.get('content-disposition')).toMatch(/flowline-people-\d{4}-\d{2}-\d{2}\.csv/)
+    expect(response.headers.get('content-disposition')).toMatch(/kanbantoolkit-people-\d{4}-\d{2}-\d{2}\.csv/)
 
     const text = await response.text()
     const [header, first] = text.split('\r\n')

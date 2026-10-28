@@ -1,6 +1,6 @@
 # The public site
 
-Flowline is open-source software people self-host, and each workspace is a separately hosted
+Kanban Toolkit is open-source software people self-host, and each workspace is a separately hosted
 instance of it (the decision of 2026-10-24). That makes the site a *project's* site: there is nothing
 to sell, no plan to compare and no shared sign-in page, because a person signs in at their own
 instance, on their own domain. What the site owes a visitor is what this is, how to run it, where the
@@ -231,7 +231,7 @@ the rest are open.
    is no company yet. When there is one, the entity, its address and the jurisdiction go in `/terms`
    §1 and §13 — and *that* is also the moment a DPA or an imprint page becomes meaningful.
 7. **The demo instance's identity** — **open**. `/privacy` and `/sub-processors` describe *this*
-   deployment, so somebody has to run one, and it needs a name that is not "Flowline Cloud".
+   deployment, so somebody has to run one, and it needs a name that is not "Kanban Toolkit Cloud".
 
 ## Not planned, and why
 

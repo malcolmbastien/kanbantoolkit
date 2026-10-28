@@ -100,7 +100,7 @@ and the decisions that must be taken before the page that depends on them.
 - **150, 157** — what we do with your data, and the pages a buyer's lawyer asks for.
 - **158, 159, 160, 161** — help, status and support, self-hosting, and the emails.
 
-**Ends with:** a stranger who has never heard of Flowline reading the home page, opening the demo
+**Ends with:** a stranger who has never heard of Kanban Toolkit reading the home page, opening the demo
 without an account, making a free account and a team board, paying for the portfolio when they need
 it, and cancelling back to free without writing to anybody.
 

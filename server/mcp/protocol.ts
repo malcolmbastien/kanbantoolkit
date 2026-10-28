@@ -21,7 +21,7 @@ import { TOOLS } from './tools'
 
 /** The revision of the protocol this server speaks. Clients negotiate by echoing it. */
 export const PROTOCOL_VERSION = '2025-06-18'
-export const SERVER_INFO = { name: 'flowline', version: '1.0.0' }
+export const SERVER_INFO = { name: 'kanbantoolkit', version: '1.0.0' }
 
 export interface RpcMessage {
   jsonrpc?: unknown
@@ -75,7 +75,7 @@ export async function handleRpc(caller: OpCaller, message: unknown): Promise<Rpc
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions:
-          'Flowline is a board of cards and initiatives. Read `workspace_summary` or `list_boards` first; every write needs ids from `get_board`. Refusals come back as tool results with the reason, and nothing is ever applied twice or half-way.',
+          'Kanban Toolkit is a board of cards and initiatives. Read `workspace_summary` or `list_boards` first; every write needs ids from `get_board`. Refusals come back as tool results with the reason, and nothing is ever applied twice or half-way.',
       })
 
     case 'ping':

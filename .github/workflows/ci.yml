@@ -85,10 +85,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Built as `flowline:local`, the tag compose.yaml expects, so the next steps run the file an
+      # Built as `kanbantoolkit:local`, the tag compose.yaml expects, so the next steps run the file an
       # operator runs rather than a lookalike.
       - name: Build
-        run: docker build -t flowline:local .
+        run: docker build -t kanbantoolkit:local .
 
       - name: One command, one volume
         run: |
@@ -101,8 +101,8 @@ jobs:
 
       - name: It is not root, and it made its own database
         run: |
-          test "$(docker compose exec -T flowline id -u)" = "10001"
-          docker compose exec -T flowline test -f /data/flowline.db
+          test "$(docker compose exec -T kanbantoolkit id -u)" = "10001"
+          docker compose exec -T kanbantoolkit test -f /data/kanbantoolkit.db
 
       - name: The first sign-in is the workspace
         run: |
@@ -131,7 +131,7 @@ jobs:
   # assertions. A tag nobody has run is a tag somebody else will run first.
   #
   # A package carries its own visibility rather than the repository's: one created while the
-  # repository was private stays private until it is changed under Packages → flowline. docs/docker.md
+  # repository was private stays private until it is changed under Packages → kanbantoolkit. docs/docker.md
   # says so rather than handing out a command that fails.
   publish:
     name: publish
@@ -191,8 +191,8 @@ jobs:
           VERSION: ${{ steps.image.outputs.version }}
         run: |
           docker pull "$PUBLISHED"
-          docker volume create flowline-published
-          docker run -d --name flowline-published -p 127.0.0.1:8787:8787 -v flowline-published:/data \
+          docker volume create kanbantoolkit-published
+          docker run -d --name kanbantoolkit-published -p 127.0.0.1:8787:8787 -v kanbantoolkit-published:/data \
             -e AUTH_DEV=1 -e WORKSPACE_NAME="Team Atlas" "$PUBLISHED"
           for i in $(seq 1 40); do
             if curl -sf http://127.0.0.1:8787/api/health >/dev/null; then break; fi
@@ -200,8 +200,8 @@ jobs:
           done
           # It answers, it knows which version it is, it is not root, and it made its own database.
           curl -s http://127.0.0.1:8787/api/health | grep -q "\"version\":\"$VERSION\""
-          test "$(docker exec flowline-published id -u)" = "10001"
-          docker exec flowline-published test -f /data/flowline.db
+          test "$(docker exec kanbantoolkit-published id -u)" = "10001"
+          docker exec kanbantoolkit-published test -f /data/kanbantoolkit.db
           # And the first sign-in is the workspace, as it is in the image that build tested.
           curl -s -c /tmp/jar -X POST http://127.0.0.1:8787/api/auth/dev \
             -H 'content-type: application/json' -d '{"email":"ada@example.com"}' >/dev/null
@@ -209,7 +209,7 @@ jobs:
 
       - name: Logs, when a published image failed
         if: failure()
-        run: docker logs flowline-published || true
+        run: docker logs kanbantoolkit-published || true
 
   # The flows unit tests cannot see: the drag, the drawer, board design and the workspace file,
   # through the built app. It waits on the checks so a broken unit run does not spend two minutes
@@ -268,7 +268,7 @@ jobs:
       # The canonical origin the build writes into every page: canonicals, Open Graph URLs, the
       # sitemap and security.txt. Without it the build uses its placeholder, and a page whose
       # canonical points at somebody else's domain asks to be de-indexed.
-      SITE_URL: https://flowline.flowline-team.workers.dev
+      SITE_URL: https://kanbantoolkit.com
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

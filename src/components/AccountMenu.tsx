@@ -146,7 +146,7 @@ export function AccountMenu() {
                   tracker rather than in a mailbox — an address published in an app is somebody's
                   inbox for as long as the app exists — so this is the repository's issue form. */}
               <a
-                href="https://github.com/malcolmbastien/flowline/issues/new/choose"
+                href="https://github.com/malcolmbastien/kanbantoolkit/issues/new/choose"
                 target="_blank"
                 rel="noreferrer noopener"
                 className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"

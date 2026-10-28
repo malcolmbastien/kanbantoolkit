@@ -273,6 +273,38 @@ describe('writing', () => {
     expect(await db.get<{ kind: string }>('SELECT kind FROM item_log WHERE item_id = ?1', [made.id])).toEqual({ kind: 'created' })
   })
 
+  it('records the caller as the creator, and refuses a client that tries to write one', async () => {
+    const { signIn, token, db } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const writer = await token(person, ['items:write', 'boards:read'], 'writer')
+    const me = (await db.get<{ id: string }>('SELECT id FROM users WHERE email = ?1', ['editor@example.com']))!
+
+    const created = await writer.call('/items', {
+      method: 'POST',
+      body: body({ boardId: 'b-1', title: 'Made through the API', typeId: 't-card' }),
+    })
+    expect(created.status).toBe(201)
+    const { item: made } = (await created.json()) as { item: { id: string; createdById?: string; rev: number } }
+    // The server records who called, and says so in the answer a client reads back.
+    expect(made.createdById).toBe(me.id)
+    expect(await db.get('SELECT created_by_id FROM items WHERE id = ?1', [made.id])).toEqual({ created_by_id: me.id })
+
+    // A creator is a record of an act, not a field: sending one is refused rather than dropped.
+    const sent = await writer.call('/items', {
+      method: 'POST',
+      body: body({ boardId: 'b-1', title: 'Claimed', typeId: 't-card', createdById: 'someone-else' }),
+    })
+    expect(sent.status).toBe(422)
+    expect(((await sent.json()) as { error: { message: string } }).error.message).toContain('not a field to send')
+    const rewritten = await writer.call(`/items/${made.id}`, {
+      method: 'PATCH',
+      body: body({ baseRev: made.rev, createdById: 'someone-else' }),
+    })
+    expect(rewritten.status).toBe(422)
+    expect(((await rewritten.json()) as { error: { message: string } }).error.message).toContain('not a field to change')
+    expect(await db.get('SELECT created_by_id FROM items WHERE id = ?1', [made.id])).toEqual({ created_by_id: me.id })
+  })
+
   it('answers a repeated idempotency key from what it already wrote', async () => {
     const { signIn, token, db } = await world()
     const person = await signIn('editor@example.com', 'editor')

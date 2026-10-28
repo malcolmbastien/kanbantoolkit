@@ -211,7 +211,7 @@ describe('the seal, at the door', () => {
     // to happen.
     const pen = await as(ada.cookie)('/api/workspace/items/i-theirs/lock', {
       method: 'POST',
-      headers: { 'x-flowline-tab': 'test' },
+      headers: { 'x-kanbantoolkit-tab': 'test' },
     })
     expect(pen.status).toBe(404)
   })

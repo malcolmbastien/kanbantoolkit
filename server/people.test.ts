@@ -52,8 +52,8 @@ describe('the migration from one role column to two axes', () => {
     const db = oldDatabase()
     const result = await migrate(db, all)
 
-    expect(result.applied).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
-    expect(result.version).toBe(26)
+    expect(result.applied).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27])
+    expect(result.version).toBe(27)
 
     // The owner administers the instance and the workspace; the member remains a member here and
     // keeps the editing they could already do.
@@ -83,14 +83,16 @@ describe('the migration from one role column to two axes', () => {
 
     await migrate(db, all)
 
-    // The scope is the one thing added; nothing that was there moved, and no id changed. The
-    // estimate column is the one thing taken away — a number that was an opinion about the work
-    // rather than a fact of it — so the comparison is over the columns the schema still keeps.
+    // The scope is the one thing added; nothing that was there moved, and no id changed. Two
+    // columns carry the difference by design — the estimate that was taken away, and the creator
+    // that was added — so the comparison is over the columns both shapes share.
     const unscoped = (rows: Array<Record<string, unknown>>) =>
       rows.map(({ workspace_id: _scope, ...rest }) => rest)
     const withoutEstimate = (rows: Array<Record<string, unknown>>) => rows.map(({ size: _estimate, ...rest }) => rest)
+    const withoutCreator = (rows: Array<Record<string, unknown>>) =>
+      rows.map(({ created_by_id: _creator, ...rest }) => rest)
 
-    expect(unscoped(await db.all('SELECT * FROM items'))).toEqual(withoutEstimate(before))
+    expect(withoutCreator(unscoped(await db.all('SELECT * FROM items')))).toEqual(withoutEstimate(before))
     expect(unscoped(await db.all('SELECT * FROM boards'))).toEqual(boardsBefore)
     expect(unscoped(await db.all('SELECT * FROM placements'))).toEqual(placementsBefore)
     expect(before[0]).toMatchObject({ title: 'A card', rev: 3 })
@@ -99,7 +101,7 @@ describe('the migration from one role column to two axes', () => {
       const rows = await db.all<{ workspace_id: string | null }>(`SELECT workspace_id FROM ${table}`)
       expect(rows.every((row) => row.workspace_id === 'workspace'), table).toBe(true)
     }
-    expect(await db.all('SELECT id, name FROM workspaces')).toEqual([{ id: 'workspace', name: 'Flowline' }])
+    expect(await db.all('SELECT id, name FROM workspaces')).toEqual([{ id: 'workspace', name: 'Kanban Toolkit' }])
   })
 
   it('retires the table that answered two questions with one column', async () => {

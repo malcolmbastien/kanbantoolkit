@@ -1,4 +1,4 @@
-# AGENTS.md — Flowline
+# AGENTS.md — Kanban Toolkit
 
 ## Hard rule: no Firebase, no Google tracking
 
@@ -20,7 +20,7 @@ The app is a static Vite + React SPA: `dist/` runs on any host with no backend a
 
 ## One application, two places to run it
 
-Flowline is both a service and a project someone can run themselves, so the server is a `fetch`
+Kanban Toolkit is both a service and a project someone can run themselves, so the server is a `fetch`
 handler and nothing more: Hono's `app.fetch`, exported by a Worker on Cloudflare and served by a
 Node process for a self-hosted instance. The two deployments differ in their entry file and their
 bindings — never in a route, a query or a rule. `server/` holds what both run and must not import
@@ -194,7 +194,7 @@ task-master list            # terminal 2
 
 ## Persisted state (localStorage)
 
-The app persists to `flowline-state-v3` via `zustand/persist`. When you add a
+The app persists to `kanbantoolkit-state-v3` via `zustand/persist`. When you add a
 **required field** to a persisted entity (Board/Lane/Item/Placement):
 
 1. bump `version` in the persist config, and

@@ -25,14 +25,14 @@ A token, never a session: a script has no browser, and a cookie carries no scope
 acquired by the tool rather than copied by hand:
 
 ```bash
-npm run flowline -- login --url https://board.example.com
+npm run kanbantoolkit -- login --url https://board.example.com
 ```
 
 It prints a code and a URL, waits while a person approves it in the browser, and writes the secret to
-`~/.config/flowline/token` with mode `0600`. Then:
+`~/.config/kanbantoolkit/token` with mode `0600`. Then:
 
 ```bash
-TOKEN=$(npm run --silent flowline -- token)
+TOKEN=$(npm run --silent kanbantoolkit -- token)
 curl -s -H "Authorization: Bearer $TOKEN" https://board.example.com/api/v1/boards
 ```
 
@@ -86,7 +86,9 @@ difference is worth reading: the first is the token you chose, the second is the
 
 An item is a card or an initiative; the `typeId` is what makes it one, not a different resource.
 There is no `size` field: the board counts issues, not points, and progress is the number of them
-finished over the number below. A request that sends one is answered `422 invalid` and names the
+finished over the number below. `createdById` is the person who made the item: the server records it
+from the session, answers it on every item, and refuses a body that tries to send or change one — it
+records an act that has already happened. A request that sends one is answered `422 invalid` and names the
 field, rather than dropping a number the client believes it set. An initiative is placed in the
 initiatives workflow and a card in the cards workflow — the two trees are independent, and a route
 that tries to cross them answers `422 wrong_workflow`.
@@ -145,7 +147,7 @@ Move everything in Backlog to Not Started, one card at a time, and say so for ea
 that files work from a CI job:
 
 ```bash
-TOKEN=$(npm run --silent flowline -- token)
+TOKEN=$(npm run --silent kanbantoolkit -- token)
 API=https://board.example.com/api/v1
 
 BOARD=$1 # e.g. "Team Atlas"
@@ -169,7 +171,7 @@ of an input file, and reports a refused move rather than dying on it:
 
 ```js
 const api = 'https://board.example.com/api/v1'
-const token = process.env.FLOWLINE_TOKEN
+const token = process.env.KANBANTOOLKIT_TOKEN
 const call = (path, init = {}) =>
   fetch(api + path, { ...init, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...init.headers } })
 

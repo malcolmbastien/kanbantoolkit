@@ -157,5 +157,5 @@ export function csvFilename(name: string, kind: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-  return `${slug || 'flowline'}-${kind}.csv`
+  return `${slug || 'kanbantoolkit'}-${kind}.csv`
 }

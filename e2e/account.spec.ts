@@ -64,7 +64,7 @@ test('the corner is the session, and My work is the work assigned to it', async 
   // and nothing else — is on the list. The expectation is read from the workspace itself, so the
   // assertion is about the filter rather than about the rendering of whatever the view chose.
   const workspace = await page.evaluate(() => {
-    const raw = window.localStorage.getItem('flowline-state-v3')
+    const raw = window.localStorage.getItem('kanbantoolkit-state-v3')
     return (JSON.parse(raw ?? '{}') as { state?: Record<string, unknown> }).state ?? {}
   })
   const maya = (workspace.users as Array<{ id: string; name: string }>).find((person) => person.name === 'Maya Blake')!
@@ -80,6 +80,34 @@ test('the corner is the session, and My work is the work assigned to it', async 
 
   expect(assigned.length, 'the demo assigns her work to begin with').toBeGreaterThan(0)
   expect([...new Set(shown)].sort()).toEqual([...new Set(assigned)].sort())
+})
+
+test('a card says who made it, on the card’s panel and in the workspace', async ({ page }) => {
+  await signInAsMaya(page)
+  await page.goto(`${SELF_HOSTED}/app?board=b-atlas`)
+
+  // A card made the way a person makes one.
+  await page.getByRole('button', { name: 'Card', exact: true }).click()
+  const card = page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'New card' }).last()
+  await expect(card).toBeVisible()
+  await card.click()
+
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  await expect(panel).toContainText('Created by')
+  await expect(panel).toContainText('Maya Blake')
+  const recorded = await panel.locator('[data-created-by]').getAttribute('data-created-by')
+
+  // The record is her id, not her name — the same id the workspace's own people list carries, which
+  // is what an agent or another client reads. (The API's answer for the same card is asserted in
+  // server/v1.test.ts, where the caller is the creator by the server's own hand.)
+  const workspace = await page.evaluate(() => {
+    const raw = window.localStorage.getItem('kanbantoolkit-state-v3')
+    return (JSON.parse(raw ?? '{}') as { state?: { users?: Array<{ id: string; name: string }>; items?: Array<{ title: string; createdById?: string }> } }).state
+  })
+  const maya = workspace!.users!.find((person) => person.name === 'Maya Blake')!
+  expect(recorded).toBe(maya.id)
+  expect(workspace!.items!.some((item) => item.title === 'New card' && item.createdById === maya.id)).toBe(true)
 })
 
 test('an edit made while signed in reaches the server', async ({ page }) => {
@@ -256,7 +284,7 @@ test('one person holds a card, and the other can see it is held, then free', asy
 
     // The pen is refused to anybody else.
     const refused = await reader.request.patch(`${SELF_HOSTED}/api/workspace/items/${id}`, {
-      headers: { 'content-type': 'application/json', 'x-flowline-tab': 'reader' },
+      headers: { 'content-type': 'application/json', 'x-kanbantoolkit-tab': 'reader' },
       data: { baseRev: 0, item: { id, title: 'Mine', typeId: 't-card', createdAt: 1 } },
     })
     expect(refused.status()).toBe(423)
@@ -351,7 +379,7 @@ test('a listed domain is a door, the selection is judged whole, and the director
   // The file: the documented columns, and the filters the list is showing.
   const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
   const [download] = await Promise.all([page.waitForEvent('download'), people.getByRole('link', { name: 'Export CSV' }).click()])
-  expect(download.suggestedFilename()).toMatch(/^flowline-people-\d{4}-\d{2}-\d{2}\.csv$/)
+  expect(download.suggestedFilename()).toMatch(/^kanbantoolkit-people-\d{4}-\d{2}-\d{2}\.csv$/)
   const file = await readFile((await download.path())!, 'utf8')
   expect(file.split('\r\n')[0]).toBe('name,email,role,status,last active,joined')
   expect(file).toContain('maya.blake@example.com')
