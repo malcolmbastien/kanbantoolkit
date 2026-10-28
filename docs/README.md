@@ -71,6 +71,10 @@ the build.
 
 - **One home.** Every page exists once, here. The site links to these files rather than copying them,
   because a page that exists twice will drift and one of the two will be wrong.
+- **The wiki is a copy, not a second home.** `npm run docs:wiki` publishes these pages to the
+  [GitHub Wiki](https://github.com/malcolmbastien/kanbantoolkit/wiki) with a sidebar and a search box.
+  It is rendered from these files, so a change is made here and republished — never made there; a
+  page edited in the wiki is one the next publish replaces.
 - **The links are checked.** `npm run docs:check` fails when a relative link points at a file that
   does not exist, when a file in this directory is not listed above, or when the commands quoted in
   these pages are not the commands `package.json` runs.

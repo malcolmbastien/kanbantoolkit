@@ -28,6 +28,10 @@ npm run scan         # the dependency rule: no forbidden services
 CI runs those and the rest — `npm run build`, `npm run lint`, `npm run test:e2e`, `npm run site:check`,
 `npm run docs:check`, `npm run size`, `npm run smoke:node`. Run the ones your change touches.
 
+The browsable documentation wiki is generated from `docs/`, so it is never edited there: after a change,
+`npm run docs:wiki` republishes it. `npm run docs:check` already fails when a page is missing from the
+map in `scripts/wiki.mjs`.
+
 ## Where things are
 
 - `src/domain/` — the rules, as pure functions: no framework, no store, no network, unit tested.

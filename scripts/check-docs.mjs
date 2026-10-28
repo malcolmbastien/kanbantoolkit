@@ -13,6 +13,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { WIKI_PAGES } from './wiki.mjs'
 
 const ROOT = process.cwd()
 const DOCS = join(ROOT, 'docs')
@@ -83,6 +84,28 @@ for (const name of tracked) {
 for (const [, href] of index.matchAll(/\]\(([^)\s#]+\.md)\)/g)) {
   if (/^(https?:|\.\.\/)/.test(href)) continue
   if (!existsSync(join(DOCS, href))) fail(`docs/README.md lists ${href}, which does not exist`)
+}
+
+// ---- every document has a page in the browsable wiki ----
+//
+// The wiki is generated from these files, so a page that is not in the map is a page the hub cannot
+// reach. Promise and evidence are checked together: the map cannot name a file that is gone, and a
+// file cannot arrive without the map saying which page it becomes.
+const wikiPages = new Map()
+for (const entry of WIKI_PAGES) {
+  if (!existsSync(join(DOCS, entry.file))) {
+    fail(`scripts/wiki.mjs names docs/${entry.file}, which does not exist`)
+  }
+  if (!/^[A-Za-z0-9-]+$/.test(entry.page)) {
+    fail(`the wiki page "${entry.page}" is not a single URL token`)
+  }
+  if (wikiPages.has(entry.page)) fail(`docs/${entry.file} and docs/${wikiPages.get(entry.page)} share the wiki page ${entry.page}`)
+  wikiPages.set(entry.page, entry.file)
+}
+for (const name of tracked) {
+  if (!WIKI_PAGES.some((entry) => entry.file === name)) {
+    fail(`docs/${name} has no wiki page: add it to scripts/wiki.mjs so the hub lists it`)
+  }
 }
 
 // ---- an operator's page says when it was last run ----
