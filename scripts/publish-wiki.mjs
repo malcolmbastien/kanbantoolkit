@@ -118,59 +118,41 @@ function render(text, source) {
   return rewritten
 }
 
-/** The hub: the reading order, in the same shape as the repository's index. */
+/** The hub: using the application, then installing and running it. */
 function home() {
   const table = (section) =>
-    WIKI_PAGES.filter((entry) => entry.section === section && entry.file !== 'README.md')
+    WIKI_PAGES.filter((entry) => entry.section === section)
       .map((entry) => `| **[${entry.page}](${entry.page})** | ${entry.note} |`)
       .join('\n')
 
-  return `# Kanban Toolkit documentation
+  return `# Kanban Toolkit guide
 
 An open-source Kanban board for a team’s flow and for the wider view that management makes of the same
 work — on a machine you own.
 
 **The site and the demo:** https://kanbantoolkit.com
 
-This wiki is generated from [\`docs/\`](${BLOB}/docs) in the repository by \`npm run docs:wiki\`. The
+This guide is generated from [\`docs/\`](${BLOB}/docs) in the repository by \`npm run docs:wiki\`. The
 files there are the source, and the version that ships with the code — **edit those, never these
 pages.**
+
+## ${SECTION_TITLES.use}
+
+| | |
+| --- | --- |
+${table('use')}
 
 ## ${SECTION_TITLES.run}
 
 | | |
 | --- | --- |
 ${table('run')}
-
-## ${SECTION_TITLES.code}
-
-| | |
-| --- | --- |
-${table('code')}
-
-## ${SECTION_TITLES.project}
-
-| | |
-| --- | --- |
-${table('project')}
-| **[Contributing](${BLOB}/CONTRIBUTING.md)** | Running it, the checks that gate a merge, and what a pull request needs. |
-| **[Security](${BLOB}/SECURITY.md)** | How to report a vulnerability, and what is out of scope. |
-| **[House rules](${BLOB}/AGENTS.md)** | The rules the project is built by, including the services it does not use. |
-| **[Licence](${BLOB}/LICENSE)** | AGPL-3.0-or-later. |
-
-## How these pages are kept honest
-
-- Every page exists once, in \`docs/\`, and this wiki is rendered from it — there is no second copy to
-  drift.
-- \`npm run docs:check\` fails when a link does not resolve, when a page is missing from the index, or
-  when a command the pages quote is not one the project runs.
-- The operator's pages say which release they were last verified against.
 `
 }
 
 function sidebar() {
   const links = (section) =>
-    WIKI_PAGES.filter((entry) => entry.section === section && entry.file !== 'README.md')
+    WIKI_PAGES.filter((entry) => entry.section === section)
       .map((entry) => `- [${entry.page}](${entry.page})`)
       .join('\n')
 
@@ -178,17 +160,11 @@ function sidebar() {
 
 [Home](Home)
 
+**${SECTION_TITLES.use}**
+${links('use')}
+
 **${SECTION_TITLES.run}**
 ${links('run')}
-
-**${SECTION_TITLES.code}**
-${links('code')}
-
-**${SECTION_TITLES.project}**
-${links('project')}
-- [Contributing](${BLOB}/CONTRIBUTING.md)
-- [Security](${BLOB}/SECURITY.md)
-- [House rules](${BLOB}/AGENTS.md)
 `
 }
 
@@ -209,8 +185,6 @@ function renderInto(directory) {
 
   const written = ['Home', '_Sidebar', '_Footer']
   for (const entry of WIKI_PAGES) {
-    // The index is the hub, which is generated above: it is not rendered twice.
-    if (entry.file === 'README.md') continue
     const source = join(DOCS, entry.file)
     writeFileSync(join(directory, `${entry.page}.md`), render(readFileSync(source, 'utf8'), source))
     written.push(entry.page)

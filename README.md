@@ -93,8 +93,8 @@ see [`docs/install.md`](docs/install.md) and [`docs/docker.md`](docs/docker.md).
 
 ## Documentation
 
-- [The documentation, browsable](https://github.com/malcolmbastien/kanbantoolkit/wiki) — the same
-  pages with a sidebar and search; generated from `docs/`.
+- [The guide, browsable](https://github.com/malcolmbastien/kanbantoolkit/wiki) — installing, running
+  and using the application; generated from `docs/`.
 - [`docs/README.md`](docs/README.md) — the index: architecture, data model, installation and the API.
 - [`docs/install.md`](docs/install.md) — running it, configuring it and keeping it going.
 - [`docs/backup.md`](docs/backup.md) — exporting and restoring your workspace.

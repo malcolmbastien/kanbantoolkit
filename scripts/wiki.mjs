@@ -1,24 +1,28 @@
 /**
- * The shape of the documentation wiki.
+ * The shape of the guide the wiki publishes.
  *
- * The wiki is a *build output* of `docs/`, not a second home for it: every page here names a file
- * in `docs/`, and `scripts/publish-wiki.mjs` renders that file into the wiki's own Markdown. This
- * list is what makes the hub complete — `npm run docs:check` fails when a document has no page, so
- * a page cannot be added to the repository and silently left out of the wiki.
+ * The wiki is a *reader's guide* — installing the application, running it, and using the board —
+ * not a mirror of everything in `docs/`. The engineering pages (architecture, the API, the data
+ * model, the roadmap) stay in the repository, where they are read beside the code and reviewed with
+ * it; the guide links to one where a page genuinely needs it.
+ *
+ * Every entry names a file in `docs/` and the wiki page it becomes. `npm run docs:check` fails when
+ * an entry names a file that is gone or when two entries claim one page, so the guide cannot
+ * silently point at nothing.
  *
  * `page` is the wiki's page name: one token, because a wiki link is a URL. `note` is the one line
  * the hub and the sidebar cannot say for themselves.
  */
 
-/** @typedef {{ file: string, page: string, note: string, section: 'run' | 'code' | 'project' }} WikiPage */
+/** @typedef {{ file: string, page: string, note: string, section: 'use' | 'run' }} WikiPage */
 
 /** @type {WikiPage[]} */
 export const WIKI_PAGES = [
   {
-    file: 'README.md',
-    page: 'Home',
-    note: 'The index, the reading order, and how these pages are kept honest.',
-    section: 'run',
+    file: 'using.md',
+    page: 'Using',
+    note: 'The board, a card, an initiative, the views, and keeping a copy.',
+    section: 'use',
   },
   {
     file: 'install.md',
@@ -62,70 +66,9 @@ export const WIKI_PAGES = [
     note: 'The same path with `docker compose up -d` as the whole install.',
     section: 'run',
   },
-  {
-    file: 'architecture.md',
-    page: 'Architecture',
-    note: 'The layers, the workspace boundary, and how a request becomes work.',
-    section: 'code',
-  },
-  {
-    file: 'server-runtime.md',
-    page: 'Runtimes',
-    note: 'Worker and Node from one codebase, and the rule that keeps it honest.',
-    section: 'code',
-  },
-  {
-    file: 'api.md',
-    page: 'API',
-    note: 'Every route, what it answers, and how a session is carried.',
-    section: 'code',
-  },
-  {
-    file: 'rest-api.md',
-    page: 'REST-API',
-    note: '`/api/v1`: the supported surface, and the promise that it does not move.',
-    section: 'code',
-  },
-  {
-    file: 'mcp.md',
-    page: 'MCP',
-    note: 'The agent’s door: the tool list, both transports, and the rule it writes by.',
-    section: 'code',
-  },
-  {
-    file: 'data-model-v2.md',
-    page: 'Data-model',
-    note: 'What a workspace is made of.',
-    section: 'code',
-  },
-  {
-    file: 'admin.md',
-    page: 'Admin',
-    note: 'Instance and workspace, the two axes, and the roles each answers.',
-    section: 'code',
-  },
-  {
-    file: 'collaboration.md',
-    page: 'Collaboration',
-    note: 'How two people edit at once without losing a change.',
-    section: 'code',
-  },
-  {
-    file: 'public-site.md',
-    page: 'Public-site',
-    note: 'What the project’s site says, and why each page exists.',
-    section: 'code',
-  },
-  {
-    file: 'roadmap.md',
-    page: 'Roadmap',
-    note: 'What is built, what is next, and what is deliberately not planned.',
-    section: 'project',
-  },
 ]
 
 export const SECTION_TITLES = {
+  use: 'Using the application',
   run: 'Install and run it',
-  code: 'Read the code',
-  project: 'The project',
 }

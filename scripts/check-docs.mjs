@@ -86,11 +86,11 @@ for (const [, href] of index.matchAll(/\]\(([^)\s#]+\.md)\)/g)) {
   if (!existsSync(join(DOCS, href))) fail(`docs/README.md lists ${href}, which does not exist`)
 }
 
-// ---- every document has a page in the browsable wiki ----
+// ---- the guide the wiki publishes is real ----
 //
-// The wiki is generated from these files, so a page that is not in the map is a page the hub cannot
-// reach. Promise and evidence are checked together: the map cannot name a file that is gone, and a
-// file cannot arrive without the map saying which page it becomes.
+// The wiki is a curated reader's guide, not a mirror of the directory: not every document belongs in
+// it, but every page it names must be a document that exists, and no two documents may claim one
+// page. The engineering pages stay here and are linked from the guide where one is needed.
 const wikiPages = new Map()
 for (const entry of WIKI_PAGES) {
   if (!existsSync(join(DOCS, entry.file))) {
@@ -101,11 +101,6 @@ for (const entry of WIKI_PAGES) {
   }
   if (wikiPages.has(entry.page)) fail(`docs/${entry.file} and docs/${wikiPages.get(entry.page)} share the wiki page ${entry.page}`)
   wikiPages.set(entry.page, entry.file)
-}
-for (const name of tracked) {
-  if (!WIKI_PAGES.some((entry) => entry.file === name)) {
-    fail(`docs/${name} has no wiki page: add it to scripts/wiki.mjs so the hub lists it`)
-  }
 }
 
 // ---- an operator's page says when it was last run ----

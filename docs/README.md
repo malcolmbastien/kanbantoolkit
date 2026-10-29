@@ -25,6 +25,12 @@ project's pages at somebody else's address. The only pages of this project an in
 terms and the privacy notice, and it points at them here, on this site, when `PROJECT_URL` says where
 that is.
 
+## If you are using it
+
+| | |
+| --- | --- |
+| **[Using the application](using.md)** | the board, a card, an initiative, the views, and keeping a copy |
+
 ## If you are installing it
 
 Follow these in order. Each one is short, and each ends where the next begins.
@@ -71,10 +77,12 @@ the build.
 
 - **One home.** Every page exists once, here. The site links to these files rather than copying them,
   because a page that exists twice will drift and one of the two will be wrong.
-- **The wiki is a copy, not a second home.** `npm run docs:wiki` publishes these pages to the
+- **The wiki is a guide, not a second home.** `npm run docs:wiki` publishes the reader's pages —
+  using the application, install, configure, identity, TLS, upgrade, backup and the container — to the
   [GitHub Wiki](https://github.com/malcolmbastien/kanbantoolkit/wiki) with a sidebar and a search box.
   It is rendered from these files, so a change is made here and republished — never made there; a
-  page edited in the wiki is one the next publish replaces.
+  page edited in the wiki is one the next publish replaces. The engineering pages stay in this
+  directory, and the guide links to one where a page needs it.
 - **The links are checked.** `npm run docs:check` fails when a relative link points at a file that
   does not exist, when a file in this directory is not listed above, or when the commands quoted in
   these pages are not the commands `package.json` runs.
