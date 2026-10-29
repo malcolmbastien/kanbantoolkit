@@ -79,14 +79,16 @@ test('an invitation is where the second person chooses a password', async ({ pag
   // She invites a colleague as a Viewer — the role that reads and comments.
   await page.goto(`${ORIGIN}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
-  const workspace = page.locator('section').filter({ has: page.getByRole('heading', { name: 'This workspace' }) })
-  await workspace.getByPlaceholder('grace@example.com').fill('grace@example.com')
-  // The role the invitation grants, chosen before the link is made: the select shows the description
-  // with the name, so the match is on the label.
-  await workspace.getByRole('combobox', { name: 'As' }).selectOption('viewer')
-  await workspace.getByRole('button', { name: 'Make a link' }).click()
-  const link = await workspace.getByLabel('Invitation link').inputValue()
+  await page.getByRole('tab', { name: 'Invitations' }).click()
+  await page.getByRole('button', { name: 'Invite' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Invite somebody' })
+  await dialog.getByPlaceholder('grace@example.com').fill('grace@example.com')
+  await dialog.getByRole('radio', { name: /Viewer/ }).check()
+  await page.getByRole('button', { name: 'Make the link' }).click()
+  const link = await page.getByLabel('Invitation link').inputValue()
   expect(link).toContain('invite=')
+  // The app lives at /app; the root is the project's site, and an invitation must land in the app.
+  expect(new URL(link).pathname).toBe('/app')
 
   // A browser that has never seen this instance opens it, and is asked for a name and a password
   // rather than sent to an identity provider it does not have.
@@ -121,10 +123,11 @@ test('an administrator hands over a reset link, and it sets the password', async
 
   await page.goto(`${ORIGIN}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
-  const roster = page.locator('section').filter({ has: page.getByRole('heading', { name: 'This workspace' }) })
-  const row = roster.locator('tr', { hasText: 'grace@example.com' })
-  await row.getByRole('button', { name: 'Reset' }).click()
-  const link = await roster.getByLabel('Invitation link').inputValue()
+  await page.getByRole('tab', { name: 'People' }).click()
+  const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
+  await people.getByRole('button', { name: 'Open Grace Hopper' }).click()
+  await page.getByRole('button', { name: 'Make a password link' }).click()
+  const link = await page.getByLabel('One-time link').inputValue()
   expect(link).toContain('link=')
 
   // The person who forgot their password opens it and chooses a new one — no mail involved, which is
@@ -192,6 +195,7 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
     await grace.goto(`${ORIGIN}/app?view=boards`)
     await expect(grace.getByRole('button', { name: 'Team Atlas', exact: true })).toBeVisible()
     await expect(grace.getByRole('button', { name: 'New board' })).toHaveCount(0)
+    await expect(grace.getByRole('tab', { name: /Templates/ })).toHaveCount(0)
     await expect(grace.getByRole('button', { name: /^New template/ })).toHaveCount(0)
     await expect(grace.getByRole('button', { name: /Import/ })).toHaveCount(0)
 

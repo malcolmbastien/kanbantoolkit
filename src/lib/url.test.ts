@@ -4,7 +4,6 @@ import { placeFromQuery, urlQuery, viewOf, type Place, type ViewFlags } from './
 const flags = (over: Partial<ViewFlags> = {}): ViewFlags => ({
   showBoards: false,
   showArchive: false,
-  showMyWork: false,
   showObjectives: false,
   showDashboard: false,
   showMetrics: false,
@@ -22,13 +21,12 @@ describe('the view a place is in', () => {
     expect(viewOf(flags({ showTimeline: true }))).toBe('timeline')
     expect(viewOf(flags({ showMetrics: true }))).toBe('flow')
     expect(viewOf(flags({ showArchive: true }))).toBe('archive')
-    expect(viewOf(flags({ showMyWork: true }))).toBe('mywork')
     expect(viewOf(flags({ showBoards: true }))).toBe('boards')
     expect(viewOf(flags({ showObjectives: true }))).toBe('objectives')
   })
 
   it('resolves a state holding two flags to the view App would actually render', () => {
-    // App's order: workspace, archive, my work, objectives, dashboard, flow, timeline, board.
+    // App's order: workspace, archive, objectives, dashboard, flow, timeline, board.
     expect(viewOf(flags({ showBoards: true, showDashboard: true }))).toBe('boards')
     expect(viewOf(flags({ showArchive: true, showTimeline: true }))).toBe('archive')
     expect(viewOf(flags({ showDashboard: true, showTimeline: true }))).toBe('dashboard')
@@ -57,7 +55,7 @@ describe('the query a place writes', () => {
       place({ boardId: 'b-nova' }),
       place({ itemId: 'init-signup' }),
       place({ itemId: 'st-email' }),
-      place({ view: 'mywork', itemId: 'st-email' }),
+      place({ view: 'archive', itemId: 'st-email' }),
     ]
     const written = places.map(urlQuery)
     expect(new Set(written).size).toBe(places.length)
@@ -81,17 +79,17 @@ describe('the place a query names', () => {
     })
   })
 
-  it('reads an absent view as the board’s own flow, which is what an absent view writes', () => {
+  it('reads an absent view as the workspace home, unless the query names a board', () => {
     // The two directions have to agree, or the back button lands on a board still showing the
     // Timeline under a URL that no longer mentions it.
-    expect(placeFromQuery('').view).toBe('board')
+    expect(placeFromQuery('').view).toBe('boards')
     expect(placeFromQuery('?board=b-atlas').view).toBe('board')
     expect(placeFromQuery('?view=board').view).toBe('board')
     expect(placeFromQuery('?view=nonsense').view).toBe('board')
   })
 
   it('names no board and no card when the query does not', () => {
-    expect(placeFromQuery('')).toEqual({ view: 'board' })
+    expect(placeFromQuery('')).toEqual({ view: 'boards' })
     expect(placeFromQuery('?q=signup')).toEqual({ view: 'board' })
     expect(placeFromQuery('?stress=300')).toEqual({ view: 'board' })
     expect(placeFromQuery('?edit=1&select=a,b&collapse=l1')).toEqual({ view: 'board' })
@@ -103,7 +101,7 @@ describe('the place a query names', () => {
   })
 
   it('reads every view the app has', () => {
-    for (const name of ['dashboard', 'timeline', 'flow', 'archive', 'mywork', 'boards', 'objectives']) {
+    for (const name of ['dashboard', 'timeline', 'flow', 'archive', 'boards', 'objectives']) {
       expect(placeFromQuery(`?view=${name}`).view).toBe(name)
     }
   })

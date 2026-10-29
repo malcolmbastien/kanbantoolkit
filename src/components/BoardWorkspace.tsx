@@ -1,17 +1,13 @@
-import { useRef, useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, Columns3, CopyPlus, Database, Download, Eye, LayoutDashboard, LayoutTemplate, MoreVertical, Pencil, Plus, Search, Target, Trash2, Upload, Users } from 'lucide-react'
+import { useState } from 'react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, CopyPlus, Database, LayoutDashboard, LayoutTemplate, MoreVertical, Plus, Ruler, Search, Trash2, Users } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
-import { InlineEdit } from './InlineEdit'
 import { NewBoardDialog } from './NewBoardDialog'
 import { TemplateEditor } from './TemplateEditor'
 import { boardsByBand } from '@/domain/board'
 import { useMay } from '@/lib/permissions'
-import { readWorkspaceFile } from '@/domain/workspace'
-import { downloadWorkspace } from '@/lib/exportWorkspace'
-import { formatBytes, requestPersistence, useStorageStatus } from '@/lib/storage'
 import { cn } from '@/lib/utils'
-import { PERSIST_VERSION, useStore } from '@/store'
-import type { Board, BoardBand, BoardTemplate } from '@/domain/types'
+import { useStore } from '@/store'
+import type { Board, BoardBand } from '@/domain/types'
 
 /**
  * The board workspace: every board in the organisation, grouped by flight level, with a
@@ -34,27 +30,15 @@ export function BoardWorkspace() {
   const setDashboard = useStore((s) => s.setDashboard)
   const setTimeline = useStore((s) => s.setTimeline)
   const newBoardTemplate = useStore((s) => s.newBoardTemplate)
-  const renameBoardTemplate = useStore((s) => s.renameBoardTemplate)
-  const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
   const askConfirm = useStore((s) => s.askConfirm)
-  const importWorkspace = useStore((s) => s.importWorkspace)
-  const setObjectives = useStore((s) => s.setObjectives)
   const setView = useStore((s) => s.setView)
-  const objectives = useStore((s) => s.objectives)
-  const keyResults = useStore((s) => s.keyResults)
-  // The ring of workspace copies, read on open and after a restore. The ring is written by the
-  // schedule in `main.tsx`; this panel is where a person reaches for one.
-  const storageUsage = useStorageStatus((s) => s.usage)
-  const storageQuota = useStorageStatus((s) => s.quota)
-  const storagePersisted = useStorageStatus((s) => s.persisted)
   // The role's half of the matrix: this screen is the way into every board, so a Viewer must not
-  // be offered a New board, a duplicate, a template or an import that would answer 403.
+  // be offered a New board, a duplicate or a template that would answer 403.
   const may = useMay()
   const canCreate = may('board.create')
   const canManage = may('board.settings')
   const canDelete = may('board.delete')
   const canTemplates = may('template.manage')
-  const canImport = may('workspace.import')
   const [q, setQ] = useState('')
   const [showNewBoard, setShowNewBoard] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -65,13 +49,12 @@ export function BoardWorkspace() {
   // about the board rather than about what you can do to it.
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const boardTemplates = useStore((s) => s.boardTemplates)
-  const [creatingTemplate, setCreatingTemplate] = useState(false)
-  const [templateName, setTemplateName] = useState('')
-  const [templateBand, setTemplateBand] = useState<BoardBand>('team')
-  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [newTemplateId, setNewTemplateId] = useState<string | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
-  const [importError, setImportError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  // The home is two sections: the boards, and the designs boards are made from. A workspace with
+  // many boards should not bury its templates under the list.
+  const [homeTab, setHomeTab] = useState<'boards' | 'templates'>('boards')
+  const activeTab = homeTab === 'templates' && canTemplates ? 'templates' : 'boards'
 
   const allGroups = boardsByBand(boards, q, showArchived)
   const groups = bandFilter === 'all' ? allGroups : allGroups.filter((g) => g.band === bandFilter)
@@ -88,60 +71,28 @@ export function BoardWorkspace() {
     setQ('')
   }
 
+  /** A name nobody has used, so two untouched templates are not both “Untitled template”. */
+  const untitledTemplateName = () => {
+    const base = 'Untitled template'
+    if (!boardTemplates.some((template) => template.name === base)) return base
+    let n = 2
+    while (boardTemplates.some((template) => template.name === `${base} ${n}`)) n += 1
+    return `${base} ${n}`
+  }
+
+  /**
+   * New template opens the template editor itself, on a template that begins as the standard
+   * columns. The editor is the one place its name, type, flow and card types are set; Cancel there
+   * takes the just-made template back out.
+   */
   const createTemplate = () => {
-    const trimmed = templateName.trim()
-    if (!trimmed) return
-    newBoardTemplate(trimmed, templateBand)
-    setTemplateName('')
-    setTemplateBand('team')
-    setCreatingTemplate(false)
+    const id = newBoardTemplate(untitledTemplateName(), 'team')
+    if (!id) return
+    setNewTemplateId(id)
+    setPreviewId(id)
   }
-
-  const cancelCreateTemplate = () => {
-    setTemplateName('')
-    setTemplateBand('team')
-    setCreatingTemplate(false)
-  }
-
-  const removeTemplate = (template: BoardTemplate) =>
-    askConfirm({
-      title: `Delete template “${template.name}”?`,
-      body: 'Boards already created from it are untouched.',
-      confirmLabel: 'Delete',
-      danger: true,
-      onConfirm: () => removeBoardTemplate(template.id),
-    })
 
   const preview = boardTemplates.find((t) => t.id === previewId)
-
-  /** Download the workspace — the same file the banner offers when saving has stopped. */
-  const exportWorkspace = () => downloadWorkspace()
-
-  const onImportFile = async (file: File | undefined) => {
-    if (!file) return
-    let json: unknown
-    try {
-      json = JSON.parse(await file.text())
-    } catch {
-      setImportError('That file is not valid JSON.')
-      return
-    }
-    const read = readWorkspaceFile(json, PERSIST_VERSION)
-    if (!read.ok || !read.state) {
-      setImportError(read.error ?? 'That file is not a Kanban Toolkit workspace.')
-      return
-    }
-    setImportError(null)
-    const boards = read.state.boards as { name: string; archived?: boolean }[]
-    const items = (read.state.items as unknown[]).length
-    askConfirm({
-      title: `Import “${file.name}”?`,
-      body: `It replaces this workspace: ${boards.length} board${boards.length === 1 ? '' : 's'}, ${items} work item${items === 1 ? '' : 's'}. The current workspace is overwritten — export first if you want to keep it.`,
-      confirmLabel: 'Import',
-      danger: true,
-      onConfirm: () => importWorkspace(read.state!, read.version!),
-    })
-  }
 
   const remove = (board: Board) =>
     askConfirm({
@@ -155,32 +106,12 @@ export function BoardWorkspace() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
       <div className="mx-auto w-full max-w-6xl">
-        {/* The other thing at this altitude. Boards are where work is arranged; objectives are
-            what it is for, and until now the only way in was a portfolio board's corner. */}
-        <button
-          onClick={() => setObjectives(true)}
-          className="mb-3 flex w-full items-center gap-3 rounded-lg border border-violet-300 bg-violet-50/70 px-4 py-2.5 text-left transition hover:border-violet-400 hover:bg-violet-50"
-          title="Open Objectives & Key Results"
-        >
-          <Target size={16} className="shrink-0 text-violet-600" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-meta font-bold uppercase tracking-wide text-violet-700">Objectives &amp; Key Results</span>
-            <span className="block text-meta text-slate-600">
-              {objectives.length} objective{objectives.length === 1 ? '' : 's'} · {keyResults.length} key result{keyResults.length === 1 ? '' : 's'} — what the work is for, and the strategic initiatives that serve it
-            </span>
-          </span>
-          <ArrowRight size={14} className="shrink-0 text-violet-500" />
-        </button>
-
-        <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-slate-300 bg-white px-4 py-3">
+        <div className="mb-3 rounded-lg border border-slate-300 bg-white">
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-2 px-4 py-3">
           <div>
-            <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-indigo-600">
-              <Columns3 size={12} /> Boards
-              <span className="rounded-full bg-indigo-50 px-1.5 py-px text-micro font-bold tabular-nums text-indigo-700 ring-1 ring-indigo-200">
-                {shown}
-              </span>
-            </div>
-            <div className="text-heading font-semibold text-slate-800">Every board in the organisation</div>
+            <h1 className="text-heading font-semibold text-slate-800">Workspace Home</h1>
+            <p className="mt-0.5 text-meta text-slate-600">Every board in the organisation, and the designs behind them.</p>
+            {activeTab === 'boards' && (
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
               {(['all', ...BOARD_BANDS] as (BoardBand | 'all')[]).map((b) => {
                 const on = bandFilter === b
@@ -202,17 +133,19 @@ export function BoardWorkspace() {
                 )
               })}
             </div>
+            )}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {canCreate && (
+            {activeTab === 'boards' && canCreate && (
               <button
                 onClick={() => setShowNewBoard(true)}
-                className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-meta font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
                 title="Create a board in this organisation"
               >
-                <Plus size={13} /> New board
+                <Plus size={14} /> New board
               </button>
             )}
+            {activeTab === 'boards' && (
             <div className="relative">
               <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -223,7 +156,8 @@ export function BoardWorkspace() {
                 className="w-56 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
               />
             </div>
-            {archivedCount > 0 && (
+            )}
+            {activeTab === 'boards' && archivedCount > 0 && (
               <button
                 onClick={() => setShowArchived((v) => !v)}
                 className={cn(
@@ -247,8 +181,37 @@ export function BoardWorkspace() {
               <Database size={13} /> Admin
             </button>
           </div>
+          </div>
+          <nav role="tablist" aria-label="Workspace home sections" className="flex gap-1 border-t border-slate-100 px-3">
+            {[
+              { id: 'boards' as const, label: 'Boards', count: boards.length },
+              ...(canTemplates ? [{ id: 'templates' as const, label: 'Templates', count: boardTemplates.length }] : []),
+            ].map((entry) => (
+              <button
+                key={entry.id}
+                id={`home-tab-${entry.id}`}
+                role="tab"
+                aria-selected={activeTab === entry.id}
+                aria-controls={`home-panel-${entry.id}`}
+                onClick={() => setHomeTab(entry.id)}
+                className={cn(
+                  '-mb-px border-b-2 px-2.5 py-1.5 text-meta font-medium',
+                  activeTab === entry.id
+                    ? 'border-indigo-600 text-indigo-700'
+                    : 'border-transparent text-slate-600 hover:text-slate-900',
+                )}
+              >
+                {entry.label}
+                <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-px text-micro font-bold tabular-nums text-slate-600">
+                  {entry.count}
+                </span>
+              </button>
+            ))}
+          </nav>
         </div>
 
+        {activeTab === 'boards' && (
+          <div id="home-panel-boards" role="tabpanel" aria-labelledby="home-tab-boards">
         {boards.length === 0 ? (
           <div className="rounded-xl border border-slate-300 bg-white px-6 py-10 text-center">
             <p className="text-title font-semibold text-slate-900">This workspace is empty</p>
@@ -424,197 +387,64 @@ export function BoardWorkspace() {
           </div>
         </div>
 
+          </div>
+        )}
+
         {/* Templates — board designs, reusable when creating boards. A design is the
             administrator's, so a role that may not manage one is not shown the list. */}
-        {canTemplates && (
-          <section className="mt-4">
+        {activeTab === 'templates' && canTemplates && (
+          <div id="home-panel-templates" role="tabpanel" aria-labelledby="home-tab-templates">
+          <section>
             <div className="mb-1 flex items-center gap-2 px-1">
               <LayoutTemplate size={12} className="text-slate-400" />
               <span className="text-micro font-bold uppercase tracking-wide text-slate-600">Templates</span>
               <span className="text-micro font-semibold tabular-nums text-slate-600">{boardTemplates.length}</span>
               <button
-                onClick={() => (creatingTemplate ? cancelCreateTemplate() : setCreatingTemplate(true))}
-                className={cn(
-                  'ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1 text-meta font-medium transition',
-                  creatingTemplate
-                    ? 'border-indigo-400/60 bg-indigo-50 text-indigo-700'
-                    : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
-                )}
+                onClick={createTemplate}
+                className="ml-auto flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
                 title="Create a template to start boards from"
               >
                 <Plus size={13} /> New template
               </button>
             </div>
 
-            {creatingTemplate && (
-              <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
-                <input
-                  autoFocus
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') createTemplate()
-                    else if (e.key === 'Escape') cancelCreateTemplate()
-                  }}
-                  placeholder="Template name…"
-                  aria-label="New template name"
-                  className="w-56 rounded-md border border-slate-300 px-2 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-                />
-                <select
-                  value={templateBand}
-                  onChange={(e) => setTemplateBand(e.target.value as BoardBand)}
-                  aria-label="New template board type"
-                  className="rounded-md border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-                >
-                  {BOARD_BANDS.map((b) => (
-                    <option key={b} value={b}>
-                      {BAND_STYLES[b].label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={createTemplate}
-                  disabled={!templateName.trim()}
-                  className="rounded-md bg-indigo-500 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
-                >
-                  Create
-                </button>
-                <button
-                  onClick={cancelCreateTemplate}
-                  className="rounded-md border border-slate-300 px-2.5 py-1 text-meta font-medium text-slate-600 hover:text-slate-800"
-                >
-                  Cancel
-                </button>
-                <span className="text-meta text-slate-600">The board type it will create, and its starting columns.</span>
-              </div>
-            )}
-
-            {boardTemplates.length === 0 && !creatingTemplate ? (
+            {boardTemplates.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-6 text-center text-meta text-slate-600">
                 No templates yet. Create one here, or save a board’s design from its settings.
               </div>
             ) : (
-              <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {boardTemplates.map((t) => (
-                  <div
+                  <button
                     key={t.id}
-                    className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-200"
+                    onClick={() => setPreviewId(t.id)}
+                    className="group flex flex-col rounded-xl border border-dashed border-sky-300 bg-white p-3 text-left shadow-sm transition hover:border-sky-400 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+                    title={`Open the ${t.name} template`}
                   >
-                    {renamingId === t.id ? (
-                      <InlineEdit
-                        autoEdit
-                        value={t.name}
-                        ariaLabel="Template name"
-                        onSave={(next) => {
-                          renameBoardTemplate(t.id, next)
-                          setRenamingId(null)
-                        }}
-                        onDone={() => setRenamingId(null)}
-                        className="min-w-0 flex-1"
-                        inputClassName="w-full rounded border border-indigo-300 px-1.5 py-0.5 text-body font-semibold text-slate-800 outline-none"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => setRenamingId(t.id)}
-                        className="group flex min-w-0 flex-1 items-center gap-1.5 text-left"
-                        title={`Rename ${t.name}`}
-                      >
-                        <span className="truncate text-body font-semibold text-slate-800">{t.name}</span>
-                        <Pencil size={11} className="shrink-0 text-slate-300 transition group-hover:text-indigo-500" />
-                      </button>
-                    )}
+                    <span className="flex items-center justify-between">
+                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-sky-100 text-sky-700">
+                        <Ruler size={16} />
+                      </span>
+                      <span className="rounded bg-white/70 px-1.5 py-px text-micro font-semibold uppercase tracking-wide text-sky-700 ring-1 ring-sky-200">
+                        {BAND_STYLES[t.band].label}
+                      </span>
+                    </span>
 
-                    <button
-                      onClick={() => setPreviewId(t.id)}
-                      className="flex shrink-0 items-center gap-1 rounded border border-slate-300 px-2 py-0.5 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                      title={`Preview ${t.name}`}
-                    >
-                      <Eye size={11} /> Preview
-                    </button>
-
-                    <button
-                      onClick={() => removeTemplate(t)}
-                      className="shrink-0 rounded p-1 text-slate-600 transition hover:text-rose-500"
-                      title={`Delete ${t.name}`}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+                    <span className="mt-3 truncate text-title font-semibold text-slate-800">{t.name}</span>
+                    <span className="mt-0.5 text-meta text-slate-600">
+                      {t.lanes.length} lane{t.lanes.length === 1 ? '' : 's'} · a board design
+                    </span>
+                    <span className="mt-2 flex items-center gap-1 text-micro font-medium text-sky-700">
+                      Open design <ArrowRight size={11} />
+                    </span>
+                  </button>
                 ))}
               </div>
             )}
           </section>
+          </div>
         )}
 
-        {/* Workspace data — the organisation, out and back into files. The export is what
-            the app persists, at the shape it was written in; the import replaces everything,
-            after the file passes the shape check and the person confirms. */}
-        <section data-workspace-data className="mt-4 rounded-lg border border-slate-300 bg-white px-4 py-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-slate-600">
-                <Download size={12} /> Workspace data
-              </div>
-              <p className="mt-0.5 text-meta text-slate-600">
-                Export downloads every board, card and initiative as a JSON file; importing one replaces this workspace
-                with what the file carries.
-              </p>
-              {/* What the browser says about the space, and whether it has promised to keep it.
-                  A browser that will not promise may evict the workspace after a quiet week. */}
-              <p data-storage-figures className="mt-1 text-micro text-slate-600">
-                Storage: <span className="tabular-nums">{formatBytes(storageUsage)}</span> used
-                {storageQuota !== null && <> of {formatBytes(storageQuota)}</>}
-                {' · '}
-                {storagePersisted === true
-                  ? 'the browser will keep it'
-                  : storagePersisted === false
-                    ? 'the browser may evict it'
-                    : 'persistence not yet requested'}
-                {storagePersisted === false && (
-                  <button
-                    onClick={() => void requestPersistence(true)}
-                    className="ml-1.5 rounded border border-slate-300 px-1.5 py-0.5 font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                    title="Ask the browser to keep this workspace instead of evicting it under pressure"
-                  >
-                    Ask the browser to keep it
-                  </button>
-                )}
-              </p>
-              {importError && <p className="mt-1 text-meta font-medium text-rose-600">{importError}</p>}
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                onClick={exportWorkspace}
-                className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                title="Download the whole workspace as JSON"
-              >
-                <Download size={13} /> Export
-              </button>
-              {canImport && (
-                <>
-                  <button
-                    onClick={() => fileRef.current?.click()}
-                    className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                    title="Import a workspace file — replaces everything here"
-                  >
-                    <Upload size={13} /> Import…
-                  </button>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".json,application/json"
-                    className="hidden"
-                    onChange={(e) => {
-                      void onImportFile(e.target.files?.[0])
-                      // Reading the same file again must fire again.
-                      e.target.value = ''
-                    }}
-                  />
-                </>
-              )}
-            </div>
-          </div>
-        </section>
 
       </div>
 
@@ -626,7 +456,17 @@ export function BoardWorkspace() {
         />
       )}
 
-      {preview && <TemplateEditor template={preview} onClose={() => setPreviewId(null)} />}
+      {preview && (
+        <TemplateEditor
+          template={preview}
+          isNew={newTemplateId === preview.id}
+          startEditing={newTemplateId === preview.id}
+          onClose={() => {
+            setPreviewId(null)
+            setNewTemplateId(null)
+          }}
+        />
+      )}
     </div>
   )
 }

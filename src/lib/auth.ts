@@ -26,8 +26,6 @@ export interface AuthUser {
 export interface AuthState {
   providers: AuthProvider[]
   user: AuthUser | null
-  /** Whether this instance lets anybody in, or only the people it invited. */
-  access: 'open' | 'closed'
   /** Which transport the live feed uses here: a socket where the deployment has one, else polling. */
   live: 'socket' | 'poll'
   dev: boolean
@@ -52,7 +50,6 @@ export interface AuthState {
 const NONE: AuthState = {
   providers: [],
   user: null,
-  access: 'closed',
   live: 'poll',
   dev: false,
   password: false,
@@ -101,13 +98,11 @@ export async function loadAuth(): Promise<AuthState> {
     user: { id: string; name: string; email: string; avatarUrl?: string } | null
     instanceRole: string | null
     workspaces: Array<{ id: string; role: string }>
-    access?: string
     live?: string
   }>('/api/auth/session')
 
   const next: AuthState = {
     providers: offered.providers,
-    access: session?.access === 'open' ? 'open' : 'closed',
     live: session?.live === 'socket' ? 'socket' : 'poll',
     user: session?.user
       ? {

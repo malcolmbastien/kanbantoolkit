@@ -14,6 +14,7 @@ export function RoleSelect({
   onChange,
   disabled,
   label,
+  compact,
   className,
 }: {
   value: string
@@ -21,6 +22,8 @@ export function RoleSelect({
   disabled?: boolean
   /** Given when the select needs a visible label of its own. */
   label?: string
+  /** In a table row the sentence is too long for the cell: show the role's name alone. */
+  compact?: boolean
   className?: string
 }) {
   const select = (
@@ -28,6 +31,7 @@ export function RoleSelect({
       value={value}
       disabled={disabled}
       aria-label={label ?? 'Role'}
+      title={compact ? ROLES.find((entry) => entry.id === value)?.description : undefined}
       onChange={(event) => onChange(event.target.value as Role)}
       className={cn(
         'rounded-md border border-slate-200 bg-white px-2 py-1 text-meta text-slate-800 outline-none focus:border-indigo-400 disabled:opacity-40',
@@ -36,7 +40,7 @@ export function RoleSelect({
     >
       {ROLES.map((entry) => (
         <option key={entry.id} value={entry.id}>
-          {entry.label} — {entry.description}
+          {compact ? entry.label : `${entry.label} — ${entry.description}`}
         </option>
       ))}
     </select>

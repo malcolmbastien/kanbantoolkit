@@ -21,13 +21,12 @@
  */
 
 /** Every view the app can be in. `board` is the board's own flow — the Board tab. */
-export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'mywork' | 'boards' | 'objectives' | 'admin'
+export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'boards' | 'objectives' | 'admin'
 
 /** The view flags a place is read from. */
 export interface ViewFlags {
   showBoards: boolean
   showArchive: boolean
-  showMyWork: boolean
   showObjectives: boolean
   showDashboard: boolean
   showMetrics: boolean
@@ -53,7 +52,6 @@ export interface Place {
 export function viewOf(flags: ViewFlags): ViewName {
   if (flags.showBoards) return 'boards'
   if (flags.showArchive) return 'archive'
-  if (flags.showMyWork) return 'mywork'
   if (flags.showObjectives) return 'objectives'
   if (flags.showDashboard) return 'dashboard'
   if (flags.showMetrics) return 'flow'
@@ -87,7 +85,6 @@ const VIEW_NAMES: Record<string, ViewName> = {
   flow: 'flow',
   metrics: 'flow',
   archive: 'archive',
-  mywork: 'mywork',
   boards: 'boards',
   objectives: 'objectives',
   admin: 'admin',
@@ -96,16 +93,25 @@ const VIEW_NAMES: Record<string, ViewName> = {
 /**
  * The place a query names — what a link means, followed at boot or with the back button.
  *
- * An absent `view` means the board's own flow, not "no opinion": every URL the app writes says
- * which view it is in by leaving the parameter off when it is the board. Reading it the other way
- * round is what would make the back button land on a board still showing the Timeline, under a URL
- * that no longer mentioned it.
+ * An absent `view` means the **workspace home** — every board — unless the query names a board or
+ * something that only makes sense on one. A board, a card, a search, a filter, a focused card or a
+ * load-test board are all board intentions; with none of them the honest place to land is home.
  *
- * A view name nobody knows lands on the board's flow too — the app's home, and a real place to be.
+ * A view name nobody knows lands on the board's flow: a URL with a view this build does not know is
+ * still asking for a board surface, and the board is a real place to be.
  */
+const BOARD_INTENTIONS = ['q', 'filters', 'stress', 'lens', 'boundary', 'collapse', 'select', 'edit'] as const
+
 export function placeFromQuery(search: string): Partial<Place> {
   const params = new URLSearchParams(search)
-  const place: Partial<Place> = { view: VIEW_NAMES[params.get('view') ?? 'board'] ?? 'board' }
+  const namesBoard =
+    params.has('board') || params.has('item') || BOARD_INTENTIONS.some((key) => params.has(key))
+  const view = params.has('view')
+    ? (VIEW_NAMES[params.get('view') ?? ''] ?? 'board')
+    : namesBoard
+      ? 'board'
+      : 'boards'
+  const place: Partial<Place> = { view }
   const board = params.get('board')
   if (board) place.boardId = board
   const item = params.get('item')

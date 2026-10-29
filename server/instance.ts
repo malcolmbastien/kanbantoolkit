@@ -1,26 +1,18 @@
 /**
  * The instance's posture: who may come in.
  *
- * Closed by default, and the answer is read on every sign-in rather than cached, because the moment
- * it matters is the moment an administrator opens or closes it.
+ * There is one answer, and it is **closed**: every person needs an account, and an account arrives
+ * by invitation, by an administrator re-opening a deleted workspace, or from a domain the
+ * administrator listed. There is no open sign-up, and nothing here reads a stored posture — a
+ * database that still carries the retired `access` column cannot open the door.
+ *
+ * A listed domain is still a door, so it is read on every sign-in rather than cached: the moment it
+ * matters is the moment an administrator changes it.
  */
 
 import type { Database, Statement } from './db'
 
-export type Access = 'open' | 'closed'
-
 const ROW = 'instance'
-
-/** The posture, or `closed` when the question cannot be answered — the safe failure. */
-export async function accessMode(db: Database): Promise<Access> {
-  try {
-    const row = await db.get<{ access: string }>('SELECT access FROM instance_settings WHERE id = ?1', [ROW])
-    return row?.access === 'open' ? 'open' : 'closed'
-  } catch {
-    // An unmigrated database is not an open one.
-    return 'closed'
-  }
-}
 
 /** A domain, lowercased, that looks like a domain and nothing else. */
 export function normaliseDomain(value: string): string | undefined {
@@ -30,15 +22,14 @@ export function normaliseDomain(value: string): string | undefined {
 }
 
 export interface Settings {
-  access: Access
   allowedDomains: string[]
 }
 
-/** The posture and the domains it admits, read whole. */
+/** The domains the instance admits without an invitation, read whole. */
 export async function settings(db: Database): Promise<Settings> {
   try {
-    const row = await db.get<{ access: string; allowed_domains: string | null }>(
-      'SELECT access, allowed_domains FROM instance_settings WHERE id = ?1',
+    const row = await db.get<{ allowed_domains: string | null }>(
+      'SELECT allowed_domains FROM instance_settings WHERE id = ?1',
       [ROW],
     )
     let allowedDomains: string[] = []
@@ -48,9 +39,9 @@ export async function settings(db: Database): Promise<Settings> {
     } catch {
       allowedDomains = []
     }
-    return { access: row?.access === 'open' ? 'open' : 'closed', allowedDomains }
+    return { allowedDomains }
   } catch {
-    return { access: 'closed', allowedDomains: [] }
+    return { allowedDomains: [] }
   }
 }
 
@@ -59,15 +50,6 @@ export function admitsDomain(input: Settings, email: string): boolean {
   const domain = email.slice(email.lastIndexOf('@') + 1).toLowerCase()
   // Exact, not suffix: "notexample.com" must never match "example.com".
   return domain.length > 0 && input.allowedDomains.includes(domain)
-}
-
-export async function setAccess(db: Database, access: Access, audit?: Statement): Promise<void> {
-  const change = {
-    sql: `INSERT INTO instance_settings (id, access, updated_at) VALUES (?1, ?2, ?3)
-          ON CONFLICT (id) DO UPDATE SET access = excluded.access, updated_at = excluded.updated_at`,
-    params: [ROW, access, new Date().toISOString()],
-  }
-  await db.batch(audit ? [change, audit] : [change])
 }
 
 export async function setAllowedDomains(db: Database, allowedDomains: string[], audit?: Statement): Promise<void> {

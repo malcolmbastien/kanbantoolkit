@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { filtersFromParam } from '@/domain/filters'
 import { useStore } from '@/store'
 import { placeFromQuery, urlQuery, viewOf, type Place } from './url'
@@ -42,7 +42,9 @@ export function useUrl() {
   }, [title])
 
   // ---- On the way in: what the link asked for ----
-  useEffect(() => {
+  // A layout effect, so the place is applied before the first paint. The app's home and a board are
+  // different screens, and a link to one must not flash the other — or download it — on the way in.
+  useLayoutEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const place = placeFromQuery(window.location.search)
     const s = () => useStore.getState()
@@ -54,6 +56,9 @@ export function useUrl() {
     if (known(place.boardId, s().boards)) s().selectBoard(place.boardId!)
     if (params.get('edit')) s().beginEdit()
     if (place.view) s().setView(place.view)
+    // My work is a drawer, not a view: a link that names it opens the drawer over the place it
+    // would otherwise have landed on. (The first write normalises the URL back to that place.)
+    if (params.get('view') === 'mywork') s().setMyWork(true)
     // The open card is applied before the intentions below: it is the place's most specific fact,
     // and a view on its way in (the workspace, notably) clears a selection.
     if (known(place.itemId, s().items)) s().openItem(place.itemId!)

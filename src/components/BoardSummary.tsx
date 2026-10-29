@@ -96,7 +96,6 @@ export function BoardSummary({
   const lanes = useStore((s) => s.lanes)
   const issueTypes = useStore((s) => s.issueTypes)
   const boards = useStore((s) => s.boards)
-  const kindFilter = useStore((s) => s.initiativeKindFilter)
   const setInitiativeKind = useStore((s) => s.setInitiativeKind)
   const users = useStore((s) => s.users)
   const links = useStore((s) => s.links)
@@ -150,12 +149,7 @@ export function BoardSummary({
   const allInitiatives = boardInitiatives(graph, boardId, issueTypes, { rootsOnly }).filter(
     (i) => only === null || only.has(i.id),
   )
-  // The kind filter narrows *this board's* flow and nothing else. Not the bands — another board's
-  // flow shown through this one, with its own vocabulary and its own reading — and not the cards
-  // workflow, the dashboard, the timeline or the strategy map. It never moves a count either: a
-  // cell's badge reads the column, as everywhere.
-  const initiatives =
-    variant === 'initiatives' && kindFilter ? allInitiatives.filter((i) => i.initiativeTypeId === kindFilter) : allInitiatives
+  const initiatives = allInitiatives
   const boardKinds = boards.find((b) => b.id === boardId)?.initiativeTypes
 
   // A section is a typed column; its cells are its leaves — itself, until it's split.

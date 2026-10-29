@@ -55,8 +55,8 @@ export function workspaceMembersRoutes(runtime: Runtime) {
     const caller = await requireWorkspace(c, runtime, 'workspace.members')
     if (caller instanceof Response) return caller
 
-    const settings = await caller.db.get<{ name: string; description: string }>(
-      'SELECT name, description FROM workspace WHERE id = ?1',
+    const settings = await caller.db.get<{ name: string }>(
+      'SELECT name FROM workspace WHERE id = ?1',
       [WORKSPACE_ID],
     )
     const members = await caller.db.all<{
@@ -83,7 +83,7 @@ export function workspaceMembersRoutes(runtime: Runtime) {
     )
 
     return c.json({
-      workspace: { name: settings?.name ?? DEFAULT_WORKSPACE_NAME, description: settings?.description ?? '' },
+      workspace: { name: settings?.name ?? DEFAULT_WORKSPACE_NAME },
       members: members.map((member) => {
         const effective = strongestGrant(
           member.role,
@@ -107,36 +107,27 @@ export function workspaceMembersRoutes(runtime: Runtime) {
     })
   })
 
-  /** The name and the description: this workspace's own voice, not the instance's. */
+  /** The name: this workspace's own voice, not the instance's. */
   routes.patch('/', async (c) => {
     const caller = await requireWorkspace(c, runtime, 'workspace.settings')
     if (caller instanceof Response) return caller
 
-    const body = (await c.req.json().catch(() => null)) as { name?: unknown; description?: unknown } | null
-    const updates: Record<string, string> = {}
-    if (body && 'name' in body) {
-      const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) : ''
-      if (!name) return c.json({ error: 'a name is required' }, 400)
-      updates.name = name
-    }
-    if (body && 'description' in body) {
-      updates.description = typeof body.description === 'string' ? body.description.slice(0, 2_000) : ''
-    }
-    if (!Object.keys(updates).length) return c.json({ error: 'nothing to change' }, 400)
+    const body = (await c.req.json().catch(() => null)) as { name?: unknown } | null
+    const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 120) : ''
+    if (!name) return c.json({ error: 'a name is required' }, 400)
 
-    const columns = Object.keys(updates)
     await caller.db.batch([
       {
-        sql: `INSERT INTO workspace (id, ${columns.join(', ')}) VALUES (?1${columns.map((_, index) => `, ?${index + 2}`).join('')})
-              ON CONFLICT (id) DO UPDATE SET ${columns.map((column, index) => `${column} = ?${index + 2}`).join(', ')}`,
-        params: [WORKSPACE_ID, ...Object.values(updates)],
+        sql: `INSERT INTO workspace (id, name) VALUES (?1, ?2)
+              ON CONFLICT (id) DO UPDATE SET name = excluded.name`,
+        params: [WORKSPACE_ID, name],
       },
       statement({
         actorId: caller.user.id,
         action: 'workspace.settings',
         targetType: 'workspace',
         targetId: WORKSPACE_ID,
-        data: { fields: columns },
+        data: { fields: ['name'] },
       }),
     ])
 

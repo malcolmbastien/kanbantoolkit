@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { LifeBuoy, LogOut, Settings2, ShieldCheck, UserRound } from 'lucide-react'
+import { ListChecks, LifeBuoy, LogOut, Settings2, ShieldCheck, UserRound } from 'lucide-react'
 import { useStore } from '@/store'
 
 // A dialog nobody has opened yet is not part of the first download — and neither is the sign-in
@@ -99,6 +99,16 @@ export function AccountMenu() {
                 <p className="truncate text-meta text-slate-500">{auth.user.email}</p>
                 <p className="mt-1 text-micro uppercase tracking-wide text-slate-400">{auth.user.role}</p>
               </div>
+              <button
+                onClick={() => {
+                  setOpen(false)
+                  useStore.getState().setMyWork(true)
+                }}
+                className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              >
+                <ListChecks size={13} /> My work
+              </button>
+
               <button
                 onClick={() => {
                   setOpen(false)

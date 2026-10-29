@@ -62,6 +62,7 @@ test('the admin screen, signed in, has none', async ({ page }) => {
 
   await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
+  await page.getByRole('tab', { name: 'People' }).click()
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
   expect(await barriers(page)).toEqual([])
 })

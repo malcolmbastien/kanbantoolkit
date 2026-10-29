@@ -127,7 +127,7 @@ holder) carries it beside the sentence rather than in it.
 | `GET /api/auth/providers` | the doors this deployment actually has, and whether the development switch is on |
 | `GET /api/auth/start?provider=<id>&return=<path>` | begins the flow: a state cookie, PKCE, and a redirect to the provider |
 | `GET /api/auth/callback` | where the provider returns; exchanges the code, verifies the address, issues the session |
-| `GET /api/auth/session` | who is signed in: `{ user, instanceRole, workspaces, access, dev, live }` |
+| `GET /api/auth/session` | who is signed in: `{ user, instanceRole, workspaces, dev, live }` |
 | `POST /api/auth/signout` | ends this session (`204`) |
 | `POST /api/auth/dev` | `{"email": "…"}` — the development identity, only when `AUTH_DEV=1` |
 
@@ -214,7 +214,7 @@ The split is the two axes: the first is the deployment, the second is the team.
 
 | Route | What it does |
 | --- | --- |
-| `GET`, `PATCH /api/admin/settings` | the posture (`open`/`closed`) and the domains it admits |
+| `GET`, `PATCH /api/admin/settings` | the domains admitted without an invitation (the instance is always closed) |
 | `GET /api/admin/users?q=` | the directory, searchable |
 | `GET /api/admin/users/:id` | one person: their roles, sessions, identities and history |
 | `PATCH /api/admin/users/:id` | edit their name or address |
@@ -228,8 +228,8 @@ The split is the two axes: the first is the deployment, the second is the team.
 | `GET /api/admin/users.csv` | the directory as a file |
 | `GET`, `POST /api/admin/invites` | the invitations, and making one |
 | `POST /api/admin/invites/:id/resend`, `DELETE /api/admin/invites/:id` | send it again, or take it back |
-| `GET /api/admin/workspace` | this workspace: its name, its description, its members |
-| `PATCH /api/admin/workspace` | its name and description |
+| `GET /api/admin/workspace` | this workspace: its name and its members |
+| `PATCH /api/admin/workspace` | its name |
 | `POST /api/admin/workspace/invites` | invite somebody into this workspace |
 | `PATCH /api/admin/workspace/members/:id` | their role |
 | `POST /api/admin/workspace/members/:id/deactivate`, `/activate` | close or reopen their door |
@@ -238,6 +238,7 @@ The split is the two axes: the first is the deployment, the second is the team.
 | `PATCH`, `DELETE /api/admin/groups/:id` | edit or delete one |
 | `POST /api/admin/groups/:id/members`, `DELETE /api/admin/groups/:id/members/:userId` | who is in it |
 | `GET /api/admin/audit`, `GET /api/admin/audit/:id` | the trail, and one event |
+| `GET /api/admin/audit.csv` | the trail as a CSV file, with the same filters and scope |
 | `GET /api/admin/health` | the schema version, the expected one, and whether the feed is moving |
 
 ## Invitations

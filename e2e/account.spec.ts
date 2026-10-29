@@ -48,6 +48,8 @@ test('the front door is the instance’s, and a session survives a reload', asyn
   // The account becomes the workspace's own person of that name, so "my work" and the author on a
   // change are right.
   await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+  // Signing in lands on the workspace home — every board — rather than a board's own flow.
+  await expect(page.getByRole('heading', { name: 'Workspace Home' })).toBeVisible()
 
   // A reload asks the cookie rather than the person.
   await page.reload()
@@ -101,8 +103,9 @@ test('an empty workspace makes its first board, and the board outlives the brows
   // card is there once the instance's answer has been adopted.
   await expect(page.locator('[data-workflow="cards"] [data-card-id]')).toHaveCount(1, { timeout: 20_000 })
 
-  // My work is hers and says so, with no way to become somebody else. (The tab needs a board to be
-  // in the toolbar at all, which is why this waits until the workspace has one.)
+  // My work is hers and says so, with no way to become somebody else. It lives under the account
+  // menu now, because it is about the person rather than the board.
+  await page.getByRole('button', { name: /Maya Blake/ }).click()
   await page.getByRole('button', { name: 'My work' }).click()
   await expect(page.getByText(/Signed in as/)).toBeVisible()
   await expect(page.getByLabel('Whose work to show')).toHaveCount(0)
@@ -250,16 +253,12 @@ test('an administrator sees the people, and cannot close their own door', async 
   // Through the workspace, which is the only way in — and the way a person actually arrives.
   await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
-  await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
-  // The trail and the health of the instance, on the same screen.
-  await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Health' })).toBeVisible()
-  await expect(page.getByText('90 days')).toBeVisible()
 
-  // The workspace's own members and their roles, and the instance's people beside them.
-  const members = page.locator('section').filter({ has: page.getByRole('heading', { name: 'This workspace' }) })
-  await expect(members).toContainText('Members & roles')
-  await expect(members.getByRole('cell', { name: /maya\.blake@example\.com/ })).toBeVisible()
+  // The sections are tabs. People is the one list where the workspace's members and the instance's
+  // people meet: a role is changed there, not in a second table beside it.
+  await expect(page.getByRole('tab', { name: 'People' })).toBeVisible()
+  await page.getByRole('tab', { name: 'People' }).click()
+  await expect(page.getByRole('heading', { name: 'People' })).toBeVisible()
 
   const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
   await expect(people.getByRole('table')).toContainText('maya.blake@example.com')
@@ -271,16 +270,25 @@ test('an administrator sees the people, and cannot close their own door', async 
   // Escape closes it, like every other panel in the app.
   await page.keyboard.press('Escape')
   await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toHaveCount(0)
+
+  // The trail is its own tab, not a column below the directory.
+  await page.getByRole('tab', { name: 'Audit' }).click()
+  await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible()
+  await expect(page.getByText('90 days')).toBeVisible()
 })
 
 test('an administrator makes an invitation link, and takes it back', async ({ page }) => {
   await signInOnInstance(page, SELF_HOSTED, MAYA)
   await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
+  await page.getByRole('tab', { name: 'Invitations' }).click()
   await expect(page.getByRole('heading', { name: 'Invitations' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Invite' }).click()
-  await page.getByRole('dialog', { name: 'Invite somebody' }).getByPlaceholder('grace@example.com').fill('newcomer@example.com')
+  const dialog = page.getByRole('dialog', { name: 'Invite somebody' })
+  await dialog.getByPlaceholder('grace@example.com').fill('newcomer@example.com')
+  await dialog.getByRole('textbox', { name: 'First name (optional)' }).fill('New')
+  await dialog.getByRole('textbox', { name: 'Last name (optional)' }).fill('Comer')
   await page.getByRole('button', { name: 'Make the link' }).click()
 
   // Shown once, with the link selectable.
@@ -289,6 +297,8 @@ test('an administrator makes an invitation link, and takes it back', async ({ pa
   await expect(link).toHaveValue(/invite=/)
 
   await page.getByRole('button', { name: 'Done' }).click()
+  // The optional name is carried on the invitation, beside the address it is for.
+  await expect(page.getByRole('cell', { name: /newcomer@example\.com/ })).toContainText('New Comer')
   await expect(page.getByRole('cell', { name: 'newcomer@example.com' })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'pending' })).toBeVisible()
 
@@ -302,14 +312,18 @@ test('a listed domain is a door, the selection is judged whole, and the director
   await signInOnInstance(page, SELF_HOSTED, MAYA)
   await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
-  await expect(page.getByRole('heading', { name: 'Access' })).toBeVisible()
 
-  // The list is a door, and the screen says so before it is opened.
-  await page.getByLabel('Domains admitted without an invitation').fill('trials.example')
-  await page.getByRole('button', { name: 'Save the list' }).click()
-  await expect(page.getByText('Saved, and recorded in the audit.')).toBeVisible()
+  // The list is a door, set through the API: Admin no longer has an Access tab.
+  expect(
+    (
+      await page.request.patch(`${SELF_HOSTED}/api/admin/settings`, {
+        data: { allowedDomains: ['trials.example'] },
+      })
+    ).ok(),
+  ).toBeTruthy()
 
   // The file: the documented columns, and the filters the list is showing.
+  await page.getByRole('tab', { name: 'People' }).click()
   const people = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
   const [download] = await Promise.all([page.waitForEvent('download'), people.getByRole('link', { name: 'Export CSV' }).click()])
   expect(download.suggestedFilename()).toMatch(/^kanbantoolkit-people-\d{4}-\d{2}-\d{2}\.csv$/)
@@ -341,6 +355,7 @@ test('a listed domain is a door, the selection is judged whole, and the director
   // And the selection, which the server judges whole: the person just admitted can be closed out.
   await page.goto(`${SELF_HOSTED}/app?view=boards`)
   await page.getByRole('button', { name: /^Admin/ }).click()
+  await page.getByRole('tab', { name: 'People' }).click()
   const list = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
   await expect(list.getByRole('cell', { name: /robin@trials\.example/ })).toBeVisible()
   await list.getByRole('checkbox', { name: 'Select Robin' }).check()

@@ -218,18 +218,17 @@ async function identify(
       ? offered
       : undefined
 
-  // The first person to arrive owns the instance, whatever the setting says — there has to be
-  // somebody who can open the door.
+  // The first person to arrive owns the instance — there has to be somebody who can administer it.
   const first = ((await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM instance_members'))?.n ?? 0) === 0
   if (!first && !invite) {
-    // Three ways in when the instance is closed: an invitation, a domain the administrator listed,
-    // or nothing at all. A listed domain is a door, and it admits a viewer like an open instance.
+    // Two ways in: an invitation, or a domain the administrator listed. There is no open door —
+    // an account is always required, and arriving with a provider does not create one.
     const posture = await settings(db)
-    if (posture.access === 'closed' && !admitsDomain(posture, who.email)) throw new NotAdmitted()
+    if (!admitsDomain(posture, who.email)) throw new NotAdmitted()
   }
 
-  // An open door admits a viewer. It never makes anybody an administrator: that is a decision
-  // somebody makes about a person, not a consequence of arriving.
+  // An admitted account is a member of the deployment. It never makes anybody an administrator:
+  // that is a decision somebody makes about a person, not a consequence of arriving.
   const instanceRole = first ? 'admin' : 'member'
   const workspaceRole = invite
     ? invite.role === 'admin'
@@ -456,7 +455,7 @@ export function authRoutes(runtime: Runtime) {
   auth.get('/session', async (c) => {
     const db = runtime.database(c.env)
     if (!db) {
-      return c.json({ user: null, instanceRole: null, workspaces: [], access: 'closed', dev: false, live: 'poll' })
+      return c.json({ user: null, instanceRole: null, workspaces: [], dev: false, live: 'poll' })
     }
 
     const token = getCookie(c, sessionCookie(c.env, c.req.raw).name)
@@ -466,7 +465,6 @@ export function authRoutes(runtime: Runtime) {
         user: null,
         instanceRole: null,
         workspaces: [],
-        access: (await settings(db)).access,
         dev: devAuth(c.env),
         live: runtime.live ? 'socket' : 'poll',
       })
@@ -485,7 +483,6 @@ export function authRoutes(runtime: Runtime) {
       user: { id: user.id, name: user.name, email: user.email },
       instanceRole: user.instanceRole,
       workspaces,
-      access: (await settings(db)).access,
       dev: devAuth(c.env),
       // Which transport to open: the socket where the deployment has one, the poll where it does
       // not. The client falls back to polling anyway, so this is a hint rather than a promise.

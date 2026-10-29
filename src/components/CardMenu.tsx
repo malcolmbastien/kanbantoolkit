@@ -20,7 +20,7 @@ import {
   CornerDownRight,
   Unlink,
 } from 'lucide-react'
-import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isInitiativeItem, placementOn } from '@/domain/board'
+import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isInitiativeItem, NONE_TYPE_ID, placementOn } from '@/domain/board'
 import { decompositionParent } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -256,7 +256,11 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
       return wrap(
         types.map((t) => (
           <button key={t.id} className={cn(ITEM, 'pl-2.5')} onClick={() => run(() => setItemsType(itemIds, t.id))}>
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+            {t.id === NONE_TYPE_ID ? (
+              <Minus size={13} className="shrink-0 text-slate-400" />
+            ) : (
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+            )}
             <span className="flex-1">{t.name}</span>
           </button>
         )),

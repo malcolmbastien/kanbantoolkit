@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decompositionChildren, decompositionParent, checklistProgress, descendants, openDependenciesOf, rollupOf, statusOf } from './domain/derive'
-import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, itemsCarryingTag, searchItems, tagsOf } from './domain/board'
+import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, itemsCarryingTag, NONE_TYPE_ID, searchItems, tagsOf } from './domain/board'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
 import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
 import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
@@ -243,6 +243,16 @@ describe('store actions', () => {
     expect(s().issueTypes.length).toBe(before + 1)
     s().updateIssueType(added.id, { name: 'Threat' })
     expect(s().issueTypes.find((t) => t.id === added.id)?.name).toBe('Threat')
+  })
+
+  it('None is built in: it cannot be added twice, renamed or removed', () => {
+    const before = s().issueTypes.length
+    expect(s().addIssueType('None', '#000000')).toBe(NONE_TYPE_ID)
+    expect(s().issueTypes.length).toBe(before)
+    s().updateIssueType(NONE_TYPE_ID, { name: 'Nothing', color: '#000000' })
+    expect(s().issueTypes.find((t) => t.id === NONE_TYPE_ID)).toMatchObject({ name: 'None', color: '#64748b' })
+    s().removeIssueType(NONE_TYPE_ID)
+    expect(s().issueTypes.some((t) => t.id === NONE_TYPE_ID)).toBe(true)
   })
 
   it('an aggregating board links the boards chosen for it, and refuses cycles', () => {
@@ -1623,7 +1633,7 @@ describe('store actions', () => {
     // It opens as the board itself, with nothing in front of it.
     expect(s().selectedItemId).toBe(null)
     expect(s().filters).toEqual(NO_FILTERS)
-    expect([s().showDashboard, s().showTimeline, s().showMetrics, s().showBoards, s().showMyWork]).toEqual([false, false, false, false, false])
+    expect([s().showDashboard, s().showTimeline, s().showMetrics, s().showBoards]).toEqual([false, false, false, false])
 
     // Asking for a different size replaces it — one board, and the old cards are gone.
     s().addStressBoard(40)
@@ -1649,7 +1659,7 @@ describe('store actions', () => {
   })
 
   it('the board is the surface only when no view sits over it', () => {
-    const base = { showDashboard: false, showTimeline: false, showArchive: false, showObjectives: false, showBoards: false, showMyWork: false, showMetrics: false, showAdmin: false }
+    const base = { showDashboard: false, showTimeline: false, showArchive: false, showObjectives: false, showBoards: false, showMetrics: false, showAdmin: false }
     expect(isBoardSurface(base)).toBe(true)
     // Every view counts, including the ones added later — a flag this list forgets would put the
     // board's own controls in front of a view that reports on work.
@@ -1658,17 +1668,48 @@ describe('store actions', () => {
     }
   })
 
+  it('My work is a drawer, not a view: it stays open across the board’s views', () => {
+    s().setMyWork(true)
+    expect(s().showMyWork).toBe(true)
+    // Navigating does not take it away — the point of the drawer is that the board stays in front.
+    s().setView('timeline')
+    expect(s().showMyWork).toBe(true)
+    s().setView('boards')
+    expect(s().showMyWork).toBe(true)
+    s().setMyWork(false)
+    expect(s().showMyWork).toBe(false)
+  })
+
+  it('the right side holds one drawer: My work, filters and a card replace each other', () => {
+    s().setMyWork(true)
+    s().openItem('st-email')
+    expect(s().showMyWork).toBe(false)
+    expect(s().selectedItemId).toBe('st-email')
+
+    s().setMyWork(true)
+    expect(s().selectedItemId).toBe(null)
+
+    s().toggleFilters()
+    expect(s().showMyWork).toBe(false)
+    expect(s().showFilters).toBe(true)
+
+    s().setMyWork(true)
+    expect(s().showFilters).toBe(false)
+  })
+
   it('every view has one name, and the name is the view: the URL round trip', () => {
     // The URL says which view the app is in, and `setView` is the door it comes through. A name
     // that mapped to the wrong flag — or a view with no name — would make a link land somewhere
     // else, so the two directions are checked against each other rather than each on its own.
-    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'mywork', 'boards', 'objectives', 'admin']
+    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'boards', 'objectives', 'admin']
     for (const name of names) {
+      // Objectives open only on a portfolio board; the loop visits that board for that view.
+      if (name === 'objectives') s().selectBoard('b-strategy')
       s().setView(name)
       expect(viewOf(s()), name).toBe(name)
       // And exactly one view at a time: two flags set would make `viewOf`'s precedence — and so
       // the URL — disagree with what is on screen.
-      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showObjectives, s().showBoards, s().showMyWork, s().showAdmin]
+      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showObjectives, s().showBoards, s().showAdmin]
       expect(flags.filter(Boolean), name).toHaveLength(name === 'board' ? 0 : 1)
     }
     // The workspace is organisation-level: a board's side panel has no place in it.
@@ -1822,13 +1863,6 @@ describe('store actions', () => {
     // Old state: a board without the field reads as no kinds at all.
     const migrated = migrateState({ boards: [{ id: 'x', name: 'X', band: 'team' }] }) as { boards: Board[] }
     expect(boardInitiativeTypes(migrated.boards[0])).toEqual([])
-
-    // The kind filter is view state, and it goes with the board it was set on.
-    s().setInitiativeKindFilter(kindId)
-    expect(s().initiativeKindFilter).toBe(kindId)
-    expect(persistedSlice(s())).not.toHaveProperty('initiativeKindFilter')
-    s().selectBoard('b-nova')
-    expect(s().initiativeKindFilter).toBe(null)
   })
 
   it('tags are the board’s own labels, a set on any item, and none of them is None', () => {
@@ -2216,8 +2250,13 @@ describe('store actions', () => {
     const atlas = () => s().boards.find((b) => b.id === 'b-atlas')
     // Every card type is on every board — a type is a workspace-wide label, so there is no
     // per-board subset to restrict it with, only a choice of which one a new card starts as.
-    expect(cardTypes(s().issueTypes).map((t) => t.id)).toEqual(['t-story', 't-epic', 't-bug', 't-spike', 't-task'])
+    // None is the built-in card type, always offered.
+    expect(cardTypes(s().issueTypes).map((t) => t.id)).toEqual(['t-none', 't-story', 't-epic', 't-bug', 't-spike', 't-task'])
     expect(boardCardTypeId(atlas(), s().issueTypes)).toBe('t-story')
+
+    // A board may deliberately start new cards with no type.
+    s().setBoardDefaultCardType('b-atlas', 't-none')
+    expect(boardCardTypeId(atlas(), s().issueTypes)).toBe('t-none')
 
     s().setBoardDefaultCardType('b-atlas', 't-bug')
     expect(boardCardTypeId(atlas(), s().issueTypes)).toBe('t-bug')
@@ -2517,10 +2556,26 @@ describe('timeline view state', () => {
   })
 
   it('opening another view closes the timeline', () => {
+    // OKRs are a portfolio board's own surface, so open one before asking for the view.
+    s().selectBoard('b-strategy')
     s().setTimeline(true)
     s().setObjectives(true)
     expect(s().showTimeline).toBe(false)
     expect(s().showObjectives).toBe(true)
+  })
+
+  it('opens objectives only from a portfolio board', () => {
+    s().selectBoard('b-atlas')
+    s().setObjectives(true)
+    expect(s().showObjectives).toBe(false)
+
+    s().selectBoard('b-strategy')
+    s().setObjectives(true)
+    expect(s().showObjectives).toBe(true)
+
+    // Leaving the portfolio board closes it: it is that board's own surface, not a global tab.
+    s().selectBoard('b-atlas')
+    expect(s().showObjectives).toBe(false)
   })
 
   it('selecting a board leaves the timeline', () => {
@@ -2628,23 +2683,11 @@ describe('saved filters', () => {
 describe('one side panel at a time', () => {
   beforeEach(() => resetToFixture())
 
-  it('the legend, the filters and an open card take the same drawer', () => {
+  it('the filters and an open card take the same drawer', () => {
     s().openItem('st-email')
-    s().toggleLegend()
-    expect(s().showLegend).toBe(true)
-    expect(s().selectedItemId).toBeNull()
-    expect(s().showFilters).toBe(false)
     s().toggleFilters()
     expect(s().showFilters).toBe(true)
-    expect(s().showLegend).toBe(false)
-    s().toggleLegend()
-    expect(s().showLegend).toBe(true)
-    expect(s().showFilters).toBe(false)
-  })
-
-  it('the legend stays a view choice, never persisted data', () => {
-    const slice = persistedSlice(s()) as Record<string, unknown>
-    expect('showLegend' in slice).toBe(false)
+    expect(s().selectedItemId).toBeNull()
   })
 })
 
@@ -2663,7 +2706,7 @@ describe('board description', () => {
     const stripped = [...((slice.boards as Record<string, unknown>[]) ?? [])]
     delete stripped[0].description
     // A pre-bump state carries boards without the field at all; the migration outfits
-    // each with the empty string, which the legend then prompts about.
+    // each with the empty string, which board settings can fill in.
     const out = migratePersisted({ ...slice, boards: stripped }, 28) as { boards: { description: string }[] }
     expect(out.boards[0].description).toBe('')
     // And one already written keeps its own words.
@@ -2720,7 +2763,6 @@ describe('workspace import', () => {
     expect(s().boardId).toBe('bx')
     expect(s().selectedItemId).toBeNull()
     expect(s().editMode).toBe(false)
-    expect(s().showLegend).toBe(false)
     // Whatever surface the import was started from keeps showing.
     s().setBoards(true)
     s().importWorkspace(
@@ -2728,6 +2770,27 @@ describe('workspace import', () => {
       PERSIST_VERSION,
     )
     expect(s().showBoards).toBe(true)
+  })
+
+  it('restores the vocabulary a migrated file lost, including the Initiative type', () => {
+    // A migration adds Sub-task and Epic to an empty list, so "empty" is no longer the test. The
+    // workspace still needs the Initiative type or its New initiative button can make nothing.
+    s().importWorkspace(
+      {
+        boards: [{ id: 'bx', name: 'Imported', band: 'team', description: '' }],
+        lanes: [],
+        items: [],
+        placements: [],
+        issueTypes: [
+          { id: 't-epic', name: 'Epic', color: '#8b5cf6' },
+          { id: 't-subtask', name: 'Sub-task', color: '#94a3b8' },
+        ],
+      },
+      PERSIST_VERSION,
+    )
+    const names = s().issueTypes.map((type) => type.name)
+    expect(names).toEqual(expect.arrayContaining(['Initiative', 'User Story', 'Epic', 'None', 'Sub-task']))
+    expect(names.filter((name) => name === 'Epic')).toHaveLength(1)
   })
 
   it('lands on the imported workspace\'s own board when it exists there', () => {
@@ -2901,6 +2964,22 @@ describe('a change that cannot be sent yet', () => {
     expect(queue.all()[0].item.title).toBe('Written on a train')
     // The change is in the workspace too, so the person keeps working.
     expect(s().items[0].title).toBe('Written on a train')
+  })
+
+  it('counts an item write in flight, so the design sync can wait for it', async () => {
+    signedIn()
+    let release!: (value: Response) => void
+    const inFlight = new Promise<Response>((resolve) => {
+      release = resolve
+    })
+    vi.stubGlobal('fetch', vi.fn(() => inFlight))
+
+    const item = s().items[0]
+    s().setItemFields(item.id, { title: 'In flight' })
+    await vi.waitFor(() => expect(useSync.getState().pending).toBe(1))
+
+    release(new Response(JSON.stringify({ item: { ...item, rev: (item.rev ?? 0) + 1, title: 'In flight' } }), { status: 200 }))
+    await vi.waitFor(() => expect(useSync.getState().pending).toBe(0))
   })
 
   it('sends what was held in the order it was made, each with the revision it was based on', async () => {

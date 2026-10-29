@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { LayoutTemplate, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
+import { LayoutTemplate, Minus, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
-import { cardTypes, isAggregating, linkableBoards } from '@/domain/board'
+import { cardTypes, defaultCardTypeId, isAggregating, linkableBoards, NONE_TYPE_ID } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
 import { cn } from '@/lib/utils'
@@ -140,7 +140,7 @@ export function BoardSettings() {
             />
           </div>
 
-          {/* Description — the board's own voice; the legend opens with it */}
+          {/* Description — the board's own voice; the command palette searches it. */}
           <div>
             <label className={label} htmlFor="board-description">
               Description
@@ -150,10 +150,10 @@ export function BoardSettings() {
               value={board.description}
               onChange={(e) => setBoardDescription(board.id, e.target.value)}
               rows={3}
-              placeholder="What this board is for — a newcomer reads this first, in the legend"
+              placeholder="What this board is for — a newcomer reads this first"
               className="w-full resize-y rounded border border-slate-200 px-2 py-1.5 text-body text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400"
             />
-            <p className="mt-1 text-micro text-slate-600">Shown at the top of the board legend.</p>
+            <p className="mt-1 text-micro text-slate-600">A short description of this board; the command palette searches it too.</p>
           </div>
 
           {/* Flight-level band */}
@@ -233,34 +233,45 @@ export function BoardSettings() {
                 ) : (
                   <div key={t.id} className={cn(row, 'group gap-1.5')}>
                     <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                      {t.id === NONE_TYPE_ID ? (
+                        <Minus size={13} className="shrink-0 text-slate-400" />
+                      ) : (
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                      )}
                       <span className="min-w-0 flex-1 truncate text-slate-700">{t.name}</span>
                       {board.defaultCardTypeId === t.id && (
                         <span className="shrink-0 rounded bg-slate-800 px-1 py-px text-micro font-semibold uppercase tracking-wide text-white">default</span>
                       )}
+                      {t.id === NONE_TYPE_ID && (
+                        <span className="shrink-0 rounded bg-slate-100 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">built-in</span>
+                      )}
                     </span>
-                    <button
-                      onClick={() => { setEditingTypeId(t.id); setEditName(t.name); setEditColor(t.color) }}
-                      className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-100 hover:text-slate-700"
-                      title={`Edit ${t.name} — renames it everywhere it is used`}
-                    >
-                      <Pencil size={12} />
-                    </button>
-                    <button
-                      onClick={() =>
-                        askConfirm({
-                          title: `Delete the "${t.name}" type?`,
-                          body: 'Types are labels for the whole workspace, not per board — every card using it is affected, and the type is removed from every board that offers it.',
-                          confirmLabel: 'Delete type',
-                          danger: true,
-                          onConfirm: () => removeIssueType(t.id),
-                        })
-                      }
-                      className="shrink-0 rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                      title={`Delete ${t.name}`}
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    {t.id !== NONE_TYPE_ID && (
+                      <>
+                        <button
+                          onClick={() => { setEditingTypeId(t.id); setEditName(t.name); setEditColor(t.color) }}
+                          className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-100 hover:text-slate-700"
+                          title={`Edit ${t.name} — renames it everywhere it is used`}
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          onClick={() =>
+                            askConfirm({
+                              title: `Delete the "${t.name}" type?`,
+                              body: 'Types are labels for the whole workspace, not per board — every card using it is affected, and the type is removed from every board that offers it.',
+                              confirmLabel: 'Delete type',
+                              danger: true,
+                              onConfirm: () => removeIssueType(t.id),
+                            })
+                          }
+                          className="shrink-0 rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                          title={`Delete ${t.name}`}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 ),
               )}
@@ -297,7 +308,7 @@ export function BoardSettings() {
             <div className="mt-2 flex items-center gap-2">
               <span className="text-meta text-slate-600">New cards default to</span>
               <select
-                value={board.defaultCardTypeId ?? types[0]?.id ?? ''}
+                value={board.defaultCardTypeId ?? defaultCardTypeId(types) ?? ''}
                 onChange={(e) => setBoardDefaultCardType(board.id, e.target.value || undefined)}
                 className="rounded border border-slate-200 px-1.5 py-1 text-meta"
               >
@@ -327,6 +338,7 @@ export function BoardSettings() {
             </div>
             <p className="mt-1 text-micro text-slate-600">
               The Initiative type is reserved for the Initiatives workflow and is never a card type.
+              None is a built-in card type, always available and never edited or removed.
             </p>
           </div>
 
@@ -337,11 +349,17 @@ export function BoardSettings() {
             <div className={label}>Initiative kinds</div>
             <p className="mb-1.5 text-micro text-slate-600">
               This board's own labels for its initiatives — a bet, a programme, an experiment. They
-              are labels and nothing more: no columns, no WIP, and nothing derived from them. None
-              is always available and is not listed here, because it is the absence of a kind.
+              are labels and nothing more: no columns, no WIP, and nothing derived from them. None is
+              always available and is the absence of a kind; it is listed here so the vocabulary is
+              complete.
             </p>
             <div className="space-y-1">
-              {kinds.length === 0 && <p className="text-meta text-slate-600">No kinds yet — None is the only option.</p>}
+              <div className={row}>
+                <Minus size={13} className="shrink-0 text-slate-400" />
+                <span className="min-w-0 flex-1 text-meta font-medium text-slate-700">None</span>
+                <span className="shrink-0 rounded bg-slate-100 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">built-in</span>
+              </div>
+              {kinds.length === 0 && <p className="text-meta text-slate-600">No custom kinds yet — None is always available.</p>}
               {kinds.map((k) => {
                 const used = initiativesCarrying(items, k.id)
                 return (

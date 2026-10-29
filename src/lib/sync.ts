@@ -29,6 +29,8 @@ interface SyncStatus {
   waiting: number
   /** The queue is full, so the next change would not be held. */
   overflow: boolean
+  /** Item writes accepted in this browser but not yet answered by the server. */
+  pending: number
   refuse(entry: Refusal): void
   /** A later write for this item landed, so the refusal no longer stands. */
   resolve(id: string): void
@@ -48,6 +50,7 @@ export const useSync = create<SyncStatus>((set) => ({
   unreachable: false,
   waiting: 0,
   overflow: false,
+  pending: 0,
 
   refuse: (entry) =>
     set((state) => ({
@@ -76,7 +79,7 @@ export const useSync = create<SyncStatus>((set) => ({
   reachable: () => set({ unreachable: false }),
   setWaiting: (count) => set({ waiting: count, ...(count > 0 ? {} : { overflow: false }) }),
   full: () => set({ overflow: true }),
-  clear: () => set({ refusals: {}, unreachable: false, waiting: 0, overflow: false }),
+  clear: () => set({ refusals: {}, unreachable: false, waiting: 0, overflow: false, pending: 0 }),
 }))
 
 /**

@@ -273,8 +273,8 @@ describe('the development switch', () => {
 
   it('is an identity without a provider, for the tests that need two people', async () => {
     const { db, request } = instance({ AUTH_DEV: '1' })
-    // The instance closes behind the first person; a second arrives only because it is open.
-    await db.run("UPDATE instance_settings SET access = 'open'")
+    // The instance is closed; a second arrives because their domain is admitted.
+    await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
 
     const ada = await request('/api/auth/dev', {
       method: 'POST',
@@ -315,7 +315,7 @@ describe('the two axes', () => {
 
   it('makes the first person the administrator of both axes, and the second a member', async () => {
     const { db, request } = instance({ AUTH_DEV: '1' })
-    await db.run("UPDATE instance_settings SET access = 'open'")
+    await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
 
     for (const email of ['first@example.com', 'second@example.com']) {
       await request('/api/auth/dev', {
@@ -408,15 +408,15 @@ describe('who may come in', () => {
     expect(await db.all('SELECT * FROM sessions')).toHaveLength(1)
   })
 
-  it('admits a stranger as an account when the door is open, and never as an administrator', async () => {
+  it('admits a stranger from a listed domain, and never as an administrator', async () => {
     const { db, request } = instance({ AUTH_DEV: '1' })
     await dev(request, 'first@example.com')
-    await db.run("UPDATE instance_settings SET access = 'open'")
+    await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
 
     expect((await dev(request, 'second@example.com')).status).toBe(200)
 
-    // The door admits an account: a member of the instance, and nothing more. A workspace is joined
-    // by invitation or created by its owner (task 162) — the open door is not a seat on a board.
+    // The domain admits an account: a member of the instance, and nothing more. A workspace is
+    // joined by invitation or created by its owner (task 162) — the door is not a seat on a board.
     const second = await db.get<{ role: string }>(
       `SELECT i.role AS role FROM instance_members i JOIN users u ON u.id = i.user_id
         WHERE u.email = 'second@example.com'`,
@@ -430,10 +430,10 @@ describe('who may come in', () => {
     ).toBeUndefined()
   })
 
-  it('keeps the posture to an administrator, and records the change', async () => {
+  it('keeps the list of admitted domains to an administrator, and records the change', async () => {
     const { db, request } = instance({ AUTH_DEV: '1' })
     const admin = await dev(request, 'first@example.com')
-    await db.run("UPDATE instance_settings SET access = 'open'")
+    await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
     const viewer = await dev(request, 'second@example.com')
 
     const asViewer = `fl_session=${cookie(viewer, 'fl_session')}`
@@ -442,21 +442,35 @@ describe('who may come in', () => {
     const refused = await request('/api/admin/settings', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json', cookie: asViewer },
-      body: JSON.stringify({ access: 'closed' }),
+      body: JSON.stringify({ allowedDomains: ['trials.example'] }),
     })
     expect(refused.status).toBe(403)
 
     const changed = await request('/api/admin/settings', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json', cookie: asAdmin },
-      body: JSON.stringify({ access: 'closed' }),
+      body: JSON.stringify({ allowedDomains: ['trials.example'] }),
     })
     expect(changed.status).toBe(200)
-    expect(await db.get("SELECT access FROM instance_settings WHERE id = 'instance'")).toEqual({ access: 'closed' })
+    expect(await db.get("SELECT allowed_domains FROM instance_settings WHERE id = 'instance'")).toEqual({
+      allowed_domains: '["trials.example"]',
+    })
 
-    // A door closed is a fact somebody should be able to find later.
-    const event = await db.get<{ data: string }>("SELECT data FROM audit_events WHERE action = 'instance.access'")
-    expect(event?.data).toContain('closed')
+    // A door opened is a fact somebody should be able to find later.
+    const event = await db.get<{ data: string }>("SELECT data FROM audit_events WHERE action = 'instance.domains'")
+    expect(event?.data).toContain('1')
+  })
+
+  it('refuses to open the door, because there is no open door to set', async () => {
+    const { request } = instance({ AUTH_DEV: '1' })
+    const admin = await dev(request, 'first@example.com')
+    const answer = await request('/api/admin/settings', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: `fl_session=${cookie(admin, 'fl_session')}` },
+      body: JSON.stringify({ access: 'open' }),
+    })
+    expect(answer.status).toBe(400)
+    expect(((await answer.json()) as { error: string }).error).toContain('always closed')
   })
 })
 

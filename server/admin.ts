@@ -1,16 +1,17 @@
 /**
- * The instance's own administration.
+ * The instance's own administration: who may come in, and who may do what.
  *
- * One surface so far: the access posture. Every route here is behind `requireInstanceAdmin`, which
- * reads the role on the request rather than trusting anything the client holds — and every change
- * writes an audit event, because a door opened is a fact somebody should be able to find later.
+ * There is no open door: every person needs an account, arriving by invitation or from a domain the
+ * administrator lists. Every route here is behind `requireInstanceAdmin`, which reads the role on the
+ * request rather than trusting anything the client holds — and every change writes an audit event,
+ * because a door opened is a fact somebody should be able to find later.
  */
 
 import { Hono } from 'hono'
 import { requireInstanceAdmin } from './access'
 import { statement } from './audit'
 import type { Role } from '../src/domain/roles'
-import { normaliseDomain, setAccess, setAllowedDomains, settings } from './instance'
+import { normaliseDomain, setAllowedDomains, settings } from './instance'
 import { effectiveRole, strongestGrant, workspaceAdminIds } from './groups'
 import { publicUrl } from './config'
 import { createInvite, liveFor, resendInvite, revokeInvite, stateOf } from './invites'
@@ -19,7 +20,6 @@ import { mayAdminister } from '../src/domain/roster'
 import type { Roster, RosterOperation } from '../src/domain/roster'
 import { WORKSPACE_ID } from './auth/session'
 import type { Database } from './db'
-import type { Access } from './instance'
 import type { Runtime } from './runtime'
 
 export function adminRoutes(runtime: Runtime) {
@@ -36,42 +36,33 @@ export function adminRoutes(runtime: Runtime) {
     if (caller instanceof Response) return caller
 
     const body = (await c.req.json().catch(() => null)) as { access?: unknown; allowedDomains?: unknown } | null
-    if (!body || (!('access' in body) && !('allowedDomains' in body))) {
+    if (body && 'access' in body) {
+      // The posture is not a setting: every person needs an account. Saying so is better than
+      // accepting the field and quietly doing nothing with it.
+      return c.json({ error: 'this instance is always closed — an account is required' }, 400)
+    }
+    if (!body || !('allowedDomains' in body)) {
       return c.json({ error: 'nothing to change' }, 400)
     }
 
-    if ('access' in body) {
-      const access = body.access
-      if (access !== 'open' && access !== 'closed') {
-        return c.json({ error: 'access must be "open" or "closed"' }, 400)
-      }
-      await setAccess(
-        caller.db,
-        access as Access,
-        statement({ actorId: caller.user.id, action: 'instance.access', targetType: 'instance', data: { access } }),
-      )
+    if (!Array.isArray(body.allowedDomains)) return c.json({ error: 'allowedDomains must be a list' }, 400)
+    const domains: string[] = []
+    for (const entry of body.allowedDomains) {
+      const domain = typeof entry === 'string' ? normaliseDomain(entry) : undefined
+      if (!domain) return c.json({ error: `that is not a domain: ${String(entry)}` }, 400)
+      if (!domains.includes(domain)) domains.push(domain)
     }
-
-    if ('allowedDomains' in body) {
-      if (!Array.isArray(body.allowedDomains)) return c.json({ error: 'allowedDomains must be a list' }, 400)
-      const domains: string[] = []
-      for (const entry of body.allowedDomains) {
-        const domain = typeof entry === 'string' ? normaliseDomain(entry) : undefined
-        if (!domain) return c.json({ error: `that is not a domain: ${String(entry)}` }, 400)
-        if (!domains.includes(domain)) domains.push(domain)
-      }
-      await setAllowedDomains(
-        caller.db,
-        domains,
-        statement({
-          actorId: caller.user.id,
-          action: 'instance.domains',
-          targetType: 'instance',
-          // The list itself is configuration, not a secret; the count is enough for the trail.
-          data: { domains: domains.length },
-        }),
-      )
-    }
+    await setAllowedDomains(
+      caller.db,
+      domains,
+      statement({
+        actorId: caller.user.id,
+        action: 'instance.domains',
+        targetType: 'instance',
+        // The list itself is configuration, not a secret; the count is enough for the trail.
+        data: { domains: domains.length },
+      }),
+    )
 
     return c.json(await settings(caller.db))
   })
@@ -195,6 +186,7 @@ export function adminRoutes(runtime: Runtime) {
   const view = (invite: Invite) => ({
     id: invite.id,
     email: invite.email,
+    name: invite.name ?? undefined,
     role: invite.role,
     invitedBy: invite.invited_by,
     createdAt: invite.created_at,
@@ -206,7 +198,9 @@ export function adminRoutes(runtime: Runtime) {
   })
 
   const link = (c: Parameters<typeof requireInstanceAdmin>[0], token: string) =>
-    `${publicUrl(c.env, c.req.raw)}/?invite=${encodeURIComponent(token)}`
+    // The app lives at /app; the root is the project's site, and an invitation that landed there
+    // would be a link nobody could accept.
+    `${publicUrl(c.env, c.req.raw)}/app?invite=${encodeURIComponent(token)}`
 
   routes.get('/invites', async (c) => {
     const caller = await requireInstanceAdmin(c, runtime)
@@ -215,7 +209,7 @@ export function adminRoutes(runtime: Runtime) {
     // The inviter's name and, once it is spent, the name of the account it became: the record of who
     // invited whom is half the reason to keep an accepted row.
     const rows = await caller.db.all<Invite & { invited_by_name: string | null; accepted_name: string | null }>(
-      `SELECT i.id, i.email, i.role, i.invited_by, i.created_at, i.expires_at, i.accepted_at, i.revoked_at, i.scope,
+      `SELECT i.id, i.email, i.name, i.role, i.invited_by, i.created_at, i.expires_at, i.accepted_at, i.revoked_at, i.scope,
               u.name AS invited_by_name, a.name AS accepted_name
        FROM invites i
        LEFT JOIN users u ON u.id = i.invited_by
@@ -243,10 +237,16 @@ export function adminRoutes(runtime: Runtime) {
     const caller = await requireInstanceAdmin(c, runtime)
     if (caller instanceof Response) return caller
 
-    const body = (await c.req.json().catch(() => null)) as { email?: unknown; role?: unknown; days?: unknown } | null
+    const body = (await c.req.json().catch(() => null)) as {
+      email?: unknown
+      name?: unknown
+      role?: unknown
+      days?: unknown
+    } | null
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     if (!email.includes('@')) return c.json({ error: 'an address is required' }, 400)
 
+    const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 120) : ''
     const role: Role = body?.role === 'viewer' || body?.role === 'admin' ? body.role : 'editor'
     const days = typeof body?.days === 'number' ? body.days : undefined
 
@@ -258,12 +258,19 @@ export function adminRoutes(runtime: Runtime) {
 
     const { invite, token } = await createInvite(caller.db, {
       email,
+      name: name || undefined,
       role,
       invitedBy: caller.user.id,
       days,
       // The id is minted inside; the record of it is written with it, in one batch.
       audit: (id) =>
-        statement({ actorId: caller.user.id, action: 'invite.create', targetType: 'invite', targetId: id, data: { role } }),
+        statement({
+          actorId: caller.user.id,
+          action: 'invite.create',
+          targetType: 'invite',
+          targetId: id,
+          data: { role, named: Boolean(name) },
+        }),
     })
 
     return c.json({ invite: view(invite), url: link(c, token) }, 201)

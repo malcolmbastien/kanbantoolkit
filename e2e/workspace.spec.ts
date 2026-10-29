@@ -15,6 +15,85 @@ import { addCardTo, openBoard } from './support'
  * browser holds — so it lives in the admin screen, beside the copies and the storage. This walks
  * the arc: gone from the toolbar, found in Admin, and actually reset.
  */
+test('the app opens on the workspace home', async ({ page }) => {
+  await page.goto('/app')
+
+  // The default place is the workspace home — every board — not a board's own flow.
+  await expect(page.getByRole('heading', { name: 'Workspace Home' })).toBeVisible()
+  await expect(page.getByText('Every board in the organisation')).toBeVisible()
+  await expect(page.locator('[data-workflow]')).toHaveCount(0)
+  // OKRs are a portfolio board's own work, not a banner on the organisation's home.
+  await expect(page.getByText('Objectives & Key Results')).toHaveCount(0)
+})
+
+test('a template opens from its card', async ({ page }) => {
+  await page.goto('/app')
+  await expect(page.getByRole('heading', { name: 'Workspace Home' })).toBeVisible()
+
+  // Templates have their own tab, so a workspace with many boards does not bury them.
+  await page.getByRole('tab', { name: /Templates/ }).click()
+
+  const card = page.getByRole('button', { name: /Feature Flow/ })
+  await expect(card).toBeVisible()
+  await card.click()
+
+  const dialog = page.getByRole('dialog', { name: 'Template: Feature Flow' })
+  await expect(dialog).toBeVisible()
+  // Everything about the template is in one place: its name, its design, edit and delete.
+  await expect(dialog.getByRole('button', { name: 'Template name' })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Edit' })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Delete template' })).toBeVisible()
+  await expect(dialog.getByText('Board type')).toBeVisible()
+})
+
+test('New template opens the template editor, and Cancel discards it', async ({ page }) => {
+  await page.goto('/app')
+  await page.getByRole('tab', { name: /Templates/ }).click()
+
+  // Cancel takes the just-made template back out.
+  await page.getByRole('button', { name: /New template/ }).click()
+  const dialog = page.locator('[data-template-editor]')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('textbox', { name: 'Template name' })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Untitled template/ })).toHaveCount(0)
+
+  // Done keeps it. The same editor sets its name, type, flow and card types.
+  await page.getByRole('button', { name: /New template/ }).click()
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('textbox', { name: 'Template name' }).fill('Probe Design')
+  await dialog.getByLabel('Template board type').selectOption('program')
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  const card = page.getByRole('button', { name: /Probe Design/ })
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Program')
+})
+
+test('None is a card type, always offered', async ({ page }) => {
+  await openBoard(page)
+  const card = page.locator('[data-workflow="cards"] [data-card-id]').first()
+  await card.click()
+
+  const panel = page.locator('[data-item-panel]')
+  await panel.getByLabel('Type').selectOption('t-none')
+  await expect(panel.getByLabel('Type')).toHaveValue('t-none')
+  await page.keyboard.press('Escape')
+  await expect(card).toContainText('None')
+})
+
+test('objectives open from a portfolio board, not the top bar', async ({ page }) => {
+  await openBoard(page)
+  // A team board offers no global Objectives tab.
+  await expect(page.getByRole('button', { name: 'Objectives', exact: true })).toHaveCount(0)
+
+  // The portfolio board has the one entry: its own Strategy map.
+  await page.goto('/app?board=b-strategy')
+  await expect(page.getByText('Strategy map')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Objectives', exact: true })).toBeVisible()
+})
+
 test('the demo is reset from the admin screen, not from the board toolbar', async ({ page }) => {
   await openBoard(page)
 
@@ -49,10 +128,13 @@ test('the demo is reset from the admin screen, not from the board toolbar', asyn
   await expect(page.locator(`[data-card-id="${renamed}"]`)).not.toContainText('A card the demo does not have')
 })
 
-/** The Boards screen, where the workspace's files live. */
+/** The workspace data panel, now in Admin: the home is for browsing boards. */
 async function openWorkspace(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Kanban Toolkit' }).click()
   await expect(page.getByText('Every board in the organisation')).toBeVisible()
+  await page.getByRole('button', { name: 'Admin' }).click()
+  await page.getByRole('tab', { name: 'Workspace data' }).click()
+  await expect(page.getByRole('heading', { name: 'Workspace data' })).toBeVisible()
 }
 
 /** The workspace as the browser holds it: the board names and how many items there are. */

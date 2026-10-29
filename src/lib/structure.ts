@@ -10,9 +10,9 @@
  * honest:
  *
  *   - **wait for the items.** A placement points at a card, and a card travels its own way. While
- *     the item queue is not empty the design waits, so the server is never asked to place a card it
- *     has not met. The server skips such a placement rather than refusing the design; waiting is how
- *     a skip stays rare.
+ *     an item write is in flight or its queue is not empty, the design waits, so the server is never
+ *     asked to place a card it has not met. The server skips such a placement rather than refusing
+ *     the design; waiting is how a skip stays rare — and how an item never ends up on no board.
  *   - **one write at a time.** A second design sent before the first answers would be based on a
  *     revision the first is about to replace. The signature is taken when the write is sent, so the
  *     next change is noticed after the answer, not beside it.
@@ -114,6 +114,7 @@ export function useStructureSync(): void {
   // The card count, because a placement waits for its card: when one lands, the design is due again.
   const cards = useStore((s) => s.items.length)
   const waiting = useSync((s) => s.waiting)
+  const pending = useSync((s) => s.pending)
   const retry = useRef(0)
 
   useEffect(() => {
@@ -132,8 +133,9 @@ export function useStructureSync(): void {
 
     const attempt = () => {
       if (cancelled) return
-      // A card travels its own way; placing one the server has not met would be a skip.
-      if (queue.size() > 0 || useSync.getState().waiting > 0) {
+      // A card travels its own way; placing one the server has not met would be a skip. `pending`
+      // is the write that is in flight right now, `waiting` the one held for a connection.
+      if (queue.size() > 0 || useSync.getState().waiting > 0 || useSync.getState().pending > 0) {
         retry.current += 1
         if (retry.current > 40) return
         timer = setTimeout(attempt, 500)
@@ -151,5 +153,5 @@ export function useStructureSync(): void {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [signedIn, boards, lanes, placements, cards, waiting])
+  }, [signedIn, boards, lanes, placements, cards, waiting, pending])
 }

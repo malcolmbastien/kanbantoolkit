@@ -1,10 +1,9 @@
 import { useRef } from 'react'
-import { Archive, Download, Info, SlidersHorizontal } from 'lucide-react'
+import { Archive, Download, SlidersHorizontal } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
 import { BoardSummary } from './BoardSummary'
-import { KindFilter } from './KindFilter'
 import { ManagementBoard } from './ManagementBoard'
 import { isAggregating, isInitiativeItem } from '@/domain/board'
 import { boardCsv, csvFilename } from '@/domain/csv'
@@ -40,8 +39,6 @@ export function BoardView({ requestMove }: Props) {
   const showFilters = useStore((s) => s.showFilters)
   const filters = useStore((s) => s.filters)
   const toggleFilters = useStore((s) => s.toggleFilters)
-  const showLegend = useStore((s) => s.showLegend)
-  const toggleLegend = useStore((s) => s.toggleLegend)
 
   const edges = useStore((s) => s.edges)
   const links = useStore((s) => s.links)
@@ -82,24 +79,11 @@ export function BoardView({ requestMove }: Props) {
   const cardCount = onBoard.length - initiativeCount
 
   // The board's secondary bar: board-scoped controls live with the board. On the left,
-  // the board's state and its explainers — the legend right beside any condition chip.
-  // Filters sits at the far right, in the corner where its panel opens: a control belongs
-  // against the surface it commands. The bar is always present because the Filters control
-  // always is; the rest of it appears only when it has something functional to say.
+  // the board's state; Filters sits at the far right, in the corner where its panel opens —
+  // a control belongs against the surface it commands.
   return (
     <div className="flex h-full min-h-0 flex-col bg-board-ground">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 py-1.5 text-meta text-slate-600 backdrop-blur-sm">
-        <button
-          onClick={toggleLegend}
-          disabled={editMode}
-          className={cn(
-            'flex items-center gap-1 rounded-md border px-2 py-1 font-medium transition disabled:pointer-events-none disabled:opacity-40',
-            showLegend ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-          )}
-          title="Legend — what this board means and how to read it"
-        >
-          <Info size={12} /> Legend
-        </button>
         {board?.archived && <ArchivedBoardChip />}
         {signedIn && !editable && (
           <span
@@ -184,17 +168,15 @@ export function BoardView({ requestMove }: Props) {
             <div className="flex min-w-0 items-center gap-2">
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
               <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
-              <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-emerald-200 sm:inline">
-                {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
-              </span>
               <span className="truncate text-meta text-slate-600">this team’s initiatives — status rolls up from the cards below</span>
             </div>
-            <KindFilter boardId={boardId} />
+            <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-emerald-200 sm:inline">
+              {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
+            </span>
           </div>
           {/* `variant` says this surface is the board's *own* initiatives flow — the one that owns
-              the board's kinds, and the one its kind filter narrows. Without it a team board's
-              initiatives were read as somebody else's band: a kind could be set and stored, and
-              the card never grew the header that says so. */}
+              the board's kinds. Without it a team board's initiatives were read as somebody else's
+              band: a kind could be set and stored, and the card never grew the header that says so. */}
           <BoardSummary boardId={boardId} variant="initiatives" interactive={editable} />
         </section>
 

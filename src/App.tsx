@@ -7,7 +7,6 @@ import { FilterPanel } from './components/FilterPanel'
 import { StorageBanner } from './components/StorageBanner'
 import { QuarantineBanner } from './components/QuarantineBanner'
 import { StaleTabBanner } from './components/StaleTabBanner'
-import { BoardLegend } from './components/BoardLegend'
 import { Announcer } from './components/Announcer'
 
 import { FocusChip } from './components/FocusChip'
@@ -22,8 +21,8 @@ import { useStructureSync } from './lib/structure'
 import { isBoardSurface, useStore } from './store'
 
 /**
- * The board is what the app opens on, so it is downloaded with the app. Every other screen is a
- * file a person may never open: it is fetched the first time they do.
+ * The board is the app's own path, so it is downloaded with the app. The workspace home — the
+ * default screen — and every other screen are fetched the first time they are drawn.
  *
  * The placeholder is full height on purpose. It is what the screen will occupy, so a slow
  * connection shows a gap that is about to fill rather than a page that jumps when it does.
@@ -61,11 +60,10 @@ export default function App() {
   const showMyWork = useStore((s) => s.showMyWork)
   // The tabs go through the same door the URL does, so a tab and a link mean the same thing.
   const setView = useStore((s) => s.setView)
-  const showLegend = useStore((s) => s.showLegend)
   const showFilters = useStore((s) => s.showFilters)
-  // The side panels belong to the board surface: the legend and the filters narrow or explain
-  // one board, so neither trails into the dashboard, timeline, archive, objectives, the
-  // workspace or My work. Leaving for a view keeps the choice — coming back shows it again.
+  // The filter panel belongs to the board surface: it narrows one board, so it does not trail
+  // into the dashboard, timeline, archive, objectives, the workspace or My work. Leaving for a
+  // view keeps the choice — coming back shows it again.
   const boardSurface = useStore(isBoardSurface)
   const showBoardSettings = useStore((s) => s.showBoardSettings)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
@@ -219,15 +217,12 @@ export default function App() {
         showMetrics={showMetrics}
         showBoards={showBoards}
         showAdmin={showAdmin}
-        showMyWork={showMyWork}
         onSelectBoard={selectBoard}
         onShowBoard={() => setView('board')}
         onShowDashboard={() => setView('dashboard')}
         onShowTimeline={() => setView('timeline')}
         onShowMetrics={() => setView('flow')}
         onShowArchive={() => setView('archive')}
-        onShowMyWork={() => setView('mywork')}
-        onShowObjectives={() => setView('objectives')}
         onGoToBoards={() => setView('boards')}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -248,8 +243,6 @@ export default function App() {
               <BoardWorkspace />
             ) : showArchive ? (
               <ArchiveView />
-            ) : showMyWork ? (
-              <MyWorkView />
             ) : showObjectives ? (
               <ObjectivesView />
             ) : showDashboard ? (
@@ -265,8 +258,12 @@ export default function App() {
             )}
           </Suspense>
         </div>
-        {showLegend && boardSurface ? (
-          <BoardLegend />
+        {showMyWork ? (
+          <Suspense
+            fallback={<aside aria-busy="true" className="h-full w-[420px] shrink-0 border-l border-slate-300 bg-slate-100" />}
+          >
+            <MyWorkView />
+          </Suspense>
         ) : showFilters && boardSurface ? (
           <FilterPanel />
         ) : selectedItemId ? (

@@ -16,6 +16,8 @@ import type { Role } from '../src/domain/roles'
 export interface Invite {
   id: string
   email: string
+  /** The name the inviter gave, if any. The invitee's own name wins when they give one. */
+  name: string | null
   role: Role
   invited_by: string | null
   created_at: string
@@ -43,7 +45,7 @@ export function mask(email: string): string {
   return `${local.slice(0, 1)}${'*'.repeat(Math.max(2, local.length - 1))}@${domain}`
 }
 
-const COLUMNS = 'id, email, role, invited_by, created_at, expires_at, accepted_at, revoked_at'
+const COLUMNS = 'id, email, name, role, invited_by, created_at, expires_at, accepted_at, revoked_at'
 
 export async function byToken(db: Database, token: string): Promise<Invite | undefined> {
   if (!token) return undefined
@@ -73,19 +75,30 @@ export async function liveFor(db: Database, email: string, now = new Date()): Pr
  */
 export async function createInvite(
   db: Database,
-  input: { email: string; role: Role; invitedBy: string; days?: number; now?: Date; scope?: 'instance' | 'workspace'
-  audit?: (id: string) => Statement },
+  input: {
+    email: string
+    /** The person's name, when the administrator knows it. Optional, and never required. */
+    name?: string
+    role: Role
+    invitedBy: string
+    days?: number
+    now?: Date
+    scope?: 'instance' | 'workspace'
+    audit?: (id: string) => Statement
+  },
 ): Promise<{ invite: Invite; token: string }> {
   const now = input.now ?? new Date()
   const token = randomToken(32)
   const id = `inv_${randomToken(9)}`
   const days = Math.min(Math.max(input.days ?? INVITE_DAYS, 1), 90)
+  const name = input.name?.trim().slice(0, 120) || null
 
   const insert = {
-    sql: `INSERT INTO invites (id, email, role, token_hash, invited_by, expires_at, scope) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+    sql: `INSERT INTO invites (id, email, name, role, token_hash, invited_by, expires_at, scope) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
     params: [
       id,
       input.email.trim().toLowerCase(),
+      name,
       input.role,
       await sha256(token),
       input.invitedBy,

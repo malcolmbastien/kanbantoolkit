@@ -6,7 +6,7 @@ nothing here needs a server.
 
 ## The workspace
 
-The **Kanban Toolkit** button at the top left returns to **Boards**: every board in the organisation,
+The **Kanban Toolkit** button at the top left returns to **Workspace Home**: every board in the organisation,
 grouped by flight level (team, programme, portfolio), with a band filter and a search. **New board**
 makes one.
 
@@ -66,14 +66,20 @@ a programme's outcome is decomposed into a team's initiative.
 - **Timeline** — the same initiatives over their target dates.
 - **Flow** — lead time, cycle time and throughput for the board.
 - **Archive** — work that is done and filed away.
-- **Objectives** — objectives and key results, and the strategic initiatives that serve them.
-- **My work** — everything assigned to you, across boards.
 
 None of these is a second copy: they read the same items, placements and edges.
 
+**My work** is not one of the board's tabs: it is under your name in the top right and opens as a
+right-hand drawer beside the board, because it is about the person rather than the board that
+happens to be open. The board stays in front; clicking a card replaces the drawer with that card's
+item panel on the same side.
+
+Objectives and key results are **not** a global view. They are created and managed from a
+**Portfolio** board, whose Strategy map carries them and the initiatives that serve them.
+
 ## Keeping a copy
 
-**Boards → Export** downloads the whole workspace as JSON; **Import…** replaces it with a file, after
+**Admin → Workspace data → Export** downloads the whole workspace as JSON; **Import…** replaces it with a file, after
 a confirmation. **Export CSV** on a board writes its cards as a table. On an instance the server holds
 the same workspace, and [backup](backup.md) is the operator's copy of it.
 

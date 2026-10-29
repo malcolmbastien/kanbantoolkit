@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Eye, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Eye, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { InlineEdit } from './InlineEdit'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { LaneEditControls } from './LaneCtl'
@@ -18,6 +18,7 @@ import {
   templateSetLaneWip,
   templateSetOrientation,
   templateSplitLane,
+  NONE_TYPE_ID,
 } from '@/domain/board'
 import { STAGE_ACCENT } from '@/lib/colors'
 import { cn, uid } from '@/lib/utils'
@@ -36,13 +37,26 @@ import type { BoardTemplate, TemplateLane } from '@/domain/types'
  * design, every action has an inverse (split → remove, and so on), and a dialog is a bad
  * place to strand unsaved work.
  */
-export function TemplateEditor({ template, onClose }: { template: BoardTemplate; onClose: () => void }) {
+export function TemplateEditor({
+  template,
+  onClose,
+  isNew = false,
+  startEditing = false,
+}: {
+  template: BoardTemplate
+  onClose: () => void
+  /** A template just created for this dialog: Cancel discards it, Done keeps it. */
+  isNew?: boolean
+  /** Open straight into the editor — the shape a new template starts in. */
+  startEditing?: boolean
+}) {
   const issueTypes = useStore((s) => s.issueTypes)
   const updateBoardTemplate = useStore((s) => s.updateBoardTemplate)
+  const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
   const addIssueType = useStore((s) => s.addIssueType)
   const removeIssueType = useStore((s) => s.removeIssueType)
   const askConfirm = useStore((s) => s.askConfirm)
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startEditing)
   const [newTypeName, setNewTypeName] = useState('')
   const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -62,6 +76,25 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
   }, [onClose])
 
   const patch = (p: Partial<Omit<BoardTemplate, 'id' | 'lanes'>>) => updateBoardTemplate(template.id, p)
+
+  /** The irreversible act, kept in the detail where everything else about the template lives. */
+  const removeTemplate = () =>
+    askConfirm({
+      title: `Delete template “${template.name}”?`,
+      body: 'Boards already created from it are untouched. This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: () => {
+        removeBoardTemplate(template.id)
+        onClose()
+      },
+    })
+
+  /** A new template only exists because this dialog made it: Cancel takes it back out. */
+  const discard = () => {
+    removeBoardTemplate(template.id)
+    onClose()
+  }
 
   const types = cardTypes(issueTypes)
 
@@ -103,45 +136,49 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
         className="max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl"
       >
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
-          {editing ? (
-            <InlineEdit
-              autoEdit
-              value={template.name}
-              ariaLabel="Template name"
-              onSave={(name) => name.trim() && patch({ name: name.trim() })}
-              className="min-w-0"
-              inputClassName="w-56 rounded border border-indigo-300 px-1.5 py-0.5 text-title font-semibold text-slate-800 outline-none"
-            />
-          ) : (
-            <span className="text-title font-semibold text-slate-800">{template.name}</span>
-          )}
+          <InlineEdit
+            value={template.name}
+            ariaLabel="Template name"
+            autoEdit={isNew}
+            onSave={(name) => name.trim() && patch({ name: name.trim() })}
+            className="min-w-0 truncate rounded text-title font-semibold text-slate-800 transition hover:text-indigo-700"
+            inputClassName="w-56 rounded border border-indigo-300 px-1.5 py-0.5 text-title font-semibold text-slate-800 outline-none"
+          />
           <span className="text-meta text-slate-600">
-            {editing ? 'editing this design' : 'a board design, not its work'}
+            {isNew
+              ? 'new template — name it, then shape its design'
+              : editing
+                ? 'editing this design'
+                : 'a board design, not its work'}
           </span>
 
-          <button
-            onClick={() => setEditing((v) => !v)}
-            className={cn(
-              'ml-auto flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition',
-              editing
-                ? 'border-emerald-400/60 bg-emerald-50 text-emerald-700'
-                : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
-            )}
-            title={editing ? 'Stop editing' : 'Edit this template’s lanes and settings'}
-          >
-            {editing ? (
-              <>
-                <Eye size={13} /> Done
-              </>
-            ) : (
-              <>
-                <Pencil size={13} /> Edit
-              </>
-            )}
-          </button>
-          <button onClick={onClose} className="text-slate-600 hover:text-slate-600" title="Close">
-            <X size={16} />
-          </button>
+          {!isNew && (
+            <>
+              <button
+                onClick={() => setEditing((v) => !v)}
+                className={cn(
+                  'ml-auto flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition',
+                  editing
+                    ? 'border-emerald-400/60 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
+                )}
+                title={editing ? 'Stop editing' : 'Edit this template’s lanes and settings'}
+              >
+                {editing ? (
+                  <>
+                    <Eye size={13} /> Done
+                  </>
+                ) : (
+                  <>
+                    <Pencil size={13} /> Edit
+                  </>
+                )}
+              </button>
+              <button onClick={onClose} className="text-slate-600 hover:text-slate-600" title="Close">
+                <X size={16} />
+              </button>
+            </>
+          )}
         </div>
 
         <div className="space-y-4 px-4 py-3">
@@ -181,15 +218,23 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
                 <>
                   {types.map((t) => (
                     <div key={t.id} className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                      {t.id === NONE_TYPE_ID ? (
+                        <Minus size={13} className="shrink-0 text-slate-400" />
+                      ) : (
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                      )}
                       <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{t.name}</span>
-                      <button
-                        onClick={() => deleteType(t.id, t.name)}
-                        className="shrink-0 text-slate-600 transition hover:text-rose-500"
-                        title={`Delete the ${t.name} type everywhere`}
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                      {t.id === NONE_TYPE_ID ? (
+                        <span className="shrink-0 rounded bg-slate-100 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">built-in</span>
+                      ) : (
+                        <button
+                          onClick={() => deleteType(t.id, t.name)}
+                          className="shrink-0 text-slate-600 transition hover:text-rose-500"
+                          title={`Delete the ${t.name} type everywhere`}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                     </div>
                   ))}
 
@@ -274,6 +319,38 @@ export function TemplateEditor({ template, onClose }: { template: BoardTemplate;
           <p className="text-micro text-slate-600">
             Cards, placements and linked boards are never part of a template — they belong to a board.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
+          <p className="text-micro text-slate-600">
+            {isNew
+              ? 'Cancel discards this template; Done keeps it.'
+              : 'Deleting a template never touches boards made from it.'}
+          </p>
+          {isNew ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={discard}
+                className="rounded-md border border-slate-300 px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:text-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onClose}
+                className="rounded-md bg-sky-700 px-2.5 py-1 text-meta font-semibold text-white transition hover:bg-sky-600"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={removeTemplate}
+              className="flex items-center gap-1 rounded-md border border-rose-200 px-2 py-1 text-meta font-medium text-rose-700 transition hover:bg-rose-50"
+              title="Delete this template"
+            >
+              <Trash2 size={13} /> Delete template
+            </button>
+          )}
         </div>
       </div>
     </div>

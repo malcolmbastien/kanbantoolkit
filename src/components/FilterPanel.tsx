@@ -1,5 +1,5 @@
-import { X, Plus } from 'lucide-react'
-import { cardTypes, initiativeTypeId, tagsOf } from '@/domain/board'
+import { Minus, Plus, X } from 'lucide-react'
+import { cardTypes, initiativeTypeId, NONE_TYPE_ID, tagsOf } from '@/domain/board'
 import { lineageOf, statusOf, type Graph } from '@/domain/derive'
 import { activeFilterCount, ageDays, hasActiveFilters, initiativeScope, matchesFilters, sameFilters, type SavedFilter } from '@/domain/filters'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
@@ -139,7 +139,11 @@ export function FilterPanel() {
               return (
                 <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50">
                   <input type="checkbox" checked={on} onChange={() => toggleFilterType(t.id)} />
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                  {t.id === NONE_TYPE_ID ? (
+                    <Minus size={13} className="shrink-0 text-slate-400" />
+                  ) : (
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                  )}
                   <span className="flex-1 text-slate-700">{t.name}</span>
                 </label>
               )

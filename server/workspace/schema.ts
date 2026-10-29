@@ -39,5 +39,8 @@ export const WORKSPACE_SCHEMA = 1
  * 28 adds `workspace_structure`: the revision of the board design, which the design write checks
  * before it replaces a board. A database without it would refuse every design write as stale, which
  * is a read this code cannot make honestly — so a database behind it is refused at the door instead.
+ *
+ * 29 adds `invites.name`: the optional name an administrator gives when they make a link. A database
+ * without it cannot write the invitation this code offers, so the same rule applies.
  */
-export const REQUIRED_SCHEMA = 28
+export const REQUIRED_SCHEMA = 29

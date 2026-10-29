@@ -599,6 +599,22 @@ export function canSetParent(childId: string, parentId: string, graph: Graph, is
 }
 
 /**
+ * The built-in type that means “no type”.
+ *
+ * It is a real issue type rather than an absence — unlike a kind, which uses `undefined` — because
+ * an item's type is required in the model and is what tells a card from an initiative. It is always
+ * offered, and it is never renamed or removed: the settings screen shows it as built-in.
+ */
+export const NONE_TYPE_ID = 't-none'
+export const NONE_TYPE: IssueType = { id: NONE_TYPE_ID, name: 'None', color: '#64748b' }
+
+/** Types the system owns: never offered as a retype target, never retyped out of. */
+export function isReservedType(typeId: string | undefined, types: IssueType[]): boolean {
+  const t = types.find((x) => x.id === typeId)
+  return t?.name === 'Initiative' || t?.name === 'Sub-task'
+}
+
+/**
  * Whether an item's type may be changed at all.
  *
  * The Initiative type is **reserved**: it is not a card type, it is what makes an item an
@@ -606,12 +622,6 @@ export function canSetParent(childId: string, parentId: string, graph: Graph, is
  * into a card type, and no card can be retyped into an initiative. Refused, never
  * corrected — an item silently changing kind would be worse than the action failing.
  */
-/** Types the system owns: never offered, never retyped into or out of. */
-export function isReservedType(typeId: string | undefined, types: IssueType[]): boolean {
-  const t = types.find((x) => x.id === typeId)
-  return t?.name === 'Initiative' || t?.name === 'Sub-task'
-}
-
 export function canRetype(item: Item, nextTypeId: string, types: IssueType[]): boolean {
   return !isReservedType(item.typeId, types) && !isReservedType(nextTypeId, types)
 }
@@ -623,12 +633,17 @@ export function canRetype(item: Item, nextTypeId: string, types: IssueType[]): b
  * than something you choose.
  */
 export function cardTypes(types: IssueType[]): IssueType[] {
-  return types.filter((t) => t.name !== 'Initiative' && t.name !== 'Sub-task')
+  // None is the absence of a type rather than one of the labels, so it always leads the list.
+  // The sort is stable, so the workspace's own order is kept below it.
+  return types
+    .filter((t) => t.name !== 'Initiative' && t.name !== 'Sub-task')
+    .sort((a, b) => (a.id === NONE_TYPE_ID ? -1 : b.id === NONE_TYPE_ID ? 1 : 0))
 }
 
-/** The default card type: the first non-Initiative type. */
+/** The default card type: the first real card type, and None only when there is nothing else. */
 export function defaultCardTypeId(types: IssueType[]): string | undefined {
-  return cardTypes(types)[0]?.id ?? types[0]?.id
+  const cards = cardTypes(types)
+  return cards.find((t) => t.id !== NONE_TYPE_ID)?.id ?? cards[0]?.id ?? types[0]?.id
 }
 
 /**

@@ -223,7 +223,7 @@ capitalised; the wire values are lower case.
 | Import a workspace; restore a snapshot | | | ✓ |
 | Create and revoke a read-only share link (123) | | | ✓ |
 | Invite, remove, or change the role of a workspace member | | | ✓ |
-| Configure the workspace (name, description, people list) | | | ✓ |
+| Configure the workspace (name, people list) | | | ✓ |
 
 Two rows are genuinely a product decision and should be settled before implementation:
 
@@ -257,9 +257,8 @@ never the enforcement: a hidden button is not a permission check.
 
 These are the non-obvious parts, and each one prevents a real failure:
 
-1. **Closed by default.** An instance gains a `access` setting: `closed` (only invited or existing
-   addresses) or `open` (any verified address becomes a Viewer). `closed` is the default when a
-   provider is configured. This is the fix for finding #1 above.
+1. **Closed, always.** Every person needs an account. An address arrives by invitation, or from a
+   domain an administrator lists; there is no open sign-up. This is the fix for finding #1 above.
 2. **The first person is the administrator.** First-run creates `instance_role = admin` and
    `workspace_members.role = admin` in the same transaction as the workspace.
 3. **The last administrator cannot be demoted, deactivated, deleted or removed.** The server refuses
@@ -527,12 +526,14 @@ instance administrator; the static tier keeps exactly the snapshots it has today
 
 ```
 Admin
-├── People            search, filters, table, row menu, bulk actions, invite
+├── Workspace         its name
+├── People            search, filters, table, row menu, bulk actions, invite, roles
 ├── Invitations       pending / accepted / expired / revoked, copy link, revoke
-├── Access            sign-in providers, instance access (closed/open), allowed domains
-├── Workspace         name, description, members and their roles
-├── Audit             the log, filtered
-└── Health            database, error inbox, build version, dev-auth warning
+├── Audit             export the trail as a file
+├── Tools & agents    agent tokens, directory provisioning
+├── Snapshots         the browser's copies, and the demo reset
+├── Workspace data    export, import, and what the browser keeps
+└── Danger            delete this workspace
 ```
 
 **People table** — avatar + name, email, workspace role, status, last active, provider, joined.
@@ -550,8 +551,6 @@ email later, it becomes a checkbox; it must not be a dependency now.
 
 **Banners**, following the existing `StorageBanner` pattern:
 
-- *open instance* — "Anyone with a verified address can join this workspace as a Viewer. Close it in
-  Admin → Access."
 - *development switch on* — "Sign-in can be bypassed with an email address. This is for development
   only." (mirrors `AUTH_DEV`).
 - *no provider configured* — "Accounts are unavailable on this instance. Boards remain local."
@@ -579,7 +578,7 @@ The order matters because roles cannot be retrofitted cheaply once server-side w
 1. `src/domain/roles.ts` with `can()`, the matrix, and unit tests — no server, no UI.
 2. `instance_members` / `workspace_members` split and the migration mapping; first-run admin.
 3. Middleware: `requireInstanceAdmin`, `requireWorkspace(role, action)`; reads live, no cache.
-4. Instance access setting, `closed` by default; `identify()` refuses uninvited addresses.
+4. A closed instance: `identify()` refuses every uninvited address; there is no open posture to set.
 5. Deactivation fields and semantics; sessions revoked on deactivate/delete.
 6. Last-administrator and self-protection guards, in one function, with tests.
 7. Invitation tokens with expiry and single use; role applied at acceptance.

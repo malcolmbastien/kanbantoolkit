@@ -1,3 +1,4 @@
+import { NONE_TYPE } from './board'
 import type { Board, BoardTemplate, IssueType, Lane, User, Workflow } from './types'
 
 /**
@@ -21,6 +22,8 @@ const issueTypes: IssueType[] = [
   { id: 't-task', name: 'Task', color: '#64748b' },
   // Not a card type: it is what a decomposition child is, and the panel never offers it.
   { id: 't-subtask', name: 'Sub-task', color: '#94a3b8' },
+  // The built-in “no type” — a real label, always available, never edited or removed.
+  NONE_TYPE,
 ]
 
 /** Demo people. Items reference these by id; cards show initials (or a photo). */

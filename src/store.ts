@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
-import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, placementOn, templateFromBoard } from '@/domain/board'
+import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
 import { canPlaceInSection, decompositionParent, descendants, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
@@ -92,7 +92,7 @@ export interface ViewState {
   /** Show the board workspace — every board in the organisation — instead of a board. */
   showBoards: boolean
   showAdmin: boolean
-  /** Show My work — everything assigned to the workspace's person, across every board. */
+  /** The My work drawer open — a left-side panel over whatever surface is in front. */
   showMyWork: boolean
   /** Show the flow metrics view for the current board — derived, read-only. */
   showMetrics: boolean
@@ -101,20 +101,12 @@ export interface ViewState {
    * deliberately not persisted: it is about this session, not about the work.
    */
   recentItemIds: string[]
-  /**
-   * The kind the initiatives flow is narrowed to, or null for all of them. View state, never
-   * persisted: it narrows what the flow *shows* and nothing else — not the cards workflow, not the
-   * dashboard, the timeline or the strategy map, and never a count.
-   */
-  initiativeKindFilter: string | null
   /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
   showFilters: boolean
   /** Active card filters applied to the current board. */
   filters: CardFilters
-  /** The board legend panel open (a right-side panel, like the item panel). */
-  showLegend: boolean
   /**
    * Named filter sets the board can re-apply — the one deliberately persisted piece of
    * filter state. Filter *state* is view state; the collection of saved sets is data.
@@ -180,10 +172,8 @@ export interface Actions {
   setBoards: (v: boolean) => void
   /** The workspace's own administration: copies and storage. Not a board surface. */
   setAdmin: (v: boolean) => void
-  /** Toggle the filters side panel (closes the item panel and the legend when opening). */
+  /** Toggle the filters side panel (closes the item panel when opening). */
   toggleFilters: () => void
-  /** Toggle the board legend (closes the item panel and filters when opening). */
-  toggleLegend: () => void
   /** Merge a patch into the active card filters. */
   setFilters: (patch: Partial<CardFilters>) => void
   /** Save the active filters as a named set. */
@@ -241,7 +231,7 @@ export interface Actions {
   /** Link a board under another (aggregation). Refused if it would create a cycle. */
   addLinkedBoard: (parentId: string, childId: string) => void
   removeLinkedBoard: (parentId: string, childId: string) => void
-  /** Show My work — everything assigned to the workspace's person, across every board. */
+  /** Open or close the My work drawer. It does not change the surface in front. */
   setMyWork: (v: boolean) => void
   /** Whose work My work shows (undefined until the person picks themselves). */
   setUser: (id: string | undefined) => void
@@ -273,9 +263,9 @@ export interface Actions {
   /**
    * Start a template from scratch: a name and the flight level of the boards it will
    * create. It begins as the standard typed columns; save a board as a template to
-   * capture a richer design.
+   * capture a richer design. Answers the new template's id so the caller can open it.
    */
-  newBoardTemplate: (name: string, band: BoardBand) => void
+  newBoardTemplate: (name: string, band: BoardBand) => string | undefined
   removeBoardTemplate: (id: string) => void
   renameBoardTemplate: (id: string, name: string) => void
   /**
@@ -299,7 +289,7 @@ export interface Actions {
    */
   duplicateBoard: (boardId: string, name?: string) => void
   renameBoard: (id: string, name: string) => void
-  /** Write the board's own description — the legend opens with it. */
+  /** Write the board's own description. */
   setBoardDescription: (id: string, description: string) => void
   setBoardBand: (id: string, band: BoardBand) => void
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
@@ -331,8 +321,6 @@ export interface Actions {
    * nothing.)
    */
   removeInitiativeType: (boardId: string, id: string) => void
-  /** Narrow the initiatives flow to one kind, or all of them. View state: never persisted. */
-  setInitiativeKindFilter: (kindId: string | null) => void
   /**
    * Add or remove one of a board's tags on an item — a card or an initiative alike. Adding is
    * refused for a tag that board does not define; removing is always allowed, so an item can
@@ -475,14 +463,14 @@ export type Store = FlowState & WorkspaceIdentity & ViewState & Actions
 
 /**
  * Is the board itself the surface in front? Every other view — dashboard, timeline, archive,
- * objectives, boards, my work — shows work without the board's cells around it, so an action
+ * objectives, boards — shows work without the board's cells around it, so an action
  * that needs a cell (duplicating a card, which lands where the original sits) has nothing to
  * act on there. One definition, read by the surfaces that ask.
  */
 export const isBoardSurface = (
   s: Pick<
     ViewState,
-    'showDashboard' | 'showTimeline' | 'showArchive' | 'showObjectives' | 'showBoards' | 'showMyWork' | 'showMetrics' | 'showAdmin'
+    'showDashboard' | 'showTimeline' | 'showArchive' | 'showObjectives' | 'showBoards' | 'showMetrics' | 'showAdmin'
   >,
 ): boolean =>
   !s.showDashboard &&
@@ -490,7 +478,6 @@ export const isBoardSurface = (
   !s.showArchive &&
   !s.showObjectives &&
   !s.showBoards &&
-  !s.showMyWork &&
   !s.showMetrics &&
   !s.showAdmin
 
@@ -618,9 +605,18 @@ function createdItem(item: Item): Item {
 let sending: Promise<void> = Promise.resolve()
 
 function enqueue(sent: Array<{ item: Item; baseRev: number }>): void {
-  sending = sending.then(() => sendChanges(sent)).catch(() => {
-    // `sendChanges` reports per item; a throw here is the chain's own, and it must not stop the next.
-  })
+  // A card's write is in flight until the server answers it. The design sync waits on this count,
+  // because a placement sent before its card is known is skipped by the server — and a skipped
+  // placement is how an item ends up belonging to no board.
+  useSync.setState((state) => ({ pending: state.pending + sent.length }))
+  sending = sending
+    .then(() => sendChanges(sent))
+    .catch(() => {
+      // `sendChanges` reports per item; a throw here is the chain's own, and it must not stop the next.
+    })
+    .finally(() => {
+      useSync.setState((state) => ({ pending: Math.max(0, state.pending - sent.length) }))
+    })
 }
 
 /**
@@ -872,16 +868,17 @@ const initialView: ViewState = {
   showDashboard: false,
   showTimeline: false,
   showArchive: false,
+  // The store's fallback is the board. The app's home is the workspace home, applied from the URL
+  // before the first paint (`useUrl`), so a link that names a board still opens that board without
+  // loading the home screen first.
   showBoards: false, showAdmin: false,
   showMyWork: false,
   showMetrics: false,
   recentItemIds: [],
-  initiativeKindFilter: null,
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
   savedFilters: [],
-  showLegend: false,
   boundaryId: null,
   parentPickId: null,
   childPickId: null,
@@ -1106,6 +1103,11 @@ export function migrateState(persisted: unknown): Partial<Store> {
   if (Array.isArray(p.issueTypes) && !(p.issueTypes as IssueType[]).some((t) => t.name === 'Epic')) {
     p.issueTypes = [...(p.issueTypes as IssueType[]), { id: 't-epic', name: 'Epic', color: '#8b5cf6' }]
   }
+  // None is a built-in card type, always available. State from before it existed gains it here,
+  // the way the built-in templates and the reserved types arrive.
+  if (Array.isArray(p.issueTypes) && !(p.issueTypes as IssueType[]).some((t) => t.name === 'None')) {
+    p.issueTypes = [...(p.issueTypes as IssueType[]), NONE_TYPE]
+  }
   // v28: named filter sets became persisted data — the deliberate exception to filters
   // being view state. Older state simply has none.
   if (!Array.isArray(p.savedFilters)) p.savedFilters = []
@@ -1153,8 +1155,7 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return rest
     })
   }
-  // v29: a board carries its own description — the legend opens with it. Backfill with the
-  // empty string, which the legend then prompts about.
+  // v29: a board carries its own description. Backfill with the empty string.
   if (Array.isArray(p.boards)) {
     p.boards = (p.boards as unknown[]).map((b) => {
       const board = b as Record<string, unknown>
@@ -1272,9 +1273,21 @@ export const useStore = create<Store>()(
       ...initialView,
 
       selectBoard: (boardId) =>
-        // The kind filter goes with the board it was set on: a kind from another board would
-        // narrow the flow to nothing, which reads as a broken board rather than a stale filter.
-        set({ boardId, selectedItemId: null, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, boundaryId: null, multiSelect: [], cardMenu: null, initiativeKindFilter: null, dropTargetId: null }),
+        // Objectives are a portfolio board's own surface, so opening another board leaves it.
+        set({
+          boardId,
+          selectedItemId: null,
+          showDashboard: false,
+          showTimeline: false,
+          showArchive: false,
+          showBoards: false,
+          showAdmin: false,
+          showObjectives: false,
+          boundaryId: null,
+          multiSelect: [],
+          cardMenu: null,
+                  dropTargetId: null,
+        }),
       openItem: (selectedItemId) => {
         const s = get()
         const opened = selectedItemId ? s.items.find((i) => i.id === selectedItemId) : undefined
@@ -1302,8 +1315,8 @@ export const useStore = create<Store>()(
           ...(selectedItemId
             ? {
                 showFilters: false,
-                showLegend: false,
-                // Opening a card is what "recently" means: the list is the order cards were
+                showMyWork: false,
+                              // Opening a card is what "recently" means: the list is the order cards were
                 // opened in, and re-opening one moves it back to the front rather than doubling it.
                 recentItemIds: [selectedItemId, ...s.recentItemIds.filter((id) => id !== selectedItemId)].slice(0, 8),
               }
@@ -1313,13 +1326,8 @@ export const useStore = create<Store>()(
       setSearch: (search) => set({ search }),
       toggleFilters: () => {
         const show = !get().showFilters
-        // One side panel at a time: opening filters dismisses an open card, and the legend.
-        set({ showFilters: show, showLegend: false, ...(show ? { selectedItemId: null } : {}) })
-      },
-      toggleLegend: () => {
-        const show = !get().showLegend
-        // The same one-panel rule: the legend takes the drawer and dismisses the others.
-        set({ showLegend: show, showFilters: false, ...(show ? { selectedItemId: null } : {}) })
+        // One side panel at a time: opening filters dismisses an open card or My work.
+        set({ showFilters: show, ...(show ? { selectedItemId: null, showMyWork: false } : {}) })
       },
       saveFilter: (name) => {
         const trimmed = name.trim()
@@ -1607,14 +1615,24 @@ export const useStore = create<Store>()(
       setMyWork: (v) =>
         set({
           showMyWork: v,
-          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}),
+          // The right side holds one drawer: My work takes the place of an open card or filter panel.
+          ...(v ? { selectedItemId: null, showFilters: false } : {}),
         }),
       /** Whose work the My work view shows — no default: the person picks themselves. */
       setUser: (id: string | undefined) => set({ meUserId: id }),
-      setObjectives: (v) => set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false } : {}) }),
+      /**
+       * OKRs are a portfolio board's own work. The view opens from that board's Strategy map and
+       * nowhere else — not from a team or programme board, and not from a URL that names it there.
+       * Closing it is always allowed.
+       */
+      setObjectives: (v) => {
+        const board = get().boards.find((b) => b.id === get().boardId)
+        if (v && board?.band !== 'portfolio') return
+        set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) })
+      },
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
       // Board tab is the board itself — every view flag clears, the workspace with it.
-      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false }),
+      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false }),
       /**
        * Go to a view by name — what a URL says, and the one door for all seven.
        *
@@ -1629,21 +1647,20 @@ export const useStore = create<Store>()(
         else if (view === 'timeline') s.setTimeline(true)
         else if (view === 'flow') s.setMetrics(true)
         else if (view === 'archive') s.setArchive(true)
-        else if (view === 'mywork') s.setMyWork(true)
         else if (view === 'boards') s.setBoards(true)
         else if (view === 'admin') s.setAdmin(true)
         else if (view === 'objectives') s.setObjectives(true)
         else s.setBoard()
       },
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false } : {}) }),
-      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false } : {}) }),
-      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showAdmin: false, showMyWork: false, showMetrics: false } : {}) }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
+      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
       // Flow is a board's own view: derived from its cards, so it sits with the board tabs and
       // clears them like every other view does.
       setMetrics: (v) =>
         set({
           showMetrics: v,
-          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMyWork: false } : {}),
+          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false } : {}),
         }),
       toggleBoards: () => {
         const on = !get().showBoards
@@ -1653,7 +1670,6 @@ export const useStore = create<Store>()(
           showDashboard: false,
           showTimeline: false,
           showArchive: false,
-          showMyWork: false,
           // The workspace is organisation-level, so a board's side panel has no place in it.
           ...(on ? { showFilters: false, selectedItemId: null } : {}),
         })
@@ -1662,7 +1678,7 @@ export const useStore = create<Store>()(
         set({
           showBoards: v,
           ...(v
-            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showMyWork: false, showAdmin: false, showFilters: false, selectedItemId: null }
+            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showAdmin: false, showFilters: false, selectedItemId: null }
             : {}),
         }),
 
@@ -1671,7 +1687,7 @@ export const useStore = create<Store>()(
         set({
           showAdmin: v,
           ...(v
-            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMyWork: false, showMetrics: false, showFilters: false, selectedItemId: null }
+            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false, showFilters: false, selectedItemId: null }
             : {}),
         }),
 
@@ -1743,10 +1759,21 @@ export const useStore = create<Store>()(
         const data: Record<string, unknown> = {}
         for (const k of WORKSPACE_KEYS) data[k] = k in migrated ? migrated[k] : blank[k]
         // A workspace without a vocabulary cannot hold a card — a board made in it has no type to
-        // make one with. So a file that carries none gets the app's own: the issue types and the
-        // board templates belong to the application rather than to anyone's data.
+        // make one with. So the app's own types are merged in wherever they are missing: the issue
+        // types and the board templates belong to the application rather than to anyone's data.
+        //
+        // Merge by name, not "only when the list is empty": a migration may have added some types
+        // (Sub-task and Epic) to an otherwise empty list, and a workspace without the Initiative
+        // type is one where "New initiative" cannot make anything.
         const vocabulary = workspaceVocabulary()
-        if (!Array.isArray(data.issueTypes) || (data.issueTypes as unknown[]).length === 0) data.issueTypes = vocabulary.issueTypes
+        const existingTypes = Array.isArray(data.issueTypes) ? (data.issueTypes as IssueType[]) : []
+        const typeNames = new Set(existingTypes.map((type) => type.name))
+        const typeIds = new Set(existingTypes.map((type) => type.id))
+        const missingTypes = vocabulary.issueTypes
+          .filter((type) => !typeNames.has(type.name))
+          // An id already in use by a different-named type is not reused: the row is keyed by id.
+          .map((type) => (typeIds.has(type.id) ? { ...type, id: uid() } : type))
+        data.issueTypes = [...existingTypes, ...missingTypes]
         if (!Array.isArray(data.boardTemplates) || (data.boardTemplates as unknown[]).length === 0) {
           data.boardTemplates = vocabulary.boardTemplates
         }
@@ -1806,13 +1833,24 @@ export const useStore = create<Store>()(
       },
 
       addIssueType: (name, color) => {
+        const label = name.trim()
+        // None is built in: a second one would be two labels with one meaning.
+        if (!label || label.toLowerCase() === 'none') return NONE_TYPE_ID
         const id = uid()
-        set({ issueTypes: [...get().issueTypes, { id, name, color }] })
+        set({ issueTypes: [...get().issueTypes, { id, name: label, color }] })
         return id
       },
-      updateIssueType: (id, patch) =>
-        set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
-      removeIssueType: (id) => set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) }),
+      updateIssueType: (id, patch) => {
+        // Built-in means built-in: the None label is never renamed or recoloured, and no other
+        // type may take its name.
+        if (id === NONE_TYPE_ID) return
+        if (patch.name && patch.name.trim().toLowerCase() === 'none') return
+        set({ issueTypes: get().issueTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) })
+      },
+      removeIssueType: (id) => {
+        if (id === NONE_TYPE_ID) return
+        set({ issueTypes: get().issueTypes.filter((t) => t.id !== id) })
+      },
 
       addBoard: (name, band, open = true, templateId) => {
         const boardId = uid()
@@ -1853,7 +1891,7 @@ export const useStore = create<Store>()(
       },
       newBoardTemplate: (name, band) => {
         const label = name.trim()
-        if (!label) return
+        if (!label) return undefined
         const template: BoardTemplate = {
           id: uid(),
           name: label,
@@ -1868,6 +1906,7 @@ export const useStore = create<Store>()(
           })),
         }
         set({ boardTemplates: [...get().boardTemplates, template] })
+        return template.id
       },
       removeBoardTemplate: (id) => set({ boardTemplates: get().boardTemplates.filter((t) => t.id !== id) }),
       renameBoardTemplate: (id, name) =>
@@ -1997,8 +2036,6 @@ export const useStore = create<Store>()(
         })
       },
 
-      setInitiativeKindFilter: (initiativeKindFilter) => set({ initiativeKindFilter }),
-
       toggleItemTag: (boardId, itemId, tagId) => {
         const state = get()
         const item = state.items.find((i) => i.id === itemId)
@@ -2073,7 +2110,6 @@ export const useStore = create<Store>()(
           showTimeline: false,
           showArchive: false,
           showBoards: false, showAdmin: false,
-          showMyWork: false,
           showMetrics: false,
         })
       },

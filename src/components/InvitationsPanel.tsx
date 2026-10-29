@@ -19,6 +19,8 @@ import { useDialogFocus } from '@/lib/useDialogFocus'
 interface Invitation {
   id: string
   email: string
+  /** The name the inviter gave, when they gave one. */
+  name?: string
   role: string
   invitedBy?: string
   invitedByName?: string
@@ -55,6 +57,8 @@ export function InvitationsPanel() {
   const [message, setMessage] = useState<string | undefined>()
   const [creating, setCreating] = useState(false)
   const [email, setEmail] = useState('')
+  const [givenName, setGivenName] = useState('')
+  const [familyName, setFamilyName] = useState('')
   const [role, setRole] = useState('editor')
   const [days, setDays] = useState('14')
   const [busy, setBusy] = useState(false)
@@ -65,7 +69,7 @@ export function InvitationsPanel() {
   const issuedDialogRef = useRef<HTMLDivElement>(null)
   // Two dialogs, each a place of its own: the form, and the one-time link it produces. The link
   // takes the caret (its whole text selected, ready to copy) because reading it is the point.
-  useDialogFocus(createRef, () => setCreating(false), creating, 'input')
+  useDialogFocus(createRef, closeForm, creating, 'input')
   useDialogFocus(issuedDialogRef, () => setIssued(undefined), Boolean(issued), 'input')
   const askConfirm = useStore((s) => s.askConfirm)
 
@@ -105,11 +109,12 @@ export function InvitationsPanel() {
   async function send() {
     setBusy(true)
     setError(undefined)
+    const name = [givenName.trim(), familyName.trim()].filter(Boolean).join(' ')
     try {
       const response = await fetch('/api/admin/invites', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, role, days: Number(days) || 14 }),
+        body: JSON.stringify({ email, name: name || undefined, role, days: Number(days) || 14 }),
       })
       if (!response.ok) {
         // A 409 is the only refusal that exists, and it is about a link already waiting — never
@@ -121,6 +126,8 @@ export function InvitationsPanel() {
       const body = (await response.json()) as { url: string }
       setCreating(false)
       setEmail('')
+      setGivenName('')
+      setFamilyName('')
       setIssued(body.url)
       setCopied(false)
       await load()
@@ -176,6 +183,14 @@ export function InvitationsPanel() {
     }
   }
 
+  function closeForm() {
+    setCreating(false)
+    setEmail('')
+    setGivenName('')
+    setFamilyName('')
+    setError(undefined)
+  }
+
   const shown = state ? invites.filter((invite) => invite.state === state) : invites
   const count = (value: string) => invites.filter((invite) => invite.state === value).length
 
@@ -223,7 +238,10 @@ export function InvitationsPanel() {
           <tbody>
             {shown.map((invite) => (
               <tr key={invite.id} className="border-b border-slate-100 last:border-0">
-                <td className="truncate py-1.5 pr-2 text-slate-800">{invite.email}</td>
+                <td className="truncate py-1.5 pr-2 text-slate-800">
+                  {invite.name && <span className="block truncate text-micro text-slate-500">{invite.name}</span>}
+                  {invite.email}
+                </td>
                 <td className="py-1.5 text-meta text-slate-700">{invite.role}</td>
                 <td className="py-1.5 text-meta text-slate-700">
                   {invite.state === 'valid' ? 'pending' : invite.state === 'used' ? 'accepted' : invite.state}
@@ -262,10 +280,10 @@ export function InvitationsPanel() {
           aria-modal="true"
           aria-label="Invite somebody"
         >
-          <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
+          <div className="w-full max-w-xl rounded-xl bg-white p-5 shadow-2xl ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <h3 className="text-body font-semibold text-slate-900">Invite somebody</h3>
-              <button onClick={() => setCreating(false)} aria-label="Close" className="rounded p-1 text-slate-500 hover:bg-slate-100">
+              <button onClick={closeForm} aria-label="Close" className="rounded p-1 text-slate-500 hover:bg-slate-100">
                 <X size={16} />
               </button>
             </div>
@@ -275,18 +293,67 @@ export function InvitationsPanel() {
               <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="grace@example.com" className={cn(FIELD, 'mt-1 w-full')} />
             </label>
 
-            <label className={cn(LABEL, 'mt-2 block')}>
-              Role
-              <select value={role} onChange={(event) => setRole(event.target.value)} className={cn(FIELD, 'mt-1 w-full')}>
-                {ROLES.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.label} — {entry.description}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className={LABEL}>
+                First name <span className="font-normal normal-case text-slate-400">(optional)</span>
+                <input
+                  value={givenName}
+                  onChange={(event) => setGivenName(event.target.value)}
+                  placeholder="Grace"
+                  autoComplete="off"
+                  className={cn(FIELD, 'mt-1 w-full')}
+                />
+              </label>
+              <label className={LABEL}>
+                Last name <span className="font-normal normal-case text-slate-400">(optional)</span>
+                <input
+                  value={familyName}
+                  onChange={(event) => setFamilyName(event.target.value)}
+                  placeholder="Hopper"
+                  autoComplete="off"
+                  className={cn(FIELD, 'mt-1 w-full')}
+                />
+              </label>
+            </div>
+            <p className="mt-1 text-micro text-slate-500">
+              If you know their name, it becomes their account name when they accept. If they type their
+              own on the way in, theirs wins.
+            </p>
 
-            <label className={cn(LABEL, 'mt-2 block')}>
+            <fieldset className="mt-3">
+              <legend className={LABEL}>Role</legend>
+              <div className="mt-1 space-y-1.5">
+                {ROLES.map((entry) => {
+                  const picked = role === entry.id
+                  return (
+                    <label
+                      key={entry.id}
+                      className={cn(
+                        'flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 transition',
+                        picked ? 'border-indigo-300 bg-indigo-50/60' : 'border-slate-200 bg-white hover:border-slate-300',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="invite-role"
+                        value={entry.id}
+                        checked={picked}
+                        onChange={() => setRole(entry.id)}
+                        className="mt-0.5 accent-indigo-600"
+                      />
+                      <span className="min-w-0">
+                        <span className={cn('block text-meta font-semibold', picked ? 'text-indigo-900' : 'text-slate-800')}>
+                          {entry.label}
+                        </span>
+                        <span className="block text-micro text-slate-600">{entry.description}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </fieldset>
+
+            <label className={cn(LABEL, 'mt-3 block')}>
               Expires in (days)
               <input value={days} onChange={(event) => setDays(event.target.value)} inputMode="numeric" className={cn(FIELD, 'mt-1 w-full')} />
             </label>
@@ -294,7 +361,7 @@ export function InvitationsPanel() {
             {error && <p className="mt-2 rounded-md bg-rose-50 px-2 py-1 text-meta text-rose-800">{error}</p>}
 
             <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => setCreating(false)} className={BUTTON}>
+              <button onClick={closeForm} className={BUTTON}>
                 Cancel
               </button>
               <button

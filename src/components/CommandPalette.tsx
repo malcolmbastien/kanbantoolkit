@@ -39,10 +39,8 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
   const setMetrics = useStore((s) => s.setMetrics)
   const setArchive = useStore((s) => s.setArchive)
   const setMyWork = useStore((s) => s.setMyWork)
-  const setObjectives = useStore((s) => s.setObjectives)
   const setBoards = useStore((s) => s.setBoards)
   const toggleFilters = useStore((s) => s.toggleFilters)
-  const toggleLegend = useStore((s) => s.toggleLegend)
   const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
   const beginEdit = useStore((s) => s.beginEdit)
   const editMode = useStore((s) => s.editMode)
@@ -116,7 +114,6 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
         ? []
         : [{ id: 'action:edit', kind: 'action' as PaletteKind, label: 'Edit board design', hint: 'Split, add, rename and delete lanes', keywords: 'lanes columns rows wip', run: beginEdit }]),
       { id: 'action:filters', kind: 'action', label: 'Filters', hint: 'Narrow the cards shown on this board', keywords: 'find narrow', run: toggleFilters },
-      { id: 'action:legend', kind: 'action', label: 'Legend', hint: 'What this board means and how to read it', keywords: 'help explain colours', run: toggleLegend },
       ...(canSettings
         ? [{ id: 'action:settings', kind: 'action' as PaletteKind, label: 'Board settings', hint: 'Band, WIP enforcement, default drop cell', keywords: 'configure', run: toggleBoardSettings }]
         : []),
@@ -126,10 +123,9 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
       { id: 'action:flow', kind: 'action', label: 'Flow metrics', hint: 'Lead time, cycle time, throughput', keywords: 'metrics cfd report', run: () => setMetrics(true) },
       { id: 'action:archive', kind: 'action', label: 'Archive', hint: 'Filed-away items', keywords: 'done filed old', run: () => setArchive(true) },
       { id: 'action:mywork', kind: 'action', label: 'My work', hint: 'Everything assigned to one person', keywords: 'mine assigned', run: () => setMyWork(true) },
-      { id: 'action:objectives', kind: 'action', label: 'Objectives & KRs', hint: 'Where objectives and their coverage live', keywords: 'okr goals', run: () => setObjectives(true) },
       { id: 'action:boards', kind: 'action', label: 'All boards', hint: 'The board workspace', keywords: 'workspace switch', run: () => setBoards(true) },
     ],
-    [beginEdit, canDesign, canSettings, canWrite, editMode, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setObjectives, setTimeline, toggleBoardSettings, toggleFilters, toggleLegend],
+    [beginEdit, canDesign, canSettings, canWrite, editMode, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setTimeline, toggleBoardSettings, toggleFilters],
   )
 
   const liveBoards = boards.filter((b) => !b.archived)

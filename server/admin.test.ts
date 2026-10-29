@@ -42,8 +42,8 @@ async function world() {
     })
 
   const admin = await dev('ada@example.com')
-  // The instance closes behind the first person; a second arrives because it is open.
-  await db.run("UPDATE instance_settings SET access = 'open'")
+  // The instance is closed: a second person arrives because their domain is admitted.
+  await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
   const other = await dev('grace@example.com')
 
   const id = async (email: string) =>

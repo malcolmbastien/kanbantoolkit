@@ -8,9 +8,10 @@ import { cardsIn, openBoard } from './support'
 test('a change made while signed in names its author in the Activity', async ({ page }) => {
   await openBoard(page)
 
-  await page.getByRole('button', { name: 'My work' }).click()
+  await page.goto('/app?view=mywork')
+  await expect(page.getByLabel('Whose work to show')).toBeVisible()
   await page.getByLabel('Whose work to show').selectOption({ label: 'Maya Blake' })
-  await page.getByRole('button', { name: 'Board', exact: true }).click()
+  await page.getByRole('button', { name: 'Close My work' }).click()
 
   const [id] = await cardsIn(page, 'Backlog')
   await page.locator(`[data-card-id="${id}"]`).click()

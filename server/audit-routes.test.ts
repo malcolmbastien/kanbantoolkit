@@ -127,6 +127,27 @@ describe('the audit screen', () => {
     expect(((await answer.json()) as { events: unknown[] }).events).toEqual([])
   })
 
+  it('exports the trail as a file, with the same scope and filters', async () => {
+    const { request, adaCookie, graceCookie } = await world()
+
+    const response = await request('/api/admin/audit.csv', { headers: { cookie: adaCookie } })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/csv')
+    expect(response.headers.get('content-disposition')).toMatch(/^attachment; filename="kanbantoolkit-audit-\d{4}-\d{2}-\d{2}\.csv"$/)
+    const text = await response.text()
+    expect(text.split('\r\n')[0]).toBe('when,action,actor,target type,target id,target name,data')
+    expect(text).toContain(',signin,')
+
+    // The filter narrows the file, just as it narrows the read.
+    const narrowed = await (await request('/api/admin/audit.csv?action=workspace.', { headers: { cookie: adaCookie } })).text()
+    expect(narrowed).not.toContain(',signin,')
+
+    // A workspace administrator's file is the events about this workspace and nothing else.
+    const scoped = await (await request('/api/admin/audit.csv', { headers: { cookie: graceCookie } })).text()
+    expect(scoped).toContain(',workspace.role,')
+    expect(scoped).not.toContain(',signin,')
+  })
+
   it('reads one event with its data, and refuses one out of scope', async () => {
     const { db, request, adaCookie, graceCookie } = await world()
     const signin = await db.get<{ id: number }>("SELECT id FROM audit_events WHERE action = 'signin' LIMIT 1")

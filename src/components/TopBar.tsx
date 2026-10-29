@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, Target, TrendingUp, UserRound, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { AccountMenu } from './AccountMenu'
 import { SyncNotice } from './SyncNotice'
@@ -21,7 +21,6 @@ interface Props {
   showObjectives: boolean
   /** Flow metrics are the board's own view — derived from its cards' history. */
   showMetrics: boolean
-  showMyWork: boolean
   showBoards: boolean
   /** The workspace's own administration: copies and storage. */
   showAdmin: boolean
@@ -31,8 +30,6 @@ interface Props {
   onShowTimeline: () => void
   onShowArchive: () => void
   onShowMetrics: () => void
-  onShowMyWork: () => void
-  onShowObjectives: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
   onEditBoard: () => void
@@ -51,12 +48,12 @@ export function TopBar(props: Props) {
   const mayDesign = may('board.design')
   const maySettings = may('board.settings')
 
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, showMyWork, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onShowMyWork, onShowObjectives, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
   // "the board is the surface", shared with the panels that read it.
-  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMyWork, showMetrics, showAdmin })
+  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMetrics, showAdmin })
   // A card belongs to a board that renders a cards workflow. A coordination board — a programme or
   // a portfolio — shows bands or objective-grouped flows and no cards workflow at all, so a card
   // made here would be one nobody could see on the board that made it. An initiative still can be:
@@ -71,7 +68,7 @@ export function TopBar(props: Props) {
           'flex items-center gap-2 rounded-md px-1.5 py-1 transition',
           showBoards ? 'bg-white ring-1 ring-indigo-300' : 'hover:bg-white',
         )}
-        title="Boards — browse and manage every board"
+        title="Workspace Home — every board in the organisation"
       >
         <span className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
@@ -89,14 +86,12 @@ export function TopBar(props: Props) {
               bar is tight is the focus chip — which is why focusing no longer wraps the
               bar and shoves the whole screen down. */}
           <div className="flex min-w-0 shrink-0 items-center gap-x-3">
-            {!showMyWork && (
-              <div className="flex items-center gap-1.5 text-meta font-medium text-slate-600">
-                Board
-                <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
-              </div>
-            )}
+            <div className="flex items-center gap-1.5 text-meta font-medium text-slate-600">
+              Board
+              <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
+            </div>
 
-            {!showMyWork && <div className="h-5 w-px bg-slate-200" />}
+            <div className="h-5 w-px bg-slate-200" />
 
 
           <button
@@ -157,32 +152,6 @@ export function TopBar(props: Props) {
             title="Archive — filed-away items (still searchable, still in links)"
           >
             <Archive size={12} /> Archive
-          </button>
-
-          {/* Strategy sits with the other organisation-level views rather than inside a board: an
-              objective is not any one board's, and a portfolio is only one way to reach it. */}
-          <button
-            onClick={onShowObjectives}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showObjectives ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-            )}
-            title="Objectives & Key Results — every objective, the key results that measure it, and the strategic initiatives that serve it"
-          >
-            <Target size={12} /> Objectives
-          </button>
-
-          <button
-            onClick={onShowMyWork}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showMyWork ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-            )}
-            title="My work — everything assigned to this workspace's person, across every board"
-          >
-            <UserRound size={12} /> My work
           </button>
 
 

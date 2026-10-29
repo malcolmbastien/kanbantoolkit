@@ -97,6 +97,7 @@ export function ItemPanel({ itemId }: Props) {
   const boardSurface = useStore(isBoardSurface)
   const addAssignee = useStore((s) => s.addAssignee)
   const boardId = useStore((s) => s.boardId)
+  const onPortfolioBoard = useStore((s) => s.boards.find((b) => b.id === s.boardId)?.band === 'portfolio')
   const selectBoard = useStore((s) => s.selectBoard)
   const setObjectives = useStore((s) => s.setObjectives)
   const toggleLens = useStore((s) => s.toggleLens)
@@ -1335,16 +1336,30 @@ export function ItemPanel({ itemId }: Props) {
                   {lineageObjectives.map((o) => (
                     <button
                       key={`okr-${o.id}`}
-                      onClick={() => {
-                        close(null)
-                        setObjectives(true)
-                      }}
-                      title="Open Objectives & Key Results"
-                      className="flex w-full items-center gap-2 bg-indigo-50/60 px-2.5 py-2 text-left transition hover:bg-indigo-50"
+                      onClick={
+                        onPortfolioBoard
+                          ? () => {
+                              close(null)
+                              setObjectives(true)
+                            }
+                          : undefined
+                      }
+                      disabled={!onPortfolioBoard}
+                      title={
+                        onPortfolioBoard
+                          ? 'Open Objectives & Key Results'
+                          : 'Objectives are created and managed on a portfolio board'
+                      }
+                      className={cn(
+                        'flex w-full items-center gap-2 bg-indigo-50/60 px-2.5 py-2 text-left transition',
+                        onPortfolioBoard ? 'hover:bg-indigo-50' : 'cursor-default',
+                      )}
                     >
                       <Target size={12} className="shrink-0 text-indigo-500" />
                       <span className="min-w-0 flex-1 truncate text-meta font-medium text-indigo-700">{o.title}</span>
-                      <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-indigo-500">Objectives</span>
+                      {onPortfolioBoard && (
+                        <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-indigo-500">Objectives</span>
+                      )}
                     </button>
                   ))}
                   {lineage.map((node) => {

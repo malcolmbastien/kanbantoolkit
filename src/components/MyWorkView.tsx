@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Ban, CalendarClock, Check, PanelRight, SquareArrowOutUpRight, TriangleAlert, UserRound } from 'lucide-react'
+import { Ban, CalendarClock, Check, PanelRight, TriangleAlert, UserRound, X } from 'lucide-react'
 import { BandBadge } from './BandBadge'
 import { myWork, type MyWorkEntry } from '@/domain/mywork'
 import { initialsOf } from '@/domain/users'
@@ -10,9 +10,9 @@ import { useStore } from '@/store'
 
 /**
  * My work — everything the workspace's person is assigned to, assembled from every board,
- * with the board and cell it sits in written on each row. It is a view, not a place:
- * clicking a card reads it in the side drawer without leaving the view, and the explicit
- * board button takes you to the cell it lives in when the work has to move.
+ * with the board and cell it sits in written on each row. It is a right-side drawer, not a place:
+ * the board stays in front, and clicking a card closes this drawer and reads the card in the item
+ * panel that takes its place.
  */
 export function MyWorkView() {
   const meUserId = useStore((s) => s.meUserId)
@@ -39,18 +39,10 @@ export function MyWorkView() {
   const total = groups.reduce((n, g) => n + g.entries.length, 0)
 
   /**
-   * Read the card where it is, without leaving My work. The item's board becomes the board in
-   * front (or the board-scoped controls in the drawer would be about a different board), but
-   * `showMyWork` is untouched, so the drawer opens beside the list rather than replacing it.
+   * Read the card where it is. The item's board becomes the board in front, and the item panel
+   * replaces My work on the right — one drawer on that side, so the card is what is read next.
    */
   const openDrawer = (itemBoardId: string, itemId: string) => {
-    if (itemBoardId !== boardId) selectBoard(itemBoardId)
-    openItem(itemId)
-  }
-
-  /** Leave this view for the board the work sits on, and open the item there. */
-  const openOnBoard = (itemBoardId: string, itemId: string) => {
-    setMyWork(false)
     if (itemBoardId !== boardId) selectBoard(itemBoardId)
     openItem(itemId)
   }
@@ -66,29 +58,32 @@ export function MyWorkView() {
           : undefined
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
-      <div className="mx-auto w-full max-w-4xl">
-        <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-sky-300 bg-sky-50/70 px-4 py-3">
-          <div>
-            <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-sky-700">
-              <UserRound size={12} /> My work
-            </div>
-            <div className="text-heading font-semibold text-slate-800">
-              {total} assigned item{total === 1 ? '' : 's'}
-              {total > 0 ? ` on ${groups.length} board${groups.length === 1 ? '' : 's'}` : ''}
-            </div>
-            <div className="text-meta text-slate-600">
-              Everything you own, assembled from every board. Click a card to read it here; the board
-              button takes you to the cell it lives in when the work has to move.
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-3">
-            {signedIn ? (
-              <span className="flex items-center gap-1.5 text-meta text-slate-600" data-my-work-person={meUserId ?? ''}>
-                <UserRound size={12} className="text-sky-700" />
-                Signed in as <strong className="font-semibold text-slate-800">{me?.name ?? account!.name}</strong>
-              </span>
-            ) : (
+    <aside data-my-work aria-label="My work" className="flex h-full min-h-0 w-[420px] shrink-0 flex-col border-l border-slate-300 bg-slate-100">
+      <div className="flex shrink-0 items-center gap-2 border-b border-slate-300 bg-white px-3 py-2">
+        <UserRound size={14} className="shrink-0 text-sky-700" />
+        <span className="text-body font-semibold text-slate-800">My work</span>
+        <span className="text-meta text-slate-600">
+          {total} assigned item{total === 1 ? '' : 's'}
+          {total > 0 ? ` on ${groups.length} board${groups.length === 1 ? '' : 's'}` : ''}
+        </span>
+        <button
+          onClick={() => setMyWork(false)}
+          aria-label="Close My work"
+          title="Close My work"
+          className="ml-auto rounded p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {signedIn ? (
+            <span className="flex items-center gap-1.5 text-meta text-slate-600" data-my-work-person={meUserId ?? ''}>
+              <UserRound size={12} className="text-sky-700" />
+              Signed in as <strong className="font-semibold text-slate-800">{me?.name ?? account!.name}</strong>
+            </span>
+          ) : (
             <label className="flex items-center gap-1.5 text-meta text-slate-600">
               Looking at
               <select
@@ -105,9 +100,12 @@ export function MyWorkView() {
                 ))}
               </select>
             </label>
-            )}
-          </div>
+          )}
         </div>
+        <p className="mb-3 text-meta text-slate-600">
+          Everything you own, assembled from every board. Click a card to read it here; the board
+          button takes you to the cell it lives in when the work has to move.
+        </p>
 
         {signedIn && !me ? (
           <div className="rounded-lg border border-slate-300 bg-white px-4 py-8 text-center">
@@ -234,16 +232,6 @@ export function MyWorkView() {
                             </span>
                           </span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openOnBoard(g.boardId, e.item.id)}
-                          title={`Open “${e.item.title}” on ${g.boardName}`}
-                          aria-label={`Open in board — “${e.item.title}” on ${g.boardName}`}
-                          className="flex shrink-0 items-center gap-1 self-center rounded-md border border-slate-200 bg-white px-2 py-1 text-micro font-semibold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-                        >
-                          <SquareArrowOutUpRight size={12} />
-                          <span>Open in board</span>
-                        </button>
                       </div>
                     )
                   })}
@@ -253,6 +241,6 @@ export function MyWorkView() {
           </div>
         )}
       </div>
-    </div>
+    </aside>
   )
 }

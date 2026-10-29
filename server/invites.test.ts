@@ -42,11 +42,11 @@ async function world() {
   const admin = await dev('ada@example.com')
   const adminCookie = cookieOf(admin)
 
-  const invite = async (email: string, role = 'editor') => {
+  const invite = async (email: string, role = 'editor', name?: string) => {
     const response = await request('/api/admin/invites', {
       method: 'POST',
       headers: { 'content-type': 'application/json', cookie: adminCookie },
-      body: JSON.stringify({ email, role }),
+      body: JSON.stringify({ email, role, ...(name ? { name } : {}) }),
     })
     const body = (await response.json()) as { invite: { id: string }; url: string }
     return { response, id: body.invite.id, token: new URL(body.url).searchParams.get('invite')! }
@@ -79,6 +79,44 @@ describe('an invitation is a link', () => {
       role: 'viewer',
       expiresAt: expect.any(String),
     })
+  })
+
+  it('keeps a name the link does not reveal, and uses it when the person accepts', async () => {
+    const { db, request, adminCookie, invite } = await world()
+    const { token } = await invite('grace@example.com', 'editor', 'Grace Hopper')
+
+    // The list says who the invitation is for, so an administrator can tell two links apart.
+    const listed = (await (await request('/api/admin/invites', { headers: { cookie: adminCookie } })).json()) as {
+      invites: Array<{ name?: string }>
+    }
+    expect(listed.invites[0].name).toBe('Grace Hopper')
+
+    // The public view masks the address and says nothing about the name: a forwarded link must not
+    // identify the person it was made for.
+    const publicView = (await (await request(`/api/invite/${token}`)).json()) as Record<string, unknown>
+    expect(publicView).not.toHaveProperty('name')
+    expect(JSON.stringify(publicView)).not.toContain('Grace')
+
+    const accepted = await request(`/api/invite/${token}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password: 'correct horse battery staple' }),
+    })
+    expect(accepted.status).toBe(200)
+    expect(await db.get("SELECT name FROM users WHERE email = 'grace@example.com'")).toEqual({ name: 'Grace Hopper' })
+  })
+
+  it('lets the person’s own name win over the one the invitation carries', async () => {
+    const { db, request, invite } = await world()
+    const { token } = await invite('grace@example.com', 'editor', 'G. Hopper')
+
+    const accepted = await request(`/api/invite/${token}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Grace Hopper', password: 'correct horse battery staple' }),
+    })
+    expect(accepted.status).toBe(200)
+    expect(await db.get("SELECT name FROM users WHERE email = 'grace@example.com'")).toEqual({ name: 'Grace Hopper' })
   })
 
   it('admits the invited address, at the invited role, and is then spent', async () => {
@@ -140,8 +178,9 @@ describe('an invitation is a link', () => {
     const { db, request, dev, adminCookie, invite } = await world()
     const { token } = await invite('grace@example.com', 'editor')
 
-    // An open instance lets grace in before she opens the link — as a viewer.
-    await db.run("UPDATE instance_settings SET access = 'open'")
+    // The instance is closed, but grace's domain is admitted: she is in before she opens the link —
+    // as a viewer.
+    await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
     const signedIn = await dev('grace@example.com')
     const graceCookie = cookieOf(signedIn)
 

@@ -171,7 +171,7 @@ export const STAGE_COLOR: Record<Stage, string> = {
   done: '#059669',
 }
 
-/** Solid-ish chip styling for a stage (used on rows and in the legend). */
+/** Solid-ish chip styling for a stage (used on rows and stage chips). */
 export function stageChip(stage: Stage): string {
   switch (stage) {
     case 'done':

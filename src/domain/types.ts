@@ -138,7 +138,7 @@ export interface Board {
   tags?: Tag[]
   /**
    * The board's own voice: what it is and how to read it, in the team's words. The board
-   * legend opens with it, and board settings edits it in place.
+   * board settings edits it in place, and the command palette searches it.
    */
   description: string
   /**

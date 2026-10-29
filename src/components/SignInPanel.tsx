@@ -414,12 +414,6 @@ export function SignInPanel({ onSignedIn }: { onSignedIn: (user: AuthUser | null
         </p>
       )}
 
-      {auth.access === 'open' && !auth.dev && (
-        <p className="mt-1 rounded-md bg-slate-50 px-1.5 py-1 text-micro text-slate-600">
-          This instance lets anyone with a provider sign in, as a viewer.
-        </p>
-      )}
-
       {auth.dev && (
         <form onSubmit={onDev} className="mt-1 border-t border-slate-200 pt-2">
           <p className="px-1.5 pb-1 text-micro uppercase tracking-wide text-slate-400">Development</p>

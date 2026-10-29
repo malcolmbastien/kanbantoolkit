@@ -34,6 +34,52 @@ const SELECT = `SELECT e.id, e.at, e.action, e.actor_id, a.name AS actor_name, e
                 LEFT JOIN users a ON a.id = e.actor_id
                 LEFT JOIN users u ON u.id = e.target_id AND e.target_type = 'user'`
 
+/** The filters the trail and its export share, so a file holds what the screen would have shown. */
+function filters(c: Parameters<typeof requireWorkspace>[0], instanceAdmin: boolean) {
+  const params: unknown[] = []
+  const where: string[] = []
+
+  if (!instanceAdmin) {
+    where.push("e.action LIKE 'workspace.%'")
+  }
+  for (const [key, column] of [
+    ['actor', 'e.actor_id'],
+    ['action', 'e.action'],
+    ['targetType', 'e.target_type'],
+    ['targetId', 'e.target_id'],
+  ] as const) {
+    const value = (c.req.query(key) ?? '').trim().slice(0, 120)
+    if (!value) continue
+    where.push(
+      key === 'action' ? `${column} LIKE ?${params.length + 1}` : `${column} = ?${params.length + 1}`,
+    )
+    params.push(key === 'action' ? `${value}%` : value)
+  }
+  for (const [key, comparison] of [
+    ['from', '>='],
+    ['to', '<='],
+  ] as const) {
+    const value = (c.req.query(key) ?? '').trim()
+    if (!value) continue
+    where.push(`e.at ${comparison} ?${params.length + 1}`)
+    params.push(value)
+  }
+
+  const after = c.req.query('after') ?? ''
+  if (after) {
+    const [at, id] = [after.slice(0, after.indexOf('|')), after.slice(after.indexOf('|') + 1)]
+    where.push(`(e.at, e.id) < (?${params.length + 1}, ?${params.length + 2})`)
+    params.push(at, Number(id) || 0)
+  }
+
+  return {
+    clause: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    params,
+  }
+}
+
+const quote = (value: string) => (/[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value)
+
 export function auditRoutes(runtime: Runtime) {
   const routes = new Hono<{ Bindings: object }>()
 
@@ -49,43 +95,10 @@ export function auditRoutes(runtime: Runtime) {
 
     const instanceAdmin = caller.instanceRole === 'admin'
     const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 50), 1), 200)
-    const params: unknown[] = []
-    const where: string[] = []
-
-    if (!instanceAdmin) {
-      where.push("e.action LIKE 'workspace.%'")
-    }
-    for (const [key, column] of [
-      ['actor', 'e.actor_id'],
-      ['action', 'e.action'],
-      ['targetType', 'e.target_type'],
-      ['targetId', 'e.target_id'],
-    ] as const) {
-      const value = (c.req.query(key) ?? '').trim().slice(0, 120)
-      if (!value) continue
-      where.push(
-        key === 'action' ? `${column} LIKE ?${params.length + 1}` : `${column} = ?${params.length + 1}`,
-      )
-      params.push(key === 'action' ? `${value}%` : value)
-    }
-    for (const [key, comparison] of [
-      ['from', '>='],
-      ['to', '<='],
-    ] as const) {
-      const value = (c.req.query(key) ?? '').trim()
-      if (!value) continue
-      where.push(`e.at ${comparison} ?${params.length + 1}`)
-      params.push(value)
-    }
-    const after = c.req.query('after') ?? ''
-    if (after) {
-      const [at, id] = [after.slice(0, after.indexOf('|')), after.slice(after.indexOf('|') + 1)]
-      where.push(`(e.at, e.id) < (?${params.length + 1}, ?${params.length + 2})`)
-      params.push(at, Number(id) || 0)
-    }
+    const { clause, params } = filters(c, instanceAdmin)
 
     const rows = await caller.db.all<EventRow>(
-      `${SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY e.at DESC, e.id DESC LIMIT ?${params.length + 1}`,
+      `${SELECT} ${clause} ORDER BY e.at DESC, e.id DESC LIMIT ?${params.length + 1}`,
       [...params, limit + 1],
     )
 
@@ -105,6 +118,48 @@ export function auditRoutes(runtime: Runtime) {
       // The raw action, for the detail, and the address hash — never an address.
       cursor: rows.length > limit && last ? `${last.at}|${last.id}` : null,
       scope: instanceAdmin ? 'instance' : 'workspace',
+    })
+  })
+
+  /**
+   * The trail as a file, for a person who wants the record rather than a screen of it.
+   *
+   * Same scope and same filters as the read; the cap is generous but finite, because an export is
+   * still a request and an unbounded one is a way to make the database do unbounded work.
+   */
+  routes.get('/audit.csv', async (c) => {
+    const caller = await requireWorkspace(c, runtime, 'workspace.members')
+    if (caller instanceof Response) return caller
+
+    const instanceAdmin = caller.instanceRole === 'admin'
+    const { clause, params } = filters(c, instanceAdmin)
+    const rows = await caller.db.all<EventRow>(
+      `${SELECT} ${clause} ORDER BY e.at DESC, e.id DESC LIMIT 50000`,
+      params,
+    )
+
+    const lines = [
+      ['when', 'action', 'actor', 'target type', 'target id', 'target name', 'data'].join(','),
+      ...rows.map((row) =>
+        [
+          row.at,
+          row.action,
+          row.actor_name ?? 'system',
+          row.target_type ?? '',
+          row.target_id ?? '',
+          row.target_name ?? '',
+          row.data ?? '',
+        ]
+          .map(quote)
+          .join(','),
+      ),
+    ]
+
+    return new Response(lines.join('\r\n'), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="kanbantoolkit-audit-${new Date().toISOString().slice(0, 10)}.csv"`,
+      },
     })
   })
 

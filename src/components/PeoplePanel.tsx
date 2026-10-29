@@ -122,14 +122,6 @@ export function PeoplePanel() {
     void load()
   }, [load])
 
-  // A group's role changes what this table shows. The two panels share a screen, so one tells the
-  // other to read the directory again rather than leaving a stale word in a row.
-  useEffect(() => {
-    const again = () => void load()
-    window.addEventListener('kanbantoolkit:directory-changed', again)
-    return () => window.removeEventListener('kanbantoolkit:directory-changed', again)
-  }, [load])
-
   // A selection belongs to what is on screen: narrowing the list drops what is no longer visible,
   // so a bulk action can only ever touch rows the operator can see.
   useEffect(() => {
@@ -237,6 +229,22 @@ export function PeoplePanel() {
     if (!open) return
     const response = await fetch(`/api/admin/users/${open}`, { headers: { accept: 'application/json' } })
     if (response.ok) setDetail((await response.json()) as Detail)
+  }
+
+  /**
+   * A one-time password link, made from the workspace's own route. The directory can edit a person
+   * and close their door; this is the other half — a way back in on a deployment with no mail relay.
+   */
+  async function passwordLink() {
+    if (!person) return
+    const answer = await call(
+      'reset',
+      `/api/admin/workspace/members/${person.id}/reset`,
+      { method: 'POST' },
+      'A one-time password link was made.',
+    )
+    const url = (answer as { url?: string } | null)?.url
+    if (url) setIssued(url)
   }
 
   // The export carries the filters the list is showing — the directory as it is seen.
@@ -520,6 +528,21 @@ export function PeoplePanel() {
               </button>
             </div>
 
+            <div>
+              <p className={LABEL}>Password link</p>
+              <p className="mt-1 text-meta text-slate-700">
+                A one-time link that lets them set a password, for a deployment that cannot send mail.
+              </p>
+              <button
+                onClick={() => void passwordLink()}
+                disabled={busy === 'reset'}
+                title="A one-time link that lets them set a password — no mail needed"
+                className={cn(BUTTON, 'mt-1.5')}
+              >
+                Make a password link
+              </button>
+            </div>
+
             {/* The credentials this person's scripts hold. An administrator sees them in order to
                 revoke one (R5), and mints one here when a daemon has nobody to sit at a browser
                 (R9). The value is never available — there is nothing to reveal. */}
@@ -548,9 +571,20 @@ export function PeoplePanel() {
                 >
                   Resend link
                 </button>
-                {issued && (
-                  <input readOnly value={issued} aria-label="New invitation link" className={cn(FIELD, 'mt-1.5 w-full text-micro')} onFocus={(event) => event.target.select()} />
-                )}
+              </div>
+            )}
+
+            {issued && (
+              <div>
+                <p className={LABEL}>One-time link</p>
+                <input
+                  readOnly
+                  value={issued}
+                  aria-label="One-time link"
+                  className={cn(FIELD, 'mt-1 w-full text-micro')}
+                  onFocus={(event) => event.target.select()}
+                />
+                <p className="mt-1 text-micro text-slate-500">Shown once; make a new one if it is lost.</p>
               </div>
             )}
 

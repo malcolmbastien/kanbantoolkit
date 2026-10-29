@@ -71,10 +71,13 @@ export function inviteLinkRoutes(runtime: Runtime) {
       if (!acceptable(offered)) return c.json({ error: `a password needs at least ${MIN_LENGTH} characters` }, 400)
 
       const userId = `u_${randomToken(12)}`
+      // The person's own name wins; the one the inviter gave is the fallback, and the address is the
+      // last resort. A link never reveals the invited name before it is accepted.
+      const typed = typeof body?.name === 'string' ? body.name.trim().slice(0, 120) : ''
       const name =
-        typeof body?.name === 'string' && body.name.trim()
-          ? body.name.trim().slice(0, 120)
-          : invite.email.split('@')[0].replace(/[._-]+/g, ' ')
+        typed ||
+        invite.name?.trim() ||
+        invite.email.split('@')[0].replace(/[._-]+/g, ' ')
       const now = new Date().toISOString()
       const ipHash = await addressHashOf(runtime, c.env, c.req.raw)
 

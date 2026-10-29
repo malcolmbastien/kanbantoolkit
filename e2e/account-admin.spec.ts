@@ -51,21 +51,24 @@ test('the workspace has a name and an end, and no bill at all', async ({ page })
   // And the route that carried the record is gone with it.
   expect((await page.request.get(`${ORIGIN}/api/workspace/account`)).status()).toBe(404)
 
-  // The end of the workspace is here, behind a typed confirmation.
-  await expect(panel.getByRole('button', { name: 'Delete this workspace…' })).toBeVisible()
+  // The end of the workspace has a tab of its own, behind a typed confirmation.
+  await page.getByRole('tab', { name: 'Danger' }).click()
+  await expect(page.getByRole('button', { name: 'Delete this workspace…' })).toBeVisible()
 })
 
 test('a member is removed, and the account goes with them', async ({ page, browser }) => {
   await signIn(page)
   await openAdmin(page)
 
-  // Invited through the workspace panel, which is where a workspace administrator runs the three
-  // acts: invite, deactivate, remove.
-  const roster = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Workspace' }) })
-  await roster.getByLabel('Invite into this workspace').fill('leaver@example.com')
-  await roster.getByRole('button', { name: 'Make a link' }).click()
+  // Invited from the instance's Invitations tab, which is where an instance administrator makes a
+  // way in; the People tab is where the result is read.
+  await page.getByRole('tab', { name: 'Invitations' }).click()
+  await page.getByRole('button', { name: 'Invite' }).click()
+  await page.getByRole('dialog', { name: 'Invite somebody' }).getByPlaceholder('grace@example.com').fill('leaver@example.com')
+  await page.getByRole('button', { name: 'Make the link' }).click()
   const link = await page.getByLabel('Invitation link').inputValue()
   expect(link).toContain('invite=')
+  await page.getByRole('button', { name: 'Done' }).click()
 
   const other = await browser.newContext()
   try {
@@ -94,7 +97,8 @@ test('a member is removed, and the account goes with them', async ({ page, brows
     // And the roster is the people who are still here.
     await page.reload()
     await openAdmin(page)
-    const after = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Workspace' }) })
+    await page.getByRole('tab', { name: 'People' }).click()
+    const after = page.locator('section').filter({ has: page.getByRole('heading', { name: 'People' }) })
     await expect(after.getByText('leaver@example.com')).toHaveCount(0)
   } finally {
     await other.close()
@@ -137,6 +141,7 @@ test('deleting the workspace asks for its name, and takes its accounts with it',
   const name = read.workspace.name
   expect(name.length).toBeGreaterThan(0)
 
+  await page.getByRole('tab', { name: 'Danger' }).click()
   await page.getByRole('button', { name: 'Delete this workspace…' }).click()
   const dialog = page.getByRole('dialog', { name: 'Delete this workspace' })
 
