@@ -28,6 +28,13 @@ export interface StageMove {
   from?: Stage
 }
 
+/** One blocked run, as the log recorded it: an open run has no end. */
+export interface BlockedSpan {
+  from: number
+  to?: number
+  reason?: string
+}
+
 /** One card's history in the terms flow is read in — all of it derived from the card's log. */
 export interface FlowRecord {
   id: string
@@ -38,6 +45,31 @@ export interface FlowRecord {
   /** The stage it was in before its first recorded move: where the history starts. */
   startedIn: Stage
   moves: StageMove[]
+  /** Blocked runs, paired from the log. An open run is one still blocked at read time. */
+  blocks: BlockedSpan[]
+  /** The card's explicit blocked flag now — work can be blocked without a logged run. */
+  blockedNow: boolean
+  /** The reason kept on the card, for a blockage that has no logged entry. */
+  blockedReason?: string
+}
+
+/** Pair the blocked and unblocked entries in a card's log, oldest first. */
+function blockedSpans(log: Item['log']): BlockedSpan[] {
+  const entries = (log ?? [])
+    .filter((entry) => entry.kind === 'blocked' || entry.kind === 'unblocked')
+    .sort((a, b) => a.at - b.at)
+  const spans: BlockedSpan[] = []
+  let open: BlockedSpan | undefined
+  for (const entry of entries) {
+    if (entry.kind === 'blocked' && open === undefined) {
+      open = { from: entry.at, ...(entry.note ? { reason: entry.note.trim() } : {}) }
+    } else if (entry.kind === 'unblocked' && open !== undefined) {
+      spans.push({ ...open, to: entry.at })
+      open = undefined
+    }
+  }
+  if (open !== undefined) spans.push(open)
+  return spans
 }
 
 /**
@@ -57,6 +89,9 @@ export function flowRecord(item: Item, currentStage: Stage | undefined): FlowRec
     ...(item.archivedAt ? { archivedAt: item.archivedAt } : {}),
     startedIn: moves[0]?.from ?? currentStage ?? 'backlog',
     moves,
+    blocks: blockedSpans(item.log),
+    blockedNow: item.blocked === true,
+    ...(item.blockedReason ? { blockedReason: item.blockedReason } : {}),
   }
 }
 
@@ -203,6 +238,108 @@ export function aging(
       const age = (entry: AgingEntry) => entry.daysSinceCommit ?? entry.daysInColumn
       return age(b) - age(a) || a.id.localeCompare(b.id)
     })
+}
+
+/**
+ * A blocked run closed for reading.
+ *
+ * An open log entry ends when the card leaves the flow — resolution or filing away — because a card
+ * cannot still be accruing blocked days after it is done. A run with no end and no exit is open now.
+ */
+export interface BlockedRun {
+  from: number
+  to: number
+  reason?: string
+  open: boolean
+}
+
+/** A card blocked right now; `days` is absent when the card carries the flag but no logged run. */
+export interface BlockedNowEntry {
+  id: string
+  title: string
+  days?: number
+  reason?: string
+}
+
+export interface BlockedSummary {
+  now: BlockedNowEntry[]
+  /** Blocked days inside the window, summed across runs and cards. */
+  totalDays: number
+  /** Blocked runs that the window touches. */
+  runs: number
+  median?: number
+  p85?: number
+  reasons: { reason: string; count: number }[]
+}
+
+/** Close every blocked run at the moment the card left the flow, or at `now`. */
+export function blockedRuns(record: FlowRecord, now: number): BlockedRun[] {
+  const stop = Math.min(now, record.resolvedAt ?? record.archivedAt ?? now)
+  return record.blocks.flatMap((span) => {
+    const to = span.to === undefined ? stop : Math.min(span.to, stop)
+    if (to < span.from) return []
+    return [{ from: span.from, to, ...(span.reason ? { reason: span.reason } : {}), open: span.to === undefined }]
+  })
+}
+
+/**
+ * The blocked reading: what is blocked now, and how much blocked time the window contains.
+ *
+ * "Blocked" is the explicit flag, not a dependency that is not done — the app keeps those apart, and
+ * the panel says so. A blockage written before the log recorded events still counts as blocked now;
+ * its duration is simply unknown, and says so rather than showing zero.
+ */
+export function blockedSummary(records: FlowRecord[], now: number, since?: number): BlockedSummary {
+  const from = since ?? Number.NEGATIVE_INFINITY
+  const nowEntries: BlockedNowEntry[] = []
+  const durations: number[] = []
+  const reasons = new Map<string, { reason: string; count: number }>()
+  let totalDays = 0
+  let runs = 0
+
+  for (const record of records) {
+    const closed = blockedRuns(record, now)
+    const open = closed.find((run) => run.open)
+    if (record.blockedNow && inFlightAt(record, now) && open === undefined) {
+      nowEntries.push({
+        id: record.id,
+        title: record.title,
+        ...(record.blockedReason ? { reason: record.blockedReason } : {}),
+      })
+    }
+    if (open !== undefined && inFlightAt(record, now)) {
+      nowEntries.push({
+        id: record.id,
+        title: record.title,
+        days: days(open.from, now),
+        ...(open.reason ?? record.blockedReason ? { reason: open.reason ?? record.blockedReason } : {}),
+      })
+    }
+
+    for (const run of closed) {
+      const start = Math.max(run.from, from)
+      const end = Math.min(run.to, now)
+      if (end <= start) continue
+      runs += 1
+      totalDays += days(start, end)
+      durations.push(days(run.from, run.to))
+      const label = run.reason?.trim() || 'No reason given'
+      const key = label.toLowerCase()
+      const row = reasons.get(key) ?? { reason: label, count: 0 }
+      row.count += 1
+      reasons.set(key, row)
+    }
+  }
+
+  const stats = sampleStats(durations)
+  return {
+    now: nowEntries.sort((a, b) => (b.days ?? -1) - (a.days ?? -1) || a.id.localeCompare(b.id)),
+    totalDays,
+    runs,
+    ...(stats.p50 !== undefined ? { median: stats.p50 } : {}),
+    ...(stats.p85 !== undefined ? { p85: stats.p85 } : {}),
+    reasons: [...reasons.values()].sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)).slice(0, 5),
+  }
 }
 
 /** Weekly boundaries ending at `now`, oldest first — the axis a flow chart is read on. */

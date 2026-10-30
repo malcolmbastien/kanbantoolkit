@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { TrendingUp } from 'lucide-react'
 import {
   aging,
+  blockedSummary,
   bucketsFor,
   committedAt,
   cumulativeFlow,
@@ -82,6 +83,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const summary = flowSummary(records, now, since)
   const flow = cumulativeFlow(records, buckets)
   const delivered = throughput(records, buckets)
+  const blocked = blockedSummary(records, now, since)
 
   // Each diagram has its own scale: a flow column is as tall as the most work the board carried
   // at a week's end, a throughput bar as tall as the busiest week in the window.
@@ -189,6 +191,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
               p85={summary.cycle.p85}
               openItem={openItem}
             />
+
+            <BlockedWork summary={blocked} openItem={openItem} />
 
             <Panel
               title="Cumulative flow"
@@ -298,6 +302,103 @@ export function MetricsView({ boardId }: { boardId: string }) {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Blocked work, now and in the window.
+ *
+ * The app keeps "blocked" (a person's explicit flag with a reason) apart from "waiting" (a dependency
+ * that is not done). This panel is the first: blocked time is the sum of the runs in the card's own
+ * log, and waiting is a different signal on the board and in the health badges.
+ */
+function BlockedWork({
+  summary,
+  openItem,
+}: {
+  summary: ReturnType<typeof blockedSummary>
+  openItem: (id: string | null) => void
+}) {
+  return (
+    <Panel
+      title="Blocked work"
+      note="Blocked time comes from a card's own blocked and unblocked entries. Waiting on another card is a dependency, and is not counted here."
+    >
+      <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
+        <div>
+          <div className="mb-1 text-micro font-semibold uppercase tracking-wide text-slate-600">
+            Blocked now{summary.now.length > 0 ? ` · ${summary.now.length}` : ''}
+          </div>
+          {summary.now.length === 0 ? (
+            <div className="text-meta text-slate-600">Nothing is blocked right now.</div>
+          ) : (
+            <ul className="space-y-0.5">
+              {summary.now.map((row) => (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    data-blocked-now
+                    data-card-id={row.id}
+                    onClick={() => openItem(row.id)}
+                    className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+                    title={row.reason}
+                  >
+                    <span data-blocked-title className="min-w-0 flex-1 truncate text-meta font-medium text-slate-800">
+                      {row.title}
+                    </span>
+                    <span className="shrink-0 text-micro tabular-nums text-slate-600">
+                      {row.days === undefined ? 'duration unknown' : `${days(row.days)} blocked`}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-1 text-micro font-semibold uppercase tracking-wide text-slate-600">
+            In this window
+          </div>
+          {summary.runs === 0 ? (
+            <div className="text-meta text-slate-600">Nothing was blocked in this window.</div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-meta text-slate-700">
+                <span>
+                  <span className="font-semibold tabular-nums" data-blocked-total>
+                    {days(summary.totalDays)}
+                  </span>{' '}
+                  blocked in total
+                </span>
+                <span>
+                  median <span className="font-semibold tabular-nums">{days(summary.median)}</span>
+                </span>
+                <span>
+                  p85 <span className="font-semibold tabular-nums">{days(summary.p85)}</span>
+                </span>
+                <span className="text-slate-500">
+                  {summary.runs} run{summary.runs === 1 ? '' : 's'}
+                </span>
+              </div>
+              {summary.reasons.length > 0 && (
+                <div className="mt-1.5">
+                  <div className="text-micro uppercase tracking-wide text-slate-600">Most common reasons</div>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {summary.reasons.map((row) => (
+                      <li key={row.reason} data-blocked-reason className="flex items-baseline gap-2 text-meta text-slate-700">
+                        <span className="min-w-0 flex-1 truncate">{row.reason}</span>
+                        <span className="shrink-0 tabular-nums text-slate-600">{row.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </Panel>
   )
 }
 

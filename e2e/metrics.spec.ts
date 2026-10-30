@@ -85,6 +85,20 @@ test('aging work lists what is old, and a row opens the card', async ({ page }) 
   expect(await panel.getAttribute('aria-label')).toContain(title)
 })
 
+test('blocked work says what is blocked now, and a row opens the card', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  const blocked = view.locator('[data-blocked-now]')
+  await expect(blocked.first()).toBeVisible()
+  const title = (await blocked.first().locator('[data-blocked-title]').textContent())?.trim() ?? ''
+  expect(title.length).toBeGreaterThan(0)
+  await blocked.first().click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  expect(await panel.getAttribute('aria-label')).toContain(title)
+})
+
 test('a reading this build does not know falls back to the default, not to a blank screen', async ({ page }) => {
   await page.goto(`${FLOW}&range=7&flow=f-missing`)
 

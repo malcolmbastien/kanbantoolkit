@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   MAX_ALL_WEEKS,
   aging,
+  blockedRuns,
+  blockedSummary,
   bucketsFor,
   committedAt,
   cumulativeFlow,
@@ -35,6 +37,8 @@ const rec = (over: Partial<FlowRecord> = {}): FlowRecord => ({
   createdAt: T - 30 * DAY,
   startedIn: 'backlog',
   moves: [],
+  blocks: [],
+  blockedNow: false,
   ...over,
 })
 
@@ -312,5 +316,95 @@ describe('aging work', () => {
     const old = rec({ id: 'old', createdAt: T - 40 * DAY, moves: [move(T - 35 * DAY, 'inProgress', 'backlog')] })
     const waiting = rec({ id: 'waiting', createdAt: T - 60 * DAY, moves: [] })
     expect(aging([young, old, waiting], T).map((entry) => entry.id)).toEqual(['old', 'young', 'waiting'])
+  })
+})
+
+describe('blocked work', () => {
+  it('pairs blocked and unblocked entries, and leaves an open run open', () => {
+    const item: Item = {
+      id: 'b1',
+      title: 'Blocked card',
+      typeId: 't-task',
+      createdAt: T - 30 * DAY,
+      blocked: true,
+      blockedReason: 'Waiting on legal',
+      log: [
+        // An unblocked with nothing open, and an unrelated note, are not runs.
+        { id: 'l0', at: T - 12 * DAY, kind: 'unblocked' },
+        { id: 'l1', at: T - 10 * DAY, kind: 'blocked', note: 'Waiting on legal' },
+        { id: 'l2', at: T - 8 * DAY, kind: 'unblocked' },
+        { id: 'l3', at: T - 3 * DAY, kind: 'blocked', note: 'Waiting on legal' },
+        { id: 'l4', at: T - 1 * DAY, kind: 'noted', note: 'ping' },
+      ],
+    }
+    const record = flowRecord(item, 'inProgress')
+    expect(record.blocks).toEqual([
+      { from: T - 10 * DAY, to: T - 8 * DAY, reason: 'Waiting on legal' },
+      { from: T - 3 * DAY, reason: 'Waiting on legal' },
+    ])
+    expect(blockedRuns(record, T)[1]).toMatchObject({ from: T - 3 * DAY, to: T, open: true })
+  })
+
+  it('counts blocked time inside the window, and says what is blocked now', () => {
+    const open = rec({
+      id: 'open',
+      createdAt: T - 20 * DAY,
+      blockedNow: true,
+      blocks: [{ from: T - 4 * DAY, reason: 'Waiting on legal' }],
+      moves: [move(T - 15 * DAY, 'inProgress', 'backlog')],
+    })
+    const closed = rec({
+      id: 'closed',
+      createdAt: T - 30 * DAY,
+      blocks: [{ from: T - 20 * DAY, to: T - 15 * DAY, reason: 'Waiting on legal' }],
+      moves: [move(T - 25 * DAY, 'inProgress', 'backlog')],
+    })
+    const summary = blockedSummary([open, closed], T, T - 7 * DAY)
+    expect(summary.now.map((row) => row.id)).toEqual(['open'])
+    expect(summary.now[0].days).toBe(4)
+    // Only the open run intersects the last seven days.
+    expect(summary.runs).toBe(1)
+    expect(summary.totalDays).toBe(4)
+    expect(summary.reasons).toEqual([{ reason: 'Waiting on legal', count: 1 }])
+  })
+
+  it('stops blocked time when the card is done, and counts a flagged card with no log', () => {
+    const done = rec({
+      id: 'done',
+      resolvedAt: T - 1 * DAY,
+      blockedNow: true,
+      blocks: [{ from: T - 5 * DAY }],
+      moves: [move(T - 1 * DAY, 'done', 'inProgress')],
+    })
+    const legacy = rec({
+      id: 'legacy',
+      createdAt: T - 20 * DAY,
+      blockedNow: true,
+      blockedReason: 'Awaiting capacity review',
+      moves: [move(T - 15 * DAY, 'inProgress', 'backlog')],
+    })
+    const summary = blockedSummary([done, legacy], T)
+    // The done card is not in flight, so it is not blocked now, and its run ended at Done.
+    expect(summary.now.map((row) => row.id)).toEqual(['legacy'])
+    expect(summary.now[0].days).toBeUndefined()
+    expect(summary.now[0].reason).toBe('Awaiting capacity review')
+    expect(summary.totalDays).toBe(4)
+  })
+
+  it('groups reasons ignoring case, and keeps only the top five', () => {
+    const make = (id: string, reason: string, from: number) =>
+      rec({ id, blocks: [{ from, to: from + DAY, reason }], moves: [move(from - DAY, 'inProgress', 'backlog')] })
+    const records = [
+      make('a', 'Waiting on legal', T - 10 * DAY),
+      make('b', 'waiting on LEGAL', T - 9 * DAY),
+      make('c', 'Security review', T - 8 * DAY),
+      make('d', 'Vendor', T - 7 * DAY),
+      make('e', 'Budget', T - 6 * DAY),
+      make('f', 'Design', T - 5 * DAY),
+      make('g', 'Capacity', T - 4 * DAY),
+    ]
+    const summary = blockedSummary(records, T)
+    expect(summary.reasons[0]).toEqual({ reason: 'Waiting on legal', count: 2 })
+    expect(summary.reasons).toHaveLength(5)
   })
 })
