@@ -342,6 +342,48 @@ export function blockedSummary(records: FlowRecord[], now: number, since?: numbe
   }
 }
 
+/** One bucket of a histogram; `tail` is the last bucket, which holds everything past the cap. */
+export interface HistogramBucket {
+  from: number
+  /** Exclusive end, except on the tail bucket, where it is `to`-less by construction. */
+  to: number
+  count: number
+  tail?: boolean
+}
+
+/**
+ * Count values in fixed-width buckets, with every empty bucket between the ends kept.
+ *
+ * Gaps are the shape: "nothing finished in 3 days, then nine cards in 4" is a different story from
+ * a smooth spread, and a histogram that skipped the empty buckets would hide it. A `cap` puts every
+ * value at or beyond it into one final bucket, so one very long card cannot make a hundred slivers.
+ */
+export function histogram(values: number[], size = 1, cap?: number): HistogramBucket[] {
+  if (values.length === 0) return []
+  const width = Math.max(1, size)
+  const capIndex = cap === undefined ? undefined : Math.max(0, Math.floor(cap / width))
+  const indices = values.map((value) => Math.max(0, Math.floor(value / width)))
+  // The cap only becomes a bucket when something reaches it; otherwise the last day with a card
+  // is the last bucket, and a board whose work finishes in a week does not draw sixty empty days.
+  const capped = capIndex !== undefined && indices.some((index) => index >= capIndex)
+  const last = capped ? capIndex! : Math.max(...indices)
+  const buckets: HistogramBucket[] = []
+  for (let index = 0; index <= last; index += 1) {
+    const from = index * width
+    const tail = capped && index === capIndex
+    buckets.push({
+      from,
+      to: from + width,
+      count: values.filter((value) => {
+        const bucket = Math.max(0, Math.floor(value / width))
+        return tail ? bucket >= capIndex : bucket === index
+      }).length,
+      ...(tail ? { tail: true } : {}),
+    })
+  }
+  return buckets
+}
+
 /** Weekly boundaries ending at `now`, oldest first — the axis a flow chart is read on. */
 export function weeklyBuckets(now: number, weeks: number): number[] {
   return Array.from({ length: weeks }, (_, i) => now - (weeks - 1 - i) * WEEK_MS)

@@ -11,6 +11,7 @@ import {
   deliveredSince,
   flowRecord,
   flowSummary,
+  histogram,
   inFlightAt,
   leadTimes,
   median,
@@ -406,5 +407,26 @@ describe('blocked work', () => {
     const summary = blockedSummary(records, T)
     expect(summary.reasons[0]).toEqual({ reason: 'Waiting on legal', count: 2 })
     expect(summary.reasons).toHaveLength(5)
+  })
+})
+
+describe('the histograms', () => {
+  it('counts whole days, keeps the empty buckets, and folds the tail into one', () => {
+    const buckets = histogram([0, 0.4, 1, 1.9, 2, 60, 61, 100], 1, 60)
+    expect(buckets[0]).toEqual({ from: 0, to: 1, count: 2 })
+    expect(buckets[1]).toEqual({ from: 1, to: 2, count: 2 })
+    expect(buckets[2]).toEqual({ from: 2, to: 3, count: 1 })
+    // Days 3–59 are present with nothing in them, because the gap is part of the shape.
+    expect(buckets).toHaveLength(61)
+    expect(buckets[3]).toEqual({ from: 3, to: 4, count: 0 })
+    expect(buckets[60]).toEqual({ from: 60, to: 61, count: 3, tail: true })
+  })
+
+  it('groups into wider buckets and answers nothing for an empty sample', () => {
+    expect(histogram([0, 1, 2, 3], 2)).toEqual([
+      { from: 0, to: 2, count: 2 },
+      { from: 2, to: 4, count: 2 },
+    ])
+    expect(histogram([])).toEqual([])
   })
 })

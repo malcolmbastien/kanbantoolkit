@@ -85,6 +85,15 @@ test('aging work lists what is old, and a row opens the card', async ({ page }) 
   expect(await panel.getAttribute('aria-label')).toContain(title)
 })
 
+test('the cycle time distribution is drawn, with the shape said in words', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  await expect(view.locator('[data-cycle-histogram]')).toBeVisible()
+  expect(await view.locator('[data-cycle-histogram-bar]').count()).toBeGreaterThan(0)
+  await expect(view.getByText(/Most finished in/)).toBeVisible()
+})
+
 test('blocked work says what is blocked now, and a row opens the card', async ({ page }) => {
   await page.goto(FLOW)
   const view = page.locator('[data-flow-view]')

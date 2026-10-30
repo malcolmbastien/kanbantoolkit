@@ -9,6 +9,7 @@ import {
   deliveredSince,
   flowRecord,
   flowSummary,
+  histogram,
   percentile,
   sampleStats,
   scatterPoints,
@@ -84,6 +85,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const flow = cumulativeFlow(records, buckets)
   const delivered = throughput(records, buckets)
   const blocked = blockedSummary(records, now, since)
+  const cycles = scatterPoints(records, since).map((point) => point.cycle)
 
   // Each diagram has its own scale: a flow column is as tall as the most work the board carried
   // at a week's end, a throughput bar as tall as the busiest week in the window.
@@ -178,6 +180,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
           <>
             <CycleScatter records={records} since={since} openItem={openItem} selectedItemId={selectedItemId} />
 
+            <CycleHistogram cycles={cycles} p50={summary.cycle.p50} p85={summary.cycle.p85} />
+
             <AgingWork
               records={records}
               now={now}
@@ -239,7 +243,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
               </div>
             </Panel>
 
-            <Panel title="Throughput" note="Cards that reached Done in each week — delivery, not activity.">
+            <Panel
+              title="Throughput"
+              note={`Cards that reached Done in each week — delivery, not activity. ${delivered.reduce((sum, n) => sum + n, 0)} in ${delivered.length} week${delivered.length === 1 ? '' : 's'}; the busiest week had ${Math.max(...delivered)}.`}
+            >
               <div className="flex gap-1.5">
                 {delivered.map((n, i) => (
                   <div key={buckets[i]} data-flow-week className="flex min-w-0 flex-1 flex-col gap-1">
@@ -398,6 +405,104 @@ function BlockedWork({
           )}
         </div>
       </div>
+    </Panel>
+  )
+}
+
+/**
+ * The shape of the cycle times, in whole days.
+ *
+ * A median and a p85 are two points; this is the distribution they came from. Empty days are drawn
+ * so a bimodal flow — quick fixes and long features — is visible as two humps, and a single very
+ * long card becomes a tail bucket rather than a chart nobody can read.
+ */
+function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; p85?: number }) {
+  const buckets = histogram(cycles, 1, 60)
+  if (buckets.length === 0) {
+    return (
+      <Panel title="Cycle time distribution" note="Delivered cards, in one-day buckets.">
+        <div className="text-meta text-slate-600">No cycle times in this window yet.</div>
+      </Panel>
+    )
+  }
+
+  const tallest = Math.max(1, ...buckets.map((bucket) => bucket.count))
+  const peak = buckets.reduce((best, bucket) => (bucket.count > best.count ? bucket : best), buckets[0])
+  const longest = Math.max(...cycles)
+  const peakLabel = peak.tail ? `${peak.from}+ days` : `${peak.from}–${peak.to - 1} day${peak.to - 1 === peak.from ? '' : 's'}`
+  const marker = (value: number | undefined) =>
+    value === undefined ? undefined : Math.min(buckets.length - 1, Math.max(0, Math.floor(value)))
+  const p50Index = marker(p50)
+  const p85Index = marker(p85)
+
+  return (
+    <Panel
+      title="Cycle time distribution"
+      note={`Delivered cards in one-day buckets. Most finished in ${peakLabel}; the longest took ${days(longest)}.`}
+    >
+      <div data-cycle-histogram className="relative">
+        <div className="flex h-24 items-end gap-px">
+          {buckets.map((bucket) => (
+            <div
+              key={bucket.from}
+              data-cycle-histogram-bar
+              className="flex min-w-0 flex-1 flex-col justify-end"
+              title={`${bucket.tail ? `${bucket.from}+` : `${bucket.from}–${bucket.to - 1}`} days: ${bucket.count} card${bucket.count === 1 ? '' : 's'}`}
+            >
+              <div
+                className={cn('rounded-sm', bucket.count === 0 ? 'bg-slate-100' : 'bg-indigo-500')}
+                style={{ height: `${bucket.count === 0 ? 2 : Math.max(3, (bucket.count / tallest) * 100)}%` }}
+              />
+            </div>
+          ))}
+        </div>
+        {p50Index !== undefined && (
+          <span
+            className="pointer-events-none absolute inset-y-0 w-px bg-slate-500"
+            style={{ left: `${((p50Index + 0.5) / buckets.length) * 100}%` }}
+            title={`p50: ${days(p50)}`}
+          />
+        )}
+        {p85Index !== undefined && (
+          <span
+            className="pointer-events-none absolute inset-y-0 w-px bg-rose-500"
+            style={{ left: `${((p85Index + 0.5) / buckets.length) * 100}%` }}
+            title={`p85: ${days(p85)}`}
+          />
+        )}
+        <div className="mt-1 flex justify-between text-micro text-slate-600">
+          <span>0d</span>
+          <span>{buckets.length > 1 ? `${buckets[buckets.length - 1].tail ? `${buckets[buckets.length - 1].from}+` : `${buckets[buckets.length - 1].to - 1}`}d` : '1d'}</span>
+        </div>
+        <div className="mt-0.5 flex gap-3 text-micro text-slate-600">
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-px bg-slate-500" /> p50
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-px bg-rose-500" /> p85
+          </span>
+        </div>
+      </div>
+
+      <details className="mt-2 text-micro text-slate-600">
+        <summary className="cursor-pointer">The numbers</summary>
+        <table className="mt-1 w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-slate-200 uppercase tracking-wide text-slate-600">
+              <th className="py-1 pr-2 font-semibold">Days</th>
+              <th className="px-2 py-1 text-right font-semibold">Cards</th>
+            </tr>
+          </thead>
+          <tbody>
+            {buckets.filter((bucket) => bucket.count > 0).map((bucket) => (
+              <tr key={bucket.from} className="border-b border-slate-100 last:border-0">
+                <td className="py-1 pr-2">{bucket.tail ? `${bucket.from}+` : `${bucket.from}–${bucket.to - 1}`}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{bucket.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
     </Panel>
   )
 }
