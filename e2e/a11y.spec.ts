@@ -48,6 +48,12 @@ test('the board has no barrier a machine can find', async ({ page }) => {
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
+test('the Flow view has no barrier a machine can find', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&view=flow')
+  await expect(page.locator('[data-flow-view]')).toBeVisible()
+  expect(await barriers(page)).toEqual([])
+})
+
 test('a card open in its panel has none either', async ({ page }) => {
   await page.goto('/app?board=b-atlas')
   await page.locator('[data-workflow="cards"] [data-card-id]').first().click()

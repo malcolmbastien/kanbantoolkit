@@ -7,6 +7,27 @@ The references are at the bottom. The short version of all four: show distributi
 averages, make waiting and blocked time visible, check the data before reading it, and forecast with
 a range instead of a date.
 
+## What was built
+
+Phases 1 and 2 are implemented as task 179 (subtasks 179.1–179.13 and 179.15): the window and flow
+controls, p50/p85/p95 with counts, the scatter, aging, blocked work, the histograms, Little's Law,
+thin-data states, the service level expectation, the Monte Carlo forecast read both ways, its
+assumptions, the CSV, and the JiraMetrics data-quality section.
+
+Three things differed in the making, and are worth keeping:
+
+- **Data quality became a Phase 1 item** (1.9) after the JiraMetrics review, because the checks are
+  cheap and they change how every other panel is read.
+- **The demo's own board has three deliveries**, so it shows the forecast's refusal rather than a
+  number. The load-test board (`?stress=…`) is the in-browser demonstration of the answer. A team
+  with real history sees the range from the first quarter it records.
+- **The CSV has no id column.** The house rule is that an item's identity is the app's own and no
+  surface prints it; the title is what a person reads and searches by.
+
+Still not built, deliberately: flow efficiency (needs the lane setting), WIP by column, the per-card
+forecast, blocker categories, breakdowns and portfolio rollups. They are in Phase 3 below, and none
+of them is required for the screen to be useful.
+
 ## What the Flow view does today
 
 One screen per board, computed from the cards' own histories (`src/domain/metrics.ts`):
