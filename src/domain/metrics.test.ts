@@ -19,6 +19,8 @@ import {
   inFlightAt,
   leadTimes,
   littleCycle,
+  METRICS_CSV_HEADER,
+  metricsCsv,
   moveCoverage,
   openScope,
   median,
@@ -565,5 +567,34 @@ describe('how many by a date', () => {
     expect(forecastBy(0, [1, 2, 3, 4], T, T + DAY)).toMatchObject({ ok: false, reason: 'no-scope' })
     expect(forecastBy(5, [0, 0, 0, 0], T, T + DAY)).toMatchObject({ ok: false, reason: 'no-throughput' })
     expect(forecastBy(5, [1, 1, 1], T, T + DAY)).toMatchObject({ ok: false, reason: 'thin-history' })
+  })
+})
+
+describe('the Flow export', () => {
+  it('writes the delivered rows, quoting what needs quoting and leaving ids out', () => {
+    const csv = metricsCsv([
+      {
+        title: 'Fix, "urgent" bug',
+        type: 'Bug',
+        flow: 'Cards',
+        createdAt: Date.UTC(2026, 9, 1),
+        committedAt: Date.UTC(2026, 9, 2),
+        resolvedAt: Date.UTC(2026, 9, 5),
+        lead: 4,
+        cycle: 3,
+        blockedDays: 1.25,
+      },
+    ])
+    const [header, row] = csv.trimEnd().split('\r\n')
+    expect(header).toBe('Title,Type,Flow,Created,Committed,Done,Lead days,Cycle days,Blocked days')
+    expect(row).toContain('"Fix, ""urgent"" bug"')
+    expect(row).toContain('2026-10-05T00:00:00.000Z')
+    expect(row).toContain('1.3')
+    expect(header).not.toContain('Id')
+    expect(header).toBe(METRICS_CSV_HEADER.join(','))
+  })
+
+  it('answers the header alone for an empty sample', () => {
+    expect(metricsCsv([]).trimEnd()).toBe(METRICS_CSV_HEADER.join(','))
   })
 })

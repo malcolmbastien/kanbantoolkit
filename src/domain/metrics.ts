@@ -707,6 +707,65 @@ export function forecastBy(
   }
 }
 
+/** One delivered card, as the Flow view's export reads it. No id: identity is the app's own. */
+export interface DeliveredMetricRow {
+  title: string
+  type: string
+  flow: string
+  createdAt: number
+  committedAt: number
+  resolvedAt: number
+  lead: number
+  cycle: number
+  blockedDays: number
+}
+
+export const METRICS_CSV_HEADER = [
+  'Title',
+  'Type',
+  'Flow',
+  'Created',
+  'Committed',
+  'Done',
+  'Lead days',
+  'Cycle days',
+  'Blocked days',
+]
+
+/** A field quoted only when it has to be, RFC 4180 style. */
+const csvField = (value: unknown): string => {
+  const text = value === undefined || value === null ? '' : String(value)
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+/**
+ * The delivered cards behind the Flow charts, as a file a spreadsheet can open.
+ *
+ * Kept here rather than in the board's CSV module so the Flow screen does not pull that module's
+ * graph into its chunk for one button; the format is the same and just as literal.
+ */
+export function metricsCsv(rows: DeliveredMetricRow[]): string {
+  const line = (row: unknown[]) => row.map(csvField).join(',')
+  const oneDecimal = (value: number) => Math.round(value * 10) / 10
+  const timestamp = (at: number) => new Date(at).toISOString()
+  return [
+    line(METRICS_CSV_HEADER),
+    ...rows.map((row) =>
+      line([
+        row.title,
+        row.type,
+        row.flow,
+        timestamp(row.createdAt),
+        timestamp(row.committedAt),
+        timestamp(row.resolvedAt),
+        oneDecimal(row.lead),
+        oneDecimal(row.cycle),
+        oneDecimal(row.blockedDays),
+      ]),
+    ),
+  ].join('\r\n').concat('\r\n')
+}
+
 /** The middle of a set of values, or the middle two averaged. Nothing in, nothing out. */
 export function median(values: number[]): number | undefined {
   if (values.length === 0) return undefined

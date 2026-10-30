@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 
 /**
@@ -171,6 +172,17 @@ test('blocked work says what is blocked now, and a row opens the card', async ({
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
   expect(await panel.getAttribute('aria-label')).toContain(title)
+})
+
+test('downloads the delivered rows behind the charts', async ({ page }) => {
+  await page.goto(FLOW)
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('[data-flow-download]').click()])
+  expect(download.suggestedFilename()).toContain('-delivered.csv')
+  const path = await download.path()
+  const text = await readFile(path!, 'utf8')
+  expect(text.split('\r\n')[0]).toBe('Title,Type,Flow,Created,Committed,Done,Lead days,Cycle days,Blocked days')
+  expect(text.split('\r\n').length).toBeGreaterThan(1)
 })
 
 test('a reading this build does not know falls back to the default, not to a blank screen', async ({ page }) => {

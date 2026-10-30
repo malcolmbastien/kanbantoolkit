@@ -3,6 +3,7 @@ import { TrendingUp } from 'lucide-react'
 import {
   aging,
   averageWip,
+  blockedRuns,
   blockedSummary,
   bucketsFor,
   committedAt,
@@ -15,6 +16,7 @@ import {
   forecastWhen,
   histogram,
   littleCycle,
+  metricsCsv,
   MIN_FORECAST_DELIVERED,
   MIN_FORECAST_WEEKS,
   MIN_SAMPLE,
@@ -115,6 +117,45 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const byDateAt = new Date(`${byDate}T12:00:00`).getTime()
   const by = forecastBy(remaining, delivered, now, byDateAt, { atLeast: atLeastCount })
 
+  // The rows behind the charts, for anyone who wants a spreadsheet. The item id is deliberately
+  // absent: identity is the app's own business, and the title is what a person reads and searches.
+  const downloadRows = () => {
+    const rows = scatterPoints(records, since).map((point) => {
+      const record = records.find((candidate) => candidate.id === point.id)
+      const lane = lanes.find((candidate) => candidate.id === laneOf.get(point.id))
+      const flow = boardFlows.find((candidate) => candidate.id === lane?.flowId)?.name ?? ''
+      const type = issueTypes.find((candidate) => candidate.id === items.find((item) => item.id === point.id)?.typeId)?.name ?? ''
+      const blockedDays = record
+        ? blockedRuns(record, now).reduce((sum, run) => sum + (run.to - run.from) / DAY_MS, 0)
+        : 0
+      return {
+        title: point.title,
+        type,
+        flow,
+        createdAt: point.createdAt,
+        committedAt: point.committedAt,
+        resolvedAt: point.resolvedAt,
+        lead: point.lead,
+        cycle: point.cycle,
+        blockedDays,
+      }
+    })
+    const rangeLabel = flowWindow === 'all' ? 'all' : `${flowWindow}w`
+    const slug = `${board?.name ?? 'board'} flow ${selectedFlow?.name ?? 'all'} ${rangeLabel}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    // The file is made here, without the board's download helper: one button is not a reason to
+    // pull another module's graph into the Flow chunk.
+    const url = URL.createObjectURL(new Blob([metricsCsv(rows)], { type: 'text/csv;charset=utf-8' }))
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${slug || 'board'}-delivered.csv`
+    anchor.rel = 'noopener'
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
   // Each diagram has its own scale: a flow column is as tall as the most work the board carried
   // at a week's end, a throughput bar as tall as the busiest week in the window.
   const tallest = Math.max(1, ...flow.map((counts) => STAGES.reduce((sum, s) => sum + counts[s], 0)))
@@ -206,6 +247,15 @@ export function MetricsView({ boardId }: { boardId: string }) {
               Lead is created → done; cycle is committed (leaving Backlog) → done. In flight and
               delivered are now; the delivery samples are the window.
             </span>
+            <button
+              type="button"
+              data-flow-download
+              onClick={downloadRows}
+              className="ml-auto rounded border border-slate-300 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
+              title="Download the delivered cards in this window as a CSV"
+            >
+              Download these rows
+            </button>
           </div>
         </div>
 
