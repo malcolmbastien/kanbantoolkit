@@ -1,3 +1,4 @@
+import { STALE_AFTER_DAYS } from './filters'
 import type { FlowWindow } from './flowWindow'
 import type { Item, Stage } from './types'
 
@@ -98,6 +99,110 @@ export function cycleTimes(records: FlowRecord[]): number[] {
     const committed = committedAt(r)
     return r.resolvedAt === undefined || committed === undefined ? [] : [days(committed, r.resolvedAt)]
   })
+}
+
+/** One delivered card, as a scatter of cycle time against completion date. */
+export interface ScatterPoint {
+  id: string
+  title: string
+  createdAt: number
+  committedAt: number
+  resolvedAt: number
+  /** Created to done, in days. */
+  lead: number
+  /** Committed to done, in days. */
+  cycle: number
+}
+
+/**
+ * The delivered cards a window sees, oldest completion first.
+ *
+ * A card with no commitment — a resolved record whose history never left Backlog — has no cycle
+ * time, so it is not a point: a scatter of cycle times cannot show a card that has no cycle. It is
+ * still counted in lead time and throughput, where the source is the resolved timestamp.
+ */
+export function scatterPoints(records: FlowRecord[], since?: number): ScatterPoint[] {
+  return deliveredSince(records, since)
+    .flatMap((record) => {
+      const committed = committedAt(record)
+      if (record.resolvedAt === undefined || committed === undefined) return []
+      return [
+        {
+          id: record.id,
+          title: record.title,
+          createdAt: record.createdAt,
+          committedAt: committed,
+          resolvedAt: record.resolvedAt,
+          lead: days(record.createdAt, record.resolvedAt),
+          cycle: days(committed, record.resolvedAt),
+        },
+      ]
+    })
+    .sort((a, b) => a.resolvedAt - b.resolvedAt || a.id.localeCompare(b.id))
+}
+
+/**
+ * One open card, aged: how long it has been where it is, and how long since it was committed.
+ *
+ * Two clocks, deliberately. `daysInColumn` is time since it arrived in the current column — where a
+ * reader looks when asking "what is stuck here". `daysSinceCommit` is time since it left Backlog —
+ * the same clock cycle time uses, which is what a percentile line may be compared with. A card still
+ * in Backlog has no commitment; it is open, but it is not in flight in the cycle-time sense.
+ */
+export interface AgingEntry {
+  id: string
+  title: string
+  stage: Stage
+  /** When it arrived in the current column, from the placement or the last move. */
+  enteredAt: number
+  daysInColumn: number
+  committedAt?: number
+  daysSinceCommit?: number
+  /** Nothing has moved for longer than the app's staleness threshold. */
+  stalled: boolean
+}
+
+/**
+ * Open cards, oldest first.
+ *
+ * `laneEnteredAt` is the placement's own arrival stamp, which the view has and the record does not:
+ * the fallback is the last move into the current stage, then creation. Only cards still in flight
+ * are aged — done work and work filed away mid-flight are not waiting for anything.
+ */
+export function aging(
+  records: FlowRecord[],
+  now: number,
+  laneEnteredAt: (record: FlowRecord) => number | undefined = () => undefined,
+): AgingEntry[] {
+  return records
+    .flatMap((record) => {
+      if (!inFlightAt(record, now)) return []
+      const stage = stageAt(record, now)
+      const moves = record.moves.filter((move) => move.at <= now)
+      const enteredAt = laneEnteredAt(record) ?? moves[moves.length - 1]?.at ?? record.createdAt
+      const committed = committedAt(record)
+      const lastActivity = Math.max(record.createdAt, moves[moves.length - 1]?.at ?? record.createdAt)
+      return [
+        {
+          id: record.id,
+          title: record.title,
+          stage,
+          enteredAt,
+          daysInColumn: Math.max(0, days(enteredAt, now)),
+          ...(committed !== undefined
+            ? { committedAt: committed, daysSinceCommit: Math.max(0, days(committed, now)) }
+            : {}),
+          stalled: now - lastActivity >= STALE_AFTER_DAYS * DAY_MS,
+        },
+      ]
+    })
+    .sort((a, b) => {
+      // Committed work first, because the percentile line is about that clock; then the oldest.
+      const committed = (entry: AgingEntry) => entry.daysSinceCommit !== undefined
+      if (committed(a) !== committed(b)) return committed(a) ? -1 : 1
+      const age = (entry: AgingEntry) => entry.daysSinceCommit ?? entry.daysInColumn
+      return age(b) - age(a) || a.id.localeCompare(b.id)
+    })
 }
 
 /** Weekly boundaries ending at `now`, oldest first — the axis a flow chart is read on. */

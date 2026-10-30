@@ -1,12 +1,16 @@
 import type { ReactNode } from 'react'
 import { TrendingUp } from 'lucide-react'
 import {
+  aging,
   bucketsFor,
   committedAt,
   cumulativeFlow,
   deliveredSince,
   flowRecord,
   flowSummary,
+  percentile,
+  sampleStats,
+  scatterPoints,
   throughput,
   windowStart,
   type FlowRecord,
@@ -43,6 +47,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const lanes = useStore((s) => s.lanes)
   const flows = useStore((s) => s.flows)
   const placements = useStore((s) => s.placements)
+  const users = useStore((s) => s.users)
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
   const openItem = useStore((s) => s.openItem)
@@ -169,6 +174,22 @@ export function MetricsView({ boardId }: { boardId: string }) {
           </div>
         ) : (
           <>
+            <CycleScatter records={records} since={since} openItem={openItem} selectedItemId={selectedItemId} />
+
+            <AgingWork
+              records={records}
+              now={now}
+              laneOf={laneOf}
+              lanes={lanes}
+              placements={placements}
+              boardId={boardId}
+              items={items}
+              issueTypes={issueTypes}
+              users={users}
+              p85={summary.cycle.p85}
+              openItem={openItem}
+            />
+
             <Panel
               title="Cumulative flow"
               note="Where the work was at the end of each week. A card that was rejected shows as work moving back."
@@ -277,6 +298,309 @@ export function MetricsView({ boardId }: { boardId: string }) {
         )}
       </div>
     </div>
+  )
+}
+
+const MAX_AGING_ROWS = 100
+
+/**
+ * What is old right now, oldest commitment first.
+ *
+ * Aging is the one panel about today rather than the window: a card is as old as it is, whatever
+ * range the charts are drawn over. The cycle-time p85 comes from the window's delivered cards and
+ * is drawn as a marker on each bar — a card past it has been in flight longer than 85% of the work
+ * the team finished in that window, which is the conversation worth having.
+ */
+function AgingWork({
+  records,
+  now,
+  laneOf,
+  lanes,
+  placements,
+  boardId,
+  items,
+  issueTypes,
+  users,
+  p85,
+  openItem,
+}: {
+  records: FlowRecord[]
+  now: number
+  laneOf: Map<string, string>
+  lanes: ReturnType<typeof useStore.getState>['lanes']
+  placements: ReturnType<typeof useStore.getState>['placements']
+  boardId: string
+  items: ReturnType<typeof useStore.getState>['items']
+  issueTypes: ReturnType<typeof useStore.getState>['issueTypes']
+  users: ReturnType<typeof useStore.getState>['users']
+  p85: number | undefined
+  openItem: (id: string | null) => void
+}) {
+  const entered = new Map(
+    placements
+      .filter((placement) => placement.boardId === boardId && placement.laneEnteredAt !== undefined)
+      .map((placement) => [placement.itemId, placement.laneEnteredAt as number]),
+  )
+  const aged = aging(records, now, (record) => entered.get(record.id))
+  const shown = aged.slice(0, MAX_AGING_ROWS)
+  const laneById = new Map(lanes.map((lane) => [lane.id, lane]))
+  const itemById = new Map(items.map((item) => [item.id, item]))
+  const typeById = new Map(issueTypes.map((type) => [type.id, type]))
+  const userById = new Map(users.map((user) => [user.id, user]))
+  const counts = STAGES.map((stage) => ({ stage, count: aged.filter((entry) => entry.stage === stage).length })).filter(
+    (row) => row.count > 0,
+  )
+  const tallest = Math.max(1, p85 ?? 1, ...aged.map((entry) => entry.daysSinceCommit ?? entry.daysInColumn))
+
+  return (
+    <Panel
+      title="Aging work"
+      note="Open cards, oldest commitment first. The red line is the cycle-time p85 for work delivered in this window — past it, a card has been in flight longer than 85% of what the team finished."
+    >
+      {aged.length === 0 ? (
+        <div className="text-meta text-slate-600">No work in flight.</div>
+      ) : (
+        <>
+          <div data-flow-aging className="mb-2 flex flex-wrap gap-1.5">
+            {counts.map(({ stage, count }) => (
+              <span
+                key={stage}
+                className="rounded bg-slate-100 px-1.5 py-0.5 text-micro font-semibold text-slate-600"
+              >
+                {STAGE_LABELS[stage]} {count}
+              </span>
+            ))}
+          </div>
+          <div className="space-y-0.5">
+            {shown.map((entry) => {
+              const item = itemById.get(entry.id)
+              const lane = laneById.get(laneOf.get(entry.id) ?? '')
+              const column = lane?.name?.trim() || STAGE_LABELS[entry.stage]
+              const type = item ? typeById.get(item.typeId)?.name : undefined
+              const people = (item?.assignees ?? [])
+                .map((id) => userById.get(id)?.name)
+                .filter((name): name is string => Boolean(name))
+              const age = entry.daysSinceCommit ?? entry.daysInColumn
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  data-flow-aging-row
+                  data-card-id={entry.id}
+                  onClick={() => openItem(entry.id)}
+                  className="flex w-full items-center gap-2 rounded px-1 py-1 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+                  title={`${entry.title}${type ? ` · ${type}` : ''}${people.length > 0 ? ` · ${people.join(', ')}` : ' · Unassigned'}`}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span data-flow-aging-title className="block truncate text-meta font-medium text-slate-800">
+                      {entry.title}
+                    </span>
+                    <span className="block truncate text-micro text-slate-500">
+                      {type ?? 'No type'} · {people.length > 0 ? people.join(', ') : 'Unassigned'}
+                    </span>
+                  </span>
+                  <span className="w-24 shrink-0 truncate text-micro text-slate-600">{column}</span>
+                  <span className="relative h-2 w-32 shrink-0 rounded bg-slate-100">
+                    <span
+                      className="absolute inset-y-0 left-0 rounded bg-indigo-400"
+                      style={{ width: `${Math.min(100, (age / tallest) * 100)}%` }}
+                    />
+                    {p85 !== undefined && (
+                      <span
+                        className="absolute inset-y-[-2px] w-px bg-rose-500"
+                        style={{ left: `${Math.min(100, (p85 / tallest) * 100)}%` }}
+                        title={`Cycle p85: ${days(p85)}`}
+                      />
+                    )}
+                  </span>
+                  <span className="w-12 shrink-0 text-right text-micro tabular-nums text-slate-700">{days(age)}</span>
+                  <span className="w-16 shrink-0 text-right text-micro text-slate-500">
+                    {entry.daysSinceCommit === undefined ? 'in Backlog' : 'in flight'}
+                  </span>
+                  {entry.stalled && (
+                    <span
+                      className="shrink-0 rounded bg-amber-100 px-1 py-px text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
+                      title="Nothing has moved on this card for seven days"
+                    >
+                      stalled
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          {aged.length > shown.length && (
+            <div className="mt-1 text-micro text-slate-600">
+              Showing the oldest {shown.length} of {aged.length} open cards.
+            </div>
+          )}
+        </>
+      )}
+    </Panel>
+  )
+}
+
+const MAX_SCATTER_POINTS = 400
+
+/**
+ * Cycle time against the date work was delivered.
+ *
+ * One dot per card, so the shape and the outliers are visible rather than collapsed into a median.
+ * The y axis stops at the 98th percentile: a handful of very long cards would otherwise squash the
+ * bulk into a thin band. Cards above the cap are still drawn — at the top, in the tail colour — and
+ * their real value is in the tooltip and the table. The percentile lines are calculated from every
+ * card in the window, not from what the axis happens to show.
+ */
+function CycleScatter({
+  records,
+  since,
+  openItem,
+  selectedItemId,
+}: {
+  records: FlowRecord[]
+  since: number | undefined
+  openItem: (id: string | null) => void
+  selectedItemId: string | null
+}) {
+  const points = scatterPoints(records, since)
+  if (points.length === 0) {
+    return (
+      <Panel title="Cycle time by delivery" note="One dot per delivered card in the window.">
+        <div className="text-meta text-slate-600">
+          Nothing finished in this window yet. Widen the window, or move a card to Done.
+        </div>
+      </Panel>
+    )
+  }
+
+  const stats = sampleStats(points.map((point) => point.cycle))
+  const cap = Math.max(1, Math.ceil(percentile(points.map((point) => point.cycle), 98) ?? 1))
+  const shown = points.length > MAX_SCATTER_POINTS ? points.slice(-MAX_SCATTER_POINTS) : points
+  const above = points.filter((point) => point.cycle > cap).length
+  const latest = points[points.length - 1].resolvedAt
+  const from = Math.min(since ?? points[0].resolvedAt, latest - DAY_MS)
+  const to = Math.max(Date.now(), latest, from + DAY_MS)
+  const width = 720
+  const height = 260
+  const plot = { left: 42, right: 700, top: 14, bottom: 218 }
+  const x = (at: number) => plot.left + ((at - from) / (to - from)) * (plot.right - plot.left)
+  const y = (value: number) => plot.bottom - (Math.min(value, cap) / cap) * (plot.bottom - plot.top)
+  const lines = [
+    { label: 'p50', value: stats.p50 },
+    { label: 'p85', value: stats.p85 },
+    { label: 'p95', value: stats.p95 },
+  ].filter((line): line is { label: string; value: number } => line.value !== undefined)
+
+  return (
+    <Panel
+      title="Cycle time by delivery"
+      note={`One dot per delivered card. The axis stops at p98 (${days(cap)})${
+        above > 0 ? `, and ${above} card${above === 1 ? '' : 's'} above it drawn at the top` : ''
+      }; the percentile lines still use every card.`}
+    >
+      {points.length > shown.length && (
+        <div className="mb-1 text-micro text-slate-600">
+          Showing the most recent {shown.length} of {points.length} delivered cards.
+        </div>
+      )}
+      <svg
+        data-flow-scatter
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-64 w-full"
+        role="group"
+        aria-label="Cycle time against the date work was delivered"
+      >
+        {/* The frame and the two ends of the y axis. */}
+        <line x1={plot.left} x2={plot.right} y1={plot.bottom} y2={plot.bottom} stroke="#cbd5e1" />
+        <line x1={plot.left} x2={plot.left} y1={plot.top} y2={plot.bottom} stroke="#cbd5e1" />
+        <text x={plot.left - 6} y={plot.bottom + 3} textAnchor="end" fontSize={9} fill="#64748b">
+          0d
+        </text>
+        <text x={plot.left - 6} y={plot.top + 3} textAnchor="end" fontSize={9} fill="#64748b">
+          {cap}d
+        </text>
+
+        {lines.map((line) => (
+          <g key={line.label}>
+            <line
+              x1={plot.left}
+              x2={plot.right}
+              y1={y(line.value)}
+              y2={y(line.value)}
+              stroke="#94a3b8"
+              strokeDasharray="4 3"
+            />
+            <text x={plot.right} y={y(line.value) - 3} textAnchor="end" fontSize={9} fill="#64748b">
+              {line.label} {days(line.value)}
+            </text>
+          </g>
+        ))}
+
+        {shown.map((point) => (
+          <circle
+            key={point.id}
+            data-flow-scatter-point
+            data-above={point.cycle > cap || undefined}
+            cx={x(point.resolvedAt)}
+            cy={y(point.cycle)}
+            r={3.5}
+            tabIndex={0}
+            role="button"
+            aria-label={`${point.title}: ${days(point.cycle)} cycle time, delivered ${shortDate(point.resolvedAt)}`}
+            className={cn(
+              'cursor-pointer focus:outline-none focus-visible:stroke-2 focus-visible:stroke-slate-900',
+              point.cycle > cap ? 'fill-rose-500 hover:fill-rose-700' : 'fill-indigo-500 hover:fill-indigo-700',
+              selectedItemId === point.id && 'stroke-2 stroke-slate-900',
+            )}
+            onClick={() => openItem(point.id)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return
+              event.preventDefault()
+              openItem(point.id)
+            }}
+          >
+            <title>
+              {`${point.title} — cycle ${days(point.cycle)}, lead ${days(point.lead)}, delivered ${shortDate(point.resolvedAt)}`}
+            </title>
+          </circle>
+        ))}
+
+        <text x={plot.left} y={height - 4} fontSize={9} fill="#64748b">
+          {shortDate(from)}
+        </text>
+        <text x={plot.right} y={height - 4} textAnchor="end" fontSize={9} fill="#64748b">
+          {shortDate(to)}
+        </text>
+      </svg>
+
+      <details className="mt-2 text-micro text-slate-600">
+        <summary className="cursor-pointer">The numbers</summary>
+        <table className="mt-1 w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-slate-200 uppercase tracking-wide text-slate-600">
+              <th className="py-1 pr-2 font-semibold">Card</th>
+              <th className="px-2 py-1 font-semibold">Created</th>
+              <th className="px-2 py-1 font-semibold">Committed</th>
+              <th className="px-2 py-1 font-semibold">Done</th>
+              <th className="px-2 py-1 text-right font-semibold">Lead</th>
+              <th className="px-2 py-1 text-right font-semibold">Cycle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((point) => (
+              <tr key={point.id} className="border-b border-slate-100 last:border-0">
+                <td className="max-w-[260px] truncate py-1 pr-2">{point.title}</td>
+                <td className="px-2 py-1">{shortDate(point.createdAt)}</td>
+                <td className="px-2 py-1">{shortDate(point.committedAt)}</td>
+                <td className="px-2 py-1">{shortDate(point.resolvedAt)}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{days(point.lead)}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{days(point.cycle)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+    </Panel>
   )
 }
 

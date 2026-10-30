@@ -52,6 +52,39 @@ test('a window and a flow are part of the link', async ({ page }) => {
   await expect(page).not.toHaveURL(/flow=/)
 })
 
+test('a dot in the scatter is the card it stands for', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  const dot = view.locator('[data-flow-scatter-point]').first()
+  await expect(dot).toBeVisible()
+  const label = (await dot.getAttribute('aria-label')) ?? ''
+  const title = label.split(':')[0]
+  expect(title.length).toBeGreaterThan(0)
+
+  await dot.click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  // The title is an editable field, not text: the panel's own name is what says which card opened.
+  expect(await panel.getAttribute('aria-label')).toContain(title)
+})
+
+test('aging work lists what is old, and a row opens the card', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  const rows = view.locator('[data-flow-aging-row]')
+  await expect(rows.first()).toBeVisible()
+  expect(await rows.count()).toBeGreaterThan(0)
+  const title = (await rows.first().locator('[data-flow-aging-title]').textContent())?.trim() ?? ''
+  expect(title.length).toBeGreaterThan(0)
+
+  await rows.first().click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  expect(await panel.getAttribute('aria-label')).toContain(title)
+})
+
 test('a reading this build does not know falls back to the default, not to a blank screen', async ({ page }) => {
   await page.goto(`${FLOW}&range=7&flow=f-missing`)
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   MAX_ALL_WEEKS,
+  aging,
   bucketsFor,
   committedAt,
   cumulativeFlow,
@@ -13,6 +14,7 @@ import {
   median,
   percentile,
   sampleStats,
+  scatterPoints,
   stageAt,
   throughput,
   weeklyBuckets,
@@ -242,5 +244,73 @@ describe("the Flow view's window", () => {
     ]
     expect(deliveredSince(records, T - 7 * DAY).map((r) => r.id)).toEqual(['in'])
     expect(deliveredSince(records).map((r) => r.id)).toEqual(['in', 'out'])
+  })
+})
+
+describe('the cycle time scatter', () => {
+  it('draws delivered cards in the window, oldest completion first', () => {
+    const records = [
+      rec({
+        id: 'later',
+        title: 'Later',
+        createdAt: T - 20 * DAY,
+        resolvedAt: T - 2 * DAY,
+        moves: [move(T - 12 * DAY, 'inProgress', 'backlog'), move(T - 2 * DAY, 'done', 'inProgress')],
+      }),
+      rec({
+        id: 'earlier',
+        title: 'Earlier',
+        createdAt: T - 30 * DAY,
+        resolvedAt: T - 10 * DAY,
+        moves: [move(T - 20 * DAY, 'inProgress', 'backlog'), move(T - 10 * DAY, 'done', 'inProgress')],
+      }),
+      rec({ id: 'before', resolvedAt: T - 40 * DAY, moves: [move(T - 40 * DAY, 'done', 'backlog')] }),
+      rec({ id: 'open', createdAt: T - 5 * DAY }),
+    ]
+
+    const points = scatterPoints(records, T - 14 * DAY)
+    expect(points.map((p) => p.id)).toEqual(['earlier', 'later'])
+    expect(points[0]).toMatchObject({ lead: 20, cycle: 10 })
+    expect(points[1]).toMatchObject({ lead: 18, cycle: 10 })
+    // All history sees the one delivered before the window too.
+    expect(scatterPoints(records).map((p) => p.id)).toEqual(['before', 'earlier', 'later'])
+  })
+
+  it('skips a resolved card whose history never left Backlog: it has no cycle to plot', () => {
+    const inconsistent = rec({ id: 'no-commit', resolvedAt: T - 2 * DAY, moves: [] })
+    expect(scatterPoints([inconsistent])).toEqual([])
+  })
+})
+
+describe('aging work', () => {
+  it('ages open cards from the placement stamp, then the last move, then creation', () => {
+    const stamped = rec({ id: 'stamped', createdAt: T - 30 * DAY, moves: [move(T - 10 * DAY, 'inProgress', 'backlog')] })
+    const moved = rec({ id: 'moved', createdAt: T - 30 * DAY, moves: [move(T - 6 * DAY, 'inProgress', 'backlog')] })
+    const fresh = rec({ id: 'fresh', createdAt: T - 4 * DAY, moves: [] })
+    const entries = aging([stamped, moved, fresh], T, (record) => (record.id === 'stamped' ? T - 2 * DAY : undefined))
+
+    const byId = new Map(entries.map((entry) => [entry.id, entry]))
+    expect(byId.get('stamped')?.daysInColumn).toBe(2)
+    expect(byId.get('stamped')?.daysSinceCommit).toBe(10)
+    expect(byId.get('moved')?.daysInColumn).toBe(6)
+    expect(byId.get('fresh')?.daysInColumn).toBe(4)
+    // Never left Backlog: open, but not committed, so there is no cycle clock.
+    expect(byId.get('fresh')?.daysSinceCommit).toBeUndefined()
+  })
+
+  it('leaves out done work and work filed away, and marks what has not moved', () => {
+    const done = rec({ id: 'done', resolvedAt: T - DAY, moves: [move(T - DAY, 'done', 'inProgress')] })
+    const filed = rec({ id: 'filed', archivedAt: T - 2 * DAY, moves: [move(T - 20 * DAY, 'inProgress', 'backlog')] })
+    const still = rec({ id: 'still', createdAt: T - 20 * DAY, moves: [move(T - 20 * DAY, 'inProgress', 'backlog')] })
+    const entries = aging([done, filed, still], T)
+    expect(entries.map((entry) => entry.id)).toEqual(['still'])
+    expect(entries[0].stalled).toBe(true)
+  })
+
+  it('orders the oldest commitment first', () => {
+    const young = rec({ id: 'young', createdAt: T - 5 * DAY, moves: [move(T - 3 * DAY, 'inProgress', 'backlog')] })
+    const old = rec({ id: 'old', createdAt: T - 40 * DAY, moves: [move(T - 35 * DAY, 'inProgress', 'backlog')] })
+    const waiting = rec({ id: 'waiting', createdAt: T - 60 * DAY, moves: [] })
+    expect(aging([young, old, waiting], T).map((entry) => entry.id)).toEqual(['old', 'young', 'waiting'])
   })
 })
