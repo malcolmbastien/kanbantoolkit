@@ -12,6 +12,7 @@ import {
   leadTimes,
   median,
   percentile,
+  sampleStats,
   stageAt,
   throughput,
   weeklyBuckets,
@@ -178,13 +179,15 @@ describe('flow metrics', () => {
     const s = flowSummary(records, T)
     expect(s.inFlight).toBe(1)
     expect(s.delivered).toBe(4)
-    expect(s.lead).toEqual({ median: 15, p85: 30, count: 4 })
-    expect(s.cycle).toEqual({ median: 15, p85: 30, count: 4 })
+    expect(s.lead).toEqual({ n: 4, p50: 15, p85: 30, p95: 30 })
+    expect(s.cycle).toEqual({ n: 4, p50: 15, p85: 30, p95: 30 })
     // Even counts average the middle two: 10, 20, 30, 40 → 25.
     expect(median([10, 40, 20, 30])).toBe(25)
     expect(percentile([10, 20, 30, 40], 50)).toBe(20)
     expect(median([])).toBeUndefined()
     expect(percentile([], 85)).toBeUndefined()
+    expect(sampleStats([])).toEqual({ n: 0, p50: undefined, p85: undefined, p95: undefined })
+    expect(sampleStats([10, 20, 30, 40])).toEqual({ n: 4, p50: 25, p85: 40, p95: 40 })
   })
 })
 
@@ -219,13 +222,13 @@ describe("the Flow view's window", () => {
       rec({ id: 'open', createdAt: T - 5 * DAY, moves: [move(T - 3 * DAY, 'inProgress', 'backlog')] }),
     ]
     const all = flowSummary(records, T)
-    expect(all.lead.count).toBe(2)
+    expect(all.lead.n).toBe(2)
     expect(all.inFlight).toBe(1)
     expect(all.delivered).toBe(2)
 
     const windowed = flowSummary(records, T, windowStart(4, T))
-    expect(windowed.lead.count).toBe(1)
-    expect(windowed.lead.median).toBe(18)
+    expect(windowed.lead.n).toBe(1)
+    expect(windowed.lead.p50).toBe(18)
     // Still a fact about the board now, however narrow the delivery sample is.
     expect(windowed.inFlight).toBe(1)
     expect(windowed.delivered).toBe(2)

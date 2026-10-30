@@ -1507,11 +1507,11 @@ describe('store actions', () => {
     expect(summary.inFlight).toBe(5)
     // Lead time includes the wait in Backlog; cycle time starts at the first commit, so it is
     // shorter for the cards that queued — and the slowest card is the outlier the p85 names.
-    expect(summary.lead.median).toBe(15)
+    expect(summary.lead.p50).toBe(15)
     expect(summary.lead.p85).toBe(17)
-    expect(summary.cycle.median).toBe(14)
+    expect(summary.cycle.p50).toBe(14)
     expect(summary.cycle.p85).toBe(16)
-    expect(summary.lead.count).toBe(9)
+    expect(summary.lead.n).toBe(9)
 
     // And the history is a real shape over weeks, not a flat line: the flow diagram is neither
     // empty at the start of its window nor unchanged from the first week to the last.

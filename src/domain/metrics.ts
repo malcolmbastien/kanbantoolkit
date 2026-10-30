@@ -182,13 +182,31 @@ export function percentile(values: number[], p: number): number | undefined {
   return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))]
 }
 
+/** A sample's middle and tail, with the count that makes the numbers readable. */
+export interface SampleStats {
+  n: number
+  p50?: number
+  p85?: number
+  p95?: number
+}
+
+/** The middle and the tail of a set of values, in one place so every panel agrees. */
+export function sampleStats(values: number[]): SampleStats {
+  return {
+    n: values.length,
+    p50: median(values),
+    p85: percentile(values, 85),
+    p95: percentile(values, 95),
+  }
+}
+
 export interface FlowSummary {
   /** Cards still moving at `now`. */
   inFlight: number
   /** Cards that reached Done, however long ago. */
   delivered: number
-  lead: { median?: number; p85?: number; count: number }
-  cycle: { median?: number; p85?: number; count: number }
+  lead: SampleStats
+  cycle: SampleStats
 }
 
 /**
@@ -204,7 +222,7 @@ export function flowSummary(records: FlowRecord[], now: number, since?: number):
   return {
     inFlight: records.filter((r) => inFlightAt(r, now)).length,
     delivered: records.filter((r) => stageAt(r, now) === 'done').length,
-    lead: { median: median(lead), p85: percentile(lead, 85), count: lead.length },
-    cycle: { median: median(cycle), p85: percentile(cycle, 85), count: cycle.length },
+    lead: sampleStats(lead),
+    cycle: sampleStats(cycle),
   }
 }

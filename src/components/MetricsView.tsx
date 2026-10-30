@@ -104,13 +104,15 @@ export function MetricsView({ boardId }: { boardId: string }) {
             <Stat label="Delivered" value={summary.delivered} tone="emerald" />
             <Stat
               label="Lead time"
-              value={days(summary.lead.median)}
-              note={`p85 ${days(summary.lead.p85)} · ${summary.lead.count} cards`}
+              value={days(summary.lead.p50)}
+              note={`p85 ${days(summary.lead.p85)} · p95 ${days(summary.lead.p95)} · ${summary.lead.n} cards`}
+              hint="Created to done. p85 and p95 are the tail: that share of cards took this long or less."
             />
             <Stat
               label="Cycle time"
-              value={days(summary.cycle.median)}
-              note={`p85 ${days(summary.cycle.p85)} · ${summary.cycle.count} cards`}
+              value={days(summary.cycle.p50)}
+              note={`p85 ${days(summary.cycle.p85)} · p95 ${days(summary.cycle.p95)} · ${summary.cycle.n} cards`}
+              hint="First committed (leaving Backlog) to done. p85 and p95 are the tail."
             />
           </div>
 
@@ -154,7 +156,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
               </label>
             )}
             <span className="text-micro text-slate-500">
-              Lead and cycle use cards delivered in the window; in flight and delivered are now.
+              Lead is created → done; cycle is committed (leaving Backlog) → done. In flight and
+              delivered are now; the delivery samples are the window.
             </span>
           </div>
         </div>
@@ -280,9 +283,21 @@ export function MetricsView({ boardId }: { boardId: string }) {
 /** A delivered card's lead time in days: created to resolved. */
 const lead = (r: FlowRecord) => (r.resolvedAt! - r.createdAt) / DAY_MS
 
-function Stat({ label, value, note, tone }: { label: string; value: string | number; note?: string; tone?: 'emerald' }) {
+function Stat({
+  label,
+  value,
+  note,
+  tone,
+  hint,
+}: {
+  label: string
+  value: string | number
+  note?: string
+  tone?: 'emerald'
+  hint?: string
+}) {
   return (
-    <div data-flow-stat={label}>
+    <div data-flow-stat={label} title={hint}>
       <div className="text-micro uppercase tracking-wide text-slate-600">{label}</div>
       <div data-flow-stat-value className={cn('text-title font-semibold tabular-nums', tone === 'emerald' ? 'text-emerald-700' : 'text-slate-800')}>
         {value}
