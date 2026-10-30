@@ -1313,6 +1313,24 @@ export const PERSIST_VERSION = 37
  */
 export const MIN_MIGRATABLE_VERSION = 9
 
+/**
+ * What this browser keeps, and which of it the workspace also keeps.
+ *
+ * Everything here is persisted locally, so a reload has the workspace at once. Whether the server
+ * also keeps it is a separate question, and each field answers one of three ways:
+ *
+ *   - the **design** — boards, flows, lanes, placements — is `PUT /api/workspace/structure`;
+ *   - the **words** — issue types, board templates, objectives, key results — and `autoArchiveDays`
+ *     are `PUT /api/workspace/vocabulary`, because a type belongs to the workspace and the
+ *     auto-archive policy changes what every person's Done column does;
+ *   - `savedFilters` and `collapsedLanes` are **this device's** and go nowhere: a saved filter is
+ *     one person's way of narrowing a board and a collapsed column is where they left their screen,
+ *     so neither is a fact about the workspace, and writing them back would move somebody else's
+ *     view. `meUserId` is this browser's reading of the session, not a field at all.
+ *
+ * A new field belongs on one side of that line deliberately; the syncs watch exactly their own
+ * lists, so adding a device-local field leaks nothing.
+ */
 export function persistedSlice(s: Store): Partial<Store> {
   const design = s.draft ?? { boards: s.boards, flows: s.flows, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
   return {

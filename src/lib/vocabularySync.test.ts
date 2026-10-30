@@ -15,6 +15,7 @@ import {
   noteVocabularyRev,
   scheduleVocabularyWrite,
   useVocabulary,
+  vocabularyChanged,
   vocabularyDocument,
 } from './vocabularySync'
 
@@ -180,6 +181,22 @@ describe('keeping the workspace’s words on the server', () => {
     await vi.advanceTimersByTimeAsync(700)
 
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('is due for a type, a template, an objective or the policy — and never for a saved filter', () => {
+    noteVocabularyRev(4)
+    expect(vocabularyChanged()).toBe(false)
+
+    // This device's view state moves; the server has no opinion about it.
+    useStore.setState({
+      savedFilters: [{ id: 'f-1', name: 'Mine', boardId: 'b-1', filters: { typeIds: [], blocked: false, overdue: false, dueSoon: false, unassigned: false, assigneeIds: [], priorities: [], tagIds: [] } }],
+      collapsedLanes: { 'l-1': true },
+    })
+    expect(vocabularyChanged()).toBe(false)
+
+    // A word moves, and the document is due.
+    useStore.getState().addIssueType('Probe', '#123456')
+    expect(vocabularyChanged()).toBe(true)
   })
 
   it('carries the policy and never this device’s view state', () => {

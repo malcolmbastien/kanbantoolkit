@@ -59,8 +59,9 @@ export interface VocabularyDocument {
 /**
  * The document as this browser holds it.
  *
- * The lists are the store's own arrays, so nothing is translated on the way out; the policy is
- * included only when it is set, so "no auto-archive" is absence rather than zero.
+ * The lists are the store's own arrays, so nothing is translated on the way out. The policy is
+ * always a key; `JSON.stringify` drops it when it is `undefined`, so "no auto-archive" travels as
+ * absence rather than as zero.
  */
 export function vocabularyDocument(): VocabularyDocument {
   const state = useStore.getState()
@@ -83,12 +84,26 @@ export function vocabularyDocument(): VocabularyDocument {
  */
 let lastSent: string | null = null
 
+/** One write is on its way: a second would carry the revision the first is about to replace. */
+let inFlight = false
+
 let timer: ReturnType<typeof setTimeout> | undefined
 
 /** Adoption answers this: the words just read are the ones the next write is based on. */
 export function noteVocabularyRev(rev: number | null): void {
   useVocabulary.setState({ rev, error: undefined, field: undefined })
   lastSent = rev === null ? null : JSON.stringify(vocabularyDocument())
+}
+
+/**
+ * Has anything the server keeps changed since it was read or written?
+ *
+ * The watcher's only question. It is asked of the document rather than of the store, so a saved
+ * filter or a collapsed column — this device's view state, persisted beside the words — cannot
+ * schedule a write.
+ */
+export function vocabularyChanged(): boolean {
+  return JSON.stringify(vocabularyDocument()) !== lastSent
 }
 
 /**
@@ -117,10 +132,15 @@ async function send(): Promise<void> {
   // With nobody signed in there is no server to keep the words on, and with no revision known (the
   // static demo, or before an instance has answered) the browser is the whole workspace.
   if (!user || rev === null) return
+  if (inFlight) {
+    scheduleVocabularyWrite()
+    return
+  }
   const document = vocabularyDocument()
   const signature = JSON.stringify(document)
   if (signature === lastSent) return
 
+  inFlight = true
   try {
     const response = await fetch('/api/workspace/vocabulary', {
       method: 'PUT',
@@ -156,13 +176,15 @@ async function send(): Promise<void> {
 
     const answer = (await response.json()) as { rev: number }
     useVocabulary.setState({ rev: answer.rev, error: undefined, field: undefined })
-    lastSent = signature
     // Something landed while this write was in flight: the words are due again, and the revision is
     // the one just answered.
-    if (JSON.stringify(vocabularyDocument()) !== signature) scheduleVocabularyWrite()
+    lastSent = signature
+    if (vocabularyChanged()) scheduleVocabularyWrite()
   } catch {
     // A write that did not reach the server stays in this browser; the next change sends it again.
     lastSent = null
+  } finally {
+    inFlight = false
   }
 }
 
@@ -183,9 +205,8 @@ export function useVocabularySync(): void {
 
   useEffect(() => {
     if (!signedIn || rev === null) return
-    const signature = JSON.stringify(vocabularyDocument())
     // Adoption already recorded the document it read: nothing has changed since.
-    if (signature === lastSent) return
+    if (!vocabularyChanged()) return
     scheduleVocabularyWrite()
   }, [signedIn, rev, issueTypes, boardTemplates, objectives, keyResults, autoArchiveDays])
 }
