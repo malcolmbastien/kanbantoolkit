@@ -502,6 +502,27 @@ export function littleCycle(wip: number, perDay: number | undefined): number | u
   return perDay === undefined || perDay <= 0 ? undefined : wip / perDay
 }
 
+/** The cycle time at a chosen share of delivered cards. */
+export interface ServiceLevel {
+  /** The share asked for, e.g. 85. */
+  share: number
+  /** Cycle days at or below which that share of the sample falls, or absent with no sample. */
+  days?: number
+  n: number
+}
+
+/**
+ * A service level expectation read from the cycle-time distribution.
+ *
+ * It describes the past, not a promise: "85% of the cards we delivered in this window finished in
+ * 12 days or less" is a fact about the sample. Planning with it assumes the future resembles that
+ * sample, which is why the screen always shows the window and the count.
+ */
+export function serviceLevel(records: FlowRecord[], since: number | undefined, share = 85): ServiceLevel {
+  const cycle = cycleTimes(deliveredSince(records, since))
+  return { share, days: percentile(cycle, share), n: cycle.length }
+}
+
 /** The middle of a set of values, or the middle two averaged. Nothing in, nothing out. */
 export function median(values: number[]): number | undefined {
   if (values.length === 0) return undefined

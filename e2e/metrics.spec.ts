@@ -94,6 +94,18 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   await expect(view.getByText(/Most finished in/)).toBeVisible()
 })
 
+test('the service level expectation follows the share chosen', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  const line = view.locator('[data-sle-line]')
+  await expect(line).toContainText('85% of delivered cards')
+  await view.getByLabel('Service level share').selectOption('50')
+  await expect(line).toContainText('50% of delivered cards')
+  await view.getByLabel('Service level share').selectOption('95')
+  await expect(line).toContainText('95% of delivered cards')
+})
+
 test('says how much history there is, and calls a thin sample thin', async ({ page }) => {
   await page.goto(FLOW)
   const view = page.locator('[data-flow-view]')

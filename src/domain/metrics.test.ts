@@ -22,6 +22,7 @@ import {
   percentile,
   sampleStats,
   scatterPoints,
+  serviceLevel,
   stageAt,
   throughput,
   throughputRate,
@@ -472,5 +473,29 @@ describe('how much history there is', () => {
     expect(firstRecordedMove([still])).toBeUndefined()
     expect(moveCoverage([moved, still])).toEqual({ withMoves: 1, total: 2 })
     expect(moveCoverage([])).toEqual({ withMoves: 0, total: 0 })
+  })
+})
+
+describe('the service level expectation', () => {
+  it('reads the chosen share of the cycle times in the window', () => {
+    const make = (id: string, days: number, resolvedAt: number) =>
+      rec({
+        id,
+        createdAt: T - 60 * DAY,
+        resolvedAt,
+        moves: [move(resolvedAt - days * DAY, 'inProgress', 'backlog'), move(resolvedAt, 'done', 'inProgress')],
+      })
+    const records = [
+      make('a', 2, T - 10 * DAY),
+      make('b', 4, T - 9 * DAY),
+      make('c', 6, T - 8 * DAY),
+      make('d', 8, T - 7 * DAY),
+      make('old', 20, T - 60 * DAY),
+    ]
+    expect(serviceLevel(records, T - 14 * DAY, 50)).toEqual({ share: 50, days: 4, n: 4 })
+    expect(serviceLevel(records, T - 14 * DAY, 85)).toEqual({ share: 85, days: 8, n: 4 })
+    // All history includes the old card.
+    expect(serviceLevel(records, undefined, 85)).toEqual({ share: 85, days: 20, n: 5 })
+    expect(serviceLevel([], undefined)).toEqual({ share: 85, days: undefined, n: 0 })
   })
 })

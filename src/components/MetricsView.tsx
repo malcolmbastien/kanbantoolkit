@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { TrendingUp } from 'lucide-react'
 import {
   aging,
@@ -18,6 +18,7 @@ import {
   percentile,
   sampleStats,
   scatterPoints,
+  serviceLevel,
   throughput,
   throughputRate,
   windowStart,
@@ -60,6 +61,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const issueTypes = useStore((s) => s.issueTypes)
   const openItem = useStore((s) => s.openItem)
   const selectedItemId = useStore((s) => s.selectedItemId)
+  const [serviceShare, setServiceShare] = useState(85)
   const flowWindow = useStore((s) => s.flowWindow)
   const metricsFlowId = useStore((s) => s.metricsFlowId)
   const setFlowWindow = useStore((s) => s.setFlowWindow)
@@ -98,6 +100,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const wip = averageWip(records, buckets)
   const rate = throughputRate(records, since ?? Math.min(...records.map((record) => record.createdAt), now), now)
   const implied = littleCycle(wip, rate)
+  const sle = serviceLevel(records, since, serviceShare)
 
   // Each diagram has its own scale: a flow column is as tall as the most work the board carried
   // at a week's end, a throughput bar as tall as the busiest week in the window.
@@ -307,6 +310,37 @@ export function MetricsView({ boardId }: { boardId: string }) {
                     : 'No committed work in this window, so there is no WIP to divide.'}
                 </p>
               )}
+            </Panel>
+
+            <Panel
+              title="Service level expectation"
+              note="A reading of the past, not a promise: the cycle time within which that share of the delivered cards finished."
+            >
+              <div data-sle className="flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-slate-700">
+                <label className="flex items-center gap-1.5 text-slate-600">
+                  Share
+                  <select
+                    aria-label="Service level share"
+                    value={serviceShare}
+                    onChange={(event) => setServiceShare(Number(event.target.value))}
+                    className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                  >
+                    {[50, 85, 95].map((share) => (
+                      <option key={share} value={share}>
+                        {share}%
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span data-sle-line>
+                  {sle.days === undefined
+                    ? 'No delivered cards in this window.'
+                    : `${sle.share}% of delivered cards finished within ${days(sle.days)} (${sle.n} card${sle.n === 1 ? '' : 's'}).`}
+                </span>
+                {sle.n > 0 && sle.n < MIN_SAMPLE && (
+                  <span className="text-micro text-slate-500">Only {sle.n} cards — a hint, not a baseline.</span>
+                )}
+              </div>
             </Panel>
 
             {slowest.length > 0 && (
