@@ -94,6 +94,15 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   await expect(view.getByText(/Most finished in/)).toBeVisible()
 })
 
+test('Little’s Law sits beside the cycle time it implies', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  await expect(view.locator('[data-littles-law]')).toBeVisible()
+  await expect(view.locator('[data-littles-value="implied"]')).not.toHaveText('—')
+  await expect(view.locator('[data-littles-value="implied"]')).toContainText('d')
+})
+
 test('blocked work says what is blocked now, and a row opens the card', async ({ page }) => {
   await page.goto(FLOW)
   const view = page.locator('[data-flow-view]')

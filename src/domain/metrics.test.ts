@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   MAX_ALL_WEEKS,
   aging,
+  averageWip,
   blockedRuns,
   blockedSummary,
   bucketsFor,
@@ -14,12 +15,14 @@ import {
   histogram,
   inFlightAt,
   leadTimes,
+  littleCycle,
   median,
   percentile,
   sampleStats,
   scatterPoints,
   stageAt,
   throughput,
+  throughputRate,
   weeklyBuckets,
   windowStart,
   type FlowRecord,
@@ -428,5 +431,33 @@ describe('the histograms', () => {
       { from: 2, to: 4, count: 2 },
     ])
     expect(histogram([])).toEqual([])
+  })
+})
+
+describe("Little's Law", () => {
+  it('averages committed WIP over the boundaries, leaving Backlog and Done out', () => {
+    const buckets = weeklyBuckets(T, 3)
+    const records = [
+      // Committed throughout: one card in progress.
+      rec({ id: 'in', createdAt: T - 30 * DAY, moves: [move(T - 25 * DAY, 'inProgress', 'backlog')] }),
+      rec({ id: 'waiting', createdAt: T - 30 * DAY, moves: [move(T - 25 * DAY, 'notStarted', 'backlog')] }),
+      rec({ id: 'backlog', createdAt: T - 30 * DAY }),
+      rec({ id: 'done', resolvedAt: T - 20 * DAY, moves: [move(T - 20 * DAY, 'done', 'notStarted')] }),
+    ]
+    // In Progress and Not Started are both committed work; Backlog and Done are not.
+    expect(averageWip(records, buckets)).toBe(2)
+  })
+
+  it('turns deliveries into a rate, and refuses to imply a cycle from no throughput', () => {
+    const records = [
+      rec({ id: 'a', resolvedAt: T - 5 * DAY }),
+      rec({ id: 'b', resolvedAt: T - 3 * DAY }),
+      rec({ id: 'old', resolvedAt: T - 30 * DAY }),
+    ]
+    expect(throughputRate(records, T - 7 * DAY, T)).toBeCloseTo(2 / 7)
+    expect(throughputRate(records, T, T)).toBeUndefined()
+    expect(littleCycle(10, 2)).toBe(5)
+    expect(littleCycle(10, 0)).toBeUndefined()
+    expect(littleCycle(10, undefined)).toBeUndefined()
   })
 })

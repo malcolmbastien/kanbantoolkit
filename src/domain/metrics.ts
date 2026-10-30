@@ -451,6 +451,41 @@ export function cumulativeFlow(records: FlowRecord[], buckets: number[]): Record
   })
 }
 
+/** The mean of a set of values, or zero when there are none. */
+const mean = (values: number[]): number =>
+  values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length
+
+/**
+ * Average committed WIP across the window's weekly boundaries.
+ *
+ * Committed means Not Started or In Progress: Backlog is work in the system but not work the team
+ * has taken on, and Done is no longer WIP. That is the WIP the cycle clock measures, so it is the
+ * WIP Little's Law pairs with cycle time.
+ */
+export function averageWip(records: FlowRecord[], buckets: number[]): number {
+  if (buckets.length === 0) return 0
+  return mean(cumulativeFlow(records, buckets).map((counts) => counts.notStarted + counts.inProgress))
+}
+
+/** Deliveries per day between two moments, or `undefined` when the window has no length. */
+export function throughputRate(records: FlowRecord[], from: number, to: number): number | undefined {
+  const span = days(from, to)
+  if (span <= 0) return undefined
+  const delivered = deliveredSince(records, from).filter((record) => record.resolvedAt !== undefined && record.resolvedAt <= to)
+  return delivered.length / span
+}
+
+/**
+ * Little's Law: average WIP divided by throughput is the cycle time the system implies.
+ *
+ * It is a check, not a prediction: it assumes the system is stable over the window, which is
+ * exactly what a team is trying to find out. With no throughput the answer is missing rather than
+ * infinite.
+ */
+export function littleCycle(wip: number, perDay: number | undefined): number | undefined {
+  return perDay === undefined || perDay <= 0 ? undefined : wip / perDay
+}
+
 /** The middle of a set of values, or the middle two averaged. Nothing in, nothing out. */
 export function median(values: number[]): number | undefined {
   if (values.length === 0) return undefined

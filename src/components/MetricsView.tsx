@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { TrendingUp } from 'lucide-react'
 import {
   aging,
+  averageWip,
   blockedSummary,
   bucketsFor,
   committedAt,
@@ -10,10 +11,12 @@ import {
   flowRecord,
   flowSummary,
   histogram,
+  littleCycle,
   percentile,
   sampleStats,
   scatterPoints,
   throughput,
+  throughputRate,
   windowStart,
   type FlowRecord,
 } from '@/domain/metrics'
@@ -86,6 +89,9 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const delivered = throughput(records, buckets)
   const blocked = blockedSummary(records, now, since)
   const cycles = scatterPoints(records, since).map((point) => point.cycle)
+  const wip = averageWip(records, buckets)
+  const rate = throughputRate(records, since ?? Math.min(...records.map((record) => record.createdAt), now), now)
+  const implied = littleCycle(wip, rate)
 
   // Each diagram has its own scale: a flow column is as tall as the most work the board carried
   // at a week's end, a throughput bar as tall as the busiest week in the window.
@@ -261,6 +267,18 @@ export function MetricsView({ boardId }: { boardId: string }) {
                     <div className="truncate text-center text-micro text-slate-600">{shortDate(buckets[i])}</div>
                   </div>
                 ))}
+              </div>
+            </Panel>
+
+            <Panel
+              title="Little's Law"
+              note="Average committed WIP ÷ throughput = the cycle time the system implies. It is a check on the two readings above, and it assumes a stable system."
+            >
+              <div data-littles-law className="flex flex-wrap gap-x-8 gap-y-2">
+                <Measure label="Average committed WIP" value={wip.toFixed(1)} />
+                <Measure label="Throughput" value={rate === undefined ? '—' : `${(rate * 7).toFixed(1)} cards/week`} />
+                <Measure label="Implied cycle" value={days(implied)} name="implied" />
+                <Measure label="Measured cycle p50" value={days(summary.cycle.p50)} />
               </div>
             </Panel>
 
@@ -812,6 +830,17 @@ function CycleScatter({
 
 /** A delivered card's lead time in days: created to resolved. */
 const lead = (r: FlowRecord) => (r.resolvedAt! - r.createdAt) / DAY_MS
+
+function Measure({ label, value, name }: { label: string; value: string; name?: string }) {
+  return (
+    <div>
+      <div className="text-micro uppercase tracking-wide text-slate-600">{label}</div>
+      <div data-littles-value={name} className="text-title font-semibold tabular-nums text-slate-800">
+        {value}
+      </div>
+    </div>
+  )
+}
 
 function Stat({
   label,
