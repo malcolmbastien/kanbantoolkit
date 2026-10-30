@@ -46,5 +46,19 @@ export interface Workspace {
   placements: Placement[]
 }
 
+/**
+ * The workspace's words: the lists the app authors as one document, apart from the board design.
+ *
+ * Types, templates, objectives and key results are whole-list edits — a rename is a new array, not a
+ * patch — so they travel together, with the auto-archive policy, under one revision of their own.
+ */
+export interface Vocabulary {
+  issueTypes: IssueType[]
+  boardTemplates: BoardTemplate[]
+  objectives: Objective[]
+  keyResults: KeyResult[]
+  autoArchiveDays?: number
+}
+
 /** The settings row's name, until task 122 gives a workspace an identity of its own. */
 export const WORKSPACE_ROW = 'workspace'

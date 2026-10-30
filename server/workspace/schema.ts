@@ -54,5 +54,10 @@ export const WORKSPACE_SCHEMA = 1
  * 32 adds `template_flows` and `template_lanes.flow_key`: a template describes a set of cards flows.
  * A database without them would hand back a template whose lanes belong to no flow, which the
  * editor cannot draw — refused rather than half-read, like every number before it.
+ *
+ * 33 adds `workspace.vocabulary_rev`: the revision of the workspace's words — types, templates,
+ * objectives and key results — which the app writes as one document. A database without it cannot
+ * refuse a stale write, so it is refused at the door instead of letting two people overwrite each
+ * other's vocabulary without either being told.
  */
-export const REQUIRED_SCHEMA = 32
+export const REQUIRED_SCHEMA = 33

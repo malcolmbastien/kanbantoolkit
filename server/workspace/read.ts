@@ -355,6 +355,15 @@ async function readTemplates(db: Database, workspaceId: string): Promise<BoardTe
   })
 }
 
+/** The revision of the workspace's words — types, templates, objectives and key results. */
+export async function readVocabularyRev(db: Database, workspaceId: string): Promise<number> {
+  const row = await db.get<{ vocabulary_rev: number | null }>(
+    'SELECT vocabulary_rev FROM workspace WHERE id = ?1',
+    [workspaceId],
+  )
+  return row?.vocabulary_rev ?? 0
+}
+
 async function readSettings(db: Database, workspaceId: string): Promise<{ boardId: string; autoArchiveDays?: number; savedFilters: SavedFilter[]; collapsedLanes: Record<string, boolean> }> {
   const row = await db.get<Row>('SELECT * FROM workspace WHERE id = ?1', [workspaceId])
   const autoArchiveDays = row ? maybeCount(row.auto_archive_days) : undefined

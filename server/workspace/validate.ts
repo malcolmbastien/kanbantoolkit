@@ -22,9 +22,11 @@ import type {
   Objective,
   Placement,
   Stage,
+  TemplateFlow,
+  TemplateLane,
   User,
 } from '../../src/domain/types'
-import type { Workspace } from './types'
+import type { Vocabulary, Workspace } from './types'
 
 const LIMITS = { id: 100, title: 300, description: 20_000, text: 2_000, list: 200, log: 2_000 } as const
 
@@ -225,4 +227,210 @@ export function parseWorkspace(input: unknown): Workspace | null {
     lanes,
     placements: rows<Placement>(raw.placements, 20_000),
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * The workspace's words — types, templates, objectives, key results
+ * ------------------------------------------------------------------ */
+
+/** The ceilings a vocabulary document may not exceed — the workspace parser's own. */
+export const VOCABULARY_LIMITS = { issueTypes: 500, boardTemplates: 200, objectives: 2_000, keyResults: 5_000 } as const
+
+const rowId = (row: unknown): string | undefined =>
+  row && typeof row === 'object' && typeof (row as Record<string, unknown>).id === 'string'
+    ? (row as Record<string, unknown>).id as string
+    : undefined
+
+/**
+ * Rows of one list, strictly: a list, under its ceiling, every row with a unique id.
+ *
+ * Stricter than the import's rows because this is a *replacement*: a duplicate id or an over-long
+ * list would silently delete rows the sender never saw, and a write that drops work is worse than
+ * one that refuses it.
+ */
+function vocabularyRows(value: unknown, limit: number): Record<string, unknown>[] | null {
+  if (!Array.isArray(value) || value.length > limit) return null
+  const seen = new Set<string>()
+  const rows: Record<string, unknown>[] = []
+  for (const row of value) {
+    const id = rowId(row)
+    if (!id || id.length > LIMITS.id || seen.has(id)) return null
+    seen.add(id)
+    rows.push(row as Record<string, unknown>)
+  }
+  return rows
+}
+
+/** One issue type: a label, a colour, and nothing else. */
+const canonicalIssueType = (t: IssueType): IssueType => ({ id: t.id, name: t.name, color: t.color })
+
+const parseIssueType = (raw: Record<string, unknown>): IssueType | null => {
+  const id = requiredText(raw.id, LIMITS.id)
+  const name = requiredText(raw.name, LIMITS.title)
+  if (!id || !name) return null
+  return { id, name, color: text(raw.color, 20) || '#64748b' }
+}
+
+/**
+ * One template: its cards flows and their keyed lanes.
+ *
+ * Refused rather than repaired when a lane names a flow the template does not have, when a flow is
+ * not a cards flow, or when a parent names a lane that is not there: a template is what a board is
+ * made from, and one that cannot be made from is not a design.
+ */
+const parseTemplate = (raw: Record<string, unknown>): BoardTemplate | null => {
+  const id = requiredText(raw.id, LIMITS.id)
+  const name = requiredText(raw.name, LIMITS.title)
+  const flowsRaw = raw.flows
+  if (!id || !name || !Array.isArray(flowsRaw) || flowsRaw.length === 0 || flowsRaw.length > 100) return null
+  const flows: TemplateFlow[] = []
+  for (const value of flowsRaw) {
+    if (!value || typeof value !== 'object') return null
+    const flow = value as Record<string, unknown>
+    const key = requiredText(flow.key, LIMITS.id)
+    const flowName = requiredText(flow.name, LIMITS.title)
+    // A template designs the team's own flow; the initiatives flow is never captured.
+    if (!key || !flowName || flow.kind !== 'cards') return null
+    flows.push({ key, kind: 'cards', name: flowName, order: number(flow.order) ?? 0 })
+  }
+  if (new Set(flows.map((f) => f.key)).size !== flows.length) return null
+
+  const lanesRaw = raw.lanes
+  if (!Array.isArray(lanesRaw) || lanesRaw.length > 500) return null
+  const lanes: TemplateLane[] = []
+  for (const value of lanesRaw) {
+    if (!value || typeof value !== 'object') return null
+    const lane = value as Record<string, unknown>
+    const key = requiredText(lane.key, LIMITS.id)
+    const flowKey = requiredText(lane.flowKey, LIMITS.id)
+    if (!key || !flowKey || !flows.some((f) => f.key === flowKey)) return null
+    const parentKey = lane.parentKey === null || lane.parentKey === undefined ? null : requiredText(lane.parentKey, LIMITS.id)
+    if (parentKey === undefined) return null
+    lanes.push({
+      key,
+      flowKey,
+      parentKey,
+      order: number(lane.order) ?? 0,
+      name: text(lane.name, LIMITS.title) ?? '',
+      ...(typeof lane.orientation === 'string' ? { orientation: lane.orientation as TemplateLane['orientation'] } : {}),
+      ...(typeof lane.stage === 'string' ? { stage: lane.stage as Stage } : {}),
+      ...(number(lane.wipLimit) !== undefined ? { wipLimit: number(lane.wipLimit) } : {}),
+      ...(text(lane.description, LIMITS.text) ? { description: text(lane.description, LIMITS.text) } : {}),
+    })
+  }
+  const laneKeys = new Set(lanes.map((l) => l.key))
+  if (laneKeys.size !== lanes.length) return null
+  if (lanes.some((l) => l.parentKey !== null && !laneKeys.has(l.parentKey))) return null
+
+  return {
+    id,
+    name,
+    band: raw.band === 'program' || raw.band === 'portfolio' ? raw.band : 'team',
+    flows,
+    lanes,
+    ...(requiredText(raw.defaultCardTypeId, LIMITS.id) ? { defaultCardTypeId: requiredText(raw.defaultCardTypeId, LIMITS.id) } : {}),
+    ...(raw.wipEnforcement === 'justify' || raw.wipEnforcement === 'block' || raw.wipEnforcement === 'visualize'
+      ? { wipEnforcement: raw.wipEnforcement }
+      : {}),
+  }
+}
+
+const parseObjective = (raw: Record<string, unknown>): Objective | null => {
+  const id = requiredText(raw.id, LIMITS.id)
+  const title = requiredText(raw.title, LIMITS.title)
+  if (!id || !title) return null
+  return {
+    id,
+    title,
+    period: text(raw.period, 40) ?? '',
+    status: raw.status === 'scored' ? 'scored' : 'active',
+    ...(number(raw.score) !== undefined ? { score: number(raw.score) } : {}),
+  }
+}
+
+const parseKeyResult = (raw: Record<string, unknown>): KeyResult | null => {
+  const id = requiredText(raw.id, LIMITS.id)
+  const objectiveId = requiredText(raw.objectiveId, LIMITS.id)
+  const title = requiredText(raw.title, LIMITS.title)
+  return id && objectiveId && title ? { id, objectiveId, title } : null
+}
+
+/** A template as comparison sees it: fields in a fixed order, lists sorted by key. */
+export function canonicalTemplate(template: BoardTemplate): BoardTemplate {
+  return {
+    id: template.id,
+    name: template.name,
+    band: template.band,
+    flows: [...template.flows]
+      .map((f) => ({ key: f.key, kind: f.kind, name: f.name, order: f.order }))
+      .sort((a, b) => a.key.localeCompare(b.key)),
+    lanes: [...template.lanes]
+      .map((l) => ({
+        key: l.key,
+        flowKey: l.flowKey,
+        parentKey: l.parentKey,
+        order: l.order,
+        name: l.name,
+        ...(l.orientation ? { orientation: l.orientation } : {}),
+        ...(l.stage ? { stage: l.stage } : {}),
+        ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
+        ...(l.description ? { description: l.description } : {}),
+      }))
+      .sort((a, b) => a.key.localeCompare(b.key)),
+    ...(template.defaultCardTypeId ? { defaultCardTypeId: template.defaultCardTypeId } : {}),
+    ...(template.wipEnforcement ? { wipEnforcement: template.wipEnforcement } : {}),
+  }
+}
+
+export const canonicalObjective = (objective: Objective): Objective => ({
+  id: objective.id,
+  title: objective.title,
+  period: objective.period,
+  status: objective.status,
+  ...(objective.score !== undefined ? { score: objective.score } : {}),
+})
+
+export const canonicalKeyResult = (result: KeyResult): KeyResult => ({
+  id: result.id,
+  objectiveId: result.objectiveId,
+  title: result.title,
+})
+
+/**
+ * The workspace's words, as the app writes them.
+ *
+ * The same discipline as the board design: the document is the whole truth about these lists, so a
+ * row the sender did not send is gone — which is why a malformed list is refused rather than
+ * filtered, and why the parse returns canonical objects a comparison can trust.
+ */
+export function parseVocabulary(input: unknown): Vocabulary | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+  const raw = input as Record<string, unknown>
+
+  const issueTypesRaw = vocabularyRows(raw.issueTypes, VOCABULARY_LIMITS.issueTypes)
+  const templatesRaw = vocabularyRows(raw.boardTemplates, VOCABULARY_LIMITS.boardTemplates)
+  const objectivesRaw = vocabularyRows(raw.objectives, VOCABULARY_LIMITS.objectives)
+  const keyResultsRaw = vocabularyRows(raw.keyResults, VOCABULARY_LIMITS.keyResults)
+  if (!issueTypesRaw || !templatesRaw || !objectivesRaw || !keyResultsRaw) return null
+
+  const issueTypes = issueTypesRaw.map(parseIssueType)
+  const boardTemplates = templatesRaw.map(parseTemplate)
+  const objectives = objectivesRaw.map(parseObjective)
+  const keyResults = keyResultsRaw.map(parseKeyResult)
+  if (issueTypes.some((t) => t === null) || boardTemplates.some((t) => t === null)) return null
+  if (objectives.some((o) => o === null) || keyResults.some((k) => k === null)) return null
+
+  return {
+    issueTypes: (issueTypes as IssueType[]).map(canonicalIssueType),
+    boardTemplates: (boardTemplates as BoardTemplate[]).map(canonicalTemplate),
+    objectives: (objectives as Objective[]).map(canonicalObjective),
+    keyResults: (keyResults as KeyResult[]).map(canonicalKeyResult),
+    ...(typeof raw.autoArchiveDays === 'number' && raw.autoArchiveDays > 0 ? { autoArchiveDays: raw.autoArchiveDays } : {}),
+  }
+}
+
+/** A key result whose objective is not in the document would point at nothing. */
+export function vocabularyObjectivesKnown(vocabulary: Vocabulary): boolean {
+  const ids = new Set(vocabulary.objectives.map((o) => o.id))
+  return vocabulary.keyResults.every((k) => ids.has(k.objectiveId))
 }

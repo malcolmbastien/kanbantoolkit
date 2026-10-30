@@ -12,6 +12,7 @@
 import type { Item, Placement } from '../../src/domain/types'
 import type { Database, Statement } from '../db'
 import type { Workspace } from './types'
+import type { Vocabulary } from './types'
 import { WORKSPACE_ROW } from './types'
 
 /** Children before parents, so a delete never trips a foreign key. */
@@ -261,6 +262,95 @@ export async function appliedItemOf(db: Database, key: string): Promise<{ itemId
   return row ? { itemId: row.item_id, rev: row.rev } : undefined
 }
 
+/** Types, templates, objectives and key results, as rows — shared by the import and the document. */
+function addVocabulary(statements: Statement[], vocabulary: Vocabulary, workspaceId: string): void {
+  for (const type of vocabulary.issueTypes) {
+    add(statements, 'issue_types', { id: type.id, name: type.name, color: type.color }, workspaceId)
+  }
+
+  for (const template of vocabulary.boardTemplates) {
+    add(statements, 'board_templates', {
+      id: template.id,
+      name: template.name,
+      band: template.band,
+      default_card_type_id: value(template.defaultCardTypeId),
+      wip_enforcement: value(template.wipEnforcement),
+    }, workspaceId)
+    for (const flow of template.flows ?? []) {
+      add(statements, 'template_flows', {
+        template_id: template.id,
+        key: flow.key,
+        kind: flow.kind,
+        name: flow.name,
+        position: flow.order,
+      }, workspaceId)
+    }
+    for (const lane of template.lanes) {
+      add(statements, 'template_lanes', {
+        template_id: template.id,
+        key: lane.key,
+        flow_key: lane.flowKey,
+        parent_key: value(lane.parentKey),
+        position: lane.order,
+        name: lane.name,
+        orientation: value(lane.orientation),
+        stage: value(lane.stage),
+        wip_limit: value(lane.wipLimit),
+        description: value(lane.description),
+      }, workspaceId)
+    }
+  }
+
+  for (const objective of vocabulary.objectives) {
+    add(statements, 'objectives', {
+      id: objective.id,
+      title: objective.title,
+      period: objective.period,
+      status: objective.status,
+      score: value(objective.score),
+    }, workspaceId)
+  }
+
+  for (const result of vocabulary.keyResults) {
+    add(statements, 'key_results', { id: result.id, objective_id: result.objectiveId, title: result.title }, workspaceId)
+  }
+}
+
+/**
+ * Replace the workspace's vocabulary, in one transaction, and keep its revision honest.
+ *
+ * The document is the whole truth about these lists: a row the sender did not send is gone, the way
+ * a board's design does not keep a lane it was not told about. The sender says which revision it
+ * worked from; the route has already checked it, and this writes the next one.
+ */
+export async function writeVocabulary(
+  db: Database,
+  workspaceId: string,
+  vocabulary: Vocabulary,
+  rev: number,
+): Promise<void> {
+  const statements: Statement[] = [
+    // Children before parents, and only this workspace's rows.
+    { sql: 'DELETE FROM template_lanes WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)', params: [workspaceId] },
+    { sql: 'DELETE FROM template_flows WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)', params: [workspaceId] },
+    { sql: 'DELETE FROM board_templates WHERE workspace_id = ?1', params: [workspaceId] },
+    { sql: 'DELETE FROM issue_types WHERE workspace_id = ?1', params: [workspaceId] },
+    { sql: 'DELETE FROM objectives WHERE workspace_id = ?1', params: [workspaceId] },
+    { sql: 'DELETE FROM key_results WHERE workspace_id = ?1', params: [workspaceId] },
+  ]
+  addVocabulary(statements, vocabulary, workspaceId)
+  // The policy and the revision land together with the lists: a write that half-arrived could not
+  // be refused next time, because the number it left behind would say it had.
+  statements.push({
+    sql: `INSERT INTO workspace (id, auto_archive_days, vocabulary_rev) VALUES (?1, ?2, ?3)
+          ON CONFLICT (id) DO UPDATE SET
+            auto_archive_days = excluded.auto_archive_days,
+            vocabulary_rev = excluded.vocabulary_rev`,
+    params: [workspaceId, value(vocabulary.autoArchiveDays), rev + 1],
+  })
+  await db.batch(statements)
+}
+
 export async function writeWorkspace(
   db: Database,
   workspace: Workspace,
@@ -277,10 +367,6 @@ export async function writeWorkspace(
 
   for (const user of workspace.users) {
     add(statements, 'people', { id: user.id, name: user.name, avatar_url: value(user.avatarUrl) }, workspaceId)
-  }
-
-  for (const type of workspace.issueTypes) {
-    add(statements, 'issue_types', { id: type.id, name: type.name, color: type.color }, workspaceId)
   }
 
   workspace.boards.forEach((board, index) => {
@@ -384,52 +470,9 @@ export async function writeWorkspace(
     params: [workspaceId],
   })
 
-  for (const objective of workspace.objectives) {
-    add(statements, 'objectives', {
-      id: objective.id,
-      title: objective.title,
-      period: objective.period,
-      status: objective.status,
-      score: value(objective.score),
-    }, workspaceId)
-  }
-
-  for (const result of workspace.keyResults) {
-    add(statements, 'key_results', { id: result.id, objective_id: result.objectiveId, title: result.title }, workspaceId)
-  }
-
-  for (const template of workspace.boardTemplates) {
-    add(statements, 'board_templates', {
-      id: template.id,
-      name: template.name,
-      band: template.band,
-      default_card_type_id: value(template.defaultCardTypeId),
-      wip_enforcement: value(template.wipEnforcement),
-    }, workspaceId)
-    for (const flow of template.flows ?? []) {
-      add(statements, 'template_flows', {
-        template_id: template.id,
-        key: flow.key,
-        kind: flow.kind,
-        name: flow.name,
-        position: flow.order,
-      }, workspaceId)
-    }
-    for (const lane of template.lanes) {
-      add(statements, 'template_lanes', {
-        template_id: template.id,
-        key: lane.key,
-        flow_key: lane.flowKey,
-        parent_key: value(lane.parentKey),
-        position: lane.order,
-        name: lane.name,
-        orientation: value(lane.orientation),
-        stage: value(lane.stage),
-        wip_limit: value(lane.wipLimit),
-        description: value(lane.description),
-      }, workspaceId)
-    }
-  }
+  // The words a workspace owns — its types, templates and objectives — go in through the same
+  // writer the vocabulary route uses, so one document has one shape.
+  addVocabulary(statements, workspace, workspaceId)
 
   add(statements, 'workspace', {
     id: WORKSPACE_ROW,

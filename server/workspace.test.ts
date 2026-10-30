@@ -255,8 +255,10 @@ describe('the workspace', () => {
       schema: 1,
       meUserId: 'u-ada',
       // The write that put this workspace here was an import, so its design is the first one: a
-      // client that adopts it knows which design its next write is based on.
+      // client that adopts it knows which design its next write is based on. Its vocabulary has
+      // its own revision, and an import starts that at zero like the empty workspace it was.
       structureRev: 1,
+      vocabularyRev: 0,
       lanes: [...workspace.lanes].sort(byId),
     })
   })
@@ -389,7 +391,7 @@ describe('writing the board design', () => {
     const db = database()
     const { cookie } = await signedIn(db)
     // The floor is the newest migration: a database behind it cannot be read honestly.
-    await db.run('DELETE FROM schema_migrations WHERE version = 32')
+    await db.run('DELETE FROM schema_migrations WHERE version = 33')
     const response = await instance(db)('/api/workspace/structure', {
       method: 'PUT',
       headers: { 'content-type': 'application/json', cookie },
@@ -905,5 +907,151 @@ describe('what a role may do, at the door', () => {
     const session = await issueSession(db, 'u-root')
 
     expect((await write(request, `fl_session=${session.token}`, 'Repaired', 0)).status).toBe(200)
+  })
+})
+
+/**
+ * The workspace's words, as one document.
+ *
+ * Types, templates, objectives and key results are whole-list edits, so they travel together under a
+ * revision of their own — apart from the design's, because a lane moving and a type being renamed are
+ * unrelated acts and one counter would refuse the second for no reason.
+ */
+describe('writing the workspace vocabulary', () => {
+  /** A document the server accepts: it keeps the app's built-in labels, and its key results point home. */
+  const vocabulary = () => ({
+    issueTypes: [
+      { id: 't-none', name: 'None', color: '#64748b' },
+      { id: 't-card', name: 'Card', color: '#3b82f6' },
+      { id: 't-init', name: 'Initiative', color: '#7c3aed' },
+    ],
+    boardTemplates: [
+      {
+        id: 'bt-team',
+        name: 'A team board',
+        band: 'team' as const,
+        flows: [{ key: 'f-cards', kind: 'cards' as const, name: 'Cards', order: 0 }],
+        lanes: [{ key: 'l-backlog', flowKey: 'f-cards', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' as const }],
+      },
+    ],
+    objectives: [{ id: 'o-1', title: 'Sign in without a password', period: '2026-Q1', status: 'active' as const }],
+    keyResults: [{ id: 'k-1', objectiveId: 'o-1', title: 'Every member can sign in' }],
+    autoArchiveDays: 14,
+  })
+
+  async function writer(role: 'admin' | 'editor' | 'viewer' = 'admin') {
+    const db = database()
+    // Boards and placements are the design's business; only the words are written here.
+    await writeWorkspace(db, { ...workspace, boards: [], flows: [], lanes: [], placements: [] }, 'workspace')
+    const { cookie } = await signedIn(db)
+    if (role !== 'admin') await db.run('UPDATE workspace_members SET role = ?1 WHERE user_id = ?2', [role, 'u-ada'])
+    const request = instance(db)
+    const read = async () =>
+      (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace & {
+        structureRev: number
+        vocabularyRev: number
+      }
+    const rev = (await read()).vocabularyRev
+    const put = (body: unknown, signed = true) =>
+      request('/api/workspace/vocabulary', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', ...(signed ? { cookie } : {}) },
+        body: JSON.stringify(body),
+      })
+    return { db, request, put, read, cookie, rev }
+  }
+
+  it('writes the words and the policy as one document, and answers the new revision', async () => {
+    const { put, read, rev } = await writer()
+    const document = vocabulary()
+
+    const response = await put({ rev, ...document })
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as { rev: number }).rev).toBe(rev + 1)
+
+    const body = await read()
+    expect(body.vocabularyRev).toBe(rev + 1)
+    expect(Object.fromEntries(body.issueTypes.map((t) => [t.id, t.name]))).toEqual({
+      't-none': 'None',
+      't-card': 'Card',
+      't-init': 'Initiative',
+    })
+    expect(body.objectives).toEqual(document.objectives)
+    expect(body.keyResults).toEqual(document.keyResults)
+    expect(body.boardTemplates).toEqual(document.boardTemplates)
+    expect(body.autoArchiveDays).toBe(14)
+
+    // The design's revision is not touched by a vocabulary write: the two documents are separate.
+    expect(body.structureRev).toBe(1)
+  })
+
+  it('keeps the revision honest: a stale sender is refused with the one that is there', async () => {
+    const { put, rev } = await writer()
+    expect((await put({ rev, ...vocabulary() })).status).toBe(200)
+
+    const stale = await put({ rev, ...vocabulary() })
+    expect(stale.status).toBe(409)
+    expect(((await stale.json()) as { rev: number }).rev).toBe(rev + 1)
+  })
+
+  it('answers a document that changes nothing without writing, and without a new revision', async () => {
+    const { put, read, rev } = await writer()
+    await put({ rev, ...vocabulary() })
+
+    const same = await put({ rev: rev + 1, ...vocabulary() })
+    expect(same.status).toBe(200)
+    expect(((await same.json()) as { rev: number }).rev).toBe(rev + 1)
+    expect((await read()).vocabularyRev).toBe(rev + 1)
+  })
+
+  it('refuses a document that drops the built-in labels, and one whose key result points nowhere', async () => {
+    const { put, read, rev } = await writer()
+
+    const noBuiltIns = vocabulary()
+    noBuiltIns.issueTypes = noBuiltIns.issueTypes.filter((t) => t.id !== 't-none')
+    const dropped = await put({ rev, ...noBuiltIns })
+    expect(dropped.status).toBe(422)
+    expect(((await dropped.json()) as { field: string }).field).toBe('issueTypes')
+
+    const orphan = vocabulary()
+    orphan.keyResults = [{ id: 'k-1', objectiveId: 'o-missing', title: 'Nothing serves this' }]
+    const dangling = await put({ rev, ...orphan })
+    expect(dangling.status).toBe(422)
+    expect(((await dangling.json()) as { field: string }).field).toBe('keyResults')
+
+    // Nothing was written by either refusal: the words are the import's, and their revision is where
+    // it was. The document that dropped `t-none` would have been visible here if it had landed.
+    const body = await read()
+    expect(body.vocabularyRev).toBe(rev)
+    expect(body.issueTypes.some((t) => t.id === 't-none')).toBe(false)
+  })
+
+  it('refuses a malformed document rather than replacing the words with a partial one', async () => {
+    const { put, rev } = await writer()
+
+    // A repeated id is not a list: a replacement would silently delete a row the sender never saw.
+    const twice = vocabulary()
+    twice.objectives = [twice.objectives[0], { ...twice.objectives[0] }]
+    expect((await put({ rev, ...twice })).status).toBe(400)
+
+    // A lane naming a flow the template does not have cannot be made into a board.
+    const lostFlow = vocabulary()
+    lostFlow.boardTemplates[0].lanes[0] = { ...lostFlow.boardTemplates[0].lanes[0], flowKey: 'f-missing' }
+    expect((await put({ rev, ...lostFlow })).status).toBe(400)
+  })
+
+  it('refuses a role that may change none of it, and writes nothing', async () => {
+    for (const role of ['editor', 'viewer'] as const) {
+      const { put, read, rev } = await writer(role)
+      const response = await put({ rev, ...vocabulary() })
+      expect(response.status).toBe(403)
+      expect((await read()).vocabularyRev).toBe(rev)
+    }
+  })
+
+  it('needs a revision to write against, and a member to write at all', async () => {
+    const { put, rev } = await writer()
+    expect((await put({ ...vocabulary() })).status).toBe(400)
+    expect((await put({ rev, ...vocabulary() }, false)).status).toBe(401)
   })
 })
