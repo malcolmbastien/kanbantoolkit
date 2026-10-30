@@ -353,7 +353,12 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <span className={cn('rounded px-1.5 py-0.5 text-micro font-bold', stageChip(bucket))}>
+                      <span
+                        className={cn(
+                          'inline-flex shrink-0 items-center whitespace-nowrap rounded px-1.5 py-0.5 text-micro font-bold',
+                          stageChip(bucket),
+                        )}
+                      >
                         {STAGE_LABELS[bucket]}
                       </span>
                     </td>
