@@ -30,6 +30,7 @@ that is.
 | | |
 | --- | --- |
 | **[Using the application](using.md)** | the board, a card, an initiative, the views, and keeping a copy |
+| **[Board types](board-types.md)** | team, programme and portfolio boards, and which level fits the work |
 
 ## If you are installing it
 

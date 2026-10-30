@@ -19,6 +19,9 @@ by title.
 
 ## A board
 
+Every board is a **team**, **programme** or **portfolio** board; [Board types](board-types.md) explains
+what each level is for and when to choose it.
+
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a
 stage is the team's. **Edit board** splits a column into cells, renames them, adds a lane, or removes

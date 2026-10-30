@@ -25,6 +25,12 @@ export const WIKI_PAGES = [
     section: 'use',
   },
   {
+    file: 'board-types.md',
+    page: 'Board-types',
+    note: 'Team, programme and portfolio boards, and what each one is for.',
+    section: 'use',
+  },
+  {
     file: 'install.md',
     page: 'Install',
     note: 'Node 26, three commands, and what the first run writes.',
