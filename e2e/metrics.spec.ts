@@ -110,6 +110,10 @@ test('the forecast refuses thin history, and answers with a range when there is 
     await expect(view.locator(`[data-forecast-date="${share}"]`)).toContainText(/\d{4}/)
   }
 
+  // The assumptions are on screen, with the size of the sample behind them.
+  await expect(view.getByText(/5,000 trials over \d+ sampled weeks/)).toBeVisible()
+  await expect(view.getByText(/throughput arrives weekly/)).toBeVisible()
+
   // The other reading of the same trials: how much lands by a date, and for how many.
   await expect(view.locator('[data-forecast-by]')).toContainText('chance of at least')
   await view.getByLabel('At least cards').fill('1')
@@ -142,6 +146,8 @@ test('says how much history there is, and calls a thin sample thin', async ({ pa
   // And the forecast refuses with what it would need, rather than guessing from one card.
   await expect(view.locator('[data-forecast-refusal]')).toContainText('Not enough history yet')
   await expect(view.locator('[data-forecast-by-refusal]')).toContainText('Not enough history yet')
+  // The refusal names what would make it answer, rather than only that it will not.
+  await expect(view.locator('[data-forecast-refusal]')).toContainText('A forecast needs 4 weeks and 8 cards')
 })
 
 test('Little’s Law sits beside the cycle time it implies', async ({ page }) => {

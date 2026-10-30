@@ -397,8 +397,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
                     ))}
                   </div>
                   <p className="mt-1 text-micro text-slate-600">
-                    Assumes the {forecast.remaining} open cards stay the scope and the next weeks resemble the{' '}
-                    {forecast.sampledWeeks} sampled. Dependencies and batch size are not modelled.
+                    {forecast.trials.toLocaleString()} trials over {forecast.sampledWeeks} sampled weeks.
+                    Assumes the {forecast.remaining} open cards stay the scope, the future resembles
+                    those weeks, and throughput arrives weekly. Dependencies and batch size are not
+                    modelled.
                   </p>
                 </>
               ) : (
