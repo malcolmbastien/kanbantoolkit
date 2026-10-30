@@ -140,14 +140,56 @@ which is what lets a sign-in page draw exactly the buttons that work.
 
 | Route | Authority | What it does |
 | --- | --- | --- |
-| `GET /api/workspace` | `board.read` | the whole workspace, plus `schema` and `meUserId` |
+| `GET /api/workspace` | `board.read` | the whole workspace, plus `schema`, `meUserId`, `structureRev` and `vocabularyRev` |
 | `PATCH /api/workspace/items/:id` | `item.write` | one item, based on a revision — see below |
 | `GET /api/workspace/changes?since=<id>` | `board.read` | the change feed after a cursor, and the leases held |
 | `POST /api/workspace/items/:id/lock` | `item.write` | take the editing lease |
 | `POST /api/workspace/items/:id/heartbeat` | `item.write` | renew it |
 | `DELETE /api/workspace/items/:id/lock` | `item.write` | release it |
+| `PUT /api/workspace/structure` | `board.design` | write the board design — boards, flows, lanes and placements — as one document, with the revision it began from |
+| `PUT /api/workspace/vocabulary` | per list | write the workspace's words — issue types, templates, objectives, key results and the auto-archive policy — as one document, with the revision it began from |
 | `POST /api/workspace/import` | `workspace.import` | replace an empty workspace with a file — refused once it has boards |
 | `DELETE /api/workspace` | `workspace.delete` | end the workspace; `{"confirm": "<its name>"}` |
+
+### Writing the workspace's words
+
+Types, board templates, objectives and key results are whole-list edits with no position of their
+own, so they travel as one document — beside the design and deliberately not inside it, because one
+revision for the board's layout and the workspace's words would have two administrators refusing
+each other for unrelated changes.
+
+```http
+PUT /api/workspace/vocabulary
+Content-Type: application/json
+
+{ "rev": 4, "issueTypes": [...], "boardTemplates": [...], "objectives": [...], "keyResults": [...],
+  "autoArchiveDays": 14 }
+```
+
+The document is the whole truth about those lists: a row the sender did not send is deleted, which is
+why a malformed list is refused rather than filtered. The answer is the next revision; a stale one is
+refused with the revision that is there, and the client re-reads rather than sending its version over
+somebody else's.
+
+| Answer | Means |
+| --- | --- |
+| `200 {"rev": 5, …counts}` | it landed; the counts are what the server now holds |
+| `200 {"rev": 4}` | nothing changed; no write happened, so no revision moved |
+| `409 {"rev": 5}` | somebody else wrote these lists; read theirs |
+| `400` | not a vocabulary document — a double id, a lane naming no flow, a missing list |
+| `422 {"error", "field"}` | `issueTypes` without `None`/`Initiative`, or a key result naming an objective that is not in the document |
+| `422 {"error", "fields"}` | a list this role may not change, named — and nothing is written |
+| `403` | a role that may change none of it, or no session |
+
+Permission is **per list**, because a role can hold one and not another: `board.settings` for issue
+types, `template.manage` for templates, `objective.write` for objectives and key results, and
+`workspace.settings` for `autoArchiveDays`. A list the caller may not change is refused by name
+rather than dropped, so the app never answers "saved" to a change it did not make. The built-in
+labels (`None`, `Initiative`) are the app's and are refused when the document forgets them.
+
+`savedFilters` and `collapsedLanes` are **not** in the document. They are one device's view — a saved
+filter narrows a board for one person, a collapsed column is where they left their screen — and they
+stay in that browser.
 
 ### Writing an item
 

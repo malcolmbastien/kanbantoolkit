@@ -78,12 +78,19 @@ difference is worth reading: the first is the token you chose, the second is the
 | `POST /items` | `items:write` | create a card or an initiative and place it |
 | `PATCH /items/{itemId}` | `items:write` | change its fields; `baseRev` is required |
 | `POST /boards/{boardId}/items/{itemId}/move` | `items:write` | move it into a cell, at a position |
-| `PUT /workspace/structure` | `board.design` | write the board design — boards, lanes and placements — as one document, with the revision it began from |
 | `GET /objectives` | `objectives:write` | objectives with their completeness and key results |
 | `GET /people` | `people:read` | names and ids, so an assignment names a person |
 | `GET /search?q=` | `items:read` | the app's own search: a substring of the title, not a query language |
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
 | `POST /workspace` | `workspace:admin` | restore a file into an empty instance |
+
+Two writes travel as whole documents and are deliberately **not** on this surface:
+`PUT /api/workspace/structure` (the board design — boards, flows, lanes and placements) and
+`PUT /api/workspace/vocabulary` (issue types, board templates, objectives, key results and the
+auto-archive policy). They are the shipped client's own protocol — its debounce, its revision and its
+re-adoption are one application talking to one server — so they change with the app, like every
+route on the internal page. A board's shape is read here through `GET /boards/{boardId}`; its design
+is written by people using the board, and its words by the roles that own them.
 
 A board's lane trees are **flows**, and it carries one **initiatives** flow and one or more **cards**
 flows. `GET /boards/{boardId}` answers both views: `workflows.cards` is the board's **first** cards

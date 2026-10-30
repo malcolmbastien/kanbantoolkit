@@ -3416,49 +3416,51 @@
             "title": "The screens that edit the vocabulary say whether it was saved",
             "description": "Types, templates and objectives write through the sync, a refusal caused by a role is said where the edit was made, and an instance round trip proves it survives a reload.",
             "details": "The three surfaces already gate on the right actions (`board.settings`, `template.manage`, `objective.write`), so this subtask is about the write and the answer: make sure each edit passes through the store actions the sync watches (no surface writes state directly), and where a write is refused for a role, say it in words next to the control — the same rule as a refused card write, and never a success toast for a change that did not land. E2e on an instance (`e2e/workspace.spec.ts` or a new `e2e/vocabulary.spec.ts`, against the self-hosted harness): create a type, a template and an objective, reload, all three are still there; a second device sees the type the first made (the same live/poll path the workspace uses); a Viewer is offered nothing that writes and is refused by the server. The static tier keeps working with nobody signed in — the demo's types and templates are the browser's own.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [
               2
             ],
             "parentTaskId": 178,
             "testStrategy": "e2e on the instance: type, template and objective made, reload, present; a second context sees the type; a Viewer refused in words. The static demo still edits locally with no server. Run npm run test:e2e.",
             "parentId": "undefined",
-            "updatedAt": "2026-10-30T12:26:39.206Z"
+            "updatedAt": "2026-10-30T12:39:00.398Z"
           },
           {
             "id": 4,
             "title": "Say what is the workspace's and what is this device's",
             "description": "autoArchiveDays is a workspace policy and travels; saved filters and collapsed lanes are this browser's and stay, with the code and the docs saying which is which.",
             "details": "The document carries `autoArchiveDays`, because it changes what every person's board does with Done work. `savedFilters` and `collapsedLanes` stay in `persistedSlice` and go nowhere near the server: a saved filter is one person's way of narrowing a board, and a collapsed column is where they left their screen. Write that decision where each is persisted (`persistedSlice` in `src/store.ts`) and in the sync's doc comment, so the next person adding a field knows which side it belongs on. A test asserts the document builder carries auto-archive and neither of the other two, so a later `persistedSlice` addition does not leak into the server by accident.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2
             ],
             "parentTaskId": 178,
             "testStrategy": "A unit test over the document builder: it includes autoArchiveDays and excludes savedFilters and collapsedLanes; editing a saved filter schedules no write. Run npm test.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T12:40:34.809Z"
           },
           {
             "id": 5,
             "title": "Write down that the instance keeps the workspace's words",
             "description": "The docs say which workspace data is saved on an instance, and the API note names the new document.",
             "details": "`docs/admin.md` (or `docs/using.md`, wherever workspace data is described): issue types, templates, objectives and key results are saved to the instance, not only in the browser, and a role decides who may change them; saved filters and collapsed columns are per device. `docs/api.md` gains the app-internal `PUT /api/workspace/vocabulary` beside `/structure` — the same session and revision story — and `docs/rest-api.md` says it is not part of the public `v1` surface, for the same reason the design write is not. `docs/upgrade.md` notes the migration if the revision needs a column (0033) and `REQUIRED_SCHEMA` moves with it. Then npm run docs:check.",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [
               3,
               4
             ],
             "parentTaskId": 178,
             "testStrategy": "npm run docs:check, and a read-through that no page still implies a template or a type lives only in the browser on an instance.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T12:40:41.288Z"
           }
         ],
-        "updatedAt": "2026-10-30T12:26:39.206Z"
+        "updatedAt": "2026-10-30T12:40:41.288Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-30T12:26:39.206Z",
+      "lastModified": "2026-10-30T12:40:41.288Z",
       "taskCount": 177,
       "completedCount": 150,
       "tags": [

@@ -47,6 +47,12 @@ Every release, but two kinds especially:
   means an old binary will refuse the new database — rolling the code back without restoring will
   leave you with a server that will not start.
 
+**The vocabulary revision (schema 33).** A database from before it gains
+`workspace.vocabulary_rev` — the revision that the workspace's card types, templates, objectives and
+key results are written against, so a stale save is refused instead of overwriting somebody else's.
+`REQUIRED_SCHEMA` moved to 33 with the column, so an old binary refuses the new database. Nothing is
+rewritten in the rows already there: the lists are as they were, and the revision starts at zero.
+
 A release that changes only the client or the site can be rolled back by checking out the previous
 tag and rebuilding.
 

@@ -99,5 +99,22 @@ a template brings every flow across.
 a confirmation. **Export CSV** on a board writes its cards as a table. On an instance the server holds
 the same workspace, and [backup](backup.md) is the operator's copy of it.
 
+## What the server keeps, and what it does not
+
+On an instance the workspace is the account's, not one browser's. Two documents are saved to the
+server: the **design** — boards, flows, lanes and where every card sits — and the workspace's
+**words**: card types, board templates, objectives and key results, with the auto-archive rule. A
+type renamed on one machine is renamed on every machine; a template made on one is there at the next
+reload, and so is an objective made on a portfolio board.
+
+Which of those a person may change is a role, and it is checked list by list: an administrator for
+card types and the auto-archive rule, `template.manage` for templates, `objective.write` for
+objectives and key results. A change the server refuses is said in words beside the control that made
+it, and the edit stays in this browser — it is never reported as saved when it was not.
+
+**Saved filters** and **collapsed columns** stay on the device deliberately: a saved filter is one
+person's way of narrowing a board, and a collapsed column is where they left their screen. Neither is
+a fact about the workspace, so neither is written back to it.
+
 Accounts, invitations and roles belong to the instance: they are managed on its **Admin** screen.
 [Install](install.md) and [configure](configure.md) are how the application is run in the first place.
