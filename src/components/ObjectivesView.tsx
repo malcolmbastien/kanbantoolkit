@@ -34,7 +34,11 @@ export function ObjectivesView() {
 
   const periods = [...new Set(objectives.map((o) => o.period))]
   const [period, setPeriod] = useState(periods[0] ?? 'FY26 Q1')
-  const shown = objectives.filter((o) => o.period === period)
+  // A period is the label on an objective, not a record of its own: typing a new one and adding an
+  // objective is how it comes into being. The field filters the list and names the period the next
+  // objective will join.
+  const periodName = period.trim()
+  const shown = objectives.filter((o) => o.period === periodName)
 
   const [newTitle, setNewTitle] = useState('')
   const [krDraft, setKrDraft] = useState<Record<string, string>>({})
@@ -80,16 +84,23 @@ export function ObjectivesView() {
           <div className="ml-auto flex flex-wrap items-end gap-3">
             <label className="flex items-center gap-1.5 text-meta text-slate-600">
               Period
-              <select
+              <input
+                list="objective-periods"
+                aria-label="Period"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none"
-              >
-                {periods.length === 0 && <option value={period}>{period}</option>}
+                placeholder="FY26 Q4"
+                title="Type a period or choose one already in use. A period exists while an objective uses it."
+                className="w-28 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300"
+              />
+              <datalist id="objective-periods">
                 {periods.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p} />
                 ))}
-              </select>
+              </datalist>
+              {periods.length === 0 && (
+                <span className="text-micro text-slate-500">name the first one</span>
+              )}
             </label>
             <div className="flex items-center gap-1">
               <input
@@ -97,16 +108,18 @@ export function ObjectivesView() {
                 onChange={(e) => setNewTitle(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key !== 'Enter' || newTitle.trim().length < 2) return
-                  addObjective(newTitle.trim(), period)
+                  if (!periodName) return
+                  addObjective(newTitle.trim(), periodName)
                   setNewTitle('')
                 }}
-                placeholder={`New objective in ${period}…`}
+                placeholder={`New objective in ${periodName || 'a period'}…`}
                 className="w-48 rounded border border-slate-200 bg-white px-2 py-1 text-meta text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300"
               />
               <button
-                disabled={newTitle.trim().length < 2}
+                disabled={!periodName || newTitle.trim().length < 2}
                 onClick={() => {
-                  addObjective(newTitle.trim(), period)
+                  if (!periodName) return
+                  addObjective(newTitle.trim(), periodName)
                   setNewTitle('')
                 }}
                 className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
@@ -124,7 +137,8 @@ export function ObjectivesView() {
 
         {shown.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
-            No objectives in {period} yet. Name one above and press <span className="font-semibold text-slate-700">New objective</span>.
+            No objectives in {periodName || 'this period'} yet. Name one above and press{' '}
+            <span className="font-semibold text-slate-700">New objective</span>.
           </div>
         )}
 

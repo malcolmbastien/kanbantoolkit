@@ -78,6 +78,39 @@ the level: a reader should see whether the strategy is covered, not which squad 
 
 **Not for:** tracking cards or team flow. Use the programme and team boards beneath it for that.
 
+### Using objectives on a portfolio board
+
+Open the portfolio board and choose **Objectives**. This is the only place objectives and key
+results are authored; they are not a global view.
+
+**Periods.** A period is a label on an objective, not a separate record, so there is no separate
+period screen to visit. Type the period into the **Period** field — `FY26 Q4`, `2026`, `H1 2027` —
+and add an objective; it joins that period. The field offers the periods already in use, and
+switching it filters the cards. A period exists while an objective uses it: remove its last objective
+and it leaves the list. Periods are matched exactly, so keep one spelling — `FY26 Q4` and `fy26 q4`
+are two different periods.
+
+**Add an objective.** With the period chosen, type the outcome beside **New objective** and press
+Enter or the button. The card's title is editable in place. Aim for three to five objectives in a
+period; the view warns above five, because the limit is a commitment rather than a capacity. Keep
+the status **active** while the period is running and move it to **scored** at the end; the score
+(0–100) is a person's grade of how the period went, and is separate from the completeness below.
+
+**Key results.** Add the statements that say what the objective means. A key result is a line of
+text, not a number or a target: the objective's completeness is computed from the work below the
+initiatives that serve it, so there is no hand-entered percentage that can disagree with the work.
+
+**Connect an initiative.** A strategic initiative is an initiative placed on a portfolio board. Use
+**Map an initiative…** at the bottom of an objective card to attach one, then **Map**. An initiative
+serves one objective, so choosing one that already serves another moves it; the option says
+“moves from …” before you commit. Detach one with the × beside it. Mapping is attribution: it never
+counts as WIP, and it does not move a card.
+
+**See the gaps.** The strategy map groups the portfolio's initiatives by the objective they serve,
+and shows both coverage gaps: an objective that nothing serves, and an initiative that serves
+nothing. An objective's completeness is the union of the leaves below its initiatives — each leaf
+once — and an objective nothing serves has no percentage at all, because there is no work to read.
+
 ## Choosing a type
 
 Ask what the board is for, not who opens it:

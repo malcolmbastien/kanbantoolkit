@@ -29,6 +29,9 @@ one — a split cell is still in its stage, the work simply reads more precisely
 only while it is **empty**: deleting a column never moves a card, and a split whose remaining cell
 holds cards is left as it is rather than folded over them.
 
+A **portfolio** board has no **Edit board**: its shape is its objectives, made in the strategy map,
+and the sections beneath them are the organisation's standard reading rather than a team's to rework.
+
 A board carries **flows**, each a set of those four columns. It has exactly one **initiatives** flow —
 where the same work is read as outcomes — and **one or more cards flows**: the team's own. Each cards
 flow is a band of its own, stacked the way the initiatives flow is, with its own name, its own
@@ -94,7 +97,9 @@ happens to be open. The board stays in front; clicking a card replaces the drawe
 item panel on the same side.
 
 Objectives and key results are **not** a global view. They are created and managed from a
-**Portfolio** board, whose Strategy map carries them and the initiatives that serve them.
+**Portfolio** board, whose Strategy map carries them and the initiatives that serve them. The
+**Period** field names the period an objective joins and filters the cards; [Board types](board-types.md)
+walks through periods, key results and mapping an initiative to an objective.
 
 ## Keeping a copy
 
