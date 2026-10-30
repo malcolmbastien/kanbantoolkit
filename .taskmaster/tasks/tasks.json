@@ -3381,7 +3381,7 @@
         "description": "Issue types, board templates, objectives and key results are authored in the app and read back by the instance, but only the board design and the items have a write path. On a deployment they are lost on the next reload. Give them one document write with a revision, and wire the screens that edit them.",
         "details": "THE GAP. `PUT /api/workspace/structure` carries boards, flows, lanes and placements; an item write carries one card. `board_templates`, `issue_types`, `objectives` and `key_results` are written only by `POST /api/workspace/import` — which refuses a workspace that already has boards — and by copy-to-account, which is the same import. So on an instance, adding an issue type in Board settings, making or renaming a template, or creating an objective on a portfolio board is kept in one browser and gone at the next adoption. Reproduced: a template named \"Probe\" created on the instance showed, and after a reload it was not there. The read side is already done: `readWorkspace` returns all four lists.\n\nTHE SHAPE. One workspace document: `PUT /api/workspace/vocabulary` with `{ rev, issueTypes, boardTemplates, objectives, keyResults, autoArchiveDays }`, answered with the new revision, refused `409` with the revision that is there when the sender worked from a stale one — the same protocol the board design uses. A document rather than per-resource routes because these are small whole-list edits with no identity of their own beyond their ids, and because a template or an objective is not a position: a design write that replaces a board must not be able to rename a type. No migration is needed (the tables exist; `REQUIRED_SCHEMA` stays 32). Considered and rejected: folding the lists into the structure document — one revision for the board's layout and the workspace's words means two administrators changing unrelated things refuse each other for no reason.\n\nPERMISSION. The same actions the screens already require: `board.settings` for issue types, `template.manage` for templates, `objective.write` for objectives and key results. One route with a per-list check: a sender may write only the lists their role can edit, and a list they may not edit is refused (422) rather than silently dropped — the app must not answer 200 to a change it did not make. `autoArchiveDays` is a workspace policy, so it travels with `workspace.settings`.\n\nWHAT STAYS LOCAL. `savedFilters` and `collapsedLanes` are device view state, not the workspace's: they stay in the browser, and the code says so where they are persisted. `autoArchiveDays` is a policy every person should see, so it travels.\n\nADOPTION AND REFUSAL. Adopting a workspace imports the server's vocabulary, so an edit made off the server has no home: the write must happen on the edit (debounced), not at sign-out, and a `409` must re-read rather than overwrite. A refusal caused by a role is said in words where the edit was made, the way a refused card write is.\n\nRISK. The failure is silent and total for the person: the work looks saved and is not. The tests must include an instance round trip across a reload, because a unit test of the document alone would pass with no route wired — which is the state this task is fixing.\n\nTESTS. Server: a round trip of all four lists, a stale revision answered 409 with the current one, a writer refused a list their role cannot edit, limits from the workspace parser (500 types, 200 templates, 2,000 objectives, 5,000 key results) enforced. Client: the document is sent after the edit settles, the revision is the one adoption set, a 409 re-reads. E2e on an instance: make a type, a template and an objective, reload, all three are there; a second device sees the type the first made.",
         "testStrategy": "npm run typecheck, npm test, npm run test:e2e (the instance round trip), npm run lint, npm run scan, npm run docs:check, npm run portable, npm run build && npm run site:check && npm run size. Reviewed on the local Docker instance: make an issue type, a template and an objective, reload, all still there; a second device sees the type; saved filters and collapsed columns are still per device.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [
@@ -3444,7 +3444,7 @@
             "title": "Write down that the instance keeps the workspace's words",
             "description": "The docs say which workspace data is saved on an instance, and the API note names the new document.",
             "details": "`docs/admin.md` (or `docs/using.md`, wherever workspace data is described): issue types, templates, objectives and key results are saved to the instance, not only in the browser, and a role decides who may change them; saved filters and collapsed columns are per device. `docs/api.md` gains the app-internal `PUT /api/workspace/vocabulary` beside `/structure` — the same session and revision story — and `docs/rest-api.md` says it is not part of the public `v1` surface, for the same reason the design write is not. `docs/upgrade.md` notes the migration if the revision needs a column (0033) and `REQUIRED_SCHEMA` moves with it. Then npm run docs:check.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [
               3,
               4
@@ -3452,17 +3452,17 @@
             "parentTaskId": 178,
             "testStrategy": "npm run docs:check, and a read-through that no page still implies a template or a type lives only in the browser on an instance.",
             "parentId": "undefined",
-            "updatedAt": "2026-10-30T12:40:41.288Z"
+            "updatedAt": "2026-10-30T12:41:55.168Z"
           }
         ],
-        "updatedAt": "2026-10-30T12:40:41.288Z"
+        "updatedAt": "2026-10-30T12:41:55.168Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-30T12:40:41.288Z",
+      "lastModified": "2026-10-30T12:41:55.168Z",
       "taskCount": 177,
-      "completedCount": 150,
+      "completedCount": 151,
       "tags": [
         "backlog"
       ]
