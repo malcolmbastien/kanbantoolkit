@@ -120,7 +120,9 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
       { id: 'action:board', kind: 'action', label: 'Go to the board', hint: 'Leave whatever view is open', keywords: 'back home', run: setBoard },
       { id: 'action:dashboard', kind: 'action', label: 'Dashboard', hint: "This board's initiatives", keywords: 'summary overview', run: () => setDashboard(true) },
       { id: 'action:timeline', kind: 'action', label: 'Timeline', hint: "This board's initiatives over time", keywords: 'dates gantt', run: () => setTimeline(true) },
-      { id: 'action:flow', kind: 'action', label: 'Flow metrics', hint: 'Lead time, cycle time, throughput', keywords: 'metrics cfd report', run: () => setMetrics(true) },
+      ...(makesCards
+        ? [{ id: 'action:flow', kind: 'action' as PaletteKind, label: 'Flow metrics', hint: 'Lead time, cycle time, throughput', keywords: 'metrics cfd report', run: () => setMetrics(true) }]
+        : []),
       { id: 'action:archive', kind: 'action', label: 'Archive', hint: 'Filed-away items', keywords: 'done filed old', run: () => setArchive(true) },
       { id: 'action:mywork', kind: 'action', label: 'My work', hint: 'Everything assigned to one person', keywords: 'mine assigned', run: () => setMyWork(true) },
       { id: 'action:boards', kind: 'action', label: 'All boards', hint: 'The board workspace', keywords: 'workspace switch', run: () => setBoards(true) },

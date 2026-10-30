@@ -30,7 +30,10 @@ of them is required for the screen to be useful.
 
 ## What the Flow view does today
 
-One screen per board, computed from the cards' own histories (`src/domain/metrics.ts`):
+One screen per **team** board, computed from the cards' own histories (`src/domain/metrics.ts`). A
+programme or portfolio board aggregates other boards and has no cards flow of its own, so the Flow
+view is not offered there — its progress is read through the dashboard, the timeline and the
+strategy map instead.
 
 - In flight, delivered, lead time and cycle time — median and p85, with the number of cards behind
   each.

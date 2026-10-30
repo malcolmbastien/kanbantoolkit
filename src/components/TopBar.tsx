@@ -58,6 +58,7 @@ export function TopBar(props: Props) {
   // a portfolio — shows bands or objective-grouped flows and no cards workflow at all, so a card
   // made here would be one nobody could see on the board that made it. An initiative still can be:
   // on a portfolio it arrives in the map, with its coverage gap, until an objective carries it.
+  // Flow is the same rule: it reads a cards flow's history, so a board with no cards flow has none.
   const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
 
   return (
@@ -130,17 +131,21 @@ export function TopBar(props: Props) {
             <ChartNoAxesGantt size={12} /> Timeline
           </button>
 
-          <button
-            onClick={onShowMetrics}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showMetrics ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-            )}
-            title="Flow — this board's delivery metrics, read from each card's own history"
-          >
-            <TrendingUp size={12} /> Flow
-          </button>
+          {/* Flow reads a cards flow's own history. A programme or portfolio board aggregates other
+              boards and has no cards flow, so it has no delivery flow of its own to report. */}
+          {makesCards && (
+            <button
+              onClick={onShowMetrics}
+              disabled={editMode}
+              className={cn(
+                'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                showMetrics ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+              )}
+              title="Flow — this board's delivery metrics, read from each card's own history"
+            >
+              <TrendingUp size={12} /> Flow
+            </button>
+          )}
 
           <button
             onClick={onShowArchive}

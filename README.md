@@ -100,7 +100,7 @@ none of it is entered twice — it is read from the cards that are already there
   - Workspace Home with every board, grouped by band.
   - Dashboard of a board's initiatives.
   - Timeline of initiatives over their target dates.
-  - Flow metrics: lead time, cycle time, throughput and a cumulative flow diagram.
+  - Flow metrics on team boards: lead time, cycle time, throughput, distributions, aging, blocked work and a forecast.
   - Archive of completed and discarded work, with restore.
   - Auto-archive Done cards after a set number of days.
   - My work drawer for the signed-in person's cards.

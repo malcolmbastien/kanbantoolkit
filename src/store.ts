@@ -1427,6 +1427,7 @@ export const useStore = create<Store>()(
           showBoards: false,
           showAdmin: false,
           showObjectives: false,
+          showMetrics: false,
           metricsFlowId: null,
           boundaryId: null,
           multiSelect: [],
@@ -1798,11 +1799,16 @@ export const useStore = create<Store>()(
       setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
       // Flow is a board's own view: derived from its cards, so it sits with the board tabs and
       // clears them like every other view does.
-      setMetrics: (v) =>
+      setMetrics: (v) => {
+        // Flow reads a cards flow. A programme or portfolio board aggregates other boards and has
+        // no cards flow of its own, so it has no delivery flow to report — a link or an old state
+        // that asks for one stays where it is rather than opening an empty report.
+        if (v && isAggregating(get().boards.find((board) => board.id === get().boardId))) return
         set({
           showMetrics: v,
           ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false } : {}),
-        }),
+        })
+      },
       setFlowWindow: (flowWindow) => set({ flowWindow }),
       setMetricsFlow: (metricsFlowId) => set({ metricsFlowId }),
       toggleBoards: () => {

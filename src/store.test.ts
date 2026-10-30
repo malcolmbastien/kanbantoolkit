@@ -1780,8 +1780,10 @@ describe('store actions', () => {
     // else, so the two directions are checked against each other rather than each on its own.
     const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'boards', 'objectives', 'admin']
     for (const name of names) {
-      // Objectives open only on a portfolio board; the loop visits that board for that view.
+      // Objectives open only on a portfolio board, and Flow only on a team board; the loop visits
+      // the board each one needs.
       if (name === 'objectives') s().selectBoard('b-strategy')
+      if (name === 'flow') s().selectBoard('b-atlas')
       s().setView(name)
       expect(viewOf(s()), name).toBe(name)
       // And exactly one view at a time: two flags set would make `viewOf`'s precedence — and so
@@ -1797,6 +1799,25 @@ describe('store actions', () => {
     s().setView('boards')
     s().setView('board')
     expect(isBoardSurface(s())).toBe(true)
+  })
+
+  it('a coordination board offers no Flow view, and a Flow link stays on the board', () => {
+    // A team board has a cards flow, so Flow is a reading of it.
+    s().selectBoard('b-atlas')
+    s().setMetrics(true)
+    expect(s().showMetrics).toBe(true)
+
+    // A programme or portfolio board aggregates other boards: no cards flow, no delivery flow.
+    for (const boardId of ['b-lob', 'b-strategy']) {
+      s().selectBoard(boardId)
+      // A board change leaves the report anyway, like every other view over a board.
+      expect(s().showMetrics, boardId).toBe(false)
+      s().setMetrics(true)
+      expect(s().showMetrics, boardId).toBe(false)
+      s().setView('flow')
+      expect(s().showMetrics, boardId).toBe(false)
+      expect(viewOf(s()), boardId).toBe('board')
+    }
   })
 
   it('an initiative with nothing below it is its own leaf: it can be committed before it is broken down', () => {
