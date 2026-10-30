@@ -17,6 +17,8 @@ import type { Item, Stage } from './types'
  */
 
 const DAY_MS = 86_400_000
+/** Below this many delivered cards a percentile is a hint, not a number to plan on. */
+export const MIN_SAMPLE = 5
 export const WEEK_MS = 7 * DAY_MS
 /** The most weekly buckets an all-history reading draws: two years, so the chart stays readable. */
 export const MAX_ALL_WEEKS = 104
@@ -382,6 +384,20 @@ export function histogram(values: number[], size = 1, cap?: number): HistogramBu
     })
   }
   return buckets
+}
+
+/** The earliest move the sample records, or `undefined` when nothing has moved. */
+export function firstRecordedMove(records: FlowRecord[]): number | undefined {
+  const moves = records.flatMap((record) => record.moves.map((move) => move.at))
+  return moves.length === 0 ? undefined : Math.min(...moves)
+}
+
+/** How much of the sample carries move history — the denominator behind every stage reading. */
+export function moveCoverage(records: FlowRecord[]): { withMoves: number; total: number } {
+  return {
+    withMoves: records.filter((record) => record.moves.length > 0).length,
+    total: records.length,
+  }
 }
 
 /** Weekly boundaries ending at `now`, oldest first — the axis a flow chart is read on. */

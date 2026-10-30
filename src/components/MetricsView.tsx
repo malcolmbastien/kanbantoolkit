@@ -8,10 +8,13 @@ import {
   committedAt,
   cumulativeFlow,
   deliveredSince,
+  firstRecordedMove,
   flowRecord,
   flowSummary,
   histogram,
   littleCycle,
+  MIN_SAMPLE,
+  moveCoverage,
   percentile,
   sampleStats,
   scatterPoints,
@@ -89,6 +92,9 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const delivered = throughput(records, buckets)
   const blocked = blockedSummary(records, now, since)
   const cycles = scatterPoints(records, since).map((point) => point.cycle)
+  const firstMove = firstRecordedMove(records)
+  const coverage = moveCoverage(records)
+  const deliveredTotal = delivered.reduce((sum, n) => sum + n, 0)
   const wip = averageWip(records, buckets)
   const rate = throughputRate(records, since ?? Math.min(...records.map((record) => record.createdAt), now), now)
   const implied = littleCycle(wip, rate)
@@ -113,6 +119,12 @@ export function MetricsView({ boardId }: { boardId: string }) {
               read from each card's own history — nothing to maintain. That history starts the day
               Kanban Toolkit began recording moves, so the earliest weeks are thin.
             </div>
+            <div data-flow-history className="mt-1 text-micro text-slate-500">
+              {firstMove === undefined
+                ? 'No moves recorded yet — the stage history starts when work moves.'
+                : `Moves recorded since ${shortDate(firstMove)} · ${coverage.withMoves} of ${coverage.total} cards have move history.`}
+              {coverage.total > coverage.withMoves && ' The rest start where they sit.'}
+            </div>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2">
             <Stat label="In flight" value={summary.inFlight} />
@@ -120,13 +132,17 @@ export function MetricsView({ boardId }: { boardId: string }) {
             <Stat
               label="Lead time"
               value={days(summary.lead.p50)}
-              note={`p85 ${days(summary.lead.p85)} · p95 ${days(summary.lead.p95)} · ${summary.lead.n} cards`}
+              note={`p85 ${days(summary.lead.p85)} · p95 ${days(summary.lead.p95)} · ${summary.lead.n} cards${
+                summary.lead.n > 0 && summary.lead.n < MIN_SAMPLE ? ' · thin sample' : ''
+              }`}
               hint="Created to done. p85 and p95 are the tail: that share of cards took this long or less."
             />
             <Stat
               label="Cycle time"
               value={days(summary.cycle.p50)}
-              note={`p85 ${days(summary.cycle.p85)} · p95 ${days(summary.cycle.p95)} · ${summary.cycle.n} cards`}
+              note={`p85 ${days(summary.cycle.p85)} · p95 ${days(summary.cycle.p95)} · ${summary.cycle.n} cards${
+                summary.cycle.n > 0 && summary.cycle.n < MIN_SAMPLE ? ' · thin sample' : ''
+              }`}
               hint="First committed (leaving Backlog) to done. p85 and p95 are the tail."
             />
           </div>
@@ -251,8 +267,11 @@ export function MetricsView({ boardId }: { boardId: string }) {
 
             <Panel
               title="Throughput"
-              note={`Cards that reached Done in each week — delivery, not activity. ${delivered.reduce((sum, n) => sum + n, 0)} in ${delivered.length} week${delivered.length === 1 ? '' : 's'}; the busiest week had ${Math.max(...delivered)}.`}
+              note={`Cards that reached Done in each week — delivery, not activity. ${deliveredTotal} in ${delivered.length} week${delivered.length === 1 ? '' : 's'}; the busiest week had ${Math.max(...delivered)}.`}
             >
+              {deliveredTotal === 0 ? (
+                <div className="text-meta text-slate-600">No cards reached Done in this window.</div>
+              ) : (
               <div className="flex gap-1.5">
                 {delivered.map((n, i) => (
                   <div key={buckets[i]} data-flow-week className="flex min-w-0 flex-1 flex-col gap-1">
@@ -268,6 +287,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
                   </div>
                 ))}
               </div>
+              )}
             </Panel>
 
             <Panel
@@ -280,6 +300,13 @@ export function MetricsView({ boardId }: { boardId: string }) {
                 <Measure label="Implied cycle" value={days(implied)} name="implied" />
                 <Measure label="Measured cycle p50" value={days(summary.cycle.p50)} />
               </div>
+              {implied === undefined && (
+                <p className="mt-1 text-micro text-slate-600">
+                  {rate === undefined
+                    ? 'No throughput in this window, so there is no implied cycle time.'
+                    : 'No committed work in this window, so there is no WIP to divide.'}
+                </p>
+              )}
             </Panel>
 
             {slowest.length > 0 && (
@@ -456,7 +483,9 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
   return (
     <Panel
       title="Cycle time distribution"
-      note={`Delivered cards in one-day buckets. Most finished in ${peakLabel}; the longest took ${days(longest)}.`}
+      note={`Delivered cards in one-day buckets. Most finished in ${peakLabel}; the longest took ${days(longest)}.${
+        cycles.length < MIN_SAMPLE ? ` Only ${cycles.length} card${cycles.length === 1 ? '' : 's'} — a thin sample.` : ''
+      }`}
     >
       <div data-cycle-histogram className="relative">
         <div className="flex h-24 items-end gap-px">
@@ -720,7 +749,9 @@ function CycleScatter({
       title="Cycle time by delivery"
       note={`One dot per delivered card. The axis stops at p98 (${days(cap)})${
         above > 0 ? `, and ${above} card${above === 1 ? '' : 's'} above it drawn at the top` : ''
-      }; the percentile lines still use every card.`}
+      }; the percentile lines still use every card.${
+        points.length < MIN_SAMPLE ? ` Only ${points.length} delivered card${points.length === 1 ? '' : 's'} — treat the lines as a hint.` : ''
+      }`}
     >
       {points.length > shown.length && (
         <div className="mb-1 text-micro text-slate-600">

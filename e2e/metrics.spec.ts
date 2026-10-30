@@ -94,6 +94,19 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   await expect(view.getByText(/Most finished in/)).toBeVisible()
 })
 
+test('says how much history there is, and calls a thin sample thin', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  await expect(view.locator('[data-flow-history]')).toContainText('Moves recorded since')
+
+  // The support queue has one delivered card: enough for a chart, not enough for a confident line.
+  await view.getByLabel('Cards flow').selectOption({ label: 'Support' })
+  await view.getByLabel('Range').selectOption('4')
+  await expect(view.getByText(/Only 1 delivered card/)).toBeVisible()
+  await expect(view.getByText(/thin sample/).first()).toBeVisible()
+})
+
 test('Little’s Law sits beside the cycle time it implies', async ({ page }) => {
   await page.goto(FLOW)
   const view = page.locator('[data-flow-view]')

@@ -11,11 +11,13 @@ import {
   cycleTimes,
   deliveredSince,
   flowRecord,
+  firstRecordedMove,
   flowSummary,
   histogram,
   inFlightAt,
   leadTimes,
   littleCycle,
+  moveCoverage,
   median,
   percentile,
   sampleStats,
@@ -459,5 +461,16 @@ describe("Little's Law", () => {
     expect(littleCycle(10, 2)).toBe(5)
     expect(littleCycle(10, 0)).toBeUndefined()
     expect(littleCycle(10, undefined)).toBeUndefined()
+  })
+})
+
+describe('how much history there is', () => {
+  it('names the first move and how many cards have any', () => {
+    const moved = rec({ id: 'moved', moves: [move(T - 20 * DAY, 'inProgress', 'backlog'), move(T - 5 * DAY, 'done', 'inProgress')] })
+    const still = rec({ id: 'still' })
+    expect(firstRecordedMove([moved, still])).toBe(T - 20 * DAY)
+    expect(firstRecordedMove([still])).toBeUndefined()
+    expect(moveCoverage([moved, still])).toEqual({ withMoves: 1, total: 2 })
+    expect(moveCoverage([])).toEqual({ withMoves: 0, total: 0 })
   })
 })
