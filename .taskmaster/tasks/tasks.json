@@ -3472,59 +3472,63 @@
             "title": "Range and cards-flow controls",
             "description": "The Flow view gets a window — 4, 8, 12, 26 weeks or all recorded history, default 12 — and a cards-flow filter (all flows or one). Both are view state in the store and canonical URL parameters (`range`, `flow`), so a link opens the same reading. Windowing applies to the summary samples, the cumulative flow buckets, throughput and the slowest list; in-flight and delivered stay 'now'.",
             "details": "Add FlowWindow/FLOW_WINDOWS/DEFAULT_FLOW_WINDOW to metrics.ts with windowStart and bucketsFor(range, records, now); extend flowSummary with an optional since. Store: flowWindow and metricsFlowId in ViewState, setFlowWindow/setMetricsFlow, defaults in initialView, metricsFlowId cleared on selectBoard. URL: Place gains range/flowId, urlQuery writes them only for view=flow and omits defaults, placeFromQuery ignores invalid values, useUrl applies and subscribes. MetricsView: a labelled range select and flow select listing cardsFlows(flows, boardId); unknown/removed flow falls back to all. Tests: url.test.ts round trip and defaults; metrics.test.ts window boundaries and buckets; e2e that changing each control changes the reading and survives a reload.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 179,
             "parentId": "undefined",
-            "updatedAt": "2026-10-30T20:32:02.647Z"
+            "updatedAt": "2026-10-30T20:36:48.139Z"
           },
           {
             "id": 2,
             "title": "Distribution summary: p50, p85 and p95 with counts",
             "description": "Replace the median/p85 pair with p50, p85 and p95 for lead and cycle, each carrying its sample size, plus the existing in-flight and delivered. Definitions sit behind a one-line help beside the stats (`title` and an accessible description): lead is created to done, cycle is committed (left Backlog) to done, and a percentile is the value at or below which that share of cards fall.",
             "details": "Use sampleStats in metrics.ts (n, p50, p85, p95) rather than median/percentile called twice; keep flowSummary's shape but widen lead/cycle. Show 'n=' and say 'not enough cards' below 5 delivered. Update metrics.test.ts for the new shape and percentile rules; snapshot-free assertions on exact fixtures.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:37:30.190Z"
           },
           {
             "id": 3,
             "title": "Cycle time scatterplot",
             "description": "One dot per delivered card in the window: x is the completion date, y is cycle days. p50, p85 and p95 are horizontal reference lines, and the axes are labelled. Hovering (or focusing) a dot says the card, its created/committed/done dates and its cycle days; activating it opens the item panel. Colour stays in the existing palette; no chart library.",
             "details": "Pure helpers in metrics.ts: scatterPoints(records, since) and percentile lines; percentileBand for the axis. Inline SVG in MetricsView with a keyboard-focusable circle per point (tabindex, aria-label) and click -> openItem. Cap at 400 points with 'showing N of M' when larger; deterministic order. The y axis caps at p98 with the tail drawn as a count above an axis break (JiraMetrics' cap_y_axis), so a few long cards cannot squash the bulk; percentile lines are still computed from the full sample. No trend line by default: a straight fit over a scattered cloud reads as more certain than it is. A <details> table carries the same rows for screen readers. Tests: scatterPoints windowing and ordering; e2e dot opens the card.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:41:08.360Z"
           },
           {
             "id": 4,
             "title": "Aging work",
             "description": "Open cards in the selected flow, oldest first, with card title, column name, stage, time in the current column, time since commitment, assignee and type. The cycle-time p85 is drawn as the reference line against time since commitment, so a card past it has been in flight longer than 85% of the work the team finished. Rows mark stalled when nothing has moved for the app's staleness threshold (separately from blocked). Clicking a row opens the card. Counts per stage sit above the list.",
             "details": "metrics.ts: aging(records, now) returning {id, title, stage, laneId, laneName, days, enteredAt, assigneeIds, typeId}, using placement.laneEnteredAt, then the last moved entry, then createdAt; never negative. MetricsView joins lanes for the name and only includes in-flight cards (not done, not archived mid-flight). Sort oldest first; show at most 100 with a count of the rest. Empty state says there is no work in flight. Tests: laneEnteredAt fallback chain, a card that moved yesterday, archived/done exclusion; e2e row opens the card. Show both clocks: time in the current column (laneEnteredAt, the last move or createdAt) and time since commitment (committedAt). The percentile line belongs on the second; comparing time-in-column with cycle time would compare two different clocks. Stalled reuses STALE_AFTER_DAYS (7), not a second threshold. The aging line defaults to p85, as JiraMetrics does.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:41:08.373Z"
           },
           {
             "id": 5,
             "title": "Blocked work",
             "description": "Two readings: cards blocked right now with days blocked so far, and, for the window, total blocked days, median and p85 blocked duration, plus the five most common blocker reasons (exact text, case-insensitive). Rows open the card. The panel says that waiting on a dependency is separate and is not counted as blocked.",
             "details": "metrics.ts: blockedSpans(record, now) pairing blocked/unblocked log entries (open interval ends at resolvedAt or now), blockedDays(spans, since) clipped to the window, blockedSummary(records, now, since) returning now/blocked totals, duration stats and reason counts. Missing unblocked entries: the card is still blocked, interval open. A blocked entry before resolvedAt stops there. Cards without a blocked entry but blocked=true count as blocked now, with unknown duration (say so). Tests: paired intervals, multiple intervals, resolution clip, window clip, reason grouping; e2e shows a blocked card and opens it.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:43:01.217Z"
           },
           {
             "id": 6,
@@ -3666,12 +3670,12 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-30T20:32:02.647Z"
+        "updatedAt": "2026-10-30T20:43:01.217Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-30T20:32:02.647Z",
+      "lastModified": "2026-10-30T20:43:01.217Z",
       "taskCount": 178,
       "completedCount": 151,
       "tags": [
