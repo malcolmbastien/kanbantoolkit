@@ -1,5 +1,3 @@
-import { STALE_AFTER_DAYS } from './filters'
-import { STAGES } from './lanes'
 import type { FlowWindow } from './flowWindow'
 import type { Item, Stage } from './types'
 
@@ -31,13 +29,6 @@ export interface StageMove {
   from?: Stage
 }
 
-/** One blocked run, as the log recorded it: an open run has no end. */
-export interface BlockedSpan {
-  from: number
-  to?: number
-  reason?: string
-}
-
 /** One card's history in the terms flow is read in — all of it derived from the card's log. */
 export interface FlowRecord {
   id: string
@@ -48,31 +39,6 @@ export interface FlowRecord {
   /** The stage it was in before its first recorded move: where the history starts. */
   startedIn: Stage
   moves: StageMove[]
-  /** Blocked runs, paired from the log. An open run is one still blocked at read time. */
-  blocks: BlockedSpan[]
-  /** The card's explicit blocked flag now — work can be blocked without a logged run. */
-  blockedNow: boolean
-  /** The reason kept on the card, for a blockage that has no logged entry. */
-  blockedReason?: string
-}
-
-/** Pair the blocked and unblocked entries in a card's log, oldest first. */
-function blockedSpans(log: Item['log']): BlockedSpan[] {
-  const entries = (log ?? [])
-    .filter((entry) => entry.kind === 'blocked' || entry.kind === 'unblocked')
-    .sort((a, b) => a.at - b.at)
-  const spans: BlockedSpan[] = []
-  let open: BlockedSpan | undefined
-  for (const entry of entries) {
-    if (entry.kind === 'blocked' && open === undefined) {
-      open = { from: entry.at, ...(entry.note ? { reason: entry.note.trim() } : {}) }
-    } else if (entry.kind === 'unblocked' && open !== undefined) {
-      spans.push({ ...open, to: entry.at })
-      open = undefined
-    }
-  }
-  if (open !== undefined) spans.push(open)
-  return spans
 }
 
 /**
@@ -92,9 +58,6 @@ export function flowRecord(item: Item, currentStage: Stage | undefined): FlowRec
     ...(item.archivedAt ? { archivedAt: item.archivedAt } : {}),
     startedIn: moves[0]?.from ?? currentStage ?? 'backlog',
     moves,
-    blocks: blockedSpans(item.log),
-    blockedNow: item.blocked === true,
-    ...(item.blockedReason ? { blockedReason: item.blockedReason } : {}),
   }
 }
 
@@ -196,8 +159,6 @@ export interface AgingEntry {
   daysInColumn: number
   committedAt?: number
   daysSinceCommit?: number
-  /** Nothing has moved for longer than the app's staleness threshold. */
-  stalled: boolean
 }
 
 /**
@@ -219,7 +180,6 @@ export function aging(
       const moves = record.moves.filter((move) => move.at <= now)
       const enteredAt = laneEnteredAt(record) ?? moves[moves.length - 1]?.at ?? record.createdAt
       const committed = committedAt(record)
-      const lastActivity = Math.max(record.createdAt, moves[moves.length - 1]?.at ?? record.createdAt)
       return [
         {
           id: record.id,
@@ -230,7 +190,6 @@ export function aging(
           ...(committed !== undefined
             ? { committedAt: committed, daysSinceCommit: Math.max(0, days(committed, now)) }
             : {}),
-          stalled: now - lastActivity >= STALE_AFTER_DAYS * DAY_MS,
         },
       ]
     })
@@ -241,108 +200,6 @@ export function aging(
       const age = (entry: AgingEntry) => entry.daysSinceCommit ?? entry.daysInColumn
       return age(b) - age(a) || a.id.localeCompare(b.id)
     })
-}
-
-/**
- * A blocked run closed for reading.
- *
- * An open log entry ends when the card leaves the flow — resolution or filing away — because a card
- * cannot still be accruing blocked days after it is done. A run with no end and no exit is open now.
- */
-export interface BlockedRun {
-  from: number
-  to: number
-  reason?: string
-  open: boolean
-}
-
-/** A card blocked right now; `days` is absent when the card carries the flag but no logged run. */
-export interface BlockedNowEntry {
-  id: string
-  title: string
-  days?: number
-  reason?: string
-}
-
-export interface BlockedSummary {
-  now: BlockedNowEntry[]
-  /** Blocked days inside the window, summed across runs and cards. */
-  totalDays: number
-  /** Blocked runs that the window touches. */
-  runs: number
-  median?: number
-  p85?: number
-  reasons: { reason: string; count: number }[]
-}
-
-/** Close every blocked run at the moment the card left the flow, or at `now`. */
-export function blockedRuns(record: FlowRecord, now: number): BlockedRun[] {
-  const stop = Math.min(now, record.resolvedAt ?? record.archivedAt ?? now)
-  return record.blocks.flatMap((span) => {
-    const to = span.to === undefined ? stop : Math.min(span.to, stop)
-    if (to < span.from) return []
-    return [{ from: span.from, to, ...(span.reason ? { reason: span.reason } : {}), open: span.to === undefined }]
-  })
-}
-
-/**
- * The blocked reading: what is blocked now, and how much blocked time the window contains.
- *
- * "Blocked" is the explicit flag, not a dependency that is not done — the app keeps those apart, and
- * the panel says so. A blockage written before the log recorded events still counts as blocked now;
- * its duration is simply unknown, and says so rather than showing zero.
- */
-export function blockedSummary(records: FlowRecord[], now: number, since?: number): BlockedSummary {
-  const from = since ?? Number.NEGATIVE_INFINITY
-  const nowEntries: BlockedNowEntry[] = []
-  const durations: number[] = []
-  const reasons = new Map<string, { reason: string; count: number }>()
-  let totalDays = 0
-  let runs = 0
-
-  for (const record of records) {
-    const closed = blockedRuns(record, now)
-    const open = closed.find((run) => run.open)
-    if (record.blockedNow && inFlightAt(record, now) && open === undefined) {
-      nowEntries.push({
-        id: record.id,
-        title: record.title,
-        ...(record.blockedReason ? { reason: record.blockedReason } : {}),
-      })
-    }
-    if (open !== undefined && inFlightAt(record, now)) {
-      nowEntries.push({
-        id: record.id,
-        title: record.title,
-        days: days(open.from, now),
-        ...(open.reason ?? record.blockedReason ? { reason: open.reason ?? record.blockedReason } : {}),
-      })
-    }
-
-    for (const run of closed) {
-      const start = Math.max(run.from, from)
-      const end = Math.min(run.to, now)
-      if (end <= start) continue
-      runs += 1
-      totalDays += days(start, end)
-      durations.push(days(run.from, run.to))
-      const label = run.reason?.trim() || 'No reason given'
-      const key = label.toLowerCase()
-      const row = reasons.get(key) ?? { reason: label, count: 0 }
-      row.count += 1
-      reasons.set(key, row)
-    }
-  }
-
-  const stats = sampleStats(durations)
-  return {
-    now: nowEntries.sort((a, b) => (b.days ?? -1) - (a.days ?? -1) || a.id.localeCompare(b.id)),
-    totalDays,
-    runs,
-    ...(stats.p50 !== undefined ? { median: stats.p50 } : {}),
-    ...(stats.p85 !== undefined ? { p85: stats.p85 } : {}),
-    reasons: [...reasons.values()].sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)).slice(0, 5),
-  }
 }
 
 /** One bucket of a histogram; `tail` is the last bucket, which holds everything past the cap. */
@@ -466,41 +323,6 @@ export function cumulativeFlow(records: FlowRecord[], buckets: number[]): Record
     }
     return counts
   })
-}
-
-/** The mean of a set of values, or zero when there are none. */
-const mean = (values: number[]): number =>
-  values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length
-
-/**
- * Average committed WIP across the window's weekly boundaries.
- *
- * Committed means Not Started or In Progress: Backlog is work in the system but not work the team
- * has taken on, and Done is no longer WIP. That is the WIP the cycle clock measures, so it is the
- * WIP Little's Law pairs with cycle time.
- */
-export function averageWip(records: FlowRecord[], buckets: number[]): number {
-  if (buckets.length === 0) return 0
-  return mean(cumulativeFlow(records, buckets).map((counts) => counts.notStarted + counts.inProgress))
-}
-
-/** Deliveries per day between two moments, or `undefined` when the window has no length. */
-export function throughputRate(records: FlowRecord[], from: number, to: number): number | undefined {
-  const span = days(from, to)
-  if (span <= 0) return undefined
-  const delivered = deliveredSince(records, from).filter((record) => record.resolvedAt !== undefined && record.resolvedAt <= to)
-  return delivered.length / span
-}
-
-/**
- * Little's Law: average WIP divided by throughput is the cycle time the system implies.
- *
- * It is a check, not a prediction: it assumes the system is stable over the window, which is
- * exactly what a team is trying to find out. With no throughput the answer is missing rather than
- * infinite.
- */
-export function littleCycle(wip: number, perDay: number | undefined): number | undefined {
-  return perDay === undefined || perDay <= 0 ? undefined : wip / perDay
 }
 
 /** The cycle time at a chosen share of delivered cards. */
@@ -706,172 +528,6 @@ export function forecastBy(
     share: outcomes.filter((count) => count >= atLeast).length / trials,
     atLeast,
   }
-}
-
-/** One delivered card, as the Flow view's export reads it. No id: identity is the app's own. */
-export interface DeliveredMetricRow {
-  title: string
-  type: string
-  flow: string
-  createdAt: number
-  committedAt: number
-  resolvedAt: number
-  lead: number
-  cycle: number
-  blockedDays: number
-}
-
-export const METRICS_CSV_HEADER = [
-  'Title',
-  'Type',
-  'Flow',
-  'Created',
-  'Committed',
-  'Done',
-  'Lead days',
-  'Cycle days',
-  'Blocked days',
-]
-
-/** A field quoted only when it has to be, RFC 4180 style. */
-const csvField = (value: unknown): string => {
-  const text = value === undefined || value === null ? '' : String(value)
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-}
-
-/**
- * The delivered cards behind the Flow charts, as a file a spreadsheet can open.
- *
- * Kept here rather than in the board's CSV module so the Flow screen does not pull that module's
- * graph into its chunk for one button; the format is the same and just as literal.
- */
-export function metricsCsv(rows: DeliveredMetricRow[]): string {
-  const line = (row: unknown[]) => row.map(csvField).join(',')
-  const oneDecimal = (value: number) => Math.round(value * 10) / 10
-  const timestamp = (at: number) => new Date(at).toISOString()
-  return [
-    line(METRICS_CSV_HEADER),
-    ...rows.map((row) =>
-      line([
-        row.title,
-        row.type,
-        row.flow,
-        timestamp(row.createdAt),
-        timestamp(row.committedAt),
-        timestamp(row.resolvedAt),
-        oneDecimal(row.lead),
-        oneDecimal(row.cycle),
-        oneDecimal(row.blockedDays),
-      ]),
-    ),
-  ].join('\r\n').concat('\r\n')
-}
-
-/** A place where the recorded history does not match a clean start-to-finish model. */
-export type QualityFlag =
-  | 'impossible'
-  | 'backwards'
-  | 'returned'
-  | 'afterDone'
-  | 'createdOutside'
-  | 'noHistory'
-  | 'multiBoard'
-  | 'staleBlock'
-
-export interface QualityFinding {
-  flag: QualityFlag
-  label: string
-  /** What the flag means, in the reader's words. */
-  why: string
-  items: string[]
-}
-
-export interface QualityContext {
-  /** Board names by item, for the cards that sit on more than one board. */
-  boardsByItem?: Record<string, string[]>
-  /** Cards still marked blocked although every dependency they had is done. */
-  blockedAfterDependencyDone?: string[]
-}
-
-const QUALITY_TEXT: Record<QualityFlag, { label: string; why: string }> = {
-  impossible: {
-    label: 'Finished before it started',
-    why: 'The done time is earlier than the created or committed time, so the duration is not real.',
-  },
-  backwards: {
-    label: 'Moved backwards',
-    why: 'A card left a later stage for an earlier one. The chart reads that as work returning, which may be right.',
-  },
-  returned: {
-    label: 'Back to Backlog',
-    why: 'Committed work was moved back to Backlog after it had started.',
-  },
-  afterDone: {
-    label: 'Changed after Done',
-    why: 'A card moved after it reached Done, so its completion may not be the last word.',
-  },
-  createdOutside: {
-    label: 'Created outside Backlog',
-    why: 'A card began in a working column, so its wait before commitment is not in the history.',
-  },
-  noHistory: {
-    label: 'No move history',
-    why: 'These cards have no moves recorded, so their stage history starts where they sit.',
-  },
-  multiBoard: {
-    label: 'On more than one board',
-    why: 'A card placed on several boards is counted in each board’s flow.',
-  },
-  staleBlock: {
-    label: 'Blocked after its blocker finished',
-    why: 'The card is still marked blocked although everything it waited on is done.',
-  },
-}
-
-/**
- * The data-quality check JiraMetrics puts at the top of every report.
- *
- * None of these is necessarily a mistake: a returned card can be a real rejection, and a card
- * created in a working column is how some teams start. They are places where the team's process
- * bends the start-to-finish model the charts use, so the reader should know before reading them.
- * The checks never hide a card or refuse a move; they list and link.
- */
-export function dataQuality(records: FlowRecord[], context: QualityContext = {}): QualityFinding[] {
-  const order = new Map(STAGES.map((stage, index) => [stage, index]))
-  const findings = new Map<QualityFlag, Set<string>>()
-  const add = (flag: QualityFlag, id: string) => {
-    const set = findings.get(flag) ?? new Set<string>()
-    set.add(id)
-    findings.set(flag, set)
-  }
-
-  for (const record of records) {
-    const committed = committedAt(record)
-    if (record.resolvedAt !== undefined && (record.resolvedAt < record.createdAt || (committed !== undefined && record.resolvedAt < committed))) {
-      add('impossible', record.id)
-    }
-    if (record.moves.some((move) => move.from !== undefined && order.get(move.to)! < order.get(move.from)!)) {
-      add('backwards', record.id)
-    }
-    if (record.moves.some((move, index) => move.to === 'backlog' && record.moves.slice(0, index).some((earlier) => earlier.to !== 'backlog'))) {
-      add('returned', record.id)
-    }
-    const doneAt = record.moves.findIndex((move) => move.to === 'done')
-    if (doneAt !== -1 && record.moves.length > doneAt + 1) add('afterDone', record.id)
-    if (record.startedIn !== 'backlog') add('createdOutside', record.id)
-    if (record.moves.length === 0) add('noHistory', record.id)
-  }
-
-  for (const [id, boards] of Object.entries(context.boardsByItem ?? {})) {
-    if (boards.length > 1) add('multiBoard', id)
-  }
-  for (const id of context.blockedAfterDependencyDone ?? []) add('staleBlock', id)
-
-  return [...findings.entries()].map(([flag, ids]) => ({
-    flag,
-    ...QUALITY_TEXT[flag],
-    items: [...ids].sort(),
-  }))
 }
 
 /** The middle of a set of values, or the middle two averaged. Nothing in, nothing out. */

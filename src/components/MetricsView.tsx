@@ -1,14 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { TrendingUp } from 'lucide-react'
 import {
   aging,
-  averageWip,
-  blockedRuns,
-  blockedSummary,
   bucketsFor,
   committedAt,
   cumulativeFlow,
-  dataQuality,
   deliveredSince,
   firstRecordedMove,
   flowRecord,
@@ -16,8 +12,6 @@ import {
   forecastBy,
   forecastWhen,
   histogram,
-  littleCycle,
-  metricsCsv,
   MIN_FORECAST_DELIVERED,
   MIN_FORECAST_WEEKS,
   MIN_SAMPLE,
@@ -28,14 +22,13 @@ import {
   scatterPoints,
   serviceLevel,
   throughput,
-  throughputRate,
   windowStart,
   type FlowRecord,
+  type ScatterPoint,
 } from '@/domain/metrics'
 import { isInitiativeItem } from '@/domain/board'
-import { dependenciesOf, openDependenciesOf, type Graph } from '@/domain/derive'
 import { effectiveStage, STAGE_LABELS, STAGES } from '@/domain/lanes'
-import { STAGE_ACCENT } from '@/lib/colors'
+import { chipColors, STAGE_ACCENT, STAGE_PILL } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item } from '@/domain/types'
@@ -65,9 +58,6 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const lanes = useStore((s) => s.lanes)
   const flows = useStore((s) => s.flows)
   const placements = useStore((s) => s.placements)
-  const edges = useStore((s) => s.edges)
-  const links = useStore((s) => s.links)
-  const users = useStore((s) => s.users)
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
   const openItem = useStore((s) => s.openItem)
@@ -86,6 +76,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
   // A flow the board no longer has — a link from when it did, or a flow removed in another tab —
   // is not a reading: the screen shows every flow and the URL is normalised on the next write.
   const selectedFlow = boardFlows.find((f) => f.id === metricsFlowId) ?? null
+  const typeNameOf = (id: string) => {
+    const item = items.find((candidate) => candidate.id === id)
+    return issueTypes.find((type) => type.id === item?.typeId)?.name ?? 'No type'
+  }
 
   // The cards this board carries in its cards workflow — archived ones included, because filing
   // a delivered card away must not erase it from the board's throughput.
@@ -106,36 +100,11 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const summary = flowSummary(records, now, since)
   const flow = cumulativeFlow(records, buckets)
   const delivered = throughput(records, buckets)
-  const blocked = blockedSummary(records, now, since)
   const cycles = scatterPoints(records, since).map((point) => point.cycle)
   const firstMove = firstRecordedMove(records)
   const coverage = moveCoverage(records)
   const deliveredTotal = delivered.reduce((sum, n) => sum + n, 0)
 
-  // The data-quality check reads the same history the charts do, plus the two things a record
-  // cannot know: the boards a card is placed on, and whether a blockage outlived its dependency.
-  const graph: Graph = { items, edges, links, placements, lanes }
-  const recordIds = new Set(records.map((record) => record.id))
-  const boardsByItem: Record<string, string[]> = {}
-  for (const placement of placements) {
-    if (!recordIds.has(placement.itemId)) continue
-    const name = boards.find((candidate) => candidate.id === placement.boardId)?.name
-    if (!name) continue
-    const names = boardsByItem[placement.itemId] ?? []
-    if (!names.includes(name)) names.push(name)
-    boardsByItem[placement.itemId] = names
-  }
-  const staleBlocks = records
-    .filter((record) => {
-      const item = items.find((candidate) => candidate.id === record.id)
-      if (!item?.blocked) return false
-      return dependenciesOf(item.id, graph).length > 0 && openDependenciesOf(item.id, graph).length === 0
-    })
-    .map((record) => record.id)
-  const quality = dataQuality(records, { boardsByItem, blockedAfterDependencyDone: staleBlocks })
-  const wip = averageWip(records, buckets)
-  const rate = throughputRate(records, since ?? Math.min(...records.map((record) => record.createdAt), now), now)
-  const implied = littleCycle(wip, rate)
   const sle = serviceLevel(records, since, serviceShare)
   const remaining = openScope(records, now, includeBacklog)
   const forecast = forecastWhen(remaining, delivered, now)
@@ -143,47 +112,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const byDateAt = new Date(`${byDate}T12:00:00`).getTime()
   const by = forecastBy(remaining, delivered, now, byDateAt, { atLeast: atLeastCount })
 
-  // The rows behind the charts, for anyone who wants a spreadsheet. The item id is deliberately
-  // absent: identity is the app's own business, and the title is what a person reads and searches.
-  const downloadRows = () => {
-    const rows = scatterPoints(records, since).map((point) => {
-      const record = records.find((candidate) => candidate.id === point.id)
-      const lane = lanes.find((candidate) => candidate.id === laneOf.get(point.id))
-      const flow = boardFlows.find((candidate) => candidate.id === lane?.flowId)?.name ?? ''
-      const type = issueTypes.find((candidate) => candidate.id === items.find((item) => item.id === point.id)?.typeId)?.name ?? ''
-      const blockedDays = record
-        ? blockedRuns(record, now).reduce((sum, run) => sum + (run.to - run.from) / DAY_MS, 0)
-        : 0
-      return {
-        title: point.title,
-        type,
-        flow,
-        createdAt: point.createdAt,
-        committedAt: point.committedAt,
-        resolvedAt: point.resolvedAt,
-        lead: point.lead,
-        cycle: point.cycle,
-        blockedDays,
-      }
-    })
-    const rangeLabel = flowWindow === 'all' ? 'all' : `${flowWindow}w`
-    const slug = `${board?.name ?? 'board'} flow ${selectedFlow?.name ?? 'all'} ${rangeLabel}`
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-    // The file is made here, without the board's download helper: one button is not a reason to
-    // pull another module's graph into the Flow chunk.
-    const url = URL.createObjectURL(new Blob([metricsCsv(rows)], { type: 'text/csv;charset=utf-8' }))
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `${slug || 'board'}-delivered.csv`
-    anchor.rel = 'noopener'
-    anchor.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // Each diagram has its own scale: a flow column is as tall as the most work the board carried
-  // at a week's end, a throughput bar as tall as the busiest week in the window.
+  // Each diagram has its own scale: a flow column is as tall as the most work the board carried at
+  // a week's end, a throughput bar as tall as the busiest week in the window.
   const tallest = Math.max(1, ...flow.map((counts) => STAGES.reduce((sum, s) => sum + counts[s], 0)))
   const busiest = Math.max(1, ...delivered)
   const slowest = deliveredSince(records, since).sort((a, b) => lead(b) - lead(a)).slice(0, 8)
@@ -273,15 +203,6 @@ export function MetricsView({ boardId }: { boardId: string }) {
               Lead is created → done; cycle is committed (leaving Backlog) → done. In flight and
               delivered are now; the delivery samples are the window.
             </span>
-            <button
-              type="button"
-              data-flow-download
-              onClick={downloadRows}
-              className="ml-auto rounded border border-slate-300 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-              title="Download the delivered cards in this window as a CSV"
-            >
-              Download these rows
-            </button>
           </div>
         </div>
 
@@ -292,27 +213,26 @@ export function MetricsView({ boardId }: { boardId: string }) {
           </div>
         ) : (
           <>
-            <DataQuality findings={quality} titles={new Map(records.map((record) => [record.id, record.title]))} openItem={openItem} />
-
-            <CycleScatter records={records} since={since} openItem={openItem} selectedItemId={selectedItemId} />
+            <CycleScatter
+              records={records}
+              since={since}
+              openItem={openItem}
+              selectedItemId={selectedItemId}
+              typeNameOf={typeNameOf}
+            />
 
             <CycleHistogram cycles={cycles} p50={summary.cycle.p50} p85={summary.cycle.p85} />
 
             <AgingWork
               records={records}
               now={now}
-              laneOf={laneOf}
-              lanes={lanes}
               placements={placements}
               boardId={boardId}
               items={items}
               issueTypes={issueTypes}
-              users={users}
               p85={summary.cycle.p85}
               openItem={openItem}
             />
-
-            <BlockedWork summary={blocked} openItem={openItem} />
 
             <Panel
               title="Cumulative flow"
@@ -384,159 +304,151 @@ export function MetricsView({ boardId }: { boardId: string }) {
               )}
             </Panel>
 
+            {/* One planning row, not three stacked sections: the past reading (service level) sits
+                beside the two questions about the future, and they share a window and a model. */}
             <Panel
-              title="Little's Law"
-              note="Average committed WIP ÷ throughput = the cycle time the system implies. It is a check on the two readings above, and it assumes a stable system."
+              title="Planning"
+              note="A reading of the past beside two questions about the future, from the same window and the same throughput."
             >
-              <div data-littles-law className="flex flex-wrap gap-x-8 gap-y-2">
-                <Measure label="Average committed WIP" value={wip.toFixed(1)} />
-                <Measure label="Throughput" value={rate === undefined ? '—' : `${(rate * 7).toFixed(1)} cards/week`} />
-                <Measure label="Implied cycle" value={days(implied)} name="implied" />
-                <Measure label="Measured cycle p50" value={days(summary.cycle.p50)} />
-              </div>
-              {implied === undefined && (
-                <p className="mt-1 text-micro text-slate-600">
-                  {rate === undefined
-                    ? 'No throughput in this window, so there is no implied cycle time.'
-                    : 'No committed work in this window, so there is no WIP to divide.'}
-                </p>
-              )}
-            </Panel>
-
-            <Panel
-              title="Service level expectation"
-              note="A reading of the past, not a promise: the cycle time within which that share of the delivered cards finished."
-            >
-              <div data-sle className="flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-slate-700">
-                <label className="flex items-center gap-1.5 text-slate-600">
-                  Share
-                  <select
-                    aria-label="Service level share"
-                    value={serviceShare}
-                    onChange={(event) => setServiceShare(Number(event.target.value))}
-                    className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-                  >
-                    {[50, 85, 95].map((share) => (
-                      <option key={share} value={share}>
-                        {share}%
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <span data-sle-line>
-                  {sle.days === undefined
-                    ? 'No delivered cards in this window.'
-                    : `${sle.share}% of delivered cards finished within ${days(sle.days)} (${sle.n} card${sle.n === 1 ? '' : 's'}).`}
-                </span>
-                {sle.n > 0 && sle.n < MIN_SAMPLE && (
-                  <span className="text-micro text-slate-500">Only {sle.n} cards — a hint, not a baseline.</span>
-                )}
-              </div>
-            </Panel>
-
-            <Panel
-              title="When will this be done?"
-              note="A Monte Carlo over the weekly throughput in this window: 5,000 trials, each drawing weeks at random. A range, not a promised date."
-            >
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-slate-700">
-                <label className="flex items-center gap-1.5 text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={includeBacklog}
-                    onChange={(event) => setIncludeBacklog(event.target.checked)}
-                    className="accent-indigo-600"
-                  />
-                  Include Backlog
-                </label>
-                <span>
-                  Scope: <span className="font-semibold tabular-nums">{remaining}</span> open card
-                  {remaining === 1 ? '' : 's'}
-                </span>
-              </div>
-              {forecast.ok ? (
-                <>
-                  <div data-forecast className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
-                    {(['p50', 'p85', 'p95'] as const).map((key) => (
-                      <div key={key}>
-                        <div className="text-micro uppercase tracking-wide text-slate-600">
-                          {key === 'p50' ? '50%' : key === 'p85' ? '85%' : '95%'} by
-                        </div>
-                        <div data-forecast-date={key} className="text-title font-semibold text-slate-800">
-                          {forecast.dates[key] === undefined
-                            ? '—'
-                            : new Date(forecast.dates[key]!).toLocaleDateString(undefined, {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                        </div>
-                        <div className="text-micro text-slate-600">{days(forecast.weeks[key])}</div>
-                      </div>
-                    ))}
+              <div className="grid gap-5 lg:grid-cols-3 lg:gap-6">
+                <section data-sle className="min-w-0">
+                  <div className="text-micro font-semibold uppercase tracking-wide text-slate-700">
+                    Service level expectation
                   </div>
-                  <p className="mt-1 text-micro text-slate-600">
-                    {forecast.trials.toLocaleString()} trials over {forecast.sampledWeeks} sampled weeks.
-                    Assumes the {forecast.remaining} open cards stay the scope, the future resembles
-                    those weeks, and throughput arrives weekly. Dependencies and batch size are not
-                    modelled.
+                  <p className="mt-1 text-micro text-slate-500">
+                    The cycle time within which that share of delivered cards finished. It describes
+                    the past, not a promise.
                   </p>
-                </>
-              ) : (
-                <p data-forecast-refusal className="mt-2 text-meta text-slate-600">
-                  {forecastRefusal(forecast.reason, forecast.weeks, forecast.delivered)}
-                </p>
-              )}
-            </Panel>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-slate-700">
+                    <label className="flex items-center gap-1.5 text-slate-600">
+                      Share
+                      <select
+                        aria-label="Service level share"
+                        value={serviceShare}
+                        onChange={(event) => setServiceShare(Number(event.target.value))}
+                        className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                      >
+                        {[50, 85, 95].map((share) => (
+                          <option key={share} value={share}>
+                            {share}%
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <span data-sle-line>
+                      {sle.days === undefined
+                        ? 'No delivered cards in this window.'
+                        : `${sle.share}% finished within ${days(sle.days)} (${sle.n} card${sle.n === 1 ? '' : 's'}).`}
+                    </span>
+                  </div>
+                  {sle.n > 0 && sle.n < MIN_SAMPLE && (
+                    <p className="mt-1 text-micro text-slate-500">Only {sle.n} cards — a hint, not a baseline.</p>
+                  )}
+                </section>
 
-            <Panel
-              title="How many by a date?"
-              note="The same 5,000 trials, read the other way: how much of the scope is likely to be finished by a chosen date."
-            >
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-slate-700">
-                <label className="flex items-center gap-1.5 text-slate-600">
-                  By
-                  <input
-                    type="date"
-                    aria-label="Forecast date"
-                    value={byDate}
-                    onChange={(event) => setByDate(event.target.value)}
-                    className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-                  />
-                </label>
-                <label className="flex items-center gap-1.5 text-slate-600">
-                  At least
-                  <input
-                    type="number"
-                    aria-label="At least cards"
-                    min={0}
-                    max={remaining}
-                    value={atLeast}
-                    placeholder={String(remaining)}
-                    onChange={(event) => setAtLeast(event.target.value)}
-                    className="w-16 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-                  />
-                  card{atLeastCount === 1 ? '' : 's'}
-                </label>
+                <section data-forecast className="min-w-0">
+                  <div className="text-micro font-semibold uppercase tracking-wide text-slate-700">
+                    When will this be done?
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-slate-700">
+                    <label className="flex items-center gap-1.5 text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={includeBacklog}
+                        onChange={(event) => setIncludeBacklog(event.target.checked)}
+                        className="accent-indigo-600"
+                      />
+                      Include Backlog
+                    </label>
+                    <span>
+                      Scope: <span className="font-semibold tabular-nums">{remaining}</span> open card
+                      {remaining === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {forecast.ok ? (
+                    <>
+                      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+                        {(['p50', 'p85', 'p95'] as const).map((key) => (
+                          <div key={key}>
+                            <div className="text-micro uppercase tracking-wide text-slate-500">
+                              {key === 'p50' ? '50%' : key === 'p85' ? '85%' : '95%'} by
+                            </div>
+                            <div data-forecast-date={key} className="text-meta font-semibold text-slate-800">
+                              {forecast.dates[key] === undefined
+                                ? '—'
+                                : new Date(forecast.dates[key]!).toLocaleDateString(undefined, {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                            </div>
+                            <div className="text-micro text-slate-500">{days(forecast.weeks[key])}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-1 text-micro text-slate-500">
+                        {forecast.trials.toLocaleString()} trials over {forecast.sampledWeeks} weeks.
+                        Assumes the scope stays as it is, the future resembles those weeks, and
+                        throughput arrives weekly. Dependencies and batch size are not modelled.
+                      </p>
+                    </>
+                  ) : (
+                    <p data-forecast-refusal className="mt-2 text-meta text-slate-600">
+                      {forecastRefusal(forecast.reason, forecast.weeks, forecast.delivered)}
+                    </p>
+                  )}
+                </section>
+
+                <section data-forecast-by className="min-w-0">
+                  <div className="text-micro font-semibold uppercase tracking-wide text-slate-700">
+                    How many by a date?
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-slate-700">
+                    <label className="flex items-center gap-1.5 text-slate-600">
+                      By
+                      <input
+                        type="date"
+                        aria-label="Forecast date"
+                        value={byDate}
+                        onChange={(event) => setByDate(event.target.value)}
+                        className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1.5 text-slate-600">
+                      At least
+                      <input
+                        type="number"
+                        aria-label="At least cards"
+                        min={0}
+                        max={remaining}
+                        value={atLeast}
+                        placeholder={String(remaining)}
+                        onChange={(event) => setAtLeast(event.target.value)}
+                        className="w-14 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                      card{atLeastCount === 1 ? '' : 's'}
+                    </label>
+                  </div>
+                  {by.ok ? (
+                    <div className="mt-2 text-meta text-slate-700">
+                      <p>
+                        <span className="text-title font-semibold tabular-nums">{Math.round(by.share * 100)}%</span>{' '}
+                        chance of at least {by.atLeast} card{by.atLeast === 1 ? '' : 's'} by then.
+                      </p>
+                      <p className="mt-0.5 text-micro text-slate-500">
+                        50% chance of {countAtMost(by.counts.p50)} or more · 85%{' '}
+                        {countAtMost(by.counts.p85)} · 95% {countAtMost(by.counts.p95)}.
+                      </p>
+                    </div>
+                  ) : (
+                    <p data-forecast-by-refusal className="mt-2 text-meta text-slate-600">
+                      {by.reason === 'past-date'
+                        ? 'Choose a date after today.'
+                        : forecastRefusal(by.reason, by.weeks, by.delivered)}
+                    </p>
+                  )}
+                </section>
               </div>
-              {by.ok ? (
-                <div data-forecast-by className="mt-2 text-meta text-slate-700">
-                  <p>
-                    <span className="text-title font-semibold tabular-nums">{Math.round(by.share * 100)}%</span>{' '}
-                    chance of at least {by.atLeast} card{by.atLeast === 1 ? '' : 's'} by then.
-                  </p>
-                  <p className="mt-0.5 text-micro text-slate-600">
-                    50% chance of {countAtMost(by.counts.p50)} or more · 85%{' '}
-                    {countAtMost(by.counts.p85)} · 95% {countAtMost(by.counts.p95)}. The same scope
-                    and the same assumptions as the forecast above.
-                  </p>
-                </div>
-              ) : (
-                <p data-forecast-by-refusal className="mt-2 text-meta text-slate-600">
-                  {by.reason === 'past-date'
-                    ? 'Choose a date after today.'
-                    : forecastRefusal(by.reason, by.weeks, by.delivered)}
-                </p>
-              )}
             </Panel>
 
             {slowest.length > 0 && (
@@ -588,103 +500,6 @@ export function MetricsView({ boardId }: { boardId: string }) {
 }
 
 /**
- * Blocked work, now and in the window.
- *
- * The app keeps "blocked" (a person's explicit flag with a reason) apart from "waiting" (a dependency
- * that is not done). This panel is the first: blocked time is the sum of the runs in the card's own
- * log, and waiting is a different signal on the board and in the health badges.
- */
-function BlockedWork({
-  summary,
-  openItem,
-}: {
-  summary: ReturnType<typeof blockedSummary>
-  openItem: (id: string | null) => void
-}) {
-  return (
-    <Panel
-      title="Blocked work"
-      note="Blocked time comes from a card's own blocked and unblocked entries. Waiting on another card is a dependency, and is not counted here."
-    >
-      <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
-        <div>
-          <div className="mb-1 text-micro font-semibold uppercase tracking-wide text-slate-600">
-            Blocked now{summary.now.length > 0 ? ` · ${summary.now.length}` : ''}
-          </div>
-          {summary.now.length === 0 ? (
-            <div className="text-meta text-slate-600">Nothing is blocked right now.</div>
-          ) : (
-            <ul className="space-y-0.5">
-              {summary.now.map((row) => (
-                <li key={row.id}>
-                  <button
-                    type="button"
-                    data-blocked-now
-                    data-card-id={row.id}
-                    onClick={() => openItem(row.id)}
-                    className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
-                    title={row.reason}
-                  >
-                    <span data-blocked-title className="min-w-0 flex-1 truncate text-meta font-medium text-slate-800">
-                      {row.title}
-                    </span>
-                    <span className="shrink-0 text-micro tabular-nums text-slate-600">
-                      {row.days === undefined ? 'duration unknown' : `${days(row.days)} blocked`}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div>
-          <div className="mb-1 text-micro font-semibold uppercase tracking-wide text-slate-600">
-            In this window
-          </div>
-          {summary.runs === 0 ? (
-            <div className="text-meta text-slate-600">Nothing was blocked in this window.</div>
-          ) : (
-            <>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-meta text-slate-700">
-                <span>
-                  <span className="font-semibold tabular-nums" data-blocked-total>
-                    {days(summary.totalDays)}
-                  </span>{' '}
-                  blocked in total
-                </span>
-                <span>
-                  median <span className="font-semibold tabular-nums">{days(summary.median)}</span>
-                </span>
-                <span>
-                  p85 <span className="font-semibold tabular-nums">{days(summary.p85)}</span>
-                </span>
-                <span className="text-slate-500">
-                  {summary.runs} run{summary.runs === 1 ? '' : 's'}
-                </span>
-              </div>
-              {summary.reasons.length > 0 && (
-                <div className="mt-1.5">
-                  <div className="text-micro uppercase tracking-wide text-slate-600">Most common reasons</div>
-                  <ul className="mt-0.5 space-y-0.5">
-                    {summary.reasons.map((row) => (
-                      <li key={row.reason} data-blocked-reason className="flex items-baseline gap-2 text-meta text-slate-700">
-                        <span className="min-w-0 flex-1 truncate">{row.reason}</span>
-                        <span className="shrink-0 tabular-nums text-slate-600">{row.count}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </Panel>
-  )
-}
-
-/**
  * The shape of the cycle times, in whole days.
  *
  * A median and a p85 are two points; this is the distribution they came from. Empty days are drawn
@@ -704,7 +519,11 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
   const tallest = Math.max(1, ...buckets.map((bucket) => bucket.count))
   const peak = buckets.reduce((best, bucket) => (bucket.count > best.count ? bucket : best), buckets[0])
   const longest = Math.max(...cycles)
-  const peakLabel = peak.tail ? `${peak.from}+ days` : `${peak.from}–${peak.to - 1} day${peak.to - 1 === peak.from ? '' : 's'}`
+  const peakLabel = peak.tail
+    ? `${peak.from}+ days`
+    : peak.from === peak.to - 1
+      ? `${peak.from} day${peak.from === 1 ? '' : 's'}`
+      : `${peak.from}–${peak.to - 1} days`
   const marker = (value: number | undefined) =>
     value === undefined ? undefined : Math.min(buckets.length - 1, Math.max(0, Math.floor(value)))
   const p50Index = marker(p50)
@@ -723,7 +542,7 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
             <div
               key={bucket.from}
               data-cycle-histogram-bar
-              className="flex min-w-0 flex-1 flex-col justify-end"
+              className="flex h-full min-w-0 flex-1 flex-col justify-end"
               title={`${bucket.tail ? `${bucket.from}+` : `${bucket.from}–${bucket.to - 1}`} days: ${bucket.count} card${bucket.count === 1 ? '' : 's'}`}
             >
               <div
@@ -761,9 +580,9 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
         </div>
       </div>
 
-      <details className="mt-2 text-micro text-slate-600">
-        <summary className="cursor-pointer">The numbers</summary>
-        <table className="mt-1 w-full border-collapse text-left">
+      <div className="mt-2 border-t border-slate-100 pt-2 text-micro text-slate-600">
+        <div className="mb-1 font-semibold uppercase tracking-wide text-slate-700">The numbers</div>
+        <table data-cycle-histogram-table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-slate-200 uppercase tracking-wide text-slate-600">
               <th className="py-1 pr-2 font-semibold">Days</th>
@@ -779,7 +598,7 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
             ))}
           </tbody>
         </table>
-      </details>
+      </div>
     </Panel>
   )
 }
@@ -797,25 +616,19 @@ const MAX_AGING_ROWS = 100
 function AgingWork({
   records,
   now,
-  laneOf,
-  lanes,
   placements,
   boardId,
   items,
   issueTypes,
-  users,
   p85,
   openItem,
 }: {
   records: FlowRecord[]
   now: number
-  laneOf: Map<string, string>
-  lanes: ReturnType<typeof useStore.getState>['lanes']
   placements: ReturnType<typeof useStore.getState>['placements']
   boardId: string
   items: ReturnType<typeof useStore.getState>['items']
   issueTypes: ReturnType<typeof useStore.getState>['issueTypes']
-  users: ReturnType<typeof useStore.getState>['users']
   p85: number | undefined
   openItem: (id: string | null) => void
 }) {
@@ -826,13 +639,8 @@ function AgingWork({
   )
   const aged = aging(records, now, (record) => entered.get(record.id))
   const shown = aged.slice(0, MAX_AGING_ROWS)
-  const laneById = new Map(lanes.map((lane) => [lane.id, lane]))
   const itemById = new Map(items.map((item) => [item.id, item]))
   const typeById = new Map(issueTypes.map((type) => [type.id, type]))
-  const userById = new Map(users.map((user) => [user.id, user]))
-  const counts = STAGES.map((stage) => ({ stage, count: aged.filter((entry) => entry.stage === stage).length })).filter(
-    (row) => row.count > 0,
-  )
   const tallest = Math.max(1, p85 ?? 1, ...aged.map((entry) => entry.daysSinceCommit ?? entry.daysInColumn))
 
   return (
@@ -844,25 +652,10 @@ function AgingWork({
         <div className="text-meta text-slate-600">No work in flight.</div>
       ) : (
         <>
-          <div data-flow-aging className="mb-2 flex flex-wrap gap-1.5">
-            {counts.map(({ stage, count }) => (
-              <span
-                key={stage}
-                className="rounded bg-slate-100 px-1.5 py-0.5 text-micro font-semibold text-slate-600"
-              >
-                {STAGE_LABELS[stage]} {count}
-              </span>
-            ))}
-          </div>
-          <div className="space-y-0.5">
+          <div data-flow-aging className="space-y-0.5">
             {shown.map((entry) => {
               const item = itemById.get(entry.id)
-              const lane = laneById.get(laneOf.get(entry.id) ?? '')
-              const column = lane?.name?.trim() || STAGE_LABELS[entry.stage]
-              const type = item ? typeById.get(item.typeId)?.name : undefined
-              const people = (item?.assignees ?? [])
-                .map((id) => userById.get(id)?.name)
-                .filter((name): name is string => Boolean(name))
+              const type = item ? typeById.get(item.typeId) : undefined
               const age = entry.daysSinceCommit ?? entry.daysInColumn
               return (
                 <button
@@ -871,18 +664,30 @@ function AgingWork({
                   data-flow-aging-row
                   data-card-id={entry.id}
                   onClick={() => openItem(entry.id)}
-                  className="flex w-full items-center gap-2 rounded px-1 py-1 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
-                  title={`${entry.title}${type ? ` · ${type}` : ''}${people.length > 0 ? ` · ${people.join(', ')}` : ' · Unassigned'}`}
+                  className="flex w-full items-center gap-3 rounded px-1 py-1 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+                  title={`${entry.title}${type ? ` · ${type.name}` : ''}`}
                 >
                   <span className="min-w-0 flex-1">
                     <span data-flow-aging-title className="block truncate text-meta font-medium text-slate-800">
                       {entry.title}
                     </span>
-                    <span className="block truncate text-micro text-slate-500">
-                      {type ?? 'No type'} · {people.length > 0 ? people.join(', ') : 'Unassigned'}
+                    <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-micro font-semibold"
+                        style={chipColors(type?.color ?? '#64748b')}
+                      >
+                        {type?.name ?? 'No type'}
+                      </span>
+                      <span
+                        className={cn(
+                          'rounded-full px-1.5 py-0.5 text-micro font-semibold',
+                          STAGE_PILL[entry.stage],
+                        )}
+                      >
+                        {STAGE_LABELS[entry.stage]}
+                      </span>
                     </span>
                   </span>
-                  <span className="w-24 shrink-0 truncate text-micro text-slate-600">{column}</span>
                   <span className="relative h-2 w-32 shrink-0 rounded bg-slate-100">
                     <span
                       className="absolute inset-y-0 left-0 rounded bg-indigo-400"
@@ -897,17 +702,6 @@ function AgingWork({
                     )}
                   </span>
                   <span className="w-12 shrink-0 text-right text-micro tabular-nums text-slate-700">{days(age)}</span>
-                  <span className="w-16 shrink-0 text-right text-micro text-slate-500">
-                    {entry.daysSinceCommit === undefined ? 'in Backlog' : 'in flight'}
-                  </span>
-                  {entry.stalled && (
-                    <span
-                      className="shrink-0 rounded bg-amber-100 px-1 py-px text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
-                      title="Nothing has moved on this card for seven days"
-                    >
-                      stalled
-                    </span>
-                  )}
                 </button>
               )
             })}
@@ -919,69 +713,6 @@ function AgingWork({
           )}
         </>
       )}
-    </Panel>
-  )
-}
-
-/**
- * The reader's warning label, not a gate.
- *
- * JiraMetrics opens every report with this, and the reason is simple: the charts are only as good
- * as the data, and a reader who knows where the process bends the model reads the rest differently.
- * A finding lists the cards and takes you to them; it never hides one or says the team did something
- * wrong.
- */
-function DataQuality({
-  findings,
-  titles,
-  openItem,
-}: {
-  findings: ReturnType<typeof dataQuality>
-  titles: Map<string, string>
-  openItem: (id: string | null) => void
-}) {
-  if (findings.length === 0) {
-    return (
-      <div data-quality-clean className="mb-3 rounded-lg border border-slate-300 bg-white px-4 py-2 text-meta text-slate-600 shadow-sm">
-        <span className="font-semibold text-slate-700">Data quality:</span> nothing to flag in this
-        flow. The history matches a clean start-to-finish reading.
-      </div>
-    )
-  }
-
-  return (
-    <Panel
-      title="Data quality"
-      note="Places where the history bends the start-to-finish model. They do not hide anything; they say how to read the rest."
-    >
-      <ul data-quality className="grid gap-x-6 gap-y-2 md:grid-cols-2">
-        {findings.map((finding) => (
-          <li key={finding.flag} data-quality-finding={finding.flag}>
-            <div className="flex items-baseline gap-2">
-              <span className="text-meta font-semibold text-slate-800">{finding.label}</span>
-              <span className="text-micro tabular-nums text-slate-600">{finding.items.length}</span>
-            </div>
-            <div className="text-micro text-slate-600">{finding.why}</div>
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {finding.items.slice(0, 4).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  data-quality-item
-                  onClick={() => openItem(id)}
-                  className="max-w-[220px] truncate rounded bg-slate-100 px-1.5 py-0.5 text-left text-micro text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
-                  title={titles.get(id) ?? 'Open the card'}
-                >
-                  {titles.get(id) ?? 'Open the card'}
-                </button>
-              ))}
-              {finding.items.length > 4 && (
-                <span className="self-center text-micro text-slate-500">+{finding.items.length - 4} more</span>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
     </Panel>
   )
 }
@@ -1002,12 +733,16 @@ function CycleScatter({
   since,
   openItem,
   selectedItemId,
+  typeNameOf,
 }: {
   records: FlowRecord[]
   since: number | undefined
   openItem: (id: string | null) => void
   selectedItemId: string | null
+  typeNameOf: (id: string) => string
 }) {
+  const wrap = useRef<HTMLDivElement>(null)
+  const [hover, setHover] = useState<{ point: ScatterPoint; left: number; top: number; below: boolean } | null>(null)
   const points = scatterPoints(records, since)
   if (points.length === 0) {
     return (
@@ -1037,6 +772,23 @@ function CycleScatter({
     { label: 'p95', value: stats.p95 },
   ].filter((line): line is { label: string; value: number } => line.value !== undefined)
 
+  const show = (point: ScatterPoint, element: SVGCircleElement) => {
+    const box = element.getBoundingClientRect()
+    const parent = wrap.current?.getBoundingClientRect()
+    if (!parent) return
+    const centre = box.left - parent.left + box.width / 2
+    const dotY = box.top - parent.top
+    // Above the dot when there is room; below it near the top of the chart, so the card details
+    // never cover the panel's own heading.
+    const below = dotY < 150
+    setHover({
+      point,
+      left: Math.min(Math.max(centre, 120), Math.max(120, parent.width - 120)),
+      top: below ? dotY + 14 : dotY - 8,
+      below,
+    })
+  }
+
   return (
     <Panel
       title="Cycle time by delivery"
@@ -1051,6 +803,7 @@ function CycleScatter({
           Showing the most recent {shown.length} of {points.length} delivered cards.
         </div>
       )}
+      <div ref={wrap} className="relative">
       <svg
         data-flow-scatter
         viewBox={`0 0 ${width} ${height}`}
@@ -1101,16 +854,16 @@ function CycleScatter({
               selectedItemId === point.id && 'stroke-2 stroke-slate-900',
             )}
             onClick={() => openItem(point.id)}
+            onMouseEnter={(event) => show(point, event.currentTarget)}
+            onMouseLeave={() => setHover(null)}
+            onFocus={(event) => show(point, event.currentTarget)}
+            onBlur={() => setHover(null)}
             onKeyDown={(event) => {
               if (event.key !== 'Enter' && event.key !== ' ') return
               event.preventDefault()
               openItem(point.id)
             }}
-          >
-            <title>
-              {`${point.title} — cycle ${days(point.cycle)}, lead ${days(point.lead)}, delivered ${shortDate(point.resolvedAt)}`}
-            </title>
-          </circle>
+          />
         ))}
 
         <text x={plot.left} y={height - 4} fontSize={9} fill="#64748b">
@@ -1120,6 +873,37 @@ function CycleScatter({
           {shortDate(to)}
         </text>
       </svg>
+
+      {hover && (
+        <div
+          role="tooltip"
+          data-flow-scatter-tip
+          className={cn(
+            'pointer-events-none absolute z-20 w-60 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-lg',
+            hover.below ? 'translate-y-0' : '-translate-y-full',
+          )}
+          style={{ left: hover.left, top: hover.top }}
+        >
+          <div className="truncate text-meta font-semibold text-slate-900">{hover.point.title}</div>
+          <div className="mt-0.5 truncate text-micro text-slate-500">
+            {typeNameOf(hover.point.id)} · delivered {shortDate(hover.point.resolvedAt)}
+          </div>
+          <div className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-micro text-slate-600">
+            <span>Cycle</span>
+            <span className="text-right font-semibold tabular-nums text-slate-800">{days(hover.point.cycle)}</span>
+            <span>Lead</span>
+            <span className="text-right tabular-nums text-slate-700">{days(hover.point.lead)}</span>
+            <span>Created</span>
+            <span className="text-right text-slate-700">{shortDate(hover.point.createdAt)}</span>
+            <span>Committed</span>
+            <span className="text-right text-slate-700">{shortDate(hover.point.committedAt)}</span>
+          </div>
+          <div className="mt-1.5 border-t border-slate-100 pt-1 text-micro text-slate-400">
+            Click to open the card
+          </div>
+        </div>
+      )}
+      </div>
 
       <details className="mt-2 text-micro text-slate-600">
         <summary className="cursor-pointer">The numbers</summary>
@@ -1168,17 +952,6 @@ function forecastRefusal(
   return `Not enough history yet: ${weeks} week${weeks === 1 ? '' : 's'} and ${delivered} delivered card${
     delivered === 1 ? '' : 's'
   }. A forecast needs ${MIN_FORECAST_WEEKS} weeks and ${MIN_FORECAST_DELIVERED} cards.`
-}
-
-function Measure({ label, value, name }: { label: string; value: string; name?: string }) {
-  return (
-    <div>
-      <div className="text-micro uppercase tracking-wide text-slate-600">{label}</div>
-      <div data-littles-value={name} className="text-title font-semibold tabular-nums text-slate-800">
-        {value}
-      </div>
-    </div>
-  )
 }
 
 function Stat({

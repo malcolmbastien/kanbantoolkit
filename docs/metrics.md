@@ -4,55 +4,19 @@ The plan for the **Flow** view: what it measures now, what to add, and what it d
 out of. It is a strengthening of one screen, not a reporting product.
 
 The references are at the bottom. The short version of all four: show distributions rather than
-averages, make waiting and blocked time visible, check the data before reading it, and forecast with
-a range instead of a date.
+averages, make old work visible, and forecast with a range instead of a date.
 
-## What was built
+## What the Flow view is now
 
-Phases 1 and 2 are implemented as task 179 (subtasks 179.1–179.13 and 179.15): the window and flow
-controls, p50/p85/p95 with counts, the scatter, aging, blocked work, the histograms, Little's Law,
-thin-data states, the service level expectation, the Monte Carlo forecast read both ways, its
-assumptions, the CSV, and the JiraMetrics data-quality section.
+The screen is the header reading, the cycle-time scatter, the cycle-time distribution, aging work,
+the cumulative flow diagram, throughput, and one **Planning** panel with three readings: the service
+level expectation, when the open work will be done, and how many by a date.
 
-Three things differed in the making, and are worth keeping:
-
-- **Data quality became a Phase 1 item** (1.9) after the JiraMetrics review, because the checks are
-  cheap and they change how every other panel is read.
-- **The demo's own board has three deliveries**, so it shows the forecast's refusal rather than a
-  number. The load-test board (`?stress=…`) is the in-browser demonstration of the answer. A team
-  with real history sees the range from the first quarter it records.
-- **The CSV has no id column.** The house rule is that an item's identity is the app's own and no
-  surface prints it; the title is what a person reads and searches by.
-
-Still not built, deliberately: flow efficiency (needs the lane setting), WIP by column, the per-card
-forecast, blocker categories, breakdowns and portfolio rollups. They are in Phase 3 below, and none
-of them is required for the screen to be useful.
-
-## What the Flow view does today
-
-One screen per **team** board, computed from the cards' own histories (`src/domain/metrics.ts`). A
-programme or portfolio board aggregates other boards and has no cards flow of its own, so the Flow
-view is not offered there — its progress is read through the dashboard, the timeline and the
-strategy map instead.
-
-- In flight, delivered, lead time and cycle time — median and p85, with the number of cards behind
-  each.
-- A cumulative flow diagram over the last 8 weeks, by stage.
-- Throughput per week for the same 8 weeks.
-- The eight slowest delivered cards, each opening the card panel.
-
-It is derived, read-only, and stored nowhere. It already has the honesty the references ask for:
-stage-based history survives a board redesign, and the screen says that history starts the day the
-app began recording moves.
-
-What it does not have:
-
-- no date range, and no way to see one cards flow rather than all of them;
-- no distribution — a median and a p85 hide the shape and the outliers;
-- no aging work, so the cards that are stuck right now are invisible;
-- no blocked time, although the model records blocked and unblocked events;
-- no forecast, and no service level expectation;
-- no way to see how much of the waiting is queueing rather than work.
+Four things were built and then removed when the screen was narrowed: **blocked work**, **Little's
+Law**, the **CSV export**, and the **data-quality section**. None was wrong; together they made the
+screen longer than the reading it is for. The phase tables below are the record of how it got here —
+a row marked *removed* is history, not scope. WIP by column, the per-card forecast and flow
+efficiency remain unbuilt and are in Phase 3.
 
 ## What the references agree on
 
@@ -71,20 +35,16 @@ cycle time histogram, throughput histogram, aging WIP, flow efficiency, blocker 
 Monte Carlo for "when will it be done" and "how many by then". Service level expectations are read
 from the cycle-time distribution at 85% and 95%.
 
-**JiraMetrics — the data-quality first report.** Every report opens with a **Data Quality** section:
-items moved back to the backlog, items finished before they started, status changes after Done,
-backwards moves, items created straight into a working column, done work with open subtasks, and
-items counted on more than one board. Those are not all mistakes; they are places where the team's
-real process does not match the start-to-finish model, and the reader should know before reading the
-charts. It also sets the aging line at the 85th percentile of completed work, caps a scatter's y
-axis at a high percentile so the tail does not squash the bulk, and warns that a trend line on a
+**JiraMetrics — data-quality first, and two chart details.** Its reports open with a Data Quality
+section, which was tried here and later removed (the screen is for flow, not for auditing the board).
+What remained is the aging line at the 85th percentile of completed work and the scatter's y-axis
+cap at a high percentile, so the tail does not squash the bulk; it also warns that a trend line on a
 scatter is descriptive, not predictive.
 
-**What this plan takes from that.** The three additions that pay for themselves first are the
-distribution (scatter and histogram), aging work, and blocked time — with a data-quality check
-above them, because a chart read without its context is worse than no chart. Forecasting comes next,
-because it needs enough history to be honest. Flow efficiency waits, because the model cannot yet
-tell a queue from active work without a new lane setting.
+**What this plan takes from that.** The additions that pay for themselves first are the
+distribution (scatter and histogram) and aging work. Forecasting comes next, because it needs enough
+history to be honest. Flow efficiency waits, because the model cannot yet tell a queue from active
+work without a new lane setting.
 
 ## Rules the work follows
 
@@ -98,18 +58,15 @@ tell a queue from active work without a new lane setting.
    If a metric needs data the board does not already record, it waits for a deliberate model change.
 5. **Read-only.** There are no targets, no red/green scores and no generated narrative. A chart is
    the report.
-6. **One screen.** No report builder, no saved report definitions, no per-person metrics. A range
-   and a flow filter are the only controls.
+6. **One screen.** No report builder, no saved report definitions, no per-person metrics. The
+   controls are the window, the flow filter, and the inputs the planning readings need.
 7. **Accessible and dependency-free.** Inline SVG and the existing bar primitives, no chart library.
    Each chart has a sentence summary and a table of its numbers for a screen reader.
 8. **The first download does not grow.** `metrics.ts` is imported by the lazy Flow screen only, so
    additions belong there and must stay there.
 9. **Balanced, not one number.** Every phase pairs a speed reading with a waiting one — cycle time
-   with aging, throughput with WIP and blocked time — so a team cannot improve one by moving the
-   cost somewhere the screen does not show.
-10. **The data is checked before it is interpreted.** The Flow view opens with a short data-quality
-    line — backwards moves, work finished before it started, changes after Done, cards on more than
-    one board — with links to the cards. It never blocks a chart; it says how to read it.
+   with aging, throughput with WIP — so a team cannot improve one by moving the cost somewhere the
+   screen does not show.
 
 ## Phase 1 — Make the current view honest and useful
 
@@ -120,16 +77,16 @@ No schema change. One pull request per line, or two small ones.
 | 1.1 | **Range and flow controls.** 4, 8, 12, 26 weeks or all history (default 12); all cards flows or one. Kept in the URL (`range`, `flow`) so a link shows the same reading. | The board can carry several flows now, and 8 weeks is a guess. Sharing a reading is how a team discusses it. | S |
 | 1.2 | **Distribution summary.** p50, p85 and p95 for lead and cycle, each with `n`; keep in flight and delivered. A one-line definition behind each label. | Percentiles are the SLE language the references use; the current median + p85 is almost there. | S |
 | 1.3 | **Cycle time scatterplot.** One dot per delivered card, x = completion date, y = cycle days; p50/p85/p95 lines; hover says the card and its dates; click opens the card. The y axis caps at p98, with the rest drawn as a count above an axis break so the long tail cannot squash the bulk. No trend line by default. | Outliers are the story, and a scatter is the cheapest way to see them. A straight trend line over a scattered cloud looks more certain than it is. | M |
-| 1.4 | **Aging work.** Open cards in the selected flow, oldest first: card, column, time in that column, and **time since commitment** — with the cycle-time p85 drawn as the reference line. A card past the line has been in flight longer than 85% of the work the team finished. Rows also mark **stalled** when nothing has moved for the app's staleness threshold, separately from blocked. Click opens the card. Counts per stage above the list. | The most actionable lean metric is "what is old right now", and the data is already there (`laneEnteredAt` and the last move). The line belongs on time since commitment, not time in the column, or it compares two different clocks. | M |
-| 1.5 | **Blocked work.** Cards blocked now, days blocked so far; in the window, total blocked days, median and p85 blocked duration, and the five most common blocker reasons. | Blocked time is invisible in lead time, and the log already has both ends of every interval. | S–M |
+| 1.4 | **Aging work.** Open cards in the selected flow, oldest first: card, its type and status as pills, time in that column, and **time since commitment** — with the cycle-time p85 drawn as the reference line. A card past the line has been in flight longer than 85% of the work the team finished. Click opens the card. | The most actionable lean metric is "what is old right now", and the data is already there (`laneEnteredAt` and the last move). The line belongs on time since commitment, not time in the column, or it compares two different clocks. | M |
+| 1.5 | **Blocked work** *removed*. Cards blocked now, days blocked so far; in the window, total blocked days, median and p85 blocked duration, and the five most common blocker reasons. | Blocked time is invisible in lead time, and the log already has both ends of every interval. | S–M |
 | 1.6 | **The two histograms.** Cycle time in day buckets and weekly throughput counts, with the p50/p85 markers on the cycle one. | The shape a median hides; also shows whether "done" arrives in batches. | S–M |
-| 1.7 | **Little's Law check.** Average WIP ÷ throughput = implied cycle time, shown beside the measured cycle time. | One sentence that teaches the relationship, and a check that the two panels agree. | S |
+| 1.7 | **Little's Law check** *removed*. Average WIP ÷ throughput = implied cycle time, shown beside the measured cycle time. | One sentence that teaches the relationship, and a check that the two panels agree. | S |
 | 1.8 | **Thin data, said plainly.** The first recorded move's date, how many cards have no move history, and "not enough delivered cards" states instead of empty charts. | The screen currently says history is thin once, at the top; the individual panels should say it where it matters. | S |
-| 1.9 | **Data quality.** A short section under the header with counts and links: moved backwards, moved back to Backlog after commitment, changed after Done, finished before it started, created outside Backlog, done with open children or checklist items, and cards placed on more than one board. Each names what it means and never blocks a chart. | JiraMetrics' lesson: the charts are only as good as the data, and the reader should know where the process bends the model. | S–M |
+| 1.9 | **Data quality** *removed*. A short section under the header with counts and links: moved backwards, moved back to Backlog after commitment, changed after Done, finished before it started, created outside Backlog, done with open children or checklist items, and cards placed on more than one board. Each names what it means and never blocks a chart. | JiraMetrics' lesson: the charts are only as good as the data, and the reader should know where the process bends the model. | S–M |
 
 **Ends with:** a team can open Flow for a chosen quarter and flow, see the shape of its cycle time,
-find the cards that are old or blocked today, know where the data bends the model, and click any of
-them. Everything still derives from the board, with no migration and no new field.
+find the cards that are old today, and click any of them. Everything still derives from the board,
+with no migration and no new field.
 
 ## Phase 2 — Forecast from the same history
 
@@ -141,7 +98,7 @@ Still no schema change.
 | 2.2 | **When will this scope be done.** Monte Carlo over weekly throughput: draw weeks with replacement until the remaining cards are consumed, 5,000 trials, answer p50/p85/p95 dates. Scope is the selected flow, or all committed open cards (Backlog optional). | The question people actually ask, answered as a range rather than a date. | M–L |
 | 2.3 | **How many by a date.** The same trials, read the other way: probability that N or more cards finish by a chosen date. | The fixed-date counterpart for a release or a quarter. | S (shares the simulation) |
 | 2.4 | **The assumptions, on screen.** Scope stays fixed; the future resembles the sampled weeks; weekly grain; dependencies and batch size are not modelled. Re-forecast when scope changes. | A range without its assumptions is a promise the data cannot keep. | S |
-| 2.5 | **The rows behind the charts.** A CSV of delivered cards with created, committed, done, lead, cycle and blocked days for the window. | A team that wants a spreadsheet should not have to scrape the screen, and it fits the existing board CSV. | S |
+| 2.5 | **The rows behind the charts** *removed*. A CSV of delivered cards with created, committed, done, lead, cycle and blocked days for the window. | A team that wants a spreadsheet should not have to scrape the screen, and it fits the existing board CSV. | S |
 
 Minimums before forecasting: at least 4 weeks in the window and at least 8 delivered cards.
 Below that the screen says what is missing and shows nothing else. Magennis's range estimates are
@@ -203,14 +160,11 @@ Add, in roughly this order:
 | `windowOf(range, now)` | the start of the window | `range` is weeks or `'all'` |
 | `withinWindow(records, window)` | delivered/created-in-window records | documented inclusive/exclusive boundaries |
 | `stageSpans(record)` | days per stage, in order | from `moves`; last span open until now |
-| `blockedSpans(record, now)` | blocked intervals | pair `blocked`/`unblocked` log entries; an open interval ends at `resolvedAt` or now |
-| `blockedDays(spans, window)` | blocked days in the window | clipped, never double-counted |
-| `aging(records, now)` | open cards with column, days in column, days since commitment, stalled | `laneEnteredAt`, else the last move, else created; stalled reuses `STALE_AFTER_DAYS` |
+| `aging(records, now)` | open cards with column, days in column, days since commitment | `laneEnteredAt`, else the last move, else created |
 | `histogram(values, width)` | buckets with counts | whole days for cycle time, counts for throughput |
 | `sampleStats(values)` | `n`, min, p50, p85, p95, max | one place for percentile rules |
 | `averageWip(records, buckets)` | mean in-flight count | already derivable from `cumulativeFlow` |
 | `forecast(remaining, weeklyThroughput, opts)` | p50/p85/p95 weeks and a by-date probability | seeded PRNG, fixed 5,000 trials, deterministic in tests |
-| `dataQuality(records, context)` | counts and item ids for the checks above | record checks are pure; the view supplies multi-board placements and blocked-with-done-dependency ids |
 
 Rules that need writing down and testing:
 
@@ -219,7 +173,6 @@ Rules that need writing down and testing:
 - Moving a card out of Done clears `resolvedAt`; it is open again and leaves the delivered sample.
 - A card archived mid-flight leaves WIP and the CFD from that point, but stays in the past it was
   part of. A card archived from Done stays delivered.
-- Blocked time stops at resolution: a card cannot keep accruing blocked days after it is done.
 - Days are elapsed milliseconds divided by 86,400,000. No timezone, no calendar days, no DST.
 - A forecast with zero throughput in every sampled week has no answer; say so instead of dividing
   by zero.
@@ -241,10 +194,9 @@ Rules that need writing down and testing:
 ## Tests and the gates
 
 - **Unit (`src/domain/metrics.test.ts`).** Hand-built logs with exact answers: lead and cycle at
-  window edges; a card moved back out of Done; blocked intervals clipped at both ends; a card with
-  no move history and no `laneEnteredAt`; percentiles on 1, 2 and many samples; histograms; average
-  WIP; forecast determinism and its refusal below the minimums; each data-quality check firing once
-  on its own fixture and staying quiet on a clean one.
+  window edges; a card moved back out of Done; a card with no move history and no `laneEnteredAt`;
+  percentiles on 1, 2 and many samples; histograms; forecast determinism and its refusal below the
+  minimums.
 - **E2E.** The range and flow controls change the numbers; a scatter dot and an aging row open the
   card; a thin board says so; the Flow screen passes the existing accessibility sweep.
 - **Gates.** `npm run typecheck`, `npm test`, `npm run lint`, `npm run scan`, `npm run size`,
@@ -259,15 +211,15 @@ Rules that need writing down and testing:
 | 1.2 summary with p50/p85/p95 | 1.1 | 0.5 day |
 | 1.3 scatter | 1.1 | 1 day |
 | 1.4 aging | 1.1 | 1 day |
-| 1.5 blocked | 1.1 | 1 day |
+| 1.5 blocked *removed* | 1.1 | 1 day |
 | 1.6 histograms | 1.2 | 1 day |
-| 1.7 Little's Law | 1.2, 1.6 | 0.5 day |
+| 1.7 Little's Law *removed* | 1.2, 1.6 | 0.5 day |
 | 1.8 thin states | 1.1–1.7 | 0.5 day, spread |
-| 1.9 data quality | 1.1 | 1 day |
+| 1.9 data quality *removed* | 1.1 | 1 day |
 | 2.1 SLE | 1.2 | 0.5 day |
 | 2.2–2.3 Monte Carlo | 2.1, 1.6 | 2 days |
 | 2.4 assumptions | 2.2 | 0.5 day |
-| 2.5 CSV | 1.1 | 0.5 day |
+| 2.5 CSV *removed* | 1.1 | 0.5 day |
 
 Phase 1 is about a week of work; Phase 2 is two to three days. That is the whole proposal.
 
@@ -283,9 +235,6 @@ Taken:
 - **The forecast is weekly and scope-based**, not per-card. Per-card forecasting needs size, and
   this board does not have a size.
 - **The window defaults to 12 weeks**, with all history available for small boards.
-- **Data quality is shown, not enforced.** The checks flag and link; they never hide a card or refuse
-  a move. A process that intentionally moves work backwards is allowed to say so.
-- **Stalled is the app's 7-day threshold**, the same one the health rules use, not a second number.
 - **The aging line compares time since commitment with completed cycle time.** Time in the current
   column is shown too, as a separate fact, because comparing it to cycle time would be wrong.
 

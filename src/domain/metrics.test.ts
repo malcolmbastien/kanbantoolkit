@@ -2,14 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   MAX_ALL_WEEKS,
   aging,
-  averageWip,
-  blockedRuns,
-  blockedSummary,
   bucketsFor,
   committedAt,
   cumulativeFlow,
   cycleTimes,
-  dataQuality,
   deliveredSince,
   flowRecord,
   firstRecordedMove,
@@ -19,9 +15,6 @@ import {
   histogram,
   inFlightAt,
   leadTimes,
-  littleCycle,
-  METRICS_CSV_HEADER,
-  metricsCsv,
   moveCoverage,
   openScope,
   median,
@@ -31,7 +24,6 @@ import {
   serviceLevel,
   stageAt,
   throughput,
-  throughputRate,
   weeklyBuckets,
   windowStart,
   type FlowRecord,
@@ -50,8 +42,6 @@ const rec = (over: Partial<FlowRecord> = {}): FlowRecord => ({
   createdAt: T - 30 * DAY,
   startedIn: 'backlog',
   moves: [],
-  blocks: [],
-  blockedNow: false,
   ...over,
 })
 
@@ -315,13 +305,12 @@ describe('aging work', () => {
     expect(byId.get('fresh')?.daysSinceCommit).toBeUndefined()
   })
 
-  it('leaves out done work and work filed away, and marks what has not moved', () => {
+  it('leaves out done work and work filed away', () => {
     const done = rec({ id: 'done', resolvedAt: T - DAY, moves: [move(T - DAY, 'done', 'inProgress')] })
     const filed = rec({ id: 'filed', archivedAt: T - 2 * DAY, moves: [move(T - 20 * DAY, 'inProgress', 'backlog')] })
     const still = rec({ id: 'still', createdAt: T - 20 * DAY, moves: [move(T - 20 * DAY, 'inProgress', 'backlog')] })
     const entries = aging([done, filed, still], T)
     expect(entries.map((entry) => entry.id)).toEqual(['still'])
-    expect(entries[0].stalled).toBe(true)
   })
 
   it('orders the oldest commitment first', () => {
@@ -329,96 +318,6 @@ describe('aging work', () => {
     const old = rec({ id: 'old', createdAt: T - 40 * DAY, moves: [move(T - 35 * DAY, 'inProgress', 'backlog')] })
     const waiting = rec({ id: 'waiting', createdAt: T - 60 * DAY, moves: [] })
     expect(aging([young, old, waiting], T).map((entry) => entry.id)).toEqual(['old', 'young', 'waiting'])
-  })
-})
-
-describe('blocked work', () => {
-  it('pairs blocked and unblocked entries, and leaves an open run open', () => {
-    const item: Item = {
-      id: 'b1',
-      title: 'Blocked card',
-      typeId: 't-task',
-      createdAt: T - 30 * DAY,
-      blocked: true,
-      blockedReason: 'Waiting on legal',
-      log: [
-        // An unblocked with nothing open, and an unrelated note, are not runs.
-        { id: 'l0', at: T - 12 * DAY, kind: 'unblocked' },
-        { id: 'l1', at: T - 10 * DAY, kind: 'blocked', note: 'Waiting on legal' },
-        { id: 'l2', at: T - 8 * DAY, kind: 'unblocked' },
-        { id: 'l3', at: T - 3 * DAY, kind: 'blocked', note: 'Waiting on legal' },
-        { id: 'l4', at: T - 1 * DAY, kind: 'noted', note: 'ping' },
-      ],
-    }
-    const record = flowRecord(item, 'inProgress')
-    expect(record.blocks).toEqual([
-      { from: T - 10 * DAY, to: T - 8 * DAY, reason: 'Waiting on legal' },
-      { from: T - 3 * DAY, reason: 'Waiting on legal' },
-    ])
-    expect(blockedRuns(record, T)[1]).toMatchObject({ from: T - 3 * DAY, to: T, open: true })
-  })
-
-  it('counts blocked time inside the window, and says what is blocked now', () => {
-    const open = rec({
-      id: 'open',
-      createdAt: T - 20 * DAY,
-      blockedNow: true,
-      blocks: [{ from: T - 4 * DAY, reason: 'Waiting on legal' }],
-      moves: [move(T - 15 * DAY, 'inProgress', 'backlog')],
-    })
-    const closed = rec({
-      id: 'closed',
-      createdAt: T - 30 * DAY,
-      blocks: [{ from: T - 20 * DAY, to: T - 15 * DAY, reason: 'Waiting on legal' }],
-      moves: [move(T - 25 * DAY, 'inProgress', 'backlog')],
-    })
-    const summary = blockedSummary([open, closed], T, T - 7 * DAY)
-    expect(summary.now.map((row) => row.id)).toEqual(['open'])
-    expect(summary.now[0].days).toBe(4)
-    // Only the open run intersects the last seven days.
-    expect(summary.runs).toBe(1)
-    expect(summary.totalDays).toBe(4)
-    expect(summary.reasons).toEqual([{ reason: 'Waiting on legal', count: 1 }])
-  })
-
-  it('stops blocked time when the card is done, and counts a flagged card with no log', () => {
-    const done = rec({
-      id: 'done',
-      resolvedAt: T - 1 * DAY,
-      blockedNow: true,
-      blocks: [{ from: T - 5 * DAY }],
-      moves: [move(T - 1 * DAY, 'done', 'inProgress')],
-    })
-    const legacy = rec({
-      id: 'legacy',
-      createdAt: T - 20 * DAY,
-      blockedNow: true,
-      blockedReason: 'Awaiting capacity review',
-      moves: [move(T - 15 * DAY, 'inProgress', 'backlog')],
-    })
-    const summary = blockedSummary([done, legacy], T)
-    // The done card is not in flight, so it is not blocked now, and its run ended at Done.
-    expect(summary.now.map((row) => row.id)).toEqual(['legacy'])
-    expect(summary.now[0].days).toBeUndefined()
-    expect(summary.now[0].reason).toBe('Awaiting capacity review')
-    expect(summary.totalDays).toBe(4)
-  })
-
-  it('groups reasons ignoring case, and keeps only the top five', () => {
-    const make = (id: string, reason: string, from: number) =>
-      rec({ id, blocks: [{ from, to: from + DAY, reason }], moves: [move(from - DAY, 'inProgress', 'backlog')] })
-    const records = [
-      make('a', 'Waiting on legal', T - 10 * DAY),
-      make('b', 'waiting on LEGAL', T - 9 * DAY),
-      make('c', 'Security review', T - 8 * DAY),
-      make('d', 'Vendor', T - 7 * DAY),
-      make('e', 'Budget', T - 6 * DAY),
-      make('f', 'Design', T - 5 * DAY),
-      make('g', 'Capacity', T - 4 * DAY),
-    ]
-    const summary = blockedSummary(records, T)
-    expect(summary.reasons[0]).toEqual({ reason: 'Waiting on legal', count: 2 })
-    expect(summary.reasons).toHaveLength(5)
   })
 })
 
@@ -440,34 +339,6 @@ describe('the histograms', () => {
       { from: 2, to: 4, count: 2 },
     ])
     expect(histogram([])).toEqual([])
-  })
-})
-
-describe("Little's Law", () => {
-  it('averages committed WIP over the boundaries, leaving Backlog and Done out', () => {
-    const buckets = weeklyBuckets(T, 3)
-    const records = [
-      // Committed throughout: one card in progress.
-      rec({ id: 'in', createdAt: T - 30 * DAY, moves: [move(T - 25 * DAY, 'inProgress', 'backlog')] }),
-      rec({ id: 'waiting', createdAt: T - 30 * DAY, moves: [move(T - 25 * DAY, 'notStarted', 'backlog')] }),
-      rec({ id: 'backlog', createdAt: T - 30 * DAY }),
-      rec({ id: 'done', resolvedAt: T - 20 * DAY, moves: [move(T - 20 * DAY, 'done', 'notStarted')] }),
-    ]
-    // In Progress and Not Started are both committed work; Backlog and Done are not.
-    expect(averageWip(records, buckets)).toBe(2)
-  })
-
-  it('turns deliveries into a rate, and refuses to imply a cycle from no throughput', () => {
-    const records = [
-      rec({ id: 'a', resolvedAt: T - 5 * DAY }),
-      rec({ id: 'b', resolvedAt: T - 3 * DAY }),
-      rec({ id: 'old', resolvedAt: T - 30 * DAY }),
-    ]
-    expect(throughputRate(records, T - 7 * DAY, T)).toBeCloseTo(2 / 7)
-    expect(throughputRate(records, T, T)).toBeUndefined()
-    expect(littleCycle(10, 2)).toBe(5)
-    expect(littleCycle(10, 0)).toBeUndefined()
-    expect(littleCycle(10, undefined)).toBeUndefined()
   })
 })
 
@@ -568,80 +439,5 @@ describe('how many by a date', () => {
     expect(forecastBy(0, [1, 2, 3, 4], T, T + DAY)).toMatchObject({ ok: false, reason: 'no-scope' })
     expect(forecastBy(5, [0, 0, 0, 0], T, T + DAY)).toMatchObject({ ok: false, reason: 'no-throughput' })
     expect(forecastBy(5, [1, 1, 1], T, T + DAY)).toMatchObject({ ok: false, reason: 'thin-history' })
-  })
-})
-
-describe('the Flow export', () => {
-  it('writes the delivered rows, quoting what needs quoting and leaving ids out', () => {
-    const csv = metricsCsv([
-      {
-        title: 'Fix, "urgent" bug',
-        type: 'Bug',
-        flow: 'Cards',
-        createdAt: Date.UTC(2026, 9, 1),
-        committedAt: Date.UTC(2026, 9, 2),
-        resolvedAt: Date.UTC(2026, 9, 5),
-        lead: 4,
-        cycle: 3,
-        blockedDays: 1.25,
-      },
-    ])
-    const [header, row] = csv.trimEnd().split('\r\n')
-    expect(header).toBe('Title,Type,Flow,Created,Committed,Done,Lead days,Cycle days,Blocked days')
-    expect(row).toContain('"Fix, ""urgent"" bug"')
-    expect(row).toContain('2026-10-05T00:00:00.000Z')
-    expect(row).toContain('1.3')
-    expect(header).not.toContain('Id')
-    expect(header).toBe(METRICS_CSV_HEADER.join(','))
-  })
-
-  it('answers the header alone for an empty sample', () => {
-    expect(metricsCsv([]).trimEnd()).toBe(METRICS_CSV_HEADER.join(','))
-  })
-})
-
-describe('the data-quality check', () => {
-  it('finds each bend in the model on its own fixture, and nothing on a clean one', () => {
-    const clean = rec({
-      id: 'clean',
-      createdAt: T - 20 * DAY,
-      resolvedAt: T - 2 * DAY,
-      moves: [move(T - 15 * DAY, 'inProgress', 'backlog'), move(T - 2 * DAY, 'done', 'inProgress')],
-    })
-    expect(dataQuality([clean])).toEqual([])
-
-    const backwards = rec({
-      id: 'back',
-      moves: [move(T - 10 * DAY, 'inProgress', 'backlog'), move(T - 5 * DAY, 'notStarted', 'inProgress')],
-    })
-    const returned = rec({
-      id: 'returned',
-      moves: [move(T - 10 * DAY, 'inProgress', 'backlog'), move(T - 5 * DAY, 'backlog', 'inProgress')],
-    })
-    const afterDone = rec({
-      id: 'after',
-      resolvedAt: T - 1 * DAY,
-      moves: [move(T - 5 * DAY, 'done', 'inProgress'), move(T - 1 * DAY, 'inProgress', 'done')],
-    })
-    const impossible = rec({ id: 'impossible', createdAt: T, resolvedAt: T - 5 * DAY, moves: [move(T - 5 * DAY, 'done', 'backlog')] })
-    const outside = rec({ id: 'outside', startedIn: 'inProgress', moves: [move(T - 5 * DAY, 'done', 'inProgress')] })
-    const still = rec({ id: 'still' })
-
-    const findings = dataQuality([clean, backwards, returned, afterDone, impossible, outside, still], {
-      boardsByItem: { clean: ['Atlas', 'Nova'] },
-      blockedAfterDependencyDone: ['still'],
-    })
-    const byFlag = new Map(findings.map((finding) => [finding.flag, finding.items]))
-    expect(byFlag.get('impossible')).toEqual(['impossible'])
-    // The rejected card and the two that moved back out of Done also count as backwards.
-    expect(byFlag.get('backwards')).toEqual(['after', 'back', 'returned'])
-    expect(byFlag.get('returned')).toEqual(['returned'])
-    expect(byFlag.get('afterDone')).toEqual(['after'])
-    expect(byFlag.get('createdOutside')).toEqual(['outside'])
-    expect(byFlag.get('noHistory')).toEqual(['still'])
-    expect(byFlag.get('multiBoard')).toEqual(['clean'])
-    expect(byFlag.get('staleBlock')).toEqual(['still'])
-    // A clean card raises nothing, whatever its neighbours do.
-    expect(byFlag.get('backwards')).not.toContain('clean')
   })
 })

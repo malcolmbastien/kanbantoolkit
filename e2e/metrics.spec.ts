@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 
 /**
@@ -84,6 +83,12 @@ test('a dot in the scatter is the card it stands for', async ({ page }) => {
   const title = label.split(':')[0]
   expect(title.length).toBeGreaterThan(0)
 
+  // Hovering is a rich read, not the browser's title: the card, its type, dates and both times.
+  await dot.hover()
+  const tip = view.locator('[data-flow-scatter-tip]')
+  await expect(tip).toBeVisible()
+  await expect(tip).toContainText(title)
+
   await dot.click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
@@ -100,6 +105,8 @@ test('aging work lists what is old, and a row opens the card', async ({ page }) 
   expect(await rows.count()).toBeGreaterThan(0)
   const title = (await rows.first().locator('[data-flow-aging-title]').textContent())?.trim() ?? ''
   expect(title.length).toBeGreaterThan(0)
+  // A type pill and a status pill, so the row reads without a separate column.
+  expect(await rows.first().textContent()).toMatch(/Backlog|Not Started|In Progress|Done/)
 
   await rows.first().click()
   const panel = page.locator('[data-item-panel]')
@@ -114,6 +121,8 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   await expect(view.locator('[data-cycle-histogram]')).toBeVisible()
   expect(await view.locator('[data-cycle-histogram-bar]').count()).toBeGreaterThan(0)
   await expect(view.getByText(/Most finished in/)).toBeVisible()
+  // The numbers are part of the panel, not folded away behind a summary.
+  await expect(view.locator('[data-cycle-histogram-table]')).toBeVisible()
 })
 
 test('the forecast refuses thin history, and answers with a range when there is history', async ({ page }) => {
@@ -133,7 +142,7 @@ test('the forecast refuses thin history, and answers with a range when there is 
   }
 
   // The assumptions are on screen, with the size of the sample behind them.
-  await expect(view.getByText(/5,000 trials over \d+ sampled weeks/)).toBeVisible()
+  await expect(view.getByText(/5,000 trials over \d+ weeks/)).toBeVisible()
   await expect(view.getByText(/throughput arrives weekly/)).toBeVisible()
 
   // The other reading of the same trials: how much lands by a date, and for how many.
@@ -147,11 +156,11 @@ test('the service level expectation follows the share chosen', async ({ page }) 
   const view = page.locator('[data-flow-view]')
 
   const line = view.locator('[data-sle-line]')
-  await expect(line).toContainText('85% of delivered cards')
+  await expect(line).toContainText('85% finished within')
   await view.getByLabel('Service level share').selectOption('50')
-  await expect(line).toContainText('50% of delivered cards')
+  await expect(line).toContainText('50% finished within')
   await view.getByLabel('Service level share').selectOption('95')
-  await expect(line).toContainText('95% of delivered cards')
+  await expect(line).toContainText('95% finished within')
 })
 
 test('says how much history there is, and calls a thin sample thin', async ({ page }) => {
@@ -170,48 +179,6 @@ test('says how much history there is, and calls a thin sample thin', async ({ pa
   await expect(view.locator('[data-forecast-by-refusal]')).toContainText('Not enough history yet')
   // The refusal names what would make it answer, rather than only that it will not.
   await expect(view.locator('[data-forecast-refusal]')).toContainText('A forecast needs 4 weeks and 8 cards')
-})
-
-test('Little’s Law sits beside the cycle time it implies', async ({ page }) => {
-  await page.goto(FLOW)
-  const view = page.locator('[data-flow-view]')
-
-  await expect(view.locator('[data-littles-law]')).toBeVisible()
-  await expect(view.locator('[data-littles-value="implied"]')).not.toHaveText('—')
-  await expect(view.locator('[data-littles-value="implied"]')).toContainText('d')
-})
-
-test('blocked work says what is blocked now, and a row opens the card', async ({ page }) => {
-  await page.goto(FLOW)
-  const view = page.locator('[data-flow-view]')
-
-  const blocked = view.locator('[data-blocked-now]')
-  await expect(blocked.first()).toBeVisible()
-  const title = (await blocked.first().locator('[data-blocked-title]').textContent())?.trim() ?? ''
-  expect(title.length).toBeGreaterThan(0)
-  await blocked.first().click()
-  const panel = page.locator('[data-item-panel]')
-  await expect(panel).toBeVisible()
-  expect(await panel.getAttribute('aria-label')).toContain(title)
-})
-
-test('data quality says how to read the history before the charts do', async ({ page }) => {
-  await page.goto(FLOW)
-  const view = page.locator('[data-flow-view]')
-
-  const section = view.locator('[data-quality]').or(view.locator('[data-quality-clean]'))
-  await expect(section).toBeVisible()
-})
-
-test('downloads the delivered rows behind the charts', async ({ page }) => {
-  await page.goto(FLOW)
-
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('[data-flow-download]').click()])
-  expect(download.suggestedFilename()).toContain('-delivered.csv')
-  const path = await download.path()
-  const text = await readFile(path!, 'utf8')
-  expect(text.split('\r\n')[0]).toBe('Title,Type,Flow,Created,Committed,Done,Lead days,Cycle days,Blocked days')
-  expect(text.split('\r\n').length).toBeGreaterThan(1)
 })
 
 test('a reading this build does not know falls back to the default, not to a blank screen', async ({ page }) => {

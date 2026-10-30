@@ -74,11 +74,11 @@ a programme's outcome is decomposed into a team's initiative.
 
 - **Dashboard** — the board's initiatives at a glance.
 - **Timeline** — the same initiatives over their target dates.
-- **Flow** — on a team board, lead time, cycle time and throughput, their distributions, aging and
-  blocked work, a service level expectation and a probabilistic forecast for the open work. A window
-  (4 to 26 weeks, or all history) and a cards-flow filter are part of the link. A programme or
-  portfolio board has no cards flow, so it offers no Flow view. The definitions and the reasoning are
-  in [Lean metrics](metrics.md).
+- **Flow** — on a team board, lead time, cycle time and throughput, their distributions, aging, a
+  service level expectation and a probabilistic forecast for the open work. A window (4 to 26 weeks,
+  or all history) and a cards-flow filter are part of the link. A programme or portfolio board has no
+  cards flow, so it offers no Flow view. The definitions and the reasoning are in
+  [Lean metrics](metrics.md).
 - **Archive** — work that has left the boards. A card in a Done column is **archived**; anything
   else is **discarded**, dropped without claiming it was finished. The archive keeps that one fact,
   not the column the work sat in, and either item can be restored.
