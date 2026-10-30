@@ -2,16 +2,21 @@ import { describe, expect, it } from 'vitest'
 import {
   activeBoards,
   boardsByBand,
-  canRemoveTemplateFlow,
   canRetype,
   duplicateBoard,
   lanesFromTemplate,
+  templateFromBoard,
+  boardInitiatives,
+  initiativeCellOf,
+  initiativeRanks,
+} from './board'
+import {
+  canRemoveTemplateFlow,
   templateAddFlow,
   templateAddLane,
   templateChildren,
   templateDuplicateLane,
   templateInsertLaneAfter,
-  templateFromBoard,
   templateLaneIsRow,
   templateMoveFlow,
   templateMoveLane,
@@ -23,10 +28,7 @@ import {
   templateSetLaneWip,
   templateSetOrientation,
   templateSplitLane,
-  boardInitiatives,
-  initiativeCellOf,
-  initiativeRanks,
-} from './board'
+} from './template'
 import { rollupOf } from './derive'
 import { childrenOf, placementsInOrder, rootLane } from './lanes'
 import { BUILT_IN_TEMPLATES } from './demo'

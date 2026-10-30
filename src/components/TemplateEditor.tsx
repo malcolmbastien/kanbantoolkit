@@ -4,9 +4,9 @@ import { InlineEdit } from './InlineEdit'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { LaneEditControls } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
+import { cardTypes, NONE_TYPE_ID } from '@/domain/board'
 import {
   canRemoveTemplateFlow,
-  cardTypes,
   templateAddFlow,
   templateAddLane,
   templateChildren,
@@ -23,8 +23,7 @@ import {
   templateSetLaneWip,
   templateSetOrientation,
   templateSplitLane,
-  NONE_TYPE_ID,
-} from '@/domain/board'
+} from '@/domain/template'
 import { STAGE_ACCENT } from '@/lib/colors'
 import { cn, uid } from '@/lib/utils'
 import { useStore } from '@/store'

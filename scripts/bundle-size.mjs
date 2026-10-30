@@ -33,8 +33,15 @@ const DIST = 'dist'
  * anything — the gate, the sign-in screen it shows when the answer is nobody, and the design write
  * that keeps a board on the server rather than in one browser. None of the three can be a screen
  * loaded later: the gate has to answer before the first board is drawn.
+ *
+ * 166 is the board's flows (task 177). A board can carry several cards flows, and each is drawn as
+ * its own band with a header — the name, the count, and the rename/reorder/remove controls — on the
+ * first paint, because a flow that is not drawn is a flow nobody can read. What the bands share is
+ * `src/domain/flows.ts`, which the store and the same move rule read. The template editor's design
+ * machinery was moved to `src/domain/template.ts` — a screen nobody has opened is not part of the
+ * first download — which paid for most of the growth (measured 166.7 before the move, 165.8 after).
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 165)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 166)
 
 let manifest
 try {
