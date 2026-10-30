@@ -29,6 +29,7 @@ import { cn, uid } from '@/lib/utils'
 import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 import type { BoardTemplate, TemplateLane } from '@/domain/types'
+import { VocabularySaveError } from './VocabularySaveError'
 
 /**
  * A template, read-only or editable.
@@ -187,6 +188,8 @@ export function TemplateEditor({
         </div>
 
         <div className="space-y-4 px-4 py-3">
+          {/* A template is one of the workspace's words: a refusal is said in the editor that made it. */}
+          <VocabularySaveError lists={['boardTemplates']} />
           {/* One section per cards flow: a template is a set of them, and the same column name in
               two flows is two different columns. A customised flow can be wider than the dialog;
               let it scroll rather than clip. */}

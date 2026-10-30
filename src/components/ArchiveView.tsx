@@ -4,6 +4,7 @@ import { archiveOutcome, type Graph } from '@/domain/derive'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType } from '@/domain/types'
+import { VocabularySaveError } from './VocabularySaveError'
 
 /**
  * The Archive: filed-away items. They have left the boards (so boards don't clutter), but they are
@@ -76,6 +77,10 @@ export function ArchiveView() {
                 className="w-48 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-meta outline-none focus:ring-2 focus:ring-amber-300"
               />
             </div>
+          </div>
+          {/* The policy is the workspace's, not this browser's: a refusal is said beside it. */}
+          <div className="w-full">
+            <VocabularySaveError lists={['autoArchiveDays']} />
           </div>
         </div>
 

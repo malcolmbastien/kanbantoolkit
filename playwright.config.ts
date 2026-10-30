@@ -102,6 +102,18 @@ export default defineConfig({
     },
     {
       /**
+       * An instance of its own for the workspace's words (task 178). The spec writes a type, a
+       * template and an objective, and a reload must find them — which means the vocabulary it
+       * replaces is nobody else's.
+       */
+      command:
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-vocabulary.db && AUTH_DEV=1 PORT=4180 DB_PATH=node_modules/.tmp/e2e-vocabulary.db STATIC_DIR=dist npm run --silent server',
+      url: 'http://localhost:4180/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      /**
        * A deployment with a mail relay — the console one, writing to a file the test can read
        * (task 154.7). The magic-link door only exists where mail does, so proving it in a browser
        * needs an instance that has one; and a test that parsed a real mailbox would not be a test.

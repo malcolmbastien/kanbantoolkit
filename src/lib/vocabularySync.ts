@@ -139,12 +139,17 @@ async function send(): Promise<void> {
     }
 
     if (!response.ok) {
-      const answer = (await response.json().catch(() => null)) as { error?: string; field?: string } | null
+      const answer = (await response.json().catch(() => null)) as
+        | { error?: string; field?: string; fields?: string[] }
+        | null
       // A refusal is not a lost edit: the state stays true, and the next change sends it again.
+      // The field — singular for one bad row, plural for a list the role may not change — is what
+      // lets the screen say it beside the control that made it.
+      const field = answer?.field ?? answer?.fields?.[0]
       lastSent = null
       useVocabulary.setState({
         error: answer?.error ?? 'The workspace could not save this.',
-        ...(answer?.field ? { field: answer.field } : {}),
+        ...(field ? { field } : {}),
       })
       return
     }

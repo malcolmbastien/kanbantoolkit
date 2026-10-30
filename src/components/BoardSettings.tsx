@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 import { cardsFlows } from '@/domain/flows'
+import { VocabularySaveError } from './VocabularySaveError'
 
 /**
  * Board settings: title, flight-level band, which card types the board
@@ -307,6 +308,8 @@ export function BoardSettings() {
                 <Plus size={11} /> Add type
               </button>
             </div>
+            {/* A type is the workspace's word, so a refusal is said here, beside the list. */}
+            <VocabularySaveError lists={['issueTypes']} />
             <div className="mt-2 flex items-center gap-2">
               <span className="text-meta text-slate-600">New cards default to</span>
               <select

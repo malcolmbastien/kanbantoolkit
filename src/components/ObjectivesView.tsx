@@ -5,6 +5,7 @@ import { objectiveRollup, rollupOf, type Graph } from '@/domain/derive'
 import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { VocabularySaveError } from './VocabularySaveError'
 import type { IssueType, Item, Objective } from '@/domain/types'
 
 const COMMITMENT_LIMIT = 5 // "3–5 objectives" is a commitment limit, not a WIP limit
@@ -113,6 +114,11 @@ export function ObjectivesView() {
                 <Plus size={12} /> New objective
               </button>
             </div>
+          </div>
+
+          {/* An objective or a key result that did not land says so where it was named. */}
+          <div className="w-full">
+            <VocabularySaveError lists={['objectives', 'keyResults']} />
           </div>
         </div>
 
