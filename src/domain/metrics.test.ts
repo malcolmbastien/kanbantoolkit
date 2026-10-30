@@ -13,6 +13,7 @@ import {
   flowRecord,
   firstRecordedMove,
   flowSummary,
+  forecastBy,
   forecastWhen,
   histogram,
   inFlightAt,
@@ -540,5 +541,29 @@ describe('the forecast', () => {
     expect(openScope(records, T)).toBe(1)
     expect(openScope(records, T, true)).toBe(2)
     expect(weeks(4)).toHaveLength(4) // the helper used above matches the bucket axis
+  })
+})
+
+describe('how many by a date', () => {
+  it('counts the deliveries the same model makes by the date', () => {
+    const horizon = 5 * 7 * DAY
+    const byDate = forecastBy(10, [2, 2, 2, 2, 2, 2, 2, 2], T, T + horizon, { trials: 50 })
+    expect(byDate.ok).toBe(true)
+    if (!byDate.ok) return
+    expect(byDate.counts).toEqual({ p50: 10, p85: 10, p95: 10 })
+    expect(byDate.share).toBe(1)
+
+    const sooner = forecastBy(10, [2, 2, 2, 2, 2, 2, 2, 2], T, T + 2 * 7 * DAY, { trials: 50 })
+    if (!sooner.ok) throw new Error('expected an answer')
+    expect(sooner.counts).toEqual({ p50: 4, p85: 4, p95: 4 })
+    expect(sooner.share).toBe(0)
+    expect(forecastBy(10, [2, 2, 2, 2, 2, 2, 2, 2], T, T + 2 * 7 * DAY, { atLeast: 4 }).ok).toBe(true)
+  })
+
+  it('refuses a date that has passed and the same thin histories as the when-forecast', () => {
+    expect(forecastBy(5, [1, 2, 3, 4], T, T - DAY)).toMatchObject({ ok: false, reason: 'past-date' })
+    expect(forecastBy(0, [1, 2, 3, 4], T, T + DAY)).toMatchObject({ ok: false, reason: 'no-scope' })
+    expect(forecastBy(5, [0, 0, 0, 0], T, T + DAY)).toMatchObject({ ok: false, reason: 'no-throughput' })
+    expect(forecastBy(5, [1, 1, 1], T, T + DAY)).toMatchObject({ ok: false, reason: 'thin-history' })
   })
 })

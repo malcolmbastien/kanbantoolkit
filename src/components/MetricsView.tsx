@@ -11,6 +11,7 @@ import {
   firstRecordedMove,
   flowRecord,
   flowSummary,
+  forecastBy,
   forecastWhen,
   histogram,
   littleCycle,
@@ -67,6 +68,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const selectedItemId = useStore((s) => s.selectedItemId)
   const [serviceShare, setServiceShare] = useState(85)
   const [includeBacklog, setIncludeBacklog] = useState(false)
+  const [byDate, setByDate] = useState(() => new Date(Date.now() + 8 * 7 * DAY_MS).toISOString().slice(0, 10))
+  const [atLeast, setAtLeast] = useState('')
   const flowWindow = useStore((s) => s.flowWindow)
   const metricsFlowId = useStore((s) => s.metricsFlowId)
   const setFlowWindow = useStore((s) => s.setFlowWindow)
@@ -108,6 +111,9 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const sle = serviceLevel(records, since, serviceShare)
   const remaining = openScope(records, now, includeBacklog)
   const forecast = forecastWhen(remaining, delivered, now)
+  const atLeastCount = atLeast.trim() === '' ? remaining : Math.max(0, Math.min(remaining, Number(atLeast) || 0))
+  const byDateAt = new Date(`${byDate}T12:00:00`).getTime()
+  const by = forecastBy(remaining, delivered, now, byDateAt, { atLeast: atLeastCount })
 
   // Each diagram has its own scale: a flow column is as tall as the most work the board carried
   // at a week's end, a throughput bar as tall as the busiest week in the window.
@@ -397,11 +403,58 @@ export function MetricsView({ boardId }: { boardId: string }) {
                 </>
               ) : (
                 <p data-forecast-refusal className="mt-2 text-meta text-slate-600">
-                  {forecast.reason === 'no-scope'
-                    ? 'There is no open work in this scope.'
-                    : forecast.reason === 'no-throughput'
-                      ? 'No cards were delivered in this window, so there is nothing to forecast from.'
-                      : `Not enough history yet: ${forecast.weeks} week${forecast.weeks === 1 ? '' : 's'} and ${forecast.delivered} delivered card${forecast.delivered === 1 ? '' : 's'}. A forecast needs ${MIN_FORECAST_WEEKS} weeks and ${MIN_FORECAST_DELIVERED} cards.`}
+                  {forecastRefusal(forecast.reason, forecast.weeks, forecast.delivered)}
+                </p>
+              )}
+            </Panel>
+
+            <Panel
+              title="How many by a date?"
+              note="The same 5,000 trials, read the other way: how much of the scope is likely to be finished by a chosen date."
+            >
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-slate-700">
+                <label className="flex items-center gap-1.5 text-slate-600">
+                  By
+                  <input
+                    type="date"
+                    aria-label="Forecast date"
+                    value={byDate}
+                    onChange={(event) => setByDate(event.target.value)}
+                    className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </label>
+                <label className="flex items-center gap-1.5 text-slate-600">
+                  At least
+                  <input
+                    type="number"
+                    aria-label="At least cards"
+                    min={0}
+                    max={remaining}
+                    value={atLeast}
+                    placeholder={String(remaining)}
+                    onChange={(event) => setAtLeast(event.target.value)}
+                    className="w-16 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  card{atLeastCount === 1 ? '' : 's'}
+                </label>
+              </div>
+              {by.ok ? (
+                <div data-forecast-by className="mt-2 text-meta text-slate-700">
+                  <p>
+                    <span className="text-title font-semibold tabular-nums">{Math.round(by.share * 100)}%</span>{' '}
+                    chance of at least {by.atLeast} card{by.atLeast === 1 ? '' : 's'} by then.
+                  </p>
+                  <p className="mt-0.5 text-micro text-slate-600">
+                    50% chance of {countAtMost(by.counts.p50)} or more · 85%{' '}
+                    {countAtMost(by.counts.p85)} · 95% {countAtMost(by.counts.p95)}. The same scope
+                    and the same assumptions as the forecast above.
+                  </p>
+                </div>
+              ) : (
+                <p data-forecast-by-refusal className="mt-2 text-meta text-slate-600">
+                  {by.reason === 'past-date'
+                    ? 'Choose a date after today.'
+                    : forecastRefusal(by.reason, by.weeks, by.delivered)}
                 </p>
               )}
             </Panel>
@@ -958,6 +1011,21 @@ function CycleScatter({
 
 /** A delivered card's lead time in days: created to resolved. */
 const lead = (r: FlowRecord) => (r.resolvedAt! - r.createdAt) / DAY_MS
+
+const countAtMost = (value: number | undefined) => (value === undefined ? '—' : String(Math.round(value)))
+
+/** The same refusal sentence wherever a forecast is refused, so the two panels cannot disagree. */
+function forecastRefusal(
+  reason: 'no-scope' | 'no-throughput' | 'thin-history',
+  weeks: number,
+  delivered: number,
+): string {
+  if (reason === 'no-scope') return 'There is no open work in this scope.'
+  if (reason === 'no-throughput') return 'No cards were delivered in this window, so there is nothing to forecast from.'
+  return `Not enough history yet: ${weeks} week${weeks === 1 ? '' : 's'} and ${delivered} delivered card${
+    delivered === 1 ? '' : 's'
+  }. A forecast needs ${MIN_FORECAST_WEEKS} weeks and ${MIN_FORECAST_DELIVERED} cards.`
+}
 
 function Measure({ label, value, name }: { label: string; value: string; name?: string }) {
   return (

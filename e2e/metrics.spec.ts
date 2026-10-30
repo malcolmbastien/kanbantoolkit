@@ -109,6 +109,11 @@ test('the forecast refuses thin history, and answers with a range when there is 
     await expect(view.locator(`[data-forecast-date="${share}"]`)).not.toHaveText('—')
     await expect(view.locator(`[data-forecast-date="${share}"]`)).toContainText(/\d{4}/)
   }
+
+  // The other reading of the same trials: how much lands by a date, and for how many.
+  await expect(view.locator('[data-forecast-by]')).toContainText('chance of at least')
+  await view.getByLabel('At least cards').fill('1')
+  await expect(view.locator('[data-forecast-by]')).toContainText('at least 1 card')
 })
 
 test('the service level expectation follows the share chosen', async ({ page }) => {
@@ -136,6 +141,7 @@ test('says how much history there is, and calls a thin sample thin', async ({ pa
   await expect(view.getByText(/thin sample/).first()).toBeVisible()
   // And the forecast refuses with what it would need, rather than guessing from one card.
   await expect(view.locator('[data-forecast-refusal]')).toContainText('Not enough history yet')
+  await expect(view.locator('[data-forecast-by-refusal]')).toContainText('Not enough history yet')
 })
 
 test('Little’s Law sits beside the cycle time it implies', async ({ page }) => {

@@ -626,6 +626,87 @@ export function forecastWhen(
   return { ok: true, remaining, trials, sampledWeeks, weeks, dates }
 }
 
+export type ForecastByResult =
+  | {
+      ok: true
+      remaining: number
+      trials: number
+      sampledWeeks: number
+      horizonWeeks: number
+      /** Cards delivered by the date, at each confidence. */
+      counts: Range
+      /** The share of trials that delivered at least `atLeast`. */
+      share: number
+      atLeast: number
+    }
+  | {
+      ok: false
+      reason: 'no-scope' | 'no-throughput' | 'thin-history' | 'past-date'
+      remaining: number
+      delivered: number
+      weeks: number
+    }
+
+/**
+ * How much of the scope is likely to be done by a date.
+ *
+ * The same model as the when-forecast, read the other way: draw throughput weeks until the date,
+ * count what was delivered, and report the percentile counts. `atLeast` is the question the answer
+ * is a probability for; it defaults to the whole scope, which makes the default reading "the chance
+ * all of it finishes by then".
+ */
+export function forecastBy(
+  remaining: number,
+  weeklyThroughput: number[],
+  now: number,
+  until: number,
+  options: { trials?: number; seed?: number; atLeast?: number } = {},
+): ForecastByResult {
+  const sampledWeeks = weeklyThroughput.length
+  const delivered = weeklyThroughput.reduce((sum, n) => sum + n, 0)
+  const horizonWeeks = Number.isFinite(until) ? Math.max(0, Math.ceil((until - now) / WEEK_MS)) : 0
+  const refusal = (reason: 'no-scope' | 'no-throughput' | 'thin-history' | 'past-date'): ForecastByResult => ({
+    ok: false,
+    reason,
+    remaining,
+    delivered,
+    weeks: sampledWeeks,
+  })
+  if (horizonWeeks <= 0) return refusal('past-date')
+  if (remaining <= 0) return refusal('no-scope')
+  if (sampledWeeks === 0 || delivered === 0) return refusal('no-throughput')
+  if (sampledWeeks < MIN_FORECAST_WEEKS || delivered < MIN_FORECAST_DELIVERED) return refusal('thin-history')
+
+  const trials = options.trials ?? FORECAST_TRIALS
+  const random = mulberry32(options.seed ?? 1)
+  const atLeast = Math.min(remaining, Math.max(0, options.atLeast ?? remaining))
+  const outcomes: number[] = []
+  for (let trial = 0; trial < trials; trial += 1) {
+    let left = remaining
+    let got = 0
+    // Ten years is the same hard stop as the when-forecast: a date far enough away is a bug, not a
+    // question, and the loop should not become one.
+    for (let week = 0; week < Math.min(horizonWeeks, 520) && left > 0; week += 1) {
+      const drawn = Math.min(left, weeklyThroughput[Math.floor(random() * sampledWeeks)])
+      left -= drawn
+      got += drawn
+    }
+    outcomes.push(got)
+  }
+
+  const stats = sampleStats(outcomes)
+  return {
+    ok: true,
+    remaining,
+    trials,
+    sampledWeeks,
+    horizonWeeks,
+    counts: { p50: stats.p50, p85: stats.p85, p95: stats.p95 },
+    share: outcomes.filter((count) => count >= atLeast).length / trials,
+    atLeast,
+  }
+}
+
 /** The middle of a set of values, or the middle two averaged. Nothing in, nothing out. */
 export function median(values: number[]): number | undefined {
   if (values.length === 0) return undefined
