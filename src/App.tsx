@@ -19,6 +19,7 @@ import { leafLanes } from './domain/lanes'
 import { useUrl } from './lib/useUrl'
 import { useSignedInPerson } from './lib/identity'
 import { useStructureSync } from './lib/structure'
+import { useVocabularySync } from './lib/vocabularySync'
 import { isBoardSurface, useStore } from './store'
 
 /**
@@ -90,6 +91,10 @@ export default function App() {
   // The board design — boards, lanes, placements — is one document on the server, written when it
   // changes. Items have their own path; this is the half that has no item to hang on.
   useStructureSync()
+
+  // The workspace's words — types, templates, objectives and key results — are a second document,
+  // with a revision of its own. Nothing in one write can rename what the other is arranging.
+  useVocabularySync()
 
   // Auto-archive (a user-set rule): file Done items once they age past the threshold.
   useEffect(() => {

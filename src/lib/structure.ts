@@ -33,11 +33,9 @@ import { queue } from './queue'
 interface StructureState {
   /** The revision of the design as the server last told us. `null` until an instance has answered. */
   rev: number | null
-  /** The revision a refusal named, so the screen can say the board moved rather than hiding it. */
-  movedTo: number | null
 }
 
-export const useStructure = create<StructureState>(() => ({ rev: null, movedTo: null }))
+export const useStructure = create<StructureState>(() => ({ rev: null }))
 
 /**
  * The design as a string, for "has this changed since we sent it?" — cheap, and total.
@@ -70,7 +68,7 @@ let dirty = false
 
 /** Adoption answers this: the design just read is the one the next write is based on. */
 export function noteStructureRev(rev: number | null): void {
-  useStructure.setState({ rev, movedTo: null })
+  useStructure.setState({ rev })
   lastSent = rev === null ? null : JSON.stringify(designOf())
   dirty = false
 }
@@ -86,16 +84,15 @@ async function send(rev: number): Promise<void> {
     if (response.status === 409) {
       // Somebody else designed the board. Their design is the workspace now; the caller re-reads it
       // rather than sending ours over theirs, and the screen says why the board changed under them.
-      const body = (await response.json().catch(() => null)) as { rev?: number } | null
       lastSent = null
       dirty = false
-      useStructure.setState({ rev: null, movedTo: body?.rev ?? null })
+      useStructure.setState({ rev: null })
       return
     }
     if (!response.ok) return
 
     const body = (await response.json()) as { rev: number; skipped?: number }
-    useStructure.setState({ rev: body.rev, movedTo: null })
+    useStructure.setState({ rev: body.rev })
     // A placement the server skipped was one for a card it had not met yet. The design was accepted
     // without it, so what was sent is *not* what this browser holds: the next attempt carries it
     // again, and the card arriving is what makes there be a next attempt.

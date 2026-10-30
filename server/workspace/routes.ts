@@ -135,6 +135,9 @@ export function workspaceRoutes(runtime: Runtime) {
     return c.json({
       imported: { boards: workspace.boards.length, items: workspace.items.length },
       structureRev: await readStructureRev(allowed.db, allowed.workspaceId),
+      // An import replaces the words, so their revision starts again where an empty workspace's
+      // does: the copy's browser knows which one its first vocabulary write is based on.
+      vocabularyRev: await readVocabularyRev(allowed.db, allowed.workspaceId),
     })
   })
 

@@ -40,8 +40,13 @@ const DIST = 'dist'
  * `src/domain/flows.ts`, which the store and the same move rule read. The template editor's design
  * machinery was moved to `src/domain/template.ts` — a screen nobody has opened is not part of the
  * first download — which paid for most of the growth (measured 166.7 before the move, 165.8 after).
+ *
+ * 167 is the workspace's words (task 178). Types, templates, objectives and key results used to be
+ * written only by an import, so an instance lost them on reload; they now travel as one document,
+ * and the watcher that sends it is started by the same adoption that reads the revision it writes
+ * against — the same reason the design write is here, and not a screen anyone opens (measured 166.2).
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 166)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 167)
 
 let manifest
 try {

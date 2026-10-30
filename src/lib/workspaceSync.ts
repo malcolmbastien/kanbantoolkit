@@ -16,6 +16,7 @@
 import { create } from 'zustand'
 import { PERSIST_VERSION, useStore } from '@/store'
 import { noteStructureRev } from './structure'
+import { noteVocabularyRev } from './vocabularySync'
 import { useAuth } from './auth'
 import { isDemoWorkspace } from './demo'
 import { personFor } from './identity'
@@ -95,6 +96,8 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
   }
 
   const rev = typeof body.structureRev === 'number' ? body.structureRev : null
+  // The words have their own revision, read from the same answer: two documents, two counters.
+  const vocabularyRev = typeof body.vocabularyRev === 'number' ? body.vocabularyRev : null
   const boards = Array.isArray(body.boards) ? body.boards : []
   if (boards.length === 0) {
     // An account whose workspace is empty is a workspace with nothing in it — a fresh instance — and
@@ -113,6 +116,7 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
     const account = useAuth.getState().user
     useStore.getState().setUser(personFor(account, useStore.getState().users)?.id)
     noteStructureRev(rev)
+    noteVocabularyRev(vocabularyRev)
     useWorkspaceSync.setState({ offer: false, error: undefined })
     return 'empty'
   }
@@ -120,7 +124,7 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
   // The account's workspace is the one to show. `schema` and `meUserId` are the server's, not the
   // workspace's: the browser decides who its person is, and the import's whitelist is what decides
   // which keys the store may take.
-  const { schema: _schema, meUserId: _me, structureRev: _rev, ...slice } = body
+  const { schema: _schema, meUserId: _me, structureRev: _rev, vocabularyRev: _vocabularyRev, ...slice } = body
   useStore.getState().importWorkspace(slice, PERSIST_VERSION)
 
   // One rule for which person an account is here — the same one "My work" and the author of a
@@ -128,8 +132,10 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
   const account = useAuth.getState().user
   useStore.getState().setUser(personFor(account, useStore.getState().users)?.id)
 
-  // The design just read is the one the next design write is based on.
+  // The design just read is the one the next design write is based on, and the words just read are
+  // the ones the next vocabulary write is based on.
   noteStructureRev(rev)
+  noteVocabularyRev(vocabularyRev)
   useWorkspaceSync.setState({ offer: false, error: undefined })
   return 'adopted'
 }
@@ -156,9 +162,11 @@ export async function copyToAccount(userId: string, workspace: Record<string, un
       return false
     }
 
-    const answer = (await response.json().catch(() => null)) as { structureRev?: number } | null
-    // The copy created the design, so its revision is where this browser's next design write starts.
+    const answer = (await response.json().catch(() => null)) as { structureRev?: number; vocabularyRev?: number } | null
+    // The copy created the design and the words, so their revisions are where this browser's next
+    // writes start. An import replaces the vocabulary, so its revision begins again at zero.
     if (typeof answer?.structureRev === 'number') noteStructureRev(answer.structureRev)
+    noteVocabularyRev(typeof answer?.vocabularyRev === 'number' ? answer.vocabularyRev : null)
     remember(userId)
     useWorkspaceSync.setState({ busy: false, offer: false })
     return true
