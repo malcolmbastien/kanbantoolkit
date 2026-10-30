@@ -63,6 +63,88 @@ none of it is entered twice — it is read from the cards that are already there
   third-party scripts, and your work is yours to export whenever you want.
 - **Open source.** AGPL-3.0. Read it, change it, and run it on your own terms.
 
+## Features
+
+- **Boards**
+  - Four fixed stages: Backlog, Not Started, In Progress and Done.
+  - Split a stage into named cells, arranged in columns or rows.
+  - Remove a column only while it is empty.
+  - One or more card flows per board, shown as stacked bands, each with its own name, columns and limits.
+  - Drag a card between cells, or between the board's card flows.
+  - Per-column WIP limits; a limit can tint the column, ask for a reason, or refuse the move.
+  - A default cell for new cards and a default card type.
+  - Board settings for name, description, band, linked boards, card types, tags and initiative types.
+  - Edit mode for changing the board's structure, and a read mode for using it.
+  - Archive and unarchive a board.
+  - Board list grouped by band, with a filter and a search.
+- **Cards**
+  - Create a card from a column's footer or from the toolbar.
+  - Move and reorder cards by dragging.
+  - Card panel with Overview, Hierarchy and Activity.
+  - Title, Markdown description, type, priority, assignees, tags, target start and end dates.
+  - The creator is recorded and cannot be changed afterwards.
+  - A checklist for sub-tasks.
+  - Notes in the activity log, with who and when.
+  - Dependencies: one item waits on another, and the waiting state clears when the other reaches Done.
+  - Mark a card blocked with a reason.
+  - Parent and children; drop a card on an initiative to make it a child.
+  - Select several cards for bulk move, type, assignee, parent, archive/discard or delete.
+  - Focus on one item and its hierarchy.
+- **Initiatives**
+  - Status and percentage computed from the cards below.
+  - No estimate or status field of their own.
+  - The section is derived from the rollup; the cell inside it is arranged by hand.
+  - Parent/child decomposition, including linking a team initiative under a management initiative.
+  - Health flags for blocked, waiting, stale, unowned, unplanned work below, and past target date.
+- **Views and finding work**
+  - Workspace Home with every board, grouped by band.
+  - Dashboard of a board's initiatives.
+  - Timeline of initiatives over their target dates.
+  - Flow metrics: lead time, cycle time, throughput and a cumulative flow diagram.
+  - Archive of completed and discarded work, with restore.
+  - Auto-archive Done cards after a set number of days.
+  - My work drawer for the signed-in person's cards.
+  - Strategy map on portfolio boards: objectives, key results, the initiatives that serve them, and coverage gaps.
+  - An objective's completeness comes from the work below it.
+  - Search across every board by title.
+  - Command palette for boards, cards, views and actions.
+  - Filters for text, type, assignee or unassigned, priority, tags, blocked, overdue, due soon and initiative.
+  - Saved filters and collapsed columns, kept per device.
+  - The address bar names the board, the view and the open card, so a link can be shared.
+- **Accounts and collaboration (instance)**
+  - Viewer, editor and administrator roles, checked on every request.
+  - Sign-in with any OIDC issuer, a password, or a magic link when mail is configured.
+  - Invitations with a link, a role, an expiry and a revoke.
+  - People and membership management.
+  - Session list and revocation, including sign out everywhere.
+  - Audit log with a CSV export.
+  - SCIM provisioning from a directory.
+  - Live updates over a socket or by polling.
+  - An editing lease per card, and revision checks that refuse a stale write.
+- **Data and backups**
+  - Export the workspace as JSON and import it back.
+  - Export a board's cards as CSV.
+  - Back up and restore the SQLite file from the command line.
+  - Templates of a board's card flows, columns and limits.
+  - Browser snapshots of the workspace.
+  - A warning when browser storage is full, and quarantine of saved data a build cannot read.
+  - Reset to the demo workspace.
+- **Running it**
+  - A static build that runs with no server, keeping the workspace in the browser.
+  - A self-hosted instance: one Node process and one SQLite file.
+  - Docker image and Compose file.
+  - A Cloudflare Worker entry.
+  - No ads, analytics or third-party scripts.
+- **Machine access**
+  - Personal API tokens with scopes and expiry.
+  - REST API at `/api/v1`.
+  - MCP server, over HTTP or stdio, with a tool per read and write.
+  - Rate limiting per token.
+- **Interface**
+  - Keyboard access to menus, moving cards and closing panels.
+  - Screen-reader labels and focus handling.
+  - Error reports with the error, path, view, build and browser, and no workspace data.
+
 ## Run it
 
 ```bash
