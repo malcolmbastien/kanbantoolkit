@@ -94,6 +94,23 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   await expect(view.getByText(/Most finished in/)).toBeVisible()
 })
 
+test('the forecast refuses thin history, and answers with a range when there is history', async ({ page }) => {
+  // The demo's own board has three deliveries: enough for a chart, not for a forecast.
+  await page.goto(FLOW)
+  await expect(page.locator('[data-flow-view] [data-forecast-refusal]')).toContainText('Not enough history yet')
+
+  // A load-test board has the history the demo does not. It is built on request and opened on the
+  // next visit, because ?stress= is an intention that lands on the board itself.
+  await page.goto('/app?stress=120')
+  await page.goto('/app?board=stress-board&view=flow&range=all')
+  const view = page.locator('[data-flow-view]')
+  await expect(view.locator('[data-forecast]')).toBeVisible()
+  for (const share of ['p50', 'p85', 'p95']) {
+    await expect(view.locator(`[data-forecast-date="${share}"]`)).not.toHaveText('—')
+    await expect(view.locator(`[data-forecast-date="${share}"]`)).toContainText(/\d{4}/)
+  }
+})
+
 test('the service level expectation follows the share chosen', async ({ page }) => {
   await page.goto(FLOW)
   const view = page.locator('[data-flow-view]')
@@ -117,6 +134,8 @@ test('says how much history there is, and calls a thin sample thin', async ({ pa
   await view.getByLabel('Range').selectOption('4')
   await expect(view.getByText(/Only 1 delivered card/)).toBeVisible()
   await expect(view.getByText(/thin sample/).first()).toBeVisible()
+  // And the forecast refuses with what it would need, rather than guessing from one card.
+  await expect(view.locator('[data-forecast-refusal]')).toContainText('Not enough history yet')
 })
 
 test('Little’s Law sits beside the cycle time it implies', async ({ page }) => {

@@ -11,10 +11,14 @@ import {
   firstRecordedMove,
   flowRecord,
   flowSummary,
+  forecastWhen,
   histogram,
   littleCycle,
+  MIN_FORECAST_DELIVERED,
+  MIN_FORECAST_WEEKS,
   MIN_SAMPLE,
   moveCoverage,
+  openScope,
   percentile,
   sampleStats,
   scatterPoints,
@@ -62,6 +66,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const openItem = useStore((s) => s.openItem)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const [serviceShare, setServiceShare] = useState(85)
+  const [includeBacklog, setIncludeBacklog] = useState(false)
   const flowWindow = useStore((s) => s.flowWindow)
   const metricsFlowId = useStore((s) => s.metricsFlowId)
   const setFlowWindow = useStore((s) => s.setFlowWindow)
@@ -101,6 +106,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const rate = throughputRate(records, since ?? Math.min(...records.map((record) => record.createdAt), now), now)
   const implied = littleCycle(wip, rate)
   const sle = serviceLevel(records, since, serviceShare)
+  const remaining = openScope(records, now, includeBacklog)
+  const forecast = forecastWhen(remaining, delivered, now)
 
   // Each diagram has its own scale: a flow column is as tall as the most work the board carried
   // at a week's end, a throughput bar as tall as the busiest week in the window.
@@ -341,6 +348,62 @@ export function MetricsView({ boardId }: { boardId: string }) {
                   <span className="text-micro text-slate-500">Only {sle.n} cards — a hint, not a baseline.</span>
                 )}
               </div>
+            </Panel>
+
+            <Panel
+              title="When will this be done?"
+              note="A Monte Carlo over the weekly throughput in this window: 5,000 trials, each drawing weeks at random. A range, not a promised date."
+            >
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-slate-700">
+                <label className="flex items-center gap-1.5 text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={includeBacklog}
+                    onChange={(event) => setIncludeBacklog(event.target.checked)}
+                    className="accent-indigo-600"
+                  />
+                  Include Backlog
+                </label>
+                <span>
+                  Scope: <span className="font-semibold tabular-nums">{remaining}</span> open card
+                  {remaining === 1 ? '' : 's'}
+                </span>
+              </div>
+              {forecast.ok ? (
+                <>
+                  <div data-forecast className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
+                    {(['p50', 'p85', 'p95'] as const).map((key) => (
+                      <div key={key}>
+                        <div className="text-micro uppercase tracking-wide text-slate-600">
+                          {key === 'p50' ? '50%' : key === 'p85' ? '85%' : '95%'} by
+                        </div>
+                        <div data-forecast-date={key} className="text-title font-semibold text-slate-800">
+                          {forecast.dates[key] === undefined
+                            ? '—'
+                            : new Date(forecast.dates[key]!).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                        </div>
+                        <div className="text-micro text-slate-600">{days(forecast.weeks[key])}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-micro text-slate-600">
+                    Assumes the {forecast.remaining} open cards stay the scope and the next weeks resemble the{' '}
+                    {forecast.sampledWeeks} sampled. Dependencies and batch size are not modelled.
+                  </p>
+                </>
+              ) : (
+                <p data-forecast-refusal className="mt-2 text-meta text-slate-600">
+                  {forecast.reason === 'no-scope'
+                    ? 'There is no open work in this scope.'
+                    : forecast.reason === 'no-throughput'
+                      ? 'No cards were delivered in this window, so there is nothing to forecast from.'
+                      : `Not enough history yet: ${forecast.weeks} week${forecast.weeks === 1 ? '' : 's'} and ${forecast.delivered} delivered card${forecast.delivered === 1 ? '' : 's'}. A forecast needs ${MIN_FORECAST_WEEKS} weeks and ${MIN_FORECAST_DELIVERED} cards.`}
+                </p>
+              )}
             </Panel>
 
             {slowest.length > 0 && (

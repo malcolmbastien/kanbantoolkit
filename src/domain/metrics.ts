@@ -523,6 +523,109 @@ export function serviceLevel(records: FlowRecord[], since: number | undefined, s
   return { share, days: percentile(cycle, share), n: cycle.length }
 }
 
+/** The least history a forecast is allowed to stand on. */
+export const MIN_FORECAST_WEEKS = 4
+export const MIN_FORECAST_DELIVERED = 8
+/** Fixed so the answer is reproducible; a different seed is a different run of the same model. */
+export const FORECAST_TRIALS = 5_000
+
+/** A percentile range without the sample count, for answers that are ranges in time. */
+export interface Range {
+  p50?: number
+  p85?: number
+  p95?: number
+}
+
+/** Small, fast, seeded PRNG: the forecast must answer the same way twice for a test to trust it. */
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let value = state
+    value = Math.imul(value ^ (value >>> 15), value | 1)
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296
+  }
+}
+
+/** Open cards in the scope: in flight, and committed unless Backlog is asked for. */
+export function openScope(records: FlowRecord[], now: number, includeBacklog = false): number {
+  return records.filter(
+    (record) => inFlightAt(record, now) && (includeBacklog || stageAt(record, now) !== 'backlog'),
+  ).length
+}
+
+export type ForecastResult =
+  | {
+      ok: true
+      remaining: number
+      trials: number
+      sampledWeeks: number
+      weeks: Range
+      dates: Range
+    }
+  | {
+      ok: false
+      reason: 'no-scope' | 'no-throughput' | 'thin-history'
+      remaining: number
+      delivered: number
+      weeks: number
+    }
+
+/**
+ * When the open scope is likely to be done, as a range.
+ *
+ * A Monte Carlo over the weekly throughput in the window: each trial draws a week with replacement,
+ * consumes that many cards, and repeats until the scope is empty; the percentiles of how many weeks
+ * that took are the answer. It is deliberately scope-based, not per-card: the board has no size, so
+ * a per-card forecast would need a field that does not exist.
+ *
+ * The model assumes the scope stays as it is and the next weeks resemble the sampled ones. It says
+ * so on screen, and it refuses to answer below four weeks and eight deliveries: a forecast from less
+ * is a number with no evidence behind it.
+ */
+export function forecastWhen(
+  remaining: number,
+  weeklyThroughput: number[],
+  now: number,
+  options: { trials?: number; seed?: number } = {},
+): ForecastResult {
+  const sampledWeeks = weeklyThroughput.length
+  const delivered = weeklyThroughput.reduce((sum, n) => sum + n, 0)
+  const refusal = (reason: 'no-scope' | 'no-throughput' | 'thin-history'): ForecastResult => ({
+    ok: false,
+    reason,
+    remaining,
+    delivered,
+    weeks: sampledWeeks,
+  })
+  if (remaining <= 0) return refusal('no-scope')
+  if (sampledWeeks === 0 || delivered === 0) return refusal('no-throughput')
+  if (sampledWeeks < MIN_FORECAST_WEEKS || delivered < MIN_FORECAST_DELIVERED) return refusal('thin-history')
+
+  const trials = options.trials ?? FORECAST_TRIALS
+  const random = mulberry32(options.seed ?? 1)
+  const outcomes: number[] = []
+  for (let trial = 0; trial < trials; trial += 1) {
+    let left = remaining
+    let weeks = 0
+    while (left > 0 && weeks < 520) {
+      left -= weeklyThroughput[Math.floor(random() * sampledWeeks)]
+      weeks += 1
+    }
+    outcomes.push(weeks)
+  }
+
+  const stats = sampleStats(outcomes)
+  const weeks: Range = { p50: stats.p50, p85: stats.p85, p95: stats.p95 }
+  const dates: Range = {
+    p50: stats.p50 !== undefined ? now + stats.p50 * WEEK_MS : undefined,
+    p85: stats.p85 !== undefined ? now + stats.p85 * WEEK_MS : undefined,
+    p95: stats.p95 !== undefined ? now + stats.p95 * WEEK_MS : undefined,
+  }
+  return { ok: true, remaining, trials, sampledWeeks, weeks, dates }
+}
+
 /** The middle of a set of values, or the middle two averaged. Nothing in, nothing out. */
 export function median(values: number[]): number | undefined {
   if (values.length === 0) return undefined

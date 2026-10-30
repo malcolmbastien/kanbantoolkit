@@ -13,11 +13,13 @@ import {
   flowRecord,
   firstRecordedMove,
   flowSummary,
+  forecastWhen,
   histogram,
   inFlightAt,
   leadTimes,
   littleCycle,
   moveCoverage,
+  openScope,
   median,
   percentile,
   sampleStats,
@@ -497,5 +499,46 @@ describe('the service level expectation', () => {
     // All history includes the old card.
     expect(serviceLevel(records, undefined, 85)).toEqual({ share: 85, days: 20, n: 5 })
     expect(serviceLevel([], undefined)).toEqual({ share: 85, days: undefined, n: 0 })
+  })
+})
+
+describe('the forecast', () => {
+  const weeks = (n: number) => weeklyBuckets(T, n)
+
+  it('turns a constant throughput into an exact completion week', () => {
+    const forecast = forecastWhen(10, [2, 2, 2, 2, 2, 2, 2, 2], T, { trials: 50 })
+    expect(forecast.ok).toBe(true)
+    if (!forecast.ok) return
+    expect(forecast.weeks).toEqual({ p50: 5, p85: 5, p95: 5 })
+    expect(forecast.dates.p85).toBe(T + 5 * 7 * DAY)
+    expect(forecast.trials).toBe(50)
+  })
+
+  it('answers the same way twice, and keeps the percentiles in order', () => {
+    const first = forecastWhen(12, [0, 1, 2, 3, 4], T, { trials: 500, seed: 7 })
+    const second = forecastWhen(12, [0, 1, 2, 3, 4], T, { trials: 500, seed: 7 })
+    expect(first).toEqual(second)
+    if (!first.ok) throw new Error('expected a forecast')
+    expect(first.weeks.p50).toBeLessThanOrEqual(first.weeks.p85!)
+    expect(first.weeks.p85).toBeLessThanOrEqual(first.weeks.p95!)
+    expect(first.dates.p50).toBe(T + first.weeks.p50! * 7 * DAY)
+  })
+
+  it('refuses with the reason, not with a number', () => {
+    expect(forecastWhen(0, [1, 2, 3, 4], T)).toMatchObject({ ok: false, reason: 'no-scope' })
+    expect(forecastWhen(5, [0, 0, 0, 0], T)).toMatchObject({ ok: false, reason: 'no-throughput' })
+    expect(forecastWhen(5, [1, 1, 1], T)).toMatchObject({ ok: false, reason: 'thin-history' })
+    expect(forecastWhen(5, [1, 1, 1, 1, 1], T)).toMatchObject({ ok: false, reason: 'thin-history', delivered: 5 })
+  })
+
+  it('counts only committed open cards unless Backlog is asked for', () => {
+    const records = [
+      rec({ id: 'backlog', createdAt: T - 10 * DAY }),
+      rec({ id: 'committed', createdAt: T - 10 * DAY, moves: [move(T - 5 * DAY, 'inProgress', 'backlog')] }),
+      rec({ id: 'done', resolvedAt: T - DAY, moves: [move(T - DAY, 'done', 'inProgress')] }),
+    ]
+    expect(openScope(records, T)).toBe(1)
+    expect(openScope(records, T, true)).toBe(2)
+    expect(weeks(4)).toHaveLength(4) // the helper used above matches the bucket axis
   })
 })
