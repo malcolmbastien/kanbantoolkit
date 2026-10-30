@@ -10,6 +10,7 @@
 import type { SavedFilter } from '../../src/domain/filters'
 import type {
   Board,
+  BoardFlow,
   BoardTemplate,
   Edge,
   Item,
@@ -40,6 +41,7 @@ export interface Workspace {
   /** The board this workspace opens on. */
   boardId: string
   boards: Board[]
+  flows: BoardFlow[]
   lanes: Lane[]
   placements: Placement[]
 }

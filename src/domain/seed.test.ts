@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSeed } from './seed'
 import { demoWorkspace } from './demo'
+import { kindOf } from './flows'
 import { boardInitiatives, initiativeTypeId, isStrategicInitiative } from './board'
 import { blockedBelow, descendants, openDependenciesOf, rollupOf, type Graph } from './derive'
 import { initiativeHealth } from './health'
@@ -14,7 +15,11 @@ import type { Stage } from './types'
  * client will actually look at is coherent — and that the imperfections in it are the deliberate
  * ones, not accidents.
  */
+const flow = (flows: { boardId: string; kind: string; id: string }[], boardId: string, kind: 'cards' | 'initiatives' = 'cards') =>
+  flows.find((f) => f.boardId === boardId && f.kind === kind)!.id
+
 const seed = createSeed()
+
 const { items, placements, edges, links, boards, lanes } = seed
 const graph: Graph = { items, edges, links, placements, lanes }
 const initiativeType = initiativeTypeId(seed.issueTypes)!
@@ -30,8 +35,8 @@ describe('the demo dataset', () => {
     expect(seed.boards.map((b) => b.id)).toEqual(shared.boards.map((b) => b.id))
     expect(seed.boards).toHaveLength(6)
     for (const board of seed.boards) {
-      const cards = topLevelLanes(lanes, board.id, 'cards')
-      const init = topLevelLanes(lanes, board.id, 'initiatives')
+      const cards = topLevelLanes(lanes, flow(seed.flows, board.id, 'cards'))
+      const init = topLevelLanes(lanes, flow(seed.flows, board.id, 'initiatives'))
       expect(cards.map((c) => c.stage), board.name).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
       expect(init.map((c) => c.stage), board.name).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
     }
@@ -63,7 +68,7 @@ describe('the demo dataset', () => {
   it('places every initiative in the section its own rollup names', () => {
     for (const init of initiatives) {
       const placement = at(init.id)
-      expect(lanes.find((l) => l.id === placement.laneId)!.workflow, init.title).toBe('initiatives')
+      expect(kindOf(seed.flows, lanes.find((l) => l.id === placement.laneId)!.flowId), init.title).toBe('initiatives')
       expect(isLeaf(lanes, placement.laneId), init.title).toBe(true)
       // A section is derived from the work below, so the placement must agree with the rollup —
       // otherwise the initiative reads in a section it is not actually in.
@@ -151,7 +156,7 @@ describe('the demo dataset', () => {
     // A column over its limit: the demo's WIP limits are meant to bite.
     const over = lanes.filter((l) => l.wipLimit !== undefined && laneCardCount(lanes, placements, l.id) > l.wipLimit!)
     expect(over.length).toBeGreaterThan(0)
-    expect(childrenOf(lanes, topLevelLanes(lanes, 'b-atlas', 'cards')[2].id).map((l) => l.name)).toEqual(['Dev', 'Test'])
+    expect(childrenOf(lanes, topLevelLanes(lanes, flow(seed.flows, 'b-atlas'))[2].id).map((l) => l.name)).toEqual(['Dev', 'Test'])
   })
 
   it('labels initiatives with the board’s own kinds, and leaves the team boards plain', () => {
@@ -203,5 +208,15 @@ describe('the demo dataset', () => {
     // And the health of the whole programme is mixed, not uniformly green.
     const levels = initiatives.map((i) => blockedBelow(i.id, graph))
     expect(levels.some((n) => n > 0)).toBe(true)
+  })
+})
+
+describe('the templates the app ships', () => {
+  it('are one cards flow each, and every lane names it', () => {
+    for (const template of seed.boardTemplates) {
+      expect(template.flows).toHaveLength(1)
+      expect(template.flows[0].kind).toBe('cards')
+      expect(template.lanes.every((lane) => lane.flowKey === template.flows[0].key)).toBe(true)
+    }
   })
 })

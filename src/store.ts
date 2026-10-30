@@ -1,9 +1,18 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
+import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, laneHoldsCards, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
-import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
-import { canPlaceInSection, decompositionParent, descendants, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
+import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, isAggregating, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
+import { canPlaceInSection, decompositionParent, descendants, isComplete, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
+import {
+  canRemoveFlow,
+  canRenameFlow,
+  canReorderFlow,
+  cardsFlows,
+  initiativesFlow,
+  kindOf,
+  nextFlowName,
+} from '@/domain/flows'
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
@@ -19,10 +28,11 @@ import { onLiveItem, startLive, stopLive } from '@/lib/live'
 import { reflectAccount } from '@/lib/workspaceSync'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
-import type { Board, BoardBand, BoardTemplate, Edge, FlowState, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateLane, User } from '@/domain/types'
+import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
+  flows: FlowState['flows']
   lanes: FlowState['lanes']
   placements: FlowState['placements']
   boardId: string
@@ -139,6 +149,14 @@ export interface ViewState {
    * on a card another surface drew, so neither of them can hold it alone.
    */
   dropTargetId: string | null
+  /**
+   * The card a pointer is carrying and the gap it would land in.
+   *
+   * Shared rather than local to one canvas: a board may carry several cards flows, and the card in
+   * the air can be over a tree that is not the one it came from. The shadow it leaves is a fact
+   * about the gesture, so every canvas reads it and only the lane it names shows it.
+   */
+  dragPreview: { itemId: string; height: number; laneId: string | null; index: number | null } | null
   /** Pending confirmation (destructive actions) — rendered by ConfirmDialog. */
   confirm: ConfirmRequest | null
   /** A move held back by a `justify` WIP limit — rendered by ReasonDialog. */
@@ -150,6 +168,8 @@ export interface Actions {
   selectBoard: (id: string) => void
   openItem: (id: string | null) => void
   setSearch: (q: string) => void
+  /** Say where a lift would land, for every canvas that could show it. */
+  setDragPreview: (preview: ViewState['dragPreview']) => void
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
@@ -273,6 +293,11 @@ export interface Actions {
    * in the domain (`templateSplitLane`, `templateAddLane`, …); this stores the result.
    */
   setTemplateLanes: (templateId: string, lanes: TemplateLane[]) => void
+  /**
+   * Write a template's design back — its flows, its lanes, or both. The flow logic is the
+   * domain's (`templateAddFlow`, `templateRenameFlow`, `templateMoveFlow`, `templateRemoveFlow`).
+   */
+  setTemplateDesign: (templateId: string, patch: { flows?: TemplateFlow[]; lanes?: TemplateLane[] }) => void
   /** Change a template's settings — its board type, card types, default type, WIP policy. */
   updateBoardTemplate: (id: string, patch: Partial<Omit<BoardTemplate, 'id' | 'lanes'>>) => void
   removeBoard: (id: string) => void
@@ -302,6 +327,21 @@ export interface Actions {
   setBoardDefaultDropLane: (id: string, laneId: string | undefined) => void
   /** Set which card types are allowed on a board (empty = every card type). */
   setBoardWipEnforcement: (id: string, mode: 'visualize' | 'justify' | 'block') => void
+
+  /**
+   * Give a board another cards flow: its own four typed columns, its own name, after the ones it
+   * has. Answers the new flow's id, or `undefined` on a board that makes no cards.
+   */
+  addCardsFlow: (name?: string) => string | undefined
+  /** Name a cards flow. Empty is refused; the initiatives flow is not the team's to name. */
+  renameFlow: (flowId: string, name: string) => boolean
+  /** Move a cards flow within the strip (delta -1 = left, +1 = right). */
+  moveFlow: (flowId: string, delta: number) => boolean
+  /**
+   * Remove a cards flow and its lanes. Refused for the last one and for one that still holds a
+   * card — moving or discarding those cards is a person's decision, not a side effect.
+   */
+  removeFlow: (flowId: string) => boolean
 
   addCard: (input: { boardId: string; typeId: string; laneId: string; title: string }) => void
   /**
@@ -400,7 +440,8 @@ export interface Actions {
   /** Reorder a lane within its parent (delta -1 = left/up, +1 = right/down). */
   moveLane: (laneId: string, delta: number) => void
   setLaneOrientation: (laneId: string, orientation: SplitOrientation) => void
-  removeLane: (laneId: string) => void
+  /** Remove a sub-lane. Answers whether it went: a cards lane with work in it does not. */
+  removeLane: (laneId: string) => boolean
   renameLane: (laneId: string, name: string) => void
   setLaneWip: (laneId: string, wipLimit: number | undefined) => void
   /** Set a lane's policy text (entry/exit rules). */
@@ -856,11 +897,39 @@ function subtreeRoots(ids: string[], graph: Pick<FlowState, 'items' | 'edges' | 
   return out
 }
 
+/**
+ * File items away.
+ *
+ * Completion decides the word, and nothing else does: the item's own rollup says whether the work
+ * was done, so finished work is *archived* and unfinished work is *discarded*. Both leave the boards
+ * in the same write and both come back the same way — the difference is what the work was, not what
+ * the person was allowed to do with it.
+ *
+ * The verdict is taken once, from the workspace as it stands, and then kept on the item: rearranging
+ * what is left of a board must not rewrite what happened to work that has already left it.
+ */
+function fileAway(state: Store, ids: Set<string>, at: number): Item[] {
+  return writeItems(state, (item) => {
+    if (!ids.has(item.id) || item.archived) return item
+    const discarded = !isComplete(item.id, state)
+    return {
+      ...item,
+      archived: true,
+      archivedAt: at,
+      // A finished item keeps no flag: absence is the completed case, so the field only ever
+      // marks the items that were thrown away.
+      ...(discarded ? { discarded: true } : {}),
+      log: [...(item.log ?? []), logEntry(discarded ? 'discarded' : 'archived')],
+    }
+  })
+}
+
 const initialView: ViewState = {
   boardId: 'b-portfolio',
   selectedItemId: null,
   search: '',
   editMode: false,
+  dragPreview: null,
   draft: null,
   lensId: null,
   showObjectives: false,
@@ -1050,43 +1119,72 @@ export function migrateState(persisted: unknown): Partial<Store> {
     const builtIn = new Map(BUILT_IN_TEMPLATES.map((t) => [t.id, t]))
     p.boardTemplates = (p.boardTemplates as BoardTemplate[]).map((t) => builtIn.get(t.id) ?? t)
   }
-  // v24: the two workflows became independent lane trees. Every lane that existed was the
-  // shared one, so it is the **cards** workflow now; each board gains the **initiatives**
-  // workflow it should always have started with — the four typed sections, one cell each.
-  // An initiative placed in what was a card lane moves to the section matching that lane's
-  // stage; its cell inside is arrangement, and the default tree has exactly one.
-  if (Array.isArray(p.lanes)) {
-    const stored = p.lanes as Lane[]
-    const all: Lane[] = stored.map((l) => (l.workflow ? l : { ...l, workflow: 'cards' as const }))
-    const initiatives: Lane[] = []
-    for (const board of (p.boards as Board[]) ?? []) {
-      // Idempotent: a board that already has an initiatives tree keeps it.
-      if (all.some((l) => l.boardId === board.id && l.workflow === 'initiatives')) continue
-      const root: Lane = {
-        id: uid(),
-        boardId: board.id,
-        parentId: null,
-        order: 0,
-        name: '',
-        orientation: 'columns',
-        workflow: 'initiatives',
-      }
-      initiatives.push(root, ...defaultColumns(board.id, root.id, 'initiatives', uid))
+  // v37: a template became a set of cards flows. A template stored before had one flat tree, so it
+  // gets one flow named "Cards" and every lane names it; a template that already carries flows is
+  // left alone, and a lane that is missing its flow joins the first one rather than becoming
+  // unreachable. Idempotent, like the rest of this chain.
+  if (Array.isArray(p.boardTemplates)) {
+    p.boardTemplates = (p.boardTemplates as BoardTemplate[]).map((template) => {
+      const flows: TemplateFlow[] =
+        Array.isArray(template.flows) && template.flows.length > 0
+          ? template.flows
+          : [{ key: 'f0', kind: 'cards', name: 'Cards', order: 0 }]
+      const first = flows[0].key
+      return { ...template, flows, lanes: (template.lanes ?? []).map((lane) => (lane.flowKey ? lane : { ...lane, flowKey: first })) }
+    })
+  }
+  // v24 → v36: a tree's identity used to be a two-value string on every lane, so a board had
+  // exactly one tree per kind. A flow is now a record and a lane names it. This block gives every
+  // board the flows its lanes imply — one cards flow named "Cards", one initiatives flow named
+  // "Initiatives" — and, for state older than v24 where every lane was the one shared tree, adds
+  // the initiatives tree those boards should always have had: the four typed sections, one cell
+  // each, with every initiative's placement moved into the section its stage names. Idempotent:
+  // a workspace that already carries flows is left exactly as it is.
+  if (
+    Array.isArray(p.lanes) &&
+    (p.lanes as unknown[]).length > 0 &&
+    (!Array.isArray(p.flows) || (p.flows as unknown[]).length === 0)
+  ) {
+    type LegacyLane = Lane & { workflow?: FlowKind }
+    const stored = p.lanes as LegacyLane[]
+    const flows: BoardFlow[] = []
+    const flowIdOfBoardKind = new Map<string, string>()
+    const flowOf = (boardId: string, kind: FlowKind): string => {
+      const key = `${boardId}:${kind}`
+      const known = flowIdOfBoardKind.get(key)
+      if (known) return known
+      const id = uid()
+      flowIdOfBoardKind.set(key, id)
+      flows.push({ id, boardId, kind, name: kind === 'cards' ? 'Cards' : 'Initiatives', order: 0 })
+      return id
     }
-    p.lanes = [...all, ...initiatives]
+    const lanes: Lane[] = stored.map((lane) => {
+      const { workflow: legacy, ...rest } = lane
+      return { ...rest, flowId: flowOf(lane.boardId, legacy ?? 'cards') }
+    })
+
+    // A board with no initiatives tree at all predates v24: give it the standard one.
+    for (const board of (p.boards as Board[]) ?? []) {
+      if (flowIdOfBoardKind.has(`${board.id}:initiatives`)) continue
+      const flowId = flowOf(board.id, 'initiatives')
+      const root: Lane = { id: uid(), boardId: board.id, parentId: null, order: 0, name: '', orientation: 'columns', flowId }
+      lanes.push(root, ...defaultColumns(board.id, root.id, flowId, uid))
+    }
+    p.lanes = lanes
+    p.flows = flows
 
     const initiativeType = initiativeTypeId((p.issueTypes as IssueType[]) ?? [])
     if (initiativeType && Array.isArray(p.placements)) {
-      const byId = new Map(all.map((l) => [l.id, l]))
+      const kindOfFlow = new Map(flows.map((f) => [f.id, f.kind] as const))
+      const byId = new Map(lanes.map((l) => [l.id, l]))
       const itemById = new Map(((p.items as Item[]) ?? []).map((i) => [i.id, i]))
-      const lanes = p.lanes as Lane[]
       p.placements = (p.placements as Placement[]).map((pl) => {
         if (itemById.get(pl.itemId)?.typeId !== initiativeType) return pl
         const lane = byId.get(pl.laneId)
-        if (!lane || lane.workflow === 'initiatives') return pl
-        const stage = effectiveStage(all, pl.laneId)
+        if (!lane || kindOfFlow.get(lane.flowId) === 'initiatives') return pl
+        const stage = effectiveStage(lanes, pl.laneId)
         const section = lanes.find(
-          (l) => l.boardId === pl.boardId && l.workflow === 'initiatives' && l.parentId !== null && l.stage === stage,
+          (l) => l.boardId === pl.boardId && kindOfFlow.get(l.flowId) === 'initiatives' && l.parentId !== null && l.stage === stage,
         )
         return section ? { ...pl, laneId: section.id } : pl
       })
@@ -1198,8 +1296,17 @@ export const PERSIST_KEY = 'kanbantoolkit-state-v3'
 
 /** Chosen once (R4): the store is given an adapter and never asks which one it was given. */
 const repository = chooseRepository()
-/** The current persisted workspace shape — every schema change bumps it with a migrate. */
-export const PERSIST_VERSION = 35
+/**
+ * The current persisted workspace shape — every schema change bumps it with a migrate.
+ *
+ * 36 is the flow model: a lane names its flow (`flowId`) and the board's flows are a list of their
+ * own. The block that upgrades an older state also covers the two-tree shape v24 introduced, so a
+ * file from either era lands in one cards flow and one initiatives flow per board.
+ *
+ * 37 is the same for templates: a template describes a set of cards flows, so an older one gains a
+ * flow named "Cards" and every lane names it.
+ */
+export const PERSIST_VERSION = 37
 /**
  * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
  * guess is not what a person's workspace gets.
@@ -1207,7 +1314,7 @@ export const PERSIST_VERSION = 35
 export const MIN_MIGRATABLE_VERSION = 9
 
 export function persistedSlice(s: Store): Partial<Store> {
-  const design = s.draft ?? { boards: s.boards, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
+  const design = s.draft ?? { boards: s.boards, flows: s.flows, lanes: s.lanes, placements: s.placements, boardId: s.boardId }
   return {
     // Whose browser this is: My work reads it, like the users directory it points into.
     meUserId: s.meUserId,
@@ -1225,6 +1332,7 @@ export function persistedSlice(s: Store): Partial<Store> {
     collapsedLanes: s.collapsedLanes,
     boardId: design.boardId,
     boards: design.boards,
+    flows: design.flows,
     lanes: design.lanes,
     placements: design.placements,
   }
@@ -1250,6 +1358,7 @@ export const WORKSPACE_KEYS = [
   'collapsedLanes',
   'boardId',
   'boards',
+  'flows',
   'lanes',
   'placements',
 ] as const
@@ -1324,6 +1433,7 @@ export const useStore = create<Store>()(
         })
       },
       setSearch: (search) => set({ search }),
+      setDragPreview: (dragPreview) => set({ dragPreview }),
       toggleFilters: () => {
         const show = !get().showFilters
         // One side panel at a time: opening filters dismisses an open card or My work.
@@ -1420,7 +1530,7 @@ export const useStore = create<Store>()(
         // A board with nowhere to put them cannot take them, and doing nothing is better than
         // dropping the cards on the floor. Moving a board to itself is not a move.
         if (targetBoardId === state.boardId) return
-        const lane = defaultDropLane(state.boards.find((b) => b.id === targetBoardId), state.lanes, targetBoardId)
+        const lane = defaultDropLane(state.boards.find((b) => b.id === targetBoardId), state.flows, state.lanes, targetBoardId)
         if (!lane) return
         const stage = effectiveStage(state.lanes, lane.id)
         const at = nextRank(state.placements, lane.id)
@@ -1568,13 +1678,7 @@ export const useStore = create<Store>()(
         const state = get()
         const ids = subtreeRoots(itemIds, state)
         if (ids.size === 0) return
-        const at = Date.now()
-        set({
-          items: writeItems(state, (i) =>
-            ids.has(i.id) && !i.archived ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] } : i,
-          ),
-          multiSelect: [],
-        })
+        set({ items: fileAway(state, ids, Date.now()), multiSelect: [] })
       },
 
       deleteItems: (itemIds) => {
@@ -1601,6 +1705,7 @@ export const useStore = create<Store>()(
           editMode: true,
           draft: {
             boards: structuredClone(s.boards),
+            flows: structuredClone(s.flows),
             lanes: structuredClone(s.lanes),
             placements: structuredClone(s.placements),
             boardId: s.boardId,
@@ -1730,7 +1835,7 @@ export const useStore = create<Store>()(
           set({ editMode: false })
           return
         }
-        set({ editMode: false, draft: null, boards: d.boards, lanes: d.lanes, placements: d.placements, boardId: d.boardId })
+        set({ editMode: false, draft: null, boards: d.boards, flows: d.flows, lanes: d.lanes, placements: d.placements, boardId: d.boardId })
       },
       resetDemo: () => set({ ...createSeed(), meUserId: undefined, ...initialView }),
       importWorkspace: (state, version, options) => {
@@ -1753,6 +1858,7 @@ export const useStore = create<Store>()(
           meUserId: undefined,
           boardId: undefined,
           boards: [],
+          flows: [],
           lanes: [],
           placements: [],
         }
@@ -1818,6 +1924,7 @@ export const useStore = create<Store>()(
           issueTypes,
           boardTemplates,
           boards: [],
+          flows: [],
           lanes: [],
           placements: [],
           items: [],
@@ -1866,18 +1973,33 @@ export const useStore = create<Store>()(
           ...(template?.defaultCardTypeId ? { defaultCardTypeId: template.defaultCardTypeId } : {}),
           ...(template?.wipEnforcement ? { wipEnforcement: template.wipEnforcement } : {}),
         }
-        // Two independent trees. A template designs the **cards** workflow — a team's own
-        // flow — while the **initiatives** workflow always starts standard: the shape the
-        // organisation reads is not the team's design, and refining one never moves the other.
-        const cardsRoot: Lane = { id: uid(), boardId, parentId: null, order: 0, name: '', orientation: 'columns', workflow: 'cards' }
-        const initRoot: Lane = { id: uid(), boardId, parentId: null, order: 0, name: '', orientation: 'columns', workflow: 'initiatives' }
-        const cards: Lane[] = template
-          ? lanesFromTemplate(template, boardId, cardsRoot.id, uid)
-          : defaultColumns(boardId, cardsRoot.id, 'cards', uid)
-        const initiatives = defaultColumns(boardId, initRoot.id, 'initiatives', uid)
+        // A template designs the **cards flows** — the team's own — while the **initiatives**
+        // flow always starts standard: the shape the organisation reads is not the team's design.
+        const design = template && template.flows.length > 0 ? lanesFromTemplate(template, boardId, uid) : undefined
+        const cardsFlowsForBoard: BoardFlow[] = design?.flows ?? [
+          { id: uid(), boardId, kind: 'cards', name: 'Cards', order: 0 },
+        ]
+        const cardsRoots: Lane[] = design
+          ? []
+          : cardsFlowsForBoard.map((flow) => ({
+              id: uid(),
+              boardId,
+              parentId: null,
+              order: 0,
+              name: '',
+              orientation: 'columns',
+              flowId: flow.id,
+            }))
+        const cards: Lane[] = design
+          ? design.lanes
+          : defaultColumns(boardId, cardsRoots[0].id, cardsFlowsForBoard[0].id, uid)
+        const initFlow: BoardFlow = { id: uid(), boardId, kind: 'initiatives', name: 'Initiatives', order: 0 }
+        const initRoot: Lane = { id: uid(), boardId, parentId: null, order: 0, name: '', orientation: 'columns', flowId: initFlow.id }
+        const initiatives = defaultColumns(boardId, initRoot.id, initFlow.id, uid)
         set({
           boards: [...get().boards, board],
-          lanes: [...get().lanes, cardsRoot, initRoot, ...cards, ...initiatives],
+          flows: [...get().flows, ...cardsFlowsForBoard, initFlow],
+          lanes: [...get().lanes, ...cardsRoots, initRoot, ...cards, ...initiatives],
           ...(open ? { boardId, editMode: true } : {}),
         })
       },
@@ -1887,18 +2009,22 @@ export const useStore = create<Store>()(
         const board = state.boards.find((b) => b.id === boardId)
         if (!board) return
         const label = (name ?? board.name).trim() || board.name
-        set({ boardTemplates: [...state.boardTemplates, templateFromBoard(uid(), label, board, state.lanes)] })
+        set({ boardTemplates: [...state.boardTemplates, templateFromBoard(uid(), label, board, state.lanes, state.flows)] })
       },
       newBoardTemplate: (name, band) => {
         const label = name.trim()
         if (!label) return undefined
+        const flowKey = 'f0'
         const template: BoardTemplate = {
           id: uid(),
           name: label,
           band,
-          // The standard typed columns — the same starting point a plain board gets.
+          // One cards flow to start: the standard typed columns, the same starting point a plain
+          // board gets.
+          flows: [{ key: flowKey, kind: 'cards', name: 'Cards', order: 0 }],
           lanes: STAGES.map((s, i) => ({
             key: `k${i}`,
+            flowKey,
             parentKey: null,
             order: i,
             name: STAGE_LABELS[s],
@@ -1913,6 +2039,13 @@ export const useStore = create<Store>()(
         set({ boardTemplates: get().boardTemplates.map((t) => (t.id === id ? { ...t, name } : t)) }),
       setTemplateLanes: (templateId, lanes) =>
         set({ boardTemplates: get().boardTemplates.map((t) => (t.id === templateId ? { ...t, lanes } : t)) }),
+
+      setTemplateDesign: (templateId, patch) =>
+        set({
+          boardTemplates: get().boardTemplates.map((t) =>
+            t.id === templateId ? { ...t, ...(patch.flows ? { flows: patch.flows } : {}), ...(patch.lanes ? { lanes: patch.lanes } : {}) } : t,
+          ),
+        }),
       updateBoardTemplate: (id, patch) =>
         set({ boardTemplates: get().boardTemplates.map((t) => (t.id === id ? { ...t, ...patch } : t)) }),
 
@@ -1925,6 +2058,7 @@ export const useStore = create<Store>()(
           .map((b) => (b.linkedBoardIds ? { ...b, linkedBoardIds: b.linkedBoardIds.filter((t) => t !== id) } : b))
         set({
           boards,
+          flows: state.flows.filter((f) => f.boardId !== id),
           lanes: state.lanes.filter((l) => l.boardId !== id),
           placements: state.placements.filter((p) => p.boardId !== id && !laneIds.has(p.laneId)),
           boardId: state.boardId === id ? boards[0].id : state.boardId,
@@ -1949,8 +2083,12 @@ export const useStore = create<Store>()(
         const state = get()
         const board = state.boards.find((b) => b.id === boardId)
         if (!board) return
-        const copy = copyBoardDesign(board, state.lanes, uid, name)
-        set({ boards: [...state.boards, copy.board], lanes: [...state.lanes, ...copy.lanes] })
+        const copy = copyBoardDesign(board, state.lanes, state.flows, uid, name)
+        set({
+          boards: [...state.boards, copy.board],
+          flows: [...state.flows, ...copy.flows],
+          lanes: [...state.lanes, ...copy.lanes],
+        })
       },
 
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
@@ -1965,6 +2103,71 @@ export const useStore = create<Store>()(
 
       setBoardWipEnforcement: (id, wipEnforcement) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, wipEnforcement } : b)) }),
+
+      addCardsFlow: (name) => {
+        const state = get()
+        const board = state.boards.find((b) => b.id === state.boardId)
+        // A coordination board has no cards flow and cannot be given one: it aggregates work, and
+        // the cards it would hold belong to the teams below it.
+        if (!board || isAggregating(board)) return undefined
+        const flowId = uid()
+        const label = name?.trim() || nextFlowName(state.flows, board.id)
+        // Its own tree, starting where every flow starts: the four typed columns, one cell each.
+        const root: Lane = { id: uid(), boardId: board.id, parentId: null, order: 0, name: '', orientation: 'columns', flowId }
+        const columns = defaultColumns(board.id, root.id, flowId, uid)
+        set({
+          flows: [
+            ...state.flows,
+            { id: flowId, boardId: board.id, kind: 'cards', name: label, order: cardsFlows(state.flows, board.id).length },
+          ],
+          lanes: [...state.lanes, root, ...columns],
+        })
+        return flowId
+      },
+
+      renameFlow: (flowId, name) => {
+        const state = get()
+        const label = name.trim()
+        // The rule is the domain's, so the control that shows and the action that runs agree.
+        if (!label || !canRenameFlow(state.flows, flowId)) return false
+        set({ flows: state.flows.map((f) => (f.id === flowId ? { ...f, name: label } : f)) })
+        return true
+      },
+
+      moveFlow: (flowId, delta) => {
+        const state = get()
+        const flow = state.flows.find((f) => f.id === flowId)
+        if (!flow || !canReorderFlow(state.flows, flowId)) return false
+        const siblings = cardsFlows(state.flows, flow.boardId)
+        const from = siblings.findIndex((f) => f.id === flowId)
+        const to = from + delta
+        if (from < 0 || to < 0 || to >= siblings.length) return false
+        const reordered = [...siblings]
+        const [moved] = reordered.splice(from, 1)
+        reordered.splice(to, 0, moved)
+        // The order is a clean 0..n-1 among the cards flows: two swaps must not drift it.
+        const orderOf = new Map(reordered.map((f, i) => [f.id, i] as const))
+        set({ flows: state.flows.map((f) => (orderOf.has(f.id) ? { ...f, order: orderOf.get(f.id)! } : f)) })
+        return true
+      },
+
+      removeFlow: (flowId) => {
+        const state = get()
+        if (!canRemoveFlow(state.flows, flowId, state.lanes, state.placements)) return false
+        const flow = state.flows.find((f) => f.id === flowId)!
+        set({
+          flows: state.flows.filter((f) => f.id !== flowId),
+          lanes: state.lanes.filter((l) => l.flowId !== flowId),
+          // A board that pointed its new cards at a cell of this flow has to say again: the cell is
+          // gone with it, and a default that names nothing is worse than none.
+          boards: state.boards.map((b) =>
+            b.id === flow.boardId && b.defaultDropLaneId && state.lanes.some((l) => l.id === b.defaultDropLaneId && l.flowId === flowId)
+              ? (({ defaultDropLaneId: _gone, ...rest }) => rest)(b)
+              : b,
+          ),
+        })
+        return true
+      },
 
       addCard: ({ boardId, typeId, laneId, title }) => {
         const item = createdItem({ id: uid(), title, typeId, createdAt: Date.now(), ...creator(), log: [logEntry('created')] })
@@ -2089,6 +2292,7 @@ export const useStore = create<Store>()(
         const isStress = (id: string) => id.startsWith(STRESS_PREFIX)
         set({
           boards: [...state.boards.filter((b) => !isStress(b.id)), made.board],
+          flows: [...state.flows.filter((f) => !isStress(f.id)), ...made.flows],
           lanes: [...state.lanes.filter((l) => !isStress(l.id)), ...made.lanes],
           items: [...state.items.filter((i) => !isStress(i.id)), ...made.items],
           placements: [...state.placements.filter((p) => !isStress(p.itemId)), ...made.placements],
@@ -2173,7 +2377,15 @@ export const useStore = create<Store>()(
         // The rule is `src/domain/move.ts` — the same one `/api/v1` and an agent's `move_item` ask.
         // What is the store's own is what a person hears and what the prompt holds.
         const outcome = moveCardOperation(
-          { items: state.items, placements: state.placements, lanes: state.lanes, boards: state.boards, edges: state.edges, links: state.links },
+          {
+            items: state.items,
+            placements: state.placements,
+            lanes: state.lanes,
+            boards: state.boards,
+            flows: state.flows,
+            edges: state.edges,
+            links: state.links,
+          },
           { itemId, boardId, laneId, reason: opts?.reason },
           { at: Date.now(), by: currentAuthor, id: uid },
         )
@@ -2287,7 +2499,15 @@ export const useStore = create<Store>()(
         // The same operation the cards workflow uses — one rule, two workflows: the section an
         // initiative's work derives is what a move may never cross.
         const outcome = moveInitiativeOperation(
-          { items: state.items, placements: state.placements, lanes: state.lanes, boards: state.boards, edges: state.edges, links: state.links },
+          {
+            items: state.items,
+            placements: state.placements,
+            lanes: state.lanes,
+            boards: state.boards,
+            flows: state.flows,
+            edges: state.edges,
+            links: state.links,
+          },
           { itemId, boardId, laneId },
           { at: Date.now(), by: currentAuthor, id: uid },
         )
@@ -2320,7 +2540,7 @@ export const useStore = create<Store>()(
       moveInitiativeToIndex: (itemId, boardId, laneId, index) => {
         const state = get()
         const target = state.lanes.find((l) => l.id === laneId)
-        if (!target || target.workflow !== 'initiatives') return
+        if (!target || kindOf(state.flows, target.flowId) !== 'initiatives') return
         if (!isLeaf(state.lanes, laneId)) return
         const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
         if (!canPlaceInSection(itemId, laneId, graph)) return
@@ -2401,9 +2621,9 @@ export const useStore = create<Store>()(
         // The kernel carries the rulebook; the board adds only what a Lane carries beyond a node.
         const { nodes, created, firstChildId } = splitLaneNodes(state.lanes, laneId, orientation, uid, count)
         if (created.length === 0) return
-        // The kernel only knows nodes; the board's lanes carry a board and a workflow too.
+        // The kernel only knows nodes; the board's lanes carry a board and a flow too.
         const createdIds = new Set(created.map((c) => c.id))
-        const lanes = nodes.map((n) => (createdIds.has(n.id) ? { ...n, boardId: lane.boardId, workflow: lane.workflow } : n))
+        const lanes = nodes.map((n) => (createdIds.has(n.id) ? { ...n, boardId: lane.boardId, flowId: lane.flowId } : n))
         const placements = state.placements.map((p) => (p.laneId === laneId ? toLane(state.placements, p, firstChildId) : p))
         // The cards in the split cell change cell because the board was edited, not because a
         // person moved them — so the history records the move and says what made it.
@@ -2427,7 +2647,7 @@ export const useStore = create<Store>()(
         const { nodes, created } = addLaneNode(state.lanes, parentId, uid)
         if (!created) return // the board root stays four columns; refine by splitting
         set({
-          lanes: nodes.map((n) => (n.id === created.id ? { ...n, boardId: parent.boardId, workflow: parent.workflow } : n)),
+          lanes: nodes.map((n) => (n.id === created.id ? { ...n, boardId: parent.boardId, flowId: parent.flowId } : n)),
         })
       },
 
@@ -2438,7 +2658,7 @@ export const useStore = create<Store>()(
         const { nodes, created } = insertLaneAfterNode(state.lanes, laneId, uid)
         if (!created) return // typed columns are fixed in place; insert only among sub-lanes
         set({
-          lanes: nodes.map((n) => (n.id === created.id ? { ...n, boardId: lane.boardId, workflow: lane.workflow } : n)),
+          lanes: nodes.map((n) => (n.id === created.id ? { ...n, boardId: lane.boardId, flowId: lane.flowId } : n)),
         })
       },
 
@@ -2447,7 +2667,7 @@ export const useStore = create<Store>()(
         const src = state.lanes.find((l) => l.id === laneId)
         if (!src) return
         // Clones are spread from the original lanes, so they carry the board and
-        // workflow with them — the kernel only knows nodes.
+        // flow with them — the kernel only knows nodes.
         const { nodes } = duplicateLaneNode(state.lanes, laneId, uid)
         set({ lanes: nodes })
       },
@@ -2458,14 +2678,28 @@ export const useStore = create<Store>()(
       removeLane: (laneId) => {
         const state = get()
         const lane = state.lanes.find((l) => l.id === laneId)
-        if (!lane) return
-        // The kernel refuses the typed columns, removes the sub-tree, folds a split left
-        // with one child, and says where cards go — the first surviving leaf under the
-        // parent, or the parent itself once it is a cell. Never nowhere.
-        const { nodes, vanished, to } = removeLaneNodes(state.lanes, laneId)
-        if (vanished.size === 0) return // top-level columns are fixed; refine, don't delete
-        // Where each card came from, read before the lanes go: the note must say it even though
-        // that lane no longer exists by the time anyone reads it.
+        if (!lane) return false
+        const cardsLane = kindOf(state.flows, lane.flowId) === 'cards'
+        // A cards column is removed only when it is empty: a design action is not a move, and a
+        // card changing cell because a column went is exactly the accident this prevents. A split
+        // is not folded over work either — folding lifts the survivor's cards to the parent.
+        if (cardsLane && laneHoldsCards(state.lanes, state.placements, laneId)) return false
+        const { nodes, vanished, to } = removeLaneNodes(
+          state.lanes,
+          laneId,
+          cardsLane ? (survivingId) => !laneHoldsCards(state.lanes, state.placements, survivingId) : undefined,
+        )
+        if (vanished.size === 0) return false // top-level columns are fixed; refine, don't delete
+
+        if (cardsLane) {
+          // Nothing to rehome: the removed subtree held no card, and the fold only happened over
+          // an empty survivor. The design changes; no card does.
+          set({ lanes: nodes })
+          return true
+        }
+
+        // The initiatives flow keeps its own rule: an initiative is arranged in a cell, and a cell
+        // can be retired with its initiatives moved beside it — recorded, so the history says why.
         const from = new Map(state.placements.filter((p) => vanished.has(p.laneId)).map((p) => [p.itemId, p.laneId]))
         set({
           lanes: nodes,
@@ -2476,6 +2710,7 @@ export const useStore = create<Store>()(
               : i,
           ),
         })
+        return true
       },
 
 
@@ -2565,7 +2800,8 @@ export const useStore = create<Store>()(
 
       linkTeamInitiative: (parentId, boardId, title) => {
         const state = get()
-        const lane = leafLanes(state.lanes, boardId, 'initiatives')[0]
+        const flow = initiativesFlow(state.flows, boardId)
+        const lane = flow ? leafLanes(state.lanes, flow.id)[0] : undefined
         const typeId = state.issueTypes.find((t) => t.name === 'Initiative')?.id ?? state.issueTypes[0]?.id
         if (!lane || !typeId) return
         const item = createdItem({ id: uid(), title, typeId, createdAt: Date.now(), ...creator(), log: [logEntry('created')] })
@@ -2666,15 +2902,8 @@ export const useStore = create<Store>()(
 
       archiveItem: (itemId) => {
         const state = get()
-        const at = Date.now()
         const ids = new Set([itemId, ...descendants(itemId, state)])
-        set({
-          items: writeItems(state, (i) =>
-            ids.has(i.id) && !i.archived
-              ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
-              : i,
-          ),
-        })
+        set({ items: fileAway(state, ids, Date.now()) })
       },
 
       unarchiveItem: (itemId) => {
@@ -2683,7 +2912,15 @@ export const useStore = create<Store>()(
         set({
           items: writeItems(state, (i) =>
             ids.has(i.id) && i.archived
-              ? { ...i, archived: false, archivedAt: undefined, log: [...(i.log ?? []), logEntry('unarchived')] }
+              ? {
+                  ...i,
+                  archived: false,
+                  archivedAt: undefined,
+                  // The verdict belongs to the filing, not to the item: restored work is back in
+                  // play, and filing it again asks the question again.
+                  discarded: undefined,
+                  log: [...(i.log ?? []), logEntry('unarchived')],
+                }
               : i,
           ),
         })
@@ -2705,14 +2942,7 @@ export const useStore = create<Store>()(
         ]
         const ids = subtreeRoots(doneIds, state)
         if (ids.size === 0) return
-        const at = Date.now()
-        set({
-          items: writeItems(state, (i) =>
-            ids.has(i.id) && !i.archived
-              ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
-              : i,
-          ),
-        })
+        set({ items: fileAway(state, ids, Date.now()) })
       },
 
       setAutoArchiveDays: (days) => set({ autoArchiveDays: days && days > 0 ? days : undefined }),
@@ -2727,14 +2957,7 @@ export const useStore = create<Store>()(
         )
         const ids = subtreeRoots(candidates.map((i) => i.id), state)
         if (ids.size === 0) return
-        const at = Date.now()
-        set({
-          items: writeItems(state, (i) =>
-            ids.has(i.id) && !i.archived
-              ? { ...i, archived: true, archivedAt: at, log: [...(i.log ?? []), logEntry('archived')] }
-              : i,
-          ),
-        })
+        set({ items: fileAway(state, ids, Date.now()) })
       },
 
       deleteItem: (itemId) => {

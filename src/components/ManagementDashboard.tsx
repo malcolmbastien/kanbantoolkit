@@ -18,13 +18,14 @@ import { boardInitiatives, initiativeTypeById, tagsOf } from '@/domain/board'
 import { ATTENTION_TILES, boardAttention, type AttentionKey } from '@/domain/attention'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
 import { csvFilename, dashboardCsv } from '@/domain/csv'
-import { childrenOf, rootLane, STAGE_LABELS, subtreeIds } from '@/domain/lanes'
+import { STAGE_LABELS, subtreeIds, topLevelLanes } from '@/domain/lanes'
 import { laneAges, medianOf, STALE_AFTER_DAYS } from '@/domain/filters'
 import { BAND_ACCENT, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_COLOR, stageChip } from '@/lib/colors'
 import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Stage } from '@/domain/types'
+import { cardsFlows } from '@/domain/flows'
 
 const barColor = (pct: number) => (pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
@@ -80,6 +81,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const issueTypes = useStore((s) => s.issueTypes)
   const boards = useStore((s) => s.boards)
   const openItem = useStore((s) => s.openItem)
@@ -95,13 +97,17 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   // from the placements' lane stamps, never stored, never acting on anything.
   const done = new Set(items.filter((i) => i.archived).map((i) => i.id))
   const boardPlacements = placements.filter((p) => p.boardId === boardId && !done.has(p.itemId))
-  const cardsRoot = rootLane(lanes, boardId, 'cards')
-  const columns = (cardsRoot ? childrenOf(lanes, cardsRoot.id) : []).map((c) => {
-    const ids = new Set(subtreeIds(lanes, c.id))
-    const cards = boardPlacements.filter((p) => ids.has(p.laneId)).length
-    const ages = laneAges(lanes, boardPlacements, c.id)
-    return { lane: c, cards, oldest: ages.length ? Math.max(...ages) : undefined, median: medianOf(ages) }
-  })
+  // One group per cards flow: "Backlog" is only half an answer when a board carries several, and a
+  // dashboard that read only the first would hide the rest of the board's work.
+  const flowColumns = cardsFlows(flows, boardId).map((flow) => ({
+    flow,
+    columns: topLevelLanes(lanes, flow.id).map((c) => {
+      const ids = new Set(subtreeIds(lanes, c.id))
+      const cards = boardPlacements.filter((p) => ids.has(p.laneId)).length
+      const ages = laneAges(lanes, boardPlacements, c.id)
+      return { lane: c, cards, oldest: ages.length ? Math.max(...ages) : undefined, median: medianOf(ages) }
+    }),
+  }))
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
@@ -146,7 +152,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
 
   // The dashboard's first question — what is at risk of being forgotten — read from the work the
   // board renders. Team boards read their cards; coordination boards read their own initiatives.
-  const attention = boardAttention(graph, boardId, issueTypes, { boards })
+  const attention = boardAttention(graph, boardId, issueTypes, flows, { boards })
   const signalRows = attention.rows.filter((r) => r.signals.length > 0)
   const attentionTiles = ATTENTION_TILES
   const visibleRows =
@@ -212,56 +218,67 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             <span className="ml-auto text-meta text-slate-500">Stale after {STALE_AFTER_DAYS}+ days</span>
           </div>
 
-          {columns.length === 0 ? (
+          {flowColumns.length === 0 ? (
             <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-meta text-slate-600 shadow-sm">
-              The cards workflow has no columns yet.
+              This board has no cards flow to read.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-300 shadow-sm">
-              <div className="grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-4">
-                {columns.map(({ lane, cards, oldest, median }) => {
-                  const stage = lane.stage ?? 'inProgress'
-                  const name = lane.name || STAGE_LABELS[stage]
-                  const stale = oldest !== undefined && oldest >= STALE_AFTER_DAYS
-                  return (
-                    <div key={lane.id} className="bg-white px-4 py-2.5">
-                      <span className="flex items-center gap-1.5 text-meta text-slate-600">
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STAGE_COLOR[stage] }} />
-                        <span className="truncate">{name}</span>
-                      </span>
-                      <div
-                        className="mt-0.5 flex items-baseline gap-1.5"
-                        title={`${cards} card${cards === 1 ? '' : 's'} in ${name}`}
-                      >
-                        <span
-                          className={cn(
-                            'text-heading font-bold leading-none tabular-nums',
-                            cards === 0 ? 'text-slate-400' : 'text-slate-800',
-                          )}
-                        >
-                          {cards}
-                        </span>
-                        <span className="text-micro text-slate-500">cards</span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-1.5 text-micro text-slate-600">
-                        <span
-                          className={cn(stale && 'font-semibold text-amber-700')}
-                          title={
-                            stale
-                              ? 'A card has sat still past the staleness threshold — the same moment a card starts showing its age'
-                              : undefined
-                          }
-                        >
-                          oldest {daysLabel(oldest)}
-                        </span>
-                        <span className="text-slate-400">·</span>
-                        <span>median {daysLabel(median)}</span>
-                      </div>
+            flowColumns.map(({ flow, columns }) => (
+              <div key={flow.id} className="mb-3 last:mb-0">
+                <h3 className="mb-1.5 text-meta font-bold uppercase tracking-wide text-slate-600">{flow.name}</h3>
+                {columns.length === 0 ? (
+                  <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-meta text-slate-600 shadow-sm">
+                    This flow has no columns yet.
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-lg border border-slate-300 shadow-sm">
+                    <div className="grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-4">
+                      {columns.map(({ lane, cards, oldest, median }) => {
+                        const stage = lane.stage ?? 'inProgress'
+                        const name = lane.name || STAGE_LABELS[stage]
+                        const stale = oldest !== undefined && oldest >= STALE_AFTER_DAYS
+                        return (
+                          <div key={lane.id} className="bg-white px-4 py-2.5">
+                            <span className="flex items-center gap-1.5 text-meta text-slate-600">
+                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STAGE_COLOR[stage] }} />
+                              <span className="truncate">{name}</span>
+                            </span>
+                            <div
+                              className="mt-0.5 flex items-baseline gap-1.5"
+                              title={`${cards} card${cards === 1 ? '' : 's'} in ${name}`}
+                            >
+                              <span
+                                className={cn(
+                                  'text-heading font-bold leading-none tabular-nums',
+                                  cards === 0 ? 'text-slate-400' : 'text-slate-800',
+                                )}
+                              >
+                                {cards}
+                              </span>
+                              <span className="text-micro text-slate-500">cards</span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-1.5 text-micro text-slate-600">
+                              <span
+                                className={cn(stale && 'font-semibold text-amber-700')}
+                                title={
+                                  stale
+                                    ? 'A card has sat still past the staleness threshold — the same moment a card starts showing its age'
+                                    : undefined
+                                }
+                              >
+                                oldest {daysLabel(oldest)}
+                              </span>
+                              <span className="text-slate-400">·</span>
+                              <span>median {daysLabel(median)}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
+                  </div>
+                )}
               </div>
-            </div>
+            ))
           )}
 
           <p className="mt-2 text-micro text-slate-600">

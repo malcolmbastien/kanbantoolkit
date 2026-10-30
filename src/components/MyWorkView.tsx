@@ -34,7 +34,11 @@ export function MyWorkView() {
   const account = useAuth((s) => s.user)
   const signedIn = Boolean(account)
 
-  const groups = useMemo(() => myWork(items, placements, lanes, boards, meUserId), [items, placements, lanes, boards, meUserId])
+  const flows = useStore((s) => s.flows)
+  const groups = useMemo(
+    () => myWork(items, placements, lanes, boards, flows, meUserId),
+    [items, placements, lanes, boards, flows, meUserId],
+  )
   const me = users.find((u) => u.id === meUserId)
   const total = groups.reduce((n, g) => n + g.entries.length, 0)
 

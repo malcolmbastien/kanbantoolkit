@@ -54,7 +54,8 @@ test('a card is moved to another lane with the keyboard alone, and it is announc
   const flyout = page.locator('[data-card-flyout]')
   await expect(flyout).toBeVisible()
 
-  const destination = flyout.getByRole('button', { name: /Not Started/ })
+  // Several flows, several Not Starteds: this moves it in the board's own flow.
+  const destination = flyout.getByRole('group', { name: 'Cards' }).getByRole('button', { name: /Not Started/ })
   await destination.focus()
   await page.keyboard.press('Enter')
 

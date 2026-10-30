@@ -13,6 +13,7 @@
  */
 
 import { decompositionParent, objectiveRollup, rollupOf } from '../src/domain/derive'
+import { cardsFlows, initiativesFlow, kindOf } from '../src/domain/flows'
 import { boardCardTypeId, boardTags, canRetype, canSetParent, defaultDropLane, isInitiativeItem, searchItems } from '../src/domain/board'
 import { moveCard, moveInitiative } from '../src/domain/move'
 import type { Role } from '../src/domain/roles'
@@ -24,7 +25,7 @@ import type { AuthUser } from './auth/session'
 import { readItem, readWorkspace } from './workspace/read'
 import { appliedItemOf, writeItemAndPlacements, writeWorkspace } from './workspace/write'
 import { parseItem, parseWorkspace } from './workspace/validate'
-import type { Board, Item, ItemLogEntry, Lane, Placement } from '../src/domain/types'
+import type { Board, BoardFlow, Item, ItemLogEntry, Lane, Placement } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
 import { WORKSPACE_SCHEMA } from './workspace/schema'
 
@@ -72,6 +73,8 @@ export const compactItem = (item: Item, placement?: Placement) => ({
   createdAt: item.createdAt,
   ...(item.resolvedAt !== undefined ? { resolvedAt: item.resolvedAt } : {}),
   ...(item.archived ? { archived: true } : {}),
+  // A filed-away item says whether its work was done; absence is the completed case.
+  ...(item.discarded ? { discarded: true } : {}),
   ...(item.blocked ? { blocked: true } : {}),
 })
 
@@ -97,10 +100,12 @@ export interface LaneNode {
   children?: LaneNode[]
 }
 
-const laneNode = (lane: Lane, children: LaneNode[]): LaneNode => ({
+const laneNode = (lane: Lane, flow: BoardFlow, children: LaneNode[]): LaneNode => ({
   id: lane.id,
   name: lane.name,
-  workflow: lane.workflow,
+  // `workflow` stays the *kind* on the wire: `/api/v1` promised it, and a script branches on
+  // "cards" or "initiatives" rather than on which of several cards flows a lane sits in.
+  workflow: flow.kind,
   ...(lane.stage ? { stage: lane.stage } : {}),
   parentId: lane.parentId,
   order: lane.order,
@@ -109,14 +114,14 @@ const laneNode = (lane: Lane, children: LaneNode[]): LaneNode => ({
   ...(children.length ? { children } : {}),
 })
 
-/** One workflow's lanes as the tree they are, roots first. */
-export function tree(lanes: Lane[], workflow: 'cards' | 'initiatives', boardId: string): LaneNode[] {
-  const mine = lanes.filter((lane) => lane.boardId === boardId && lane.workflow === workflow)
+/** One flow's lanes as the tree they are, roots first. */
+export function tree(lanes: Lane[], flow: BoardFlow): LaneNode[] {
+  const mine = lanes.filter((lane) => lane.flowId === flow.id)
   const build = (parentId: string | null): LaneNode[] =>
     mine
       .filter((lane) => lane.parentId === parentId)
       .sort((a, b) => a.order - b.order)
-      .map((lane) => laneNode(lane, build(lane.id)))
+      .map((lane) => laneNode(lane, flow, build(lane.id)))
   return build(null)
 }
 
@@ -245,12 +250,23 @@ export async function getBoard(caller: OpCaller, boardId: string) {
 
   const placements = state.placements.filter((p) => p.boardId === board.id)
   const byItem = new Map(placements.map((p) => [p.itemId, p]))
+  // `cards` keeps meaning the board's first cards flow: `v1` may add, never remove or retype. A
+  // board with more than one cards flow returns the rest in `flows`, which is the additive door.
+  const cards = cardsFlows(state.flows, board.id)
+  const initiatives = initiativesFlow(state.flows, board.id)
   return ok({
     board: boardView(board),
     workflows: {
-      cards: tree(state.lanes, 'cards', board.id),
-      initiatives: tree(state.lanes, 'initiatives', board.id),
+      cards: cards[0] ? tree(state.lanes, cards[0]) : [],
+      initiatives: initiatives ? tree(state.lanes, initiatives) : [],
     },
+    flows: [...cards, ...(initiatives ? [initiatives] : [])].map((flow) => ({
+      id: flow.id,
+      name: flow.name,
+      kind: flow.kind,
+      order: flow.order,
+      lanes: tree(state.lanes, flow),
+    })),
     placements: placements.map((p) => ({ itemId: p.itemId, laneId: p.laneId, rank: p.rank ?? 0 })),
     items: state.items.filter((item) => byItem.has(item.id) && !item.archived).map((item) => compactItem(item, byItem.get(item.id))),
   })
@@ -322,15 +338,27 @@ export async function workspaceSummary(caller: OpCaller) {
       objectives: state.objectives.length,
     },
     // The columns of the first team board, because "what is in Done" is the first question an agent
-    // asks and a lane id is what it needs to ask it.
-    lanes:
-      state.boards.find((b) => b.band === 'team' && !b.archived) &&
-      tree(state.lanes, 'cards', state.boards.find((b) => b.band === 'team' && !b.archived)!.id).map((lane) => ({
-        id: lane.id,
-        name: lane.name,
-        stage: lane.stage,
-        items: inLane(lane.id),
-      })),
+    // asks and a lane id is what it needs to ask it. Every cards flow is named here: a board may
+    // carry several, and an agent that took the first as the whole board would plan blind.
+    ...(() => {
+      const board = state.boards.find((b) => b.band === 'team' && !b.archived)
+      if (!board) return { lanes: undefined, flows: [] }
+      const columns = (flow: (typeof state.flows)[number]) =>
+        tree(state.lanes, flow).map((lane) => ({
+          id: lane.id,
+          name: lane.name,
+          stage: lane.stage,
+          items: inLane(lane.id),
+        }))
+      const cards = cardsFlows(state.flows, board.id)
+      const first = cards[0]
+      return {
+        // The same columns the app's board renders, one entry per cards flow.
+        flows: cards.map((flow) => ({ id: flow.id, name: flow.name, columns: columns(flow) })),
+        // The legacy list: the first cards flow's columns, each saying which flow it is.
+        lanes: first ? columns(first).map((lane) => ({ ...lane, flow: first.name })) : [],
+      }
+    })(),
   })
 }
 
@@ -403,11 +431,13 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
   const initiative = typeId === initiativeType
 
   const laneParam = typeof body.laneId === 'string' ? body.laneId : undefined
-  const lane = laneParam ? state.lanes.find((l) => l.id === laneParam && l.boardId === board.id) : defaultDropLane(board, state.lanes, board.id)
+  const lane = laneParam
+    ? state.lanes.find((l) => l.id === laneParam && l.boardId === board.id)
+    : defaultDropLane(board, state.flows, state.lanes, board.id)
   if (!lane) {
     return no(422, 'invalid', laneParam ? 'that lane is not on this board' : 'this board has no cell to put a card in', { field: 'laneId' })
   }
-  if (lane.workflow !== (initiative ? 'initiatives' : 'cards')) {
+  if (kindOf(state.flows, lane.flowId) !== (initiative ? 'initiatives' : 'cards')) {
     return no(
       422,
       'wrong_workflow',

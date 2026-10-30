@@ -199,9 +199,14 @@ export function v1Routes(runtime: Runtime) {
     {
       method: 'GET',
       path: '/boards/:boardId',
-      summary: 'One board: its two lane trees, what is placed in it, and the items there.',
+      summary: 'One board: its cards flows and its initiatives flow, what is placed in it, and the items there.',
       scope: 'boards:read',
-      responses: { '200': { description: 'The board' }, '404': { description: 'No such board' } },
+      responses: {
+        // `workflows.cards` keeps meaning the board's first cards flow, as v1 promised; `flows`
+        // names them all, because a board may carry more than one.
+        '200': { description: 'The board, its `workflows` (the first cards flow and the initiatives flow) and its `flows` (every flow, by name)' },
+        '404': { description: 'No such board' },
+      },
       handler: async (c, caller) => respond(c, await getBoard(caller, c.req.param('boardId') ?? '')),
     },
     {
@@ -405,6 +410,7 @@ const itemSchema = {
     createdAt: { type: 'integer' },
     resolvedAt: { type: ['integer', 'null'] },
     archived: { type: 'boolean' },
+    discarded: { type: 'boolean', description: 'Filed away unfinished: archived work that nobody completed.' },
     blocked: { type: 'boolean' },
   },
 } as const
@@ -423,6 +429,17 @@ const schemas = {
           details: { type: 'object', additionalProperties: true, description: 'What a script needs to act.' },
         },
       },
+    },
+  },
+  Flow: {
+    type: 'object',
+    required: ['id', 'name', 'kind', 'order', 'lanes'],
+    properties: {
+      id: { type: 'string' },
+      name: { type: 'string', description: 'What the board calls it: "Delivery", "Support", "Cards".' },
+      kind: { type: 'string', enum: ['cards', 'initiatives'], description: 'The kind of tree. A board has one initiatives flow and one or more cards flows.' },
+      order: { type: 'integer', description: 'Position among the board\'s flows; 0 is the first.' },
+      lanes: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'The same lane tree `workflows` carries, for this flow.' },
     },
   },
   Item: itemSchema,

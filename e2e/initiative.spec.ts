@@ -59,7 +59,7 @@ test('points are gone: no card carries one, and the drawer has no estimate to en
 
   // Every card on the board, and every initiative: no "pts" anywhere on a face, and no estimate
   // chip beside the priority.
-  await expect(page.locator('[data-workflow="cards"]')).not.toContainText('pts')
+  expect((await page.locator('[data-workflow="cards"]').allInnerTexts()).join('\n')).not.toContain('pts')
   await expect(page.locator('[data-workflow="initiatives"]').first()).not.toContainText('pts')
 
   // The drawer offers no Estimate field — nor anything else shaped like a points input.

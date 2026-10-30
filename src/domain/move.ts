@@ -14,7 +14,8 @@
  * Three refusals, each a sentence rather than a boolean:
  *
  * - **wrong workflow** — a card does not live in an initiatives cell, and an initiative does not
- *   live in a card lane. The two trees are independent.
+ *   live in a card lane. A board may carry several cards flows, so the refusal is about the
+ *   *kind* of the target's tree, never about which tree it is.
  * - **WIP** — `block` refuses; `justify` holds until a reason arrives, and the *place the gesture
  *   offered* is carried with the hold so answering lands the card where it was put rather than at
  *   the end of the lane.
@@ -27,8 +28,9 @@
  */
 
 import { canPlaceInSection, rollupOf, type Graph } from './derive'
+import { kindOf } from './flows'
 import { effectiveStage, laneNameAt, lanePath, nextRank, placementsInOrder, subtreeIds } from './lanes'
-import type { Board, Item, ItemLogEntry, Lane, Placement } from './types'
+import type { Board, BoardFlow, Item, ItemLogEntry, Lane, Placement } from './types'
 
 /** The state a move reads. Exactly this and no more, so a caller can pass a snapshot. */
 export interface MoveSlice {
@@ -36,6 +38,8 @@ export interface MoveSlice {
   placements: Placement[]
   lanes: Lane[]
   boards: Board[]
+  /** The flows the lanes belong to: what tells a cards cell from an initiatives one. */
+  flows: BoardFlow[]
   edges: Graph['edges']
   links: Graph['links']
 }
@@ -132,9 +136,20 @@ export function movedEntry(
   fromLaneId: string | undefined,
   toLaneId: string,
   context: { id: () => string; at: number; by?: string; why?: string },
+  /**
+   * The board's flows, when the caller has them. A move between two cards flows would otherwise
+   * read "In Progress → Done" — the same words as a local move — so when the flow changed the note
+   * names both, and a history never hides that the card left its tree.
+   */
+  flows?: BoardFlow[],
 ): ItemLogEntry {
-  const from = laneNameAt(lanes, fromLaneId)
-  const to = laneNameAt(lanes, toLaneId)
+  const laneOf = (id: string | undefined) => (id ? lanes.find((l) => l.id === id) : undefined)
+  const flowOfLane = (id: string | undefined) => flows?.find((f) => f.id === laneOf(id)?.flowId)
+  const crossed = Boolean(fromLaneId && flowOfLane(fromLaneId) && flowOfLane(fromLaneId)!.id !== flowOfLane(toLaneId)?.id)
+  const fromName = laneNameAt(lanes, fromLaneId)
+  const toName = laneNameAt(lanes, toLaneId)
+  const from = crossed ? `${flowOfLane(fromLaneId)!.name}: ${fromName}` : fromName
+  const to = crossed ? `${flowOfLane(toLaneId)!.name}: ${toName}` : toName
   const fromStage = fromLaneId ? effectiveStage(lanes, fromLaneId) : undefined
   const toStage = effectiveStage(lanes, toLaneId)
   return {
@@ -181,7 +196,7 @@ function placeAt(
 }
 
 /**
- * Move a **card** into a cell of the cards workflow.
+ * Move a **card** into a cell of one of the board's cards flows.
  *
  * The WIP check reads the target lane and every limited ancestor, because a split lane's limit is on
  * the container and a card in any of its cells counts. A card already inside that subtree moving
@@ -190,10 +205,10 @@ function placeAt(
 export function moveCard(slice: MoveSlice, input: MoveInput, context: MoveContext): MoveOutcome {
   const lane = slice.lanes.find((l) => l.id === input.laneId)
   if (!lane) return { kind: 'refused', refusal: { code: 'not_found', message: 'no such lane' } }
-  if (lane.workflow !== 'cards') {
+  if (kindOf(slice.flows, lane.flowId) !== 'cards') {
     return {
       kind: 'refused',
-      refusal: { code: 'wrong_workflow', message: 'cards live in the cards workflow; that cell is for initiatives' },
+      refusal: { code: 'wrong_workflow', message: 'cards live in a cards flow; that cell is for initiatives' },
     }
   }
 
@@ -278,7 +293,7 @@ export function moveCard(slice: MoveSlice, input: MoveInput, context: MoveContex
     }
     next = {
       ...next,
-      log: [...(next.log ?? []), movedEntry(slice.lanes, input.boardId, existing?.laneId, lane.id, context)],
+      log: [...(next.log ?? []), movedEntry(slice.lanes, input.boardId, existing?.laneId, lane.id, context, slice.flows)],
     }
     return next
   })
@@ -304,10 +319,10 @@ export function moveCard(slice: MoveSlice, input: MoveInput, context: MoveContex
 export function moveInitiative(slice: MoveSlice, input: MoveInput, context: MoveContext): MoveOutcome {
   const lane = slice.lanes.find((l) => l.id === input.laneId)
   if (!lane) return { kind: 'refused', refusal: { code: 'not_found', message: 'no such lane' } }
-  if (lane.workflow !== 'initiatives') {
+  if (kindOf(slice.flows, lane.flowId) !== 'initiatives') {
     return {
       kind: 'refused',
-      refusal: { code: 'wrong_workflow', message: 'an initiative is arranged in the initiatives workflow; that cell is a card lane' },
+      refusal: { code: 'wrong_workflow', message: 'an initiative is arranged in the initiatives flow; that cell is a card lane' },
     }
   }
 
@@ -362,7 +377,7 @@ export function moveInitiative(slice: MoveSlice, input: MoveInput, context: Move
   const placements = placeAt(base, moving, lane.id, input.index, context)
   const items = slice.items.map((i) =>
     i.id === input.itemId
-      ? { ...i, log: [...(i.log ?? []), movedEntry(slice.lanes, input.boardId, existing?.laneId, lane.id, context)] }
+      ? { ...i, log: [...(i.log ?? []), movedEntry(slice.lanes, input.boardId, existing?.laneId, lane.id, context, slice.flows)] }
       : i,
   )
 

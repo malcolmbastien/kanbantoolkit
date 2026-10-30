@@ -21,6 +21,7 @@ const TABLES = [
   'item_checklist',
   'placements',
   'lanes',
+  'board_flows',
   'board_initiative_types',
   'board_tags',
   'boards',
@@ -30,6 +31,7 @@ const TABLES = [
   'key_results',
   'objectives',
   'template_lanes',
+  'template_flows',
   'board_templates',
   'people',
   'issue_types',
@@ -53,6 +55,7 @@ const SCOPED = new Set([
   'people',
   'issue_types',
   'boards',
+  'board_flows',
   'lanes',
   'items',
   'item_log',
@@ -77,6 +80,8 @@ const CHILD_DELETE: Record<string, string> = {
   board_tags: 'DELETE FROM board_tags WHERE board_id IN (SELECT id FROM boards WHERE workspace_id = ?1)',
   template_lanes:
     'DELETE FROM template_lanes WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)',
+  template_flows:
+    'DELETE FROM template_flows WHERE template_id IN (SELECT id FROM board_templates WHERE workspace_id = ?1)',
 }
 
 const value = <T>(input: T | undefined | null): T | null => input ?? null
@@ -114,6 +119,7 @@ function addItem(statements: Statement[], item: Item, workspaceId: string): void
       blocked_reason: value(item.blockedReason),
       archived: flag(item.archived),
       archived_at: value(item.archivedAt),
+      discarded: flag(item.discarded),
     }, workspaceId)
 
     for (const [position, entry] of (item.checklist ?? []).entries()) {
@@ -164,6 +170,11 @@ export async function writeItem(db: Database, item: Item, workspaceId: string, k
  * This is the only place the API writes arrangement: the app's own moves are still the browser's
  * (task 118 never grew a placement route), which is why `/api/v1` is the first door that puts a move
  * in the database rather than in a cache.
+ *
+ * **An item write keeps the card where it is.** The row is replaced (delete, then insert) because
+ * every column is rewritten, and placements reference the item with `ON DELETE CASCADE` — so the
+ * delete takes the card's cells with it. They are read first and written back before the caller's
+ * own placements, which then win by id. Without this, editing a card silently took it off its board.
  */
 export async function writeItemAndPlacements(
   db: Database,
@@ -173,6 +184,16 @@ export async function writeItemAndPlacements(
   key?: string,
   audit?: Statement,
 ): Promise<void> {
+  // Where the card already sits, read before the row it hangs from is replaced.
+  const existing = await db.all<{
+    id: string
+    board_id: string
+    item_id: string
+    lane_id: string
+    lane_entered_at: number | null
+    rank: number | null
+  }>('SELECT * FROM placements WHERE item_id = ?1 AND workspace_id = ?2', [item.id, workspaceId])
+
   const statements: Statement[] = [
     { sql: 'DELETE FROM item_checklist WHERE item_id = ?1', params: [item.id] },
     // scoped by its item
@@ -180,6 +201,17 @@ export async function writeItemAndPlacements(
     { sql: 'DELETE FROM items WHERE id = ?1 AND workspace_id = ?2', params: [item.id, workspaceId] },
   ]
   addItem(statements, item, workspaceId)
+
+  // Back where it was, before the caller's own placements — a move may renumber the lane, and that
+  // write must be the one that lands.
+  for (const row of existing) {
+    statements.push({
+      sql: `INSERT OR REPLACE INTO placements (id, board_id, item_id, lane_id, lane_entered_at, rank, workspace_id)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+      params: [row.id, row.board_id, row.item_id, row.lane_id, row.lane_entered_at, row.rank, workspaceId],
+    })
+  }
+
   // The trail shares the transaction, as every other access change does: a write that landed must
   // be explainable, and one that failed must not leave a claim that it happened.
   if (audit) statements.push(audit)
@@ -285,6 +317,17 @@ export async function writeWorkspace(
     }
   })
 
+  // A board's flows go in before its lanes: a lane names its flow, and a foreign key does not wait.
+  for (const flow of workspace.flows ?? []) {
+    add(statements, 'board_flows', {
+      id: flow.id,
+      board_id: flow.boardId,
+      kind: flow.kind,
+      name: flow.name,
+      position: flow.order,
+    }, workspaceId)
+  }
+
   // The tree is built flat and wired afterwards, because a lane in the array can be a grandchild of
   // one that comes later — and a foreign key does not care about the order an array happened to use.
   for (const lane of workspace.lanes) {
@@ -294,7 +337,7 @@ export async function writeWorkspace(
       parent_id: null,
       position: lane.order,
       name: lane.name,
-      workflow: lane.workflow,
+      flow_id: lane.flowId,
       orientation: value(lane.orientation),
       stage: value(lane.stage),
       wip_limit: value(lane.wipLimit),
@@ -363,10 +406,20 @@ export async function writeWorkspace(
       default_card_type_id: value(template.defaultCardTypeId),
       wip_enforcement: value(template.wipEnforcement),
     }, workspaceId)
+    for (const flow of template.flows ?? []) {
+      add(statements, 'template_flows', {
+        template_id: template.id,
+        key: flow.key,
+        kind: flow.kind,
+        name: flow.name,
+        position: flow.order,
+      }, workspaceId)
+    }
     for (const lane of template.lanes) {
       add(statements, 'template_lanes', {
         template_id: template.id,
         key: lane.key,
+        flow_key: lane.flowKey,
         parent_key: value(lane.parentKey),
         position: lane.order,
         name: lane.name,

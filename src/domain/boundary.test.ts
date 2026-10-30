@@ -17,7 +17,7 @@ const lane = (id: string, boardId: string, stage: Lane['stage']): Lane => ({
   parentId: null,
   order: 0,
   name: id,
-  workflow: 'cards',
+  flowId: 'f',
   stage,
 })
 

@@ -16,7 +16,7 @@ import type { Database } from './db'
 import { fromSqlite } from './sqlite'
 import { readWorkspace } from './workspace/read'
 import { acquire, LEASE_MS, lockOf, release } from './workspace/locks'
-import type { Board, Item, Lane } from '../src/domain/types'
+import type { Board, BoardFlow, Item, Lane } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
 import { writeWorkspace } from './workspace/write'
 
@@ -80,22 +80,27 @@ const workspace: Workspace = {
       archivedAt: 1_700_000_000_000,
     },
   ],
+  flows: [
+    { id: 'f-atlas-cards', boardId: 'b-atlas', kind: 'cards', name: 'Cards', order: 0 },
+    { id: 'f-atlas-init', boardId: 'b-atlas', kind: 'initiatives', name: 'Initiatives', order: 0 },
+    { id: 'f-port-init', boardId: 'b-port', kind: 'initiatives', name: 'Initiatives', order: 0 },
+  ],
   lanes: [
-    { id: 'l-start', boardId: 'b-atlas', parentId: null, order: 0, name: 'Not Started', workflow: 'cards', stage: 'notStarted' },
+    { id: 'l-start', boardId: 'b-atlas', parentId: null, order: 0, name: 'Not Started', flowId: 'f-atlas-cards', stage: 'notStarted' },
     {
       id: 'l-ready',
       boardId: 'b-atlas',
       parentId: 'l-start',
       order: 0,
       name: 'Ready',
-      workflow: 'cards',
+      flowId: 'f-atlas-cards',
       orientation: 'columns',
       wipLimit: 2,
       description: 'Only work that is actually ready.',
     },
-    { id: 'l-ready-named', boardId: 'b-atlas', parentId: 'l-ready', order: 0, name: 'Named', workflow: 'cards' },
-    { id: 'l-now', boardId: 'b-atlas', parentId: null, order: 0, name: 'Now', workflow: 'initiatives', stage: 'inProgress' },
-    { id: 'l-done', boardId: 'b-port', parentId: null, order: 0, name: 'Done', workflow: 'initiatives', stage: 'done' },
+    { id: 'l-ready-named', boardId: 'b-atlas', parentId: 'l-ready', order: 0, name: 'Named', flowId: 'f-atlas-cards' },
+    { id: 'l-now', boardId: 'b-atlas', parentId: null, order: 0, name: 'Now', flowId: 'f-atlas-init', stage: 'inProgress' },
+    { id: 'l-done', boardId: 'b-port', parentId: null, order: 0, name: 'Done', flowId: 'f-port-init', stage: 'done' },
   ],
   items: [
     {
@@ -160,9 +165,14 @@ const workspace: Workspace = {
       band: 'team',
       defaultCardTypeId: 't-card',
       wipEnforcement: 'visualize',
+      flows: [
+        { key: 'f0', kind: 'cards', name: 'Cards', order: 0 },
+        { key: 'f1', kind: 'cards', name: 'Support', order: 1 },
+      ],
       lanes: [
-        { key: 'a', parentKey: null, order: 0, name: 'Backlog' },
-        { key: 'b', parentKey: 'a', order: 0, name: 'Ready', orientation: 'rows', stage: 'notStarted', wipLimit: 3, description: 'Groomed.' },
+        { key: 'a', flowKey: 'f0', parentKey: null, order: 0, name: 'Backlog' },
+        { key: 'b', flowKey: 'f0', parentKey: 'a', order: 0, name: 'Ready', orientation: 'rows', stage: 'notStarted', wipLimit: 3, description: 'Groomed.' },
+        { key: 'c', flowKey: 'f1', parentKey: null, order: 0, name: 'Backlog' },
       ],
     },
   ],
@@ -211,6 +221,7 @@ describe('the workspace', () => {
     const db = database()
     expect(await readWorkspace(db)).toEqual({
       boardId: '',
+      flows: [],
       savedFilters: [],
       collapsedLanes: {},
       users: [],
@@ -290,14 +301,22 @@ describe('writing the board design', () => {
     parentId: null,
     order: 0,
     name: 'Backlog',
-    workflow: 'cards',
+    flowId: 'f-cards',
     stage: 'backlog',
+    ...over,
+  })
+  const flow = (over: Partial<BoardFlow> = {}): BoardFlow => ({
+    id: 'f-cards',
+    boardId: 'b-new',
+    kind: 'cards',
+    name: 'Cards',
+    order: 0,
     ...over,
   })
 
   async function designer(role: 'admin' | 'editor' | 'viewer' = 'admin') {
     const db = database()
-    await writeWorkspace(db, { ...workspace, boards: [], lanes: [], placements: [] }, 'workspace')
+    await writeWorkspace(db, { ...workspace, boards: [], flows: [], lanes: [], placements: [] }, 'workspace')
     const { cookie } = await signedIn(db)
     if (role !== 'admin') await db.run('UPDATE workspace_members SET role = ?1 WHERE user_id = ?2', [role, 'u-ada'])
     const request = instance(db)
@@ -320,7 +339,7 @@ describe('writing the board design', () => {
 
     const response = await put({
       rev,
-      design: { boards: [board()], lanes: [lane(), lane({ id: 'l-done', order: 1, name: 'Done', stage: 'done' })], placements: [{ id: 'p-1', boardId: 'b-new', itemId: 'i-card', laneId: 'l-backlog', rank: 0 }] },
+      design: { boards: [board()], flows: [flow()], lanes: [lane(), lane({ id: 'l-done', order: 1, name: 'Done', stage: 'done' })], placements: [{ id: 'p-1', boardId: 'b-new', itemId: 'i-card', laneId: 'l-backlog', rank: 0 }] },
     })
     expect(response.status).toBe(200)
     expect(((await response.json()) as { rev: number }).rev).toBe(rev + 1)
@@ -333,11 +352,57 @@ describe('writing the board design', () => {
     expect(body.structureRev).toBe(rev + 1)
   })
 
+  it('keeps two cards flows apart, and refuses a lane that names no flow it can place', async () => {
+    const { put, request, cookie, rev } = await designer()
+    const support = flow({ id: 'f-support', name: 'Support', order: 1 })
+    const response = await put({
+      rev,
+      design: {
+        boards: [board()],
+        flows: [flow(), support],
+        lanes: [
+          lane(),
+          lane({ id: 'l-done', order: 1, name: 'Done', stage: 'done' }),
+          lane({ id: 'l-triage', parentId: null, name: 'Triage', flowId: 'f-support' }),
+        ],
+        placements: [],
+      },
+    })
+    expect(response.status).toBe(200)
+
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace & {
+      structureRev: number
+    }
+    expect(body.flows.map((f) => `${f.name}:${f.kind}`)).toEqual(['Cards:cards', 'Support:cards'])
+    expect(body.lanes.find((l) => l.id === 'l-triage')?.flowId).toBe('f-support')
+
+    // A lane naming a flow that is not in the document is refused rather than guessed: dropping it
+    // would take its cards with it, and inventing a tree would put work in a flow nobody named.
+    const bad = await put({
+      rev: rev + 1,
+      design: { boards: [board()], flows: [flow()], lanes: [lane({ flowId: 'f-missing' })], placements: [] },
+    })
+    expect(bad.status).toBe(400)
+  })
+
+  it('refuses a write on a database that has not run the latest migration', async () => {
+    const db = database()
+    const { cookie } = await signedIn(db)
+    // The floor is the newest migration: a database behind it cannot be read honestly.
+    await db.run('DELETE FROM schema_migrations WHERE version = 32')
+    const response = await instance(db)('/api/workspace/structure', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ rev: 0, design: { boards: [], flows: [], lanes: [], placements: [] } }),
+    })
+    expect(response.status).toBe(503)
+  })
+
   it('refuses a design based on a revision that has moved, and says which one is there', async () => {
     const { put, rev } = await designer()
-    await put({ rev, design: { boards: [board()], lanes: [lane()], placements: [] } })
+    await put({ rev, design: { boards: [board()], flows: [flow()], lanes: [lane()], placements: [] } })
 
-    const stale = await put({ rev, design: { boards: [board({ name: 'Renamed' })], lanes: [lane()], placements: [] } })
+    const stale = await put({ rev, design: { boards: [board({ name: 'Renamed' })], flows: [flow()], lanes: [lane()], placements: [] } })
     expect(stale.status).toBe(409)
     expect(await stale.json()).toMatchObject({ rev: rev + 1 })
   })
@@ -348,6 +413,7 @@ describe('writing the board design', () => {
       rev,
       design: {
         boards: [board()],
+        flows: [flow()],
         lanes: [lane()],
         placements: [{ id: 'p-late', boardId: 'b-new', itemId: 'i-not-here', laneId: 'l-backlog', rank: 0 }],
       },
@@ -414,6 +480,34 @@ describe('writing one item', () => {
     const response = await patch('i-card', { baseRev: 7, item: card({ rev: 7 }) })
     expect(response.status).toBe(200)
     expect(((await response.json()) as { item: Item }).item.rev).toBe(8)
+  })
+
+  it('keeps the card in its cell when its own fields are written', async () => {
+    const { request, patch, cookie } = await writer()
+    // The card, then the design that places it: a placement needs an item the server has met.
+    await patch('i-card', { baseRev: 0, item: card() })
+    const design = await request('/api/workspace/structure', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({
+        rev: 0,
+        design: {
+          boards: [{ id: 'b-1', name: 'Atlas', band: 'team', description: '' }],
+          flows: [{ id: 'f-1', boardId: 'b-1', kind: 'cards', name: 'Cards', order: 0 }],
+          lanes: [{ id: 'l-1', boardId: 'b-1', parentId: null, order: 0, name: 'Backlog', flowId: 'f-1', stage: 'backlog' }],
+          placements: [{ id: 'p-1', boardId: 'b-1', itemId: 'i-card', laneId: 'l-1', rank: 0 }],
+        },
+      }),
+    })
+    expect(design.status).toBe(200)
+
+    // Editing a card replaces its row; the card must not come off its board for that. This is the
+    // cascade the regression is about: `placements.item_id` is `ON DELETE CASCADE`.
+    expect((await patch('i-card', { baseRev: 1, item: card({ title: 'Renamed', rev: 1 }) })).status).toBe(200)
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
+    expect(body.placements.map((p) => ({ id: p.id, laneId: p.laneId, itemId: p.itemId }))).toEqual([
+      { id: 'p-1', laneId: 'l-1', itemId: 'i-card' },
+    ])
   })
 
   it('updates an item with the revision it was based on', async () => {
@@ -538,8 +632,9 @@ describe('the change feed', () => {
 describe('importing a workspace', () => {
   const slice = {
     boards: [{ id: 'b-new', name: 'Team Atlas', band: 'team', description: 'Brought from the browser.' }],
+    flows: [{ id: 'f-new', boardId: 'b-new', kind: 'cards', name: 'Cards', order: 0 }],
     lanes: [
-      { id: 'l-new', boardId: 'b-new', parentId: null, order: 0, name: 'Backlog', workflow: 'cards', stage: 'backlog' },
+      { id: 'l-new', boardId: 'b-new', parentId: null, order: 0, name: 'Backlog', flowId: 'f-new', stage: 'backlog' },
     ],
     items: [{ id: 'i-new', title: 'A card from the browser', typeId: 't-card', createdAt: 1_700_000_000_000, rev: 4 }],
     users: [{ id: 'u-new', name: 'Ada' }],

@@ -2,8 +2,9 @@ import { rollupOf, type Graph } from './derive'
 import { boardInitiatives, isAggregating } from './board'
 import { ageDays, isOverdue, STALE_AFTER_DAYS } from './filters'
 import { initiativeHealth } from './health'
+import { cardsFlows } from './flows'
 import { effectiveStage, lanePath, STAGE_LABELS, workflowLanes } from './lanes'
-import type { Board, IssueType, Item, Placement, Stage } from './types'
+import type { Board, BoardFlow, IssueType, Item, Placement, Stage } from './types'
 
 /**
  * What needs attention on a board: the signals an unfinished item carries, and the items behind
@@ -15,9 +16,10 @@ import type { Board, IssueType, Item, Placement, Stage } from './types'
  * describes. The band and the list read one array (`rows`), which is why a tile's number and the
  * rows carrying its signal are the same fact.
  *
- * The population is what the board actually renders. A board with a cards workflow reads its
- * cards; a coordination board, which makes no cards, reads its own initiatives. Both read the
- * same rules, because an initiative answers for the same facts a card does.
+ * The population is what the board actually renders. A board with a cards flow reads its cards —
+ * every cards flow it has, because the dashboard reads the board and not one of its tabs; a
+ * coordination board, which makes no cards, reads its own initiatives. Both read the same rules,
+ * because an initiative answers for the same facts a card does.
  */
 
 export type AttentionSignalKey = 'overdue' | 'stale' | 'unassigned' | 'noPriority'
@@ -85,10 +87,11 @@ export function boardAttention(
   graph: Graph,
   boardId: string,
   issueTypes: IssueType[],
+  flows: BoardFlow[],
   { boards = [], now = Date.now() }: { boards?: Board[]; now?: number } = {},
 ): Attention {
   const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
-  const rows = makesCards ? cardRows(graph, boardId, now) : initiativeRows(graph, boardId, issueTypes, now)
+  const rows = makesCards ? cardRows(graph, boardId, flows, now) : initiativeRows(graph, boardId, issueTypes, now)
   const counts: AttentionCounts = {
     unfinished: rows.length,
     overdue: 0,
@@ -117,8 +120,11 @@ export function orderRows(rows: AttentionRow[]): AttentionRow[] {
  * Cards — the board's own flow
  * ------------------------------------------------------------------ */
 
-function cardRows(graph: Graph, boardId: string, now: number): AttentionRow[] {
-  const laneIds = new Set(workflowLanes(graph.lanes, boardId, 'cards').map((l) => l.id))
+function cardRows(graph: Graph, boardId: string, flows: BoardFlow[], now: number): AttentionRow[] {
+  const flowsHere = cardsFlows(flows, boardId)
+  const laneIds = new Set(flowsHere.flatMap((flow) => workflowLanes(graph.lanes, flow.id)).map((l) => l.id))
+  // "Backlog" is two answers on a board with two cards flows, so the row says which tree it means.
+  const nameOfFlow = flowsHere.length > 1 ? (laneId: string) => flows.find((f) => f.id === graph.lanes.find((l) => l.id === laneId)?.flowId)?.name : undefined
   const rows: AttentionRow[] = []
   for (const placement of graph.placements) {
     if (placement.boardId !== boardId || !laneIds.has(placement.laneId)) continue
@@ -130,7 +136,7 @@ function cardRows(graph: Graph, boardId: string, now: number): AttentionRow[] {
     const age = ageDays(placement, now)
     rows.push({
       item,
-      status: cardStatus(graph, placement, stage),
+      status: cardStatus(graph, placement, stage, nameOfFlow?.(placement.laneId)),
       stage,
       ...(age !== undefined ? { ageDays: age } : {}),
       signals: cardSignals(item, stage, age, now),
@@ -140,9 +146,10 @@ function cardRows(graph: Graph, boardId: string, now: number): AttentionRow[] {
 }
 
 /** The lane path (the root's nameless top excluded), with the stage as the fallback. */
-function cardStatus(graph: Graph, placement: Placement, stage: Stage): string {
+function cardStatus(graph: Graph, placement: Placement, stage: Stage, flowName?: string): string {
   const path = lanePath(graph.lanes, placement.laneId).filter(Boolean)
-  return path.length > 0 ? path.join(' · ') : STAGE_LABELS[stage]
+  const where = path.length > 0 ? path.join(' · ') : STAGE_LABELS[stage]
+  return flowName ? `${flowName} · ${where}` : where
 }
 
 function cardSignals(item: Item, stage: Stage, age: number | undefined, now: number): AttentionSignal[] {

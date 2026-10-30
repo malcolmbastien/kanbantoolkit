@@ -217,7 +217,7 @@ capitalised; the wire values are lower case.
 | Create an initiative; set a parent, dependency, tag or checklist | | ✓ | ✓ |
 | Attribute an initiative to an objective | | ✓ | ✓ |
 | Create and edit a board from a template | | ✓ | ✓ |
-| Split, add, rename, reorder or remove a lane; flip orientation | | | ✓ |
+| Split, add, rename, reorder or remove a lane or a cards flow; flip orientation | | | ✓ |
 | Set WIP limits and the WIP policy; edit board settings and bindings | | | ✓ |
 | Archive a board; delete a card; delete a board; remove a template | | | ✓ |
 | Import a workspace; restore a snapshot | | | ✓ |

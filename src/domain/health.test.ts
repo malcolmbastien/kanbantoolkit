@@ -18,7 +18,7 @@ const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: '
 const link = (from: string, to: string): ItemLink => ({ id: `${from}->${to}`, from, to })
 
 /** A board whose cards workflow has one cell per stage, so a card's stage is its lane's. */
-const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: 'root', order: 0, name: id, stage, workflow: 'cards' })
+const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: 'root', order: 0, name: id, stage, flowId: 'f' })
 const at = (itemId: string, laneId: string, enteredAt?: number): Placement => ({
   id: `p-${itemId}`,
   boardId: 'b',

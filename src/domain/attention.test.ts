@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ATTENTION_TILES, boardAttention, orderRows } from './attention'
 import type { Graph } from './derive'
 import { STALE_AFTER_DAYS } from './filters'
-import type { Board, Edge, IssueType, Item, Lane, Placement, Stage } from './types'
+import type { Board, BoardFlow, Edge, IssueType, Item, Lane, Placement, Stage } from './types'
 
 const DAY = 86_400_000
 const NOW = Date.UTC(2026, 9, 17, 12)
@@ -15,23 +15,31 @@ const card = (id: string, patch: Partial<Item> = {}): Item => ({
   ...patch,
 })
 
-const lane = (id: string, stage: Stage, boardId = 'b', workflow: 'cards' | 'initiatives' = 'cards'): Lane => ({
+const CARDS = 'f-cards'
+const INIT = 'f-initiatives'
+/** A board's two flows, in the shape the model now names a tree with. */
+const flows = (boardId = 'b'): BoardFlow[] => [
+  { id: CARDS, boardId, kind: 'cards', name: 'Cards', order: 0 },
+  { id: INIT, boardId, kind: 'initiatives', name: 'Initiatives', order: 0 },
+]
+
+const lane = (id: string, stage: Stage, boardId = 'b', flowId = CARDS): Lane => ({
   id,
   boardId,
   parentId: `root-${boardId}`,
   order: 0,
   name: `${stage} lane`,
   stage,
-  workflow,
+  flowId,
 })
 
-const root = (boardId = 'b', workflow: 'cards' | 'initiatives' = 'cards'): Lane => ({
+const root = (boardId = 'b', flowId = CARDS): Lane => ({
   id: `root-${boardId}`,
   boardId,
   parentId: null,
   order: 0,
   name: '',
-  workflow,
+  flowId,
 })
 
 const at = (itemId: string, laneId: string, enteredAt?: number, boardId = 'b'): Placement => ({
@@ -85,7 +93,7 @@ describe('board attention on a cards board', () => {
       ],
     )
 
-    const attention = boardAttention(graph, 'b', [], { now: NOW })
+    const attention = boardAttention(graph, 'b', [], flows(), { now: NOW })
     expect(attention.population).toBe('cards')
     expect(attention.rows.map((r) => r.item.id)).toEqual(['a', 'e', 'b'])
     expect(attention.counts).toEqual({
@@ -119,7 +127,7 @@ describe('board attention on a cards board', () => {
       ],
       [],
     )
-    const stale = boardAttention(graph, 'b', [], { now: NOW }).rows.filter((r) => r.signals.some((s) => s.key === 'stale'))
+    const stale = boardAttention(graph, 'b', [], flows(), { now: NOW }).rows.filter((r) => r.signals.some((s) => s.key === 'stale'))
     expect(stale.map((r) => r.item.id)).toEqual(['old'])
     expect(stale[0].ageDays).toBe(STALE_AFTER_DAYS)
   })
@@ -129,7 +137,7 @@ describe('board attention on a cards board', () => {
       [card('late', { targetEndDate: '2026-10-16' }), card('soon', { targetEndDate: '2026-10-18' }), card('undated')],
       [at('late', 'ip'), at('soon', 'ip'), at('undated', 'ip')],
     )
-    const rows = boardAttention(graph, 'b', [], { now: NOW }).rows
+    const rows = boardAttention(graph, 'b', [], flows(), { now: NOW }).rows
     const by = Object.fromEntries(rows.map((r) => [r.item.id, r.signals.map((s) => s.key)]))
     expect(by.late).toContain('overdue')
     expect(by.soon).not.toContain('overdue')
@@ -147,7 +155,7 @@ describe('board attention on a cards board', () => {
       ],
       [at('a', 'ip', NOW - 20 * DAY), at('b', 'ip'), at('c', 'ns', NOW - 10 * DAY), at('d', 'backlog'), at('e', 'ip', NOW - 2 * DAY)],
     )
-    const { rows, counts } = boardAttention(graph, 'b', [], { now: NOW })
+    const { rows, counts } = boardAttention(graph, 'b', [], flows(), { now: NOW })
     expect(counts.unfinished).toBe(rows.length)
     for (const tile of ATTENTION_TILES) {
       if (tile.key === 'unfinished') continue
@@ -174,7 +182,7 @@ describe('board attention on a cards board', () => {
       ],
     )
     // Both carry three signals; Bravo is older. Charlie carries two, Delta one with no stamp.
-    const attention = boardAttention(graph, 'b', [], { now: NOW })
+    const attention = boardAttention(graph, 'b', [], flows(), { now: NOW })
     expect(attention.rows.map((r) => r.item.id)).toEqual(['B', 'A', 'C', 'D', 'E'])
     expect(attention.rows.find((r) => r.item.id === 'C')?.signals).toHaveLength(2)
     expect(attention.rows.find((r) => r.item.id === 'D')?.ageDays).toBeUndefined()
@@ -183,13 +191,28 @@ describe('board attention on a cards board', () => {
 
   it('does not count a card placed on another board', () => {
     const graph = cardsBoard([card('a')], [at('a', 'ip', NOW - DAY, 'other')])
-    expect(boardAttention(graph, 'b', [], { now: NOW }).counts.unfinished).toBe(0)
+    expect(boardAttention(graph, 'b', [], flows(), { now: NOW }).counts.unfinished).toBe(0)
   })
 
   it('says nothing at all for a board with no work on it', () => {
-    const attention = boardAttention(cardsBoard([], []), 'b', [], { now: NOW })
+    const attention = boardAttention(cardsBoard([], []), 'b', [], flows(), { now: NOW })
     expect(attention.rows).toEqual([])
     expect(attention.counts).toEqual({ unfinished: 0, overdue: 0, stale: 0, unassigned: 0, noPriority: 0 })
+  })
+})
+
+describe('a board with more than one cards flow', () => {
+  it('says which flow a card is in, because "Backlog" is two answers', () => {
+    const support: BoardFlow = { id: 'f-support', boardId: 'b', kind: 'cards', name: 'Support', order: 1 }
+    const graph = cardsBoard(
+      [card('a'), card('b')],
+      [at('a', 'backlog'), at('b', 'support-backlog')],
+      [root('b', 'f-support'), lane('support-backlog', 'backlog', 'b', 'f-support')],
+    )
+    const attention = boardAttention(graph, 'b', [], [...flows(), support], { now: NOW })
+    const status = (id: string) => attention.rows.find((r) => r.item.id === id)!.status
+    expect(status('a')).toBe('Cards · backlog lane')
+    expect(status('b')).toBe('Support · backlog lane')
   })
 })
 
@@ -218,14 +241,14 @@ describe('board attention on a coordination board', () => {
         at('k2', 'team-ip', NOW - 30 * DAY, 't'),
       ],
       lanes: [
-        root('p', 'initiatives'),
-        lane('init-ip', 'inProgress', 'p', 'initiatives'),
+        root('p', INIT),
+        lane('init-ip', 'inProgress', 'p', INIT),
         root('t'),
         lane('team-ip', 'inProgress', 't'),
       ],
     }
 
-    const attention = boardAttention(graph, 'p', [initiativeType], { boards: [program], now: NOW })
+    const attention = boardAttention(graph, 'p', [initiativeType], flows('p'), { boards: [program], now: NOW })
     expect(attention.population).toBe('initiatives')
     expect(attention.rows).toHaveLength(1)
     const row = attention.rows[0]
@@ -252,9 +275,9 @@ describe('board attention on a coordination board', () => {
       edges: [],
       links: [],
       placements: [at('done-init', 'init-done', NOW - DAY, 'p')],
-      lanes: [root('p', 'initiatives'), lane('init-done', 'done', 'p', 'initiatives')],
+      lanes: [root('p', INIT), lane('init-done', 'done', 'p', 'initiatives')],
     }
-    expect(boardAttention(graph, 'p', [initiativeType], { boards: [program], now: NOW }).counts.unfinished).toBe(0)
+    expect(boardAttention(graph, 'p', [initiativeType], flows('p'), { boards: [program], now: NOW }).counts.unfinished).toBe(0)
   })
 })
 

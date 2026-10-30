@@ -6,12 +6,17 @@
  */
 
 import { isDueSoon, isOverdue } from './filters'
+import { cardsFlows } from './flows'
 import { effectiveStage } from './lanes'
-import type { Board, BoardBand, Item, Lane, Placement } from './types'
+import type { Board, BoardBand, BoardFlow, Item, Lane, Placement } from './types'
 
 export interface MyWorkEntry {
   item: Item
-  /** The cell (leaf lane) the item sits in — the answer to "where is this?". */
+  /**
+   * The cell (leaf lane) the item sits in — the answer to "where is this?". Prefixed with the
+   * flow's name when the board carries more than one cards flow, because "Backlog" alone is then
+   * two different answers.
+   */
   cellName: string
   isOverdue: boolean
   isDueSoon: boolean
@@ -37,12 +42,15 @@ export function myWork(
   placements: Placement[],
   lanes: Lane[],
   boards: Board[],
+  flows: BoardFlow[],
   userId: string | undefined,
   now = Date.now(),
 ): MyWorkGroup[] {
   if (!userId) return []
   const byId = new Map(items.map((i) => [i.id, i]))
-  const cellNames = new Map(lanes.map((l) => [l.id, l.name]))
+  const laneById = new Map(lanes.map((l) => [l.id, l]))
+  // Which flows the prefix is needed for: a board with one cards flow is unambiguous without it.
+  const needsFlow = new Set(boards.filter((b) => cardsFlows(flows, b.id).length > 1).map((b) => b.id))
 
   const groups: MyWorkGroup[] = []
   for (const board of boards) {
@@ -52,8 +60,10 @@ export function myWork(
       const item = byId.get(p.itemId)
       if (!item || item.archived) continue
       if (!item.assignees?.includes(userId)) continue
-      const cellName = cellNames.get(p.laneId)
-      if (cellName === undefined) continue // a stale placement, not where the work sits
+      const lane = laneById.get(p.laneId)
+      if (!lane) continue // a stale placement, not where the work sits
+      const flowName = needsFlow.has(board.id) ? flows.find((f) => f.id === lane.flowId)?.name : undefined
+      const cellName = flowName ? `${flowName} / ${lane.name}` : lane.name
       const resolved = effectiveStage(lanes, p.laneId) === 'done'
       entries.push({
         item,

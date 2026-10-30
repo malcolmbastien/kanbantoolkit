@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  archiveOutcome,
   attributedObjectives,
   objectiveRollup,
   okrCoverage,
@@ -12,6 +13,7 @@ import {
   depth,
   dependencyState,
   isArchived,
+  isComplete,
   isBlocked,
   initiativeOf,
   lineageOf,
@@ -29,9 +31,12 @@ import {
 } from './derive'
 import { effectiveStage, inheritedWipState, isLeaf, laneCardCount, leafLanes, rootLane, strongestWip, topLevelLanes, wipState } from './lanes'
 import { createFixture } from './fixture'
-import type { Edge, FlowState, Item, Lane, Placement, Stage } from './types'
+import type { BoardFlow, Edge, FlowState, Item, Lane, Placement, Stage } from './types'
 
 const graphOf = (s: FlowState): Graph => ({ items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes })
+/** A board's flow of one kind, by id — what a lane walk is given now that a kind is not an id. */
+const flow = (s: FlowState, boardId: string, kind: 'cards' | 'initiatives' = 'cards'): string =>
+  s.flows.find((f) => f.boardId === boardId && f.kind === kind)!.id
 const laneByName = (s: FlowState, boardId: string, name: string) =>
   s.lanes.find((l) => l.boardId === boardId && l.name === name)!
 
@@ -49,7 +54,7 @@ describe('generic hierarchy — parent / child', () => {
       order: 0,
       name: id,
       stage,
-      workflow: 'cards',
+      flowId: 'f-cards',
     })
     const at = (itemId: string, laneId: string) => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId })
     /** One delivered leaf and two under way — every leaf one share, whatever the work in it is. */
@@ -114,16 +119,16 @@ describe('recursive LeanKit lanes', () => {
   const s = createFixture()
 
   it('every board root is a column split with the standard typed columns', () => {
-    expect(rootLane(s.lanes, 'b-atlas', 'cards')?.orientation).toBe('columns')
-    expect(rootLane(s.lanes, 'b-portfolio', 'cards')?.orientation).toBe('columns')
-    expect(topLevelLanes(s.lanes, 'b-atlas', 'cards').length).toBe(4)
-    expect(topLevelLanes(s.lanes, 'b-portfolio', 'cards').length).toBe(4)
+    expect(rootLane(s.lanes, flow(s, 'b-atlas'))?.orientation).toBe('columns')
+    expect(rootLane(s.lanes, flow(s, 'b-portfolio'))?.orientation).toBe('columns')
+    expect(topLevelLanes(s.lanes, flow(s, 'b-atlas')).length).toBe(4)
+    expect(topLevelLanes(s.lanes, flow(s, 'b-portfolio')).length).toBe(4)
   })
 
   it('In Progress is refined into Dev / Test on team boards', () => {
     const inProgress = laneByName(s, 'b-atlas', 'In Progress')
     expect(isLeaf(s.lanes, inProgress.id)).toBe(false)
-    const leaves = leafLanes(s.lanes, 'b-atlas', 'cards').map((l) => l.name)
+    const leaves = leafLanes(s.lanes, flow(s, 'b-atlas')).map((l) => l.name)
     expect(leaves).toContain('Dev')
     expect(leaves).toContain('Test')
   })
@@ -208,6 +213,15 @@ describe('archive — filed away, still in the data', () => {
     expect(openDescendants('init-legacy', g).length).toBe(0)
     expect(blockedBelow('init-legacy', g)).toBe(0)
   })
+
+  it('says whether the work was finished, and only ever says that', () => {
+    // Filed before the distinction existed, so the column it left is the answer: Done reads as
+    // completed work, and the fixture's filed chapters all left from Done.
+    expect(archiveOutcome(s.items.find((i) => i.id === 'init-legacy')!, g)).toBe('completed')
+    // Kept once it is known, whatever the board says afterwards.
+    expect(archiveOutcome({ ...s.items.find((i) => i.id === 'init-legacy')!, discarded: true }, g)).toBe('discarded')
+    expect(archiveOutcome({ ...s.items.find((i) => i.id === 'init-legacy')!, discarded: false }, g)).toBe('completed')
+  })
 })
 
 describe('composition pressure and attribution', () => {
@@ -251,7 +265,7 @@ describe('an objective is as far along as the work that serves it', () => {
   // A small graph, so the arithmetic is plain: objectives, the initiatives attributed to them,
   // and the leaves below those initiatives.
   const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-story', createdAt: 0, ...extra })
-  const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: 'root', order: 0, name: id, stage, workflow: 'cards' })
+  const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: 'root', order: 0, name: id, stage, flowId: 'f-cards' })
   const at = (itemId: string, laneId: string): Placement => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId })
   const decomp = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
   const attr = (from: string, to: string): Edge => ({ id: `a-${from}-${to}`, kind: 'attribution', from, to })
@@ -433,9 +447,9 @@ describe('WIP limit state', () => {
 
   it('a descendant inherits the state of the column above it — the children exist inside it', () => {
     // In Progress (3/3) → Dev (1/2), Test (no limit): both children are inside a full column.
-    const inProgress: Lane = { id: 'l-ip', boardId: 'b', parentId: null, order: 0, name: 'In Progress', workflow: 'cards', stage: 'inProgress', wipLimit: 3 }
-    const dev: Lane = { id: 'l-dev', boardId: 'b', parentId: 'l-ip', order: 0, name: 'Dev', workflow: 'cards' }
-    const test: Lane = { id: 'l-test', boardId: 'b', parentId: 'l-ip', order: 1, name: 'Test', workflow: 'cards' }
+    const inProgress: Lane = { id: 'l-ip', boardId: 'b', parentId: null, order: 0, name: 'In Progress', flowId: 'f-cards', stage: 'inProgress', wipLimit: 3 }
+    const dev: Lane = { id: 'l-dev', boardId: 'b', parentId: 'l-ip', order: 0, name: 'Dev', flowId: 'f-cards' }
+    const test: Lane = { id: 'l-test', boardId: 'b', parentId: 'l-ip', order: 1, name: 'Test', flowId: 'f-cards' }
     const lanes: Lane[] = [inProgress, dev, test]
     const counts = (id: string) => (id === 'l-ip' ? 3 : id === 'l-dev' ? 1 : 2)
     expect(inheritedWipState(lanes, 'l-dev', counts)).toBe('at')
@@ -447,9 +461,9 @@ describe('WIP limit state', () => {
   })
 
   it('the strongest state wins down the chain — over outranks at, and deeper at-limit ancestors count', () => {
-    const grand: Lane = { id: 'g', boardId: 'b', parentId: null, order: 0, name: 'G', workflow: 'cards', stage: 'inProgress', wipLimit: 2 }
-    const mid: Lane = { id: 'm', boardId: 'b', parentId: 'g', order: 0, name: 'M', workflow: 'cards', wipLimit: 1 }
-    const leaf: Lane = { id: 'x', boardId: 'b', parentId: 'm', order: 0, name: 'X', workflow: 'cards' }
+    const grand: Lane = { id: 'g', boardId: 'b', parentId: null, order: 0, name: 'G', flowId: 'f-cards', stage: 'inProgress', wipLimit: 2 }
+    const mid: Lane = { id: 'm', boardId: 'b', parentId: 'g', order: 0, name: 'M', flowId: 'f-cards', wipLimit: 1 }
+    const leaf: Lane = { id: 'x', boardId: 'b', parentId: 'm', order: 0, name: 'X', flowId: 'f-cards' }
     const lanes: Lane[] = [grand, mid, leaf]
     // Grand is at (2/2) and mid is over (2/1): the leaf reads over, not merely at.
     expect(inheritedWipState(lanes, 'x', (id) => (id === 'g' ? 2 : id === 'm' ? 2 : 0))).toBe('over')
@@ -472,7 +486,7 @@ describe('typed stage columns (Backlog / Not Started / In Progress / Done)', () 
   it('every seeded board includes Backlog as the first typed column', () => {
     expect(s.boards.length).toBeGreaterThan(0)
     for (const board of s.boards) {
-      const tops = topLevelLanes(s.lanes, board.id, 'cards')
+      const tops = topLevelLanes(s.lanes, flow(s, board.id))
       expect(tops.map((t) => t.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
       expect(tops.map((t) => t.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
     }
@@ -583,7 +597,7 @@ describe('checklist — sub-tasks inside a card', () => {
 })
 
 describe('a rollup is a count', () => {
-  const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: null, order: 0, name: id, workflow: 'cards', stage })
+  const lane = (id: string, stage: Stage): Lane => ({ id, boardId: 'b', parentId: null, order: 0, name: id, flowId: 'f-cards', stage })
   const place = (itemId: string, laneId: string): Placement => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId, rank: 0 })
   const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-card', createdAt: 0, ...extra })
   const edge = (from: string, to: string): Edge => ({ id: `e-${to}`, kind: 'decomposition', from, to })
@@ -605,5 +619,91 @@ describe('a rollup is a count', () => {
     expect(rollupOf('init', withChildren(3)).total).toBe(3)
     // The field is gone from the model, so it cannot creep back through a rollup.
     expect('size' in rollupOf('init', withChildren(2))).toBe(false)
+  })
+})
+
+/**
+ * The derived layer reads a *placement's lane*, never the flow that lane belongs to. These cases
+ * exist to keep it that way: two cards flows are two trees, and nothing a person computes about
+ * the work — completion, rollup, unplanned work, load — may depend on which tree a card sits in.
+ */
+describe('the derived rules do not learn about flows', () => {
+  const DELIVERY: BoardFlow = { id: 'f-a', boardId: 'b', kind: 'cards', name: 'Delivery', order: 0 }
+  const SUPPORT: BoardFlow = { id: 'f-b', boardId: 'b', kind: 'cards', name: 'Support', order: 1 }
+  const rootOf = (f: BoardFlow): Lane => ({
+    id: `r-${f.id}`,
+    boardId: 'b',
+    parentId: null,
+    order: 0,
+    name: '',
+    flowId: f.id,
+    orientation: 'columns',
+  })
+  const cell = (f: BoardFlow, stage: Stage): Lane => ({
+    id: `${f.id}-${stage}`,
+    boardId: 'b',
+    parentId: `r-${f.id}`,
+    order: 0,
+    name: stage,
+    flowId: f.id,
+    stage,
+  })
+  const lanes = [
+    rootOf(DELIVERY),
+    cell(DELIVERY, 'backlog'),
+    cell(DELIVERY, 'inProgress'),
+    cell(DELIVERY, 'done'),
+    rootOf(SUPPORT),
+    cell(SUPPORT, 'backlog'),
+    cell(SUPPORT, 'done'),
+  ]
+  const item = (id: string, extra: Partial<Item> = {}): Item => ({ id, title: id, typeId: 't-story', createdAt: 0, ...extra })
+  const at = (itemId: string, laneId: string): Placement => ({ id: `p-${itemId}`, boardId: 'b', itemId, laneId })
+  const edge = (from: string, to: string): Edge => ({ id: `${from}-${to}`, kind: 'decomposition', from, to })
+  const graph = (items: Item[], placements: Placement[], edges: Edge[] = []): Graph => ({ items, edges, links: [], placements, lanes })
+
+  it('completion is the column, whichever tree the column is in', () => {
+    expect(isComplete('a', graph([item('a')], [at('a', 'f-b-done')]))).toBe(true)
+    expect(isComplete('b', graph([item('b')], [at('b', 'f-a-done')]))).toBe(true)
+    // Same column name, different column: only the one in Done is finished.
+    expect(isComplete('c', graph([item('c')], [at('c', 'f-b-backlog')]))).toBe(false)
+  })
+
+  it('a rollup is the same number whether its leaves sit in one flow or two', () => {
+    const parent = item('p', { typeId: 't-initiative' })
+    const edges = [edge('p', 'a'), edge('p', 'b')]
+    const oneFlow = graph([parent, item('a'), item('b')], [at('a', 'f-a-done'), at('b', 'f-a-backlog')], edges)
+    const twoFlows = graph([parent, item('a'), item('b')], [at('a', 'f-a-done'), at('b', 'f-b-backlog')], edges)
+
+    expect(rollupOf('p', twoFlows)).toEqual(rollupOf('p', oneFlow))
+    expect(rollupOf('p', twoFlows)).toMatchObject({ total: 2, done: 1, uncommitted: 1, percent: 50 })
+  })
+
+  it('unplanned work below a commitment counts the same in another flow', () => {
+    const parent = item('p', { typeId: 't-initiative' })
+    const edges = [edge('p', 'a'), edge('p', 'b')]
+    // One leaf committed and started, one still unplanned — committed but not fully planned.
+    const twoFlows = graph(
+      [parent, item('a'), item('b')],
+      [at('a', 'f-a-inProgress'), at('b', 'f-b-backlog')],
+      edges,
+    )
+    expect(rollupOf('p', twoFlows).bucket).toBe('inProgress')
+    expect(uncommittedBelow('p', twoFlows)).toBe(1)
+  })
+
+  it('the same limit in two flows counts two populations, not one', () => {
+    // A limit is a lane's own: two lanes called the same thing in two trees do not pool their cards.
+    const lanesWithLimits = lanes.map((l) =>
+      l.id === 'f-a-inProgress' || l.id === 'f-b-backlog' ? { ...l, wipLimit: 1 } : l,
+    )
+    const placements = [at('a', 'f-a-inProgress'), at('b', 'f-b-backlog')]
+
+    expect(laneCardCount(lanesWithLimits, placements, 'f-a-inProgress')).toBe(1)
+    expect(laneCardCount(lanesWithLimits, placements, 'f-b-backlog')).toBe(1)
+    // Both are at their own limit — neither is over it because the other has a card.
+    expect(wipState(laneCardCount(lanesWithLimits, placements, 'f-a-inProgress'), 1)).toBe('at')
+    expect(wipState(laneCardCount(lanesWithLimits, placements, 'f-b-backlog'), 1)).toBe('at')
+    expect(inheritedWipState(lanesWithLimits, 'f-b-backlog', () => 0)).toBe(null)
   })
 })

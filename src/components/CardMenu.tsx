@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Archive,
+  ArchiveX,
   ArrowDown,
   ArrowUp,
   Ban,
@@ -21,13 +22,14 @@ import {
   Unlink,
 } from 'lucide-react'
 import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isInitiativeItem, NONE_TYPE_ID, placementOn } from '@/domain/board'
-import { decompositionParent } from '@/domain/derive'
+import { decompositionParent, isComplete } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initialsOf } from '@/domain/users'
 import { cn } from '@/lib/utils'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
+import { cardsFlows } from '@/domain/flows'
 
 interface Props {
   /** The cards this menu acts on — a selection group, or just the one. */
@@ -59,6 +61,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   // An aggregating board shows bands, not a cards workflow: there is no card to connect to.
   const aggregating = isAggregating(boards.find((b) => b.id === boardId))
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
@@ -67,6 +70,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const startParentPick = useStore((s) => s.startParentPick)
   const startChildPick = useStore((s) => s.startChildPick)
   const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
   const setItemsType = useStore((s) => s.setItemsType)
   const setItemsKind = useStore((s) => s.setItemsKind)
   const addItemsAssignee = useStore((s) => s.addItemsAssignee)
@@ -101,9 +105,14 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const kinds = boardInitiativeTypes(boards.find((b) => b.id === boardId))
   const kind = initiativeTypeById(boards, only?.initiativeTypeId)
   const kindElsewhere = kind && !kinds.some((k) => k.id === kind.id)
-  const lanesLeaf = leafLanes(lanes, boardId, 'cards')
+  const lanesLeaf = cardsFlows(flows, boardId).flatMap((flow) => leafLanes(lanes, flow.id))
   const anyBlocked = targets.some((t) => t.blocked)
   const allBlocked = count > 0 && targets.every((t) => t.blocked)
+  // Filing away is one act with two names, and completion picks the name: work that is done is
+  // archived, work that is not is discarded. A mixed selection takes each card by its own state, so
+  // the whole group reads as the weaker of the two words rather than promising an archive it cannot
+  // deliver.
+  const allComplete = count > 0 && targets.every((t) => isComplete(t.id, { items, edges, links, placements, lanes }))
   // Duplicating is offered for a card that is in a cell of the board in front of us: the copy
   // lands in that cell, so a card with no cell here — read inside another board's band, or on a
   // surface that has no board behind it — has nowhere for a copy to go.
@@ -220,12 +229,25 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
     )
 
     if (open === 'move') {
+      const flowsHere = cardsFlows(flows, boardId)
+      const lane = (l: (typeof lanesLeaf)[number], inset: string) => (
+        <button key={l.id} className={cn(ITEM, inset)} onClick={() => runMove(() => moveCardsToLane(itemIds, l.id))}>
+          {lanePath(lanes, l.id).join(' / ')}
+        </button>
+      )
+      // With several cards flows the destinations are named by flow, because "Backlog" is not an
+      // answer when two flows have one. With a single flow the list is exactly what it was.
       return wrap(
-        lanesLeaf.map((l) => (
-          <button key={l.id} className={cn(ITEM, 'pl-2.5')} onClick={() => runMove(() => moveCardsToLane(itemIds, l.id))}>
-            {lanePath(lanes, l.id).join(' / ')}
-          </button>
-        )),
+        flowsHere.length > 1
+          ? flowsHere.map((flow) => (
+              <div key={flow.id} role="group" aria-label={flow.name}>
+                <div className="px-2.5 pb-0.5 pt-1.5 text-micro font-bold uppercase tracking-wide text-slate-500">
+                  {flow.name}
+                </div>
+                {leafLanes(lanes, flow.id).map((l) => lane(l, 'pl-3'))}
+              </div>
+            ))
+          : lanesLeaf.map((l) => lane(l, 'pl-2.5')),
       )
     }
 
@@ -493,11 +515,19 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
           )
         )}
 
-        <button className={ITEM} onClick={() => run(() => archiveItems(itemIds))}>
+        <button
+          className={ITEM}
+          onClick={() => run(() => archiveItems(itemIds))}
+          title={
+            allComplete
+              ? 'File this away: the work is done, so it joins the archive as completed'
+              : 'File this away without finishing it: the cards that are done are archived, the rest are discarded'
+          }
+        >
           <span className="shrink-0 text-slate-600">
-            <Archive size={13} />
+            {allComplete ? <Archive size={13} /> : <ArchiveX size={13} />}
           </span>
-          <span className="flex-1">Archive</span>
+          <span className="flex-1">{allComplete ? 'Archive' : 'Discard'}</span>
         </button>
         <button
           className={cn(ITEM, 'text-rose-600 hover:bg-rose-50')}

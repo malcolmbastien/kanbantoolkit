@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { STRESS_BOARD_ID, STRESS_PREFIX, stressBoard } from './stressBoard'
-import { childrenOf, effectiveStage, isLeaf, laneCardCount, placementsInOrder, topLevelLanes } from './lanes'
+import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, topLevelLanes } from './lanes'
 import { rollupOf, type Graph } from './derive'
+import { kindOf } from './flows'
 import { createFixture } from './fixture'
 import type { Stage } from './types'
+
+
+const flow = (flows: { boardId: string; kind: string; id: string }[], boardId: string, kind: 'cards' | 'initiatives' = 'cards') =>
+  flows.find((f) => f.boardId === boardId && f.kind === kind)!.id
 
 const NOW = Date.UTC(2026, 9, 17, 12)
 const types = createFixture().issueTypes
@@ -28,7 +33,7 @@ describe('the load-test board', () => {
   })
 
   it('refines the cards workflow three levels deep, into the swim-lane grid', () => {
-    const columns = topLevelLanes(lanes, board.id, 'cards')
+    const columns = topLevelLanes(lanes, flow(built.flows, board.id))
     expect(columns.map((c) => c.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
 
     // The grid: a columns split whose children are rows splits that have children of their own —
@@ -45,9 +50,23 @@ describe('the load-test board', () => {
     expect(childrenOf(lanes, done.id).map((l) => l.name)).toEqual(['Accepted', 'Released'])
 
     // The initiatives flow is refined too: cells to arrange work in, per section.
-    const sections = topLevelLanes(lanes, board.id, 'initiatives')
+    const sections = topLevelLanes(lanes, flow(built.flows, board.id, 'initiatives'))
     const progressSection = sections.find((s) => s.stage === 'inProgress')!
     expect(childrenOf(lanes, progressSection.id).map((l) => l.name)).toEqual(['Atlas', 'Nova', 'Data'])
+  })
+
+  it('carries a second cards flow, with real work in it', () => {
+    const support = built.flows.find((f) => f.kind === 'cards' && f.name === 'Support')!
+    const cells = leafLanes(lanes, support.id)
+    expect(cells.map((c) => c.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+    const inSupport = placements.filter((p) => cells.some((c) => c.id === p.laneId))
+    expect(inSupport.length).toBeGreaterThan(0)
+    // Same stage, other tree: the card's history still says what it walked.
+    for (const placement of inSupport.slice(0, 5)) {
+      const card = items.find((i) => i.id === placement.itemId)!
+      const last = card.log?.at(-1)?.toStage
+      if (last) expect(effectiveStage(lanes, placement.laneId)).toBe(last)
+    }
   })
 
   it('places every card in a cell of its own workflow, at the stage that cell inherits', () => {
@@ -90,7 +109,7 @@ describe('the load-test board', () => {
       const at = placements.find((p) => p.itemId === init.id)!
       expect(at.boardId).toBe(board.id)
       // It sits in a cell of the initiatives flow, never in a card lane…
-      expect(lanes.find((l) => l.id === at.laneId)!.workflow).toBe('initiatives')
+      expect(kindOf(built.flows, lanes.find((l) => l.id === at.laneId)!.flowId)).toBe('initiatives')
       expect(isLeaf(lanes, at.laneId)).toBe(true)
       // …and a section is derived, so the placement's stage *is* the rollup's bucket.
       expect(stageOfLane(at.laneId)).toBe(rollupOf(init.id, graph).bucket)
@@ -133,7 +152,7 @@ describe('the load-test board', () => {
     for (const lane of lanes) {
       if (lane.parentId === null) continue
       const parent = lanes.find((l) => l.id === lane.parentId)!
-      expect(parent.workflow).toBe(lane.workflow)
+      expect(parent.flowId).toBe(lane.flowId)
       expect(parent.boardId).toBe(lane.boardId)
     }
     // No orphan placements, and a rank per cell that starts at zero.
@@ -142,7 +161,7 @@ describe('the load-test board', () => {
       expect(ordered.map((p) => p.rank)).toEqual(ordered.map((_, i) => i))
     }
     // Every stage the model has is somewhere in the cards workflow.
-    const stages = new Set(topLevelLanes(lanes, board.id, 'cards').map((c) => c.stage as Stage))
+    const stages = new Set(topLevelLanes(lanes, flow(built.flows, board.id)).map((c) => c.stage as Stage))
     expect([...stages].sort()).toEqual(['backlog', 'done', 'inProgress', 'notStarted'])
   })
 })

@@ -63,13 +63,17 @@ interface LaneSettingsProps {
   setWip: (wipLimit: number | undefined) => void
   setPolicy: (text: string | undefined) => void
   remove: () => void
+  /** False when the lane may not be removed — a cards lane with work in it. */
+  canRemove?: boolean
+  /** Why removal is refused, said beside the disabled button. */
+  removeReason?: string
 }
 
 /**
  * The lane settings popover: name, WIP limit, policy (description) and remove.
  * Fields commit on blur / Enter; it closes on Escape, a click away, or Done.
  */
-export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, setPolicy, remove }: LaneSettingsProps) {
+export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, setPolicy, remove, canRemove = true, removeReason }: LaneSettingsProps) {
   const [name, setNameDraft] = useState(lane.name)
   const [wip, setWipDraft] = useState(lane.wipLimit !== undefined ? String(lane.wipLimit) : '')
   const [policy, setPolicyDraft] = useState(lane.description ?? '')
@@ -205,7 +209,9 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
         ) : (
           <button
             onClick={remove}
-            className="flex items-center gap-1 rounded border border-rose-200 px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-50"
+            disabled={!canRemove}
+            title={canRemove ? 'Remove this lane' : removeReason ?? 'This lane cannot be removed'}
+            className="flex items-center gap-1 rounded border border-rose-200 px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-50 disabled:pointer-events-none disabled:border-slate-200 disabled:text-slate-400"
           >
             <Trash2 size={11} /> Remove lane
           </button>

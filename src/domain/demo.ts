@@ -1,5 +1,5 @@
 import { NONE_TYPE } from './board'
-import type { Board, BoardTemplate, IssueType, Lane, User, Workflow } from './types'
+import type { Board, BoardFlow, BoardTemplate, IssueType, Lane, TemplateFlow, TemplateLane, User } from './types'
 
 /**
  * The fixed part of the demo workspace: who works here, what a card can be, the six boards and
@@ -49,6 +49,16 @@ const boards: Board[] = [
  * Progress column is refined, which is why `test` is optional — the model allows both shapes and
  * the demo shows both.
  */
+/** A second cards flow's lanes and its flow, for the board that carries one. */
+export interface SupportLanes {
+  flow: BoardFlow
+  r: Lane
+  backlog: Lane
+  ns: Lane
+  ip: Lane
+  done: Lane
+}
+
 export interface WorkflowLanes {
   r: Lane
   backlog: Lane
@@ -58,6 +68,11 @@ export interface WorkflowLanes {
   dev: Lane
   test?: Lane
   init: { r: Lane; backlog: Lane; ns: Lane; ip: Lane; done: Lane }
+  /**
+   * Team Atlas carries a second cards flow — a support queue beside the team's own — so the demo
+   * shows a board with two trees rather than only ever one.
+   */
+  support?: SupportLanes
 }
 
 /**
@@ -67,7 +82,15 @@ export interface WorkflowLanes {
  * that a stored state is missing (v22) rather than waiting for a Reset — a built-in
  * template should reach people who already had state before it existed.
  */
-export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
+/**
+ * A built-in template is one cards flow — the design a team starts from. The draft type is the
+ * template without its flow scaffolding, so the literals below stay about the lanes and the flow is
+ * added once, here.
+ */
+const TEMPLATE_FLOW: TemplateFlow = { key: 'f0', kind: 'cards', name: 'Cards', order: 0 }
+type TemplateDraft = Omit<BoardTemplate, 'flows' | 'lanes'> & { lanes: Omit<TemplateLane, 'flowKey'>[] }
+
+const TEMPLATE_DRAFTS: TemplateDraft[] = [
   /**
    * The Scrum workflow, from the reference board. Four top-level columns, one per stage —
    * a board's root is always exactly that, and a fifth would be a column with a stage that
@@ -192,10 +215,17 @@ export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
   },
 ]
 
+export const BUILT_IN_TEMPLATES: BoardTemplate[] = TEMPLATE_DRAFTS.map((template) => ({
+  ...template,
+  flows: [{ ...TEMPLATE_FLOW }],
+  lanes: template.lanes.map((lane) => ({ ...lane, flowKey: TEMPLATE_FLOW.key })),
+}))
+
 export interface DemoWorkspace {
   users: User[]
   issueTypes: IssueType[]
   boards: Board[]
+  flows: BoardFlow[]
   lanes: Lane[]
   boardTemplates: BoardTemplate[]
   /** The lane handles a dataset places work with, one per board. */
@@ -222,41 +252,47 @@ export const workspaceVocabulary = (): { issueTypes: IssueType[]; boardTemplates
 
 export function demoWorkspace(): DemoWorkspace {
 const lanes: Lane[] = []
+const flows: BoardFlow[] = []
 let seq = 0
 function lane(
   boardId: string,
   name: string,
   parentId: string | null,
   order: number,
-  workflow: Workflow,
+  flowId: string,
   opts: Partial<Pick<Lane, 'orientation' | 'wipLimit' | 'stage'>> = {},
 ): Lane {
-  const l: Lane = { id: `lane-${++seq}`, boardId, name, parentId, order, workflow, ...opts }
+  const l: Lane = { id: `lane-${++seq}`, boardId, name, parentId, order, flowId, ...opts }
   lanes.push(l)
   return l
 }
-const root = (boardId: string, workflow: Workflow) => lane(boardId, '', null, 0, workflow, { orientation: 'columns' })
+const root = (boardId: string, flowId: string) => lane(boardId, '', null, 0, flowId, { orientation: 'columns' })
 
-/** The standard four typed columns, one cell each — where either workflow starts. */
-function columns(boardId: string, workflow: Workflow) {
-  const r = root(boardId, workflow)
-  const backlog = lane(boardId, 'Backlog', r.id, 0, workflow, { stage: 'backlog' })
-  const ns = lane(boardId, 'Not Started', r.id, 1, workflow, { stage: 'notStarted' })
-  const ip = lane(boardId, 'In Progress', r.id, 2, workflow, { stage: 'inProgress' })
-  const done = lane(boardId, 'Done', r.id, 3, workflow, { stage: 'done' })
+/** The standard four typed columns, one cell each — where any flow starts. */
+function columns(boardId: string, flowId: string) {
+  const r = root(boardId, flowId)
+  const backlog = lane(boardId, 'Backlog', r.id, 0, flowId, { stage: 'backlog' })
+  const ns = lane(boardId, 'Not Started', r.id, 1, flowId, { stage: 'notStarted' })
+  const ip = lane(boardId, 'In Progress', r.id, 2, flowId, { stage: 'inProgress' })
+  const done = lane(boardId, 'Done', r.id, 3, flowId, { stage: 'done' })
   return { r, backlog, ns, ip, done }
 }
 
-// The team's own flow, plus the initiatives workflow the board starts with. The two are
-// independent: In Progress splits into Dev / Test for the cards, while the initiatives
-// workflow keeps its four standard sections — a team refines its board, the organisation
-// still reads the same shape.
-function workflow(boardId: string, splitProgress: boolean) {
-  const c = columns(boardId, 'cards')
+/**
+ * A board's two trees: the team's own cards flow and the initiatives flow the board starts
+ * with. They are independent: In Progress splits into Dev / Test for the cards, while the
+ * initiatives flow keeps its four standard sections — a team refines its board, the
+ * organisation still reads the same shape.
+ */
+function workflow(boardId: string, splitProgress: boolean): WorkflowLanes {
+  const cards: BoardFlow = { id: `flow-${boardId}-cards`, boardId, kind: 'cards', name: 'Cards', order: 0 }
+  const initiatives: BoardFlow = { id: `flow-${boardId}-initiatives`, boardId, kind: 'initiatives', name: 'Initiatives', order: 0 }
+  flows.push(cards, initiatives)
+  const c = columns(boardId, cards.id)
   if (splitProgress) c.ip.orientation = 'columns'
-  const dev = splitProgress ? lane(boardId, 'Dev', c.ip.id, 0, 'cards') : c.ip
-  const test = splitProgress ? lane(boardId, 'Test', c.ip.id, 1, 'cards') : undefined
-  const init = columns(boardId, 'initiatives')
+  const dev = splitProgress ? lane(boardId, 'Dev', c.ip.id, 0, cards.id) : c.ip
+  const test = splitProgress ? lane(boardId, 'Test', c.ip.id, 1, cards.id) : undefined
+  const init = columns(boardId, initiatives.id)
   return { ...c, dev, test, init }
 }
 
@@ -271,6 +307,17 @@ const p = workflow('b-portfolio', false)
 const a = workflow('b-atlas', true)
 const n = workflow('b-nova', true)
 
+// Team Atlas carries a second cards flow: the support queue, with the standard four columns. It is
+// the demo's proof that a board is not one tree — two Backlogs, two Doned, and a card that can be
+// dragged from one to the other.
+const support = ((): SupportLanes => {
+  const flow: BoardFlow = { id: 'flow-b-atlas-support', boardId: 'b-atlas', kind: 'cards', name: 'Support', order: 1 }
+  flows.push(flow)
+  const c = columns('b-atlas', flow.id)
+  return { flow, ...c }
+})()
+a.support = support
+
 // Demo WIP limits: Not Started is at its limit (yellow); Backlog is over it (red).
 a.ns.wipLimit = 1
 n.backlog.wipLimit = 2
@@ -284,6 +331,7 @@ a.test!.description =
     users: structuredClone(users),
     issueTypes: structuredClone(issueTypes),
     boards: structuredClone(boards),
+    flows,
     lanes,
     boardTemplates: structuredClone(BUILT_IN_TEMPLATES),
     st,

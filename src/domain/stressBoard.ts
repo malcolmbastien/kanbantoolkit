@@ -1,7 +1,7 @@
 import { initiativeTypeId } from './board'
 import { rollupOf, type Graph } from './derive'
 import { STAGES, STAGE_LABELS } from './lanes'
-import type { Board, Edge, IssueType, Item, ItemLink, Lane, Placement, Stage, User } from './types'
+import type { Board, BoardFlow, Edge, IssueType, Item, ItemLink, Lane, Placement, Stage, User } from './types'
 
 /**
  * A board built to be too big.
@@ -26,6 +26,7 @@ export interface StressBoard {
   board: Board
   /** The people the cards reference, so a workspace without them still reads names. */
   users: User[]
+  flows: BoardFlow[]
   lanes: Lane[]
   items: Item[]
   placements: Placement[]
@@ -91,15 +92,17 @@ function cardTypes(types: IssueType[]): IssueType[] {
 }
 
 /**
- * A lane builder over one board's workflow, keeping every lane it made so the result needs no
- * second walk. The two workflows share the board, so their lane ids share a namespace: the
- * prefix is what keeps a cards cell from answering to an initiatives one.
+ * A lane builder over one of a board's flows, keeping every lane it made so the result needs no
+ * second walk. The flows share the board, so their lane ids share a namespace: the prefix is what
+ * keeps a cards cell from answering to an initiatives one.
  */
-function laneBuilder(boardId: string, workflow: 'cards' | 'initiatives') {
+function laneBuilder(boardId: string, flowId: string) {
   const lanes: Lane[] = []
   let seq = 0
   const lane = (name: string, parentId: string | null, order: number, opts: Partial<Pick<Lane, 'orientation' | 'wipLimit' | 'stage' | 'description'>> = {}) => {
-    const l: Lane = { id: `${STRESS_PREFIX}lane-${workflow}-${++seq}`, boardId, name, parentId, order, workflow, ...opts }
+    // The flow id is in the lane id: a board may carry two cards flows, and a counter shared by
+    // kind alone would hand the second tree the first one's ids.
+    const l: Lane = { id: `${STRESS_PREFIX}lane-${flowId}-${++seq}`, boardId, name, parentId, order, flowId, ...opts }
     lanes.push(l)
     return l
   }
@@ -114,8 +117,8 @@ function laneBuilder(boardId: string, workflow: 'cards' | 'initiatives') {
  * this app can be asked to draw. `Done` splits into what was accepted and what actually shipped,
  * because a programme needs both.
  */
-function cardsWorkflow(boardId: string) {
-  const { lanes, lane } = laneBuilder(boardId, 'cards')
+function cardsWorkflow(boardId: string, flowId: string) {
+  const { lanes, lane } = laneBuilder(boardId, flowId)
   const root = lane('', null, 0, { orientation: 'columns' })
   const backlog = lane('Backlog', root.id, 0, {
     stage: 'backlog',
@@ -172,8 +175,8 @@ function cardsWorkflow(boardId: string) {
 }
 
 /** The initiatives workflow: the same four sections, with cells a programme arranges work in. */
-function initiativesWorkflow(boardId: string) {
-  const { lanes, lane } = laneBuilder(boardId, 'initiatives')
+function initiativesWorkflow(boardId: string, flowId: string) {
+  const { lanes, lane } = laneBuilder(boardId, flowId)
   const root = lane('', null, 0, { orientation: 'columns' })
   const backlog = lane('Backlog', root.id, 0, { stage: 'backlog' })
   const notStarted = lane('Not Started', root.id, 1, { stage: 'notStarted', orientation: 'columns' })
@@ -234,8 +237,13 @@ export function stressBoard(cards = 300, types: IssueType[] = [], now = Date.now
     wipEnforcement: 'visualize',
   }
 
-  const cardsFlow = cardsWorkflow(board.id)
-  const initFlow = initiativesWorkflow(board.id)
+  const flows: BoardFlow[] = [
+    { id: `${STRESS_PREFIX}flow-cards`, boardId: board.id, kind: 'cards', name: 'Cards', order: 0 },
+    { id: `${STRESS_PREFIX}flow-support`, boardId: board.id, kind: 'cards', name: 'Support', order: 1 },
+    { id: `${STRESS_PREFIX}flow-initiatives`, boardId: board.id, kind: 'initiatives', name: 'Initiatives', order: 0 },
+  ]
+  const cardsFlow = cardsWorkflow(board.id, flows[0].id)
+  const initFlow = initiativesWorkflow(board.id, flows[2].id)
   const lanes = [...cardsFlow.lanes, ...initFlow.lanes]
   const laneById = new Map(lanes.map((l) => [l.id, l]))
 
@@ -347,6 +355,29 @@ export function stressBoard(cards = 300, types: IssueType[] = [], now = Date.now
     })
   }
 
+  // ---- A second cards flow --------------------------------------------------------------------
+  // The same four columns, and every ninth card in them: a board with two cards flows is the shape
+  // the load test exists to survive now, and the stage each card keeps is the one it walked.
+  const support = laneBuilder(board.id, flows[1].id)
+  const supportRoot = support.lane('', null, 0, { orientation: 'columns' })
+  const supportCellOf = new Map(
+    STAGES.map((stage, i) => [stage, support.lane(STAGE_LABELS[stage], supportRoot.id, i, { stage })]),
+  )
+  lanes.push(...support.lanes)
+  for (const lane of support.lanes) laneById.set(lane.id, lane)
+  placements.forEach((placement, i) => {
+    if (i % 9 !== 0) return
+    const cell = supportCellOf.get(stageOfLane(placement.laneId))
+    if (cell) placement.laneId = cell.id
+  })
+  // Ranks are per lane, so the moved cards renumber both ends: 0..n-1 in every cell.
+  const seenRanks = new Map<string, number>()
+  for (const placement of placements) {
+    const rank = seenRanks.get(placement.laneId) ?? 0
+    placement.rank = rank
+    seenRanks.set(placement.laneId, rank + 1)
+  }
+
   // ---- Initiatives ---------------------------------------------------------------------------
   for (const init of INITIATIVES) {
     items.push({
@@ -403,5 +434,5 @@ export function stressBoard(cards = 300, types: IssueType[] = [], now = Date.now
     })
   }
 
-  return { board, users: PEOPLE, lanes, items, placements, edges, links }
+  return { board, users: PEOPLE, flows, lanes, items, placements, edges, links }
 }

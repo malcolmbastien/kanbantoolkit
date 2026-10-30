@@ -42,11 +42,11 @@ test('a link to the old app lands on the same place under /app, and survives a r
   await page.goto('/?board=b-atlas')
   // The home page's one script puts the visitor where the link meant, before anything paints.
   await expect(page).toHaveURL(/\/app\?board=b-atlas$/)
-  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
 
   await page.reload()
   await expect(page).toHaveURL(/\/app\?board=b-atlas$/)
-  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
 
   // A link to a *view* lands on that view, and a reload keeps it.
   await page.goto('/?board=b-atlas&view=dashboard')

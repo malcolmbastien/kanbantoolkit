@@ -71,7 +71,7 @@ describe('csv', () => {
   })
 
   it('writes the board\'s cards in board order, with the lane path and the stage', () => {
-    const text = boardCsv('b-atlas', graph, seed.issueTypes, seed.users)
+    const text = boardCsv('b-atlas', graph, seed.issueTypes, seed.users, seed.flows)
     const rows = parseCsv(text)
     expect(rows[0]).toEqual(BOARD_CSV_HEADER)
 
@@ -79,10 +79,19 @@ describe('csv', () => {
     // re-point every assertion below it.
     const at = (row: string[], column: string) => row[rows[0].indexOf(column)]
 
-    // The seeded Atlas board carries five live cards, column by column.
-    expect(rows.length).toBe(6)
+    // The fixture's Atlas board carries seven live cards: five in its own flow, then the support
+    // queue's two — flow by flow, column by column, which is the order the board reads.
+    expect(rows.length).toBe(8)
     const titles = rows.slice(1).map((r) => at(r, 'Title'))
-    expect(titles).toEqual(['Email verification', 'Build signup form', 'SSO buttons', 'Signup validation on retry', 'Design signup screens'])
+    expect(titles).toEqual([
+      'Email verification',
+      'Build signup form',
+      'SSO buttons',
+      'Signup validation on retry',
+      'Design signup screens',
+      'Triage the inbound request',
+      'Answer the customer',
+    ])
 
     const form = rows.find((r) => at(r, 'Title') === 'Build signup form')!
     expect(at(form, 'Type')).toBe('User Story')
@@ -101,8 +110,35 @@ describe('csv', () => {
     expect(titles).not.toContain('Export the register as CSV')
   })
 
+  it('names the flow each card\'s column belongs to, including a third one', () => {
+    const first = parseCsv(boardCsv('b-atlas', graph, seed.issueTypes, seed.users, seed.flows))
+    const header = first[0]
+    const at = (row: string[], column: string) => row[header.indexOf(column)]
+    // Two flows on this board, and every row says which it is: "Backlog" alone would not.
+    expect(at(first.find((row) => at(row, 'Title') === 'Email verification')!, 'Flow')).toBe('Cards')
+    expect(at(first.find((row) => at(row, 'Title') === 'Answer the customer')!, 'Flow')).toBe('Support')
+
+    // A third flow, and a card moved into it: the file names it too.
+    const escalations = [{ id: 'f-escalations', boardId: 'b-atlas', kind: 'cards' as const, name: 'Escalations', order: 2 }]
+    const lanes = [
+      ...seed.lanes,
+      { id: 'l-escalations', boardId: 'b-atlas', parentId: null, order: 0, name: '', flowId: 'f-escalations', orientation: 'columns' as const },
+      { id: 'l-escalations-backlog', boardId: 'b-atlas', parentId: 'l-escalations', order: 0, name: 'Backlog', flowId: 'f-escalations', stage: 'backlog' as const },
+    ]
+    const placements = seed.placements.map((p) =>
+      p.itemId === 'st-email' && p.boardId === 'b-atlas' ? { ...p, laneId: 'l-escalations-backlog' } : p,
+    )
+    const three = parseCsv(
+      boardCsv('b-atlas', { ...graph, lanes, placements }, seed.issueTypes, seed.users, [...seed.flows, ...escalations]),
+    )
+    const threeHeader = three[0]
+    const moved = three.find((row) => row[threeHeader.indexOf('Title')] === 'Email verification')!
+    expect(moved[threeHeader.indexOf('Flow')]).toBe('Escalations')
+    expect(moved[threeHeader.indexOf('Column')]).toBe('Backlog')
+  })
+
   it('a board with no cards is a header and nothing else', () => {
-    const rows = parseCsv(boardCsv('b-strategy', graph, seed.issueTypes, seed.users))
+    const rows = parseCsv(boardCsv('b-strategy', graph, seed.issueTypes, seed.users, seed.flows))
     expect(rows).toEqual([BOARD_CSV_HEADER])
   })
 
@@ -143,7 +179,7 @@ describe('csv', () => {
   })
 
   it('the dashboard export and the board export are different shapes on purpose', () => {
-    const board = parseCsv(boardCsv('b-atlas', graph, seed.issueTypes, seed.users))
+    const board = parseCsv(boardCsv('b-atlas', graph, seed.issueTypes, seed.users, seed.flows))
     const dash = parseCsv(
       dashboardCsv(
         boardInitiatives(graph, 'b-atlas', seed.issueTypes).map((item) => ({

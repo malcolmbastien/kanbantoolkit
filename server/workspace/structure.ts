@@ -15,7 +15,7 @@
  * their own path, and a position is late rather than lost — the next write carries it.
  */
 
-import type { Board, Lane, Placement } from '../../src/domain/types'
+import type { Board, BoardFlow, Lane, Placement } from '../../src/domain/types'
 import type { Database } from '../db'
 
 type Value = string | number | bigint | null | Uint8Array
@@ -45,10 +45,15 @@ const idOf = (row: unknown): string | undefined => {
  *
  * The rows are trusted to be the shapes they claim (the client's own types, and a reader that
  * cannot make sense of them fails loudly); what is checked here is the part a database cannot:
- * every lane is on a board that is in the payload, and every placement is in a lane that is. Items
- * are checked against the table, because they live outside this document.
+ * every flow is on a board that is in the payload, every lane names a flow of its own board, and
+ * every placement is in a lane that is. A lane without a flow is not dropped — dropping it would
+ * take its cards with it — the whole document is refused, because a client that cannot say which
+ * tree a lane belongs to is a client this server cannot place cards for. Items are checked against
+ * the table, because they live outside this document.
  */
-export function readDesign(input: unknown): { boards: Board[]; lanes: Lane[]; placements: Placement[] } | null {
+export function readDesign(
+  input: unknown,
+): { boards: Board[]; flows: BoardFlow[]; lanes: Lane[]; placements: Placement[] } | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null
   const raw = input as Row
   const rows = <T>(value: unknown, limit: number): T[] => {
@@ -66,14 +71,21 @@ export function readDesign(input: unknown): { boards: Board[]; lanes: Lane[]; pl
 
   const boards = rows<Board>(raw.boards, 200)
   const boardIds = new Set(boards.map((board) => board.id))
+  const flows = rows<BoardFlow>(raw.flows, 1_000).filter((flow) => boardIds.has(flow.boardId))
+  const flowById = new Map(flows.map((flow) => [flow.id, flow]))
   const lanes = rows<Lane>(raw.lanes, 2_000).filter((lane) => boardIds.has(lane.boardId))
+  for (const lane of lanes) {
+    const flow = flowById.get(lane.flowId)
+    if (!flow || flow.boardId !== lane.boardId) return null
+  }
   const laneIds = new Set(lanes.map((lane) => lane.id))
   const placements = rows<Placement>(raw.placements, 20_000).filter((placement) => laneIds.has(placement.laneId))
-  return { boards, lanes, placements }
+  return { boards, flows, lanes, placements }
 }
 
 export interface DesignWrite {
   boards: Board[]
+  flows: BoardFlow[]
   lanes: Lane[]
   placements: Placement[]
   /** What was written, so a caller can say what happened. */
@@ -91,7 +103,7 @@ export interface DesignWrite {
 export async function writeDesign(
   db: Database,
   workspaceId: string,
-  design: { boards: Board[]; lanes: Lane[]; placements: Placement[] },
+  design: { boards: Board[]; flows: BoardFlow[]; lanes: Lane[]; placements: Placement[] },
   /** The revision the sender worked from, already checked against the stored one. */
   rev: number,
 ): Promise<DesignWrite> {
@@ -105,6 +117,7 @@ export async function writeDesign(
   const statements: { sql: string; params: Value[] }[] = [
     { sql: 'DELETE FROM placements WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM lanes WHERE workspace_id = ?1', params: [workspaceId] },
+    { sql: 'DELETE FROM board_flows WHERE workspace_id = ?1', params: [workspaceId] },
     // A board's own vocabularies — its kinds and its tags — belong to it through a foreign key, so
     // replacing the board takes them with it and they are written back below.
     { sql: 'DELETE FROM boards WHERE workspace_id = ?1', params: [workspaceId] },
@@ -146,11 +159,19 @@ export async function writeDesign(
     }
   }
 
-  // Lanes go in with no parent first: a child may be listed before its parent, and a foreign key
-  // does not wait for the rest of the array. The second pass is what makes the tree.
+  // A flow goes in before the lanes that name it, and a lane goes in with no parent: a child may
+  // be listed before its parent, and a foreign key does not wait for the rest of the array. The
+  // second pass is what makes the tree.
+  for (const flow of design.flows) {
+    statements.push({
+      sql: `INSERT OR REPLACE INTO board_flows (id, workspace_id, board_id, kind, name, position)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+      params: [flow.id, workspaceId, flow.boardId, flow.kind, flow.name ?? '', flow.order ?? 0],
+    })
+  }
   for (const lane of design.lanes) {
     statements.push({
-      sql: `INSERT OR REPLACE INTO lanes (id, workspace_id, board_id, parent_id, position, name, workflow,
+      sql: `INSERT OR REPLACE INTO lanes (id, workspace_id, board_id, parent_id, position, name, flow_id,
               orientation, stage, wip_limit, description)
             VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
       params: [
@@ -159,7 +180,7 @@ export async function writeDesign(
         lane.boardId,
         lane.order ?? 0,
         lane.name ?? '',
-        lane.workflow ?? 'cards',
+        lane.flowId,
         lane.orientation ?? null,
         lane.stage ?? null,
         lane.wipLimit ?? null,
@@ -198,5 +219,12 @@ export async function writeDesign(
   })
 
   await db.batch(statements)
-  return { boards: design.boards, lanes: design.lanes, placements, placed: placements.length, skipped: design.placements.length - placements.length }
+  return {
+    boards: design.boards,
+    flows: design.flows,
+    lanes: design.lanes,
+    placements,
+    placed: placements.length,
+    skipped: design.placements.length - placements.length,
+  }
 }

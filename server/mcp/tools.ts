@@ -70,7 +70,7 @@ export const TOOLS: ToolSpec[] = [
   {
     name: 'get_board',
     description:
-      'One board with its two lane trees — the cards workflow and the initiatives workflow — what is placed in it, and the items on it. This is where the laneIds come from: a move or a create needs the id of a cell, never a lane name.',
+      'One board with its lane trees — one initiatives flow and one or more cards flows, each named — what is placed in it, and the items on it. `workflows` carries the first cards flow and the initiatives flow; `flows` names every flow, with its own `lanes`. This is where the laneIds come from: a move or a create needs the id of a cell, never a lane name.',
     scope: 'boards:read',
     inputSchema: object({ boardId: id('The board, from list_boards.') }, ['boardId']),
     run: (caller, args) => getBoard(caller, String(args.boardId ?? '')),
@@ -109,7 +109,7 @@ export const TOOLS: ToolSpec[] = [
   {
     name: 'workspace_summary',
     description:
-      'What to read before planning: the boards with their item counts, totals for items, initiatives, people and objectives, and the columns of the first team board with how many items each holds. It does not list every card — use search_items or get_board for that.',
+      'What to read before planning: the boards with their item counts, totals for items, initiatives, people and objectives, and the cards flows of the first team board with their names and columns. It does not list every card — use search_items or get_board for that.',
     scope: 'boards:read',
     inputSchema: object({}),
     run: (caller) => workspaceSummary(caller),
@@ -117,7 +117,7 @@ export const TOOLS: ToolSpec[] = [
   {
     name: 'create_item',
     description:
-      'Create a card or an initiative on a board, and place it. `typeId` decides which: the Initiative type makes an initiative, which is placed in the initiatives workflow and which is placed in the initiatives workflow. The lane defaults to the board’s drop cell. `parentId` rolls it up to an initiative. Returns the item with its revision and cell. Refused when the board, lane, type, parent, tag or assignee does not exist, or when the lane belongs to the other workflow.',
+      'Create a card or an initiative on a board, and place it. `typeId` decides which: the Initiative type makes an initiative, which is placed in the initiatives flow; anything else is a card, placed in a cards cell — in any of the board’s cards flows. The lane defaults to the board’s drop cell. `parentId` rolls it up to an initiative. Returns the item with its revision and cell. Refused when the board, lane, type, parent, tag or assignee does not exist, or when the lane belongs to the other kind of flow.',
     scope: 'items:write',
     action: 'item.write',
     inputSchema: object(
@@ -168,7 +168,7 @@ export const TOOLS: ToolSpec[] = [
   {
     name: 'move_item',
     description:
-      'Move a card or an initiative into a cell, at a position. The board’s WIP policy decides: `visualize` lets it through, `justify` refuses with `reason_required` until a reason is given, and `block` refuses with the lane and its limit. A card goes in a cards cell and an initiative in an initiatives cell; an initiative’s move may not cross the section its work derives. A reason, when accepted, is recorded on the card and in its history.',
+      'Move a card or an initiative into a cell, at a position. The board’s WIP policy decides: `visualize` lets it through, `justify` refuses with `reason_required` until a reason is given, and `block` refuses with the lane and its limit. A card goes in a cards cell — in any of the board’s cards flows, and moving between them is a move — and an initiative in an initiatives cell; an initiative’s move may not cross the section its work derives. A reason, when accepted, is recorded on the card and in its history.',
     scope: 'items:write',
     action: 'item.move',
     inputSchema: object(

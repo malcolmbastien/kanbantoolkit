@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ChevronDown,
@@ -31,7 +31,7 @@ import {
 } from '@/domain/derive'
 import { boardCardTypeId, tagsOf } from '@/domain/board'
 import { externalWaits } from '@/domain/boundary'
-import { childrenOf, effectiveStage, isTopLevel, laneDepth, leavesUnder, rootLane, subtreeIds, wipState } from '@/domain/lanes'
+import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_PILL } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -40,8 +40,14 @@ import { usePanScroll } from '@/lib/usePanScroll'
 import type { Board, IssueType, Item, Lane, User } from '@/domain/types'
 import type { ConfirmRequest } from '@/store'
 
+
 export interface BoardCanvasProps {
   boardId: string
+  /**
+   * The cards flow this canvas draws. Required: a board may carry several, and a canvas that
+   * picked one for itself would hide the rest behind a default nobody chose.
+   */
+  flowId: string
   /** Read-only bands (management view) set this false. */
   interactive: boolean
   /**
@@ -169,14 +175,14 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   // inside it say what it is.
   const level = laneDepth(lanes, lane.id) + 1
 
-  // Confirm before removing a lane that carries cards or sub-lanes.
+  // A cards lane is removed only when it holds no card — deletion never moves work. The refusal is
+  // said on the control, not discovered after the confirmation.
+  const holdsCards = laneHoldsCards(lanes, graph.placements, lane.id)
+  const canRemove = !holdsCards
+  // Confirm before removing a lane that carries sub-lanes; a lane with cards is not offered.
   const removeWithConfirm = () => {
-    const count = countInLane(lane.id)
-    const target = childrenOf(lanes, lane.parentId!)
-      .filter((s) => s.id !== lane.id)
-      .flatMap((s) => leavesUnder(lanes, s.id))[0]
+    if (!canRemove) return
     const parts: string[] = []
-    if (count > 0) parts.push(`${count} card${count === 1 ? '' : 's'} will move to ${target ? `"${target.name}"` : 'no lane (they leave the board)'}`)
     if (kids.length > 0) parts.push(`${kids.length} sub-lane${kids.length === 1 ? '' : 's'} removed`)
     ctx.askConfirm({
       title: `Remove "${lane.name || 'lane'}"?`,
@@ -302,6 +308,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               setSettingsOpen(false)
               removeWithConfirm()
             }}
+            canRemove={canRemove}
+            removeReason="This lane holds cards — move them out first"
           />
         )}
       </div>
@@ -637,12 +645,13 @@ function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: La
  * draws the lifted card itself and a pointer drag has no `dataTransfer` to read from.
  */
 
-export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) {
+export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanvasProps) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
   const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
   const users = useStore((s) => s.users)
@@ -683,10 +692,16 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   const cancelChildPick = useStore((s) => s.cancelChildPick)
   const dropTargetId = useStore((s) => s.dropTargetId)
   const setDropTarget = useStore((s) => s.setDropTarget)
+  // The card in the air and the gap it would land in, shared with every other canvas on the board:
+  // a card can be dragged from one cards flow into another, and the shadow must appear in the
+  // tree it would land in — which is not the tree that began the gesture.
+  const dragPreview = useStore((s) => s.dragPreview)
+  const setDragPreview = useStore((s) => s.setDragPreview)
 
   const graph: Graph = { items, edges, links, placements, lanes }
-  const root = rootLane(lanes, boardId, 'cards')
+  const root = rootLane(lanes, flowId)
   const boardName = boards.find((b) => b.id === boardId)?.name
+  const flowName = flows.find((f) => f.id === flowId)?.name
   const editMode = storeEdit && interactive
   const rowRef = useRef<HTMLDivElement>(null)
   // Drag empty workflow space to move the board. See usePanScroll.
@@ -768,18 +783,19 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   }
 
   const { lift, start: startLift, justDragged } = useCardLift({
-    // The lifted card's id arrives from the gesture itself. `gapUnder` reads the DOM, so it
-    // never needed the id — but the parameter is the shape now, so no caller is tempted to
+    // The lifted card's id and height arrive from the gesture itself. `gapUnder` reads the DOM, so
+    // it never needed the id — but the parameters are the shape now, so no caller is tempted to
     // read `lift` through a closure that predates the lift.
-    onMove: (itemId, x, y) => {
+    onMove: (itemId, x, y, height) => {
       // An initiative card under the pointer takes the drop, and the lane gives way to it: one
       // gesture, one meaning. The lane's gap is cleared so the two can never both be showing.
       const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
+      const gap = parent ? null : gapUnder(itemId, x, y)
       setDropTarget(parent)
-      setDropAt(parent ? null : gapUnder(itemId, x, y))
+      setDragPreview({ itemId, height, laneId: gap?.laneId ?? null, index: gap?.index ?? null })
     },
     onDrop: (itemId, x, y) => {
-      setDropAt(null)
+      setDragPreview(null)
       setDropTarget(null)
       const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
       if (parent) {
@@ -791,9 +807,13 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
       if (gap) dropCardAt(itemId, gap.laneId, gap.index)
     },
   })
-  const [dropAt, setDropAt] = useState<{ laneId: string; index: number } | null>(null)
-
   const lifting = lift !== null
+
+  // A gesture that ends without a drop — a pointercancel, a lost pointer — leaves no shadow
+  // behind: the preview belongs to the gesture, and this is the only canvas that can see its end.
+  useEffect(() => {
+    if (!lift) setDragPreview(null)
+  }, [lift, setDragPreview])
 
   const ctx: Ctx = {
     lanes, items, issueTypes, graph, users, boards, editMode, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
@@ -802,13 +822,12 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
     interactive,
     parentPickId,
     drag: {
-      itemId: lift?.itemId ?? null,
-      // The gap is live only while a card is actually in the air. `dropAt` outliving the
-      // gesture would leave a placeholder standing in the lane the card landed in — the
-      // gesture is the only thing that may show it.
-      laneId: lifting ? (dropAt?.laneId ?? null) : null,
-      index: lifting ? (dropAt?.index ?? null) : null,
-      height: lifting && lift ? lift.height : null,
+      // The card in the air may be over another canvas, which has no `lift` of its own: the shared
+      // preview is what tells it a card is coming and where it would land.
+      itemId: lift?.itemId ?? dragPreview?.itemId ?? null,
+      laneId: dragPreview?.laneId ?? null,
+      index: dragPreview?.index ?? null,
+      height: dragPreview?.height ?? lift?.height ?? null,
       dropTargetId: lifting ? dropTargetId : null,
       start: startLift,
     },
@@ -846,7 +865,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
   }
 
   const canvas = (
-    <div ref={rowRef} data-workflow="cards" className="relative flex min-h-0 flex-1">
+    <div ref={rowRef} data-workflow="cards" data-flow={flowId} className="relative flex min-h-0 flex-1">
       <div
         ref={pan.ref}
         {...pan.handlers}
@@ -877,7 +896,7 @@ export function BoardCanvas({ boardId, interactive, onMove }: BoardCanvasProps) 
             nesting is the shape a screen reader gets from the structure. */}
         <div
           role="tree"
-          aria-label={boardName ? `${boardName} — lanes` : 'Lanes'}
+          aria-label={boardName ? `${boardName} — ${flowName ?? 'cards'} lanes` : 'Lanes'}
           className="min-h-[120px] w-full min-w-min"
         >
           {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-meta text-slate-600">This board has no lanes.</p>}

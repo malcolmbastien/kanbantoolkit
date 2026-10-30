@@ -11,7 +11,9 @@ host with no backend at all. Snapshots, storage honesty, tab sync and refusing m
 (111–116), as is the deploy (106), error reporting (107), titles (109), code splitting (110) and the
 end-to-end suite (124).
 
-Nothing below takes that away. A person who never signs in keeps a working board.
+Boards now carry **several cards flows** as well as the initiatives flow — each with its own name,
+columns, limits and place — and templates describe them (177). Nothing below takes that away. A
+person who never signs in keeps a working board.
 
 ## The critical path
 

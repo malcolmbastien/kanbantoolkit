@@ -25,6 +25,7 @@ const MIGRATIONS = new URL('../migrations/', import.meta.url)
 /** The tables that carry a workspace of their own — the ones a query must scope. */
 const TABLES = [
   'boards',
+  'board_flows',
   'lanes',
   'items',
   'placements',
@@ -83,6 +84,7 @@ function database(): Database {
 const empty = (): Workspace => ({
   meUserId: 'u-ada',
   boardId: '',
+  flows: [],
   users: [{ id: 'u-ada', name: 'Ada' }],
   issueTypes: [{ id: 't-card', name: 'Card', color: '#0ea5e9' }],
   boards: [],

@@ -184,9 +184,9 @@ describe('column age', () => {
   const now = 1_000 * day
   // A column with a cell inside it: work in a cell ages for the column that holds it.
   const lanes: Lane[] = [
-    { id: 'col', boardId: 'b', parentId: null, order: 0, name: 'In Progress', workflow: 'cards', stage: 'inProgress' },
-    { id: 'cell', boardId: 'b', parentId: 'col', order: 0, name: 'A', workflow: 'cards', stage: 'inProgress' },
-    { id: 'other', boardId: 'b', parentId: null, order: 1, name: 'Done', workflow: 'cards', stage: 'done' },
+    { id: 'col', boardId: 'b', parentId: null, order: 0, name: 'In Progress', flowId: 'f', stage: 'inProgress' },
+    { id: 'cell', boardId: 'b', parentId: 'col', order: 0, name: 'A', flowId: 'f', stage: 'inProgress' },
+    { id: 'other', boardId: 'b', parentId: null, order: 1, name: 'Done', flowId: 'f', stage: 'done' },
   ]
   const place = (id: string, lane: string, agoDays?: number): Placement => ({
     id,

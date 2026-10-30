@@ -47,7 +47,9 @@ async function boardWithCard(away: Page, origin: string): Promise<void> {
 
   const design = {
     boards: [{ id: 'b-live', name: 'Team Atlas', band: 'team', description: '' }],
-    lanes: [{ id: 'l-live', boardId: 'b-live', parentId: null, order: 0, name: 'Backlog', workflow: 'cards', stage: 'backlog' }],
+    // A board's trees are flows now, and a lane names its own: the design carries the flow with it.
+    flows: [{ id: 'f-live', boardId: 'b-live', kind: 'cards', name: 'Cards', order: 0 }],
+    lanes: [{ id: 'l-live', boardId: 'b-live', parentId: null, order: 0, name: 'Backlog', flowId: 'f-live', stage: 'backlog' }],
     placements: [{ id: 'p-live', boardId: 'b-live', itemId: item.id, laneId: 'l-live', rank: 0 }],
   }
   const placed = await away.request.put(`${origin}/api/workspace/structure`, { data: { rev: 0, design } })

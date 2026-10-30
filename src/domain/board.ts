@@ -12,10 +12,12 @@ import {
   rootLane,
   setLaneOrientationNode,
   splitLaneNodes,
-  WORKFLOWS,
+  STAGE_LABELS,
+  STAGES,
   type LaneNode,
 } from './lanes'
-import type { Board, BoardBand, BoardTemplate, InitiativeType, IssueType, Item, Lane, Placement, SplitOrientation, Tag, TemplateLane } from './types'
+import { cardsFlows, initiativesFlow } from './flows'
+import type { Board, BoardBand, BoardFlow, BoardTemplate, InitiativeType, IssueType, Item, Lane, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane } from './types'
 
 /** The kinds a board offers, in the order it lists them. An absent list is simply empty. */
 export function boardInitiativeTypes(board: Board | undefined): InitiativeType[] {
@@ -174,24 +176,34 @@ export function boardsByBand(boards: Board[], query = '', includeArchived = fals
  * board, not to its shape — a template is meant to be reused, and a copy carrying one
  * team's work or one program's links would be wrong everywhere else.
  */
-export function templateFromBoard(id: string, name: string, board: Board, lanes: Lane[]): BoardTemplate {
-  const root = rootLane(lanes, board.id, 'cards')
+export function templateFromBoard(id: string, name: string, board: Board, lanes: Lane[], flows: BoardFlow[]): BoardTemplate {
+  // A template captures every **cards flow** — the team's design — and never the initiatives
+  // flow, which is the standard shape the organisation reads rather than the team's to design.
+  const cards = cardsFlows(flows, board.id)
+  const flowKeyOf = new Map(cards.map((flow, i) => [flow.id, `f${i}`]))
   const flat: Lane[] = []
   const walk = (lane: Lane) => {
     flat.push(lane)
     childrenOf(lanes, lane.id).forEach(walk)
   }
-  if (root) childrenOf(lanes, root.id).forEach(walk)
+  for (const flow of cards) {
+    const root = rootLane(lanes, flow.id)
+    if (root) childrenOf(lanes, root.id).forEach(walk)
+  }
 
   // Keys are minted in document order and only need to be unique inside the template.
   const keyOf = new Map(flat.map((l, i) => [l.id, `k${i}`]))
+  const rootOfFlow = new Map(cards.map((flow) => [flow.id, rootLane(lanes, flow.id)?.id]))
   return {
     id,
     name,
     band: board.band,
+    flows: cards.map((flow, i) => ({ key: `f${i}`, kind: 'cards', name: flow.name, order: i })),
     lanes: flat.map((l) => ({
       key: keyOf.get(l.id)!,
-      parentKey: l.parentId && l.parentId !== root?.id ? keyOf.get(l.parentId) ?? null : null,
+      flowKey: flowKeyOf.get(l.flowId)!,
+      // A top-level column names its flow's root, which is structural and not stored.
+      parentKey: l.parentId && l.parentId !== rootOfFlow.get(l.flowId) ? keyOf.get(l.parentId) ?? null : null,
       order: l.order,
       name: l.name,
       ...(l.orientation ? { orientation: l.orientation } : {}),
@@ -211,23 +223,40 @@ export function templateFromBoard(id: string, name: string, board: Board, lanes:
 export function lanesFromTemplate(
   template: BoardTemplate,
   boardId: string,
-  rootId: string,
   uid: () => string,
-): Lane[] {
-  const idOf = new Map(template.lanes.map((l) => [l.key, uid()]))
-  return template.lanes.map((l) => ({
-    id: idOf.get(l.key)!,
+): { flows: BoardFlow[]; lanes: Lane[] } {
+  // One flow per template flow, one root each, then the lanes under the root of their own flow —
+  // a template with two cards flows becomes a board with two, sharing nothing with the template.
+  const flows: BoardFlow[] = template.flows.map((flow) => ({
+    id: uid(),
     boardId,
-    parentId: l.parentKey === null ? rootId : idOf.get(l.parentKey)!,
-    order: l.order,
-    name: l.name,
-    // A template is a team's design, so its lanes are always the cards workflow.
-    workflow: 'cards' as const,
-    ...(l.orientation ? { orientation: l.orientation } : {}),
-    ...(l.stage ? { stage: l.stage } : {}),
-    ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
-    ...(l.description ? { description: l.description } : {}),
+    kind: flow.kind,
+    name: flow.name,
+    order: flow.order,
   }))
+  const flowIdOf = new Map(template.flows.map((flow, i) => [flow.key, flows[i].id]))
+  const roots = new Map(
+    flows.map((flow) => [flow.id, { id: uid(), boardId, parentId: null, order: 0, name: '', orientation: 'columns' as const, flowId: flow.id }]),
+  )
+  const idOf = new Map(template.lanes.map((lane) => [lane.key, uid()]))
+  return {
+    flows,
+    lanes: [
+      ...roots.values(),
+      ...template.lanes.map((l) => ({
+        id: idOf.get(l.key)!,
+        boardId,
+        parentId: l.parentKey === null ? roots.get(flowIdOf.get(l.flowKey)!)!.id : idOf.get(l.parentKey)!,
+        order: l.order,
+        name: l.name,
+        flowId: flowIdOf.get(l.flowKey)!,
+        ...(l.orientation ? { orientation: l.orientation } : {}),
+        ...(l.stage ? { stage: l.stage } : {}),
+        ...(l.wipLimit !== undefined ? { wipLimit: l.wipLimit } : {}),
+        ...(l.description ? { description: l.description } : {}),
+      })),
+    ],
+  }
 }
 
 /* ---- Editing a template's design ------------------------------------------------
@@ -243,9 +272,14 @@ export function lanesFromTemplate(
  * tested rather than inferred from the UI.
  * ------------------------------------------------------------------------------- */
 
-/** A template's lanes under a parent, in order. `null` is the root's children. */
-export function templateChildren(template: BoardTemplate, parentKey: string | null): TemplateLane[] {
-  return template.lanes.filter((l) => l.parentKey === parentKey).sort((a, b) => a.order - b.order)
+/**
+ * A template's lanes under a parent, in order. `null` is the top-level columns of `flowKey` —
+ * a template with two flows has two sets of columns, and only the flow says which is meant.
+ */
+export function templateChildren(template: BoardTemplate, parentKey: string | null, flowKey = template.flows[0]?.key): TemplateLane[] {
+  return template.lanes
+    .filter((l) => l.parentKey === parentKey && (parentKey !== null || l.flowKey === flowKey))
+    .sort((a, b) => a.order - b.order)
 }
 
 /**
@@ -272,15 +306,23 @@ export function templateLaneIsRow(template: BoardTemplate, key: string): boolean
  */
 const ROOT_KEY = '__template-root__'
 type SlimNode = LaneNode & Partial<TemplateLane>
-const slim = (template: BoardTemplate): SlimNode[] => [
+/**
+ * One flow's lanes, under the phantom root the kernels reason about. The kernels know one tree at
+ * a time, so a template with several flows is edited one flow at a time — which is also what makes
+ * "top-level" mean the flow's columns rather than every flow's.
+ */
+const slim = (template: BoardTemplate, flowKey: string): SlimNode[] => [
   { id: ROOT_KEY, parentId: null, order: -1, name: '' },
-  ...template.lanes.map((l) => ({ ...l, id: l.key, parentId: l.parentKey ?? ROOT_KEY })),
+  ...template.lanes
+    .filter((l) => l.flowKey === flowKey)
+    .map((l) => ({ ...l, id: l.key, parentId: l.parentKey ?? ROOT_KEY })),
 ]
-const unslim = (nodes: SlimNode[]): TemplateLane[] =>
+const unslim = (nodes: SlimNode[], flowKey: string): TemplateLane[] =>
   nodes
     .filter((n) => n.id !== ROOT_KEY)
     .map((n) => ({
       key: n.id,
+      flowKey,
       parentKey: n.parentId === ROOT_KEY ? null : n.parentId,
       order: n.order,
       name: n.name,
@@ -289,6 +331,16 @@ const unslim = (nodes: SlimNode[]): TemplateLane[] =>
       ...(n.wipLimit !== undefined ? { wipLimit: n.wipLimit } : {}),
       ...(n.description ? { description: n.description } : {}),
     }))
+
+/** The flow a lane belongs to. A template always has one, so a missing lane falls back to it. */
+const flowKeyOfLane = (template: BoardTemplate, key: string | null | undefined): string =>
+  template.lanes.find((l) => l.key === key)?.flowKey ?? template.flows[0]?.key ?? ''
+
+/** Replace one flow's lanes, leaving the other flows' where they are. */
+const withFlowLanes = (template: BoardTemplate, flowKey: string, nodes: SlimNode[]): TemplateLane[] => [
+  ...template.lanes.filter((l) => l.flowKey !== flowKey),
+  ...unslim(nodes, flowKey),
+]
 
 const withLane = (template: BoardTemplate, key: string, patch: Partial<TemplateLane>): TemplateLane[] =>
   template.lanes.map((l) => (l.key === key ? { ...l, ...patch } : l))
@@ -311,7 +363,8 @@ export function templateSetOrientation(
   key: string,
   orientation: SplitOrientation,
 ): TemplateLane[] {
-  return unslim(setLaneOrientationNode(slim(template), key, orientation))
+  const flowKey = flowKeyOfLane(template, key)
+  return withFlowLanes(template, flowKey, setLaneOrientationNode(slim(template, flowKey), key, orientation))
 }
 
 /** Split a leaf lane into a container of the given orientation. */
@@ -322,26 +375,30 @@ export function templateSplitLane(
   uid: () => string,
   count = 2,
 ): TemplateLane[] {
-  const { nodes, created } = splitLaneNodes(slim(template), key, orientation, uid, count)
-  return created.length > 0 ? unslim(nodes) : template.lanes
+  const flowKey = flowKeyOfLane(template, key)
+  const { nodes, created } = splitLaneNodes(slim(template, flowKey), key, orientation, uid, count)
+  return created.length > 0 ? withFlowLanes(template, flowKey, nodes) : template.lanes
 }
 
 /** Add a lane to an existing split — never a new top-level column. */
 export function templateAddLane(template: BoardTemplate, parentKey: string, uid: () => string): TemplateLane[] {
-  const { nodes, created } = addLaneNode(slim(template), parentKey, uid)
-  return created ? unslim(nodes) : template.lanes
+  const flowKey = flowKeyOfLane(template, parentKey)
+  const { nodes, created } = addLaneNode(slim(template, flowKey), parentKey, uid)
+  return created ? withFlowLanes(template, flowKey, nodes) : template.lanes
 }
 
 /** Insert a sub-lane after a sibling — among sub-lanes only, as on a board. */
 export function templateInsertLaneAfter(template: BoardTemplate, key: string, uid: () => string): TemplateLane[] {
-  const { nodes, created } = insertLaneAfterNode(slim(template), key, uid)
-  return created ? unslim(nodes) : template.lanes
+  const flowKey = flowKeyOfLane(template, key)
+  const { nodes, created } = insertLaneAfterNode(slim(template, flowKey), key, uid)
+  return created ? withFlowLanes(template, flowKey, nodes) : template.lanes
 }
 
 /** Duplicate a sub-lane and its sub-tree ("… copy"), renumbered like the board does. */
 export function templateDuplicateLane(template: BoardTemplate, key: string, uid: () => string): TemplateLane[] {
-  const { nodes, created } = duplicateLaneNode(slim(template), key, uid)
-  return created.length > 0 ? unslim(nodes) : template.lanes
+  const flowKey = flowKeyOfLane(template, key)
+  const { nodes, created } = duplicateLaneNode(slim(template, flowKey), key, uid)
+  return created.length > 0 ? withFlowLanes(template, flowKey, nodes) : template.lanes
 }
 
 /**
@@ -350,13 +407,104 @@ export function templateDuplicateLane(template: BoardTemplate, key: string, uid:
  * lanes that are fixed — every refusal the board has.
  */
 export function templateRemoveLane(template: BoardTemplate, key: string): TemplateLane[] {
-  const { nodes, vanished } = removeLaneNodes(slim(template), key)
-  return vanished.size > 0 ? unslim(nodes) : template.lanes
+  const flowKey = flowKeyOfLane(template, key)
+  const { nodes, vanished } = removeLaneNodes(slim(template, flowKey), key)
+  return vanished.size > 0 ? withFlowLanes(template, flowKey, nodes) : template.lanes
 }
 
 /** Reorder a sub-lane within its parent. Top-level columns are fixed in place. */
 export function templateMoveLane(template: BoardTemplate, key: string, delta: number): TemplateLane[] {
-  return unslim(moveLaneNode(slim(template), key, delta))
+  const flowKey = flowKeyOfLane(template, key)
+  return withFlowLanes(template, flowKey, moveLaneNode(slim(template, flowKey), key, delta))
+}
+
+/* ---- A template's flows ------------------------------------------------------------------ *
+ * The same verbs a board's flows have, with the one difference a template can have: it holds no
+ * cards, so only "keep at least one" applies — there is no work that would be lost with a flow.
+ * ------------------------------------------------------------------------------------------ */
+
+/** The next free key of a kind, so removing and adding never reuses an identity. */
+function nextKey(prefix: string, keys: string[]): string {
+  const used = new Set(keys)
+  let i = 0
+  while (used.has(`${prefix}${i}`)) i += 1
+  return `${prefix}${i}`
+}
+
+/** A new cards flow: its four typed columns, one cell each, appended after the ones it has. */
+export function templateAddFlow(template: BoardTemplate): { flows: TemplateFlow[]; lanes: TemplateLane[]; key: string } {
+  const key = nextKey('f', template.flows.map((f) => f.key))
+  const taken = new Set(template.flows.map((f) => f.name.trim().toLowerCase()))
+  let n = template.flows.length + 1
+  let name = taken.has('cards') ? `Cards ${n}` : 'Cards'
+  while (taken.has(name.toLowerCase())) {
+    n += 1
+    name = `Cards ${n}`
+  }
+  // The four typed columns, one cell each — where every flow starts. Keys are unique among the
+  // template's lanes, taken as they are minted so the four cannot collide with each other.
+  const used = new Set(template.lanes.map((l) => l.key))
+  const freshLaneKey = (): string => {
+    let i = 0
+    while (used.has(`k${i}`)) i += 1
+    used.add(`k${i}`)
+    return `k${i}`
+  }
+  const columns: TemplateLane[] = STAGES.map((stage, order) => ({
+    key: freshLaneKey(),
+    flowKey: key,
+    parentKey: null,
+    order,
+    name: STAGE_LABELS[stage],
+    stage,
+  }))
+  return {
+    flows: [...template.flows, { key, kind: 'cards', name, order: template.flows.length }],
+    lanes: [...template.lanes, ...columns],
+    key,
+  }
+}
+
+/** Name a template flow. Empty is refused by the caller (the editor keeps the old name). */
+export function templateRenameFlow(template: BoardTemplate, key: string, name: string): TemplateFlow[] {
+  return template.flows.map((f) => (f.key === key ? { ...f, name } : f))
+}
+
+/** Move a template flow within the set; the order stays a clean 0..n-1. */
+export function templateMoveFlow(template: BoardTemplate, key: string, delta: number): TemplateFlow[] {
+  const ordered = [...template.flows].sort((a, b) => a.order - b.order)
+  const from = ordered.findIndex((f) => f.key === key)
+  const to = from + delta
+  if (from < 0 || to < 0 || to >= ordered.length) return template.flows
+  const [moved] = ordered.splice(from, 1)
+  ordered.splice(to, 0, moved)
+  const orderOf = new Map(ordered.map((f, i) => [f.key, i] as const))
+  // Sorted, not merely renumbered: the editor draws `template.flows` in array order, and a flow
+  // that moved must read where it moved to.
+  return template.flows
+    .map((f) => (orderOf.has(f.key) ? { ...f, order: orderOf.get(f.key)! } : f))
+    .sort((a, b) => a.order - b.order)
+}
+
+/** A template keeps at least one cards flow. */
+export function canRemoveTemplateFlow(template: BoardTemplate, key: string): boolean {
+  return template.flows.some((f) => f.key === key) && template.flows.length > 1
+}
+
+/** Remove a flow and its lanes, or nothing when it is the last one. */
+export function templateRemoveFlow(
+  template: BoardTemplate,
+  key: string,
+): { flows: TemplateFlow[]; lanes: TemplateLane[] } | null {
+  if (!canRemoveTemplateFlow(template, key)) return null
+  const flows = template.flows.filter((f) => f.key !== key)
+  const orderOf = new Map([...flows].sort((a, b) => a.order - b.order).map((f, i) => [f.key, i] as const))
+  return {
+    flows: flows
+      .map((f) => (orderOf.has(f.key) ? { ...f, order: orderOf.get(f.key)! } : f))
+      .sort((a, b) => a.order - b.order),
+    lanes: template.lanes.filter((l) => l.flowKey !== key),
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -377,14 +525,24 @@ export function templateMoveLane(template: BoardTemplate, key: string, delta: nu
 export function duplicateBoard(
   board: Board,
   lanes: Lane[],
+  flows: BoardFlow[],
   uid: () => string,
   name?: string,
-): { board: Board; lanes: Lane[] } {
+): { board: Board; lanes: Lane[]; flows: BoardFlow[] } {
   const idOf = new Map<string, string>()
+  const flowIdOf = new Map<string, string>()
   const subtree: Lane[] = []
-  // Both workflows come across, each from its own root.
-  for (const workflow of WORKFLOWS) {
-    const root = rootLane(lanes, board.id, workflow)
+  // Every flow comes across with its own tree, with fresh ids on both.
+  const copiedFlows: BoardFlow[] = flows
+    .filter((f) => f.boardId === board.id)
+    .sort((a, b) => a.order - b.order)
+    .map((flow) => {
+      const id = uid()
+      flowIdOf.set(flow.id, id)
+      return { ...flow, id, boardId: '' }
+    })
+  for (const flow of flows.filter((f) => f.boardId === board.id)) {
+    const root = rootLane(lanes, flow.id)
     if (!root) continue
     const walk = (lane: Lane) => {
       idOf.set(lane.id, uid())
@@ -415,8 +573,10 @@ export function duplicateBoard(
       ...lane,
       id: idOf.get(lane.id)!,
       boardId: id,
+      flowId: flowIdOf.get(lane.flowId)!,
       parentId: lane.parentId ? idOf.get(lane.parentId) ?? null : null,
     })),
+    flows: copiedFlows.map((flow) => ({ ...flow, boardId: id })),
   }
 }
 
@@ -513,8 +673,10 @@ export function initiativeCellOf(
   itemId: string,
   boardId: string,
   graph: Graph,
+  flows: BoardFlow[],
 ): { sectionId: string; cellId: string } | undefined {
-  const root = rootLane(graph.lanes, boardId, 'initiatives')
+  const flow = initiativesFlow(flows, boardId)
+  const root = flow ? rootLane(graph.lanes, flow.id) : undefined
   if (!root) return undefined
   const section = childrenOf(graph.lanes, root.id).find((l) => l.stage === rollupOf(itemId, graph).bucket)
   if (!section) return undefined
@@ -546,12 +708,13 @@ export function initiativeRanks(
   sectionId: string,
   /** The board's initiatives — exactly the set the surface shows, from `boardInitiatives`. */
   initiatives: Item[],
+  flows: BoardFlow[],
 ): Map<string, Item[]> {
   const cells = leavesUnder(graph.lanes, sectionId)
   const byCell = new Map<string, Item[]>(cells.map((c) => [c.id, []]))
   const here = new Set(
     initiatives
-      .filter((i) => initiativeCellOf(i.id, boardId, graph)?.sectionId === sectionId)
+      .filter((i) => initiativeCellOf(i.id, boardId, graph, flows)?.sectionId === sectionId)
       .map((i) => i.id),
   )
   for (const cell of cells) {
@@ -564,7 +727,7 @@ export function initiativeRanks(
   const arranged = new Set([...byCell.values()].flat().map((i) => i.id))
   for (const i of initiatives) {
     if (!here.has(i.id) || arranged.has(i.id)) continue
-    const cellId = initiativeCellOf(i.id, boardId, graph)?.cellId
+    const cellId = initiativeCellOf(i.id, boardId, graph, flows)?.cellId
     const rank = cellId ? byCell.get(cellId) : undefined
     if (rank) rank.push(i)
   }
@@ -653,8 +816,13 @@ export function defaultCardTypeId(types: IssueType[]): string | undefined {
  * into cells that did not exist when it was named, and a board that has lost its answer should
  * still take a card rather than refuse one.
  */
-export function defaultDropLane(board: Board | undefined, lanes: Lane[], boardId: string): Lane | undefined {
-  const leaves = leafLanes(lanes, boardId, 'cards')
+export function defaultDropLane(
+  board: Board | undefined,
+  flows: BoardFlow[],
+  lanes: Lane[],
+  boardId: string,
+): Lane | undefined {
+  const leaves = cardsFlows(flows, boardId).flatMap((flow) => leafLanes(lanes, flow.id))
   return leaves.find((l) => l.id === board?.defaultDropLaneId) ?? leaves[0]
 }
 

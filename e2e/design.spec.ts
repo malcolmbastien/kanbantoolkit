@@ -26,7 +26,9 @@ test('splitting a cell gives it the columns it promised, and the cards move into
   await saveBoard(page)
 
   // The cell is now a container of two, and its cards are in the first of them.
-  await expect(page.locator('[data-workflow="cards"] [data-lane-id]')).toHaveCount(6)
+  // The split happened in the board's own flow; the demo also carries a support queue, whose
+  // lanes are not this count.
+  await expect(page.locator('[data-flow-band]').first().locator('[data-workflow="cards"] [data-lane-id]')).toHaveCount(6)
   expect(await cardsIn(page, 'Column 1')).toEqual(cards)
 })
 
@@ -45,28 +47,41 @@ test('a cell added to a split accepts a card', async ({ page }) => {
   await expect.poll(() => cardsIn(page, 'Column 3')).toEqual([moved])
 })
 
-test('removing a cell leaves the cards it held somewhere valid', async ({ page }) => {
+test('a cell that holds cards cannot be removed, and an empty one moves nothing', async ({ page }) => {
   await openBoard(page)
-  const [moved] = await cardsIn(page, 'Backlog')
+  const cards = await cardsIn(page, 'Backlog')
 
   await editBoard(page)
   await splitIntoColumns(page, 'Backlog')
   await addColumn(page)
   await saveBoard(page)
+  // Splitting moved the cards into Column 1; put one in Column 3 so the third cell is occupied.
+  const [moved] = cards
   await dropAtEnd(page, moved, 'Column 3')
   await expect.poll(() => cardsIn(page, 'Column 3')).toEqual([moved])
 
+  // The occupied cell is refused, and says why: deletion never moves work.
   await editBoard(page)
   await laneRegion(page, 'Column 3')
+    .getByRole('button', { name: /Lane settings/ })
+    .click()
+  await expect(page.getByRole('button', { name: 'Remove lane' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Remove lane' })).toHaveAttribute('title', /holds cards/)
+  await page.keyboard.press('Escape')
+
+  // The empty cell may go — and because Column 1 still holds cards, the split is not folded over
+  // them: the cards stay exactly where they were.
+  await laneRegion(page, 'Column 2')
     .getByRole('button', { name: /Lane settings/ })
     .click()
   await page.getByRole('button', { name: 'Remove lane' }).click()
   await page.locator('[role="dialog"]').getByRole('button', { name: 'Remove lane' }).click()
   await saveBoard(page)
 
-  await expect(lane(page, 'Column 3')).toHaveCount(0)
-  // The store's rule: a removed cell's cards go to the first surviving cell beside it.
-  expect(await cardsIn(page, 'Column 1')).toContain(moved)
+  await expect(lane(page, 'Column 2')).toHaveCount(0)
+  await expect(lane(page, 'Column 1')).toBeVisible()
+  expect(await cardsIn(page, 'Column 1')).toEqual(cards.filter((id) => id !== moved))
+  expect(await cardsIn(page, 'Column 3')).toEqual([moved])
 })
 
 test('the design controls are not on the working board', async ({ page }) => {

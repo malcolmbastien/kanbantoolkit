@@ -213,3 +213,26 @@ test('a file that is not a workspace is refused, and changes nothing', async ({ 
   await expect(page.getByText(/not a Kanban Toolkit workspace/i)).toBeVisible()
   expect(await stored(page)).toEqual(before)
 })
+
+test('a template can carry a second cards flow, and keeps it', async ({ page }) => {
+  await page.goto('/app')
+  await page.getByRole('tab', { name: /Templates/ }).click()
+  await page.getByRole('button', { name: /New template/ }).click()
+
+  const dialog = page.locator('[data-template-editor]')
+  await dialog.getByRole('textbox', { name: 'Template name' }).fill('Two flows')
+  // A template is a set of flows: the new one arrives with its own four columns.
+  await dialog.getByRole('button', { name: 'Add a cards flow' }).click()
+  await expect(dialog.locator('[data-template-flow]')).toHaveCount(2)
+  await dialog.getByRole('button', { name: 'Rename Cards 2' }).click()
+  await dialog.getByRole('textbox', { name: 'Rename Cards 2' }).fill('Support')
+  await page.keyboard.press('Enter')
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+
+  // Opening it again: both flows, named, each with its tree.
+  await page.getByRole('button', { name: /Two flows/ }).click()
+  const reopened = page.getByRole('dialog', { name: 'Template: Two flows' })
+  await expect(reopened.locator('[data-template-flow]')).toHaveCount(2)
+  await expect(reopened.getByText('Cards', { exact: true })).toBeVisible()
+  await expect(reopened.getByText('Support', { exact: true })).toBeVisible()
+})

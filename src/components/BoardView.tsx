@@ -1,13 +1,15 @@
 import { useRef } from 'react'
-import { Archive, Download, SlidersHorizontal } from 'lucide-react'
+import { Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
+import { InlineEdit } from './InlineEdit'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
 import { isAggregating, isInitiativeItem } from '@/domain/board'
 import { boardCsv, csvFilename } from '@/domain/csv'
 import { activeFilterCount } from '@/domain/filters'
+import { canRemoveFlow, cardsFlows, flowLaneIds } from '@/domain/flows'
 import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
 import { downloadText } from '@/lib/download'
@@ -31,9 +33,14 @@ export function BoardView({ requestMove }: Props) {
   const items = useStore((s) => s.items)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
   const editMode = useStore((s) => s.editMode)
+  const addCardsFlow = useStore((s) => s.addCardsFlow)
+  const renameFlow = useStore((s) => s.renameFlow)
+  const moveFlow = useStore((s) => s.moveFlow)
+  const removeFlow = useStore((s) => s.removeFlow)
   const archiveDoneOnBoard = useStore((s) => s.archiveDoneOnBoard)
   const askConfirm = useStore((s) => s.askConfirm)
   const showFilters = useStore((s) => s.showFilters)
@@ -76,7 +83,21 @@ export function BoardView({ requestMove }: Props) {
     .map((p) => items.find((i) => i.id === p.itemId))
     .filter((i): i is Item => i !== undefined && !i.archived)
   const initiativeCount = onBoard.filter((i) => isInitiativeItem(i, issueTypes)).length
-  const cardCount = onBoard.length - initiativeCount
+
+  // The cards flows, in the board's order — each a band of its own, stacked the way the board's
+  // flows are. A band's count is the load *its* lanes carry: archived cards are off the board, and
+  // an initiative is not a card, so neither inflates it.
+  const flowsOnBoard = cardsFlows(flows, boardId)
+  const laneOf = new Map(placements.filter((p) => p.boardId === boardId).map((p) => [p.itemId, p.laneId] as const))
+  const counts = Object.fromEntries(
+    flowsOnBoard.map((flow) => {
+      const laneIds = flowLaneIds(lanes, flow.id)
+      const cards = onBoard.filter(
+        (i) => !isInitiativeItem(i, issueTypes) && laneIds.has(laneOf.get(i.id) ?? ''),
+      ).length
+      return [flow.id, cards]
+    }),
+  )
 
   // The board's secondary bar: board-scoped controls live with the board. On the left,
   // the board's state; Filters sits at the far right, in the corner where its panel opens —
@@ -120,7 +141,7 @@ export function BoardView({ requestMove }: Props) {
             onClick={() =>
               downloadText(
                 csvFilename(board?.name ?? 'board', 'cards'),
-                boardCsv(boardId, { items, edges, links, placements, lanes }, issueTypes, users, boards),
+                boardCsv(boardId, { items, edges, links, placements, lanes }, issueTypes, users, flows, boards),
               )
             }
             disabled={editMode}
@@ -180,23 +201,120 @@ export function BoardView({ requestMove }: Props) {
           <BoardSummary boardId={boardId} variant="initiatives" interactive={editable} />
         </section>
 
-        {/* Cards workflow — the team's customizable flow. Tactical execution: its own cool
-            band, a step down from the initiatives surface in weight as well as in altitude. */}
-        <section className="space-y-2.5">
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50/50 px-3 py-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-              <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Cards workflow</h2>
-              <span className="truncate text-meta text-slate-600">
-                {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
-              </span>
-            </div>
-            <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-indigo-200 sm:inline">
-              {cardCount} {cardCount === 1 ? 'card' : 'cards'}
-            </span>
-          </div>
-          <BoardCanvas boardId={boardId} interactive={editable} onMove={requestMove} />
-        </section>
+        {/* Cards flows — the team's own column sets, one band each. Stacked rather than tabbed:
+            a card crossing flows is then a drag between two visible trees, and a board with three
+            flows reads as three flows rather than as one and two hidden behind a tab. Each band
+            names itself, counts its own work, and carries its own design controls in edit mode. */}
+        {flowsOnBoard.map((flow, index) => {
+          const name = flow.name
+          const count = counts[flow.id] ?? 0
+          const removable = canRemoveFlow(flows, flow.id, lanes, placements)
+          return (
+            <section
+              key={flow.id}
+              className="space-y-2.5"
+              data-flow-band={flow.id}
+              data-flow-name={name}
+              aria-label={`${name} — cards flow`}
+            >
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50/50 px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
+                  <h2 className="flex shrink-0 items-center text-body font-bold uppercase tracking-wide text-slate-900">
+                    {editMode && editable ? (
+                      <InlineEdit
+                        value={name}
+                        onSave={(next) => renameFlow(flow.id, next)}
+                        ariaLabel={`Rename ${name}`}
+                        title="Rename this flow"
+                        className="rounded px-1 py-0.5 text-left uppercase tracking-wide transition hover:bg-indigo-100"
+                        inputClassName="w-40 rounded border border-indigo-300 bg-white px-1 py-0.5 text-body font-bold uppercase tracking-wide text-slate-900 outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                    ) : (
+                      <span className="px-1 py-0.5">{name}</span>
+                    )}
+                  </h2>
+                  <span className="truncate text-meta text-slate-600">
+                    {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  {editMode && editable && (
+                    <>
+                      <button
+                        onClick={() => moveFlow(flow.id, -1)}
+                        disabled={index <= 0}
+                        title="Move this flow up"
+                        aria-label={`Move ${name} up`}
+                        className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <ChevronUp size={13} />
+                      </button>
+                      <button
+                        onClick={() => moveFlow(flow.id, 1)}
+                        disabled={index >= flowsOnBoard.length - 1}
+                        title="Move this flow down"
+                        aria-label={`Move ${name} down`}
+                        className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <ChevronDown size={13} />
+                      </button>
+                      <button
+                        onClick={() =>
+                          askConfirm({
+                            title: `Remove the “${name}” flow?`,
+                            body: 'Its columns go with it. It holds no cards — a flow with work in it cannot be removed.',
+                            confirmLabel: 'Remove flow',
+                            danger: true,
+                            onConfirm: () => removeFlow(flow.id),
+                          })
+                        }
+                        disabled={!removable}
+                        // Said separately, because the two refusals are different facts: the last
+                        // flow is the board's floor, and an occupied one is a decision to make
+                        // elsewhere. Neither is offered as if it might work.
+                        title={
+                          removable
+                            ? 'Remove this flow and its columns'
+                            : flowsOnBoard.length <= 1
+                              ? 'A board keeps at least one cards flow'
+                              : 'This flow still holds cards — move them to another flow first'
+                        }
+                        aria-label={`Remove ${name}`}
+                        className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </>
+                  )}
+                  <span className="rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-indigo-200">
+                    {count} {count === 1 ? 'card' : 'cards'}
+                  </span>
+                </div>
+              </div>
+              <BoardCanvas boardId={boardId} flowId={flow.id} interactive={editable} onMove={requestMove} />
+            </section>
+          )
+        })}
+
+        {flowsOnBoard.length === 0 && (
+          <p className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-meta text-slate-600">
+            This board has no cards flow: a coordination board aggregates work rather than holding it.
+          </p>
+        )}
+
+        {/* The one place a second flow comes from, and it reads as a band would: the cards area
+            grows by a band, not by a tab nobody can see. */}
+        {editMode && editable && (
+          <button
+            onClick={() => addCardsFlow()}
+            title="Add a cards flow — another set of columns on this board"
+            aria-label="Add a cards flow"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-indigo-300 px-3 py-2 text-meta font-medium text-indigo-700 transition hover:bg-indigo-50"
+          >
+            <Plus size={13} /> Add a cards flow
+          </button>
+        )}
 
         {/* Boundary work: the edge of this board, as a workflow of its own — below the cards, in
             the same four stages, and read-only. It renders nothing when nothing crosses the edge. */}

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Archive, CheckSquare, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Archive, ArchiveX, CheckSquare, Trash2, TriangleAlert, X } from 'lucide-react'
 import { canSetParent, cardTypes, defaultDropLane, isInitiativeItem } from '@/domain/board'
-import type { Graph } from '@/domain/derive'
+import { isComplete, type Graph } from '@/domain/derive'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
+import { cardsFlows } from '@/domain/flows'
 
 /*
  * The bar is a floating panel like the card menu and the palette — white, slate-bordered, one
@@ -37,6 +38,7 @@ export function BulkActions() {
   const multiSelect = useStore((s) => s.multiSelect)
   const boardId = useStore((s) => s.boardId)
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
@@ -69,14 +71,19 @@ export function BulkActions() {
 
   if (multiSelect.length === 0) return null
 
-  const leaves = leafLanes(lanes, boardId, 'cards')
+  const leaves = cardsFlows(flows, boardId).flatMap((flow) => leafLanes(lanes, flow.id))
   // The boards this one can hand work to, each labelled with the cell it would land in — the
   // destination is not a mystery to be discovered after the move.
   const elsewhere = boards
     .filter((b) => b.id !== boardId)
-    .map((b) => ({ board: b, lane: defaultDropLane(b, lanes, b.id) }))
+    .map((b) => ({ board: b, lane: defaultDropLane(b, flows, lanes, b.id) }))
   const types = cardTypes(issueTypes)
   const count = multiSelect.length
+  // One act, two words: done work is archived, unfinished work is discarded, and each card in the
+  // selection is judged by its own state. The button takes the weaker word, so a mixed selection
+  // never promises an archive it would not deliver.
+  const allComplete =
+    count > 0 && multiSelect.every((id) => isComplete(id, { items, edges, links, placements, lanes }))
 
   // The initiatives that could take every one of them: the list the drawer's parent control
   // offers for one item, narrowed to what the whole selection accepts — so a choice that is
@@ -130,11 +137,23 @@ export function BulkActions() {
           title="Move every selected card to a lane"
         >
           <option value="">lane…</option>
-          {leaves.map((l) => (
-            <option key={l.id} value={l.id}>
-              {lanePath(lanes, l.id).join(' / ')}
-            </option>
-          ))}
+          {/* Several cards flows put the same column names in different trees, so the destination
+              is grouped by flow rather than left to a name that appears twice. */}
+          {cardsFlows(flows, boardId).length > 1
+            ? cardsFlows(flows, boardId).map((flow) => (
+                <optgroup key={flow.id} label={flow.name}>
+                  {leafLanes(lanes, flow.id).map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {lanePath(lanes, l.id).join(' / ')}
+                    </option>
+                  ))}
+                </optgroup>
+              ))
+            : leaves.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {lanePath(lanes, l.id).join(' / ')}
+                </option>
+              ))}
         </select>
       </label>
 
@@ -259,9 +278,13 @@ export function BulkActions() {
         disabled={Boolean(held)}
         onClick={() => archiveItems(multiSelect)}
         className={SECONDARY_CLS}
-        title="Archive the selected cards (with their children)"
+        title={
+          allComplete
+            ? 'Archive the selected cards as completed work (with their children)'
+            : 'Discard the selected cards (with their children) — the ones that are done are archived instead'
+        }
       >
-        <Archive size={13} /> Archive
+        {allComplete ? <Archive size={13} /> : <ArchiveX size={13} />} {allComplete ? 'Archive' : 'Discard'}
       </button>
       <button
         disabled={Boolean(held)}

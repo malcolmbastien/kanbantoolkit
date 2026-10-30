@@ -50,7 +50,7 @@ export function InstanceGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loaded || !signIn) return
     const state = useStore.getState()
-    const demo = isDemoWorkspace({ boards: state.boards, lanes: state.lanes, items: state.items, placements: state.placements })
+    const demo = isDemoWorkspace({ boards: state.boards, flows: state.flows, lanes: state.lanes, items: state.items, placements: state.placements })
     if (!demo) return
     state.startEmptyWorkspace()
   }, [loaded, signIn])

@@ -84,20 +84,20 @@ Reads:
 | Tool | Scope | What it returns |
 | --- | --- | --- |
 | `list_boards` | `boards:read` | every board: id, name, band, archived, WIP enforcement |
-| `get_board` | `boards:read` | one board with its two lane trees, its placements, the items on it — this is where `laneId` comes from |
+| `get_board` | `boards:read` | one board with its lane trees — one initiatives flow and one or more cards flows, named — its placements, the items on it; this is where `laneId` comes from |
 | `search_items` | `items:read` | the app's own search: a substring of the title, never a query language |
 | `get_item` | `items:read` | one item: fields, parent, placements, revision, rollup, history |
 | `list_objectives` | `boards:read` | objectives with the completeness their work gives them (`null` when nothing serves one) and their key results |
 | `list_people` | `people:read` | ids and names, so an assignee is a person and not a guess |
-| `workspace_summary` | `boards:read` | counts and the board list, and the columns of the first team board with how many items each holds |
+| `workspace_summary` | `boards:read` | counts and the board list, and the cards flows of the first team board with their names, columns and how many items each holds |
 
 Writes:
 
 | Tool | Scope | What it refuses |
 | --- | --- | --- |
-| `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the other workflow; a `size` (the board counts issues, not points); a `createdById` — the server records the caller as the creator |
+| `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the other kind of flow; a `size` (the board counts issues, not points); a `createdById` — the server records the caller as the creator |
 | `update_item` | `items:write` | a stale `baseRev` (with the current item); a retype into or out of Initiative; a `size`; a `createdById`; a parent that is not an initiative or would make a cycle |
-| `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell or the reverse; an initiative across its section |
+| `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell or the reverse (any of the board's cards flows accepts a card); an initiative across its section |
 | `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or its own descendant |
 
 Reads are bounded: a page is 50 by default and never more than 200, and `workspace_summary` exists so

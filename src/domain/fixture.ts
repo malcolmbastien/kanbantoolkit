@@ -15,7 +15,7 @@ const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 const DAY = 86_400_000
 
 export function createFixture(): FlowState {
-  const { users, issueTypes, boards, lanes, boardTemplates, st, lob, del, p, a, n } = demoWorkspace()
+  const { users, issueTypes, boards, flows, lanes, boardTemplates, st, lob, del, p, a, n } = demoWorkspace()
   /* ------------------------------------------------------------------ *
    * Objectives & Key Results (commitment-limited; never in columns)
    * ------------------------------------------------------------------ */
@@ -163,6 +163,11 @@ export function createFixture(): FlowState {
   filed('st-onboarding-email', 'Onboarding email sequence', 't-story', T - 33 * DAY, T - 27 * DAY, T - 24 * DAY, T - 16 * DAY)
   filed('st-legacy-import', 'Import legacy accounts', 't-story', T - 26 * DAY, T - 25 * DAY, T - 20 * DAY, T - 9 * DAY)
 
+  // Team Atlas' support queue — the board's second cards flow, so a fixture board can be read as
+  // two flows. One waiting; one answered, which is Done in a tree that is not the team's own.
+  item('st-support-triage', 'Triage the inbound request', 't-task', { assignees: ['u-rk'] })
+  item('st-support-answer', 'Answer the customer', 't-story', { resolvedAt: T - 3 * DAY, assignees: ['u-lm'] })
+
   // Cards — Team Nova.
   item('st-welcome-copy', 'Welcome copy', 't-story')
   item('st-tour', 'Guided tour', 't-story', { assignees: ['u-lm'] })
@@ -226,6 +231,8 @@ export function createFixture(): FlowState {
   for (const id of ['st-export-csv', 'st-scim-spike', 'st-billing-handoff', 'st-audit-log', 'st-ratelimit-ui', 'st-onboarding-email', 'st-legacy-import']) {
     place(id, 'b-atlas', a.done.id)
   }
+  place('st-support-triage', 'b-atlas', a.support!.backlog.id)
+  place('st-support-answer', 'b-atlas', a.support!.done.id)
   place('st-email', 'b-atlas', a.ns.id, T - 30 * DAY)
   place('st-sso', 'b-atlas', a.test!.id, T - 12 * DAY)
   place('df-signup', 'b-atlas', a.test!.id)
@@ -285,6 +292,7 @@ export function createFixture(): FlowState {
     users,
     issueTypes,
     boards,
+    flows,
     lanes,
     items,
     placements,

@@ -8,6 +8,7 @@
 
 import type {
   Board,
+  BoardFlow,
   BoardTemplate,
   ChecklistEntry,
   Edge,
@@ -38,6 +39,7 @@ const KINDS = new Set<ItemLogKind>([
   'blocked',
   'unblocked',
   'archived',
+  'discarded',
   'unarchived',
   'noted',
   'limit',
@@ -158,6 +160,8 @@ export function parseItem(input: unknown): Item | null {
   if (archived !== undefined) item.archived = archived
   const archivedAt = number(raw.archivedAt)
   if (archivedAt !== undefined) item.archivedAt = archivedAt
+  const discarded = boolean(raw.discarded)
+  if (discarded !== undefined) item.discarded = discarded
   const entries = checklist(raw.checklist)
   if (entries?.length) item.checklist = entries
   const history = log(raw.log)
@@ -174,6 +178,11 @@ export function parseItem(input: unknown): Item | null {
  * each column defensively, so a row that survives this cannot make a statement fail. An item the
  * item parser refuses is dropped rather than failing the import — the person's boards and cards are
  * worth keeping even if one of them is not shaped as this version expects.
+ *
+ * A lane names its flow, so a workspace that has lanes must name their flows too. An older file is
+ * migrated by the browser before it is sent (the store's own migrate), and a payload that arrives
+ * without them is refused rather than half-read: inventing a tree here would put a card in a flow
+ * its own file never mentioned.
  */
 export function parseWorkspace(input: unknown): Workspace | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null
@@ -191,6 +200,9 @@ export function parseWorkspace(input: unknown): Workspace | null {
 
   const boards = rows<Board>(raw.boards, 200)
   if (!boards.length) return null
+  const lanes = rows<Lane>(raw.lanes, 2_000)
+  const flows = rows<BoardFlow>(raw.flows, 1_000)
+  if (lanes.length > 0 && flows.length === 0) return null
 
   return {
     users: rows<User>(raw.users, 2_000),
@@ -209,7 +221,8 @@ export function parseWorkspace(input: unknown): Workspace | null {
         : {},
     boardId: typeof raw.boardId === 'string' ? raw.boardId : boards[0].id,
     boards,
-    lanes: rows<Lane>(raw.lanes, 2_000),
+    flows,
+    lanes,
     placements: rows<Placement>(raw.placements, 20_000),
   }
 }

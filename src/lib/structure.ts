@@ -39,10 +39,16 @@ interface StructureState {
 
 export const useStructure = create<StructureState>(() => ({ rev: null, movedTo: null }))
 
-/** The design as a string, for "has this changed since we sent it?" — cheap, and total. */
-function designOf(): { boards: unknown[]; lanes: unknown[]; placements: unknown[] } {
+/**
+ * The design as a string, for "has this changed since we sent it?" — cheap, and total.
+ *
+ * A flow is part of the document, not a detail of a lane: the server writes the flows before the
+ * lanes that name them, and refuses a lane whose flow it was not given. So the three lists are
+ * really four.
+ */
+function designOf(): { boards: unknown[]; flows: unknown[]; lanes: unknown[]; placements: unknown[] } {
   const state = useStore.getState()
-  return { boards: state.boards, lanes: state.lanes, placements: state.placements }
+  return { boards: state.boards, flows: state.flows, lanes: state.lanes, placements: state.placements }
 }
 
 /**

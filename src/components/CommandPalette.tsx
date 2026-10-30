@@ -105,15 +105,15 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
   const actions: (PaletteEntry & { run: () => void })[] = useMemo(
     () => [
       ...(makesCards && canWrite
-        ? [{ id: 'action:new-card', kind: 'action' as PaletteKind, label: 'New card', hint: 'Add a card to this board', keywords: 'create add task story bug', run: onNewCard }]
+        ? [{ id: 'action:new-card', kind: 'action' as PaletteKind, label: 'New card', hint: "Add a card to this board's default cell", keywords: 'create add task story bug', run: onNewCard }]
         : []),
       ...(canWrite
         ? [{ id: 'action:new-initiative', kind: 'action' as PaletteKind, label: 'New initiative', hint: 'Add an initiative to this board', keywords: 'create outcome', run: onNewInitiative }]
         : []),
       ...(editMode || !canDesign
         ? []
-        : [{ id: 'action:edit', kind: 'action' as PaletteKind, label: 'Edit board design', hint: 'Split, add, rename and delete lanes', keywords: 'lanes columns rows wip', run: beginEdit }]),
-      { id: 'action:filters', kind: 'action', label: 'Filters', hint: 'Narrow the cards shown on this board', keywords: 'find narrow', run: toggleFilters },
+        : [{ id: 'action:edit', kind: 'action' as PaletteKind, label: 'Edit board design', hint: 'Split, add, rename and delete lanes; add a cards flow', keywords: 'lanes columns rows wip', run: beginEdit }]),
+      { id: 'action:filters', kind: 'action', label: 'Filters', hint: 'Narrow the cards shown on this board, across every flow', keywords: 'find narrow', run: toggleFilters },
       ...(canSettings
         ? [{ id: 'action:settings', kind: 'action' as PaletteKind, label: 'Board settings', hint: 'Band, WIP enforcement, default drop cell', keywords: 'configure', run: toggleBoardSettings }]
         : []),

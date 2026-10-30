@@ -3177,13 +3177,210 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-10-28T22:17:27.984Z"
+      },
+      {
+        "id": "177",
+        "title": "A board carries several cards workflows, each with its own name and place",
+        "description": "A board can carry more than one cards workflow: each is its own tree of the four typed columns, with its own name and its own position on the board, and a card lives in exactly one of them. The initiatives flow is unchanged. One cards flow reads as today; two or more read as a tab strip inside the cards area, where flows are named and reordered.",
+        "details": "MODEL. `Workflow = 'cards' | 'initiatives'` and `Lane.workflow` (src/domain/types.ts:190, :90) stop being the identity of a tree. A board gains flows — `BoardFlow { id, boardId, kind: 'cards' | 'initiatives', name, order }` — and a lane names its flow (`Lane.flowId`). A board has exactly one initiatives flow (fixed: not renameable, not reorderable, not removable; its sections stay derived from rollup) and one or more cards flows, each with its own four typed columns and its own name. The four typed columns stay fixed per flow — one each of Backlog / Not Started / In Progress / Done, refinement by splitting — and reordering columns stays refused; reordering *flows* is new.\n\nThe compiler is the migration tool. `Lane.workflow` is deleted rather than aliased, so every call site that says `rootLane(..., 'cards')` / `leafLanes(..., 'cards')` fails to compile and is visited once: src/domain/lanes.ts:228-314, board.ts:177,224,385,517,657, move.ts:193,307, attention.ts:121, csv.ts:37, components/BoardCanvas.tsx:688, BoardSettings.tsx:332, CardMenu.tsx:106, BulkActions.tsx:72, ManagementDashboard.tsx:98, MetricsView.tsx:53, App.tsx:189, server/operations.ts:115,250-256,328-335,407-420,676. Nothing is left on a default `flowId`, because a default is how one flow silently hides the other.\n\nCARDS. A card keeps one placement per board (src/domain/types.ts:359), so the flow it is in is derived from its lane, not stored on the placement. A move between two cards flows is therefore a move: `moveCard` already accepts any cards-kind lane, the target flow's WIP applies, and stage/resolvedAt follow the target column. `statusOf`/`rollupOf`/`archiveOutcome` keep reading the placement's lane only and learn nothing about flows.\n\nDECISIONS (2026-10-30). (1) A card is in one flow, never several. (2) A card may be dragged between flows. (3) Default drop cell and WIP enforcement stay board-wide (`Board.defaultDropLaneId`, `Board.wipEnforcement`); the default names one cell in one flow and its options are grouped by flow. (4) Every cards flow is a band of its own, stacked vertically the way the board's flows are, each with its own header — name, count, and (in edit mode) rename, move up/down and remove. A tab strip was built and rejected by the user on 2026-10-30: with every tree on screen a cross-flow drag is direct, and a board with three flows reads as three flows rather than as one plus two behind a tab. (5) Templates describe flows: `TemplateLane` gains a flow key, `BoardTemplate` gains its flows. (6) Four typed columns fixed per flow; columns are not reorderable. (7) Filters, metrics, CSV, My work and attention stay board-wide and label the flow — \"Delivery / In Progress\" rather than a bare \"In Progress\". (8) Coordination boards (program/portfolio) are unchanged: no cards flow, and none creatable there.\n\nPERSISTENCE. Migration 0031 adds `board_flows` and `lanes.flow_id`, backfilled from `lanes.workflow` — one cards flow named \"Cards\" and one initiatives flow named \"Initiatives\" per board — and `REQUIRED_SCHEMA` moves 30 → 31. The design document (src/lib/structure.ts) carries flows with lanes. The client's `PERSIST_VERSION` moves 35 → 36 with a `migrateState` block, and a lane that names no flow is refused rather than guessed, the way the schema floor already refuses an old database.\n\nRISK. The failure mode is a lane tree nothing can reach: a call site still keyed on the kind returns the first flow and hides the other flow's cards, and nobody sees it until a card is orphaned. The mitigations are the deleted field, a demo board with two cards flows, `data-flow` alongside `data-workflow` in the e2e contract, and e2e that fails if either flow disappears. WIP, archive/discard and rollup are stage-based and stay correct across flows; the pieces that are *data* — templates, duplication, demo/fixture/stress seeds — are where \"one cards tree\" is baked in and are easy to forget.",
+        "testStrategy": "npm run typecheck (the deleted Lane.workflow is the check that every call site was visited), npm test, npm run test:e2e (the new flows spec plus the adapted selectors), npm run lint, npm run scan, npm run docs:check, npm run portable, npm run build && npm run site:check. Reviewed in the app: one flow renders as today; a second flow renders as a tab with its own columns, WIP and counts; rename and reorder in edit mode; drag across; a reload keeps both; an old export imports into the new shape. Then rebuild the local Docker instance (migration 0031) and confirm an existing two-tree database reads as one cards and one initiatives flow with no card lost.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "A flow is an entity, and every lane names its tree",
+            "description": "Give a board's lane trees an identity beyond a two-value kind: a BoardFlow per tree, a flowId on every lane, and lookups that take the flow rather than the kind, so no surface can reach one cards tree by name and silently miss another.",
+            "details": "New src/domain/flows.ts: `BoardFlow { id, boardId, kind: FlowKind, name, order }` (FlowKind = 'cards' | 'initiatives'), `flowOf(flows, id)`, `flowsOf(flows, boardId, kind)`, `cardsFlows(flows, boardId)` (ordered), `initiativesFlow(flows, boardId)`, `kindOf(flows, flowId)`, and the one set of rules the store and the UI both read: `canRenameFlow` (cards flows only — the initiatives flow's name is fixed), `canReorderFlow` (cards flows only, never past each other into the initiatives band), `canRemoveFlow` (never the initiatives flow, never the last cards flow, and never a flow that still holds cards). Lane gains `flowId: string` (required) and loses `workflow`; `Workflow` stops meaning identity and becomes `FlowKind` for the kind only; `WORKFLOWS` (src/domain/lanes.ts:5) is deleted. `rootLane(lanes, flowId)`, `topLevelLanes(lanes, flowId)`, `leafLanes(lanes, flowId)`, `workflowLanes(lanes, flowId)` and `defaultColumns(boardId, rootId, flowId, uid)` take a flow id — no default parameter, because a default is how one flow hides the other. `moveCard`/`moveInitiative` read the kind through `kindOf`, keeping their refusals in the same words. Adapt every non-UI caller: board.ts (templateFromBoard, lanesFromTemplate, duplicateBoard, initiativeCellOf, defaultDropLane), attention.ts, csv.ts, demo.ts, stressBoard.ts, server/operations.ts. UI call sites pass the board's first cards flow for now (`cardsFlows(flows, boardId)[0].id`), visibly unchanged, and subtasks 5-7 replace that with the selected flow. derive.ts is deliberately untouched: status, stage and rollup read the placement's lane and must never learn about flows. Tests: src/domain/flows.test.ts — two cards flows on one board resolve independently, `rootLane` by flow id never falls back to a sibling, a lane whose flow is missing answers undefined rather than the first, the three guards in each direction; plus updates to derive/board/move tests for the new signature. npm run typecheck is the acceptance check: no `'cards'` literal survives as a tree lookup.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 177,
+            "testStrategy": "src/domain/flows.test.ts with two cards flows on one board, root-by-flow-id, a missing flow answering undefined, and the three guards; updated derive/board/move tests; npm run typecheck proves no tree lookup is left on the kind.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T01:19:47.578Z"
+          },
+          {
+            "id": 2,
+            "title": "The store and the persisted workspace carry flows",
+            "description": "Flows become part of the workspace: created with a board, copied with it, persisted, migrated from the two-kind shape, and carried through import/export and the edit-mode draft.",
+            "details": "`FlowState` gains `flows: BoardFlow[]`; `addBoard` mints one cards flow ('Cards') and one initiatives flow ('Initiatives') beside the two roots; `startEmptyWorkspace`, `resetDemo` and the built-in templates create them. `migrateState` gains a v36 block: every board's existing `workflow: 'cards'` lanes become one cards flow named 'Cards' (index 0) and every `'initiatives'` lane one initiatives flow named 'Initiatives', each lane gets that flow id, a board with no lanes of a kind gets no flow, and the block is idempotent so a second pass adds nothing; placements are untouched because they point at lanes. `PERSIST_VERSION` 35 → 36; `persistedSlice`, `WORKSPACE_KEYS` and `importWorkspace` carry `flows`; `Draft` carries them so cancel-edit restores a flow that an edit added or removed; `quarantineUnreadable` needs no change. Duplication (`duplicateBoard`) copies every flow with fresh ids and its tree, rather than one root per kind as board.ts:385-403 does today. Tests: src/store.test.ts — v35 → v36 migration (names, kinds, order, every lane mapped, idempotent), an old exported file imported into the new shape, addBoard/duplicateBoard keep every flow, draft cancel restores a removed flow, and `persistedSlice` round-trips flows. npm test.",
+            "status": "done",
+            "dependencies": [
+              1
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "src/store.test.ts: the v35 -> v36 migration (names, kinds, order, lane mapping, idempotent), an old export imported, addBoard and duplicateBoard carrying every flow, draft cancel restoring one, persistedSlice round trip.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T01:19:47.592Z"
+          },
+          {
+            "id": 3,
+            "title": "The server stores a board's flows and refuses a lane without one",
+            "description": "One migration adds the flow table and the lane's flow id, backfilled from the old kind, and the design document learns to carry flows without ever guessing one.",
+            "details": "Migration 0031: `CREATE TABLE board_flows (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE, kind TEXT NOT NULL, name TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0)` with an index on (board_id, position); `ALTER TABLE lanes ADD COLUMN flow_id TEXT REFERENCES board_flows(id) ON DELETE CASCADE`; backfill one cards flow named 'Cards' and one initiatives flow named 'Initiatives' per board from the distinct `lanes.workflow`, then `UPDATE lanes SET flow_id = ...` by (board_id, workflow); index `lanes_flow (flow_id, parent_id)`; leave `lanes.workflow` in place but unread, or drop it — the migration comment must say which and why (dropping is honest: the kind lives on the flow). `REQUIRED_SCHEMA` 30 → 31 with the reason recorded above it in server/workspace/schema.ts. server/workspace/structure.ts: readDesign and writeDesign carry `flows`; writeDesign writes flows before lanes, refuses the document when a lane names no flow or a flow names no board, and stops defaulting `workflow ?? 'cards'` (structure.ts:162). read.ts reads flows ordered by position and lanes by (flow position, position); write.ts (whole-workspace import) writes flows with the rest; validate.ts keeps rows opaque but requires the flow list. docs/upgrade.md gets the release note. Tests: server/workspace.test.ts — design round trip with two cards flows, a lane without a flow refused, a flow on another board refused, import/export intact, an old database refused below 31; server/migrate.test.ts — the migration applies in order and a failure leaves the version. npm test.",
+            "status": "done",
+            "dependencies": [
+              1
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "server/workspace.test.ts: design round trip with two flows, a lane without a flow refused, a flow on another board refused, import/export intact, a database below 31 refused; server/migrate.test.ts ordering.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T01:19:47.607Z"
+          },
+          {
+            "id": 4,
+            "title": "A board can add, rename, reorder and remove a cards flow",
+            "description": "The editing verbs for flows, with the rules in the domain so the store and the UI cannot disagree: a name, a place in the strip, and adding or removing a flow.",
+            "details": "Store actions: `addCardsFlow(name?)` mints a flow and its four typed columns through `defaultColumns`, appended after the existing cards flows, refused on a coordination board (band program/portfolio); `renameFlow(flowId, name)` trims and refuses an empty name, cards flows only; `moveFlow(flowId, delta)` reorders within the cards flows only, leaving the initiatives flow where it is; `removeFlow(flowId)` removes the flow and its tree, and refuses by returning false with the reason when it is the last cards flow or still holds a card — removing a flow with work in it is refused, in words, rather than silently rehomed. The guards are the domain's (`canRenameFlow`, `canReorderFlow`, `canRemoveFlow`) and are read by both the store and the controls, so a button that shows is a button that works — the same shape as `canSetParent` and `setParents`. Names are free text (two flows may share a name; the id is the identity) and default to 'Cards 2', 'Cards 3'. Every action is edit-mode only, like lane surgery, and none is offered on a board that makes no cards. Tests: src/domain/flows.test.ts for the guards, src/store.test.ts for add/rename/reorder/remove including both refusals, the order after several moves, and the initiatives flow being untouchable; an e2e in subtask 12. npm test.",
+            "status": "done",
+            "dependencies": [
+              2
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "src/domain/flows.test.ts for the guards; src/store.test.ts for add, rename, reorder, remove, both refusals, the order after several moves, and the initiatives flow being untouchable.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T01:27:09.362Z"
+          },
+          {
+            "id": 5,
+            "title": "The cards area is one band or a tab strip",
+            "description": "One cards flow still reads as today's band. Two or more read as a tab strip with the flow's name and count in each tab, and the strip is where naming and ordering live.",
+            "details": "BoardView renders the cards area from `cardsFlows(flows, boardId)`: exactly one flow keeps the current band and heading; two or more render a strip above the band — `role=\"tablist\"` with `role=\"tab\"`, `aria-selected`, `aria-controls` and `tabIndex` managed, Arrow/Home/End moving between tabs, and a `role=\"tabpanel\"` for the selected flow. Each tab carries the flow's name and its card count (counted within that flow's lanes, archived excluded). The selection is view state — `activeFlowId`, reset when the board changes or the selected flow disappears — and not the URL. The strip is also the home for the two new verbs in edit mode: rename inline, and move left/right; 'Add flow' sits at its end in edit mode, and the last cards flow's removal is not offered. BoardCanvas takes `flowId` as a required prop and draws only that tree; its tree `aria-label` names the flow (\"Team Atlas — Delivery lanes\") so two trees are not two anonymous trees. Empty state, read-only and viewer roles unchanged. Tests: e2e/a11y — the tablist contract, keyboard navigation, one flow renders no tabs, two flows render the selected one only; an axe pass on the strip. npm run test:e2e.\n\nCHANGED 2026-10-30 (user): tabs were rejected. The cards area is now one stacked band per cards flow, each with its own header (name — renamed in place in edit mode — its own count, and move up/down/remove in edit mode), plus an \"Add a cards flow\" band at the end in edit mode. The tab strip, its tablist keyboard contract, the `activeFlowId` view state and the spring-loaded-tab drag were removed; with every flow drawn, a cross-flow drag is a plain drop into the other band. The board-wide default drop cell is the answer for a new card again, since there is no \"flow in front\".",
+            "status": "done",
+            "dependencies": [
+              4
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "e2e/a11y: the tablist contract, keyboard navigation, one flow with no tabs, two flows rendering the selected one; axe pass on the strip. Updated for stacked bands: e2e/flows.spec.ts asserts one band per flow with its own header, no tablist, rename/reorder/remove from the header, a direct cross-flow drag, and the board default landing in the flow it names.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T01:35:43.454Z"
+          },
+          {
+            "id": 6,
+            "title": "A card can be moved from one flow to another",
+            "description": "Cross-flow moves work the same way a move works: one placement, the target flow's WIP, the target column's stage — reachable by dragging and from the menu.",
+            "details": "Since a card has one placement per board, moving between flows is `moveCard` and needs no new rule; what is missing is reach (the other flow is behind a tab). Two doors: (a) spring-loaded tabs — while a card is in the air, hovering a tab opens that flow after a short dwell (~400ms), so the drop lands in a lane under the pointer; the drag's drop target is resolved by lane id, so a switch mid-drag does not land the card in the flow it started in; (b) the card menu's and bulk bar's 'Move to lane' list every cell on the board grouped by flow ('Delivery / Backlog'), with the flow named rather than a bare lane path. WIP is evaluated in the target flow (`moveCard` already reads the lane, not the board); `resolvedAt` follows the target stage; the move's log entry names the flow when the flow changed, so 'In Progress → Done' cannot read as a local move when it crossed flows. Refusals keep today's words. Tests: src/store.test.ts / src/domain/move.test.ts — a cross-flow move leaves one placement, a WIP hold in the target flow, stage and resolvedAt follow the target, the log names the flow; e2e — drag onto a tab, the flow opens, the drop lands, the card reads in the other flow, and the menu path does the same. npm test && npm run test:e2e.",
+            "status": "done",
+            "dependencies": [
+              5
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "src/domain/move.test.ts and src/store.test.ts: a cross-flow move leaves one placement, a WIP hold in the target flow, stage and resolvedAt follow the target, the log names the flow; e2e drag onto a tab and the menu path.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T01:53:30.077Z"
+          },
+          {
+            "id": 7,
+            "title": "Board-wide defaults stay board-wide, and say which flow they mean",
+            "description": "The default drop cell and WIP enforcement remain one answer per board (decision 3), but the default now has to name a cell inside a flow, and adding a card from a tab lands in that tab's flow.",
+            "details": "`Board.defaultDropLaneId` and `Board.wipEnforcement` stay board-wide. `defaultDropLane(board, flows, lanes)` returns the named cell when it still exists and belongs to a flow of this board, else the first cards flow's first leaf; `moveCardsToBoard` and the palette's 'New card' use it. 'New card' from a tab and the tab's empty state land in that flow's first cell, because the flow in front is the one the person meant; 'Add card' in a lane is unchanged. BoardSettings' 'New cards land in' lists cells grouped by flow with the path prefixed by the flow name, marks when the chosen cell belongs to a flow other than the first, and still offers 'the first cell'; WIP enforcement is unchanged and applies to every flow. Nothing gains a per-flow default in this slice. Tests: src/store.test.ts — the fallback when the named cell is gone or belongs elsewhere, a default naming a second flow, quick-add from a tab, move-to-board landing on the default; an e2e that adds a card from the second tab and finds it in that flow's Backlog. npm test.",
+            "status": "done",
+            "dependencies": [
+              5
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "src/store.test.ts: the fallback when the default cell is gone or belongs elsewhere, a default naming a second flow, quick-add from a tab, move-to-board landing on the default; an e2e adding from the second tab.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T01:59:20.326Z"
+          },
+          {
+            "id": 8,
+            "title": "Every board-wide surface names the flow",
+            "description": "Filters, metrics, CSV, My work, attention and the management dashboard keep reading all of a board's cards — and stop calling two different 'In Progress' cells the same thing.",
+            "details": "The reading stays board-wide (decision 7); the words change. Per surface: FilterPanel keeps counting every card on the board and says so; MetricsView's heading becomes 'The cards workflows of this board, read from each card's own history'; ManagementDashboard's 'Time in column' groups a flow at a time with the flow's name on the group; the board CSV gains a `Flow` column beside `Column` (header, rows, filename unchanged as cards); My work's cell label becomes `Flow / Column` so two cards in two flows are not two identical rows; attention's population label names flows; the command palette's 'New card' and 'Edit board design' descriptions say what they now do; the board band's 'Archive done' confirmation still spans the board. No surface gains a flow filter in this slice. Tests: src/domain/csv.test.ts, mywork.test.ts, attention.test.ts, metrics.test.ts with two flows; label assertions in store.test.ts. npm test.",
+            "status": "done",
+            "dependencies": [
+              5
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "csv, mywork, attention and metrics unit tests with two flows, plus the label assertions; npm test.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T02:32:02.390Z"
+          },
+          {
+            "id": 9,
+            "title": "Prove the derived rules never learn about flows",
+            "description": "A second flow must change no derived fact: completion, rollup, archive versus discard, WIP and uncommitted-below all read the placement's lane, and the tests say so.",
+            "details": "Add two-flow cases to src/domain/derive.test.ts and src/store.test.ts: a card moved into the second flow's Done column is `isComplete` and is archived as completed; a card in the second flow's Backlog is discarded, not archived; `rollupOf` of a parent whose children sit in two flows is the same number as with them in one; `uncommittedBelow` counts a second flow's Backlog leaf the same way; `archiveDoneOnBoard` and `runAutoArchive` span every flow on the board; WIP is counted per lane subtree, so the same limit applied to two flows counts two populations and neither breach blocks the other. No production change is expected — that is the point — and a failing case means a lookup leaked into the derived layer. Tests: the cases above, plus one e2e that archives a Done card from the second flow and reads it in the archive as Completed. npm test && npm run test:e2e.",
+            "status": "done",
+            "dependencies": [
+              5,
+              6
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "Two-flow cases in derive.test.ts and store.test.ts (completion, rollup, archive versus discard, uncommittedBelow, archive-done spanning flows, WIP per flow), plus one e2e reading a discarded and a completed item from two flows.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T02:39:12.647Z"
+          },
+          {
+            "id": 10,
+            "title": "A template is a set of flows, not one tree",
+            "description": "Templates describe the board's cards flows — each with its name and its lanes — so saving a two-flow board as a template keeps both.",
+            "details": "`TemplateLane` gains `flowKey: string`; `BoardTemplate` gains `flows: { key, kind, name, order }[]` (cards only: a template never captures the initiatives flow). `templateFromBoard` captures every cards flow and its lanes, with keys unique across the template; `lanesFromTemplate` mints one `BoardFlow` per template flow and its lanes, and a board from a template starts with the standard initiatives flow as today; `newBoardTemplate` starts with one cards flow named 'Cards'; the built-in templates gain one flow each. TemplateEditor renders one section per flow — its name (renamable in edit mode), a move left/right, and its lane tree — with 'Add flow' and the same guards as the board. 'Save as template' keeps every flow; the template card's summary counts lanes across flows and stops using 'columns' in the singular; the copy that says a template is a board design, not its work, stays true. Server: `template_lanes` gains `flow_key`, read/write carry it. Tests: src/domain/board.test.ts — templateFromBoard/lanesFromTemplate round trip with two flows, keys unique, the initiatives flow never captured; editor/rename/reorder cases in src/store.test.ts; built-in templates; server/workspace.test.ts round trip. npm test.",
+            "status": "done",
+            "dependencies": [
+              4
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "src/domain/board.test.ts template round trip with two flows, unique keys, initiatives never captured; editor cases in src/store.test.ts; built-in templates; server/workspace.test.ts round trip.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T03:38:15.324Z"
+          },
+          {
+            "id": 11,
+            "title": "The API and MCP name every flow, additively",
+            "description": "The public surface keeps everything it promised and adds the flows it did not have: cards stays the first cards flow, and a flows array names them all.",
+            "details": "`/api/v1` is additive-only, so `GET /boards/{boardId}` keeps `workflows.cards` (the first cards flow, same shape) and `workflows.initiatives`, and adds `flows: [{ id, name, kind, order, lanes }]` — a client that only knows cards is unaffected, and a client that wants the rest can see it. `create_item` and `move_item` already judge the kind, so they accept any cards cell; their error text stops saying 'the cards workflow' in the singular. `workspace_summary` names the flows it reports. The OpenAPI schema and description gain `flows`. MCP: `get_board` documents one initiatives flow and one or more cards flows, `create_item`/`move_item` say 'a cards cell, in any of the board's cards flows', and the tool descriptions stop saying 'two lane trees'. Docs: `docs/rest-api.md` gains the `flows` shape and an updated worked script (`jq` reading `.flows[]` for the second flow), `docs/mcp.md` the same in its table. Tests: server/v1.test.ts — the old keys are byte-for-byte the same for a one-flow board, the new array appears for one and two flows, a move into a second flow's cell succeeds and into an initiatives cell still answers wrong_workflow; server/mcp.test.ts descriptions. npm test.",
+            "status": "done",
+            "dependencies": [
+              3
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "server/v1.test.ts: old keys unchanged for one flow, the new flows array for one and two, a move into a second flow succeeding and into an initiatives cell refused; server/mcp.test.ts descriptions.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T03:04:47.876Z"
+          },
+          {
+            "id": 12,
+            "title": "Two flows in the demo, and an e2e contract that can tell them apart",
+            "description": "The proof that nothing is hidden: a demo board with two cards flows, a stable selector per flow, and tests that fail if either flow disappears.",
+            "details": "Every lane surface emits `data-flow=\"<flowId>\"` beside `data-workflow=\"<kind>\"`, so a selector can mean 'the cards area' (kind) or 'this flow' (id). `e2e/support.ts` gains `flow(page, name)` and `laneRegion(page, lane, flowName?)`, keeping today's helpers for the first flow so the 45 existing `[data-workflow=\"cards\"]` references move only where they mean one flow; `.last()` is removed from any helper that would silently pick between flows. Demo: Atlas gains a second cards flow, 'Support', with its own four columns, a few cards and one Done card; the seed/fixture place items in it; the stress board carries two flows and the load-test counts cover both; `lib/demo.ts`'s signature includes flows so a stale demo is recognised rather than half-adopted. New `e2e/flows.spec.ts`: a one-flow board renders no tab strip and one band; a two-flow board renders a strip, switches bands, shows each flow's count; rename and move in edit mode; add a flow and remove it (both refusals included); drag a card onto the other tab and drop it there; WIP applies per flow; a reload keeps both flows and their cards. Accessibility: the tablist contract in the a11y spec. npm run test:e2e.",
+            "status": "done",
+            "dependencies": [
+              5,
+              6,
+              7
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "e2e/flows.spec.ts (tab strip, switching, counts, rename, reorder, add and remove with both refusals, drag across, WIP per flow, a reload), the adapted selectors across the suite, and the a11y tablist contract.",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T03:30:41.856Z"
+          },
+          {
+            "id": 13,
+            "title": "Write the new invariant down where the next reader will look",
+            "description": "The docs that currently say 'two workflows, two trees' say what the board now is, including the decisions that shaped it.",
+            "details": "AGENTS.md: rewrite the four bullets that carry the invariant — 'Boards are two recursive lane trees', 'Two workflows, two trees', 'Four typed top-level columns, per workflow', and 'Only a board that renders a cards workflow makes cards' — as flows: one initiatives flow (fixed), one or more cards flows (named, ordered, editable), four typed columns per flow, a card in exactly one flow, a template describing flows, coordination boards having none. Record the decisions of 2026-10-30 (one flow per card; drag between flows; default drop cell and WIP enforcement board-wide; tab strip for two plus; templates carry flows; columns fixed and not reorderable; board-wide surfaces name the flow). docs/using.md: the tab strip, naming and reordering, dragging between flows, and the new-card-from-a-tab rule. docs/data-model-v2.md: BoardFlow and Lane.flowId, and the placement's lane as the only place a card's flow is recorded. docs/rest-api.md and docs/mcp.md: the flows shape (subtask 11 writes the first draft). README.md and site/pages/product.html: 'workflows' in the sense the app now means, without promising a count. docs/roadmap.md: the work as a line. Then npm run docs:check, npm run scan, npm run portable, npm run site:check.",
+            "status": "done",
+            "dependencies": [
+              11,
+              12
+            ],
+            "parentTaskId": 177,
+            "testStrategy": "npm run docs:check, npm run scan, npm run portable, npm run site:check, and a read-through that no page still says \"two workflows, two trees\".",
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T03:38:06.650Z"
+          }
+        ],
+        "updatedAt": "2026-10-30T03:38:15.324Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-28T22:17:27.984Z",
-      "taskCount": 175,
-      "completedCount": 149,
+      "lastModified": "2026-10-30T03:38:15.324Z",
+      "taskCount": 176,
+      "completedCount": 150,
       "tags": [
         "backlog"
       ]

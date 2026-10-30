@@ -15,7 +15,7 @@ import type { Database } from './db'
 import { fromSqlite } from './sqlite'
 import { writeWorkspace } from './workspace/write'
 import type { Workspace } from './workspace/types'
-import type { Board, Item, Lane, Placement } from '../src/domain/types'
+import type { Board, BoardFlow, Item, Lane, Placement } from '../src/domain/types'
 
 const MIGRATIONS = new URL('../migrations/', import.meta.url)
 
@@ -28,13 +28,20 @@ function database(): Database {
   return fromSqlite(db)
 }
 
+const CARDS = 'f-cards'
+const INIT = 'f-init'
+const flows = (boardId = 'b-1'): BoardFlow[] => [
+  { id: CARDS, boardId, kind: 'cards', name: 'Cards', order: 0 },
+  { id: INIT, boardId, kind: 'initiatives', name: 'Initiatives', order: 0 },
+]
+
 const lane = (id: string, stage: Lane['stage'], extra: Partial<Lane> = {}): Lane => ({
   id,
   boardId: 'b-1',
   parentId: null,
   order: 0,
   name: id,
-  workflow: 'cards',
+  flowId: CARDS,
   ...(stage ? { stage } : {}),
   ...extra,
 })
@@ -66,13 +73,14 @@ function seeded(): Workspace {
     lane('l-done', 'done', { order: 2, wipLimit: 1 }),
     // The initiatives workflow: one section with one cell, which is what makes an initiative
     // placeable at all.
-    lane('l-sec-backlog', 'backlog', { order: 0, workflow: 'initiatives', name: 'Backlog (initiatives)' }),
-    lane('l-cell-backlog', 'backlog', { order: 0, workflow: 'initiatives', parentId: 'l-sec-backlog', name: 'Uncommitted' }),
+    lane('l-sec-backlog', 'backlog', { order: 0, flowId: INIT, name: 'Backlog (initiatives)' }),
+    lane('l-cell-backlog', 'backlog', { order: 0, flowId: INIT, parentId: 'l-sec-backlog', name: 'Uncommitted' }),
   ]
   const items = [item('i-1'), item('i-2'), item('i-3')]
   return {
     meUserId: 'u-admin',
     boardId: 'b-1',
+    flows: flows(),
     users: [],
     issueTypes: [
       { id: 't-card', name: 'Card', color: '#0ea5e9' },
@@ -99,7 +107,7 @@ type Init = RequestInit & { bearer?: string }
 
 async function world(env: Record<string, string> = {}, options: { empty?: boolean } = {}) {
   const db = database()
-  await writeWorkspace(db, options.empty ? { ...seeded(), boards: [], lanes: [], items: [], placements: [] } : seeded(), 'workspace')
+  await writeWorkspace(db, options.empty ? { ...seeded(), boards: [], flows: [], lanes: [], items: [], placements: [] } : seeded(), 'workspace')
   await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
 
   const app = createApp({ database: () => db, clientIp: () => '203.0.113.9' })
@@ -209,6 +217,7 @@ describe('reading', () => {
     const board = (await (await reader.call('/boards/b-1')).json()) as {
       board: { id: string }
       workflows: { cards: Array<{ id: string; children?: unknown[] }>; initiatives: unknown[] }
+      flows: Array<{ id: string; name: string; kind: string; order: number; lanes: Array<{ id: string }> }>
       placements: Array<{ itemId: string; laneId: string }>
       items: Array<{ id: string; laneId: string }>
     }
@@ -218,6 +227,52 @@ describe('reading', () => {
     expect(board.workflows.initiatives).toHaveLength(1)
     expect((board.workflows.initiatives[0] as { id: string; children?: Array<{ id: string }> }).children?.map((lane) => lane.id)).toEqual(['l-cell-backlog'])
     expect(board.items.find((i) => i.id === 'i-1')?.laneId).toBe('l-backlog')
+
+    // The additive door: every flow by name, and `workflows.cards` still the first cards flow.
+    expect(board.flows.map((flow) => `${flow.kind}:${flow.name}`)).toEqual(['cards:Cards', 'initiatives:Initiatives'])
+    expect(board.flows[0].lanes.map((lane) => lane.id)).toEqual(board.workflows.cards.map((lane) => lane.id))
+    expect(board.flows[0].order).toBe(0)
+  })
+
+  it('names every cards flow, and takes a card into any of them', async () => {
+    const site = await world()
+    const person = await site.signIn('editor@example.com', 'editor')
+    const reader = await site.token(person, ['boards:read', 'items:read'], 'reader')
+    const writer = await site.token(person, ['boards:read', 'items:read', 'items:write'], 'writer')
+
+    // A second cards flow on the board, with one cell.
+    await site.db.run(
+      "INSERT INTO board_flows (id, workspace_id, board_id, kind, name, position) VALUES ('f-support', 'workspace', 'b-1', 'cards', 'Support', 1)",
+    )
+    await site.db.run(
+      "INSERT INTO lanes (id, workspace_id, board_id, parent_id, position, name, flow_id, stage) VALUES ('l-sup-root', 'workspace', 'b-1', NULL, 0, '', 'f-support', NULL)",
+    )
+    await site.db.run(
+      "INSERT INTO lanes (id, workspace_id, board_id, parent_id, position, name, flow_id, stage) VALUES ('l-sup-backlog', 'workspace', 'b-1', 'l-sup-root', 0, 'Backlog', 'f-support', 'backlog')",
+    )
+
+    const board = (await (await reader.call('/boards/b-1')).json()) as {
+      workflows: { cards: Array<{ id: string }> }
+      flows: Array<{ id: string; name: string; kind: string; lanes: Array<{ id: string; children?: Array<{ id: string }> }> }>
+    }
+    const cards = board.flows.filter((flow) => flow.kind === 'cards')
+    expect(cards.map((flow) => flow.name)).toEqual(['Cards', 'Support'])
+    // `workflows.cards` keeps its promise: the first cards flow, unchanged in shape.
+    expect(board.workflows.cards.map((lane) => lane.id)).toEqual(['l-backlog', 'l-doing', 'l-done'])
+    // And the second flow is reachable by name, with its own tree.
+    expect(cards[1].lanes[0].children?.map((lane) => lane.id)).toEqual(['l-sup-backlog'])
+
+    // A card can be created in, and moved into, either cards flow.
+    const created = await writer.call('/items', {
+      method: 'POST',
+      body: body({ boardId: 'b-1', laneId: 'l-sup-backlog', title: 'A support card' }),
+    })
+    expect(created.status).toBe(201)
+    expect(((await created.json()) as { item?: { laneId?: string } }).item?.laneId).toBe('l-sup-backlog')
+
+    const moved = await writer.call('/boards/b-1/items/i-1/move', { method: 'POST', body: body({ laneId: 'l-sup-backlog' }) })
+    expect(moved.status).toBe(200)
+    expect(((await moved.json()) as { placement?: { laneId: string } }).placement?.laneId).toBe('l-sup-backlog')
   })
 
   it('pages, and filters by `updatedSince`', async () => {

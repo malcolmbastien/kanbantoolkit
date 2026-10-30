@@ -15,6 +15,7 @@ import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item } from '@/domain/types'
+import { kindOf } from '@/domain/flows'
 
 const WEEKS = 8
 const DAY_MS = 86_400_000
@@ -38,6 +39,7 @@ const shortDate = (at: number) => new Date(at).toLocaleDateString(undefined, { m
 export function MetricsView({ boardId }: { boardId: string }) {
   const items = useStore((s) => s.items)
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const placements = useStore((s) => s.placements)
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
@@ -50,7 +52,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
   // a delivered card away must not erase it from the board's throughput.
   const laneOf = new Map(placements.filter((p) => p.boardId === boardId).map((p) => [p.itemId, p.laneId]))
   const cards = [...laneOf.keys()]
-    .filter((id) => lanes.find((l) => l.id === laneOf.get(id))?.workflow === 'cards')
+    .filter((id) => {
+      const lane = lanes.find((l) => l.id === laneOf.get(id))
+      return lane ? kindOf(flows, lane.flowId) === 'cards' : false
+    })
     .map((id) => items.find((i) => i.id === id))
     .filter((i): i is Item => Boolean(i) && !isInitiativeItem(i, issueTypes))
 
@@ -77,7 +82,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
             </div>
             <div className="text-heading font-semibold text-slate-800">{board?.name ?? 'Board'}</div>
             <div className="text-meta text-slate-600">
-              The cards workflow, read from each card's own history — nothing to maintain. That history
+              The cards workflows of this board, read from each card's own history — nothing to
+              maintain, and one reading for every flow. That history
               starts the day Kanban Toolkit began recording moves, so the earliest weeks are thin.
             </div>
           </div>

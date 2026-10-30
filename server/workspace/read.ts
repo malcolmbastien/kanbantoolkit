@@ -14,6 +14,7 @@ import type { SavedFilter } from '../../src/domain/filters'
 import type {
   Board,
   BoardBand,
+  BoardFlow,
   BoardTemplate,
   Edge,
   EdgeKind,
@@ -29,7 +30,6 @@ import type {
   SplitOrientation,
   Stage,
   User,
-  Workflow,
 } from '../../src/domain/types'
 import type { Database } from '../db'
 import type { Workspace } from './types'
@@ -106,8 +106,28 @@ async function readBoards(db: Database, workspaceId: string): Promise<Board[]> {
   })
 }
 
+async function readFlows(db: Database, workspaceId: string): Promise<BoardFlow[]> {
+  const rows = await db.all<Row>(
+    'SELECT * FROM board_flows WHERE workspace_id = ?1 ORDER BY board_id, position, id',
+    [workspaceId],
+  )
+  return rows.map((row) => ({
+    id: text(row.id),
+    boardId: text(row.board_id),
+    kind: text(row.kind) as BoardFlow['kind'],
+    name: text(row.name),
+    order: count(row.position),
+  }))
+}
+
 async function readLanes(db: Database, workspaceId: string): Promise<Lane[]> {
-  const rows = await db.all<Row>('SELECT * FROM lanes WHERE workspace_id = ?1 ORDER BY board_id, workflow, position, id', [workspaceId])
+  // A stable order, so two reads of the same workspace agree: by board, then flow, then the lane's
+  // own position. The *flow* order is the flows' own read (`readFlows`, by position); this only has
+  // to be deterministic, because a lane is always found by id.
+  const rows = await db.all<Row>(
+    'SELECT * FROM lanes WHERE workspace_id = ?1 ORDER BY board_id, flow_id, position, id',
+    [workspaceId],
+  )
   return rows.map((row) => {
     const lane: Lane = {
       id: text(row.id),
@@ -115,7 +135,7 @@ async function readLanes(db: Database, workspaceId: string): Promise<Lane[]> {
       parentId: typeof row.parent_id === 'string' ? row.parent_id : null,
       order: count(row.position),
       name: text(row.name),
-      workflow: text(row.workflow) as Workflow,
+      flowId: text(row.flow_id),
     }
     const orientation = maybeText(row.orientation)
     if (orientation !== undefined) lane.orientation = orientation as SplitOrientation
@@ -188,6 +208,8 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
     if (archived !== undefined) item.archived = archived
     const archivedAt = maybeCount(row.archived_at)
     if (archivedAt !== undefined) item.archivedAt = archivedAt
+    const discarded = maybeFlag(row.discarded)
+    if (discarded !== undefined) item.discarded = discarded
 
     if (checklist.length) {
       item.checklist = checklist.map((entry) => ({
@@ -279,11 +301,25 @@ export async function readItem(db: Database, id: string, workspaceId: string = W
 
 
 async function readTemplates(db: Database, workspaceId: string): Promise<BoardTemplate[]> {
-  const [templates, lanes] = await Promise.all([
+  const [templates, flows, lanes] = await Promise.all([
     db.all<Row>('SELECT * FROM board_templates WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
-    db.all<Row>('SELECT * FROM template_lanes ORDER BY template_id, position'),
+    db.all<Row>(
+      `SELECT f.* FROM template_flows f
+         JOIN board_templates t ON t.id = f.template_id
+        WHERE t.workspace_id = ?1
+        ORDER BY f.template_id, f.position, f.key`,
+      [workspaceId],
+    ),
+    db.all<Row>(
+      `SELECT l.* FROM template_lanes l
+         JOIN board_templates t ON t.id = l.template_id
+        WHERE t.workspace_id = ?1
+        ORDER BY l.template_id, l.position`,
+      [workspaceId],
+    ),
   ])
   const lanesByTemplate = group(lanes, (row) => text(row.template_id))
+  const flowsByTemplate = group(flows, (row) => text(row.template_id))
 
   return templates.map((row) => {
     const id = text(row.id)
@@ -291,8 +327,15 @@ async function readTemplates(db: Database, workspaceId: string): Promise<BoardTe
       id,
       name: text(row.name),
       band: text(row.band) as BoardBand,
+      flows: (flowsByTemplate.get(id) ?? []).map((flow) => ({
+        key: text(flow.key),
+        kind: text(flow.kind) as BoardTemplate['flows'][number]['kind'],
+        name: text(flow.name),
+        order: count(flow.position),
+      })),
       lanes: (lanesByTemplate.get(id) ?? []).map((lane) => ({
         key: text(lane.key),
+        flowKey: text(lane.flow_key),
         parentKey: typeof lane.parent_key === 'string' ? lane.parent_key : null,
         order: count(lane.position),
         name: text(lane.name),
@@ -324,11 +367,12 @@ async function readSettings(db: Database, workspaceId: string): Promise<{ boardI
 }
 
 export async function readWorkspace(db: Database, workspaceId: string = WORKSPACE_ROW): Promise<Workspace> {
-  const [settings, boards, lanes, items, placements, edges, links, objectives, keyResults, boardTemplates, users, issueTypes] =
+  const [settings, boards, lanes, flows, items, placements, edges, links, objectives, keyResults, boardTemplates, users, issueTypes] =
     await Promise.all([
       readSettings(db, workspaceId),
       readBoards(db, workspaceId),
       readLanes(db, workspaceId),
+      readFlows(db, workspaceId),
       readItems(db, workspaceId),
       db.all<Row>('SELECT * FROM placements WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM edges WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
@@ -377,6 +421,7 @@ export async function readWorkspace(db: Database, workspaceId: string = WORKSPAC
     ),
     boardTemplates,
     boards,
+    flows,
     lanes,
     placements: placements.map((row): Placement => {
       const placement: Placement = {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { moveCard, moveInitiative, wipBreach, type MoveContext, type MoveSlice } from './move'
-import type { Board, Item, Lane, Placement } from './types'
+import type { Board, BoardFlow, Item, Lane, Placement } from './types'
 
 /**
  * The move rule, tested where it lives.
@@ -13,13 +13,16 @@ import type { Board, Item, Lane, Placement } from './types'
 let n = 0
 const context: MoveContext = { at: 1_700_000_000_000, by: 'u-ada', id: () => `x-${++n}` }
 
+const CARDS = 'f-cards'
+const INIT = 'f-initiatives'
+
 const lane = (id: string, extra: Partial<Lane> = {}): Lane => ({
   id,
   boardId: 'b',
   parentId: null,
   order: 0,
   name: id,
-  workflow: 'cards',
+  flowId: CARDS,
   stage: 'inProgress',
   ...extra,
 })
@@ -54,10 +57,14 @@ const slice = (over: Partial<MoveSlice> = {}): MoveSlice => ({
     lane('review', { parentId: null, stage: 'inProgress', wipLimit: 1, orientation: 'columns' }),
     lane('review-a', { parentId: 'review', stage: 'inProgress' }),
     // The initiatives workflow, with its own four sections.
-    lane('sec-backlog', { workflow: 'initiatives', stage: 'backlog' }),
-    lane('sec-doing', { workflow: 'initiatives', stage: 'inProgress' }),
+    lane('sec-backlog', { flowId: INIT, stage: 'backlog' }),
+    lane('sec-doing', { flowId: INIT, stage: 'inProgress' }),
   ],
   boards: [board()],
+  flows: [
+    { id: CARDS, boardId: 'b', kind: 'cards', name: 'Cards', order: 0 },
+    { id: INIT, boardId: 'b', kind: 'initiatives', name: 'Initiatives', order: 0 },
+  ],
   edges: [],
   links: [],
   ...over,
@@ -102,7 +109,7 @@ describe('a card move', () => {
     expect(outcome.kind).toBe('refused')
     if (outcome.kind !== 'refused') return
     expect(outcome.refusal.code).toBe('wrong_workflow')
-    expect(outcome.refusal.message).toContain('cards workflow')
+    expect(outcome.refusal.message).toContain('cards flow')
   })
 
   it('refuses a lane and an item that are not there', () => {
@@ -199,6 +206,46 @@ describe('a position in a lane', () => {
   })
 })
 
+describe('a move between two cards flows', () => {
+  const support: BoardFlow = { id: 'f-support', boardId: 'b', kind: 'cards', name: 'Support', order: 1 }
+
+  /** The fixture's cards flow, plus a second one with its own limited cell. */
+  const twoFlows = (enforcement: Board['wipEnforcement']) => {
+    const base = slice()
+    return slice({
+      boards: [board({ wipEnforcement: enforcement })],
+      flows: [...base.flows, support],
+      lanes: [
+        ...base.lanes,
+        lane('support-gate', { flowId: 'f-support', stage: 'inProgress', wipLimit: 1 }),
+        lane('support-cell', { flowId: 'f-support', parentId: 'support-gate', stage: 'inProgress' }),
+        lane('support-open', { flowId: 'f-support', stage: 'inProgress' }),
+      ],
+      // The second flow already has work in the limited cell.
+      placements: [...base.placements, place('i-2', 'support-cell')],
+    })
+  }
+
+  it('lands in the other tree as one placement, with no rule of its own', () => {
+    const outcome = moveCard(twoFlows('visualize'), { itemId: 'i-1', boardId: 'b', laneId: 'support-open' }, context)
+    expect(outcome.kind).toBe('moved')
+    if (outcome.kind !== 'moved') return
+    const mine = outcome.placements.filter((p) => p.itemId === 'i-1')
+    expect(mine).toHaveLength(1)
+    expect(mine[0].laneId).toBe('support-open')
+    // The history says it changed trees, so it does not read as a local move.
+    expect(outcome.items.find((i) => i.id === 'i-1')!.log!.at(-1)!.note).toBe('Cards: backlog → Support: support-open')
+  })
+
+  it('is judged by the target flow’s own WIP, not by the one it came from', () => {
+    const blocked = moveCard(twoFlows('block'), { itemId: 'i-1', boardId: 'b', laneId: 'support-cell' }, context)
+    expect(blocked).toMatchObject({ kind: 'refused', refusal: { code: 'wip_blocked' } })
+
+    const held = moveCard(twoFlows('justify'), { itemId: 'i-1', boardId: 'b', laneId: 'support-cell' }, context)
+    expect(held.kind).toBe('held')
+  })
+})
+
 describe('an initiative move', () => {
   const initiative = (id: string) => item(id, { typeId: 't-initiative' })
 
@@ -220,7 +267,7 @@ describe('an initiative move', () => {
     expect(outcome.kind).toBe('refused')
     if (outcome.kind !== 'refused') return
     expect(outcome.refusal.code).toBe('wrong_workflow')
-    expect(outcome.refusal.message).toContain('initiatives workflow')
+    expect(outcome.refusal.message).toContain('initiatives flow')
   })
 
   it('refuses to cross a section once work is below it', () => {

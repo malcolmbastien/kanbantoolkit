@@ -2,8 +2,9 @@ import { isInitiativeItem, tagsOf } from './board'
 import { HEALTH_META, type InitiativeHealth } from './health'
 import { decompositionParent } from './derive'
 import type { Graph } from './derive'
+import { cardsFlows } from './flows'
 import { childrenOf, effectiveStage, lanePath, placementsInOrder, rootLane, STAGE_LABELS } from './lanes'
-import type { Board, IssueType, Item, Stage, User } from './types'
+import type { Board, BoardFlow, IssueType, Item, Stage, User } from './types'
 
 /**
  * CSV — the cheapest expression of data ownership there is: no server, no account, no queue, just
@@ -32,19 +33,25 @@ export function toCsv(rows: unknown[][]): string {
   return `${rows.map((row) => row.map(csvField).join(',')).join('\r\n')}\r\n`
 }
 
-/** The board's cards in the order the board reads them: column by column, cell by cell. */
-function cardsInBoardOrder(boardId: string, graph: Graph): { item: Item; laneId: string }[] {
-  const root = rootLane(graph.lanes, boardId, 'cards')
-  if (!root) return []
+/**
+ * The board's cards in the order the board reads them: flow by flow, column by column, cell by
+ * cell. Every cards flow is read — the board is what is exported, not one of its tabs — and the
+ * flows keep the order the board gives them.
+ */
+function cardsInBoardOrder(boardId: string, graph: Graph, flows: BoardFlow[]): { item: Item; laneId: string }[] {
   const out: { item: Item; laneId: string }[] = []
-  const walk = (laneId: string) => {
-    for (const p of placementsInOrder(graph.placements, laneId)) {
-      const item = graph.items.find((i) => i.id === p.itemId)
-      if (item && !item.archived) out.push({ item, laneId })
+  for (const flow of cardsFlows(flows, boardId)) {
+    const root = rootLane(graph.lanes, flow.id)
+    if (!root) continue
+    const walk = (laneId: string) => {
+      for (const p of placementsInOrder(graph.placements, laneId)) {
+        const item = graph.items.find((i) => i.id === p.itemId)
+        if (item && !item.archived) out.push({ item, laneId })
+      }
+      for (const child of childrenOf(graph.lanes, laneId)) walk(child.id)
     }
-    for (const child of childrenOf(graph.lanes, laneId)) walk(child.id)
+    walk(root.id)
   }
-  walk(root.id)
   return out
 }
 
@@ -52,6 +59,10 @@ export const BOARD_CSV_HEADER = [
   'Title',
   'Type',
   'Column',
+  // The tree the column belongs to. Always a column, even on a board with one cards flow: a file
+  // is read by something that did not watch the board being designed, and a column that appears
+  // only sometimes is a column every consumer has to guess about.
+  'Flow',
   'Stage',
   'Assignees',
   'Blocked',
@@ -69,10 +80,18 @@ export const BOARD_CSV_HEADER = [
  * Assignees are joined with semicolons so a comma in someone's name cannot break the column, and
  * the column is the lane's full path, because a cell's own name ("Test") rarely says enough.
  */
-export function boardCsv(boardId: string, graph: Graph, types: IssueType[], users: User[], boards: Board[] = []): string {
+export function boardCsv(
+  boardId: string,
+  graph: Graph,
+  types: IssueType[],
+  users: User[],
+  flows: BoardFlow[],
+  boards: Board[] = [],
+): string {
   const nameOf = (id: string) => types.find((t) => t.id === id)?.name ?? 'Item'
   const nameOfUser = (id: string) => users.find((u) => u.id === id)?.name ?? id
-  const rows = cardsInBoardOrder(boardId, graph)
+  const flowOfLane = new Map(graph.lanes.map((l) => [l.id, flows.find((f) => f.id === l.flowId)?.name ?? ''] as const))
+  const rows = cardsInBoardOrder(boardId, graph, flows)
     .filter(({ item }) => !isInitiativeItem(item, types))
     .map(({ item, laneId }) => {
       const stage = effectiveStage(graph.lanes, laneId)
@@ -81,6 +100,7 @@ export function boardCsv(boardId: string, graph: Graph, types: IssueType[], user
         item.title,
         nameOf(item.typeId),
         lanePath(graph.lanes, laneId).join(' / '),
+        flowOfLane.get(laneId) ?? '',
         stage ? STAGE_LABELS[stage] : '',
         (item.assignees ?? []).map(nameOfUser).join('; '),
         item.blocked ? 'yes' : 'no',

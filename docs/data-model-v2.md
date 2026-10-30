@@ -10,8 +10,9 @@
 ```
 IssueType  { id, name, color }                              # custom, editable in-app
 Board      { id, name }
-Lane       { id, boardId, parentId, order, name,            # recursive tree
-             orientation?, stage?, wipLimit? }              # stage lives on top-level columns
+BoardFlow  { id, boardId, kind: cards|initiatives, name, order }  # one lane tree each
+Lane       { id, boardId, flowId, parentId, order, name,     # recursive tree, inside one flow
+             orientation?, stage?, wipLimit? }               # stage lives on top-level columns
 Item       { id, title, typeId, createdById?, assignee?, ... }   # no board/state/level field
 Edge       { decomposition | dependency | attribution }
 Placement  { id, boardId, itemId, laneId }                  # the card's board + cell
@@ -21,6 +22,11 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
 
 - **One parent, many children.** `setParent` replaces any existing parent, so a card has at
   most one.
+- **A board carries flows, and every lane names its own.** One **initiatives** flow (the external
+  representation: typed sections, cells initiatives are arranged in) and one or more **cards**
+  flows (the team's own column sets). A lane belongs to exactly one flow, and a subtree never
+  mixes flows, so a lane walk is given a flow id rather than a kind. A card keeps one placement
+  per board, so it is in exactly one cards flow and a move between cards flows is a move.
 - **Lanes are a recursive tree.**
   - A lane with **no children is a leaf: a cell**. Placements reference leaf lanes.
   - A lane with children is a **container**; `orientation` says how children are arranged:
@@ -37,6 +43,9 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
   - attribution never counts as work.
 - **Placement is explicit but many-to-many.** One placement record per board, so an item
   can sit on several boards with one identity.
+- **Templates describe cards flows.** `TemplateFlow { key, kind, name, order }` and
+  `TemplateLane.flowKey`; the initiatives flow a board starts with is the standard one and is never
+  captured.
 - **WIP limits** are per-lane `wipLimit`s, and a board's `wipEnforcement` decides what they do:
   `visualize` tints a lane at or over its limit and lets moves through, `justify` holds a move
   until a reason is given, `block` refuses it. The rule lives in `moveCard`, which answers

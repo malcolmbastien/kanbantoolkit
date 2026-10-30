@@ -97,6 +97,23 @@ export function isComplete(id: string, graph: Graph): boolean {
   return rollupOf(id, graph).bucket === 'done'
 }
 
+/**
+ * What an item's place in the archive means: work that was finished, or work that was thrown away.
+ *
+ * The word is decided once, when the item is filed, by the same rollup that draws its Done stamp —
+ * and then kept on the item. Re-reading the leaves later would let rearranging a board rewrite what
+ * happened to work that has already left it.
+ *
+ * An item archived before the distinction existed carries no flag, so the column it left is the best
+ * answer available: filed from Done, it was completed; filed from anywhere else, it was discarded.
+ * An item with no placement at all cannot be read that way and reads as completed.
+ */
+export function archiveOutcome(item: Item, graph: Graph): 'completed' | 'discarded' {
+  if (item.discarded !== undefined) return item.discarded ? 'discarded' : 'completed'
+  const stage = stageOf(item.id, graph)
+  return stage && stage !== 'done' ? 'discarded' : 'completed'
+}
+
 /** The stage (commitment state) a leaf currently sits in. */
 export function stageOf(itemId: string, graph: Graph): Stage | undefined {
   const placement = graph.placements.find((p) => p.itemId === itemId)

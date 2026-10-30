@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, ArrowRight, Ban, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Archive, ArchiveX, ArrowRight, Ban, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
+  archiveOutcome,
   attributedObjectives,
   checklistItems,
   decompositionChildren,
@@ -9,6 +10,7 @@ import {
   dependentsOf,
   descendants,
   lineageOf,
+  isComplete,
   objectiveRollup,
   rollupOf,
   type Graph,
@@ -138,6 +140,9 @@ export function ItemPanel({ itemId }: Props) {
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const item = items.find((i) => i.id === itemId)
+  // Filing away is one act with two names: a card whose work is done is archived, and a card still
+  // in play is discarded, which drops it from the board without claiming it was finished.
+  const complete = Boolean(item) && isComplete(itemId, graph)
   // The lease: somebody else's pen closes the fields, and this tab's own is taken on intent.
   const locks = usePresence((s) => s.locks)
   const held = heldByOther(locks, itemId)
@@ -385,7 +390,11 @@ export function ItemPanel({ itemId }: Props) {
         <button onClick={onOpen} title={`Open ${c.title}`} className="min-w-0 flex-1 truncate text-left text-slate-700 transition hover:text-indigo-600">
           {c.title}
         </button>
-        {c.archived && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>}
+        {c.archived && (
+          <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">
+            {archiveOutcome(c, graph) === 'discarded' ? 'discarded' : 'archived'}
+          </span>
+        )}
         <span className="shrink-0 text-micro text-slate-600">{boardOf(c.id)?.name ?? '—'}</span>
         {/* Where a heading already says the stage — the groups under "Breaks down into" — the row does
             not say it again. */}
@@ -432,7 +441,9 @@ export function ItemPanel({ itemId }: Props) {
           <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[bucket])} />
           <span className="min-w-0 flex-1 truncate text-meta text-slate-700">{c.title}</span>
           {c.archived && (
-            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">archived</span>
+            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800">
+              {archiveOutcome(c, graph) === 'discarded' ? 'discarded' : 'archived'}
+            </span>
           )}
           <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold', stageChip(bucket))}>{STAGE_LABELS[bucket]}</span>
           <BoardTarget name={there?.name} away={Boolean(there && there.id !== boardId)} />
@@ -547,13 +558,21 @@ export function ItemPanel({ itemId }: Props) {
                 >
                   <Archive size={12} /> Restore
                 </button>
-              ) : (
+              ) : complete ? (
                 <button
                   onClick={() => archiveItem(item.id)}
-                  title="File this item and everything below it away"
+                  title="File this item and everything below it away, as completed work"
                   className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                   <Archive size={12} /> Archive
+                </button>
+              ) : (
+                <button
+                  onClick={() => archiveItem(item.id)}
+                  title="Drop this item and everything below it from the board without finishing it — it goes to the archive as discarded"
+                  className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <ArchiveX size={12} /> Discard
                 </button>
               )}
               <button

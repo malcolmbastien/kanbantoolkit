@@ -2,17 +2,22 @@ import { describe, expect, it } from 'vitest'
 import {
   activeBoards,
   boardsByBand,
+  canRemoveTemplateFlow,
   canRetype,
   duplicateBoard,
   lanesFromTemplate,
+  templateAddFlow,
   templateAddLane,
   templateChildren,
   templateDuplicateLane,
   templateInsertLaneAfter,
   templateFromBoard,
   templateLaneIsRow,
+  templateMoveFlow,
   templateMoveLane,
+  templateRemoveFlow,
   templateRemoveLane,
+  templateRenameFlow,
   templateRenameLane,
   templateSetLanePolicy,
   templateSetLaneWip,
@@ -24,10 +29,14 @@ import {
 } from './board'
 import { rollupOf } from './derive'
 import { childrenOf, placementsInOrder, rootLane } from './lanes'
+import { BUILT_IN_TEMPLATES } from './demo'
 import { createFixture } from './fixture'
-import type { Lane, TemplateLane, Workflow } from './types'
+import type { BoardFlow, Lane, TemplateLane } from './types'
 
 const names = (groups: ReturnType<typeof boardsByBand>) => groups.flatMap((g) => g.boards.map((b) => b.name))
+/** The fixture's flow id for one of a board's trees. */
+const flow = (flows: BoardFlow[], boardId: string, kind: 'cards' | 'initiatives' = 'cards'): string =>
+  flows.find((f) => f.boardId === boardId && f.kind === kind)!.id
 
 describe('board workspace — grouping, ordering and the name filter', () => {
   const s = createFixture()
@@ -100,51 +109,58 @@ describe('board templates — a design, not its work', () => {
     expect(kids('k8')).toEqual(['Ready for Delivery', 'Done'])
     // It is a usable design: instantiating it yields those columns and nothing else.
     let n = 0
-    const lanes = lanesFromTemplate(scrum, 'b', 'root', () => `id${++n}`)
-    expect(lanes.filter((l) => l.parentId === 'root')).toHaveLength(4)
+    const { flows, lanes } = lanesFromTemplate(scrum, 'b', () => `id${++n}`)
+    expect(flows).toHaveLength(1)
+    const root = lanes.find((l) => l.parentId === null)!
+    expect(lanes.filter((l) => l.parentId === root.id)).toHaveLength(4)
     expect(lanes.filter((l) => l.stage === 'done')).toHaveLength(1)
   })
 
   it('captures the lane tree below the root, keyed rather than ided', () => {
-    const t = templateFromBoard('t1', 'Team flow', atlas(), s.lanes)
+    const t = templateFromBoard('t1', 'Team flow', atlas(), s.lanes, s.flows)
+    // Team Atlas carries two cards flows; this reads the first one's tree.
+    const first = t.flows[0].key
+    const lanes = t.lanes.filter((l) => l.flowKey === first)
     expect(t.band).toBe('team')
-    expect(t.lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Dev', 'Test', 'Done'])
+    expect(lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Dev', 'Test', 'Done'])
     // No real lane ids — they are minted per instantiation.
-    expect(t.lanes.every((l) => Boolean(l.key) && !('id' in l))).toBe(true)
+    expect(lanes.every((l) => Boolean(l.key) && !('id' in l))).toBe(true)
     // The root is structural: top-level columns point at it, nothing points at the root's id.
-    expect(t.lanes.filter((l) => l.parentKey === null).map((l) => l.name)).toEqual([
+    expect(lanes.filter((l) => l.parentKey === null).map((l) => l.name)).toEqual([
       'Backlog',
       'Not Started',
       'In Progress',
       'Done',
     ])
-    const ip = t.lanes.find((l) => l.name === 'In Progress')!
-    expect(t.lanes.filter((l) => l.parentKey === ip.key).map((l) => l.name)).toEqual(['Dev', 'Test'])
+    const ip = lanes.find((l) => l.name === 'In Progress')!
+    expect(lanes.filter((l) => l.parentKey === ip.key).map((l) => l.name)).toEqual(['Dev', 'Test'])
     // Stages and WIP limits ride along.
-    expect(t.lanes.find((l) => l.name === 'Done')?.stage).toBe('done')
-    expect(t.lanes.find((l) => l.name === 'Not Started')?.wipLimit).toBe(1)
+    expect(lanes.find((l) => l.name === 'Done')?.stage).toBe('done')
+    expect(lanes.find((l) => l.name === 'Not Started')?.wipLimit).toBe(1)
   })
 
   it('carries no work and no org-specific wiring', () => {
-    const t = templateFromBoard('t1', 'Team flow', atlas(), s.lanes)
+    const t = templateFromBoard('t1', 'Team flow', atlas(), s.lanes, s.flows)
     expect(JSON.stringify(t)).not.toMatch(/linkedBoardIds|itemId|placement/)
     expect(t).not.toHaveProperty('items')
     expect(t).not.toHaveProperty('linkedBoardIds')
   })
 
   it('instantiates with fresh, unique ids and the structure intact', () => {
-    const t = templateFromBoard('t1', 'Team flow', atlas(), s.lanes)
+    const t = templateFromBoard('t1', 'Team flow', atlas(), s.lanes, s.flows)
     const before = JSON.stringify(t)
 
     let n = 0
-    const lanes = lanesFromTemplate(t, 'new-board', 'root-1', () => `id-${++n}`)
+    const { flows, lanes } = lanesFromTemplate(t, 'new-board', () => `id-${++n}`)
+    const root = lanes.find((l) => l.parentId === null)!
     expect(new Set(lanes.map((l) => l.id)).size).toBe(lanes.length)
     expect(lanes.every((l) => l.boardId === 'new-board')).toBe(true)
-    expect(lanes.map((l) => l.name)).toEqual(t.lanes.map((l) => l.name))
-    expect(lanes.map((l) => l.stage)).toEqual(t.lanes.map((l) => l.stage))
-    expect(lanes.map((l) => l.wipLimit)).toEqual(t.lanes.map((l) => l.wipLimit))
+    expect(flows.every((f) => f.boardId === 'new-board' && f.kind === 'cards')).toBe(true)
+    expect(lanes.filter((l) => l.parentId !== null).map((l) => l.name)).toEqual(t.lanes.map((l) => l.name))
+    expect(lanes.filter((l) => l.parentId !== null).map((l) => l.stage)).toEqual(t.lanes.map((l) => l.stage))
+    expect(lanes.filter((l) => l.parentId !== null).map((l) => l.wipLimit)).toEqual(t.lanes.map((l) => l.wipLimit))
     // The root parents the top-level columns; Dev/Test keep In Progress as their parent.
-    expect(lanes.filter((l) => l.parentId === 'root-1').map((l) => l.name)).toEqual([
+    expect(lanes.filter((l) => l.parentId === root.id).map((l) => l.name)).toEqual([
       'Backlog',
       'Not Started',
       'In Progress',
@@ -157,15 +173,94 @@ describe('board templates — a design, not its work', () => {
   })
 })
 
+describe('a template is a set of cards flows', () => {
+  const s = createFixture()
+
+  it('captures every cards flow, and never the initiatives flow', () => {
+    const atlas = s.boards.find((b) => b.id === 'b-atlas')!
+    const escalations: BoardFlow = { id: 'f-escalations', boardId: 'b-atlas', kind: 'cards', name: 'Escalations', order: 2 }
+    const lanes = [
+      ...s.lanes,
+      { id: 'l-escalations', boardId: 'b-atlas', parentId: null, order: 0, name: '', flowId: 'f-escalations', orientation: 'columns' as const },
+      { id: 'l-escalations-backlog', boardId: 'b-atlas', parentId: 'l-escalations', order: 0, name: 'Backlog', flowId: 'f-escalations', stage: 'backlog' as const },
+    ]
+    const template = templateFromBoard('t-two', 'Two flows', atlas, lanes, [...s.flows, escalations])
+
+    expect(template.flows.map((f) => f.name)).toEqual(['Cards', 'Support', 'Escalations'])
+    // The organisation's shape is not the team's to design: only cards flows are captured.
+    expect(template.flows.every((f) => f.kind === 'cards')).toBe(true)
+    expect(template.lanes.every((l) => template.flows.some((f) => f.key === l.flowKey))).toBe(true)
+    // The second flow's own tree, with its own top level.
+    const third = template.flows[2].key
+    expect(template.lanes.filter((l) => l.flowKey === third).map((l) => l.name)).toEqual(['Backlog'])
+    expect(template.lanes.filter((l) => l.flowKey === third).every((l) => l.parentKey === null)).toBe(true)
+  })
+
+  it('mints one board flow per template flow, each lane under its own root', () => {
+    const atlas = s.boards.find((b) => b.id === 'b-atlas')!
+    const escalations: BoardFlow = { id: 'f-escalations', boardId: 'b-atlas', kind: 'cards', name: 'Escalations', order: 2 }
+    const lanes = [
+      ...s.lanes,
+      { id: 'l-escalations', boardId: 'b-atlas', parentId: null, order: 0, name: '', flowId: 'f-escalations', orientation: 'columns' as const },
+      { id: 'l-escalations-backlog', boardId: 'b-atlas', parentId: 'l-escalations', order: 0, name: 'Backlog', flowId: 'f-escalations', stage: 'backlog' as const },
+    ]
+    const template = templateFromBoard('t-two', 'Two flows', atlas, lanes, [...s.flows, escalations])
+
+    let n = 0
+    const built = lanesFromTemplate(template, 'b-new', () => `id${++n}`)
+    expect(built.flows.map((f) => f.name)).toEqual(['Cards', 'Support', 'Escalations'])
+    const roots = built.lanes.filter((l) => l.parentId === null)
+    expect(roots).toHaveLength(3)
+    // Every lane's nearest root is a root of its own flow: the trees never mix.
+    const rootOf = (id: string) => {
+      let cur = built.lanes.find((l) => l.id === id)
+      while (cur?.parentId) cur = built.lanes.find((l) => l.id === cur!.parentId)
+      return cur
+    }
+    for (const lane of built.lanes) expect(rootOf(lane.id)?.flowId).toBe(lane.flowId)
+    // And the template is untouched, so it can be used again.
+    expect(template.flows).toHaveLength(3)
+  })
+
+  it('adds, names, moves and removes a flow — and keeps the last one', () => {
+    const one = BUILT_IN_TEMPLATES[0]
+    const added = templateAddFlow(one)
+    expect(added.flows.map((f) => f.name)).toEqual(['Cards', 'Cards 2'])
+    expect(added.lanes.filter((l) => l.flowKey === added.key).map((l) => l.stage)).toEqual([
+      'backlog',
+      'notStarted',
+      'inProgress',
+      'done',
+    ])
+    // Keys are unique across the whole template, not just inside the new flow.
+    expect(new Set(added.lanes.map((l) => l.key)).size).toBe(added.lanes.length)
+
+    const named = { ...one, flows: templateRenameFlow({ ...one, flows: added.flows }, added.key, 'Support'), lanes: added.lanes }
+    expect(named.flows[1].name).toBe('Support')
+
+    const moved = templateMoveFlow(named, added.key, -1)
+    expect(moved.map((f) => f.name)).toEqual(['Support', 'Cards'])
+    expect(moved.map((f) => f.order)).toEqual([0, 1])
+
+    const removed = templateRemoveFlow({ ...named, flows: moved }, added.key)!
+    expect(removed.flows.map((f) => f.name)).toEqual(['Cards'])
+    expect(removed.lanes.some((l) => l.flowKey === added.key)).toBe(false)
+
+    // A template keeps at least one cards flow, so the only one is not removable.
+    expect(canRemoveTemplateFlow(one, one.flows[0].key)).toBe(false)
+    expect(templateRemoveFlow(one, one.flows[0].key)).toBeNull()
+  })
+})
+
 describe('duplicating a board', () => {
   const s = createFixture()
   const keys = () => {
     let n = 0
     return () => `new${++n}`
   }
-  /** One workflow's design, flattened: name, stage, WIP limit and orientation, in order. */
-  const shape = (lanes: Lane[], boardId: string, workflow: Workflow) => {
-    const root = rootLane(lanes, boardId, workflow)
+  /** One flow's design, flattened: name, stage, WIP limit and orientation, in order. */
+  const shape = (lanes: Lane[], flowId: string) => {
+    const root = rootLane(lanes, flowId)
     const out: string[] = []
     const walk = (id: string, depth: number) => {
       for (const child of childrenOf(lanes, id)) {
@@ -179,7 +274,7 @@ describe('duplicating a board', () => {
 
   it('copies the design with fresh ids, sharing nothing with the original', () => {
     const atlas = s.boards.find((b) => b.id === 'b-atlas')!
-    const { board, lanes } = duplicateBoard(atlas, s.lanes, keys())
+    const { board, lanes, flows } = duplicateBoard(atlas, s.lanes, s.flows, keys())
 
     expect(board.id).not.toBe(atlas.id)
     expect(board.name).toBe('Team Atlas copy')
@@ -194,26 +289,31 @@ describe('duplicating a board', () => {
     expect(new Set(lanes.map((l) => l.id)).size).toBe(lanes.length)
     expect(lanes.every((l) => l.parentId === null || lanes.some((x) => x.id === l.parentId))).toBe(true)
 
-    // Both workflows come across intact…
-    expect(shape(lanes, board.id, 'cards')).toEqual(shape(s.lanes, atlas.id, 'cards'))
-    expect(shape(lanes, board.id, 'initiatives')).toEqual(shape(s.lanes, atlas.id, 'initiatives'))
+    // Every flow comes across intact…
+    const copyCards = flow(flows, board.id, 'cards')
+    const copyInitiatives = flow(flows, board.id, 'initiatives')
+    expect(shape(lanes, copyCards)).toEqual(shape(s.lanes, flow(s.flows, atlas.id, 'cards')))
+    expect(shape(lanes, copyInitiatives)).toEqual(shape(s.lanes, flow(s.flows, atlas.id, 'initiatives')))
     // …including a split and a WIP limit.
-    expect(shape(lanes, board.id, 'cards')).toContain('1:Dev:::')
-    expect(shape(lanes, board.id, 'cards')).toContain('0:Not Started:notStarted:1:')
-    // Two trees, not one — the copy keeps the workflows independent.
-    expect(lanes.filter((l) => l.parentId === null).map((l) => l.workflow).sort()).toEqual(['cards', 'initiatives'])
+    expect(shape(lanes, copyCards)).toContain('1:Dev:::')
+    expect(shape(lanes, copyCards)).toContain('0:Not Started:notStarted:1:')
+    // Every tree, not one — the copy keeps the flows independent, and names them with its own ids.
+    expect(lanes.filter((l) => l.parentId === null).map((l) => l.flowId).sort()).toEqual(
+      flows.map((f) => f.id).sort(),
+    )
+    expect(flows.every((f) => f.boardId === board.id)).toBe(true)
   })
 
   it('carries the settings and links, and takes a name', () => {
     const portfolio = s.boards.find((b) => b.id === 'b-portfolio')!
-    const copy = duplicateBoard(portfolio, s.lanes, keys(), '  Value stream two  ')
+    const copy = duplicateBoard(portfolio, s.lanes, s.flows, keys(), '  Value stream two  ')
     expect(copy.board.name).toBe('Value stream two')
     expect(copy.board.linkedBoardIds).toEqual(portfolio.linkedBoardIds)
     expect(copy.board.linkedBoardIds).not.toBe(portfolio.linkedBoardIds) // a copy, not the same array
 
     // A board with no links stays without them.
     const atlas = s.boards.find((b) => b.id === 'b-atlas')!
-    expect('linkedBoardIds' in duplicateBoard(atlas, s.lanes, keys()).board).toBe(false)
+    expect('linkedBoardIds' in duplicateBoard(atlas, s.lanes, s.flows, keys()).board).toBe(false)
   })
 })
 
@@ -379,24 +479,28 @@ describe('initiativeRanks — a section reads every initiative whose rollup put 
     { id: INIT, name: 'Initiative', color: '#6366f1' },
     { id: STORY, name: 'Story', color: '#64748b' },
   ]
-  const lane = (id: string, workflow: Workflow, patch: Partial<Lane> = {}): Lane => ({
+  const lane = (id: string, flowId: string, patch: Partial<Lane> = {}): Lane => ({
     id,
     boardId: 'b-mine',
     parentId: null,
     order: 0,
     name: id,
-    workflow,
+    flowId,
     ...patch,
   })
-  // Two independent lane trees, as every board has: the cards workflow the work sits in,
+  // Two independent lane trees, as every board has: the cards flow the work sits in,
   // and the initiatives flow it rolls up through.
+  const mineFlows: BoardFlow[] = [
+    { id: 'flow-cards', boardId: 'b-mine', kind: 'cards', name: 'Cards', order: 0 },
+    { id: 'flow-initiatives', boardId: 'b-mine', kind: 'initiatives', name: 'Initiatives', order: 0 },
+  ]
   const lanes: Lane[] = [
-    lane('cards-root', 'cards'),
-    lane('cards-backlog', 'cards', { parentId: 'cards-root', name: 'Backlog', stage: 'backlog' }),
-    lane('cards-ns', 'cards', { parentId: 'cards-root', order: 1, name: 'Not Started', stage: 'notStarted' }),
-    lane('init-root', 'initiatives'),
-    lane('sec-backlog', 'initiatives', { parentId: 'init-root', name: 'Backlog', stage: 'backlog' }),
-    lane('sec-ns', 'initiatives', { parentId: 'init-root', order: 1, name: 'Not Started', stage: 'notStarted' }),
+    lane('cards-root', 'flow-cards'),
+    lane('cards-backlog', 'flow-cards', { parentId: 'cards-root', name: 'Backlog', stage: 'backlog' }),
+    lane('cards-ns', 'flow-cards', { parentId: 'cards-root', order: 1, name: 'Not Started', stage: 'notStarted' }),
+    lane('init-root', 'flow-initiatives'),
+    lane('sec-backlog', 'flow-initiatives', { parentId: 'init-root', name: 'Backlog', stage: 'backlog' }),
+    lane('sec-ns', 'flow-initiatives', { parentId: 'init-root', order: 1, name: 'Not Started', stage: 'notStarted' }),
   ]
   const item = (id: string, typeId: string) => ({ id, title: id, typeId, createdAt: 0 })
   const edge = (from: string, to: string) => ({ id: `e-${from}-${to}`, kind: 'decomposition' as const, from, to })
@@ -407,7 +511,7 @@ describe('initiativeRanks — a section reads every initiative whose rollup put 
     ({ items, edges, links: [], placements, lanes })
   /** What a cell of a section reads, top to bottom. */
   const rankOf = (g: ReturnType<typeof graphOf>, sectionId: string, cellId: string) =>
-    (initiativeRanks(g, 'b-mine', sectionId, boardInitiatives(g, 'b-mine', types)).get(cellId) ?? []).map((i) => i.id)
+    (initiativeRanks(g, 'b-mine', sectionId, boardInitiatives(g, 'b-mine', types), mineFlows).get(cellId) ?? []).map((i) => i.id)
 
   it('reads an initiative in the section its rollup names, not the cell its placement still holds', () => {
     // Arranged in Backlog, and its only card is in Backlog too — so the arrangement is honest.
@@ -425,7 +529,7 @@ describe('initiativeRanks — a section reads every initiative whose rollup put 
     // reading placements could only ever find an initiative in the section it had left.
     expect(placementsInOrder(moved.placements, 'sec-ns')).toEqual([])
     // It reads in the cell the rollup falls back to, and in the section it belongs to only.
-    expect(initiativeCellOf('ini', 'b-mine', moved)).toEqual({ sectionId: 'sec-ns', cellId: 'sec-ns' })
+    expect(initiativeCellOf('ini', 'b-mine', moved, mineFlows)).toEqual({ sectionId: 'sec-ns', cellId: 'sec-ns' })
     expect(rankOf(moved, 'sec-backlog', 'sec-backlog')).toEqual([])
   })
 

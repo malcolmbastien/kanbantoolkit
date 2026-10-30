@@ -49,6 +49,7 @@ const SCOPED = [
 const workspace = (): Workspace => ({
   meUserId: 'u-ada',
   boardId: '',
+  flows: [],
   users: [{ id: 'u-ada', name: 'Ada' }],
   issueTypes: [{ id: 't-card', name: 'Card', color: '#0ea5e9' }],
   boards: [],

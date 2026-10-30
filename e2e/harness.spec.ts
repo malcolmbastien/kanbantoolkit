@@ -16,7 +16,7 @@ test('the build seeds a workspace and draws both workflows', async ({ page }) =>
 
   // Both workflows are the board: the initiatives on top, the team's cards below.
   await expect(page.locator('[data-workflow="initiatives"]')).toBeVisible()
-  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
   await expect(page.locator('[data-card-id]').first()).toBeVisible()
   expect(await cardsIn(page, 'Backlog')).not.toHaveLength(0)
 

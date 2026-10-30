@@ -7,6 +7,7 @@ import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
+import { cardsFlows } from '@/domain/flows'
 
 /**
  * Board settings: title, flight-level band, which card types the board
@@ -23,6 +24,7 @@ export function BoardSettings() {
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardDefaultDropLane = useStore((s) => s.setBoardDefaultDropLane)
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
   const saveBoardAsTemplate = useStore((s) => s.saveBoardAsTemplate)
   const addIssueType = useStore((s) => s.addIssueType)
@@ -320,22 +322,50 @@ export function BoardSettings() {
                   ))}
               </select>
             </div>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-meta text-slate-600">New cards land in</span>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label htmlFor="board-default-drop" className="text-meta text-slate-600">
+                New cards land in
+              </label>
               <select
+                id="board-default-drop"
                 value={board.defaultDropLaneId ?? ''}
                 onChange={(e) => setBoardDefaultDropLane(board.id, e.target.value || undefined)}
                 title="Where a new card is created, and where a card moved onto this board will land"
                 className="rounded border border-slate-200 px-1.5 py-1 text-meta"
               >
                 <option value="">the first cell</option>
-                {leafLanes(lanes, board.id, 'cards').map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {lanePath(lanes, l.id).join(' / ')}
-                  </option>
-                ))}
+                {/* Several flows mean the same column name appears more than once, so the
+                    destinations are grouped by the flow that holds them — and the group's name is
+                    the answer to "which Backlog". */}
+                {cardsFlows(flows, board.id).length > 1
+                  ? cardsFlows(flows, board.id).map((flow) => (
+                      <optgroup key={flow.id} label={flow.name}>
+                        {leafLanes(lanes, flow.id).map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {lanePath(lanes, l.id).join(' / ')}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))
+                  : cardsFlows(flows, board.id).flatMap((flow) => leafLanes(lanes, flow.id)).map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {lanePath(lanes, l.id).join(' / ')}
+                      </option>
+                    ))}
+                {/* A named cell that has gone — deleted, or split away — is said rather than
+                    silently reading as "the first cell". */}
+                {board.defaultDropLaneId &&
+                  !cardsFlows(flows, board.id).some((flow) => leafLanes(lanes, flow.id).some((l) => l.id === board.defaultDropLaneId)) && (
+                    <option value={board.defaultDropLaneId}>the cell it named is gone</option>
+                  )}
               </select>
             </div>
+            {cardsFlows(flows, board.id).length > 1 && (
+              <p className="mt-1 text-micro text-slate-600">
+                A card made from a flow’s tab lands in that flow, so the default is the answer for the
+                flow above; a card moved onto this board lands in the default wherever it is.
+              </p>
+            )}
             <p className="mt-1 text-micro text-slate-600">
               The Initiative type is reserved for the Initiatives workflow and is never a card type.
               None is a built-in card type, always available and never edited or removed.
@@ -523,6 +553,9 @@ export function BoardSettings() {
               <option value="justify">Justify — allow exceeding, but ask for a reason</option>
               <option value="block">Block — refuse moves that would exceed a limit</option>
             </select>
+            {cardsFlows(flows, board.id).length > 1 && (
+              <p className="mt-1 text-micro text-slate-600">The policy is the board’s, and applies to every cards flow.</p>
+            )}
           </div>
 
           {/* Template — a board design, reusable when creating boards */}

@@ -39,7 +39,7 @@ const ago = (n: number) => T - n * DAY
 const day = (n: number) => new Date(T + n * DAY).toISOString().slice(0, 10)
 
 export function createSeed(): FlowState {
-  const { users, issueTypes, boards, lanes, boardTemplates, st, lob, del, p, a, n } = demoWorkspace()
+  const { users, issueTypes, boards, flows, lanes, boardTemplates, st, lob, del, p, a, n } = demoWorkspace()
 
   // A board's own vocabulary for its initiatives — deliberately per board, and deliberately not
   // everywhere: the strategic board says what kind of bet each initiative is, the value stream
@@ -259,6 +259,20 @@ export function createSeed(): FlowState {
     priority: 'medium',
     targetEndDate: day(14),
   })
+  // Team Atlas' support queue — the board's second cards flow. One waiting, one under way, one
+  // answered, so the flow reads as a flow rather than as an empty second column set.
+  card('st-triage-request', 'Triage the inbound request', 't-task', 'b-atlas', a.support!.backlog, 'backlog', 5, 5, {
+    assignees: ['u-lm'],
+    priority: 'medium',
+  })
+  card('st-reproduce-report', 'Reproduce the customer report', 't-bug', 'b-atlas', a.support!.ip, 'inProgress', 4, 2, {
+    assignees: ['u-ds'],
+    priority: 'high',
+  })
+  card('st-answer-customer', 'Answer the customer', 't-story', 'b-atlas', a.support!.done, 'done', 9, 3, {
+    assignees: ['u-lm'],
+  })
+
   card('st-rate-limit-msg', 'Rate limit messaging', 't-story', 'b-atlas', a.done, 'done', 70, 44, {
     assignees: ['u-rk'],
     archived: true,
@@ -471,6 +485,7 @@ export function createSeed(): FlowState {
     users,
     issueTypes,
     boards,
+    flows,
     lanes,
     items,
     placements,

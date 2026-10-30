@@ -30,6 +30,7 @@ function database(): Database {
 const seeded = (): Workspace => ({
   meUserId: 'u-owner',
   boardId: '',
+  flows: [],
   users: [],
   issueTypes: [{ id: 't-card', name: 'Card', color: '#0ea5e9' }],
   boards: [],

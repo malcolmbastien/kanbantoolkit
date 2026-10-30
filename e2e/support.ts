@@ -10,28 +10,38 @@ export async function openBoard(page: Page, url = ATLAS): Promise<void> {
 }
 
 /**
- * One lane of the cards workflow, by the name its heading shows — the whole lane, which is its
- * heading, its cards and its footer. The workflow attribute is what makes this unambiguous: the
- * initiatives flow has lanes of the same names above it, and "the Backlog" means the team's own.
+ * One cards flow, by the name its header shows. With no name, the board's first flow — which is
+ * what every test written before boards could carry several means by "the Backlog".
  */
-export function laneRegion(page: Page, name: string): Locator {
+export function flowBand(page: Page, name?: string): Locator {
+  return name
+    ? page.locator(`[data-flow-band][data-flow-name="${name}"]`)
+    : page.locator('[data-flow-band]').first()
+}
+
+/**
+ * One lane of one cards flow, by the name its heading shows — the whole lane, which is its heading,
+ * its cards and its footer. The band says which flow: a board may carry several, and two Backlogs
+ * are not one Backlog.
+ */
+export function laneRegion(page: Page, name: string, flow?: string): Locator {
   // A cell, by the attribute that marks one. The lanes are a tree — nested items share their
   // ancestors' names — so the role alone cannot say which of them is a cell; the deepest match,
   // by this attribute, is the one the cards belong to.
-  return page
+  return flowBand(page, flow)
     .locator('[data-workflow="cards"] [data-lane-cell]')
     .filter({ hasText: name })
     .last()
 }
 
 /** The cards of a lane — the part a card is dropped into. */
-export function lane(page: Page, name: string): Locator {
-  return laneRegion(page, name).locator('[data-lane-id]')
+export function lane(page: Page, name: string, flow?: string): Locator {
+  return laneRegion(page, name, flow).locator('[data-lane-id]')
 }
 
 /** The cards in a lane, in the order the lane shows them. */
-export async function cardsIn(page: Page, name: string): Promise<string[]> {
-  return lane(page, name)
+export async function cardsIn(page: Page, name: string, flow?: string): Promise<string[]> {
+  return lane(page, name, flow)
     .locator('[data-card-id]:not([data-card-initiative])')
     .evaluateAll((elements) => elements.map((el) => (el as HTMLElement).dataset.cardId ?? ''))
 }
@@ -42,8 +52,8 @@ export async function cardsIn(page: Page, name: string): Promise<string[]> {
  * The button repeats — every column has one — so it is found by the name a screen reader hears,
  * which is the lane's own: "Add card to Backlog".
  */
-export async function addCardTo(page: Page, name: string): Promise<void> {
-  await laneRegion(page, name).getByRole('button', { name: `Add card to ${name}` }).click()
+export async function addCardTo(page: Page, name: string, flow?: string): Promise<void> {
+  await laneRegion(page, name, flow).getByRole('button', { name: `Add card to ${name}` }).click()
 }
 
 /** A locator's visible box, for a pointer to aim at. */
@@ -130,8 +140,13 @@ export async function openInstanceBoard(
 ): Promise<void> {
   await signInOnInstance(page, origin, who)
   await page.goto(`${origin}/app?view=boards`)
+  // Either the workspace is empty — make the board — or it already has one. Wait for one of the
+  // two before deciding: the home paints a moment after the sign-in lands, and a check made too
+  // early reads "no empty state" and then waits for a board nobody made.
   const empty = page.getByText('This workspace is empty')
+  const board = page.getByRole('button', { name, exact: true }).first()
+  await expect(empty.or(board)).toBeVisible({ timeout: 20_000 })
   if (await empty.isVisible().catch(() => false)) await makeBoard(page, name)
-  await page.getByRole('button', { name, exact: true }).first().click()
+  await board.click()
   await expect(page.locator('[data-workflow="cards"]')).toBeVisible({ timeout: 20_000 })
 }

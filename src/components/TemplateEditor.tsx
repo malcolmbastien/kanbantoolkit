@@ -1,18 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { Eye, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Eye, Minus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { InlineEdit } from './InlineEdit'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { LaneEditControls } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
 import {
+  canRemoveTemplateFlow,
   cardTypes,
+  templateAddFlow,
   templateAddLane,
   templateChildren,
   templateDuplicateLane,
   templateInsertLaneAfter,
   templateLaneIsRow,
+  templateMoveFlow,
   templateMoveLane,
+  templateRemoveFlow,
   templateRemoveLane,
+  templateRenameFlow,
   templateRenameLane,
   templateSetLanePolicy,
   templateSetLaneWip,
@@ -51,6 +56,7 @@ export function TemplateEditor({
   startEditing?: boolean
 }) {
   const issueTypes = useStore((s) => s.issueTypes)
+  const setTemplateDesign = useStore((s) => s.setTemplateDesign)
   const updateBoardTemplate = useStore((s) => s.updateBoardTemplate)
   const removeBoardTemplate = useStore((s) => s.removeBoardTemplate)
   const addIssueType = useStore((s) => s.addIssueType)
@@ -182,11 +188,89 @@ export function TemplateEditor({
         </div>
 
         <div className="space-y-4 px-4 py-3">
-          {/* A customised flow can be wider than the dialog; let it scroll rather than clip. */}
-          <div className="min-w-0 overflow-x-auto">
-            <div className="min-w-min">
-              <Lanes template={template} parentKey={null} editing={editing} />
-            </div>
+          {/* One section per cards flow: a template is a set of them, and the same column name in
+              two flows is two different columns. A customised flow can be wider than the dialog;
+              let it scroll rather than clip. */}
+          <div className="min-w-0 space-y-4">
+            {template.flows.map((flow, index) => (
+              <section key={flow.key} data-template-flow={flow.key} className="min-w-0">
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
+                  <h3 className="min-w-0 text-meta font-bold uppercase tracking-wide text-slate-700">
+                    {editing ? (
+                      <InlineEdit
+                        value={flow.name}
+                        onSave={(name) => {
+                          if (name.trim()) setTemplateDesign(template.id, { flows: templateRenameFlow(template, flow.key, name.trim()) })
+                        }}
+                        ariaLabel={`Rename ${flow.name}`}
+                        title="Rename this flow"
+                        className="rounded px-0.5 text-left uppercase tracking-wide transition hover:bg-indigo-50"
+                        inputClassName="w-40 rounded border border-indigo-300 px-1 py-0.5 text-meta font-bold uppercase tracking-wide text-slate-800 outline-none"
+                      />
+                    ) : (
+                      flow.name
+                    )}
+                  </h3>
+                  <span className="text-micro text-slate-500">
+                    {template.lanes.filter((l) => l.flowKey === flow.key).length} lanes
+                  </span>
+                  {editing && (
+                    <span className="ml-auto flex items-center gap-0.5">
+                      <button
+                        onClick={() => setTemplateDesign(template.id, { flows: templateMoveFlow(template, flow.key, -1) })}
+                        disabled={index === 0}
+                        title="Move this flow up"
+                        aria-label={`Move ${flow.name} up`}
+                        className="grid h-5 w-5 place-items-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <ChevronUp size={11} />
+                      </button>
+                      <button
+                        onClick={() => setTemplateDesign(template.id, { flows: templateMoveFlow(template, flow.key, 1) })}
+                        disabled={index === template.flows.length - 1}
+                        title="Move this flow down"
+                        aria-label={`Move ${flow.name} down`}
+                        className="grid h-5 w-5 place-items-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <ChevronDown size={11} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const next = templateRemoveFlow(template, flow.key)
+                          if (next) setTemplateDesign(template.id, next)
+                        }}
+                        disabled={!canRemoveTemplateFlow(template, flow.key)}
+                        title={
+                          canRemoveTemplateFlow(template, flow.key)
+                            ? 'Remove this flow and its lanes'
+                            : 'A template keeps at least one cards flow'
+                        }
+                        aria-label={`Remove ${flow.name}`}
+                        className="grid h-5 w-5 place-items-center rounded text-slate-500 transition hover:bg-rose-50 hover:text-rose-700 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 overflow-x-auto">
+                  <div className="min-w-min">
+                    <Lanes template={template} flowKey={flow.key} parentKey={null} editing={editing} />
+                  </div>
+                </div>
+              </section>
+            ))}
+            {editing && (
+              <button
+                onClick={() => setTemplateDesign(template.id, templateAddFlow(template))}
+                title="Add a cards flow — another set of columns in this template"
+                aria-label="Add a cards flow"
+                className="flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-indigo-300 px-2 py-1.5 text-meta font-medium text-indigo-700 transition hover:bg-indigo-50"
+              >
+                <Plus size={12} /> Add a cards flow
+              </button>
+            )}
           </div>
 
           <dl className="grid grid-cols-[104px_1fr] items-start gap-x-3 gap-y-2 text-meta">
@@ -360,15 +444,18 @@ export function TemplateEditor({
 /** The lane tree, arranged the way the board would arrange it: columns or rows, recursively. */
 function Lanes({
   template,
+  flowKey,
   parentKey,
   editing,
 }: {
   template: BoardTemplate
+  /** The flow this tree belongs to; a template with several has several top levels. */
+  flowKey: string
   parentKey: string | null
   editing: boolean
 }) {
   const parent = parentKey === null ? undefined : template.lanes.find((l) => l.key === parentKey)
-  const children = templateChildren(template, parentKey)
+  const children = templateChildren(template, parentKey, flowKey)
   if (children.length === 0) return null
 
   return (
@@ -474,7 +561,7 @@ function Lane({ template, lane, editing }: { template: BoardTemplate; lane: Temp
 
       <div className="relative flex-1 p-1.5">
         {isContainer ? (
-          <Lanes template={template} parentKey={lane.key} editing={editing} />
+          <Lanes template={template} flowKey={lane.flowKey} parentKey={lane.key} editing={editing} />
         ) : (
           <div className="h-10 rounded border border-dashed border-slate-200 bg-white" />
         )}

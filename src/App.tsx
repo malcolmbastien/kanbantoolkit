@@ -14,6 +14,7 @@ import { FocusChip } from './components/FocusChip'
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
 import { boardCardTypeId, defaultDropLane, initiativeTypeId, isAggregating } from './domain/board'
+import { initiativesFlow } from './domain/flows'
 import { leafLanes } from './domain/lanes'
 import { useUrl } from './lib/useUrl'
 import { useSignedInPerson } from './lib/identity'
@@ -69,6 +70,7 @@ export default function App() {
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
   const runAutoArchive = useStore((s) => s.runAutoArchive)
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const issueTypes = useStore((s) => s.issueTypes)
 
   const selectBoard = useStore((s) => s.selectBoard)
@@ -166,13 +168,15 @@ export default function App() {
   }
 
   /**
-   * A new card, in the board's default drop column — or the first leaf if it has never said.
+   * A new card, in the board's default drop cell — or the first leaf if it has never said.
    *
-   * Falling back rather than failing matters here: a cell the board named can be deleted or
-   * split away, and a board that has lost its answer should still be able to take a card.
+   * One cell, board-wide: with every cards flow on screen there is no "flow in front" to prefer,
+   * and the default is how a board says where new work arrives. Falling back rather than failing
+   * matters: a cell the board named can be deleted or split away, and a board that has lost its
+   * answer should still take a card.
    */
   const quickAdd = () => {
-    const lane = defaultDropLane(boards.find((b) => b.id === boardId), lanes, boardId)
+    const lane = defaultDropLane(boards.find((b) => b.id === boardId), flows, lanes, boardId)
     if (lane) onAddCard(lane.id)
   }
 
@@ -186,7 +190,8 @@ export default function App() {
    */
   const quickAddInitiative = () => {
     const typeId = initiativeTypeId(issueTypes)
-    const firstLeaf = leafLanes(lanes, boardId, 'initiatives')[0]
+    const flow = initiativesFlow(flows, boardId)
+    const firstLeaf = flow ? leafLanes(lanes, flow.id)[0] : undefined
     if (!typeId || !firstLeaf) return
     addCard({ boardId, typeId, laneId: firstLeaf.id, title: 'New initiative' })
   }

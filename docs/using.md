@@ -22,16 +22,26 @@ by title.
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a
 stage is the team's. **Edit board** splits a column into cells, renames them, adds a lane, or removes
-one — a split cell is still in its stage, the work simply reads more precisely.
+one — a split cell is still in its stage, the work simply reads more precisely. A lane is removed
+only while it is **empty**: deleting a column never moves a card, and a split whose remaining cell
+holds cards is left as it is rather than folded over them.
 
-A team board carries two workflows. The **cards** workflow is the team's own flow; the
-**initiatives** workflow is where the same work is read as outcomes. A programme or portfolio board
-aggregates other boards and shows the wider view instead of a cards workflow of its own.
+A board carries **flows**, each a set of those four columns. It has exactly one **initiatives** flow —
+where the same work is read as outcomes — and **one or more cards flows**: the team's own. Each cards
+flow is a band of its own, stacked the way the initiatives flow is, with its own name, its own
+columns and its own count. Two Backlogs are then two different answers, so every band says which
+flow it is, and a card belongs to exactly one of them.
+
+In **Edit board** a cards flow can be added (**Add a cards flow**), renamed, moved up or down, and
+removed — but only while it is empty and another cards flow remains, so a board never drops to none
+and work is never thrown away with a column set. A programme or portfolio board aggregates other
+boards and has no cards flow of its own.
 
 A card is made in a lane's footer (**Add card to …**) or from **Card** in the toolbar. Drag it to
-another cell to move it. A column can carry a **WIP limit**; **Settings** decides what a limit does —
-tint the column (**visualize**), hold the move until a reason is given (**justify**), or refuse it
-(**block**).
+another cell to move it — including into another cards flow, where the target flow's WIP limit
+applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — tint the column
+(**visualize**), hold the move until a reason is given (**justify**), or refuse it (**block**) — and
+that policy covers every cards flow on the board.
 
 The keyboard is a full way in, not a fallback: focus a card and press
 <kbd>Shift</kbd>+<kbd>F10</kbd> for its menu — **Move to lane**, **Move earlier**, **Move later**,
@@ -65,7 +75,9 @@ a programme's outcome is decomposed into a team's initiative.
 - **Dashboard** — the board's initiatives at a glance.
 - **Timeline** — the same initiatives over their target dates.
 - **Flow** — lead time, cycle time and throughput for the board.
-- **Archive** — work that is done and filed away.
+- **Archive** — work that has left the boards. A card in a Done column is **archived**; anything
+  else is **discarded**, dropped without claiming it was finished. The archive keeps that one fact,
+  not the column the work sat in, and either item can be restored.
 
 None of these is a second copy: they read the same items, placements and edges.
 
@@ -78,6 +90,10 @@ Objectives and key results are **not** a global view. They are created and manag
 **Portfolio** board, whose Strategy map carries them and the initiatives that serve them.
 
 ## Keeping a copy
+
+A **template** is a board design without its work: its cards flows, their names, columns and limits —
+never the initiatives flow, which is the standard shape the organisation reads. Making a board from
+a template brings every flow across.
 
 **Admin → Workspace data → Export** downloads the whole workspace as JSON; **Import…** replaces it with a file, after
 a confirmation. **Export CSV** on a board writes its cards as a table. On an instance the server holds

@@ -37,7 +37,7 @@ function crowdedLane() {
   const state = s()
   const cells = state.placements.filter((p) => {
     const lane = state.lanes.find((l) => l.id === p.laneId)
-    return p.boardId === state.boardId && lane?.workflow === 'cards' && lane?.parentId
+    return p.boardId === state.boardId && lane && state.flows.find((f) => f.id === lane.flowId)?.kind === 'cards' && lane.parentId
   })
   for (const laneId of new Set(cells.map((p) => p.laneId))) {
     const ordered = placementsInOrder(state.placements, laneId)
@@ -50,7 +50,9 @@ describe('what the app says', () => {
   it('says where a card went, by its name and the lane path — never by an id', () => {
     const state = s()
     const from = state.placements.find((p) => p.boardId === state.boardId)!
-    const other = state.lanes.find((l) => l.workflow === 'cards' && l.id !== from.laneId && l.parentId)!
+    const other = state.lanes.find(
+      (l) => state.flows.find((f) => f.id === l.flowId)?.kind === 'cards' && l.id !== from.laneId && l.parentId,
+    )!
     const title = state.items.find((i) => i.id === from.itemId)!.title
 
     expect(s().moveCard(from.itemId, state.boardId, other.id)).toBe(true)
@@ -64,7 +66,7 @@ describe('what the app says', () => {
     const state = s()
     const cells = state.placements.filter((p) => {
       const lane = state.lanes.find((l) => l.id === p.laneId)
-      return p.boardId === state.boardId && lane?.workflow === 'cards' && lane.parentId
+      return p.boardId === state.boardId && lane && state.flows.find((f) => f.id === lane.flowId)?.kind === 'cards' && lane.parentId
     })
     const target = cells[0]
     const other = cells.find((p) => p.laneId !== target.laneId)!

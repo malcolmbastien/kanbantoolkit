@@ -33,7 +33,9 @@ none of it is entered twice — it is read from the cards that are already there
    status.
 2. **The board is shaped around the work.** Split a stage into the steps your team actually uses,
    name them, arrange them in columns or rows, and set a limit on how much work is in flight where
-   that helps. The stage stays underneath, so reporting does not change when the board does.
+   that helps. The stage stays underneath, so reporting does not change when the board does. A board
+   can carry more than one cards flow — a delivery flow and a support queue, say — each with its own
+   columns, its own name and its own limit, stacked as separate bands.
 3. **Cards roll up into initiatives.** A card dragged onto an initiative becomes its child: the
    initiative's progress, age and delivery risk are computed from the work below it, so the wider
    view cannot drift from the board.
@@ -47,9 +49,11 @@ none of it is entered twice — it is read from the cards that are already there
 
 - **A real Kanban board.** Four fixed stages — **Backlog, Not Started, In Progress and Done** — that
   stay honest however your team reshapes the board.
-- **A workflow you can shape.** Split a stage into the steps your team actually uses, arrange them in
-  columns or rows, give each one a clear name, and set a limit on how much work is in flight where it
-  helps. The board belongs to the team, not to a template.
+- **A workflow you can shape — or several.** Split a stage into the steps your team actually uses,
+  arrange them in columns or rows, give each one a clear name, and set a limit on how much work is in
+  flight where it helps. A board can carry more than one cards flow, each with its own columns, and a
+  card moves between them like it moves between any two cells. The board belongs to the team, not to
+  a template.
 - **Initiatives for the wider view.** Day-to-day cards roll up into initiatives, so other groups can
   see progress, age and delivery risk without interrupting the team. The team's board and the wider
   view are two readings of the same work.

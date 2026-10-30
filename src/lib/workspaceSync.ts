@@ -101,7 +101,7 @@ export async function reflectAccount(userId: string): Promise<AccountLoad> {
     // that is what it shows. The one exception is a browser that holds a *real* workspace from
     // before the account existed: that one is offered a copy rather than replaced by emptiness.
     const local = useStore.getState()
-    const localDemo = isDemoWorkspace({ boards: local.boards, lanes: local.lanes, items: local.items, placements: local.placements })
+    const localDemo = isDemoWorkspace({ boards: local.boards, flows: local.flows, lanes: local.lanes, items: local.items, placements: local.placements })
     if (local.boards.length > 0 && !localDemo && !asked(userId)) {
       useWorkspaceSync.setState({ offer: true, error: undefined })
       noteStructureRev(rev)

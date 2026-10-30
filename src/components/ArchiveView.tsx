@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { Archive, RotateCcw, Search } from 'lucide-react'
-import { rollupOf, type Graph } from '@/domain/derive'
-import { STAGE_LABELS } from '@/domain/lanes'
-import { stageChip } from '@/lib/colors'
+import { archiveOutcome, type Graph } from '@/domain/derive'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { IssueType, Stage } from '@/domain/types'
+import type { IssueType } from '@/domain/types'
 
 /**
- * The Archive: filed-away items. They have left the boards (so boards don't
- * clutter), but they are still here — searchable, linked, and restorable.
+ * The Archive: filed-away items. They have left the boards (so boards don't clutter), but they are
+ * still here — searchable, linked, and restorable.
+ *
+ * The archive says one thing about each item: whether its work was finished. A card in a Done
+ * column is *completed*; anything else is *discarded*, dropped from the board without claiming it
+ * was done. The column it happened to sit in is not an archive's business, and an item's place in
+ * the board can change long after it left — so the word is kept from the moment it was filed.
  */
 export function ArchiveView() {
   const items = useStore((s) => s.items)
@@ -47,7 +50,9 @@ export function ArchiveView() {
             <div className="text-heading font-semibold text-slate-800">
               {archived.length} filed item{archived.length === 1 ? '' : 's'}
             </div>
-            <div className="text-meta text-slate-600">Archived items leave the boards but stay searchable and linked.</div>
+            <div className="text-meta text-slate-600">
+              Finished work is archived, unfinished work is discarded — either way it leaves the boards and stays restorable.
+            </div>
           </div>
           <div className="ml-auto flex items-center gap-3">
             <label className="flex items-center gap-1.5 text-meta text-slate-600">
@@ -80,7 +85,7 @@ export function ArchiveView() {
               <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
                 <th className="px-4 py-2 font-semibold">Item</th>
                 <th className="px-4 py-2 font-semibold">Board</th>
-                <th className="px-4 py-2 font-semibold">Status</th>
+                <th className="px-4 py-2 font-semibold">Outcome</th>
                 <th className="px-4 py-2 font-semibold">Archived</th>
                 <th className="px-4 py-2"></th>
               </tr>
@@ -88,7 +93,7 @@ export function ArchiveView() {
             <tbody>
               {archived.map((item) => {
                 const type = typeOf(item.typeId)
-                const bucket = rollupOf(item.id, graph).bucket as Stage
+                const outcome = archiveOutcome(item, graph)
                 return (
                   <tr key={item.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-200">
                     <td className="max-w-[320px] px-4 py-2.5">
@@ -106,7 +111,19 @@ export function ArchiveView() {
                     </td>
                     <td className="px-4 py-2.5 text-meta text-slate-600">{boardOf(item.id)?.name ?? '—'}</td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('rounded px-1.5 py-0.5 text-micro font-bold', stageChip(bucket))}>{STAGE_LABELS[bucket]}</span>
+                      <span
+                        title={
+                          outcome === 'completed'
+                            ? 'The work was done when it was filed away'
+                            : 'The work was not done when it was filed away'
+                        }
+                        className={cn(
+                          'rounded px-1.5 py-0.5 text-micro font-bold',
+                          outcome === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700',
+                        )}
+                      >
+                        {outcome === 'completed' ? 'Completed' : 'Discarded'}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5 text-meta text-slate-600">
                       {item.archivedAt ? new Date(item.archivedAt).toLocaleDateString() : '—'}

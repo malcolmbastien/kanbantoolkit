@@ -41,8 +41,10 @@ async function barriers(page: Page, { nestedInteractive = false } = {}) {
 
 test('the board has no barrier a machine can find', async ({ page }) => {
   await page.goto('/app?board=b-atlas')
-  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
-  await expect(page.getByRole('tree', { name: /lanes/ })).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
+  // One tree per cards flow; each names itself, so a reader is never told "lanes" twice.
+  await expect(page.getByRole('tree', { name: /Cards lanes/ })).toBeVisible()
+  await expect(page.getByRole('tree', { name: /Support lanes/ })).toBeVisible()
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
@@ -82,7 +84,7 @@ test('motion stops when the system asks it to', async ({ page }) => {
     )
 
   await page.goto('/app?board=b-atlas')
-  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
   // The app animates: hovering a control moves it. If it did not, the check below would pass
   // without proving anything.
   expect(await longest()).toBeGreaterThan(10)

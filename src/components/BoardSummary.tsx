@@ -45,6 +45,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '@/store'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
+import { initiativesFlow } from '@/domain/flows'
 
 /**
  * A lane header row: the name truly centred, with the WIP count and any edit controls pinned
@@ -94,6 +95,7 @@ export function BoardSummary({
   const edges = useStore((s) => s.edges)
   const placements = useStore((s) => s.placements)
   const lanes = useStore((s) => s.lanes)
+  const flows = useStore((s) => s.flows)
   const issueTypes = useStore((s) => s.issueTypes)
   const boards = useStore((s) => s.boards)
   const setInitiativeKind = useStore((s) => s.setInitiativeKind)
@@ -153,7 +155,8 @@ export function BoardSummary({
   const boardKinds = boards.find((b) => b.id === boardId)?.initiativeTypes
 
   // A section is a typed column; its cells are its leaves — itself, until it's split.
-  const sections = topLevelLanes(lanes, boardId, 'initiatives')
+  const initiativesFlowOf = initiativesFlow(flows, boardId)
+  const sections = (initiativesFlowOf ? topLevelLanes(lanes, initiativesFlowOf.id) : [])
     .slice()
     .sort((a, b) => a.order - b.order)
     .map((section) => {
@@ -163,11 +166,11 @@ export function BoardSummary({
       // they read through placements. An initiative the work below has rolled out of the cell
       // it was arranged in has no rank left to read; `initiativeRanks` decides where it reads
       // instead of dropping it, which is what this filtering used to do by hand.
-      const byCell = initiativeRanks(graph, boardId, section.id, initiatives)
+      const byCell = initiativeRanks(graph, boardId, section.id, initiatives, flows)
       // The badge reads the column, not the view: narrowing the flow changes what is *shown*, and
       // never the load the cell carries. Two walks, because the two answers differ exactly when a
       // filter is on — and only then.
-      const held = initiativeRanks(graph, boardId, section.id, allInitiatives)
+      const held = initiativeRanks(graph, boardId, section.id, allInitiatives, flows)
       const total = [...held.values()].reduce((n, rank) => n + rank.length, 0)
       return { section, stage, cells, byCell, held, total }
     })
@@ -214,7 +217,7 @@ export function BoardSummary({
   const previewCell = lift !== null ? dropCell : null
   /** The cell under the pointer, if it is one an initiative may move into. */
   const cellUnder = (x: number, y: number, itemId: string | undefined) => {
-    const here = itemId ? initiativeCellOf(itemId, boardId, graph) : undefined
+    const here = itemId ? initiativeCellOf(itemId, boardId, graph, flows) : undefined
     if (!here) return null
     const cell = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-cell-id]')
     const cellId = cell?.dataset.cellId

@@ -76,18 +76,18 @@ export interface Lane {
   order: number
   name: string
   /**
-   * Which workflow this lane belongs to.
+   * The lane tree this lane belongs to: a board's flow, by id.
    *
-   * A board carries **two independent lane trees**: the **cards** workflow — where the
-   * team's cards live, with its own column names, splits and WIP limits — and the
-   * **initiatives** workflow, the external representation management reads: typed
-   * sections and the cells initiatives are arranged in. They share a shape, not a fate:
-   * renaming or splitting one never touches the other, which is what lets a team rework
-   * its board without changing what the organisation sees.
+   * A board carries **one initiatives flow** — the external representation management reads,
+   * with typed sections and the cells initiatives are arranged in — and **one or more cards
+   * flows**, the team's own column sets, each with its own name, splits and WIP limits. They
+   * share a shape, not a fate: renaming or splitting one never touches another, which is what
+   * lets a team rework its board without changing what the organisation sees.
    *
-   * A subtree never mixes the two, so any walk from a lane stays inside its own workflow.
+   * A subtree never mixes flows, so any walk from a lane stays inside its own tree. The kind
+   * is read from the flow (`kindOf`), never from the lane.
    */
-  workflow: Workflow
+  flowId: string
   /** Present on containers: how children are arranged. */
   orientation?: SplitOrientation
   /** Stage type (top-level columns); inherited by descendants. */
@@ -179,26 +179,63 @@ export interface Board {
 }
 
 /**
- * A board's two workflows. Each is its own lane tree, rooted separately; a lane belongs to
- * exactly one of them.
+ * What a flow *is*, rather than which flow it is.
  *
- * - `cards`       — the team's own flow. Cards live in its leaves.
+ * - `cards`       — the team's own flow. Cards live in its leaves. A board may carry several.
  * - `initiatives` — the external representation: typed sections, and the cells initiatives
- *                   are arranged in. It starts as the standard four sections and is refined
- *                   on its own, never by the cards workflow's splits.
+ *                   are arranged in. A board has exactly one, and it is not the team's to
+ *                   reshape away: it starts as the standard four sections.
+ *
+ * The kind is a property of the flow, never of a lane — that is what lets two cards flows
+ * exist on one board without either answering for the other.
  */
-export type Workflow = 'cards' | 'initiatives'
+export type FlowKind = 'cards' | 'initiatives'
+
+/**
+ * One lane tree on a board.
+ *
+ * The old model had two trees per board, told apart by a string on every lane. Naming the tree
+ * instead is what lets a board carry more than one cards flow: a lane points at its flow, the
+ * flow says what kind of tree it is and what the board calls it, and `order` puts the board's
+ * cards flows in the order the tab strip shows them. The initiatives flow is always one, and
+ * its order is not the team's business.
+ */
+export interface BoardFlow {
+  id: string
+  boardId: string
+  kind: FlowKind
+  /** What the board calls it: "Delivery", "Support", "Cards". */
+  name: string
+  /** Position among the board's flows of the same kind; 0 for the first. */
+  order: number
+}
+
+/**
+ * One lane tree a template describes.
+ *
+ * A template is a set of **cards flows** — a team's design — and never the initiatives flow: the
+ * shape the organisation reads is the standard one, not something a team's template can change.
+ * `key` is the flow's identity inside the template; the lane's `flowKey` points at it.
+ */
+export interface TemplateFlow {
+  key: string
+  kind: FlowKind
+  name: string
+  order: number
+}
 
 /**
  * A lane inside a template. `key` wires parents to children *within the template*; real
  * lane ids are minted on instantiation, so a template can be used any number of times.
  *
- * Templates describe the **cards** workflow — a team's design. The initiatives workflow a
- * board starts with is the standard one, not the template's.
+ * Templates describe **cards flows** — a team's design. The initiatives flow a board starts
+ * with is the standard one, not the template's.
  */
 export interface TemplateLane {
   key: string
-  /** `null` means "a child of the board root" — the root itself is structural, not stored. */
+  /** The template flow this lane belongs to, by key. */
+  flowKey: string
+  /** `null` means "a child of the flow's root" — the root itself is structural, not stored. */
   parentKey: string | null
   order: number
   name: string
@@ -217,6 +254,8 @@ export interface BoardTemplate {
   id: string
   name: string
   band: BoardBand
+  /** The cards flows the design describes, in the order the board would show them. */
+  flows: TemplateFlow[]
   lanes: TemplateLane[]
   defaultCardTypeId?: string
   wipEnforcement?: 'visualize' | 'justify' | 'block'
@@ -232,6 +271,7 @@ export type ItemLogKind =
   | 'blocked'
   | 'unblocked'
   | 'archived'
+  | 'discarded'
   | 'unarchived'
   | 'noted'
   | 'limit'
@@ -337,6 +377,15 @@ export interface Item {
   archived?: boolean
   /** When the item was archived. */
   archivedAt?: number
+  /**
+   * Filed away unfinished.
+   *
+   * The archive keeps one fact about an item — whether the work was done — and not the column it
+   * happened to sit in. A completed card is *archived*; a card still in play is *discarded*, and
+   * both leave the boards the same way and come back the same way. Absent on an archived item
+   * means it was finished; present and true is the discarded case.
+   */
+  discarded?: boolean
   /** Append-only history of notable events (blocked / unblocked / notes). */
   log?: ItemLogEntry[]
   /**
@@ -419,6 +468,8 @@ export interface FlowState {
   users: User[]
   issueTypes: IssueType[]
   boards: Board[]
+  /** The lane trees: one initiatives flow per board, one or more cards flows. */
+  flows: BoardFlow[]
   lanes: Lane[]
   items: Item[]
   placements: Placement[]

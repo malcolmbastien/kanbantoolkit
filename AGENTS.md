@@ -91,21 +91,27 @@ task-master list            # terminal 2
   by.
 - **Issue types are labels + colour.** Columns come from a board's lane tree, never from
   the type. Never add a lifecycle to `IssueType`.
-- **Boards are two recursive lane trees.** A lane carries `workflow: 'cards' | 'initiatives'`,
-  and a board has one root per workflow. A leaf lane is a cell; a container arranges children
-  in columns or rows; any cell can be split. Board-design actions (`splitLane`, `addLane`,
-  `removeLane`) mutate one tree and are surfaced only in **edit mode**. The two trees are
-  independent and a subtree never mixes them, so every walk stays inside its own workflow —
-  which is why `rootLane`, `topLevelLanes` and `leafLanes` take the workflow as a **required**
-  argument (the compiler finds the sites that would otherwise silently mix the two).
-- **Two workflows, two trees.** The **cards** workflow is the team's own flow — its column
-  names, its splits, its WIP limits, reworked whenever they like. The **initiatives** workflow
-  is the external representation management reads: typed sections and the cells initiatives are
-  arranged in. Neither is a copy of the other and nothing is entered twice — an initiative's
-  *section* is derived from the work below — so a team can reshape its board on Tuesday and the
-  portfolio is still correct on Wednesday. A template designs the **cards** workflow only; every
-  board starts with the **standard** initiatives workflow (four sections, one cell each).
-- **Four typed top-level columns, per workflow.** Each root has exactly the four typed columns
+- **A board's lanes are recursive trees, one per flow.** A flow is a record (`BoardFlow`) — id,
+  board, kind, name, order — and a lane names its flow (`flowId`). A board has **exactly one
+  initiatives flow** and **one or more cards flows**; a lane belongs to exactly one of them. A
+  leaf lane is a cell; a container arranges children in columns or rows; any cell can be split.
+  Board-design actions (`splitLane`, `addLane`, `removeLane`) mutate one tree and are surfaced
+  only in **edit mode**. **A cards lane is removed only when nothing sits in it**, and removing one
+  moves no card: a split whose survivor holds cards is left as a split of one rather than folded
+  over them. The initiatives flow keeps its own rule — a cell retires with its initiatives moved
+  beside it, recorded — because an initiative is *arranged*, not worked. Flows are independent and a subtree never mixes them, so every walk
+  stays inside its own flow — which is why `rootLane`, `topLevelLanes` and `leafLanes` take a
+  **flow id** as a required argument, never a kind and never a default (the compiler finds the
+  sites that would otherwise silently reach one flow and hide another).
+- **Flows, not kinds.** The **cards** flows are the team's own: their column names, splits, WIP
+  limits, name and order, reworked whenever they like. The **initiatives** flow is the external
+  representation management reads: typed sections and the cells initiatives are arranged in, one
+  per board, never renamed, reordered or removed. Neither is a copy of the other and nothing is
+  entered twice — an initiative's *section* is derived from the work below — so a team can
+  reshape its board on Tuesday and the portfolio is still correct on Wednesday. A card is in
+  exactly one flow (one placement per board), so a move between cards flows is a move, and the
+  target flow's WIP applies.
+- **Four typed top-level columns, per flow.** Each root has exactly the four typed columns
   `stage: 'backlog' | 'notStarted' | 'inProgress' | 'done'` (Backlog / Not Started / In
   Progress / Done) — one per stage, never more. These are fixed — `addLane`/`removeLane`
   on the root and `setLaneOrientation` on the root are no-ops; refinement happens by
@@ -113,15 +119,15 @@ task-master list            # terminal 2
   comes from its column's stage, which makes status roll up the hierarchy. A board that
   needs two *done* states (accepted vs released) splits Done into cells; it does not add a
   column.
-- **The initiatives flow.** A typed column of the **initiatives** tree is a **section** of a
+- **The initiatives flow.** A typed column of the **initiatives** flow is a **section** of a
   board's initiatives flow and its leaves are its **cells**. An initiative's section is
   *derived* — `rollupOf` picks the section whose stage matches its bucket — while its cell is
   *arranged*: `Placement.laneId`, falling back to the section's first cell when that placement
   is stale (`initiativeCellOf`). So splitting a **section** gives initiatives cells to arrange
   within, but a move can never cross a section (`moveInitiative` refuses it). Splitting a cards
-  column does none of this — the workflows are independent — and `moveInitiative`/`moveCard`
-  each refuse the other's lanes. Lane editing is surfaced in the initiatives flow too, because a
-  program board has no cards workflow to edit from.
+  column does none of this — the flows are independent — and `moveInitiative`/`moveCard` each
+  refuse the other kind's lanes. Lane editing is surfaced in the initiatives flow too, because a
+  program board has no cards flow to edit from.
 - **Rollup reads leaves only, and never claims completion early.** All done → `done`; anything
   under way → `inProgress`; anything committed → `notStarted`; every leaf uncommitted →
   `backlog`. A Backlog leaf does **not** drag its parent's *status* backwards — a partly-planned
@@ -137,9 +143,9 @@ task-master list            # terminal 2
   warning is gone, the date warning (`outlasted`) stays.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
-  placed by rollup (card children are drill-in). **Only a board that renders a cards workflow makes
+  placed by rollup (card children are drill-in). **Only a board that renders cards flows makes
   cards** — a coordination board (programme or portfolio) shows bands or objective-grouped flows
-  and no cards workflow, so neither the toolbar's *Card* nor the palette's *New card* is offered
+  and has no cards flow, so neither the toolbar's *Card* nor the palette's *New card* is offered
   there. *Initiative* is, because an initiative is what such a board is read for. A board has a
   **flight-level band**
   (`band: 'team' | 'program' | 'portfolio'`) that picks its lens: a
@@ -149,7 +155,7 @@ task-master list            # terminal 2
   coordination boards, so long as it stays **acyclic** (`canLinkBoard`). The current
   "portfolio" surface is a coordination board; there is no separate portfolio entity.
   A **portfolio** board leads with a **strategy map** (`StrategyMap`) and nothing else: each
-  **objective** heads the board's own **initiatives workflow** (`BoardSummary` narrowed with
+  **objective** heads the board's own **initiatives flow** (`BoardSummary` narrowed with
   `onlyIds`) holding the strategic initiatives attributed to it, with both coverage gaps inline —
   an objective nothing serves says so in words, and an initiative serving nothing gets a flow of
   its own. The map is therefore the portfolio's flow *and* the OKR-coverage section, grouped by
@@ -183,7 +189,7 @@ task-master list            # terminal 2
   **answers** whether the card is now in the lane, because a drop is a move *and* a position: the
   caller writes the position only when the answer is yes, or it lands the card the policy just
   stopped. A held move carries the place the gesture offered, so answering lands the card where it
-  was dropped rather than at the end. WIP is the cards workflow's own — an initiatives lane neither
+  was dropped rather than at the end. WIP is the cards flows' own — an initiatives lane neither
   shows a limit nor enforces one. Counts read the **column**, not the view: narrowing what you
   *see* (search, filters, focus) never changes the load a column carries.
 - **An error report is about the code, never the workspace.** `POST /api/errors` accepts a

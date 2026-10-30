@@ -1,6 +1,7 @@
 import { Minus, Plus, X } from 'lucide-react'
 import { cardTypes, initiativeTypeId, NONE_TYPE_ID, tagsOf } from '@/domain/board'
 import { lineageOf, statusOf, type Graph } from '@/domain/derive'
+import { cardsFlows } from '@/domain/flows'
 import { activeFilterCount, ageDays, hasActiveFilters, initiativeScope, matchesFilters, sameFilters, type SavedFilter } from '@/domain/filters'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { chipColors } from '@/lib/colors'
@@ -79,13 +80,17 @@ export function FilterPanel() {
   )
 
   const [saveName, setSaveName] = useState('')
+  const flows = useStore((s) => s.flows)
+  const flowsHere = cardsFlows(flows, boardId)
 
   return (
     <aside className="flex h-full w-full max-w-[340px] shrink-0 flex-col border-l border-slate-300 bg-slate-50">
       <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="text-title font-semibold text-slate-800">Filters</div>
-          <div className="text-meta text-slate-600">Narrow the cards shown on this board</div>
+          <div className="text-meta text-slate-600">
+            Narrow the cards shown on this board{flowsHere.length > 1 ? ' — every flow' : ''}
+          </div>
         </div>
         <button onClick={toggleFilters} className="text-slate-600 hover:text-slate-600" title="Close filters">
           <X size={16} />
@@ -101,7 +106,7 @@ export function FilterPanel() {
         >
           {hasActiveFilters(filters)
             ? `Showing ${matched} of ${boardCards.length} cards · ${active} filter${active === 1 ? '' : 's'} active`
-            : `${boardCards.length} cards on this board`}
+            : `${boardCards.length} cards on this board${flowsHere.length > 1 ? `, across ${flowsHere.length} flows` : ''}`}
         </div>
 
         <SavedSection

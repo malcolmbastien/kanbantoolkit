@@ -72,7 +72,7 @@ difference is worth reading: the first is the token you chose, the second is the
 | Route | Scope | What it does |
 | --- | --- | --- |
 | `GET /boards` | `boards:read` | every board, with its band |
-| `GET /boards/{boardId}` | `boards:read` | one board: its two lane trees, its placements, the items on it |
+| `GET /boards/{boardId}` | `boards:read` | one board: its cards flows and its initiatives flow, its placements, the items on it |
 | `GET /items` | `items:read` | items, filtered by `boardId`, `laneId` (with its subtree), `typeId`, `q`, `updatedSince` |
 | `GET /items/{itemId}` | `items:read` | one item, with its parent, placements, rollup and history |
 | `POST /items` | `items:write` | create a card or an initiative and place it |
@@ -85,14 +85,19 @@ difference is worth reading: the first is the token you chose, the second is the
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
 | `POST /workspace` | `workspace:admin` | restore a file into an empty instance |
 
-An item is a card or an initiative; the `typeId` is what makes it one, not a different resource.
+A board's lane trees are **flows**, and it carries one **initiatives** flow and one or more **cards**
+flows. `GET /boards/{boardId}` answers both views: `workflows.cards` is the board's **first** cards
+flow (the shape v1 always had) and `workflows.initiatives` the initiatives flow, while `flows` names
+every flow — `id`, `name`, `kind`, `order` and its own `lanes` — so a board with Delivery and Support
+is visible rather than half-visible. An item is a card or an initiative; the `typeId` is what makes it
+one, not a different resource.
 There is no `size` field: the board counts issues, not points, and progress is the number of them
 finished over the number below. `createdById` is the person who made the item: the server records it
 from the session, answers it on every item, and refuses a body that tries to send or change one — it
 records an act that has already happened. A request that sends one is answered `422 invalid` and names the
 field, rather than dropping a number the client believes it set. An initiative is placed in the
-initiatives workflow and a card in the cards workflow — the two trees are independent, and a route
-that tries to cross them answers `422 wrong_workflow`.
+initiatives flow and a card in a cards cell — in any of the board's cards flows, where moving between
+them is a move — and a route that tries to cross the two kinds answers `422 wrong_workflow`.
 
 ## Conventions
 
@@ -155,8 +160,10 @@ BOARD=$1 # e.g. "Team Atlas"
 BOARD_ID=$(curl -s -H "Authorization: Bearer $TOKEN" "$API/boards" |
   jq -r --arg name "$BOARD" '.data[] | select(.name == $name) | .id')
 
+# Every cards flow, by name — `workflows.cards` is only the first one.
 TARGET=$(curl -s -H "Authorization: Bearer $TOKEN" "$API/boards/$BOARD_ID" |
-  jq -r '[.workflows.cards[] | select(.stage == "notStarted") | .id][0]')
+  jq -r '[.flows[] | select(.kind == "cards") | .lanes[]
+          | select(.stage == "notStarted") | .id][0]')
 
 curl -s -H "Authorization: Bearer $TOKEN" "$API/items?boardId=$BOARD_ID&includeArchived=false" |
   jq -r '.data[] | select(.laneId != null) | .id' |

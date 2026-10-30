@@ -1,12 +1,10 @@
-import type { Lane, Placement, SplitOrientation, Stage, Workflow } from './types'
+import type { Lane, Placement, SplitOrientation, Stage } from './types'
 
 export const STAGES: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
-/** The two workflows a board carries — each an independent lane tree. */
-export const WORKFLOWS: Workflow[] = ['cards', 'initiatives']
 
 /**
  * The structural spine every lane tree shares — the part the **editing rules** read.
- * A board's `Lane` is one of these with a board, a workflow and a stage attached; a
+ * A board's `Lane` is one of these with a board, a flow and a stage attached; a
  * template's lanes are the same spine under different field names, so the template's
  * editor runs its structure through these same kernels via a thin adapter
  * (`templateSplitLane` & friends in `domain/board.ts`).
@@ -148,10 +146,16 @@ export function duplicateLaneNode<T extends LaneNode>(nodes: T[], id: string, ui
  * design never carries a "split of one". Returns what vanished and where anything that
  * lived there should go: the first surviving leaf under the parent, or the parent itself
  * once it is a cell again. Never nowhere — a caller with contents rehomes them.
+ *
+ * `canFold` says whether the surviving child may be folded away. Folding removes that child's
+ * lane, so its contents would move up to the parent — a card move nobody asked for. A caller
+ * that must never move work passes a predicate that refuses to fold over contents; the split is
+ * then left with one child, which is tidier than a card changing cell because a sibling went.
  */
 export function removeLaneNodes<T extends LaneNode>(
   nodes: T[],
   id: string,
+  canFold: (survivingId: string) => boolean = () => true,
 ): { nodes: T[]; vanished: Set<string>; to: string } {
   const lane = nodeOf(nodes, id)
   if (!lane || parentIsRoot(nodes, lane) || lane.parentId === null) return { nodes, vanished: new Set(), to: id }
@@ -159,7 +163,7 @@ export function removeLaneNodes<T extends LaneNode>(
   // Sub-lanes go; the folder below may take the parent's last child with them.
   let out = nodes.filter((n) => n.id !== id && !subtreeOf(nodes, id).has(n.id))
   const left = out.filter((n) => n.parentId === parentId)
-  const folded = left.length === 1 ? new Set([left[0].id, ...subtreeOf(out, left[0].id)]) : null
+  const folded = left.length === 1 && canFold(left[0].id) ? new Set([left[0].id, ...subtreeOf(out, left[0].id)]) : null
   if (folded) out = out.filter((n) => !folded.has(n.id))
   // Renumber the survivors so order stays a clean 0..n-1 sequence.
   const survivors = out.filter((n) => n.parentId === parentId).sort((a, b) => a.order - b.order)
@@ -224,9 +228,9 @@ export const STAGE_LABELS: Record<Stage, string> = {
   done: 'Done',
 }
 
-/** The top-level columns of one of a board's workflows. */
-export function topLevelLanes(lanes: Lane[], boardId: string, workflow: Workflow): Lane[] {
-  const root = rootLane(lanes, boardId, workflow)
+/** The top-level columns of one of a board's flows. */
+export function topLevelLanes(lanes: Lane[], flowId: string): Lane[] {
+  const root = rootLane(lanes, flowId)
   return root ? childrenOf(lanes, root.id) : []
 }
 
@@ -252,16 +256,19 @@ export function childrenOf(lanes: Lane[], parentId: string): Lane[] {
 }
 
 /**
- * A workflow's root. Each board has one per workflow, so `workflow` is required: a tree
- * walk that forgot it would silently mix the two.
+ * A flow's root: the one lane in that flow with no parent.
+ *
+ * `flowId` is required, and there is no default: a board may carry several cards flows, and a
+ * walk that guessed one would silently hide the other's cards. A flow id belongs to one board,
+ * so the board does not need saying — and a caller holding only a board has to find its flow.
  */
-export function rootLane(lanes: Lane[], boardId: string, workflow: Workflow): Lane | undefined {
-  return lanes.find((l) => l.boardId === boardId && l.parentId === null && l.workflow === workflow)
+export function rootLane(lanes: Lane[], flowId: string): Lane | undefined {
+  return lanes.find((l) => l.flowId === flowId && l.parentId === null)
 }
 
-/** Every lane of one workflow on a board. */
-export function workflowLanes(lanes: Lane[], boardId: string, workflow: Workflow): Lane[] {
-  return lanes.filter((l) => l.boardId === boardId && l.workflow === workflow)
+/** Every lane of one flow. */
+export function workflowLanes(lanes: Lane[], flowId: string): Lane[] {
+  return lanes.filter((l) => l.flowId === flowId)
 }
 
 export function isLeaf(lanes: Lane[], laneId: string): boolean {
@@ -278,9 +285,9 @@ export function subtreeIds(lanes: Lane[], laneId: string): string[] {
   return out
 }
 
-/** Ordered depth-first leaves (cells) of one workflow. */
-export function leafLanes(lanes: Lane[], boardId: string, workflow: Workflow): Lane[] {
-  const root = rootLane(lanes, boardId, workflow)
+/** Ordered depth-first leaves (cells) of one flow. */
+export function leafLanes(lanes: Lane[], flowId: string): Lane[] {
+  const root = rootLane(lanes, flowId)
   if (!root) return []
   const out: Lane[] = []
   const walk = (node: Lane) => {
@@ -293,13 +300,14 @@ export function leafLanes(lanes: Lane[], boardId: string, workflow: Workflow): L
 }
 
 /**
- * A workflow's starting tree: the four typed columns, one per stage, each a single cell.
- * Both workflows begin here — the initiatives one stays here unless someone refines it.
+ * A flow's starting tree: the four typed columns, one per stage, each a single cell.
+ * Every flow begins here — a board's initiatives flow stays here unless someone refines it,
+ * and so does each of its cards flows.
  */
 export function defaultColumns(
   boardId: string,
   rootId: string,
-  workflow: Workflow,
+  flowId: string,
   uid: () => string,
 ): Lane[] {
   return STAGES.map((s, i) => ({
@@ -309,7 +317,7 @@ export function defaultColumns(
     order: i,
     name: STAGE_LABELS[s],
     stage: s,
-    workflow,
+    flowId,
   }))
 }
 
@@ -353,6 +361,17 @@ export function laneNameAt(lanes: Lane[], laneId: string | undefined): string {
 export function laneCardCount(lanes: Lane[], placements: Placement[], laneId: string): number {
   const ids = new Set(subtreeIds(lanes, laneId))
   return placements.filter((p) => ids.has(p.laneId)).length
+}
+
+/**
+ * Does anything sit in this lane, at any depth?
+ *
+ * Deletion reads this: a cards column is removed only when it is empty, because removing it would
+ * otherwise have to move a card — and a design action is not a move. Folding a split reads it too,
+ * since folding lifts the surviving child's cards to the parent.
+ */
+export function laneHoldsCards(lanes: Lane[], placements: Placement[], laneId: string): boolean {
+  return laneCardCount(lanes, placements, laneId) > 0
 }
 
 /** Direct placements in a leaf lane. */
@@ -408,7 +427,7 @@ export function leavesUnder(lanes: Lane[], laneId: string): Lane[] {
     if (kids.length === 0) out.push(node)
     else kids.forEach(walk)
   }
-  walk(lanes.find((l) => l.id === laneId) ?? ({ id: '', parentId: null, order: 0, name: '', boardId: '' } as Lane))
+  walk(lanes.find((l) => l.id === laneId) ?? ({ id: '', parentId: null, order: 0, name: '', boardId: '', flowId: '' } as Lane))
   return out
 }
 

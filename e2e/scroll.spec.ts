@@ -40,7 +40,7 @@ const cardY = (page: import('@playwright/test').Page, id: string) =>
 test('opening a drawer does not move the card the reader is looking at', async ({ page }) => {
   await page.setViewportSize(VIEWPORT)
   await page.goto('/app?board=b-atlas')
-  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
 
   await page.locator('[data-board-scroll]').evaluate((el) => {
     el.scrollTop = 500
@@ -69,7 +69,7 @@ test('opening a drawer does not move the card the reader is looking at', async (
 test('moving a card at the bottom of the board keeps the bottom', async ({ page }) => {
   await page.setViewportSize(VIEWPORT)
   await page.goto('/app?board=b-nova')
-  await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
 
   await page.locator('[data-board-scroll]').evaluate((el) => {
     el.scrollTop = el.scrollHeight
@@ -92,6 +92,8 @@ test('moving a card at the bottom of the board keeps the bottom', async ({ page 
 
   const card = await page.locator(`[data-card-id="${before.card}"]`).boundingBox()
   const done = await page
+    .locator('[data-flow-band]')
+    .first()
     .locator('[data-workflow="cards"] [data-lane-cell]')
     .filter({ hasText: 'Done' })
     .last()
@@ -108,6 +110,8 @@ test('moving a card at the bottom of the board keeps the bottom', async ({ page 
   // arrangement the reader asked for, not a jump.
   await expect.poll(async () => (await scrollState(page)).distance).toBeLessThanOrEqual(2)
   const landed = await page
+    .locator('[data-flow-band]')
+    .first()
     .locator('[data-workflow="cards"] [data-lane-cell]')
     .filter({ hasText: 'Done' })
     .last()

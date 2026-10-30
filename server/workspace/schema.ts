@@ -42,5 +42,17 @@ export const WORKSPACE_SCHEMA = 1
  *
  * 29 adds `invites.name`: the optional name an administrator gives when they make a link. A database
  * without it cannot write the invitation this code offers, so the same rule applies.
+ *
+ * 30 adds `items.discarded`: whether a filed-away item's work was done. A database without it cannot
+ * record the difference between an archive and a discard, which is the whole point of the column —
+ * so it is refused at the door rather than served with every discard written down as completed.
+ *
+ * 31 adds `board_flows` and `lanes.flow_id`, and retires `lanes.workflow`: a lane names the tree it
+ * is in, and a board may now carry several cards flows. A database without them cannot be read at
+ * all — every lane walk resolves a flow — so the same rule applies: migrate, or be refused.
+ *
+ * 32 adds `template_flows` and `template_lanes.flow_key`: a template describes a set of cards flows.
+ * A database without them would hand back a template whose lanes belong to no flow, which the
+ * editor cannot draw — refused rather than half-read, like every number before it.
  */
-export const REQUIRED_SCHEMA = 29
+export const REQUIRED_SCHEMA = 32

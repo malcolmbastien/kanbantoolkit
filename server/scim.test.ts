@@ -36,8 +36,9 @@ const seeded = (): Workspace => {
     users: [],
     issueTypes: [{ id: 't-card', name: 'Card', color: '#0ea5e9' }],
     boards: [board],
+    flows: [{ id: 'f-cards', boardId: board.id, kind: 'cards', name: 'Cards', order: 0 }],
     lanes: [
-      { id: 'l-1', boardId: 'b-1', parentId: null, order: 0, name: 'Backlog', workflow: 'cards', stage: 'backlog' },
+      { id: 'l-1', boardId: 'b-1', parentId: null, order: 0, name: 'Backlog', flowId: 'f-cards', stage: 'backlog' },
     ],
     items: [],
     placements: [],

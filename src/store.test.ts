@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { decompositionChildren, decompositionParent, checklistProgress, descendants, openDependenciesOf, rollupOf, statusOf } from './domain/derive'
+import { archiveOutcome, decompositionChildren, decompositionParent, checklistProgress, descendants, openDependenciesOf, rollupOf, statusOf } from './domain/derive'
 import { boardCardTypeId, boardInitiativeTypes, boardInitiatives, cardTypes, defaultDropLane, defaultCardTypeId, descendantBoards, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativesCarrying, itemsCarryingTag, NONE_TYPE_ID, searchItems, tagsOf } from './domain/board'
+import { cardsFlows } from './domain/flows'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, leafLanes, placementsInOrder, rootLane, topLevelLanes } from './domain/lanes'
-import type { Board, Item, Lane, Placement, Stage, Workflow } from './domain/types'
+import type { Board, FlowKind, Item, Lane, Placement, Stage } from './domain/types'
 import { activeFilterCount, ageDays, hasActiveFilters, matchesFilters, NO_FILTERS, type SavedFilter } from './domain/filters'
 import { cumulativeFlow, flowRecord, flowSummary, throughput, weeklyBuckets } from './domain/metrics'
 import { SEED_TODAY } from './domain/seed'
@@ -42,8 +43,12 @@ const graph = () => {
   const st = s()
   return { items: st.items, edges: st.edges, links: st.links, placements: st.placements, lanes: st.lanes }
 }
-const laneByName = (boardId: string, name: string, workflow: Workflow = 'cards') =>
-  s().lanes.find((l) => l.boardId === boardId && l.name === name && l.workflow === workflow)!
+const flow = (boardId: string, kind: FlowKind = 'cards'): string =>
+  s().flows.find((f) => f.boardId === boardId && f.kind === kind)!.id
+const kindOfLane = (lane: Lane): FlowKind | undefined =>
+  s().flows.find((f) => f.id === lane.flowId)?.kind
+const laneByName = (boardId: string, name: string, kind: FlowKind = 'cards') =>
+  s().lanes.find((l) => l.boardId === boardId && l.name === name && kindOfLane(l) === kind)!
 
 describe('store actions', () => {
   beforeEach(() => resetToFixture())
@@ -153,11 +158,11 @@ describe('store actions', () => {
     // Seeded in b-nova's Not Started, but its work has started — the rollup wins, so
     // the placement is stale and the initiative falls back to the section's first cell.
     expect(rollupOf('init-welcome', g()).bucket).toBe('inProgress')
-    const ip = topLevelLanes(s().lanes, 'b-nova', 'initiatives').find((l) => l.stage === 'inProgress')!
+    const ip = topLevelLanes(s().lanes, flow('b-nova', 'initiatives')).find((l) => l.stage === 'inProgress')!
     const seeded = s().placements.find((p) => p.itemId === 'init-welcome' && p.boardId === 'b-nova')!.laneId
     expect(effectiveStage(s().lanes, seeded)).toBe('notStarted') // stale, and ignored
 
-    const cell = initiativeCellOf('init-welcome', 'b-nova', g())!
+    const cell = initiativeCellOf('init-welcome', 'b-nova', g(), s().flows)!
     expect(cell.sectionId).toBe(ip.id)
     expect(cell.cellId).toBe(childrenOf(s().lanes, ip.id)[0]?.id ?? ip.id)
   })
@@ -165,7 +170,7 @@ describe('store actions', () => {
   it('an initiative is rearranged within its section, never across one', () => {
     const g = () => graph()
     const section = (stage: Stage) =>
-      topLevelLanes(s().lanes, 'b-nova', 'initiatives').find((l) => l.stage === stage)!
+      topLevelLanes(s().lanes, flow('b-nova', 'initiatives')).find((l) => l.stage === stage)!
     const ip = section('inProgress')
     // The initiatives flow starts standard; refining it is the initiatives flow's own
     // business — splitting a section here gives initiatives cells to arrange within.
@@ -174,13 +179,13 @@ describe('store actions', () => {
     expect(cells.length).toBe(2)
 
     s().moveInitiative('init-welcome', 'b-nova', cells[1].id)
-    expect(initiativeCellOf('init-welcome', 'b-nova', g())?.cellId).toBe(cells[1].id)
-    expect(initiativeCellOf('init-welcome', 'b-nova', g())?.sectionId).toBe(ip.id)
+    expect(initiativeCellOf('init-welcome', 'b-nova', g(), s().flows)?.cellId).toBe(cells[1].id)
+    expect(initiativeCellOf('init-welcome', 'b-nova', g(), s().flows)?.sectionId).toBe(ip.id)
 
     // Crossing into another section is refused: the section is derived, not chosen.
     s().moveInitiative('init-welcome', 'b-nova', section('done').id)
-    expect(initiativeCellOf('init-welcome', 'b-nova', g())?.cellId).toBe(cells[1].id)
-    expect(initiativeCellOf('init-welcome', 'b-nova', g())?.sectionId).toBe(ip.id)
+    expect(initiativeCellOf('init-welcome', 'b-nova', g(), s().flows)?.cellId).toBe(cells[1].id)
+    expect(initiativeCellOf('init-welcome', 'b-nova', g(), s().flows)?.sectionId).toBe(ip.id)
   })
 
   it('an initiative rolls up with the card below it, instead of vanishing from the flow', () => {
@@ -189,9 +194,9 @@ describe('store actions', () => {
     // placement still named the Backlog cell, and the flow read placements — so it was in no
     // cell of any section and disappeared altogether.
     const boardId = 'b-atlas'
-    const section = (stage: Stage) => topLevelLanes(s().lanes, boardId, 'initiatives').find((l) => l.stage === stage)!
+    const section = (stage: Stage) => topLevelLanes(s().lanes, flow(boardId, 'initiatives')).find((l) => l.stage === stage)!
     const ranksOf = (stage: Stage) =>
-      [...initiativeRanks(graph(), boardId, section(stage).id, boardInitiatives(graph(), boardId, s().issueTypes)).values()]
+      [...initiativeRanks(graph(), boardId, section(stage).id, boardInitiatives(graph(), boardId, s().issueTypes), s().flows).values()]
         .flat()
         .map((i) => i.id)
     s().addCard({ boardId, typeId: 't-initiative', laneId: section('backlog').id, title: 'Rolling initiative' })
@@ -214,7 +219,7 @@ describe('store actions', () => {
     s().addLane(ip.id)
     expect(childrenOf(s().lanes, ip.id).length).toBe(before + 1)
 
-    const root = rootLane(s().lanes, 'b-atlas', 'cards')!
+    const root = rootLane(s().lanes, flow('b-atlas'))!
     const topBefore = childrenOf(s().lanes, root.id).length
     s().addLane(root.id) // top-level columns are fixed
     expect(childrenOf(s().lanes, root.id).length).toBe(topBefore)
@@ -294,7 +299,7 @@ describe('store actions', () => {
   it('can build a custom layout from the standard typed columns', () => {
     s().addBoard('Sketch')
     const boardId = s().boardId
-    const root = rootLane(s().lanes, boardId, 'cards')!
+    const root = rootLane(s().lanes, flow(boardId))!
     const cols = () => childrenOf(s().lanes, root.id)
     expect(cols().map((c) => c.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     expect(cols().map((c) => c.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
@@ -305,16 +310,16 @@ describe('store actions', () => {
     s().splitLane(rows[0].id, 'columns', 3)
     expect(childrenOf(s().lanes, rows[0].id).length).toBe(3)
     expect(effectiveStage(s().lanes, childrenOf(s().lanes, rows[0].id)[0].id)).toBe('inProgress')
-    expect(leafLanes(s().lanes, boardId, 'cards').length).toBeGreaterThanOrEqual(7)
+    expect(leafLanes(s().lanes, flow(boardId)).length).toBeGreaterThanOrEqual(7)
   })
 
   it('renames a typed column without changing its stage or moving anything', () => {
-    const root = rootLane(s().lanes, 'b-atlas', 'cards')!
-    const columns = () => topLevelLanes(s().lanes, 'b-atlas', 'cards')
+    const root = rootLane(s().lanes, flow('b-atlas'))!
+    const columns = () => topLevelLanes(s().lanes, flow('b-atlas'))
     const before = columns().map((c) => ({ id: c.id, stage: c.stage }))
     const status = () => s().items.map((i) => statusOf(i.id, graph()))
     const counts = () =>
-      leafLanes(s().lanes, 'b-atlas', 'cards').map((l) => laneCardCount(s().lanes, s().placements, l.id))
+      leafLanes(s().lanes, flow('b-atlas')).map((l) => laneCardCount(s().lanes, s().placements, l.id))
     const statusBefore = status()
     const countsBefore = counts()
 
@@ -354,7 +359,7 @@ describe('store actions', () => {
     expect(s().editMode).toBe(true) // …in edit mode
 
     // Every board starts as the standard typed columns.
-    const root = rootLane(s().lanes, created.id, 'cards')!
+    const root = rootLane(s().lanes, flow(created.id))!
     const cols = childrenOf(s().lanes, root.id)
     expect(cols.map((c) => c.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     expect(cols.map((c) => c.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
@@ -419,21 +424,35 @@ describe('store actions', () => {
     const template = s().boardTemplates[s().boardTemplates.length - 1]
     expect(s().boardTemplates.length).toBe(templatesBefore + 1)
     expect(template.name).toBe('Team flow')
-    expect(template.lanes.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Dev', 'Test', 'Done'])
+    // The board carries two cards flows, so the template does too.
+    expect(template.flows.map((f) => f.name)).toEqual(['Cards', 'Support'])
+    expect(template.lanes.map((l) => l.name)).toEqual([
+      'Backlog',
+      'Not Started',
+      'In Progress',
+      'Dev',
+      'Test',
+      'Done',
+      'Backlog',
+      'Not Started',
+      'In Progress',
+      'Done',
+    ])
     expect(JSON.stringify(template)).not.toMatch(/linkedBoardIds|itemId|placement/)
 
     s().addBoard('Squad', undefined, false, template.id)
     const created = s().boards[s().boards.length - 1]
-    const root = rootLane(s().lanes, created.id, 'cards')!
+    expect(cardsFlows(s().flows, created.id).map((f) => f.name)).toEqual(['Cards', 'Support'])
+    const root = rootLane(s().lanes, cardsFlows(s().flows, created.id)[0].id)!
     expect(childrenOf(s().lanes, root.id).map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     const ip = childrenOf(s().lanes, root.id).find((l) => l.name === 'In Progress')!
     expect(childrenOf(s().lanes, ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
     // Its own lanes, and no work copied across.
-    const atlasRoot = rootLane(s().lanes, 'b-atlas', 'cards')!
+    const atlasRoot = rootLane(s().lanes, flow('b-atlas'))!
     expect(childrenOf(s().lanes, root.id)[0].id).not.toBe(childrenOf(s().lanes, atlasRoot.id)[0].id)
     expect(s().placements.length).toBe(placementsBefore)
     // The template is unchanged and still usable.
-    expect(template.lanes).toHaveLength(6)
+    expect(template.lanes).toHaveLength(10)
 
     // A template's band is the fallback when none is given — and a coordination board
     // still starts with an empty linkedBoardIds.
@@ -481,7 +500,7 @@ describe('store actions', () => {
     expect(copy.name).toBe('Team Atlas copy')
 
     // The design came across…
-    const root = rootLane(s().lanes, copy.id, 'cards')!
+    const root = rootLane(s().lanes, flow(copy.id))!
     expect(childrenOf(s().lanes, root.id).map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     const ip = childrenOf(s().lanes, root.id).find((l) => l.name === 'In Progress')!
     expect(childrenOf(s().lanes, ip.id).map((l) => l.name)).toEqual(['Dev', 'Test'])
@@ -491,7 +510,7 @@ describe('store actions', () => {
 
     // Editing the copy cannot disturb the original.
     s().renameLane(childrenOf(s().lanes, root.id)[0].id, 'Icebox')
-    expect(childrenOf(s().lanes, rootLane(s().lanes, 'b-atlas', 'cards')!.id)[0].name).toBe('Backlog')
+    expect(childrenOf(s().lanes, rootLane(s().lanes, flow('b-atlas'))!.id)[0].name).toBe('Backlog')
 
     // A coordination board brings its links with it.
     s().duplicateBoard('b-portfolio')
@@ -502,8 +521,8 @@ describe('store actions', () => {
 
   it('keeps the two workflows independent', () => {
     const boardId = 'b-atlas'
-    const section = (workflow: Workflow, stage: Stage) =>
-      topLevelLanes(s().lanes, boardId, workflow).find((l) => l.stage === stage)!
+    const section = (kind: FlowKind, stage: Stage) =>
+      topLevelLanes(s().lanes, flow(boardId, kind)).find((l) => l.stage === stage)!
     const cardsNs = section('cards', 'notStarted')
     const initNs = section('initiatives', 'notStarted')
 
@@ -523,8 +542,8 @@ describe('store actions', () => {
     expect(section('initiatives', 'notStarted').name).toBe('Not Started')
 
     // And the two trees never share a lane.
-    const cardsIds = new Set(s().lanes.filter((l) => l.workflow === 'cards').map((l) => l.id))
-    expect(s().lanes.filter((l) => l.workflow === 'initiatives').some((l) => cardsIds.has(l.id))).toBe(false)
+    const cardsIds = new Set(s().lanes.filter((l) => kindOfLane(l) === 'cards').map((l) => l.id))
+    expect(s().lanes.filter((l) => kindOfLane(l) === 'initiatives').some((l) => cardsIds.has(l.id))).toBe(false)
   })
 
   it('a template designs the cards flow only — the initiatives flow starts standard', () => {
@@ -533,14 +552,14 @@ describe('store actions', () => {
     const board = s().boards[before]
 
     // The template's design is the cards workflow…
-    expect(topLevelLanes(s().lanes, board.id, 'cards').map((l) => l.name)).toEqual([
+    expect(topLevelLanes(s().lanes, flow(board.id)).map((l) => l.name)).toEqual([
       'Product Backlog',
       'Ready to Start',
       'In Progress',
       'Done',
     ])
     // …and the initiatives workflow is the standard four, one cell each.
-    const init = topLevelLanes(s().lanes, board.id, 'initiatives')
+    const init = topLevelLanes(s().lanes, flow(board.id, 'initiatives'))
     expect(init.map((l) => l.name)).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
     expect(init.every((l) => childrenOf(s().lanes, l.id).length === 0)).toBe(true)
   })
@@ -684,8 +703,8 @@ describe('store actions', () => {
   it('migrateState splits the old shared tree into two independent workflows', () => {
     // A pre-v24 board: one lane tree with no `workflow`, initiatives placed inside it.
     const cardsOnly = s()
-      .lanes.filter((l) => l.workflow === 'cards')
-      .map(({ workflow: _w, ...rest }) => rest)
+      .lanes.filter((l) => s().flows.find((f) => f.id === l.flowId)?.kind === 'cards')
+      .map(({ flowId: _f, ...rest }) => rest)
     const ns = laneByName('b-nova', 'Not Started', 'cards')
     const legacy = {
       boards: s().boards,
@@ -699,15 +718,18 @@ describe('store actions', () => {
 
     const migrated = migrateState(structuredClone(legacy) as never) as {
       boards: Board[]
+      flows: { id: string; boardId: string; kind: FlowKind; name: string; order: number }[]
       lanes: Lane[]
       placements: Placement[]
     }
 
     // Every lane that existed is the cards workflow now…
-    expect(migrated.lanes.filter((l) => l.workflow === 'cards')).toHaveLength(cardsOnly.length)
+    expect(migrated.lanes.filter((l) => migrated.flows.find((f) => f.id === l.flowId)?.kind === 'cards')).toHaveLength(cardsOnly.length)
     // …and each board gained the standard initiatives workflow: a root and four sections.
     for (const b of migrated.boards) {
-      const init = migrated.lanes.filter((l) => l.boardId === b.id && l.workflow === 'initiatives')
+      const init = migrated.lanes.filter(
+        (l) => l.boardId === b.id && migrated.flows.find((f) => f.id === l.flowId)?.kind === 'initiatives',
+      )
       expect(init).toHaveLength(5)
       expect(init.filter((l) => l.parentId !== null).map((l) => l.stage)).toEqual([
         'backlog',
@@ -718,30 +740,71 @@ describe('store actions', () => {
       // One cell each — the default, not a copy of whatever the team did to its cards.
       expect(init.every((l) => l.parentId !== null || init.some((c) => c.parentId === l.id))).toBe(true)
     }
-    // An initiative that named a card lane now names a section of its own workflow.
+    // An initiative that named a card lane now names a section of its own flow.
     const placed = migrated.placements.find((p) => p.itemId === 'init-welcome')!
-    expect(migrated.lanes.find((l) => l.id === placed.laneId)?.workflow).toBe('initiatives')
+    expect(migrated.flows.find((f) => f.id === migrated.lanes.find((l) => l.id === placed.laneId)?.flowId)?.kind).toBe('initiatives')
+
+    // …and the trees are flows now, named the way the migration says: one cards flow from the
+    // lanes that were the shared tree, and one initiatives flow for every board.
+    const cardsFlows = migrated.flows.filter((f) => f.kind === 'cards')
+    expect(cardsFlows).toHaveLength(new Set(cardsOnly.map((l) => l.boardId)).size)
+    expect(cardsFlows.every((f) => f.name === 'Cards')).toBe(true)
+    expect(migrated.flows.filter((f) => f.kind === 'initiatives')).toHaveLength(migrated.boards.length)
+    expect(migrated.flows.every((f) => f.order === 0)).toBe(true)
+    // Every lane names a flow of its own board — nothing is left to be guessed at read time.
+    expect(
+      migrated.lanes.every((l) => migrated.flows.some((f) => f.id === l.flowId && f.boardId === l.boardId)),
+    ).toBe(true)
 
     // Idempotent — a second pass adds nothing.
-    const again = migrateState(structuredClone(migrated) as never) as { lanes: Lane[] }
+    const again = migrateState(structuredClone(migrated) as never) as { lanes: Lane[]; flows: unknown[] }
     expect(again.lanes).toHaveLength(migrated.lanes.length)
+    expect(again.flows).toHaveLength(migrated.flows.length)
   })
 
-  it('archiving a parent cascades to its subtree and keeps the data linked', () => {
+  it('files a parent and its subtree away, and unfinished work is discarded rather than archived', () => {
     const before = rollupOf('init-signup', graph()).percent
     s().archiveItem('init-signup')
     for (const id of ['init-signup', 'st-signup-design', 'st-signup-form', 'st-email', 'st-sso', 'df-signup']) {
       expect(s().items.find((i) => i.id === id)?.archived).toBe(true)
     }
+    // Each item is judged by its own state, not the group's: `st-signup-design` sits in Done, so it
+    // is archived as finished, and everything else — the initiative included, because work below it
+    // is not done — is discarded.
+    expect(s().items.find((i) => i.id === 'st-signup-design')?.discarded).toBeUndefined()
+    for (const id of ['init-signup', 'st-signup-form', 'st-email', 'st-sso', 'df-signup']) {
+      expect(s().items.find((i) => i.id === id)?.discarded).toBe(true)
+    }
     // Still in the hierarchy (so it appears in linked-issue lists), and rollup is unaffected.
     expect(decompositionChildren('init-signup', s().edges).length).toBe(5)
     expect(rollupOf('init-signup', graph()).percent).toBe(before)
-    expect(s().items.find((i) => i.id === 'init-signup')!.log?.some((e) => e.kind === 'archived')).toBe(true)
+    expect(s().items.find((i) => i.id === 'init-signup')!.log?.some((e) => e.kind === 'discarded')).toBe(true)
+    expect(s().items.find((i) => i.id === 'init-signup')!.log?.some((e) => e.kind === 'archived')).toBe(false)
+    expect(s().items.find((i) => i.id === 'st-signup-design')!.log?.some((e) => e.kind === 'archived')).toBe(true)
 
     s().unarchiveItem('init-signup')
     expect(s().items.find((i) => i.id === 'init-signup')?.archived).toBe(false)
     expect(s().items.find((i) => i.id === 'st-email')?.archived).toBe(false)
+    // Back in play, and the verdict goes with the filing: the next one asks again.
+    expect(s().items.find((i) => i.id === 'init-signup')?.discarded).toBeUndefined()
     expect(s().items.find((i) => i.id === 'init-signup')!.log?.some((e) => e.kind === 'unarchived')).toBe(true)
+  })
+
+  it('archives finished work, and keeps the verdict the item had when it was filed', () => {
+    const done = laneByName('b-atlas', 'Done')
+    s().moveCard('st-email', 'b-atlas', done.id)
+    s().archiveItem('st-email')
+    const filed = s().items.find((i) => i.id === 'st-email')!
+    expect(filed.archived).toBe(true)
+    expect(filed.discarded).toBeUndefined()
+    expect(filed.log?.some((e) => e.kind === 'archived')).toBe(true)
+    expect(archiveOutcome(filed, graph())).toBe('completed')
+
+    // A discarded card is not re-read from the board later: moving it to Done afterwards does not
+    // turn work nobody did into work that was finished.
+    s().archiveItem('st-sso')
+    s().moveCard('st-sso', 'b-atlas', done.id)
+    expect(archiveOutcome(s().items.find((i) => i.id === 'st-sso')!, graph())).toBe('discarded')
   })
 
   it('moving into Done stamps resolvedAt; moving out clears it', () => {
@@ -772,7 +835,7 @@ describe('store actions', () => {
   })
 
   it('moves sub-lanes within their top-level parent; top-level columns are fixed', () => {
-    const root = rootLane(s().lanes, 'b-atlas', 'cards')!
+    const root = rootLane(s().lanes, flow('b-atlas'))!
     const topNames = () => childrenOf(s().lanes, root.id).map((l) => l.name)
     // Top-level columns cannot move.
     expect(topNames()).toEqual(['Backlog', 'Not Started', 'In Progress', 'Done'])
@@ -816,7 +879,7 @@ describe('store actions', () => {
     expect(colNames()).toEqual(['Dev', 'Dev copy', 'Column 3', 'Test'])
 
     // top-level columns are neither insertable nor cloneable
-    const root = rootLane(s().lanes, 'b-atlas', 'cards')!
+    const root = rootLane(s().lanes, flow('b-atlas'))!
     const topBefore = childrenOf(s().lanes, root.id).map((l) => l.name)
     s().insertLaneAfter(laneByName('b-atlas', 'Not Started').id)
     s().duplicateLane(laneByName('b-atlas', 'Not Started').id)
@@ -925,7 +988,7 @@ describe('store actions', () => {
   it('records who created an item, and will not restate it later', () => {
     s().selectBoard('b-atlas')
     s().setUser('u-mb')
-    const lane = s().lanes.find((l) => l.boardId === 'b-atlas' && l.workflow === 'cards' && l.stage === 'backlog')!.id
+    const lane = s().lanes.find((l) => l.boardId === 'b-atlas' && kindOfLane(l) === 'cards' && l.stage === 'backlog')!.id
     s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: lane, title: 'Made by Maya' })
     const made = s().items.find((i) => i.title === 'Made by Maya')!
     expect(made.createdById).toBe('u-mb')
@@ -1151,6 +1214,19 @@ describe('store actions', () => {
     expect(s().items.length).toBe(items)
   })
 
+  it('the design is four lists now: the flows are persisted, imported and rolled back with it', () => {
+    // Persisted: a reload has to know which tree each lane is in.
+    expect(persistedSlice(s()).flows?.map((f) => `${f.boardId}:${f.kind}:${f.name}`)).toEqual(
+      s().flows.map((f) => `${f.boardId}:${f.kind}:${f.name}`),
+    )
+    // An edit-mode cancel restores the flows with the lanes that name them, not just the lanes.
+    s().beginEdit()
+    useStore.setState({ flows: [] })
+    s().cancelEdit()
+    expect(s().flows.length).toBeGreaterThan(0)
+    expect(s().lanes.every((l) => s().flows.some((f) => f.id === l.flowId))).toBe(true)
+  })
+
   it('a copy is created rather than moved: landing in Done does not tick it resolved', () => {
     s().selectBoard('b-atlas')
     // Seeded in Atlas' Done column, with no checklist.
@@ -1373,7 +1449,7 @@ describe('store actions', () => {
     s().selectBoard('b-nova')
     const moved = () => (s().items.find((i) => i.id === 'init-welcome')!.log ?? []).filter((e) => e.kind === 'moved')
     const seeded = s().placements.find((p) => p.itemId === 'init-welcome' && p.boardId === 'b-nova')!.laneId
-    const ip = topLevelLanes(s().lanes, 'b-nova', 'initiatives').find((l) => l.stage === 'inProgress')!
+    const ip = topLevelLanes(s().lanes, flow('b-nova', 'initiatives')).find((l) => l.stage === 'inProgress')!
     s().splitLane(ip.id, 'columns')
     const cells = childrenOf(s().lanes, ip.id)
 
@@ -1387,31 +1463,31 @@ describe('store actions', () => {
     expect(moved()).toHaveLength(1)
 
     // And a move the model refuses is not a move to record.
-    const done = topLevelLanes(s().lanes, 'b-nova', 'initiatives').find((l) => l.stage === 'done')!
+    const done = topLevelLanes(s().lanes, flow('b-nova', 'initiatives')).find((l) => l.stage === 'done')!
     s().moveInitiative('init-welcome', 'b-nova', done.id)
     expect(moved()).toHaveLength(1)
   })
 
-  it('a lane removed records where its cards went, though that lane is gone', () => {
+  it('a cards lane that holds a card cannot be removed — deletion never moves work', () => {
     s().selectBoard('b-atlas')
     const ns = laneByName('b-atlas', 'Not Started')
     s().splitLane(ns.id, 'rows')
-    const [row1] = childrenOf(s().lanes, ns.id)
+    const [row1, row2] = childrenOf(s().lanes, ns.id)
 
-    // The board changed under the card: nobody moved it, so the entry says what did.
+    // Splitting moved the card into the first cell, and says so — a lane edit is recorded.
     const afterSplit = (s().items.find((i) => i.id === 'st-email')!.log ?? []).at(-1)!
     expect(afterSplit.kind).toBe('moved')
     expect(afterSplit.note).toBe('Not Started → Row 1 · lane split')
-    expect(afterSplit).toMatchObject({ fromLaneId: ns.id, toLaneId: row1.id })
 
-    // Removing the row folds the split and relocates its cards.
-    s().removeLane(row1.id)
-    const entry = (s().items.find((i) => i.id === 'st-email')!.log ?? []).at(-1)!
-    expect(entry.note).toBe('Row 1 → Not Started · lane removed')
-    // The lane it names is gone — the note still reads, and the placement agrees with the ids.
-    expect(s().lanes.find((l) => l.id === row1.id)).toBeUndefined()
-    expect(s().lanes.find((l) => l.id === entry.fromLaneId)).toBeUndefined()
-    expect(s().placements.find((p) => p.itemId === 'st-email')!.laneId).toBe(entry.toLaneId)
+    // The occupied cell is not offered: refused, untouched, no history entry invented for it.
+    expect(s().removeLane(row1.id)).toBe(false)
+    expect(s().lanes.some((l) => l.id === row1.id)).toBe(true)
+    expect(s().placements.find((p) => p.itemId === 'st-email')!.laneId).toBe(row1.id)
+
+    // The empty sibling goes, and the split is not folded over a card: Row 1 stays where it is.
+    expect(s().removeLane(row2.id)).toBe(true)
+    expect(childrenOf(s().lanes, ns.id).map((l) => l.id)).toEqual([row1.id])
+    expect(s().placements.find((p) => p.itemId === 'st-email')!.laneId).toBe(row1.id)
   })
 
   it('the demo board carries a history the flow view can read', () => {
@@ -1419,22 +1495,23 @@ describe('store actions', () => {
     // included — a board's throughput does not stop at the archive.
     const laneOf = new Map(s().placements.filter((p) => p.boardId === 'b-atlas').map((p) => [p.itemId, p.laneId]))
     const records = [...laneOf.keys()]
-      .filter((id) => s().lanes.find((l) => l.id === laneOf.get(id))?.workflow === 'cards')
+      .filter((id) => kindOfLane(s().lanes.find((l) => l.id === laneOf.get(id))!) === 'cards')
       .map((id) => s().items.find((i) => i.id === id)!)
       .map((i) => flowRecord(i, effectiveStage(s().lanes, laneOf.get(i.id)!)))
     const summary = flowSummary(records, Date.now())
 
-    // Eight delivered (one of them this week, seven filed away), four still moving.
-    expect(records.length).toBe(12)
-    expect(summary.delivered).toBe(8)
-    expect(summary.inFlight).toBe(4)
+    // Nine delivered (one this week, seven filed away, and one answered in the support queue),
+    // five still moving.
+    expect(records.length).toBe(14)
+    expect(summary.delivered).toBe(9)
+    expect(summary.inFlight).toBe(5)
     // Lead time includes the wait in Backlog; cycle time starts at the first commit, so it is
     // shorter for the cards that queued — and the slowest card is the outlier the p85 names.
-    expect(summary.lead.median).toBe(15.5)
+    expect(summary.lead.median).toBe(15)
     expect(summary.lead.p85).toBe(17)
     expect(summary.cycle.median).toBe(14)
     expect(summary.cycle.p85).toBe(16)
-    expect(summary.lead.count).toBe(8)
+    expect(summary.lead.count).toBe(9)
 
     // And the history is a real shape over weeks, not a flat line: the flow diagram is neither
     // empty at the start of its window nor unchanged from the first week to the last.
@@ -1444,7 +1521,7 @@ describe('store actions', () => {
     const flow = cumulativeFlow(records, buckets)
     expect(flow.every((c) => c.backlog + c.notStarted + c.inProgress + c.done > 0)).toBe(true)
     expect(flow[flow.length - 1].done).toBeGreaterThan(flow[0].done)
-    expect(throughput(records, buckets).reduce((a, b) => a + b, 0)).toBe(8)
+    expect(throughput(records, buckets).reduce((a, b) => a + b, 0)).toBe(9)
   })
 
   it('renaming or splitting a column later leaves the history in stages alone', () => {
@@ -1724,7 +1801,7 @@ describe('store actions', () => {
 
   it('an initiative with nothing below it is its own leaf: it can be committed before it is broken down', () => {
     s().selectBoard('b-strategy')
-    const section = (stage: Stage) => topLevelLanes(s().lanes, 'b-strategy', 'initiatives').find((l) => l.stage === stage)!
+    const section = (stage: Stage) => topLevelLanes(s().lanes, flow('b-strategy', 'initiatives')).find((l) => l.stage === stage)!
     const laneOf = (id: string, boardId = 'b-strategy') => s().placements.find((p) => p.itemId === id && p.boardId === boardId)!.laneId
     // The fixture's unplanned initiative: no descendants at all.
     expect(descendants('init-explore', graph())).toEqual([])
@@ -1744,7 +1821,7 @@ describe('store actions', () => {
     expect(descendants('init-signup', graph()).length).toBeGreaterThan(0)
     s().selectBoard('b-atlas')
     const before = laneOf('init-signup', 'b-atlas')
-    const atlasSection = (stage: Stage) => topLevelLanes(s().lanes, 'b-atlas', 'initiatives').find((l) => l.stage === stage)!
+    const atlasSection = (stage: Stage) => topLevelLanes(s().lanes, flow('b-atlas', 'initiatives')).find((l) => l.stage === stage)!
     s().moveInitiative('init-signup', 'b-atlas', atlasSection('done').id)
     expect(laneOf('init-signup', 'b-atlas')).toBe(before)
     // …but it may still be rearranged within its own section.
@@ -2143,7 +2220,7 @@ describe('store actions', () => {
     expect(migrated.items[1].assignees).toBeUndefined()
   })
 
-  it('removing one cell of a split folds the split away rather than stranding its cards', () => {
+  it('removing an empty cell of a split leaves the other where it is, cards and all', () => {
     s().selectBoard('b-atlas')
     const backlog = laneByName('b-atlas', 'Backlog')
     s().splitLane(backlog.id, 'columns')
@@ -2151,12 +2228,43 @@ describe('store actions', () => {
     expect(cells).toHaveLength(2)
     s().moveCard('st-email', 'b-atlas', cells[1].id)
 
-    s().removeLane(cells[0].id)
+    expect(s().removeLane(cells[0].id)).toBe(true)
 
-    // One child is not a split: the survivor folds away and the section holds the card itself,
-    // which is the cell the surface looks in. Before this the card sat in a cell nothing drew.
+    // The survivor holds the card, so it is not folded away — a fold would lift that card into the
+    // parent, which is a move. The split stays a split of one until somebody adds or empties it.
+    expect(childrenOf(s().lanes, backlog.id).map((c) => c.id)).toEqual([cells[1].id])
+    expect(s().placements.find((x) => x.itemId === 'st-email' && x.boardId === 'b-atlas')?.laneId).toBe(cells[1].id)
+  })
+
+  it('an empty split folds away, because the fold moves nothing', () => {
+    // A fresh board's cells are empty, so this is the fold's own case.
+    s().addBoard('Fresh', undefined, false)
+    const fresh = s().boards.at(-1)!
+    const backlog = laneByName(fresh.id, 'Backlog')
+    s().splitLane(backlog.id, 'columns')
+    const cells = childrenOf(s().lanes, backlog.id)
+
+    expect(s().removeLane(cells[0].id)).toBe(true)
+    // One child is not a split: the survivor folds away and the column is a cell again.
     expect(childrenOf(s().lanes, backlog.id)).toHaveLength(0)
-    expect(s().placements.find((x) => x.itemId === 'st-email' && x.boardId === 'b-atlas')?.laneId).toBe(backlog.id)
+    expect(s().lanes.some((l) => l.id === cells[0].id)).toBe(false)
+  })
+
+  it('the initiatives flow keeps its own rule: a cell retires with its initiative moved beside it', () => {
+    s().selectBoard('b-atlas')
+    // `init-signup` reads in the Not Started section; splitting it puts the initiative in cell A.
+    const section = topLevelLanes(s().lanes, flow('b-atlas', 'initiatives')).find((l) => l.stage === 'notStarted')!
+    s().splitLane(section.id, 'columns')
+    const [cellA] = childrenOf(s().lanes, section.id)
+    expect(s().placements.find((p) => p.itemId === 'init-signup' && p.boardId === 'b-atlas')!.laneId).toBe(cellA.id)
+
+    // Retiring the cell is allowed — an initiative is arranged, not worked. The survivor folds
+    // away (it is empty), so the initiative lands in the section itself, recorded as a move.
+    expect(s().removeLane(cellA.id)).toBe(true)
+    expect(s().placements.find((p) => p.itemId === 'init-signup')!.laneId).toBe(section.id)
+    expect(childrenOf(s().lanes, section.id)).toHaveLength(0)
+    const note = (s().items.find((i) => i.id === 'init-signup')!.log ?? []).at(-1)!
+    expect(note.note).toContain('lane removed')
   })
 
   it('a parent is always an initiative', () => {
@@ -2187,7 +2295,7 @@ describe('store actions', () => {
 
   it('a selection moves to another board, into that board\u2019s own drop cell', () => {
     s().selectBoard('b-atlas')
-    const nova = leafLanes(s().lanes, 'b-nova', 'cards')
+    const nova = leafLanes(s().lanes, flow('b-nova'))
     s().setBoardDefaultDropLane('b-nova', nova[1].id)
 
     s().moveCardsToBoard(['st-email', 'st-signup-form'], 'b-nova')
@@ -2228,18 +2336,18 @@ describe('store actions', () => {
 
   it('a card lands in the cell the board named, and falls back when that cell is gone', () => {
     const atlas = () => s().boards.find((b) => b.id === 'b-atlas')
-    const leaves = () => leafLanes(s().lanes, 'b-atlas', 'cards')
+    const leaves = () => leafLanes(s().lanes, flow('b-atlas'))
     // Unnamed: the first leaf, which is where it went before a board could say.
-    expect(defaultDropLane(atlas(), s().lanes, 'b-atlas')?.id).toBe(leaves()[0].id)
+    expect(defaultDropLane(atlas(), s().flows, s().lanes, 'b-atlas')?.id).toBe(leaves()[0].id)
 
     const chosen = leaves()[leaves().length - 1]
     s().setBoardDefaultDropLane('b-atlas', chosen.id)
     expect(atlas()?.defaultDropLaneId).toBe(chosen.id)
-    expect(defaultDropLane(atlas(), s().lanes, 'b-atlas')?.id).toBe(chosen.id)
+    expect(defaultDropLane(atlas(), s().flows, s().lanes, 'b-atlas')?.id).toBe(chosen.id)
 
     // A named cell that has been deleted — or split away — is not a reason to refuse a card.
     s().setBoardDefaultDropLane('b-atlas', 'lane-that-is-gone')
-    expect(defaultDropLane(atlas(), s().lanes, 'b-atlas')?.id).toBe(leaves()[0].id)
+    expect(defaultDropLane(atlas(), s().flows, s().lanes, 'b-atlas')?.id).toBe(leaves()[0].id)
 
     // Clearing it goes back to the first leaf.
     s().setBoardDefaultDropLane('b-atlas', undefined)
@@ -2590,6 +2698,224 @@ describe('timeline view state', () => {
   })
 })
 
+describe('the flows of a board', () => {
+  beforeEach(() => {
+    resetToFixture()
+    // The fixture opens on the portfolio board; this is team work.
+    s().selectBoard('b-atlas')
+  })
+
+  it('gives a board another cards flow, with its own four typed columns', () => {
+    const id = s().addCardsFlow()!
+    expect(id).toBeTruthy()
+    const flow = s().flows.find((f) => f.id === id)!
+    expect(flow).toMatchObject({ boardId: 'b-atlas', kind: 'cards', name: 'Cards 2', order: 2 })
+    // Its own tree, starting where every flow starts — four typed columns, one cell each.
+    expect(s().lanes.filter((l) => l.flowId === id)).toHaveLength(5)
+    expect(topLevelLanes(s().lanes, id).map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+    // The work stays where it was: a new flow is an empty one.
+    expect(leafLanes(s().lanes, id).every((l) => !s().placements.some((p) => p.laneId === l.id))).toBe(true)
+  })
+
+  it('refuses a cards flow on a coordination board, which aggregates rather than works', () => {
+    s().selectBoard('b-portfolio')
+    expect(s().addCardsFlow()).toBeUndefined()
+    expect(cardsFlows(s().flows, 'b-portfolio')).toHaveLength(1)
+  })
+
+  it('names a cards flow, trims it, refuses an empty name — and never renames the initiatives flow', () => {
+    const id = s().addCardsFlow()!
+    expect(s().renameFlow(id, '  Support  ')).toBe(true)
+    expect(s().flows.find((f) => f.id === id)?.name).toBe('Support')
+    expect(s().renameFlow(id, '   ')).toBe(false)
+    expect(s().flows.find((f) => f.id === id)?.name).toBe('Support')
+    expect(s().renameFlow(flow('b-atlas', 'initiatives'), 'Outcomes')).toBe(false)
+  })
+
+  it('reorders the cards flows, and leaves the initiatives flow where it is', () => {
+    const id = s().addCardsFlow()!
+    // Cards, Support, Cards 2 — one step left puts it between them.
+    expect(s().moveFlow(id, -1)).toBe(true)
+    expect(cardsFlows(s().flows, 'b-atlas').map((f) => f.name)).toEqual(['Cards', 'Cards 2', 'Support'])
+    expect(s().moveFlow(id, -1)).toBe(true)
+    expect(cardsFlows(s().flows, 'b-atlas').map((f) => f.name)).toEqual(['Cards 2', 'Cards', 'Support'])
+    // The order is a clean 0..n-1, so two swaps cannot drift it.
+    expect(cardsFlows(s().flows, 'b-atlas').map((f) => f.order)).toEqual([0, 1, 2])
+    // The ends are ends, and the initiatives flow is not in the strip at all.
+    expect(s().moveFlow(id, -1)).toBe(false)
+    expect(s().moveFlow(flow('b-atlas', 'initiatives'), 1)).toBe(false)
+  })
+
+  it('removes an empty cards flow with its lanes, and refuses the last and the occupied', () => {
+    // The board's own flow holds cards: filing them is a person's decision, not a side effect.
+    expect(s().removeFlow(flow('b-atlas'))).toBe(false)
+    expect(s().flows.some((f) => f.id === flow('b-atlas'))).toBe(true)
+
+    const id = s().addCardsFlow()!
+    expect(s().removeFlow(id)).toBe(true)
+    expect(s().flows.some((f) => f.id === id)).toBe(false)
+    expect(s().lanes.some((l) => l.flowId === id)).toBe(false)
+
+    // The *first* flow can go too, when it is empty and another remains: a board made from a
+    // template starts with empty flows, so this is the ordinary case rather than a corner.
+    s().saveBoardAsTemplate('b-atlas', 'Empty copy')
+    const template = s().boardTemplates.at(-1)!
+    s().addBoard('Empty', undefined, false, template.id)
+    const empty = s().boards.at(-1)!
+    const first = cardsFlows(s().flows, empty.id)[0]
+    expect(empty.id).toBeTruthy()
+    expect(s().removeFlow(first.id)).toBe(true)
+    expect(cardsFlows(s().flows, empty.id).map((f) => f.name)).not.toContain(first.name)
+
+    // A board always keeps one cards flow, even an empty one.
+    s().selectBoard('b-portfolio')
+    expect(s().removeFlow(flow('b-portfolio'))).toBe(false)
+    // And the initiatives flow is not the team's to remove.
+    expect(s().removeFlow(flow('b-atlas', 'initiatives'))).toBe(false)
+  })
+
+  it('a board whose new-card cell lived in the flow says again rather than pointing at nothing', () => {
+    const id = s().addCardsFlow()!
+    const cell = leafLanes(s().lanes, id)[0].id
+    s().setBoardDefaultDropLane('b-atlas', cell)
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.defaultDropLaneId).toBe(cell)
+    expect(s().removeFlow(id)).toBe(true)
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.defaultDropLaneId).toBeUndefined()
+  })
+
+  it('the default drop cell may name a cell of any flow on the board, never another board’s', () => {
+    const support = s().addCardsFlow('Support')!
+    const supportCells = leafLanes(s().lanes, support)
+    const board = () => s().boards.find((b) => b.id === 'b-atlas')!
+
+    s().setBoardDefaultDropLane('b-atlas', supportCells[1].id)
+    expect(defaultDropLane(board(), s().flows, s().lanes, 'b-atlas')?.id).toBe(supportCells[1].id)
+
+    // A cell somebody else's board owns is not this board's answer: it falls back to its first.
+    s().setBoardDefaultDropLane('b-atlas', leafLanes(s().lanes, flow('b-nova'))[0].id)
+    expect(defaultDropLane(board(), s().flows, s().lanes, 'b-atlas')?.id).toBe(leafLanes(s().lanes, flow('b-atlas'))[0].id)
+  })
+
+  it('moves a card from one cards flow to another, and its history names both', () => {
+    const support = s().addCardsFlow('Support')!
+    const target = leafLanes(s().lanes, support).find((l) => l.stage === 'done')!
+    const card = 'st-signup-form'
+
+    expect(s().moveCard(card, 'b-atlas', target.id)).toBe(true)
+
+    // One card, one placement: a move between flows is a move, not a second copy.
+    const placements = s().placements.filter((p) => p.itemId === card && p.boardId === 'b-atlas')
+    expect(placements).toHaveLength(1)
+    expect(placements[0].laneId).toBe(target.id)
+    // The target column decides the status, whichever flow it belongs to.
+    expect(effectiveStage(s().lanes, placements[0].laneId)).toBe('done')
+    expect(s().items.find((i) => i.id === card)?.resolvedAt).toBeDefined()
+
+    // "In Progress → Done" would read as a local move; the note says the card changed trees.
+    const note = s().items.find((i) => i.id === card)!.log!.at(-1)!
+    expect(note.kind).toBe('moved')
+    expect(note.note).toBe('Cards: Dev → Support: Done')
+  })
+
+  it('a move within one flow stays in the board’s own words', () => {
+    const done = leafLanes(s().lanes, flow('b-atlas')).find((l) => l.stage === 'done')!
+    expect(s().moveCard('st-signup-form', 'b-atlas', done.id)).toBe(true)
+    const note = s().items.find((i) => i.id === 'st-signup-form')!.log!.at(-1)!
+    // No flow names: nothing crossed, and a note that repeated "Cards" on every drag would be
+    // noise in a history read for what changed.
+    expect(note.note).toBe('Dev → Done')
+  })
+
+  it('finishing and filing follow the column, whichever flow it is in', () => {
+    const support = s().addCardsFlow('Support')!
+    const done = leafLanes(s().lanes, support).find((l) => l.stage === 'done')!
+    const backlog = leafLanes(s().lanes, support).find((l) => l.stage === 'backlog')!
+
+    // Done in the second flow is done: archived as completed, never discarded.
+    s().moveCard('st-signup-form', 'b-atlas', done.id)
+    s().archiveItem('st-signup-form')
+    const finished = s().items.find((i) => i.id === 'st-signup-form')!
+    expect(finished.discarded).toBeUndefined()
+    expect(finished.log?.at(-1)?.kind).toBe('archived')
+    expect(archiveOutcome(finished, graph())).toBe('completed')
+
+    // Backlog in the second flow is not done: filed away as discarded.
+    s().moveCard('st-email', 'b-atlas', backlog.id)
+    s().archiveItem('st-email')
+    const open = s().items.find((i) => i.id === 'st-email')!
+    expect(open.discarded).toBe(true)
+    expect(open.log?.at(-1)?.kind).toBe('discarded')
+    expect(archiveOutcome(open, graph())).toBe('discarded')
+  })
+
+  it('archive-done and auto-archive span every flow on the board', () => {
+    const support = s().addCardsFlow('Support')!
+    const supportDone = leafLanes(s().lanes, support).find((l) => l.stage === 'done')!
+    const cardsDone = leafLanes(s().lanes, flow('b-atlas')).find((l) => l.stage === 'done')!
+
+    // One done card in each flow: the board's "Archive done" is the board's, not a flow's.
+    s().moveCard('st-signup-form', 'b-atlas', supportDone.id)
+    s().moveCard('st-email', 'b-atlas', cardsDone.id)
+    s().archiveDoneOnBoard('b-atlas')
+    expect(s().items.find((i) => i.id === 'st-signup-form')?.archived).toBe(true)
+    expect(s().items.find((i) => i.id === 'st-email')?.archived).toBe(true)
+
+    // Auto-archive reads the same stage: a card finished in the second flow is eligible too.
+    s().moveCard('st-sso', 'b-atlas', supportDone.id)
+    useStore.setState({
+      items: s().items.map((i) => (i.id === 'st-sso' ? { ...i, resolvedAt: Date.now() - 2 * 86_400_000 } : i)),
+    })
+    s().setAutoArchiveDays(1)
+    s().runAutoArchive()
+    expect(s().items.find((i) => i.id === 'st-sso')?.archived).toBe(true)
+  })
+
+  it('a template carries every cards flow into the board it makes', () => {
+    s().addCardsFlow('Escalations')
+    s().saveBoardAsTemplate('b-atlas', 'Two flows')
+    const template = s().boardTemplates.at(-1)!
+    expect(template.flows.map((f) => f.name)).toEqual(['Cards', 'Support', 'Escalations'])
+
+    s().addBoard('Copy', undefined, false, template.id)
+    const copy = s().boards.at(-1)!
+    const made = cardsFlows(s().flows, copy.id)
+    expect(made.map((f) => f.name)).toEqual(['Cards', 'Support', 'Escalations'])
+    // Each flow arrives with its own four columns, and the initiatives flow is still the
+    // standard one — the organisation's shape is not the template's.
+    for (const flow of made) {
+      expect(topLevelLanes(s().lanes, flow.id).map((l) => l.stage)).toEqual([
+        'backlog',
+        'notStarted',
+        'inProgress',
+        'done',
+      ])
+    }
+    expect(topLevelLanes(s().lanes, flow(copy.id, 'initiatives')).map((l) => l.stage)).toEqual([
+      'backlog',
+      'notStarted',
+      'inProgress',
+      'done',
+    ])
+  })
+
+  it('a new template starts as one cards flow, named and ordered', () => {
+    const id = s().newBoardTemplate('Fresh', 'team')!
+    const template = s().boardTemplates.find((t) => t.id === id)!
+    expect(template.flows).toHaveLength(1)
+    expect(template.flows[0]).toMatchObject({ kind: 'cards', name: 'Cards', order: 0 })
+    expect(template.lanes.every((l) => l.flowKey === template.flows[0].key)).toBe(true)
+    expect(template.lanes.map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
+  })
+
+  it('is edit-mode work: Cancel takes the flow away with it', () => {
+    s().beginEdit()
+    const id = s().addCardsFlow()!
+    expect(s().flows.some((f) => f.id === id)).toBe(true)
+    s().cancelEdit()
+    expect(s().flows.some((f) => f.id === id)).toBe(false)
+  })
+})
+
 describe('initiative rank within a cell', () => {
   beforeEach(() => resetToFixture())
 
@@ -2609,7 +2935,7 @@ describe('initiative rank within a cell', () => {
     // init-efficiency has work below it (init-delivery, sitting in Not Started), so its section
     // is derived and Done is another section entirely. A childless initiative is its own leaf and
     // *may* cross — that carve-out has its own test.
-    const doneCell = topLevelLanes(s().lanes, 'b-strategy', 'initiatives').find((l) => l.stage === 'done')!.id
+    const doneCell = topLevelLanes(s().lanes, flow('b-strategy', 'initiatives')).find((l) => l.stage === 'done')!.id
     expect(descendants('init-efficiency', graph()).length).toBeGreaterThan(0)
     expect(rollupOf('init-efficiency', graph()).bucket).toBe('notStarted')
     const before = JSON.stringify(s().placements)

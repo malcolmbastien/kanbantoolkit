@@ -17,7 +17,7 @@ import { writeWorkspace } from './workspace/write'
 import type { Workspace } from './workspace/types'
 import { FORBIDDEN_TOOL_NAMES, TOOLS, toolsFor } from './mcp/tools'
 import { bridgeLine } from './mcp'
-import type { Board, Item, Lane, Placement } from '../src/domain/types'
+import type { Board, BoardFlow, Item, Lane, Placement } from '../src/domain/types'
 
 const MIGRATIONS = new URL('../migrations/', import.meta.url)
 
@@ -30,13 +30,20 @@ function database(): Database {
   return fromSqlite(db)
 }
 
+const CARDS = 'f-cards'
+const INIT = 'f-init'
+const flows = (boardId = 'b-1'): BoardFlow[] => [
+  { id: CARDS, boardId, kind: 'cards', name: 'Cards', order: 0 },
+  { id: INIT, boardId, kind: 'initiatives', name: 'Initiatives', order: 0 },
+]
+
 const lane = (id: string, stage: Lane['stage'], extra: Partial<Lane> = {}): Lane => ({
   id,
   boardId: 'b-1',
   parentId: null,
   order: 0,
   name: id,
-  workflow: 'cards',
+  flowId: CARDS,
   stage,
   ...extra,
 })
@@ -64,6 +71,7 @@ function seeded(): Workspace {
   return {
     meUserId: 'u-admin',
     boardId: 'b-1',
+    flows: flows(),
     users: [],
     issueTypes: [
       { id: 't-card', name: 'Card', color: '#0ea5e9' },
@@ -74,8 +82,8 @@ function seeded(): Workspace {
       lane('l-backlog', 'backlog', { order: 0 }),
       lane('l-doing', 'inProgress', { order: 1 }),
       lane('l-done', 'done', { order: 2, wipLimit: 1 }),
-      lane('l-sec', 'backlog', { order: 0, workflow: 'initiatives', name: 'Backlog (initiatives)' }),
-      lane('l-cell', 'backlog', { order: 0, workflow: 'initiatives', parentId: 'l-sec', name: 'Uncommitted' }),
+      lane('l-sec', 'backlog', { order: 0, flowId: INIT, name: 'Backlog (initiatives)' }),
+      lane('l-cell', 'backlog', { order: 0, flowId: INIT, parentId: 'l-sec', name: 'Uncommitted' }),
     ],
     items: [item('i-1'), item('i-2'), item('i-3'), item('i-init', { typeId: 't-init' }), item('i-kid', { typeId: 't-init' })],
     placements: [
@@ -340,7 +348,12 @@ describe('the tools do what the doors do', () => {
     expect(value.data).toHaveLength(1)
 
     const summary = await call(reader.rpc, 'workspace_summary')
-    expect(summary.result?.structuredContent).toMatchObject({ counts: { initiatives: 2 }, boards: [{ id: 'b-1' }] })
+    expect(summary.result?.structuredContent).toMatchObject({
+      counts: { initiatives: 2 },
+      boards: [{ id: 'b-1' }],
+      // Every cards flow the summary reports is named, so an agent does not plan against the first.
+      flows: [{ name: 'Cards' }],
+    })
   })
 })
 

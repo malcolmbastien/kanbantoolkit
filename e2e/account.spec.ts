@@ -188,14 +188,22 @@ test('a change made on one device arrives on another without a reload', async ({
     // on it; the design and the card have to reach the server before the second device can adopt
     // the same workspace.
     await boardOpen(away)
+    // Wait for *this* card, not for "some card": the instance is shared with the tests before this
+    // one, and a poll that only asks for any work passes before the new placement has landed — so
+    // the second device adopts too early and never sees the card.
+    const counted = async () => {
+      const body = (await (await away.request.get(`${SELF_HOSTED}/api/workspace`)).json()) as {
+        items: unknown[]
+        placements: unknown[]
+      }
+      return { items: body.items.length, placements: body.placements.length }
+    }
+    const before = await counted()
     await addCardTo(away, 'Backlog')
     await expect
       .poll(async () => {
-        const body = (await (await away.request.get(`${SELF_HOSTED}/api/workspace`)).json()) as {
-          items: unknown[]
-          placements: unknown[]
-        }
-        return body.items.length > 0 && body.placements.length > 0
+        const now = await counted()
+        return now.items > before.items && now.placements > before.placements
       })
       .toBe(true)
 

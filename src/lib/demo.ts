@@ -12,11 +12,12 @@
  */
 
 import { createSeed } from '@/domain/seed'
-import type { Board, Item, Lane, Placement } from '@/domain/types'
+import type { Board, BoardFlow, Item, Lane, Placement } from '@/domain/types'
 
-/** The four lists the demo is made of — what `persistedSlice` and the seed both carry. */
+/** The lists the demo is made of — what `persistedSlice` and the seed both carry. */
 export interface Workspaceish {
   boards: Board[]
+  flows: BoardFlow[]
   lanes: Lane[]
   placements: Placement[]
   items: Item[]
@@ -25,7 +26,10 @@ export interface Workspaceish {
 const signature = (workspace: Workspaceish): string =>
   JSON.stringify([
     workspace.boards.map((board) => [board.id, board.name]),
-    workspace.lanes.map((lane) => [lane.id, lane.boardId, lane.parentId, lane.name]),
+    // The flows too: a board with a second cards flow is a different demo, and a stale copy must
+    // not read as the one we handed out.
+    workspace.flows.map((flow) => [flow.id, flow.boardId, flow.kind, flow.name, flow.order]),
+    workspace.lanes.map((lane) => [lane.id, lane.boardId, lane.parentId, lane.name, lane.flowId]),
     workspace.items.map((item) => [item.id, item.title, item.resolvedAt ?? null]),
     workspace.placements.map((placement) => [placement.id, placement.itemId, placement.laneId]),
   ])
@@ -34,5 +38,5 @@ const signature = (workspace: Workspaceish): string =>
 export function isDemoWorkspace(workspace: Workspaceish): boolean {
   if (workspace.boards.length === 0) return false
   const seed = createSeed()
-  return signature(workspace) === signature({ boards: seed.boards, lanes: seed.lanes, items: seed.items, placements: seed.placements })
+  return signature(workspace) === signature(seed)
 }

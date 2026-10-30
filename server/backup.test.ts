@@ -25,8 +25,9 @@ const workspace: Workspace = {
   users: [{ id: 'u-ada', name: 'Ada' }],
   issueTypes: [{ id: 't-card', name: 'Card', color: '#3b82f6' }],
   boards: [{ id: 'b-atlas', name: 'Team Atlas', band: 'team', description: 'Kept in every copy.' }],
+  flows: [{ id: 'f-cards', boardId: 'b-atlas', kind: 'cards', name: 'Cards', order: 0 }],
   lanes: [
-    { id: 'l-backlog', boardId: 'b-atlas', parentId: null, order: 0, name: 'Backlog', workflow: 'cards', stage: 'backlog' },
+    { id: 'l-backlog', boardId: 'b-atlas', parentId: null, order: 0, name: 'Backlog', flowId: 'f-cards', stage: 'backlog' },
   ],
   items: [
     {
