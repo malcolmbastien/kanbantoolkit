@@ -174,6 +174,14 @@ test('blocked work says what is blocked now, and a row opens the card', async ({
   expect(await panel.getAttribute('aria-label')).toContain(title)
 })
 
+test('data quality says how to read the history before the charts do', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  const section = view.locator('[data-quality]').or(view.locator('[data-quality-clean]'))
+  await expect(section).toBeVisible()
+})
+
 test('downloads the delivered rows behind the charts', async ({ page }) => {
   await page.goto(FLOW)
 

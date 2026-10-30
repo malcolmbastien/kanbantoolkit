@@ -8,6 +8,7 @@ import {
   bucketsFor,
   committedAt,
   cumulativeFlow,
+  dataQuality,
   deliveredSince,
   firstRecordedMove,
   flowRecord,
@@ -32,6 +33,7 @@ import {
   type FlowRecord,
 } from '@/domain/metrics'
 import { isInitiativeItem } from '@/domain/board'
+import { dependenciesOf, openDependenciesOf, type Graph } from '@/domain/derive'
 import { effectiveStage, STAGE_LABELS, STAGES } from '@/domain/lanes'
 import { STAGE_ACCENT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -63,6 +65,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const lanes = useStore((s) => s.lanes)
   const flows = useStore((s) => s.flows)
   const placements = useStore((s) => s.placements)
+  const edges = useStore((s) => s.edges)
+  const links = useStore((s) => s.links)
   const users = useStore((s) => s.users)
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
@@ -107,6 +111,28 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const firstMove = firstRecordedMove(records)
   const coverage = moveCoverage(records)
   const deliveredTotal = delivered.reduce((sum, n) => sum + n, 0)
+
+  // The data-quality check reads the same history the charts do, plus the two things a record
+  // cannot know: the boards a card is placed on, and whether a blockage outlived its dependency.
+  const graph: Graph = { items, edges, links, placements, lanes }
+  const recordIds = new Set(records.map((record) => record.id))
+  const boardsByItem: Record<string, string[]> = {}
+  for (const placement of placements) {
+    if (!recordIds.has(placement.itemId)) continue
+    const name = boards.find((candidate) => candidate.id === placement.boardId)?.name
+    if (!name) continue
+    const names = boardsByItem[placement.itemId] ?? []
+    if (!names.includes(name)) names.push(name)
+    boardsByItem[placement.itemId] = names
+  }
+  const staleBlocks = records
+    .filter((record) => {
+      const item = items.find((candidate) => candidate.id === record.id)
+      if (!item?.blocked) return false
+      return dependenciesOf(item.id, graph).length > 0 && openDependenciesOf(item.id, graph).length === 0
+    })
+    .map((record) => record.id)
+  const quality = dataQuality(records, { boardsByItem, blockedAfterDependencyDone: staleBlocks })
   const wip = averageWip(records, buckets)
   const rate = throughputRate(records, since ?? Math.min(...records.map((record) => record.createdAt), now), now)
   const implied = littleCycle(wip, rate)
@@ -266,6 +292,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
           </div>
         ) : (
           <>
+            <DataQuality findings={quality} titles={new Map(records.map((record) => [record.id, record.title]))} openItem={openItem} />
+
             <CycleScatter records={records} since={since} openItem={openItem} selectedItemId={selectedItemId} />
 
             <CycleHistogram cycles={cycles} p50={summary.cycle.p50} p85={summary.cycle.p85} />
@@ -891,6 +919,69 @@ function AgingWork({
           )}
         </>
       )}
+    </Panel>
+  )
+}
+
+/**
+ * The reader's warning label, not a gate.
+ *
+ * JiraMetrics opens every report with this, and the reason is simple: the charts are only as good
+ * as the data, and a reader who knows where the process bends the model reads the rest differently.
+ * A finding lists the cards and takes you to them; it never hides one or says the team did something
+ * wrong.
+ */
+function DataQuality({
+  findings,
+  titles,
+  openItem,
+}: {
+  findings: ReturnType<typeof dataQuality>
+  titles: Map<string, string>
+  openItem: (id: string | null) => void
+}) {
+  if (findings.length === 0) {
+    return (
+      <div data-quality-clean className="mb-3 rounded-lg border border-slate-300 bg-white px-4 py-2 text-meta text-slate-600 shadow-sm">
+        <span className="font-semibold text-slate-700">Data quality:</span> nothing to flag in this
+        flow. The history matches a clean start-to-finish reading.
+      </div>
+    )
+  }
+
+  return (
+    <Panel
+      title="Data quality"
+      note="Places where the history bends the start-to-finish model. They do not hide anything; they say how to read the rest."
+    >
+      <ul data-quality className="grid gap-x-6 gap-y-2 md:grid-cols-2">
+        {findings.map((finding) => (
+          <li key={finding.flag} data-quality-finding={finding.flag}>
+            <div className="flex items-baseline gap-2">
+              <span className="text-meta font-semibold text-slate-800">{finding.label}</span>
+              <span className="text-micro tabular-nums text-slate-600">{finding.items.length}</span>
+            </div>
+            <div className="text-micro text-slate-600">{finding.why}</div>
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {finding.items.slice(0, 4).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  data-quality-item
+                  onClick={() => openItem(id)}
+                  className="max-w-[220px] truncate rounded bg-slate-100 px-1.5 py-0.5 text-left text-micro text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
+                  title={titles.get(id) ?? 'Open the card'}
+                >
+                  {titles.get(id) ?? 'Open the card'}
+                </button>
+              ))}
+              {finding.items.length > 4 && (
+                <span className="self-center text-micro text-slate-500">+{finding.items.length - 4} more</span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </Panel>
   )
 }

@@ -9,6 +9,7 @@ import {
   committedAt,
   cumulativeFlow,
   cycleTimes,
+  dataQuality,
   deliveredSince,
   flowRecord,
   firstRecordedMove,
@@ -596,5 +597,51 @@ describe('the Flow export', () => {
 
   it('answers the header alone for an empty sample', () => {
     expect(metricsCsv([]).trimEnd()).toBe(METRICS_CSV_HEADER.join(','))
+  })
+})
+
+describe('the data-quality check', () => {
+  it('finds each bend in the model on its own fixture, and nothing on a clean one', () => {
+    const clean = rec({
+      id: 'clean',
+      createdAt: T - 20 * DAY,
+      resolvedAt: T - 2 * DAY,
+      moves: [move(T - 15 * DAY, 'inProgress', 'backlog'), move(T - 2 * DAY, 'done', 'inProgress')],
+    })
+    expect(dataQuality([clean])).toEqual([])
+
+    const backwards = rec({
+      id: 'back',
+      moves: [move(T - 10 * DAY, 'inProgress', 'backlog'), move(T - 5 * DAY, 'notStarted', 'inProgress')],
+    })
+    const returned = rec({
+      id: 'returned',
+      moves: [move(T - 10 * DAY, 'inProgress', 'backlog'), move(T - 5 * DAY, 'backlog', 'inProgress')],
+    })
+    const afterDone = rec({
+      id: 'after',
+      resolvedAt: T - 1 * DAY,
+      moves: [move(T - 5 * DAY, 'done', 'inProgress'), move(T - 1 * DAY, 'inProgress', 'done')],
+    })
+    const impossible = rec({ id: 'impossible', createdAt: T, resolvedAt: T - 5 * DAY, moves: [move(T - 5 * DAY, 'done', 'backlog')] })
+    const outside = rec({ id: 'outside', startedIn: 'inProgress', moves: [move(T - 5 * DAY, 'done', 'inProgress')] })
+    const still = rec({ id: 'still' })
+
+    const findings = dataQuality([clean, backwards, returned, afterDone, impossible, outside, still], {
+      boardsByItem: { clean: ['Atlas', 'Nova'] },
+      blockedAfterDependencyDone: ['still'],
+    })
+    const byFlag = new Map(findings.map((finding) => [finding.flag, finding.items]))
+    expect(byFlag.get('impossible')).toEqual(['impossible'])
+    // The rejected card and the two that moved back out of Done also count as backwards.
+    expect(byFlag.get('backwards')).toEqual(['after', 'back', 'returned'])
+    expect(byFlag.get('returned')).toEqual(['returned'])
+    expect(byFlag.get('afterDone')).toEqual(['after'])
+    expect(byFlag.get('createdOutside')).toEqual(['outside'])
+    expect(byFlag.get('noHistory')).toEqual(['still'])
+    expect(byFlag.get('multiBoard')).toEqual(['clean'])
+    expect(byFlag.get('staleBlock')).toEqual(['still'])
+    // A clean card raises nothing, whatever its neighbours do.
+    expect(byFlag.get('backwards')).not.toContain('clean')
   })
 })

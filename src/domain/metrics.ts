@@ -1,4 +1,5 @@
 import { STALE_AFTER_DAYS } from './filters'
+import { STAGES } from './lanes'
 import type { FlowWindow } from './flowWindow'
 import type { Item, Stage } from './types'
 
@@ -764,6 +765,113 @@ export function metricsCsv(rows: DeliveredMetricRow[]): string {
       ]),
     ),
   ].join('\r\n').concat('\r\n')
+}
+
+/** A place where the recorded history does not match a clean start-to-finish model. */
+export type QualityFlag =
+  | 'impossible'
+  | 'backwards'
+  | 'returned'
+  | 'afterDone'
+  | 'createdOutside'
+  | 'noHistory'
+  | 'multiBoard'
+  | 'staleBlock'
+
+export interface QualityFinding {
+  flag: QualityFlag
+  label: string
+  /** What the flag means, in the reader's words. */
+  why: string
+  items: string[]
+}
+
+export interface QualityContext {
+  /** Board names by item, for the cards that sit on more than one board. */
+  boardsByItem?: Record<string, string[]>
+  /** Cards still marked blocked although every dependency they had is done. */
+  blockedAfterDependencyDone?: string[]
+}
+
+const QUALITY_TEXT: Record<QualityFlag, { label: string; why: string }> = {
+  impossible: {
+    label: 'Finished before it started',
+    why: 'The done time is earlier than the created or committed time, so the duration is not real.',
+  },
+  backwards: {
+    label: 'Moved backwards',
+    why: 'A card left a later stage for an earlier one. The chart reads that as work returning, which may be right.',
+  },
+  returned: {
+    label: 'Back to Backlog',
+    why: 'Committed work was moved back to Backlog after it had started.',
+  },
+  afterDone: {
+    label: 'Changed after Done',
+    why: 'A card moved after it reached Done, so its completion may not be the last word.',
+  },
+  createdOutside: {
+    label: 'Created outside Backlog',
+    why: 'A card began in a working column, so its wait before commitment is not in the history.',
+  },
+  noHistory: {
+    label: 'No move history',
+    why: 'These cards have no moves recorded, so their stage history starts where they sit.',
+  },
+  multiBoard: {
+    label: 'On more than one board',
+    why: 'A card placed on several boards is counted in each board’s flow.',
+  },
+  staleBlock: {
+    label: 'Blocked after its blocker finished',
+    why: 'The card is still marked blocked although everything it waited on is done.',
+  },
+}
+
+/**
+ * The data-quality check JiraMetrics puts at the top of every report.
+ *
+ * None of these is necessarily a mistake: a returned card can be a real rejection, and a card
+ * created in a working column is how some teams start. They are places where the team's process
+ * bends the start-to-finish model the charts use, so the reader should know before reading them.
+ * The checks never hide a card or refuse a move; they list and link.
+ */
+export function dataQuality(records: FlowRecord[], context: QualityContext = {}): QualityFinding[] {
+  const order = new Map(STAGES.map((stage, index) => [stage, index]))
+  const findings = new Map<QualityFlag, Set<string>>()
+  const add = (flag: QualityFlag, id: string) => {
+    const set = findings.get(flag) ?? new Set<string>()
+    set.add(id)
+    findings.set(flag, set)
+  }
+
+  for (const record of records) {
+    const committed = committedAt(record)
+    if (record.resolvedAt !== undefined && (record.resolvedAt < record.createdAt || (committed !== undefined && record.resolvedAt < committed))) {
+      add('impossible', record.id)
+    }
+    if (record.moves.some((move) => move.from !== undefined && order.get(move.to)! < order.get(move.from)!)) {
+      add('backwards', record.id)
+    }
+    if (record.moves.some((move, index) => move.to === 'backlog' && record.moves.slice(0, index).some((earlier) => earlier.to !== 'backlog'))) {
+      add('returned', record.id)
+    }
+    const doneAt = record.moves.findIndex((move) => move.to === 'done')
+    if (doneAt !== -1 && record.moves.length > doneAt + 1) add('afterDone', record.id)
+    if (record.startedIn !== 'backlog') add('createdOutside', record.id)
+    if (record.moves.length === 0) add('noHistory', record.id)
+  }
+
+  for (const [id, boards] of Object.entries(context.boardsByItem ?? {})) {
+    if (boards.length > 1) add('multiBoard', id)
+  }
+  for (const id of context.blockedAfterDependencyDone ?? []) add('staleBlock', id)
+
+  return [...findings.entries()].map(([flag, ids]) => ({
+    flag,
+    ...QUALITY_TEXT[flag],
+    items: [...ids].sort(),
+  }))
 }
 
 /** The middle of a set of values, or the middle two averaged. Nothing in, nothing out. */
