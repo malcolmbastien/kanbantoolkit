@@ -84,6 +84,9 @@ test('a dot in the scatter is the card it stands for', async ({ page }) => {
   expect(title.length).toBeGreaterThan(0)
 
   // Hovering is a rich read, not the browser's title: the card, its type, dates and both times.
+  // The rows behind the chart are part of the panel, not folded away.
+  await expect(view.locator('[data-flow-scatter-table]')).toBeVisible()
+
   await dot.hover()
   const tip = view.locator('[data-flow-scatter-tip]')
   await expect(tip).toBeVisible()
@@ -121,8 +124,10 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   await expect(view.locator('[data-cycle-histogram]')).toBeVisible()
   expect(await view.locator('[data-cycle-histogram-bar]').count()).toBeGreaterThan(0)
   await expect(view.getByText(/Most finished in/)).toBeVisible()
-  // The numbers are part of the panel, not folded away behind a summary.
+  // The numbers are part of the panel, not folded away behind a summary — and neither table
+  // repeats a "The numbers" heading over itself.
   await expect(view.locator('[data-cycle-histogram-table]')).toBeVisible()
+  await expect(view.getByText('The numbers')).toHaveCount(0)
 })
 
 test('the forecast refuses thin history, and answers with a range when there is history', async ({ page }) => {

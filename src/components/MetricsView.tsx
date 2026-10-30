@@ -582,7 +582,6 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
       </div>
 
       <div className="mt-2 border-t border-slate-100 pt-2 text-micro text-slate-600">
-        <div className="mb-1 font-semibold uppercase tracking-wide text-slate-700">The numbers</div>
         <table data-cycle-histogram-table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-slate-200 uppercase tracking-wide text-slate-600">
@@ -946,9 +945,8 @@ function CycleScatter({
       )}
       </div>
 
-      <details className="mt-2 text-micro text-slate-600">
-        <summary className="cursor-pointer">The numbers</summary>
-        <table className="mt-1 w-full border-collapse text-left">
+      <div className="mt-2 border-t border-slate-100 pt-2 text-micro text-slate-600">
+        <table data-flow-scatter-table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-slate-200 uppercase tracking-wide text-slate-600">
               <th className="py-1 pr-2 font-semibold">Card</th>
@@ -972,12 +970,12 @@ function CycleScatter({
             ))}
           </tbody>
         </table>
-      </details>
+      </div>
     </Panel>
   )
 }
 
-/** A delivered card's lead time in days: created to resolved. *//** A delivered card's lead time in days: created to resolved. */
+/** A delivered card's lead time in days: created to resolved. */
 const lead = (r: FlowRecord) => (r.resolvedAt! - r.createdAt) / DAY_MS
 
 const countAtMost = (value: number | undefined) => (value === undefined ? '—' : String(Math.round(value)))
