@@ -40,6 +40,10 @@ const DAY_MS = 86_400_000
 /** Days, quiet: a whole number, or one decimal for an in-between median. */
 const days = (n: number | undefined) => (n === undefined ? '—' : `${Number.isInteger(n) ? n : n.toFixed(1)}d`)
 const shortDate = (at: number) => new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+const calendarDate = (at: number | undefined) =>
+  at === undefined
+    ? '—'
+    : new Date(at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 
 /**
  * Flow metrics for one board: lead time, cycle time, throughput and a cumulative flow diagram.
@@ -121,48 +125,62 @@ export function MetricsView({ boardId }: { boardId: string }) {
   return (
     <div data-flow-view className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
       <div className="mx-auto w-full max-w-5xl">
-        <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-slate-300 bg-white px-4 py-3 shadow-sm">
-          <div>
-            <div className="flex items-center gap-1 text-meta font-bold uppercase tracking-wide text-slate-600">
-              <TrendingUp size={12} /> Flow
+        <div className="mb-3 rounded-lg border border-slate-300 bg-white shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 px-4 pt-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1 text-micro font-bold uppercase tracking-wide text-slate-500">
+                <TrendingUp size={12} /> Flow
+              </div>
+              <div className="text-heading font-semibold text-slate-900">{board?.name ?? 'Board'}</div>
+              <div className="mt-0.5 text-micro text-slate-500">
+                Read from the cards' own moves{selectedFlow ? ` · ${selectedFlow.name}` : ''}
+              </div>
+              <div data-flow-history className="mt-1 flex flex-wrap items-center gap-x-1.5 text-micro text-slate-500">
+                {firstMove === undefined ? (
+                  'No moves recorded yet — the stage history starts when work moves.'
+                ) : (
+                  <>
+                    <span>Moves recorded since {shortDate(firstMove)}</span>
+                    <span aria-hidden>·</span>
+                    <span
+                      title={
+                        coverage.total > coverage.withMoves
+                          ? 'The rest have no move history and start where they sit.'
+                          : undefined
+                      }
+                    >
+                      {coverage.withMoves} of {coverage.total} cards have move history
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="text-heading font-semibold text-slate-800">{board?.name ?? 'Board'}</div>
-            <div className="text-meta text-slate-600">
-              {selectedFlow ? `The ${selectedFlow.name} flow` : 'The cards workflows of this board'},
-              read from each card's own history — nothing to maintain. That history starts the day
-              Kanban Toolkit began recording moves, so the earliest weeks are thin.
+
+            <div className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg bg-slate-50/80 px-4 py-2 ring-1 ring-slate-200/70">
+              <Stat label="In flight" value={summary.inFlight} />
+              <Stat label="Delivered" value={summary.delivered} tone="emerald" />
+              <Stat
+                label="Lead time"
+                value={days(summary.lead.p50)}
+                note={`p85 ${days(summary.lead.p85)} · p95 ${days(summary.lead.p95)} · ${summary.lead.n} cards${
+                  summary.lead.n > 0 && summary.lead.n < MIN_SAMPLE ? ' · thin sample' : ''
+                }`}
+                hint="Created to done. p85 and p95 are the tail: that share of cards took this long or less."
+              />
+              <Stat
+                label="Cycle time"
+                value={days(summary.cycle.p50)}
+                note={`p85 ${days(summary.cycle.p85)} · p95 ${days(summary.cycle.p95)} · ${summary.cycle.n} cards${
+                  summary.cycle.n > 0 && summary.cycle.n < MIN_SAMPLE ? ' · thin sample' : ''
+                }`}
+                hint="First committed (leaving Backlog) to done. p85 and p95 are the tail."
+              />
             </div>
-            <div data-flow-history className="mt-1 text-micro text-slate-500">
-              {firstMove === undefined
-                ? 'No moves recorded yet — the stage history starts when work moves.'
-                : `Moves recorded since ${shortDate(firstMove)} · ${coverage.withMoves} of ${coverage.total} cards have move history.`}
-              {coverage.total > coverage.withMoves && ' The rest start where they sit.'}
-            </div>
-          </div>
-          <div className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Stat label="In flight" value={summary.inFlight} />
-            <Stat label="Delivered" value={summary.delivered} tone="emerald" />
-            <Stat
-              label="Lead time"
-              value={days(summary.lead.p50)}
-              note={`p85 ${days(summary.lead.p85)} · p95 ${days(summary.lead.p95)} · ${summary.lead.n} cards${
-                summary.lead.n > 0 && summary.lead.n < MIN_SAMPLE ? ' · thin sample' : ''
-              }`}
-              hint="Created to done. p85 and p95 are the tail: that share of cards took this long or less."
-            />
-            <Stat
-              label="Cycle time"
-              value={days(summary.cycle.p50)}
-              note={`p85 ${days(summary.cycle.p85)} · p95 ${days(summary.cycle.p95)} · ${summary.cycle.n} cards${
-                summary.cycle.n > 0 && summary.cycle.n < MIN_SAMPLE ? ' · thin sample' : ''
-              }`}
-              hint="First committed (leaving Backlog) to done. p85 and p95 are the tail."
-            />
           </div>
 
           {/* The reading is part of the place: both controls write the URL, so a quarter of one
               flow can be sent to somebody rather than described over a call. */}
-          <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-2">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 px-4 py-2">
             <label className="flex items-center gap-1.5 text-meta text-slate-600">
               Window
               <select
@@ -199,10 +217,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
                 </select>
               </label>
             )}
-            <span className="text-micro text-slate-500">
-              Lead is created → done; cycle is committed (leaving Backlog) → done. In flight and
-              delivered are now; the delivery samples are the window.
-            </span>
+            <span className="ml-auto text-micro text-slate-500">In flight and delivered are now.</span>
           </div>
         </div>
 
@@ -228,6 +243,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
               now={now}
               placements={placements}
               boardId={boardId}
+              laneOf={laneOf}
+              lanes={lanes}
               items={items}
               issueTypes={issueTypes}
               p85={summary.cycle.p85}
@@ -306,142 +323,126 @@ export function MetricsView({ boardId }: { boardId: string }) {
 
             {/* One planning row, not three stacked sections: the past reading (service level) sits
                 beside the two questions about the future, and they share a window and a model. */}
-            <Panel
-              title="Planning"
-              note="A reading of the past beside two questions about the future, from the same window and the same throughput."
-            >
-              <div className="grid gap-5 lg:grid-cols-3 lg:gap-6">
-                <section data-sle className="min-w-0">
-                  <div className="text-micro font-semibold uppercase tracking-wide text-slate-700">
-                    Service level expectation
+            <Panel title="Planning" note="The same window and throughput, read three ways.">
+              <div className="grid gap-3 lg:grid-cols-3">
+                <section data-sle className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
+                      Service level
+                    </div>
+                    <select
+                      aria-label="Service level share"
+                      value={serviceShare}
+                      onChange={(event) => setServiceShare(Number(event.target.value))}
+                      className="rounded border border-slate-200 bg-white px-1 py-0.5 text-micro text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                    >
+                      {[50, 85, 95].map((share) => (
+                        <option key={share} value={share}>
+                          {share}%
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <p className="mt-1 text-micro text-slate-500">
-                    The cycle time within which that share of delivered cards finished. It describes
-                    the past, not a promise.
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-slate-700">
-                    <label className="flex items-center gap-1.5 text-slate-600">
-                      Share
-                      <select
-                        aria-label="Service level share"
-                        value={serviceShare}
-                        onChange={(event) => setServiceShare(Number(event.target.value))}
-                        className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-                      >
-                        {[50, 85, 95].map((share) => (
-                          <option key={share} value={share}>
-                            {share}%
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <span data-sle-line>
-                      {sle.days === undefined
-                        ? 'No delivered cards in this window.'
-                        : `${sle.share}% finished within ${days(sle.days)} (${sle.n} card${sle.n === 1 ? '' : 's'}).`}
-                    </span>
+                  <div className="mt-2 text-heading font-semibold tabular-nums text-slate-900">
+                    {sle.days === undefined ? '—' : days(sle.days)}
+                  </div>
+                  <div data-sle-line className="text-micro text-slate-600">
+                    {sle.days === undefined
+                      ? 'No delivered cards in this window.'
+                      : `${sle.share}% finished within this time · ${sle.n} card${sle.n === 1 ? '' : 's'}`}
                   </div>
                   {sle.n > 0 && sle.n < MIN_SAMPLE && (
-                    <p className="mt-1 text-micro text-slate-500">Only {sle.n} cards — a hint, not a baseline.</p>
+                    <div className="mt-1 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-micro font-medium text-amber-800">
+                      Thin sample
+                    </div>
                   )}
                 </section>
 
-                <section data-forecast className="min-w-0">
-                  <div className="text-micro font-semibold uppercase tracking-wide text-slate-700">
-                    When will this be done?
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-slate-700">
-                    <label className="flex items-center gap-1.5 text-slate-600">
+                <section data-forecast className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
+                      When will this be done?
+                    </div>
+                    <label className="flex items-center gap-1 text-micro text-slate-500">
                       <input
                         type="checkbox"
                         checked={includeBacklog}
                         onChange={(event) => setIncludeBacklog(event.target.checked)}
                         className="accent-indigo-600"
                       />
-                      Include Backlog
+                      Backlog
                     </label>
-                    <span>
-                      Scope: <span className="font-semibold tabular-nums">{remaining}</span> open card
-                      {remaining === 1 ? '' : 's'}
-                    </span>
+                  </div>
+                  <div className="mt-0.5 text-micro text-slate-500">
+                    {remaining} open card{remaining === 1 ? '' : 's'} · {flowWindow === 'all' ? 'all' : `${flowWindow}w`} window
+                  </div>
+                  <div
+                    data-forecast-date={forecast.ok ? 'p85' : undefined}
+                    className="mt-2 text-heading font-semibold tabular-nums text-slate-900"
+                  >
+                    {forecast.ok ? calendarDate(forecast.dates.p85) : '—'}
                   </div>
                   {forecast.ok ? (
                     <>
-                      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
-                        {(['p50', 'p85', 'p95'] as const).map((key) => (
-                          <div key={key}>
-                            <div className="text-micro uppercase tracking-wide text-slate-500">
-                              {key === 'p50' ? '50%' : key === 'p85' ? '85%' : '95%'} by
-                            </div>
-                            <div data-forecast-date={key} className="text-meta font-semibold text-slate-800">
-                              {forecast.dates[key] === undefined
-                                ? '—'
-                                : new Date(forecast.dates[key]!).toLocaleDateString(undefined, {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                  })}
-                            </div>
-                            <div className="text-micro text-slate-500">{days(forecast.weeks[key])}</div>
-                          </div>
-                        ))}
+                      <div className="mt-1 flex flex-wrap gap-x-3 text-micro text-slate-600">
+                        <span>
+                          50% <span data-forecast-date="p50">{calendarDate(forecast.dates.p50)}</span>
+                        </span>
+                        <span>
+                          95% <span data-forecast-date="p95">{calendarDate(forecast.dates.p95)}</span>
+                        </span>
                       </div>
-                      <p className="mt-1 text-micro text-slate-500">
+                      <div className="mt-1 text-micro text-slate-500">
                         {forecast.trials.toLocaleString()} trials over {forecast.sampledWeeks} weeks.
-                        Assumes the scope stays as it is, the future resembles those weeks, and
-                        throughput arrives weekly. Dependencies and batch size are not modelled.
-                      </p>
+                        Assumes throughput arrives weekly; dependencies are not modelled.
+                      </div>
                     </>
                   ) : (
-                    <p data-forecast-refusal className="mt-2 text-meta text-slate-600">
+                    <p data-forecast-refusal className="mt-1 text-micro text-slate-600">
                       {forecastRefusal(forecast.reason, forecast.weeks, forecast.delivered)}
                     </p>
                   )}
                 </section>
 
-                <section data-forecast-by className="min-w-0">
-                  <div className="text-micro font-semibold uppercase tracking-wide text-slate-700">
+                <section data-forecast-by className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                  <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
                     How many by a date?
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-slate-700">
-                    <label className="flex items-center gap-1.5 text-slate-600">
-                      By
-                      <input
-                        type="date"
-                        aria-label="Forecast date"
-                        value={byDate}
-                        onChange={(event) => setByDate(event.target.value)}
-                        className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-                      />
-                    </label>
-                    <label className="flex items-center gap-1.5 text-slate-600">
-                      At least
-                      <input
-                        type="number"
-                        aria-label="At least cards"
-                        min={0}
-                        max={remaining}
-                        value={atLeast}
-                        placeholder={String(remaining)}
-                        onChange={(event) => setAtLeast(event.target.value)}
-                        className="w-14 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-                      />
-                      card{atLeastCount === 1 ? '' : 's'}
-                    </label>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
+                    <input
+                      type="date"
+                      aria-label="Forecast date"
+                      value={byDate}
+                      onChange={(event) => setByDate(event.target.value)}
+                      className="rounded border border-slate-200 bg-white px-1 py-0.5 text-micro text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <span>at least</span>
+                    <input
+                      type="number"
+                      aria-label="At least cards"
+                      min={0}
+                      max={remaining}
+                      value={atLeast}
+                      placeholder={String(remaining)}
+                      onChange={(event) => setAtLeast(event.target.value)}
+                      className="w-12 rounded border border-slate-200 bg-white px-1 py-0.5 text-micro text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                  <div className="mt-2 text-heading font-semibold tabular-nums text-slate-900">
+                    {by.ok ? `${Math.round(by.share * 100)}%` : '—'}
                   </div>
                   {by.ok ? (
-                    <div className="mt-2 text-meta text-slate-700">
-                      <p>
-                        <span className="text-title font-semibold tabular-nums">{Math.round(by.share * 100)}%</span>{' '}
-                        chance of at least {by.atLeast} card{by.atLeast === 1 ? '' : 's'} by then.
-                      </p>
-                      <p className="mt-0.5 text-micro text-slate-500">
-                        50% chance of {countAtMost(by.counts.p50)} or more · 85%{' '}
-                        {countAtMost(by.counts.p85)} · 95% {countAtMost(by.counts.p95)}.
-                      </p>
-                    </div>
+                    <>
+                      <div className="text-micro text-slate-500">
+                        chance of at least {by.atLeast} card{by.atLeast === 1 ? '' : 's'} by then
+                      </div>
+                      <div className="mt-1 text-micro text-slate-500">
+                        50% {countAtMost(by.counts.p50)} · 85% {countAtMost(by.counts.p85)} · 95%{' '}
+                        {countAtMost(by.counts.p95)}
+                      </div>
+                    </>
                   ) : (
-                    <p data-forecast-by-refusal className="mt-2 text-meta text-slate-600">
+                    <p data-forecast-by-refusal className="text-micro text-slate-600">
                       {by.reason === 'past-date'
                         ? 'Choose a date after today.'
                         : forecastRefusal(by.reason, by.weeks, by.delivered)}
@@ -618,6 +619,8 @@ function AgingWork({
   now,
   placements,
   boardId,
+  laneOf,
+  lanes,
   items,
   issueTypes,
   p85,
@@ -627,6 +630,8 @@ function AgingWork({
   now: number
   placements: ReturnType<typeof useStore.getState>['placements']
   boardId: string
+  laneOf: Map<string, string>
+  lanes: ReturnType<typeof useStore.getState>['lanes']
   items: ReturnType<typeof useStore.getState>['items']
   issueTypes: ReturnType<typeof useStore.getState>['issueTypes']
   p85: number | undefined
@@ -641,70 +646,106 @@ function AgingWork({
   const shown = aged.slice(0, MAX_AGING_ROWS)
   const itemById = new Map(items.map((item) => [item.id, item]))
   const typeById = new Map(issueTypes.map((type) => [type.id, type]))
+  const laneById = new Map(lanes.map((lane) => [lane.id, lane]))
   const tallest = Math.max(1, p85 ?? 1, ...aged.map((entry) => entry.daysSinceCommit ?? entry.daysInColumn))
 
   return (
     <Panel
       title="Aging work"
-      note="Open cards, oldest commitment first. The red line is the cycle-time p85 for work delivered in this window — past it, a card has been in flight longer than 85% of what the team finished."
+      note="Open cards, oldest commitment first. A card past the p85 line has been in flight longer than 85% of the work delivered in this window."
     >
       {aged.length === 0 ? (
         <div className="text-meta text-slate-600">No work in flight.</div>
       ) : (
         <>
-          <div data-flow-aging className="space-y-0.5">
-            {shown.map((entry) => {
-              const item = itemById.get(entry.id)
-              const type = item ? typeById.get(item.typeId) : undefined
-              const age = entry.daysSinceCommit ?? entry.daysInColumn
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  data-flow-aging-row
-                  data-card-id={entry.id}
-                  onClick={() => openItem(entry.id)}
-                  className="flex w-full items-center gap-3 rounded px-1 py-1 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
-                  title={`${entry.title}${type ? ` · ${type.name}` : ''}`}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span data-flow-aging-title className="block truncate text-meta font-medium text-slate-800">
-                      {entry.title}
-                    </span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-1">
-                      <span
-                        className="rounded-full px-1.5 py-0.5 text-micro font-semibold"
-                        style={chipColors(type?.color ?? '#64748b')}
-                      >
-                        {type?.name ?? 'No type'}
-                      </span>
-                      <span
-                        className={cn(
-                          'rounded-full px-1.5 py-0.5 text-micro font-semibold',
-                          STAGE_PILL[entry.stage],
-                        )}
-                      >
-                        {STAGE_LABELS[entry.stage]}
-                      </span>
-                    </span>
-                  </span>
-                  <span className="relative h-2 w-32 shrink-0 rounded bg-slate-100">
-                    <span
-                      className="absolute inset-y-0 left-0 rounded bg-indigo-400"
-                      style={{ width: `${Math.min(100, (age / tallest) * 100)}%` }}
-                    />
+          <div
+            data-flow-aging
+            className="-mx-4 -mb-3 mt-1 overflow-hidden rounded-b-lg border-t border-slate-200"
+          >
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
+                  <th className="px-4 py-2 font-semibold">Card</th>
+                  <th className="px-4 py-2 font-semibold">Status</th>
+                  <th className="px-4 py-2 font-semibold">In column</th>
+                  <th className="px-4 py-2 text-right font-semibold">
+                    Age
                     {p85 !== undefined && (
-                      <span
-                        className="absolute inset-y-[-2px] w-px bg-rose-500"
-                        style={{ left: `${Math.min(100, (p85 / tallest) * 100)}%` }}
-                        title={`Cycle p85: ${days(p85)}`}
-                      />
+                      <span className="ml-1 font-normal normal-case text-slate-600">· p85 {days(p85)}</span>
                     )}
-                  </span>
-                  <span className="w-12 shrink-0 text-right text-micro tabular-nums text-slate-700">{days(age)}</span>
-                </button>
-              )
-            })}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((entry) => {
+                  const item = itemById.get(entry.id)
+                  const type = item ? typeById.get(item.typeId) : undefined
+                  const lane = laneById.get(laneOf.get(entry.id) ?? '')
+                  const column = lane?.name?.trim() || STAGE_LABELS[entry.stage]
+                  const age = entry.daysSinceCommit ?? entry.daysInColumn
+                  return (
+                    <tr
+                      key={entry.id}
+                      data-flow-aging-row
+                      data-card-id={entry.id}
+                      onClick={() => openItem(entry.id)}
+                      className="cursor-pointer border-b border-slate-100 transition last:border-0 hover:bg-slate-50"
+                    >
+                      <td className="max-w-[340px] px-4 py-2.5">
+                        <span
+                          className="inline-flex items-center rounded px-1 py-px text-micro font-bold uppercase tracking-wide"
+                          style={chipColors(type?.color ?? '#64748b')}
+                        >
+                          {type?.name ?? 'No type'}
+                        </span>
+                        <button
+                          type="button"
+                          data-flow-aging-title
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            openItem(entry.id)
+                          }}
+                          className="mt-0.5 block w-full truncate text-left text-body font-medium text-slate-800 transition hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+                        >
+                          {entry.title}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={cn(
+                            'inline-flex items-center whitespace-nowrap rounded px-1.5 py-0.5 text-micro font-bold',
+                            STAGE_PILL[entry.stage],
+                          )}
+                        >
+                          {STAGE_LABELS[entry.stage]}
+                        </span>
+                      </td>
+                      <td className="max-w-[160px] truncate px-4 py-2.5 text-meta text-slate-600">{column}</td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="relative h-2 w-40 shrink-0 rounded bg-slate-100">
+                            <span
+                              className="absolute inset-y-0 left-0 rounded bg-indigo-400"
+                              style={{ width: `${Math.min(100, (age / tallest) * 100)}%` }}
+                            />
+                            {p85 !== undefined && (
+                              <span
+                                className="absolute inset-y-[-2px] w-px bg-rose-500"
+                                style={{ left: `${Math.min(100, (p85 / tallest) * 100)}%` }}
+                                title={`Cycle p85: ${days(p85)}`}
+                              />
+                            )}
+                          </span>
+                          <span className="w-12 shrink-0 text-right text-meta tabular-nums text-slate-700">
+                            {days(age)}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
           {aged.length > shown.length && (
             <div className="mt-1 text-micro text-slate-600">
@@ -936,7 +977,7 @@ function CycleScatter({
   )
 }
 
-/** A delivered card's lead time in days: created to resolved. */
+/** A delivered card's lead time in days: created to resolved. *//** A delivered card's lead time in days: created to resolved. */
 const lead = (r: FlowRecord) => (r.resolvedAt! - r.createdAt) / DAY_MS
 
 const countAtMost = (value: number | undefined) => (value === undefined ? '—' : String(Math.round(value)))
@@ -947,11 +988,9 @@ function forecastRefusal(
   weeks: number,
   delivered: number,
 ): string {
-  if (reason === 'no-scope') return 'There is no open work in this scope.'
-  if (reason === 'no-throughput') return 'No cards were delivered in this window, so there is nothing to forecast from.'
-  return `Not enough history yet: ${weeks} week${weeks === 1 ? '' : 's'} and ${delivered} delivered card${
-    delivered === 1 ? '' : 's'
-  }. A forecast needs ${MIN_FORECAST_WEEKS} weeks and ${MIN_FORECAST_DELIVERED} cards.`
+  if (reason === 'no-scope') return 'No open work in this scope.'
+  if (reason === 'no-throughput') return 'No deliveries in this window.'
+  return `Not enough history: ${weeks} week${weeks === 1 ? '' : 's'} and ${delivered} delivered. Needs ${MIN_FORECAST_WEEKS} weeks and ${MIN_FORECAST_DELIVERED} cards.`
 }
 
 function Stat({

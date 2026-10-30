@@ -128,7 +128,7 @@ test('the cycle time distribution is drawn, with the shape said in words', async
 test('the forecast refuses thin history, and answers with a range when there is history', async ({ page }) => {
   // The demo's own board has three deliveries: enough for a chart, not for a forecast.
   await page.goto(FLOW)
-  await expect(page.locator('[data-flow-view] [data-forecast-refusal]')).toContainText('Not enough history yet')
+  await expect(page.locator('[data-flow-view] [data-forecast-refusal]')).toContainText('Not enough history')
 
   // A load-test board has the history the demo does not. It is built on request and opened on the
   // next visit, because ?stress= is an intention that lands on the board itself.
@@ -175,10 +175,10 @@ test('says how much history there is, and calls a thin sample thin', async ({ pa
   await expect(view.getByText(/Only 1 delivered card/)).toBeVisible()
   await expect(view.getByText(/thin sample/).first()).toBeVisible()
   // And the forecast refuses with what it would need, rather than guessing from one card.
-  await expect(view.locator('[data-forecast-refusal]')).toContainText('Not enough history yet')
-  await expect(view.locator('[data-forecast-by-refusal]')).toContainText('Not enough history yet')
+  await expect(view.locator('[data-forecast-refusal]')).toContainText('Not enough history')
+  await expect(view.locator('[data-forecast-by-refusal]')).toContainText('Not enough history')
   // The refusal names what would make it answer, rather than only that it will not.
-  await expect(view.locator('[data-forecast-refusal]')).toContainText('A forecast needs 4 weeks and 8 cards')
+  await expect(view.locator('[data-forecast-refusal]')).toContainText('Needs 4 weeks and 8 cards')
 })
 
 test('a reading this build does not know falls back to the default, not to a blank screen', async ({ page }) => {
