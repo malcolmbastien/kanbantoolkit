@@ -3463,7 +3463,7 @@
         "description": "Strengthen the existing Flow view into a lean reporting screen: a date range and cards-flow filter, distributions rather than a median alone, aging work, blocked time, histograms, Little's Law, and a Monte Carlo forecast with its assumptions on screen. The plan is docs/metrics.md; no new data entry, no stored metrics, and no schema change in phases 1 and 2. A data-quality section opens the report, following JiraMetrics.",
         "details": "Everything is derived from the item log (stage moves, blocked/unblocked, resolvedAt, archivedAt), placements and lanes. The Flow screen is a lazy chunk and src/domain/metrics.ts is imported only by it, so the first download must not grow. Phase 1 makes the current view honest (range, flow filter, p50/p85/p95, scatter, aging, blocked, histograms, Little's Law, thin states). Phase 2 forecasts from the same history (SLE, Monte Carlo when-done and how-many-by-date, assumptions, CSV). Flow efficiency waits: it needs a lane queue/active property, a migration and forward-only measurement. Read docs/metrics.md before starting. JiraMetrics (jirametrics.org) is the fourth reference: its data-quality-first report, its aging percentile line, and its scatterplot y-axis cap shape this plan; the data-quality section is subtask 15. Its WIP-by-column chart and single-item forecast are listed in Phase 3 of docs/metrics.md, not tasked yet.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [
@@ -3535,32 +3535,34 @@
             "title": "Cycle time and throughput histograms",
             "description": "Cycle time in whole-day buckets with p50/p85 markers, and weekly throughput counts for the window. Both use the existing bar language and are labelled with the bucket size and sample count. A summary sentence says the shape in words ('most cards finish in 3-5 days, with a tail to 21').",
             "details": "metrics.ts: histogram(values, bucketSize) returning [{from, to, count}] plus bucketing for cycle days (1-day buckets up to max, cap 60 with a final tail bucket) and throughput (weekly counts already exist). MetricsView reuses Panel and the throughput bars. Keep the tables in a <details>. Tests: bucket edges, empty input, the tail bucket; e2e renders both and the range changes them.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:49:52.350Z"
           },
           {
             "id": 7,
             "title": "Little's Law check",
             "description": "Show average WIP over the window next to throughput and the implied cycle time (average WIP / throughput per day), with the measured cycle time beside it. The line says what it means in one sentence and that it assumes a stable system.",
             "details": "metrics.ts: averageWip(records, buckets) from cumulativeFlow totals, throughputPerDay(records, since) and littleCycle(wip, perDay) returning days or undefined when throughput is zero. MetricsView shows it in the summary band or its own small panel. Tests: zero throughput answers undefined, a constant fixture gives the expected days.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2,
               6
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:51:20.106Z"
           },
           {
             "id": 8,
             "title": "Thin data and empty states",
             "description": "Each panel says what is missing where it matters: the first recorded move date, cards with no move history, 'no delivered cards in this window', 'not enough delivered cards for a p85' (below five), no blocked intervals, no work in flight. The top note stops trying to say everything at once.",
             "details": "metrics.ts: historyStart(records) and moveCoverage(records) (cards with moves / total). MetricsView per-panel messages; keep them sentences with a next step, not blank axes. Tests: coverage counts; e2e on a board with one card shows the sentences.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1,
               2,
@@ -3571,75 +3573,81 @@
               7
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:52:37.094Z"
           },
           {
             "id": 9,
             "title": "Service level expectation",
             "description": "A single readable line in the summary: at the selected percentile (50/85/95, default 85), 'N% of delivered cards in this window took X days or less', with the sample count and the window. It is described as a reading of the past, not a promise.",
             "details": "metrics.ts: serviceLevel(records, since, percentile) using sampleStats; reuse the summary samples. MetricsView: a percentile selector beside the stat, or three lines; default 85. Tests: exact percentile values on a fixture and the below-minimum message.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:53:52.651Z"
           },
           {
             "id": 10,
             "title": "Monte Carlo: when will this scope be done",
             "description": "From weekly throughput in the window, simulate the remaining open cards: draw weeks with replacement until they are consumed, 5,000 trials, answer p50/p85/p95 completion dates. Scope: the selected flow, with committed open cards by default and an 'include Backlog' switch. Refuse below 4 weeks and 8 delivered cards, saying what is missing.",
             "details": "metrics.ts: forecastWhen(remaining, weeklyThroughput, opts) using a seeded PRNG (mulberry32) so tests are deterministic; return {weeks:{p50,p85,p95}, dates, trials, sampledWeeks}. Throughput weeks include zeros. remaining counts open cards in scope (not done, not archived mid-flight). Cap simulation input (e.g. remaining 5,000) and say so. MetricsView panel with the three dates, the trial count and the switch. Tests: constant throughput exact answer, zero throughput refusal, determinism with a fixed seed, Backlog inclusion.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2,
               6
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:56:31.407Z"
           },
           {
             "id": 11,
             "title": "How many by a date",
             "description": "The same trials read the other way: for a chosen date, the probability that N or more cards finish, and the p50/p85/p95 number that will finish by it. One date input defaulting to eight weeks out.",
             "details": "metrics.ts: forecastBy(trials or the simulator, date, now) returning counts at p50/p85/p95 and the share of trials that finish at least N. Share the simulation with forecastWhen rather than running it twice. MetricsView: date input, three counts, and a note that scope is the same as the when-panel. Tests: exact counts on a constant fixture, date before now, empty scope.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               10
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:57:53.269Z"
           },
           {
             "id": 12,
             "title": "Forecast assumptions and refusals",
             "description": "Put the assumptions where the forecast is: scope fixed, the future resembles the sampled weeks, weekly grain, dependencies and batch size not modelled; re-forecast when scope changes. Show the weeks sampled and the number of trials. A refusal names the minimum and the current counts.",
             "details": "Small presentational work on the forecast panels, sourced from the metrics result (sampled weeks, trials, remaining). No new computation. Test the refusal strings and the assumptions text in e2e.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               10
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T20:58:53.620Z"
           },
           {
             "id": 13,
             "title": "CSV of the delivered rows",
             "description": "A 'Download these rows' button on the Flow view writes the delivered cards in the window: id, title, type, flow, created, committed, done, lead days, cycle days, blocked days. Fits the existing board CSV download.",
             "details": "Use the existing download helper (src/lib/download.ts) and build the rows from FlowRecord + blockedSpans. File name includes board, flow and range. Tests: the CSV builder is pure and asserted (header, escaping, a card with no commitment); e2e triggers the download and checks the file name and header.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T21:02:38.133Z"
           },
           {
             "id": 14,
             "title": "Definitions, docs and the end-to-end pass",
             "description": "Update docs/using.md's Flow bullet with what the screen now answers, point to docs/metrics.md for the reasoning, and write the definitions (lead, cycle, throughput, WIP, aging, blocked, percentiles) where a reader of the screen can find them. Add the Flow e2e spec (range, flow, scatter, aging, forecast, thin states, keyboard) and check the lazy chunk did not move the first download.",
             "details": "docs/using.md and docs/metrics.md (change the plan into 'what was built' where it differs, keep the deferred list). New e2e spec against the demo board; a11y sweep includes the new panels; npm run size and npm run docs:check. No implementation changes beyond fixes found. The data-quality section is part of the e2e pass.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2,
               3,
@@ -3655,29 +3663,31 @@
               15
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T21:06:19.081Z"
           },
           {
             "id": 15,
             "title": "Data quality: where the data bends the model",
             "description": "A short section under the Flow header with counts and links: moved backwards, moved back to Backlog after commitment, changed after Done, finished before it started, created outside Backlog, done with open children or checklist items, and cards placed on more than one board. Each names what it means; none blocks a chart.",
             "details": "JiraMetrics opens every report with a Data Quality section, and the lesson is that the charts are only as good as the data. Derive the record-level checks in metrics.ts (or a small pure quality.ts) from the log: a move whose stage order decreases; a move into backlog after a non-backlog stage; a moved entry after a done entry; resolvedAt < createdAt or < committedAt; a card created in a non-backlog stage (a note, not an error); a card with no move entries. The view supplies the context checks: placements on more than one board (name the boards), and cards whose blocked flag remains while every dependency is done. Render counts with links to the cards (openItem), each with one sentence of meaning, and a clean state that says nothing was found. Tests: one fixture per check, a clean fixture that stays quiet, and the multi-board/blocked-with-done-dependency cases; e2e shows the section and opens a flagged card.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
             "parentTaskId": 179,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-30T21:04:23.048Z"
           }
         ],
-        "updatedAt": "2026-10-30T20:43:01.217Z"
+        "updatedAt": "2026-10-30T21:06:19.081Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-30T20:43:01.217Z",
+      "lastModified": "2026-10-30T21:06:19.081Z",
       "taskCount": 178,
-      "completedCount": 151,
+      "completedCount": 152,
       "tags": [
         "backlog"
       ]
