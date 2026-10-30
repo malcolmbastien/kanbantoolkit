@@ -28,6 +28,7 @@ import { onLiveItem, startLive, stopLive } from '@/lib/live'
 import { reflectAccount } from '@/lib/workspaceSync'
 import { uid as makeUid } from '@/lib/utils'
 import type { ViewName } from '@/lib/url'
+import { DEFAULT_FLOW_WINDOW, type FlowWindow } from '@/domain/flowWindow'
 import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
 
 export interface Draft {
@@ -106,6 +107,16 @@ export interface ViewState {
   showMyWork: boolean
   /** Show the flow metrics view for the current board — derived, read-only. */
   showMetrics: boolean
+  /**
+   * The Flow view's window: how many weeks back, or all recorded history. View state, so a board
+   * read over a quarter and the same board read over a year are two readings of one dataset.
+   */
+  flowWindow: FlowWindow
+  /**
+   * The cards flow the Flow view reads, or `null` for every cards flow on the board. Cleared when
+   * another board opens, because a flow id belongs to one board.
+   */
+  metricsFlowId: string | null
   /**
    * Items opened lately, newest first — the command palette's empty state. View state, and
    * deliberately not persisted: it is about this session, not about the work.
@@ -188,6 +199,10 @@ export interface Actions {
   setArchive: (v: boolean) => void
   /** The board's flow metrics — derived from movement history, never stored. */
   setMetrics: (v: boolean) => void
+  /** The Flow view's window — a number of weeks, or all recorded history. */
+  setFlowWindow: (window: FlowWindow) => void
+  /** The Flow view's cards flow, or `null` for all of them. */
+  setMetricsFlow: (flowId: string | null) => void
   toggleBoards: () => void
   setBoards: (v: boolean) => void
   /** The workspace's own administration: copies and storage. Not a board surface. */
@@ -943,6 +958,8 @@ const initialView: ViewState = {
   showBoards: false, showAdmin: false,
   showMyWork: false,
   showMetrics: false,
+  flowWindow: DEFAULT_FLOW_WINDOW,
+  metricsFlowId: null,
   recentItemIds: [],
   collapsedLanes: {},
   showFilters: false,
@@ -1410,6 +1427,7 @@ export const useStore = create<Store>()(
           showBoards: false,
           showAdmin: false,
           showObjectives: false,
+          metricsFlowId: null,
           boundaryId: null,
           multiSelect: [],
           cardMenu: null,
@@ -1785,6 +1803,8 @@ export const useStore = create<Store>()(
           showMetrics: v,
           ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false } : {}),
         }),
+      setFlowWindow: (flowWindow) => set({ flowWindow }),
+      setMetricsFlow: (metricsFlowId) => set({ metricsFlowId }),
       toggleBoards: () => {
         const on = !get().showBoards
         set({

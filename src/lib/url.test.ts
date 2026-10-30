@@ -42,6 +42,19 @@ describe('the query a place writes', () => {
     expect(urlQuery(place({ view: 'flow', itemId: 'st-email' }))).toBe('?board=b-atlas&view=flow&item=st-email')
   })
 
+  it('writes a Flow reading, but not the default window', () => {
+    expect(urlQuery(place({ view: 'flow', range: 4 }))).toBe('?board=b-atlas&view=flow&range=4')
+    expect(urlQuery(place({ view: 'flow', range: 'all' }))).toBe('?board=b-atlas&view=flow&range=all')
+    expect(urlQuery(place({ view: 'flow', range: 12 }))).toBe('?board=b-atlas&view=flow')
+    expect(urlQuery(place({ view: 'flow', flowId: 'f-support' }))).toBe('?board=b-atlas&view=flow&flow=f-support')
+    expect(urlQuery(place({ view: 'flow', range: 26, flowId: 'f-support' }))).toBe(
+      '?board=b-atlas&view=flow&range=26&flow=f-support',
+    )
+    // A window and a flow mean nothing on a board's own flow or on another view: one place, one URL.
+    expect(urlQuery(place({ range: 4 }))).toBe('?board=b-atlas')
+    expect(urlQuery(place({ view: 'timeline', flowId: 'f-support' }))).toBe('?board=b-atlas&view=timeline')
+  })
+
   it('says nothing at all for a place with no board', () => {
     expect(urlQuery(place({ boardId: '' }))).toBe('')
   })
@@ -52,6 +65,9 @@ describe('the query a place writes', () => {
       place({ view: 'dashboard' }),
       place({ view: 'timeline' }),
       place({ view: 'flow' }),
+      place({ view: 'flow', range: 4 }),
+      place({ view: 'flow', range: 'all' }),
+      place({ view: 'flow', flowId: 'f-support' }),
       place({ boardId: 'b-nova' }),
       place({ itemId: 'init-signup' }),
       place({ itemId: 'st-email' }),
@@ -95,6 +111,19 @@ describe('the place a query names', () => {
     expect(placeFromQuery('?edit=1&select=a,b&collapse=l1')).toEqual({ view: 'board' })
   })
 
+  it('reads a Flow window and flow, dropping the ones it does not know', () => {
+    expect(placeFromQuery('?board=b-atlas&view=flow&range=26&flow=f-support')).toEqual({
+      boardId: 'b-atlas',
+      view: 'flow',
+      range: 26,
+      flowId: 'f-support',
+    })
+    expect(placeFromQuery('?view=flow&range=all').range).toBe('all')
+    expect(placeFromQuery('?view=flow&range=7').range).toBeUndefined()
+    expect(placeFromQuery('?view=flow&range=nonsense').range).toBeUndefined()
+    expect(placeFromQuery('?view=flow&flow=').flowId).toBeUndefined()
+  })
+
   it('accepts the store’s older word for the Flow view', () => {
     expect(placeFromQuery('?view=metrics').view).toBe('flow')
     expect(placeFromQuery('?view=flow').view).toBe('flow')
@@ -113,6 +142,8 @@ describe('a place survives the round trip', () => {
       place(),
       place({ view: 'timeline' }),
       place({ view: 'flow', itemId: 'st-email' }),
+      place({ view: 'flow', range: 4, flowId: 'f-support' }),
+      place({ view: 'flow', range: 'all' }),
       place({ boardId: 'b-strategy', view: 'boards' }),
       place({ itemId: 'init-revenue' }),
     ]

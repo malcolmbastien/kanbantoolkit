@@ -6,6 +6,8 @@
  *
  *     /app?board=b-atlas                          the board's own flow
  *     /app?board=b-atlas&view=timeline            a view of that board
+ *     /app?board=b-atlas&view=flow&range=26       the Flow view over a longer window
+ *     /app?board=b-atlas&view=flow&flow=f-cards   the Flow view of one cards flow
  *     /app?board=b-atlas&item=init-signup         a card or initiative open on it
  *     /app?board=b-atlas&view=dashboard&item=…    both at once
  *
@@ -19,6 +21,8 @@
  * of them — edit mode is a mode, not a place, and the back button must never be the thing that
  * throws a board design away.
  */
+
+import { DEFAULT_FLOW_WINDOW, flowWindowParam, isFlowWindow, type FlowWindow } from '@/domain/flowWindow'
 
 /** Every view the app can be in. `board` is the board's own flow — the Board tab. */
 export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'boards' | 'objectives' | 'admin'
@@ -40,6 +44,13 @@ export interface Place {
   boardId: string
   view: ViewName
   itemId: string | null
+  /**
+   * The Flow view's window, when it is not the default. Absence means the default — a place with
+   * no window and one with the default are the same reading, and one URL.
+   */
+  range?: FlowWindow
+  /** The Flow view's cards flow, when it is one rather than all of them. */
+  flowId?: string | null
 }
 
 /**
@@ -67,6 +78,13 @@ export function urlQuery(place: Place): string {
   // The board's own flow is the absence of a view, not a view named `board`: `/app?board=x` is the
   // shortest true thing to say, and it is what a person writes by hand.
   if (place.view !== 'board') params.set('view', place.view)
+  // The Flow view's reading is part of the place: a link that shows a quarter of the Support flow
+  // must open that, not the default quarter of every flow. The default window is left out, so
+  // `/app?board=x&view=flow` stays the shortest true thing to say.
+  if (place.view === 'flow') {
+    if (place.range !== undefined && place.range !== DEFAULT_FLOW_WINDOW) params.set('range', flowWindowParam(place.range))
+    if (place.flowId) params.set('flow', place.flowId)
+  }
   if (place.itemId) params.set('item', place.itemId)
   const query = params.toString()
   return query ? `?${query}` : ''
@@ -116,5 +134,14 @@ export function placeFromQuery(search: string): Partial<Place> {
   if (board) place.boardId = board
   const item = params.get('item')
   if (item) place.itemId = item
+  // A window or flow this build does not know is not a reading it can give: dropped, the way an
+  // unknown view is. The rest of the link still lands somewhere real.
+  const range = params.get('range')
+  if (range !== null) {
+    const window = range === 'all' ? 'all' : Number(range)
+    if (isFlowWindow(window)) place.range = window
+  }
+  const flow = params.get('flow')
+  if (flow) place.flowId = flow
   return place
 }

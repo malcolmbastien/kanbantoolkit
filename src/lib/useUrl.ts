@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { filtersFromParam } from '@/domain/filters'
 import { useStore } from '@/store'
+import { DEFAULT_FLOW_WINDOW } from '@/domain/flowWindow'
 import { placeFromQuery, urlQuery, viewOf, type Place } from './url'
 import { titleFor } from './title'
 
@@ -28,6 +29,10 @@ export function useUrl() {
   const boardId = useStore((s) => s.boardId)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const view = useStore(viewOf)
+  // The Flow view's reading: which window and which cards flow. Subscribed because a change to
+  // either is a change to the place, and the URL has to follow it.
+  const flowWindow = useStore((s) => s.flowWindow)
+  const metricsFlowId = useStore((s) => s.metricsFlowId)
   // The document's name, derived the same way the URL is: the board and the view. The open card
   // is deliberately not read here — opening a drawer must not rename the page.
   const title = useStore((s) =>
@@ -40,6 +45,22 @@ export function useUrl() {
   useEffect(() => {
     document.title = title
   }, [title])
+
+  /**
+   * Apply the Flow view's reading from a place.
+   *
+   * A flow id that is not one of this board's cards flows is not a reading this link can give, so
+   * it falls back to every flow rather than lighting a control with no effect. The window falls
+   * back to the default; the URL is then normalised to the place actually shown.
+   */
+  const applyFlowReading = useCallback((place: Partial<Place>) => {
+    if (place.view !== 'flow') return
+    const s = useStore.getState()
+    s.setFlowWindow(place.range ?? DEFAULT_FLOW_WINDOW)
+    const flowId = place.flowId
+    const known = Boolean(flowId) && s.flows.some((f) => f.id === flowId && f.boardId === s.boardId && f.kind === 'cards')
+    s.setMetricsFlow(known ? flowId! : null)
+  }, [])
 
   // ---- On the way in: what the link asked for ----
   // A layout effect, so the place is applied before the first paint. The app's home and a board are
@@ -56,6 +77,7 @@ export function useUrl() {
     if (known(place.boardId, s().boards)) s().selectBoard(place.boardId!)
     if (params.get('edit')) s().beginEdit()
     if (place.view) s().setView(place.view)
+    applyFlowReading(place)
     // My work is a drawer, not a view: a link that names it opens the drawer over the place it
     // would otherwise have landed on. (The first write normalises the URL back to that place.)
     if (params.get('view') === 'mywork') s().setMyWork(true)
@@ -99,7 +121,7 @@ export function useUrl() {
     if (stress !== null) s().addStressBoard(Math.max(1, Math.min(2000, Number(stress) || 300)))
 
     ready.current = true
-  }, [])
+  }, [applyFlowReading])
 
   // ---- On the way out: the place, as a query ----
   useEffect(() => {
@@ -107,7 +129,13 @@ export function useUrl() {
     const wasFirst = first.current
     first.current = false
     const s = useStore.getState()
-    const place: Place = { boardId: s.boardId, view: viewOf(s), itemId: s.selectedItemId }
+    const flow = viewOf(s) === 'flow'
+    const place: Place = {
+      boardId: s.boardId,
+      view: viewOf(s),
+      itemId: s.selectedItemId,
+      ...(flow ? { range: s.flowWindow, flowId: s.metricsFlowId } : {}),
+    }
     const before = last.current
     last.current = place
     const query = urlQuery(place)
@@ -120,7 +148,7 @@ export function useUrl() {
     const samePlace = before !== null && before.boardId === place.boardId && before.view === place.view
     if (wasFirst || samePlace) window.history.replaceState(null, '', query)
     else window.history.pushState(null, '', query)
-  }, [boardId, view, selectedItemId])
+  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId])
 
   // ---- And back: the places the app has been ----
   useEffect(() => {
@@ -132,6 +160,7 @@ export function useUrl() {
       // flow, so going back from the Timeline returns to the board rather than leaving the URL and
       // the screen disagreeing.
       if (place.view) s.setView(place.view)
+      applyFlowReading(place)
       // Whatever the URL says about the open card is the truth, including saying nothing.
       const open = useStore.getState().selectedItemId
       if (place.itemId && place.itemId !== open && s.items.some((i) => i.id === place.itemId)) s.openItem(place.itemId)
@@ -139,5 +168,5 @@ export function useUrl() {
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
-  }, [])
+  }, [applyFlowReading])
 }

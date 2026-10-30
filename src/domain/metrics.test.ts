@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  MAX_ALL_WEEKS,
+  bucketsFor,
   committedAt,
   cumulativeFlow,
   cycleTimes,
+  deliveredSince,
   flowRecord,
   flowSummary,
   inFlightAt,
@@ -12,6 +15,7 @@ import {
   stageAt,
   throughput,
   weeklyBuckets,
+  windowStart,
   type FlowRecord,
   type StageMove,
 } from './metrics'
@@ -181,5 +185,59 @@ describe('flow metrics', () => {
     expect(percentile([10, 20, 30, 40], 50)).toBe(20)
     expect(median([])).toBeUndefined()
     expect(percentile([], 85)).toBeUndefined()
+  })
+})
+
+
+describe("the Flow view's window", () => {
+  it('a fixed window starts that many weeks back; all history has no start', () => {
+    expect(windowStart(4, T)).toBe(T - 4 * 7 * DAY)
+    expect(windowStart(12, T)).toBe(T - 12 * 7 * DAY)
+    expect(windowStart('all', T)).toBeUndefined()
+  })
+
+  it('draws one bucket per week, and starts all history at the oldest card', () => {
+    const fixed = bucketsFor(4, [], T)
+    expect(fixed).toHaveLength(4)
+    expect(fixed[fixed.length - 1]).toBe(T)
+    expect(fixed[0]).toBe(T - 3 * 7 * DAY)
+
+    // The oldest card is 30 days back: five weekly boundaries, the last one now.
+    const all = bucketsFor('all', [rec({ createdAt: T - 30 * DAY }), rec({ createdAt: T - 2 * DAY })], T)
+    expect(all).toHaveLength(5)
+    expect(all[all.length - 1]).toBe(T)
+
+    // A decade of history is still two years of buckets, and no more.
+    const capped = bucketsFor('all', [rec({ createdAt: T - 900 * DAY })], T)
+    expect(capped).toHaveLength(MAX_ALL_WEEKS)
+  })
+
+  it("the window narrows the delivery sample, not the board's state now", () => {
+    const records = [
+      rec({ id: 'inside', createdAt: T - 20 * DAY, resolvedAt: T - 2 * DAY, moves: [move(T - 2 * DAY, 'done', 'notStarted')] }),
+      rec({ id: 'before', createdAt: T - 60 * DAY, resolvedAt: T - 40 * DAY, moves: [move(T - 40 * DAY, 'done', 'notStarted')] }),
+      rec({ id: 'open', createdAt: T - 5 * DAY, moves: [move(T - 3 * DAY, 'inProgress', 'backlog')] }),
+    ]
+    const all = flowSummary(records, T)
+    expect(all.lead.count).toBe(2)
+    expect(all.inFlight).toBe(1)
+    expect(all.delivered).toBe(2)
+
+    const windowed = flowSummary(records, T, windowStart(4, T))
+    expect(windowed.lead.count).toBe(1)
+    expect(windowed.lead.median).toBe(18)
+    // Still a fact about the board now, however narrow the delivery sample is.
+    expect(windowed.inFlight).toBe(1)
+    expect(windowed.delivered).toBe(2)
+  })
+
+  it('deliveredSince keeps exactly the cards resolved after the start', () => {
+    const records = [
+      rec({ id: 'in', resolvedAt: T - 1 * DAY }),
+      rec({ id: 'out', resolvedAt: T - 30 * DAY }),
+      rec({ id: 'open' }),
+    ]
+    expect(deliveredSince(records, T - 7 * DAY).map((r) => r.id)).toEqual(['in'])
+    expect(deliveredSince(records).map((r) => r.id)).toEqual(['in', 'out'])
   })
 })

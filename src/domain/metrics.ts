@@ -1,3 +1,4 @@
+import type { FlowWindow } from './flowWindow'
 import type { Item, Stage } from './types'
 
 /**
@@ -16,6 +17,8 @@ import type { Item, Stage } from './types'
 
 const DAY_MS = 86_400_000
 export const WEEK_MS = 7 * DAY_MS
+/** The most weekly buckets an all-history reading draws: two years, so the chart stays readable. */
+export const MAX_ALL_WEEKS = 104
 
 /** A move as flow reads it: the stage it landed in, and when. */
 export interface StageMove {
@@ -102,6 +105,40 @@ export function weeklyBuckets(now: number, weeks: number): number[] {
   return Array.from({ length: weeks }, (_, i) => now - (weeks - 1 - i) * WEEK_MS)
 }
 
+/**
+ * The start of a window, or `undefined` for all recorded history.
+ *
+ * A week is elapsed time, not a calendar week: two readings made a minute apart see different
+ * boundaries, which is honest and keeps the implementation free of timezones.
+ */
+export function windowStart(window: FlowWindow, now = Date.now()): number | undefined {
+  return window === 'all' ? undefined : now - window * WEEK_MS
+}
+
+/**
+ * The weekly boundaries a reading draws.
+ *
+ * A fixed window is that many weeks back from now. All history starts at the oldest card the board
+ * has, capped at two years: a board with a decade of moves should not draw a thousand slivers, and
+ * the cap is stated on screen rather than silently changing the sample.
+ */
+export function bucketsFor(window: FlowWindow, records: FlowRecord[], now = Date.now()): number[] {
+  if (window !== 'all') return weeklyBuckets(now, window)
+  const earliest = records.reduce((oldest, record) => Math.min(oldest, record.createdAt), now)
+  const weeks = Math.max(1, Math.min(MAX_ALL_WEEKS, Math.ceil((now - earliest) / WEEK_MS)))
+  return weeklyBuckets(now, weeks)
+}
+
+/**
+ * The delivered cards a window sees: resolved inside it, oldest first is the caller's business.
+ *
+ * A card created before the window but delivered inside it belongs to the window; one delivered
+ * before it does not, however long its lead time was.
+ */
+export function deliveredSince(records: FlowRecord[], since?: number): FlowRecord[] {
+  return records.filter((record) => record.resolvedAt !== undefined && (since === undefined || record.resolvedAt > since))
+}
+
 /** Items resolved in each bucket's own week: the week ending at that boundary, and not before. */
 export function throughput(records: FlowRecord[], buckets: number[]): number[] {
   return buckets.map((b) =>
@@ -154,10 +191,16 @@ export interface FlowSummary {
   cycle: { median?: number; p85?: number; count: number }
 }
 
-/** The four numbers a flow view leads with, over the cards it was given. */
-export function flowSummary(records: FlowRecord[], now: number): FlowSummary {
-  const lead = leadTimes(records)
-  const cycle = cycleTimes(records)
+/**
+ * The four numbers a flow view leads with, over the cards it was given.
+ *
+ * `since` narrows the lead and cycle samples to work delivered inside the window; in flight and
+ * delivered are always read at `now`, because they are the state of the board rather than a sample.
+ */
+export function flowSummary(records: FlowRecord[], now: number, since?: number): FlowSummary {
+  const sample = deliveredSince(records, since)
+  const lead = leadTimes(sample)
+  const cycle = cycleTimes(sample)
   return {
     inFlight: records.filter((r) => inFlightAt(r, now)).length,
     delivered: records.filter((r) => stageAt(r, now) === 'done').length,

@@ -61,6 +61,7 @@ the build.
 | **[MCP](mcp.md)** | the agent's door: the tool list, both transports, and the rule that an agent writes what a person asked for |
 | **[The data model](data-model-v2.md)** | what a workspace is made of |
 | **[Admin, identity and roles](admin.md)** | the design behind the two axes — instance and workspace — and the roles each answers |
+| **[Lean metrics](metrics.md)** | what the Flow view measures today, the plan to strengthen it, and what it will not become |
 | **[Collaboration](collaboration.md)** | how two people edit at once without losing a change |
 | **[The public site](public-site.md)** | what the project's site says, and why each page exists |
 
