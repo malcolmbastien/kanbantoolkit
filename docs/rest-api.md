@@ -79,6 +79,8 @@ difference is worth reading: the first is the token you chose, the second is the
 | `PATCH /items/{itemId}` | `items:write` | change its fields; `baseRev` is required |
 | `POST /boards/{boardId}/items/{itemId}/move` | `items:write` | move it into a cell, at a position |
 | `GET /objectives` | `objectives:write` | objectives with their completeness and key results |
+| `POST /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | map a strategic initiative to an objective; one objective per initiative, so this moves it |
+| `DELETE /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | unmap it |
 | `GET /people` | `people:read` | names and ids, so an assignment names a person |
 | `GET /search?q=` | `items:read` | the app's own search over titles, descriptions and notes, not a query language; each result carries the clipped matching line |
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
@@ -224,8 +226,6 @@ same words. [The MCP server](mcp.md) is the page for it.
 
 ## What is not here
 
-- **Webhooks.** The next thing a script asks for, and a task of its own: a delivery queue, retries and
-  a signing secret are not a route.
 - **A query language.** Search is the app's search. A filter expression language would be a second API
   with none of the first one's rules.
 - **Unscoped tokens.** A token with no scopes reaches nothing; there is no "all" spelling.

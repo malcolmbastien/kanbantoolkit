@@ -3762,9 +3762,9 @@
         "testStrategy": "Unit-test signing against a fixed secret/timestamp/body vector, event-type filtering, the retry schedule, 2xx/5xx/410 outcomes, a disabled endpoint and the payload envelope. Server integration: create/move/block emits exactly one event per endpoint; the event and write share a transaction; a refused write emits nothing; a failed delivery retries; health_changed fires only when flags change. E2E with a local test endpoint: an admin creates and tests an endpoint and sees a delivery, and moving a card produces one. Run npm test, npm run build, npm run scan and the Worker scheduled config check.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:36:10.871Z"
       },
       {
         "id": "187",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:25:37.071Z",
+      "lastModified": "2026-10-31T03:36:10.872Z",
       "taskCount": 188,
-      "completedCount": 158,
+      "completedCount": 159,
       "tags": [
         "backlog"
       ]

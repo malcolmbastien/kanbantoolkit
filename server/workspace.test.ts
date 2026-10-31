@@ -425,7 +425,7 @@ describe('writing the board design', () => {
     const db = database()
     const { cookie } = await signedIn(db)
     // The floor is the newest migration: a database behind it cannot be read honestly.
-    await db.run('DELETE FROM schema_migrations WHERE version = 34')
+    await db.run('DELETE FROM schema_migrations WHERE version = 35')
     const response = await instance(db)('/api/workspace/structure', {
       method: 'PUT',
       headers: { 'content-type': 'application/json', cookie },
@@ -531,6 +531,21 @@ describe('writing one item', () => {
     const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
     expect(body.items[0].log?.[0]?.mentions).toEqual(['u-ada'])
     expect(body.items[0].log?.[0]?.note).toBe('@Ada can you look at this?')
+  })
+
+  it('emits item events for an endpoint that subscribes to them', async () => {
+    const { db, patch } = await writer()
+    await db.run(
+      `INSERT INTO webhook_endpoints (id, workspace_id, url, secret, event_types, active, created_at)
+       VALUES ('w-1', 'workspace', 'https://receiver.example/events', 'secret', '[]', 1, ?1)`,
+      [Date.now()],
+    )
+    await patch('i-card', { baseRev: 0, item: card() })
+    await patch('i-card', { baseRev: 1, item: card({ rev: 1, blocked: true, blockedReason: 'Waiting on legal' }) })
+    expect((await db.all<{ type: string }>('SELECT type FROM outbound_events')).map((row) => row.type).sort()).toEqual([
+      'item.blocked',
+      'item.created',
+    ])
   })
 
   it('creates an item the server has never seen, whatever revision the browser based it on', async () => {

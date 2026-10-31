@@ -63,5 +63,9 @@ export const WORKSPACE_SCHEMA = 1
  * 34 adds `item_log.mentions`: the people a note names, as user ids. A database without it cannot
  * store a mention, so a note would be written with its words but without the identity behind them —
  * a half-answer worse than refusing to serve until the migration runs.
+ *
+ * 35 adds the outbound event layer: events, endpoints and deliveries. A database without them
+ * cannot record that a change happened for a receiver, and a webhook that silently drops events is
+ * worse than one that says it is not configured — so the same rule applies.
  */
-export const REQUIRED_SCHEMA = 34
+export const REQUIRED_SCHEMA = 35

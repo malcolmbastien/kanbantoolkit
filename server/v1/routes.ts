@@ -32,6 +32,7 @@ import {
   listItems,
   listObjectives,
   listPeople,
+  mapInitiative,
   moveItem,
   search,
   updateItem,
@@ -148,7 +149,7 @@ export async function requireV1(c: Ctx, runtime: Runtime, scope: Scope, action?:
 /* ---- The routes --------------------------------------------------------------------------- */
 
 export interface RouteSpec {
-  method: 'GET' | 'POST' | 'PATCH'
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   path: string
   summary: string
   /** The scope a credential needs. `null` is public documentation. */
@@ -322,6 +323,30 @@ export function v1Routes(runtime: Runtime) {
       scope: 'boards:read',
       responses: { '200': { description: '{ data }' } },
       handler: async (c, caller) => respond(c, await listObjectives(caller)),
+    },
+    {
+      method: 'POST',
+      path: '/objectives/:objectiveId/initiatives/:itemId',
+      summary: 'Map a strategic initiative to the objective it serves. An initiative serves one objective, so this moves it.',
+      scope: 'items:write',
+      action: 'item.attribute',
+      responses: {
+        '200': { description: 'The mapping, and the objective it moved from when there was one' },
+        '404': { description: 'No such objective or item' },
+        '422': { description: 'The item is not a strategic initiative' },
+      },
+      handler: async (c, caller) =>
+        respond(c, await mapInitiative(caller, c.req.param('objectiveId') ?? '', c.req.param('itemId') ?? '', true)),
+    },
+    {
+      method: 'DELETE',
+      path: '/objectives/:objectiveId/initiatives/:itemId',
+      summary: 'Unmap a strategic initiative from an objective.',
+      scope: 'items:write',
+      action: 'item.attribute',
+      responses: { '200': { description: 'The mapping is gone' }, '404': { description: 'No such objective or item' } },
+      handler: async (c, caller) =>
+        respond(c, await mapInitiative(caller, c.req.param('objectiveId') ?? '', c.req.param('itemId') ?? '', false)),
     },
     {
       method: 'GET',

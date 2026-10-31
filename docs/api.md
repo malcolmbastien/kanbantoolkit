@@ -281,6 +281,12 @@ The split is the two axes: the first is the deployment, the second is the team.
 | `POST /api/admin/groups/:id/members`, `DELETE /api/admin/groups/:id/members/:userId` | who is in it |
 | `GET /api/admin/audit`, `GET /api/admin/audit/:id` | the trail, and one event |
 | `GET /api/admin/audit.csv` | the trail as a CSV file, with the same filters and scope |
+| `GET`, `POST /api/admin/webhooks` | the outbound endpoints, and making one (the secret is shown once) |
+| `PATCH`, `DELETE /api/admin/webhooks/:id` | pause, resume, edit or delete an endpoint |
+| `GET /api/admin/webhooks/:id/deliveries` | the delivery log, with attempts and the receiver's answer |
+| `POST /api/admin/webhooks/:id/test` | queue a test delivery |
+| `POST /api/admin/webhooks/deliveries/:id/retry` | try a failed delivery again |
+| `POST /api/admin/webhooks/dispatch` | send every delivery that is due now |
 | `GET /api/admin/health` | the schema version, the expected one, and whether the feed is moving |
 
 ## Invitations

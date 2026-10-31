@@ -356,6 +356,18 @@ team tool) and a filter by actor, action and date. The audit page is readable by
 administrators only; a workspace administrator sees the events for their workspace, not the
 instance's.
 
+### 3.7 Webhooks
+
+**Admin → Webhooks** is the workspace's outbound event seam. A workspace administrator adds a URL,
+chooses events (none means all), and receives the signing secret exactly once. The screen lists the
+endpoints, lets them be paused, tested and deleted, and shows the delivery log with the status, try
+count, answer and error for each attempt; a failed delivery can be retried by hand.
+
+A `2xx` is delivered, anything else is retried on a backoff up to five attempts, and a `410` disables
+the endpoint. Delivery is out of the request path: a slow receiver cannot make a card save slow or
+fail. The full event catalogue, envelope and signature verification are in
+[Webhooks](webhooks.md).
+
 ---
 
 ## 4. Schema
@@ -530,6 +542,7 @@ Admin
 ├── People            search, filters, table, row menu, bulk actions, invite, roles
 ├── Invitations       pending / accepted / expired / revoked, copy link, revoke
 ├── Audit             export the trail as a file
+├── Webhooks          endpoints, events, signing secrets and deliveries
 ├── Tools & agents    agent tokens, directory provisioning
 ├── Snapshots         the browser's copies, and the demo reset
 ├── Workspace data    export, import, and what the browser keeps

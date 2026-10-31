@@ -24,6 +24,7 @@ import { migrate } from './migrate'
 import type { Migration } from './migrate'
 import { openSqlite } from './sqlite'
 import { workspaceName } from './config'
+import { dispatchDue } from './webhooks'
 
 const port = Number(process.env.PORT ?? 8787)
 const databasePath = process.env.DB_PATH ?? 'kanbantoolkit.db'
@@ -51,6 +52,20 @@ console.log(`kanbantoolkit schema v${schema.version}${schema.applied.length ? ` 
  * use — the same client code, polling the same feed.
  */
 const live = process.env.LIVE !== '0'
+
+/**
+ * Outbound webhooks, on a timer of this process's own.
+ *
+ * The Worker uses a cron trigger; a self-hosted instance has no scheduler but its process, so a
+ * quiet interval is enough. `WEBHOOKS=0` turns it off for a deployment that only reads.
+ */
+if (process.env.WEBHOOKS !== '0') {
+  const timer = setInterval(() => {
+    void dispatchDue(db).catch((error) => console.error('webhook dispatch failed', error))
+  }, 15_000)
+  // A test or a one-shot command should not be kept alive by a delivery timer.
+  timer.unref?.()
+}
 
 /**
  * Mail, if this machine has a relay.

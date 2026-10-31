@@ -12,6 +12,7 @@
 import { createApp } from '../server/app'
 import { liveCaller } from '../server/live'
 import { WORKSPACE_ID } from '../server/auth/session'
+import { dispatchDue } from '../server/webhooks'
 import { d1 } from './d1'
 
 export { WorkspaceChannel } from './channel'
@@ -88,5 +89,16 @@ export default {
       return (env as Env & { ASSETS: Fetcher }).ASSETS.fetch(new URL('/app/index.html', url))
     }
     return app.fetch(request, env, ctx)
+  },
+
+  /**
+   * The cron the deployment's `triggers` names. Deliveries are retried on their own schedule,
+   * independent of a request; without a database there is nothing to deliver, which is the same
+   * no-op as a demo deployment.
+   */
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const db = database(env)
+    if (!db) return
+    ctx.waitUntil(dispatchDue(db).catch((error) => console.error('webhook dispatch failed', error)))
   },
 }

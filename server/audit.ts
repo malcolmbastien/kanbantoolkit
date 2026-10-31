@@ -67,6 +67,12 @@ export type AuditAction =
   | 'workspace.role'
   | 'workspace.member.remove'
   | 'workspace.invite'
+  // Outbound webhooks: the endpoint's life, and a test somebody asked for. A secret is never in
+  // the data — an audit trail that could be replayed is not an audit trail.
+  | 'webhook.create'
+  | 'webhook.update'
+  | 'webhook.delete'
+  | 'webhook.test'
 
 export interface AccessEvent {
   /** Who did it. Absent for something the system did, or for a refusal before anyone is known. */

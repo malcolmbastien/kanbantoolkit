@@ -30,6 +30,7 @@ import { NONE_TYPE_ID } from '../../src/domain/board'
 import { can, type Action } from '../../src/domain/roles'
 import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
 import { findBandChange, readBoardBands, readDesign, readStructureRev, writeDesign } from './structure'
+import { emitItemChange } from '../events'
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
 function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
@@ -431,11 +432,25 @@ export function workspaceRoutes(runtime: Runtime) {
       if (refused) return c.json(refused, 403)
     }
 
+    // The state the change is based on, for the health comparison a write can move. The item's
+    // own fields are checked above; this read is allowed to be a little more expensive.
+    const beforeState = await readWorkspace(allowed.db, allowed.workspaceId)
+    const beforeGraph = {
+      items: beforeState.items,
+      edges: beforeState.edges,
+      links: beforeState.links,
+      placements: beforeState.placements,
+      lanes: beforeState.lanes,
+    }
+
     const stored = { ...item, rev: baseRev + 1 }
     await writeItem(allowed.db, stored, allowed.workspaceId, key)
     // The change is announced only after it landed: a nudge for a write that failed would make a
     // second device read the feed for nothing.
     await runtime.live?.publish(c.env, WORKSPACE_ID, stored.rev ?? 0)
+    // Webhooks are a post-write reading, never part of the write. `emitItemChange` catches its own
+    // failures, so a receiver being down cannot turn a saved card into an error.
+    await emitItemChange(allowed.db, allowed.workspaceId, current, stored, beforeGraph, allowed.user.id)
     return c.json({ item: stored })
   })
 

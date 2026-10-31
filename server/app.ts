@@ -20,6 +20,7 @@ import { groupsRoutes } from './groups'
 import { workspaceRoutes as workspaceInstanceRoutes } from './workspace-instance'
 import { inviteLinkRoutes } from './invite-links'
 import { tokenAdminRoutes, tokenRoutes } from './token-routes'
+import { webhookRoutes } from './webhook-routes'
 import { v1Routes } from './v1/routes'
 import { mcpRoutes } from './mcp/http'
 import { scimAdminRoutes, scimRoutes } from './scim/routes'
@@ -123,6 +124,7 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
   app.route('/api/auth', authRoutes(runtime))
   app.route('/api/admin', adminRoutes(runtime))
   app.route('/api/admin', auditRoutes(runtime))
+  app.route('/api/admin', webhookRoutes(runtime))
   app.route('/api/admin/groups', groupsRoutes(runtime))
   app.route('/api/invite', inviteLinkRoutes(runtime))
   app.route('/api/me', meRoutes(runtime))

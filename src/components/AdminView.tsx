@@ -9,6 +9,7 @@ import { ScimPanel } from './ScimPanel'
 import { AuditPanel } from './AuditPanel'
 import { DangerPanel } from './DangerPanel'
 import { WorkspaceDataPanel } from './WorkspaceDataPanel'
+import { WebhooksPanel } from './WebhooksPanel'
 import { useAuth } from '@/lib/auth'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
 import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
@@ -25,7 +26,7 @@ import { cn } from '@/lib/utils'
  * administrator sees this team's people and its end, and somebody using the browser-only demo sees
  * the copies it keeps of itself. A tab that would only be able to say "not for you" is not drawn.
  */
-type TabId = 'workspace' | 'people' | 'invitations' | 'audit' | 'tools' | 'snapshots' | 'data' | 'danger'
+type TabId = 'workspace' | 'people' | 'invitations' | 'audit' | 'webhooks' | 'tools' | 'snapshots' | 'data' | 'danger'
 
 export function AdminView() {
   // The People section exists only where there is somebody to administer: a session, and the
@@ -42,6 +43,7 @@ export function AdminView() {
     ...(workspaceAdmin ? [{ id: 'people' as const, label: 'People' }] : []),
     ...(admin ? [{ id: 'invitations' as const, label: 'Invitations' }] : []),
     ...(workspaceAdmin ? [{ id: 'audit' as const, label: 'Audit' }] : []),
+    ...(workspaceAdmin ? [{ id: 'webhooks' as const, label: 'Webhooks' }] : []),
     ...(signedIn ? [{ id: 'tools' as const, label: 'Tools & agents' }] : []),
     { id: 'snapshots', label: 'Snapshots' },
     { id: 'data', label: 'Workspace data' },
@@ -117,6 +119,7 @@ export function AdminView() {
           {active === 'people' && (admin ? <PeoplePanel /> : <MembersPanel />)}
           {active === 'invitations' && <InvitationsPanel />}
           {active === 'audit' && <AuditPanel />}
+          {active === 'webhooks' && <WebhooksPanel />}
           {active === 'tools' && (
             <div className="space-y-3">
               <ConnectAgent />

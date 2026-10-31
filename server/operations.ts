@@ -14,7 +14,7 @@
 
 import { decompositionParent, objectiveRollup, rollupOf } from '../src/domain/derive'
 import { cardsFlows, initiativesFlow, kindOf } from '../src/domain/flows'
-import { boardCardTypeId, boardTags, canRetype, canSetParent, defaultDropLane, isInitiativeItem } from '../src/domain/board'
+import { boardCardTypeId, boardTags, canRetype, canSetParent, defaultDropLane, isInitiativeItem, isStrategicInitiative } from '../src/domain/board'
 import { searchHits } from '../src/domain/search'
 import { moveCard, moveInitiative } from '../src/domain/move'
 import type { Role } from '../src/domain/roles'
@@ -25,6 +25,7 @@ import { randomToken } from './auth/oauth'
 import type { AuthUser } from './auth/session'
 import { readItem, readWorkspace } from './workspace/read'
 import { appliedItemOf, writeItemAndPlacements, writeWorkspace } from './workspace/write'
+import { emitItemChange, emitObjectiveMapping } from './events'
 import { parseItem, parseWorkspace } from './workspace/validate'
 import type { Board, BoardFlow, Item, ItemLogEntry, Lane, Placement } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
@@ -527,6 +528,15 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
     ])
   }
 
+  await emitItemChange(
+    caller.db,
+    caller.workspaceId,
+    undefined,
+    item,
+    { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes },
+    caller.user.id,
+  )
+
   return ok({ item: compactItem(item, placement), ...(parentId ? { parentId } : {}) })
 }
 
@@ -675,6 +685,15 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
     }
   }
 
+  await emitItemChange(
+    caller.db,
+    caller.workspaceId,
+    current,
+    stored,
+    { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes },
+    caller.user.id,
+  )
+
   return ok({ item: compactItem(stored) })
 }
 
@@ -744,6 +763,15 @@ export async function moveItem(caller: OpCaller, boardId: string, itemId: string
     }),
   )
 
+  await emitItemChange(
+    caller.db,
+    caller.workspaceId,
+    item,
+    moved,
+    { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes },
+    caller.user.id,
+  )
+
   return ok({
     item: compactItem(moved, outcome.placement),
     placement: { boardId, laneId: outcome.placement.laneId, rank: outcome.placement.rank ?? 0 },
@@ -797,4 +825,50 @@ export async function setParentItem(caller: OpCaller, itemId: string, parentId: 
   }
 
   return ok({ item: compactItem(stored), parentId: parentId ?? null })
+}
+
+/**
+ * Point a strategic initiative at the objective it serves, or take it away.
+ *
+ * An initiative serves one objective, so mapping is a move rather than a set: the old attribution
+ * is replaced in the same transaction as the new one. This is the one server seam for attribution,
+ * which is why the outbound `objective.mapped` event is emitted here and nowhere else.
+ */
+export async function mapInitiative(caller: OpCaller, objectiveId: string, itemId: string, mapped: boolean) {
+  const state = await readWorkspace(caller.db, caller.workspaceId)
+  const objective = state.objectives.find((entry) => entry.id === objectiveId)
+  if (!objective) return no(404, 'not_found', 'no such objective')
+  const item = state.items.find((entry) => entry.id === itemId)
+  if (!item) return no(404, 'not_found', 'no such item')
+  if (!isStrategicInitiative(itemId, state)) {
+    return no(422, 'not_strategic', 'only an Initiative placed on a portfolio board can serve an objective', { itemId })
+  }
+
+  const previous = state.edges.find((edge) => edge.kind === 'attribution' && edge.to === itemId && edge.from !== objectiveId)
+  const statements = mapped
+    ? [
+        // One objective per initiative: replacing the old attribution is the move.
+        {
+          sql: "DELETE FROM edges WHERE kind = 'attribution' AND to_id = ?1 AND workspace_id = ?2",
+          params: [itemId, caller.workspaceId],
+        },
+        {
+          sql: 'INSERT INTO edges (id, kind, from_id, to_id, workspace_id) VALUES (?1, ?2, ?3, ?4, ?5)',
+          params: [newId('e'), 'attribution', objectiveId, itemId, caller.workspaceId],
+        },
+      ]
+    : [
+        {
+          sql: "DELETE FROM edges WHERE kind = 'attribution' AND from_id = ?1 AND to_id = ?2 AND workspace_id = ?3",
+          params: [objectiveId, itemId, caller.workspaceId],
+        },
+      ]
+  await caller.db.batch(statements)
+  await emitObjectiveMapping(caller.db, caller.workspaceId, objectiveId, itemId, mapped, caller.user.id)
+  return ok({
+    objectiveId,
+    itemId,
+    mapped,
+    ...(mapped && previous ? { previousObjectiveId: previous.from } : {}),
+  })
 }
