@@ -3702,9 +3702,9 @@
         "testStrategy": "Unit-test that the shortcut list has unique ids, non-empty labels/keys and every group is known. E2E: press ? on a board, assert the sheet is visible and focus is inside it; Escape closes and restores focus; typing ? into the search field does not open it; the palette action opens it; the sheet names Cmd-K, / and Escape. Check the build budget did not grow beyond 167 KB. Run npm test, npm run build and npm run scan.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:11:33.636Z"
       },
       {
         "id": "182",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:07:06.102Z",
+      "lastModified": "2026-10-31T03:11:33.636Z",
       "taskCount": 188,
-      "completedCount": 153,
+      "completedCount": 154,
       "tags": [
         "backlog"
       ]

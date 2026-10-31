@@ -54,7 +54,8 @@ that policy covers every cards flow on the board.
 The keyboard is a full way in, not a fallback: focus a card and press
 <kbd>Shift</kbd>+<kbd>F10</kbd> for its menu — **Move to lane**, **Move earlier**, **Move later**,
 **Set parent…** — and <kbd>Enter</kbd> to choose. <kbd>Escape</kbd> closes a panel and gives the focus
-back.
+back. Press <kbd>?</kbd> anywhere you are not typing — or choose **Keyboard shortcuts** in the command
+palette — for the full sheet, grouped by where each key works.
 
 ## A card
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Command, LayoutGrid, Search } from 'lucide-react'
 import { isInitiativeItem } from '@/domain/board'
 import { KIND_LABEL, rankEntries, type PaletteEntry, type PaletteKind } from '@/domain/palette'
+import { openShortcuts } from '@/lib/shortcutDialog'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
@@ -114,6 +115,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
         ? []
         : [{ id: 'action:edit', kind: 'action' as PaletteKind, label: 'Edit board design', hint: 'Split, add, rename and delete lanes; add a cards flow', keywords: 'lanes columns rows wip', run: beginEdit }]),
       { id: 'action:filters', kind: 'action', label: 'Filters', hint: 'Narrow the cards shown on this board, across every flow', keywords: 'find narrow', run: toggleFilters },
+      { id: 'action:shortcuts', kind: 'action', label: 'Keyboard shortcuts', hint: 'Every key path in the app', keywords: 'keys help ? reference', run: openShortcuts },
       ...(canSettings
         ? [{ id: 'action:settings', kind: 'action' as PaletteKind, label: 'Board settings', hint: 'Band, WIP enforcement, default drop cell', keywords: 'configure', run: toggleBoardSettings }]
         : []),

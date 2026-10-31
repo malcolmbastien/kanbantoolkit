@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { CornerDownRight, X } from 'lucide-react'
 import { CardMenu } from './CardMenu'
+import { ShortcutsSheet } from './ShortcutsSheet'
 import { useStore } from '@/store'
 import { useMay } from '@/lib/permissions'
 
@@ -99,6 +100,9 @@ export function Overlays() {
           onClose={closeCardMenu}
         />
       )}
+      {/* The keyboard's reference: mounted here with the other floating surfaces, and opened by
+          `?` or by the palette's own verb. It draws nothing until asked. */}
+      <ShortcutsSheet />
     </>
   )
 }
