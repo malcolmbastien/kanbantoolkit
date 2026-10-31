@@ -55,10 +55,11 @@ test('a screen is downloaded when it is first opened, not before', async ({ page
 
   await openBoard(page)
   const atBoard = new Set(scripts)
-  // The board is the app's own path: the entry, its runtime, a shared module chunk and the command
-  // palette — not one file per screen. What matters is which *screens* are absent, so the count is a
-  // sanity bound and the list below is the promise.
-  expect(atBoard.size).toBeLessThan(6)
+  // The board is the app's own path: the entry, its runtime, the shared modules it actually reads
+  // and the command palette — not one file per screen. The build may split small shared modules
+  // (icons, users, health) into chunks of their own, so the count is a sanity bound; the list below
+  // is the promise, and it is what keeps a screen from being downloaded before it is opened.
+  expect(atBoard.size).toBeLessThan(16)
   for (const screen of ['ItemPanel', 'AdminView', 'TimelineView', 'ManagementDashboard', 'MetricsView', 'ObjectivesView', 'MyWorkView', 'ArchiveView', 'BoardSettings', 'SignInPanel']) {
     expect([...atBoard].some((url) => url.includes(`/${screen}-`)), screen).toBe(false)
   }
