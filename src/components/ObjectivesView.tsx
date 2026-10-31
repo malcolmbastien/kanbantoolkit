@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Plus, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import { isStrategicInitiative } from '@/domain/board'
 import { objectiveRollup, rollupOf, type Graph } from '@/domain/derive'
@@ -39,6 +39,22 @@ export function ObjectivesView() {
   // objective will join.
   const periodName = period.trim()
   const shown = objectives.filter((o) => o.period === periodName)
+  // A period not in the list is one just named and waiting for its first objective; it stays
+  // visible in the select so the reader can see which period the next objective will join.
+  const periodOptions = periodName && !periods.includes(periodName) ? [...periods, periodName] : periods
+  const [newPeriodOpen, setNewPeriodOpen] = useState(false)
+  const [newPeriod, setNewPeriod] = useState('')
+  const objectiveTitle = useRef<HTMLInputElement>(null)
+
+  const createPeriod = () => {
+    const name = newPeriod.trim()
+    if (!name) return
+    setPeriod(name)
+    setNewPeriodOpen(false)
+    setNewPeriod('')
+    // The empty state is already saying what to do; put the caret where it belongs.
+    requestAnimationFrame(() => objectiveTitle.current?.focus())
+  }
 
   const [newTitle, setNewTitle] = useState('')
   const [krDraft, setKrDraft] = useState<Record<string, string>>({})
@@ -84,26 +100,30 @@ export function ObjectivesView() {
           <div className="ml-auto flex flex-wrap items-end gap-3">
             <label className="flex items-center gap-1.5 text-meta text-slate-600">
               Period
-              <input
-                list="objective-periods"
+              <select
                 aria-label="Period"
-                value={period}
+                value={periodName}
                 onChange={(e) => setPeriod(e.target.value)}
-                placeholder="FY26 Q4"
-                title="Type a period or choose one already in use. A period exists while an objective uses it."
-                className="w-28 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300"
-              />
-              <datalist id="objective-periods">
-                {periods.map((p) => (
-                  <option key={p} value={p} />
+                className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300"
+              >
+                {periodOptions.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
                 ))}
-              </datalist>
-              {periods.length === 0 && (
-                <span className="text-micro text-slate-500">name the first one</span>
-              )}
+              </select>
             </label>
+            <button
+              type="button"
+              onClick={() => setNewPeriodOpen((open) => !open)}
+              className="flex items-center gap-1 rounded-md border border-violet-300 bg-white px-2 py-1 text-meta font-medium text-violet-700 transition hover:bg-violet-50"
+              title="Name a new period, then add its first objective"
+            >
+              <Plus size={12} /> New period
+            </button>
             <div className="flex items-center gap-1">
               <input
+                ref={objectiveTitle}
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 onKeyDown={(e) => {
@@ -128,6 +148,53 @@ export function ObjectivesView() {
               </button>
             </div>
           </div>
+
+          {newPeriodOpen && (
+            <div className="flex w-full flex-wrap items-end gap-2 rounded-lg border border-violet-200 bg-white px-3 py-2">
+              <label className="flex flex-col gap-0.5 text-micro font-medium text-slate-600">
+                New period
+                <input
+                  autoFocus
+                  aria-label="New period"
+                  value={newPeriod}
+                  onChange={(e) => setNewPeriod(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      createPeriod()
+                    }
+                    if (e.key === 'Escape') {
+                      setNewPeriodOpen(false)
+                      setNewPeriod('')
+                    }
+                  }}
+                  placeholder="e.g. FY27 Q1"
+                  className="w-40 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!newPeriod.trim()}
+                onClick={createPeriod}
+                className="rounded-md bg-violet-700 px-2.5 py-1 text-meta font-medium text-white transition hover:bg-violet-600 disabled:opacity-40"
+              >
+                Create period
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewPeriodOpen(false)
+                  setNewPeriod('')
+                }}
+                className="rounded-md border border-slate-200 px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-slate-300"
+              >
+                Cancel
+              </button>
+              <span className="text-micro text-slate-500">
+                A period is kept by its objectives; add the first one next.
+              </span>
+            </div>
+          )}
 
           {/* An objective or a key result that did not land says so where it was named. */}
           <div className="w-full">

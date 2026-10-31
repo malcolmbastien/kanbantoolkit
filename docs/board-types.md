@@ -84,11 +84,11 @@ Open the portfolio board and choose **Objectives**. This is the only place objec
 results are authored; they are not a global view.
 
 **Periods.** A period is a label on an objective, not a separate record, so there is no separate
-period screen to visit. Type the period into the **Period** field — `FY26 Q4`, `2026`, `H1 2027` —
-and add an objective; it joins that period. The field offers the periods already in use, and
-switching it filters the cards. A period exists while an objective uses it: remove its last objective
-and it leaves the list. Periods are matched exactly, so keep one spelling — `FY26 Q4` and `fy26 q4`
-are two different periods.
+period screen to visit. Choose an existing period in **Period**, or press **New period**, name it
+(for example `FY27 Q1`) and press **Create period**. Then add the first objective; it joins that
+period. A period exists while an objective uses it, so an empty period is not kept after you leave
+the view: add its first objective before moving on. Periods are matched exactly, so keep one
+spelling — `FY26 Q4` and `fy26 q4` are two different periods.
 
 **Add an objective.** With the period chosen, type the outcome beside **New objective** and press
 Enter or the button. The card's title is editable in place. Aim for three to five objectives in a
@@ -104,7 +104,8 @@ initiatives that serve it, so there is no hand-entered percentage that can disag
 **Map an initiative…** at the bottom of an objective card to attach one, then **Map**. An initiative
 serves one objective, so choosing one that already serves another moves it; the option says
 “moves from …” before you commit. Detach one with the × beside it. Mapping is attribution: it never
-counts as WIP, and it does not move a card.
+counts as WIP, and it does not move a card. A portfolio board makes no initiatives of its own — there
+is no **Initiative** button, because the ones it connects already exist.
 
 **See the gaps.** The strategy map groups the portfolio's initiatives by the objective they serve,
 and shows both coverage gaps: an objective that nothing serves, and an initiative that serves
