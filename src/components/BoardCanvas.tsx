@@ -883,7 +883,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
           pan.handlers.onPointerDown(event)
         }}
         className={cn(
-          'min-h-0 flex-1 overflow-auto p-3',
+          'min-h-0 flex-1 overflow-auto py-3',
           // The surface is draggable, so it says so — and holds the selection still while
           // it is being dragged.
           pan.panning || lifting ? 'cursor-grabbing select-none' : 'cursor-grab',

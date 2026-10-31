@@ -273,3 +273,19 @@ test('workflow headers stay in view while their columns scroll', async ({ page }
   expect(held, 'the Cards header is held at the top of the scroller').toBeGreaterThanOrEqual(-1)
   expect(held).toBeLessThanOrEqual(20)
 })
+
+test('a cards flow reaches the window edge instead of stopping at the board padding', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1100 })
+  await openBoard(page)
+  const section = flowBand(page, 'Cards')
+  const canvas = section.locator('[data-workflow="cards"] > div').first()
+  const [sectionBox, canvasBox] = await Promise.all([section.boundingBox(), canvas.boundingBox()])
+  expect(sectionBox).toBeTruthy()
+  expect(canvasBox).toBeTruthy()
+  // The band is pulled out of the board's horizontal padding, and its canvas is the same width:
+  // a wide flow scrolls out at the window edge, not at an inset edge.
+  expect(Math.round(sectionBox!.x)).toBe(0)
+  expect(Math.round(sectionBox!.width)).toBe(Math.round(canvasBox!.width))
+  expect(await canvas.evaluate((element) => getComputedStyle(element).paddingLeft)).toBe('0px')
+  expect(await canvas.evaluate((element) => getComputedStyle(element).paddingRight)).toBe('0px')
+})
