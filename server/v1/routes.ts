@@ -22,6 +22,7 @@ import { limitPerMinute, spend } from '../rate-limit'
 import { schemaVersion } from '../migrate'
 import type { Runtime } from '../runtime'
 import { REQUIRED_SCHEMA } from '../workspace/schema'
+import { readVocabulary, writeVocabularyDocument } from '../workspace/vocabulary'
 import {
   createItem,
   exportFile,
@@ -34,6 +35,7 @@ import {
   listPeople,
   mapInitiative,
   moveItem,
+  ok,
   search,
   updateItem,
   type ApiFailure,
@@ -149,7 +151,7 @@ export async function requireV1(c: Ctx, runtime: Runtime, scope: Scope, action?:
 /* ---- The routes --------------------------------------------------------------------------- */
 
 export interface RouteSpec {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   path: string
   summary: string
   /** The scope a credential needs. `null` is public documentation. */
@@ -347,6 +349,41 @@ export function v1Routes(runtime: Runtime) {
       responses: { '200': { description: 'The mapping is gone' }, '404': { description: 'No such objective or item' } },
       handler: async (c, caller) =>
         respond(c, await mapInitiative(caller, c.req.param('objectiveId') ?? '', c.req.param('itemId') ?? '', false)),
+    },
+    {
+      method: 'GET',
+      path: '/vocabulary',
+      summary: 'The workspace\'s words: issue types, board templates, objectives, key results and the auto-archive policy.',
+      scope: 'boards:read',
+      responses: { '200': { description: 'The document and its `rev`' } },
+      handler: async (c, caller) => respond(c, ok(await readVocabulary(caller.db, caller.workspaceId))),
+    },
+    {
+      method: 'PUT',
+      path: '/vocabulary',
+      summary: 'Replace the workspace vocabulary as one document. Requires the revision it was based on.',
+      scope: 'boards:read',
+      body: { type: 'object', additionalProperties: true },
+      responses: {
+        '200': { description: 'The new revision and the counts of each list' },
+        '403': { description: 'The token lacks a scope for a list the document changes' },
+        '409': { description: 'The vocabulary moved past the revision the change was based on' },
+        '422': { description: 'A built-in type was removed, a key result is orphaned, or the role may not change a list' },
+      },
+      handler: async (c, caller) => {
+        const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
+        const result = await writeVocabularyDocument({
+          db: caller.db,
+          workspaceId: caller.workspaceId,
+          role: caller.role,
+          scopes: caller.scopes,
+          body,
+        })
+        if (!result.ok) {
+          return failure(c, result.failure.status, result.failure.code, result.failure.message, result.failure.details)
+        }
+        return respond(c, ok(result.value))
+      },
     },
     {
       method: 'GET',

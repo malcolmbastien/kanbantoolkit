@@ -81,6 +81,8 @@ difference is worth reading: the first is the token you chose, the second is the
 | `GET /objectives` | `objectives:write` | objectives with their completeness and key results |
 | `POST /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | map a strategic initiative to an objective; one objective per initiative, so this moves it |
 | `DELETE /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | unmap it |
+| `GET /vocabulary` | `boards:read` | issue types, board templates, objectives, key results and the auto-archive policy, with `rev` |
+| `PUT /vocabulary` | `boards:read`, then per list | replace the whole vocabulary; requires `rev`, and a list the token's scopes or the role do not allow refuses the document |
 | `GET /people` | `people:read` | names and ids, so an assignment names a person |
 | `GET /search?q=` | `items:read` | the app's own search over titles, descriptions and notes, not a query language; each result carries the clipped matching line |
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
@@ -89,13 +91,13 @@ difference is worth reading: the first is the token you chose, the second is the
 A note is an item-log entry of kind `noted`. It may carry `mentions`, an additive list of user ids:
 a mention is part of the note, never a thread, and the typed `@Name` stays in `note`.
 
-Two writes travel as whole documents and are deliberately **not** on this surface:
-`PUT /api/workspace/structure` (the board design — boards, flows, lanes and placements) and
-`PUT /api/workspace/vocabulary` (issue types, board templates, objectives, key results and the
-auto-archive policy). They are the shipped client's own protocol — its debounce, its revision and its
-re-adoption are one application talking to one server — so they change with the app, like every
-route on the internal page. A board's shape is read here through `GET /boards/{boardId}`; its design
-is written by people using the board, and its words by the roles that own them.
+One write travels as a whole document and is deliberately **not** on this surface:
+`PUT /api/workspace/structure` (the board design — boards, flows, lanes and placements). It is the
+shipped client's own protocol — its debounce, its revision and its re-adoption are one application
+talking to one server — so it changes with the app, like every route on the internal page. A board's
+shape is read here through `GET /boards/{boardId}`; its design is written by people using the board.
+The workspace's words *are* here: `GET`/`PUT /vocabulary` use the same document, revision and
+per-list rules as the app's own route.
 
 A board's lane trees are **flows**, and it carries one **initiatives** flow and one or more **cards**
 flows. `GET /boards/{boardId}` answers both views: `workflows.cards` is the board's **first** cards

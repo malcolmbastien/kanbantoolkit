@@ -15,21 +15,12 @@ import { itemBelongsElsewhere, readItem, readItemsByIds, readVocabularyRev, read
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
 import { schemaVersion } from '../migrate'
 import { acquire, heldByOther, heldLocks, lockOf, release, renew } from './locks'
-import {
-  canonicalKeyResult,
-  canonicalObjective,
-  canonicalTemplate,
-  parseItem,
-  parseVocabulary,
-  parseWorkspace,
-  vocabularyObjectivesKnown,
-} from './validate'
-import { alreadyApplied, writeItem, writeVocabulary, writeWorkspace } from './write'
+import { parseItem, parseWorkspace } from './validate'
+import { alreadyApplied, writeItem, writeWorkspace } from './write'
 import { statement } from '../audit'
-import { NONE_TYPE_ID } from '../../src/domain/board'
-import { can, type Action } from '../../src/domain/roles'
 import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
 import { findBandChange, readBoardBands, readDesign, readStructureRev, writeDesign } from './structure'
+import { writeVocabularyDocument } from './vocabulary'
 import { emitItemChange } from '../events'
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
@@ -221,70 +212,19 @@ export function workspaceRoutes(runtime: Runtime) {
     }
 
     const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
-    const rev = body?.rev
-    if (typeof rev !== 'number' || !Number.isInteger(rev) || rev < 0) {
-      return c.json({ error: 'the revision the vocabulary was based on is required' }, 400)
-    }
-
-    const vocabulary = parseVocabulary(body)
-    if (!vocabulary) return c.json({ error: 'not a workspace vocabulary' }, 400)
-    // The built-in labels are the app's, not a workspace's: a document that forgets them would
-    // leave a board with no None and no initiative type, which is not a design anybody chose.
-    if (!vocabulary.issueTypes.some((t) => t.id === NONE_TYPE_ID) || !vocabulary.issueTypes.some((t) => t.name === 'Initiative')) {
-      return c.json({ error: 'the built-in types cannot be removed', field: 'issueTypes' }, 422)
-    }
-    if (!vocabularyObjectivesKnown(vocabulary)) {
-      return c.json({ error: 'a key result names an objective that is not in this workspace', field: 'keyResults' }, 422)
-    }
-
-    const current = await readVocabularyRev(allowed.db, allowed.workspaceId)
-    if (rev !== current) {
-      return c.json({ error: 'the workspace vocabulary has changed since you read it', rev: current }, 409)
-    }
-
-    // What this document actually changes. A list the sender did not touch needs no permission, and
-    // a sender who changes nothing is answered without a write at all.
-    const before = await readWorkspace(allowed.db, allowed.workspaceId)
-    const stable = (value: unknown) => JSON.stringify(value)
-    const byId = <T extends { id: string }>(list: T[]): T[] => [...list].sort((a, b) => a.id.localeCompare(b.id))
-    const changed: string[] = []
-    if (stable(byId(before.issueTypes)) !== stable(byId(vocabulary.issueTypes))) changed.push('issueTypes')
-    if (stable(byId(before.boardTemplates.map(canonicalTemplate))) !== stable(byId(vocabulary.boardTemplates))) changed.push('boardTemplates')
-    if (stable(byId(before.objectives.map(canonicalObjective))) !== stable(byId(vocabulary.objectives))) changed.push('objectives')
-    if (stable(byId(before.keyResults.map(canonicalKeyResult))) !== stable(byId(vocabulary.keyResults))) changed.push('keyResults')
-    if ((before.autoArchiveDays ?? null) !== (vocabulary.autoArchiveDays ?? null)) changed.push('autoArchiveDays')
-
-    if (changed.length === 0) return c.json({ rev: current })
-
-    const actionOf: Record<string, Action> = {
-      issueTypes: 'board.settings',
-      boardTemplates: 'template.manage',
-      objectives: 'objective.write',
-      keyResults: 'objective.write',
-      autoArchiveDays: 'workspace.settings',
-    }
-    const editable = (list: string) => can(allowed.workspaceRole, actionOf[list])
-    // A role that may write none of it has no business sending a document at all; a role that may
-    // write some of it is told exactly which lists it cannot change, and nothing is written.
-    if (![...new Set(Object.values(actionOf))].some((action) => can(allowed.workspaceRole, action))) {
-      return c.json({ error: `a ${allowed.workspaceRole} may not change the workspace's vocabulary` }, 403)
-    }
-    const denied = changed.filter((list) => !editable(list))
-    if (denied.length > 0) {
+    const result = await writeVocabularyDocument({
+      db: allowed.db,
+      workspaceId: allowed.workspaceId,
+      role: allowed.workspaceRole,
+      body,
+    })
+    if (!result.ok) {
       return c.json(
-        { error: `a ${allowed.workspaceRole} may not change ${denied.join(', ')}`, fields: denied },
-        422,
+        { error: result.failure.message, ...(result.failure.details ?? {}) },
+        result.failure.status,
       )
     }
-
-    await writeVocabulary(allowed.db, allowed.workspaceId, vocabulary, current)
-    return c.json({
-      rev: current + 1,
-      issueTypes: vocabulary.issueTypes.length,
-      boardTemplates: vocabulary.boardTemplates.length,
-      objectives: vocabulary.objectives.length,
-      keyResults: vocabulary.keyResults.length,
-    })
+    return c.json(result.value)
   })
 
   /**

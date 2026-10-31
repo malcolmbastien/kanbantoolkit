@@ -3786,9 +3786,9 @@
         "testStrategy": "Server tests: v1 GET matches the internal document and rev; an admin PUT succeeds and bumps the rev; an editor can change objectives but not templates (422 fields); a token without objectives:write gets 403; a stale rev is 409 with rev; removing the built-in types or orphaning a key result is 422; an unchanged document returns the same rev and writes nothing. Assert the OpenAPI table and mounted routes agree. Run npm test, npm run build and npm run docs:check.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:43:29.502Z"
       },
       {
         "id": "189",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:40:58.317Z",
+      "lastModified": "2026-10-31T03:43:29.503Z",
       "taskCount": 188,
-      "completedCount": 160,
+      "completedCount": 161,
       "tags": [
         "backlog"
       ]

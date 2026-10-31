@@ -83,6 +83,7 @@ function seeded(): Workspace {
     flows: flows(),
     users: [],
     issueTypes: [
+      { id: 't-none', name: 'None', color: '#64748b' },
       { id: 't-card', name: 'Card', color: '#0ea5e9' },
       { id: 't-init', name: 'Initiative', color: '#8b5cf6' },
     ],
@@ -633,5 +634,89 @@ describe('the workspace file', () => {
     const again = await writer.call('/workspace', { method: 'POST', body: JSON.stringify(file) })
     expect(again.status).toBe(409)
     expect(((await again.json()) as { error: { code: string } }).error.code).toBe('not_empty')
+  })
+})
+
+describe('the workspace vocabulary', () => {
+  type Document = {
+    rev: number
+    issueTypes: Array<{ id: string; name: string; color: string }>
+    boardTemplates: unknown[]
+    objectives: Array<{ id: string; title: string; period: string; status: string }>
+    keyResults: unknown[]
+  }
+
+  it('reads the document, writes a list the token and role may change, and bumps the revision', async () => {
+    const { signIn, token } = await world()
+    const admin = await signIn('admin@example.com', 'admin')
+    const writer = await token(admin, ['boards:read', 'boards:write', 'objectives:write', 'workspace:admin'], 'vocabulary')
+
+    const first = (await (await writer.call('/vocabulary')).json()) as Document
+    expect(first.rev).toBe(0)
+    expect(first.issueTypes.map((type) => type.id)).toContain('t-card')
+
+    const changed = await writer.call('/vocabulary', {
+      method: 'PUT',
+      body: body({
+        ...first,
+        issueTypes: [...first.issueTypes, { id: 't-task', name: 'Task', color: '#0ea5e9' }],
+      }),
+    })
+    expect(changed.status).toBe(200)
+    expect(await changed.json()).toMatchObject({ rev: 1, changed: ['issueTypes'] })
+
+    const after = (await (await writer.call('/vocabulary')).json()) as Document
+    expect(after.rev).toBe(1)
+    expect(after.issueTypes.map((type) => type.id)).toContain('t-task')
+  })
+
+  it('refuses a list the role may not change, even when the token covers the scope', async () => {
+    const { signIn, token } = await world()
+    const editor = await signIn('editor@example.com', 'editor')
+    const writer = await token(editor, ['boards:read', 'boards:write'], 'editor vocabulary')
+    const document = (await (await writer.call('/vocabulary')).json()) as Document
+
+    const refused = await writer.call('/vocabulary', {
+      method: 'PUT',
+      body: body({ ...document, issueTypes: [...document.issueTypes, { id: 't-task', name: 'Task', color: '#0ea5e9' }] }),
+    })
+    expect(refused.status).toBe(403)
+    expect(await refused.json()).toMatchObject({ error: { code: 'role_forbidden' } })
+  })
+
+  it('refuses a list the token lacks a scope for, and names the scope', async () => {
+    const { signIn, token } = await world()
+    const admin = await signIn('admin@example.com', 'admin')
+    const reader = await token(admin, ['boards:read'], 'reader')
+    const document = (await (await reader.call('/vocabulary')).json()) as Document
+
+    const refused = await reader.call('/vocabulary', {
+      method: 'PUT',
+      body: body({
+        ...document,
+        objectives: [{ id: 'o-1', title: 'Grow', period: 'FY26 Q4', status: 'active' }],
+      }),
+    })
+    expect(refused.status).toBe(403)
+    expect(await refused.json()).toMatchObject({
+      error: { code: 'scope_required', details: { scope: 'objectives:write', fields: ['objectives'] } },
+    })
+  })
+
+  it('refuses a stale revision with the revision that is there', async () => {
+    const { signIn, token } = await world()
+    const admin = await signIn('admin@example.com', 'admin')
+    const writer = await token(admin, ['boards:read', 'boards:write'], 'stale vocabulary')
+    const document = (await (await writer.call('/vocabulary')).json()) as Document
+
+    const first = await writer.call('/vocabulary', {
+      method: 'PUT',
+      body: body({ ...document, issueTypes: [...document.issueTypes, { id: 't-task', name: 'Task', color: '#0ea5e9' }] }),
+    })
+    expect(first.status).toBe(200)
+
+    const stale = await writer.call('/vocabulary', { method: 'PUT', body: body({ ...document, rev: document.rev }) })
+    expect(stale.status).toBe(409)
+    expect(await stale.json()).toMatchObject({ error: { code: 'revision_conflict', details: { rev: 1 } } })
   })
 })
