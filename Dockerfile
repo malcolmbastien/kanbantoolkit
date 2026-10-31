@@ -1,8 +1,9 @@
 # Kanban Toolkit, as a container.
 #
 # Two stages, because the build needs the whole repository and the runtime needs almost none of it:
-# the first compiles the client and the site, the second carries the server, the migrations and the
-# built files. Nothing in the runtime stage can see `.git`, the tests or the source maps.
+# the first compiles the client and bundles the server, the second carries the server bundle, the
+# migrations and the built files. Nothing in the runtime stage can see `.git`, the tests, the
+# TypeScript source or the source maps.
 #
 #   docker build -t kanbantoolkit .
 #   docker run -p 8787:8787 -v kanbantoolkit-data:/data kanbantoolkit
@@ -23,7 +24,7 @@ RUN npm ci
 # else: an instance is the application, and the project's website is a different build for a
 # different origin (task 173).
 COPY . .
-RUN npm run build:app
+RUN npm run build:app && npm run build:server
 
 # ---- runtime -------------------------------------------------------------------------------------
 FROM node:26-alpine
@@ -37,22 +38,19 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-# Production dependencies only. `tsx` is one of them — the server in this image *is* TypeScript, so
-# the thing that runs it at runtime cannot be a development dependency. That is why it sits beside
-# `hono` and `ws` rather than in `devDependencies`, where a `--omit=dev` install would quietly
-# produce an image that starts and cannot answer.
+# Production dependencies only. The server is bundled JavaScript now, so `tsx` and the build tools
+# are development dependencies; what remains here is the three packages the bundle calls at runtime
+# (`hono`, `@hono/node-server`, `ws`).
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# What the server reads: the built client, the API, the migrations, and the domain rules it imports.
-# Not the project's site pages, which are in the same build and belong to a different deployment.
+# What the server reads: the bundle, the built client, the migrations, and `package.json` for the
+# version `/api/health` reports. The TypeScript source is not here at all.
+COPY --from=build /app/dist/server.js ./dist/server.js
 COPY --from=build /app/dist/app ./dist/app
 COPY --from=build /app/dist/assets ./dist/assets
 COPY --from=build /app/dist/favicon.svg ./dist/favicon.svg
-COPY --from=build /app/server ./server
 COPY --from=build /app/migrations ./migrations
-COPY --from=build /app/src/domain ./src/domain
-COPY --from=build /app/tsconfig.json ./tsconfig.json
 
 # A fixed, unprivileged user with an explicit id, and a data directory it owns. The database is
 # created here on first run by the migrations, so the volume needs no preparation.
@@ -71,6 +69,5 @@ EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
   CMD wget -qO- http://127.0.0.1:${PORT}/api/health || exit 1
 
-# `npm run server` is the same command a self-hoster runs outside a container: one entry, no
-# container-only path, so an image and a unit cannot drift apart.
-CMD ["npm", "run", "--silent", "server"]
+# The same entry a self-hoster runs (`npm run server` points here): one bundle, no shell, no npm.
+CMD ["node", "dist/server.js"]

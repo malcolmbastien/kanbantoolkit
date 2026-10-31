@@ -20,12 +20,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/build-site.ts",
+    "build": "tsc -b && vite build && node scripts/build-site.ts && npm run build:server",
     "build:app": "tsc -b && vite build",
     "size": "node scripts/bundle-size.mjs",
     "smoke:node": "node scripts/smoke-node.mjs",
     "preview": "node scripts/serve-dist.mjs",
-    "server": "tsx server/index.node.ts",
+    "server": "node dist/server.js",
     "backup": "tsx server/backup.ts",
     "deploy": "npm run build && wrangler deploy",
     "lint": "oxlint",
@@ -43,12 +43,13 @@
     "docs:shots": "tsx scripts/docs-shots.ts",
     "demo": "tsx scripts/demo-clip.ts",
     "kanbantoolkit": "node scripts/kanbantoolkit.mjs",
-    "mcp": "tsx server/mcp.ts"
+    "mcp": "tsx server/mcp.ts",
+    "build:server": "node scripts/build-server.mjs",
+    "server:dev": "tsx server/index.node.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
     "hono": "^4.13.13",
-    "tsx": "^4.23.15",
     "ws": "^8.22.0"
   },
   "devDependencies": {
@@ -62,6 +63,7 @@
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.1",
     "clsx": "^2.1.1",
+    "esbuild": "^0.28.2",
     "lucide-react": "^0.475.0",
     "oxlint": "^1.81.0",
     "react": "^19.2.8",
@@ -69,6 +71,7 @@
     "sharp": "^0.35.5",
     "tailwind-merge": "^3.0.1",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
     "vitest": "^4.1.12",

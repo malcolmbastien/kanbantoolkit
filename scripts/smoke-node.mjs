@@ -2,8 +2,8 @@
  * The second runtime, booted for real.
  *
  * The Worker has wrangler and the e2e suite; the Node entry had nothing, which is how a second
- * target rots. This starts `server/index.node.ts` exactly as a self-hoster would — a built client, a
- * database file, migrations applied — and uses the API the way the app does.
+ * target rots. This starts `dist/server.js` exactly as a self-hoster and the image do — the bundled
+ * entry, a built client, a database file, migrations applied — and uses the API the way the app does.
  *
  * Run after `npm run build`, because it serves the build.
  */
@@ -19,6 +19,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const dist = join(root, 'dist')
 
 if (!existsSync(join(dist, 'index.html'))) fail('run `npm run build` first — the Node entry serves the build')
+if (!existsSync(join(dist, 'server.js'))) fail('run `npm run build` first — the bundled Node entry is not there')
 
 const workspace = mkdtempSync(join(tmpdir(), 'kanbantoolkit-node-'))
 const databasePath = join(workspace, 'kanbantoolkit.db')
@@ -59,7 +60,7 @@ function check(name, condition, detail = '') {
 }
 
 
-const child = spawn(join(root, 'node_modules/.bin/tsx'), ['server/index.node.ts'], {
+const child = spawn(process.execPath, ['dist/server.js'], {
   cwd: root,
   env: { ...process.env, PORT: '0', DB_PATH: databasePath, STATIC_DIR: dist, ERROR_SALT: 'smoke' },
   stdio: ['ignore', 'pipe', 'pipe'],
