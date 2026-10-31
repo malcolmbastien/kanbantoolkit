@@ -3798,16 +3798,16 @@
         "testStrategy": "Fixtures for a small Trello JSON and Jira CSV. Parser tests: dates, statuses, types, people, labels, checklists, parent links, archived cards, malformed/empty files, duplicate keys and warnings. Store tests: import adds one board without touching others; counts, placements, stages, resolvedAt and decomposition are right; a second import gets fresh ids. E2E: upload a fixture, map, import, open the board and see cards in the expected stages; cancel changes nothing. Check the dialog is a lazy chunk and the first download stays within budget. Run npm test, npm run build and npm run scan.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:49:17.853Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:43:29.503Z",
+      "lastModified": "2026-10-31T03:49:17.853Z",
       "taskCount": 188,
-      "completedCount": 161,
+      "completedCount": 162,
       "tags": [
         "backlog"
       ]

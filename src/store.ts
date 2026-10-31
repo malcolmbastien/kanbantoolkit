@@ -27,6 +27,7 @@ import { isFrozen, useSync } from '@/lib/sync'
 import { onLiveItem, startLive, stopLive } from '@/lib/live'
 import { reflectAccount } from '@/lib/workspaceSync'
 import { uid as makeUid } from '@/lib/utils'
+import type { ImportPlan } from '@/domain/import'
 import type { ViewName } from '@/lib/url'
 import { DEFAULT_FLOW_WINDOW, type FlowWindow } from '@/domain/flowWindow'
 import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
@@ -294,6 +295,12 @@ export interface Actions {
    * leaving it. `templateId` supplies the design — otherwise the standard typed columns.
    */
   addBoard: (name: string, band?: BoardBand, open?: boolean, templateId?: string) => void
+  /**
+   * Add one board from an import plan, as a single update. The plan is already parsed and mapped;
+   * this creates the flows, lanes, tags, people, cards, placements and parent edges together and
+   * returns the new board's id. It never replaces another board.
+   */
+  importBoard: (plan: ImportPlan) => string
   /**
    * Save a board's *design* as a reusable template: its lane tree, card types and WIP
    * policy. Its items, placements and linked boards are deliberately left behind.
@@ -2150,6 +2157,103 @@ export const useStore = create<Store>()(
           flows: [...state.flows, ...copy.flows],
           lanes: [...state.lanes, ...copy.lanes],
         })
+      },
+
+      importBoard: (plan) => {
+        const state = get()
+        const boardId = uid()
+        const cardsFlowId = uid()
+        const cardsRootId = uid()
+        const laneIdOf = new Map(plan.lanes.map((lane) => [lane.key, uid()]))
+        const lanes: Lane[] = [{ id: cardsRootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns', flowId: cardsFlowId }]
+        for (const lane of plan.lanes) {
+          lanes.push({
+            id: laneIdOf.get(lane.key)!,
+            boardId,
+            parentId: lane.parentKey ? laneIdOf.get(lane.parentKey)! : cardsRootId,
+            order: lane.order,
+            name: lane.name,
+            stage: lane.stage,
+            flowId: cardsFlowId,
+            ...(lane.orientation ? { orientation: lane.orientation } : {}),
+          })
+        }
+
+        // A team board always has the initiatives flow, even when the imported board has no
+        // outcomes yet: the shape is the board's, and an import does not make a second kind of board.
+        const initFlowId = uid()
+        const initRootId = uid()
+        const initLanes = defaultColumns(boardId, initRootId, initFlowId, uid)
+        const tagIdOf = new Map(plan.tags.map((tag) => [tag.key, uid()]))
+        const tags: Tag[] = plan.tags.map((tag) => ({ id: tagIdOf.get(tag.key)!, name: tag.name, color: '#64748b' }))
+        const backlogKey = plan.lanes.find((lane) => lane.stage === 'backlog' && lane.parentKey !== null)?.key ?? 'stage:backlog'
+        const board: Board = {
+          id: boardId,
+          name: plan.boardName,
+          band: 'team',
+          description: `Imported from ${plan.source}.`,
+          defaultCardTypeId: plan.defaultTypeId,
+          ...(laneIdOf.get(backlogKey) ? { defaultDropLaneId: laneIdOf.get(backlogKey)! } : {}),
+          ...(tags.length > 0 ? { tags } : {}),
+        }
+
+        const itemIdOf = new Map<string, string>()
+        const items: Item[] = plan.cards.map((card) => {
+          const id = uid()
+          itemIdOf.set(card.key, id)
+          const tagIds = card.tagKeys.map((key) => tagIdOf.get(key)).filter((value): value is string => Boolean(value))
+          return createdItem({
+            id,
+            title: card.title,
+            typeId: card.typeId,
+            createdAt: card.createdAt,
+            ...(card.description ? { description: card.description } : {}),
+            ...(card.assigneeIds.length ? { assignees: card.assigneeIds } : {}),
+            ...(tagIds.length ? { tagIds } : {}),
+            ...(card.resolvedAt === undefined ? {} : { resolvedAt: card.resolvedAt }),
+            ...(card.dueDate ? { targetEndDate: card.dueDate } : {}),
+            ...(card.checklist.length
+              ? { checklist: card.checklist.map((entry) => ({ id: uid(), text: entry.text, done: entry.done })) }
+              : {}),
+            ...(card.archived ? { archived: true, archivedAt: card.resolvedAt ?? card.createdAt } : {}),
+            // The import is the origin of this history: the author is the source, not whoever
+            // pressed the button, and the source key is what a reader can look up.
+            log: [{ id: uid(), at: card.createdAt, kind: 'created', note: `Imported from ${plan.source} ${card.sourceKey}` }],
+          })
+        })
+
+        const rankByLane = new Map<string, number>()
+        const placements: Placement[] = plan.cards.map((card) => {
+          const laneId = laneIdOf.get(card.laneKey) ?? laneIdOf.get(backlogKey)!
+          const rank = rankByLane.get(laneId) ?? 0
+          rankByLane.set(laneId, rank + 1)
+          return {
+            id: uid(),
+            boardId,
+            itemId: itemIdOf.get(card.key)!,
+            laneId,
+            laneEnteredAt: card.resolvedAt ?? card.createdAt,
+            rank,
+          }
+        })
+        const edges: Edge[] = []
+        for (const card of plan.cards) {
+          if (!card.parentKey) continue
+          const parent = itemIdOf.get(card.parentKey)
+          const child = itemIdOf.get(card.key)
+          if (parent && child && parent !== child) edges.push({ id: uid(), kind: 'decomposition', from: parent, to: child })
+        }
+
+        set({
+          boards: [...state.boards, board],
+          flows: [...state.flows, { id: cardsFlowId, boardId, kind: 'cards', name: 'Cards', order: 0 }, { id: initFlowId, boardId, kind: 'initiatives', name: 'Initiatives', order: 0 }],
+          lanes: [...state.lanes, ...lanes, { id: initRootId, boardId, parentId: null, order: 0, name: '', orientation: 'columns', flowId: initFlowId }, ...initLanes],
+          items: [...state.items, ...items],
+          placements: [...state.placements, ...placements],
+          edges: [...state.edges, ...edges],
+          users: [...state.users, ...plan.people.filter((person) => !state.users.some((user) => user.id === person.id))],
+        })
+        return boardId
       },
 
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),

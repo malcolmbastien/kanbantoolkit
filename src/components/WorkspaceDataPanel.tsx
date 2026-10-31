@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Database, Download, Upload } from 'lucide-react'
+import { ImportBoardButton } from './ImportBoardButton'
 import { useMay } from '@/lib/permissions'
 import { readWorkspaceFile } from '@/domain/workspace'
 import { downloadWorkspace } from '@/lib/exportWorkspace'
@@ -21,6 +22,7 @@ export function WorkspaceDataPanel() {
   const askConfirm = useStore((s) => s.askConfirm)
   const may = useMay()
   const canImport = may('workspace.import')
+  const canCreateBoard = may('board.create')
   const storageUsage = useStorageStatus((s) => s.usage)
   const storageQuota = useStorageStatus((s) => s.quota)
   const storagePersisted = useStorageStatus((s) => s.persisted)
@@ -88,6 +90,7 @@ export function WorkspaceDataPanel() {
           {importError && <p className="mt-1 text-meta font-medium text-rose-600">{importError}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {canCreateBoard && <ImportBoardButton />}
           <button
             onClick={() => downloadWorkspace()}
             className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"

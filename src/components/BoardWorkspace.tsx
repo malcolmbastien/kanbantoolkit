@@ -3,6 +3,7 @@ import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, CopyPlus, Databa
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { NewBoardDialog } from './NewBoardDialog'
 import { TemplateEditor } from './TemplateEditor'
+import { ImportBoardButton } from './ImportBoardButton'
 import { boardsByBand } from '@/domain/board'
 import { useMay } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
@@ -137,13 +138,16 @@ export function BoardWorkspace() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             {activeTab === 'boards' && canCreate && (
-              <button
-                onClick={() => setShowNewBoard(true)}
-                className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-meta font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-                title="Create a board in this organisation"
-              >
-                <Plus size={14} /> New board
-              </button>
+              <>
+                <ImportBoardButton />
+                <button
+                  onClick={() => setShowNewBoard(true)}
+                  className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-meta font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                  title="Create a board in this organisation"
+                >
+                  <Plus size={14} /> New board
+                </button>
+              </>
             )}
             {activeTab === 'boards' && (
             <div className="relative">

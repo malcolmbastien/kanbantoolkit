@@ -8,7 +8,9 @@ nothing here needs a server.
 
 The **Kanban Toolkit** button at the top left returns to **Workspace Home**: every board in the organisation,
 grouped by flight level (team, programme, portfolio), with a band filter and a search. **New board**
-makes one.
+makes one. **Import board…** brings a Trello export or a Jira CSV in as one new board, with a
+mapping step for lists, people and types — [Importing a board](import.md) explains the files and
+what is created.
 
 On a browser-only build the browser is the whole workspace — nothing is sent anywhere. On an instance
 the boards are shared, and signing in makes the account one of the workspace's people.

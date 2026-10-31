@@ -546,7 +546,7 @@ Admin
 ├── Backups           take, download, verify and stage a copy of the database
 ├── Tools & agents    agent tokens, directory provisioning
 ├── Snapshots         the browser's copies, and the demo reset
-├── Workspace data    export, import, and what the browser keeps
+├── Workspace data    export, import a workspace, import a board, and what the browser keeps
 └── Danger            delete this workspace
 ```
 
