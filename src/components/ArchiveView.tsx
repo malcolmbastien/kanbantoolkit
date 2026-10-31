@@ -100,7 +100,11 @@ export function ArchiveView() {
                 const type = typeOf(item.typeId)
                 const outcome = archiveOutcome(item, graph)
                 return (
-                  <tr key={item.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-200">
+                  <tr
+                    key={item.id}
+                    onClick={() => openItem(item.id, { focus: false })}
+                    className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-200"
+                  >
                     <td className="max-w-[320px] px-4 py-2.5">
                       <div className="flex items-center gap-1.5">
                         <span className="rounded px-1 py-px text-micro font-bold uppercase tracking-wide" style={{ backgroundColor: type.color, color: '#fff' }}>
@@ -108,7 +112,10 @@ export function ArchiveView() {
                         </span>
                       </div>
                       <button
-                        onClick={() => openItem(item.id)}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          openItem(item.id, { focus: false })
+                        }}
                         className="block max-w-full truncate text-left text-body font-semibold text-slate-800 hover:text-indigo-600"
                       >
                         {item.title}
@@ -135,7 +142,10 @@ export function ArchiveView() {
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <button
-                        onClick={() => unarchiveItem(item.id)}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          unarchiveItem(item.id)
+                        }}
                         className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-meta font-medium text-slate-600 hover:bg-slate-50"
                       >
                         <RotateCcw size={11} /> Restore

@@ -346,7 +346,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           users={users}
                           symbols={symbols}
                           blockedTone="aggregate"
-                          onOpen={openItem}
+                          onOpen={(id) => openItem(id)}
                           summary={{
                             childCount: decompositionChildren(item.id, edges).length,
                             dependentsCount: dependentsOf(item.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,

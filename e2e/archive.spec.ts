@@ -44,6 +44,14 @@ test('a card in play is discarded, and the archive says so without keeping its c
   await expect(row).toBeVisible()
   await expect(row.getByText('Discarded')).toBeVisible()
   await expect(row.getByText('Backlog')).toHaveCount(0)
+
+  // A row is a way into the item, not only a line in a table.
+  await row.click()
+  const drawer = page.locator('[data-item-panel]')
+  await expect(drawer).toBeVisible()
+  expect(await drawer.getAttribute('aria-label')).toContain('Add usage-based billing events')
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
 })
 
 test('done work is archived, and restoring it puts the card back in play', async ({ page }) => {
@@ -65,6 +73,8 @@ test('done work is archived, and restoring it puts the card back in play', async
   // Restored, it is back on its board and the archive's verdict is gone with the filing.
   await row.getByRole('button', { name: /Restore/ }).click()
   await expect(row).toHaveCount(0)
+  // Restoring is its own action; the row's drawer does not open behind it.
+  await expect(page.locator('[data-item-panel]')).toHaveCount(0)
   await openBoard(page)
   await expect(page.locator('[data-card-id="st-signup-screens"]')).toHaveCount(1)
 })

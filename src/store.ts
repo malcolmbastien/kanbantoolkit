@@ -177,7 +177,11 @@ export interface ViewState {
 }
 export interface Actions {
   selectBoard: (id: string) => void
-  openItem: (id: string | null) => void
+  /**
+   * Open an item's drawer. `focus: false` reads it without entering the initiative focus lens —
+   * the Archive, where the board's lineage is not the thing being read.
+   */
+  openItem: (id: string | null, options?: { focus?: boolean }) => void
   setSearch: (q: string) => void
   /** Say where a lift would land, for every canvas that could show it. */
   setDragPreview: (preview: ViewState['dragPreview']) => void
@@ -1434,8 +1438,9 @@ export const useStore = create<Store>()(
           cardMenu: null,
                   dropTargetId: null,
         }),
-      openItem: (selectedItemId) => {
+      openItem: (selectedItemId, options) => {
         const s = get()
+        const focus = options?.focus ?? true
         const opened = selectedItemId ? s.items.find((i) => i.id === selectedItemId) : undefined
         // The selection is what sets focus. An initiative is read for its lineage — what it rolls
         // up to and what it is made of — so opening one enters focus, wherever the click came
@@ -1444,8 +1449,9 @@ export const useStore = create<Store>()(
         //
         // Re-opening the item that is already focused keeps it, so the selection that set the
         // focus does not blink it off and on again.
-        const lensId =
-          opened && isInitiativeItem(opened, s.issueTypes)
+        const lensId = !focus
+          ? null
+          : opened && isInitiativeItem(opened, s.issueTypes)
             ? opened.id
             : selectedItemId === s.lensId
               ? s.lensId

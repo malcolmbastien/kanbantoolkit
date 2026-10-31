@@ -1308,6 +1308,13 @@ describe('store actions', () => {
     s().openItem('init-signup')
     s().toggleMultiSelect('st-email')
     expect(s().lensId).toBe(null)
+
+    // The Archive reads an initiative without entering focus: there is no board lineage to
+    // highlight, and the archive is not the place to start dimming work.
+    s().setLens('init-signup')
+    s().openItem('init-signup', { focus: false })
+    expect(s().selectedItemId).toBe('init-signup')
+    expect(s().lensId).toBe(null)
   })
 
   it('a lane is ordered by rank, and reordering renumbers it cleanly', () => {
