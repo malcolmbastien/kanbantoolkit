@@ -218,7 +218,7 @@ export function v1Routes(runtime: Runtime) {
         { name: 'boardId', description: 'Only items placed on this board.' },
         { name: 'laneId', description: 'Only items in this cell (or its subtree).' },
         { name: 'typeId', description: 'Only items of this type.' },
-        { name: 'q', description: 'The app’s own search: a substring of the title.' },
+        { name: 'q', description: 'The app’s own search over titles, descriptions and notes.' },
         { name: 'updatedSince', description: 'ISO timestamp: only items changed after it.' },
         { name: 'includeArchived', description: '`true` to include filed-away items.' },
         { name: 'limit', description: 'Default 50, max 200.' },
@@ -334,10 +334,10 @@ export function v1Routes(runtime: Runtime) {
     {
       method: 'GET',
       path: '/search',
-      summary: 'The app’s own search over titles. Not a query language.',
+      summary: 'The app’s own search over titles, descriptions and notes. Not a query language.',
       scope: 'items:read',
       query: [{ name: 'q', description: 'What to look for. Empty answers nothing.' }],
-      responses: { '200': { description: '{ data }' } },
+      responses: { '200': { description: '{ data } — each item carries `match` with the field and the clipped line' } },
       handler: async (c, caller) => respond(c, await search(caller, c.req.query('q') ?? '', c.req.query('limit'))),
     },
     {

@@ -80,7 +80,7 @@ difference is worth reading: the first is the token you chose, the second is the
 | `POST /boards/{boardId}/items/{itemId}/move` | `items:write` | move it into a cell, at a position |
 | `GET /objectives` | `objectives:write` | objectives with their completeness and key results |
 | `GET /people` | `people:read` | names and ids, so an assignment names a person |
-| `GET /search?q=` | `items:read` | the app's own search: a substring of the title, not a query language |
+| `GET /search?q=` | `items:read` | the app's own search over titles, descriptions and notes, not a query language; each result carries the clipped matching line |
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
 | `POST /workspace` | `workspace:admin` | restore a file into an empty instance |
 

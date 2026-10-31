@@ -14,7 +14,8 @@
 
 import { decompositionParent, objectiveRollup, rollupOf } from '../src/domain/derive'
 import { cardsFlows, initiativesFlow, kindOf } from '../src/domain/flows'
-import { boardCardTypeId, boardTags, canRetype, canSetParent, defaultDropLane, isInitiativeItem, searchItems } from '../src/domain/board'
+import { boardCardTypeId, boardTags, canRetype, canSetParent, defaultDropLane, isInitiativeItem } from '../src/domain/board'
+import { searchHits } from '../src/domain/search'
 import { moveCard, moveInitiative } from '../src/domain/move'
 import type { Role } from '../src/domain/roles'
 import type { Scope } from '../src/domain/scopes'
@@ -227,7 +228,7 @@ export async function listItems(caller: OpCaller, filters: ItemFilters): Promise
   }
   if (filters.typeId) rows = rows.filter((item) => item.typeId === filters.typeId)
   if (filters.q?.trim()) {
-    const found = new Set(searchItems(rows, filters.q).map((item) => item.id))
+    const found = new Set(searchHits(rows, filters.q).map((hit) => hit.item.id))
     rows = rows.filter((item) => found.has(item.id))
   }
   if (filters.updatedSince) {
@@ -313,7 +314,12 @@ export async function search(caller: OpCaller, q: string, limit?: unknown) {
   if (!q.trim()) return ok({ data: [] })
   const state = await readWorkspace(caller.db, caller.workspaceId)
   const placements = new Map(state.placements.map((p) => [p.itemId, p]))
-  const rows = searchItems(state.items.filter((item) => !item.archived), q).map((item) => compactItem(item, placements.get(item.id)))
+  // The matching line travels with the item, additively: a client that only knows the old shape
+  // still reads the same item, and a client that knows the field can say why it matched.
+  const rows = searchHits(state.items.filter((item) => !item.archived), q).map((hit) => ({
+    ...compactItem(hit.item, placements.get(hit.item.id)),
+    match: hit.match,
+  }))
   return ok(pageOf(rows, boundedLimit(limit)))
 }
 

@@ -576,14 +576,8 @@ export function boardCardTypeId(board: Board | undefined, types: IssueType[]): s
 }
 
 /**
- * Global search: items whose title contains the query (case-insensitive). An empty query returns
- * no matches.
- *
- * The title alone, deliberately: an item's identity is its id, which is nobody's business but the
- * app's, and there is no shorter handle to search by — a card is found by the words on it.
+ * Search lives in its own module — it reads the title, the description and the notes, and has
+ * nothing to do with a board's design. Re-exported here so the callers that have always found it
+ * beside the board rules keep one import.
  */
-export function searchItems(items: Item[], query: string): Item[] {
-  const q = query.trim().toLowerCase()
-  if (!q) return []
-  return items.filter((i) => i.title.toLowerCase().includes(q))
-}
+export { searchItems } from './search'

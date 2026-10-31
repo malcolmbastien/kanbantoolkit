@@ -76,7 +76,7 @@ function seeded(): Workspace {
     lane('l-sec-backlog', 'backlog', { order: 0, flowId: INIT, name: 'Backlog (initiatives)' }),
     lane('l-cell-backlog', 'backlog', { order: 0, flowId: INIT, parentId: 'l-sec-backlog', name: 'Uncommitted' }),
   ]
-  const items = [item('i-1'), item('i-2'), item('i-3')]
+  const items = [item('i-1'), item('i-2', { description: 'The gateway retries a soft decline once.' }), item('i-3')]
   return {
     meUserId: 'u-admin',
     boardId: 'b-1',
@@ -304,6 +304,13 @@ describe('reading', () => {
     // A query language is not offered; the app's own search is.
     const searched = (await (await reader.call('/search?q=card%20i-3')).json()) as { data: Array<{ id: string }> }
     expect(searched.data.map((i) => i.id)).toEqual(['i-3'])
+
+    // The body is searched too, and the answer says where the hit was found.
+    const body = (await (await reader.call('/search?q=retries')).json()) as {
+      data: Array<{ id: string; match: { field: string; matched: string } }>
+    }
+    expect(body.data).toHaveLength(1)
+    expect(body.data[0]).toMatchObject({ id: 'i-2', match: { field: 'description', matched: 'retries' } })
   })
 })
 

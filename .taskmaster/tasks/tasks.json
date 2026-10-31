@@ -3690,9 +3690,9 @@
         "testStrategy": "Unit-test the matcher in src/domain/board.test.ts: title, description, note, newest note wins, no match, empty/whitespace query, case and punctuation, excerpt clipping at both ends, and ordering. Add an e2e assertion that a query matching only a description or note shows the field label and excerpt and opens the item. Cover /api/v1/search and /items?q= in server tests so the two doors agree. Run npm test, npm run build and npm run scan.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:07:06.102Z"
       },
       {
         "id": "181",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T02:42:59.720Z",
+      "lastModified": "2026-10-31T03:07:06.102Z",
       "taskCount": 188,
-      "completedCount": 152,
+      "completedCount": 153,
       "tags": [
         "backlog"
       ]

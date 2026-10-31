@@ -15,7 +15,7 @@ the boards are shared, and signing in makes the account one of the workspace's p
 
 The **command palette** (<kbd>Ctrl</kbd>+<kbd>K</kbd>, or <kbd>⌘</kbd>+<kbd>K</kbd>) reaches every
 board, card and view, and the verbs that make them. The search field beside it searches every board
-by title.
+by title, description and note, and shows the line that matched.
 
 ## A board
 

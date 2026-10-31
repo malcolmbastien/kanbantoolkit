@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
-import { searchItems } from '@/domain/board'
+import { searchHits, type SearchHit } from '@/domain/search'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { Item } from '@/domain/types'
+
+/** What the second line is telling the reader: where the word was found. */
+const SEARCH_FIELD_LABEL: Record<SearchHit['match']['field'], string> = {
+  title: 'Title',
+  description: 'Description',
+  note: 'Note',
+}
 
 /**
  * Global search across every board. Typing shows matches grouped by board;
@@ -42,14 +48,14 @@ export function GlobalSearch() {
 
   // Group matches by the board the item sits on (first placement).
   const groups = useMemo(() => {
-    const matches = searchItems(items, search)
-    const byBoard = new Map<string, { boardId: string; name: string; items: Item[] }>()
-    for (const i of matches) {
-      const boardId = placements.find((p) => p.itemId === i.id)?.boardId ?? '__none__'
+    const matches = searchHits(items, search)
+    const byBoard = new Map<string, { boardId: string; name: string; items: SearchHit[] }>()
+    for (const hit of matches) {
+      const boardId = placements.find((p) => p.itemId === hit.item.id)?.boardId ?? '__none__'
       if (!byBoard.has(boardId)) {
         byBoard.set(boardId, { boardId, name: boards.find((b) => b.id === boardId)?.name ?? 'Not on a board', items: [] })
       }
-      byBoard.get(boardId)!.items.push(i)
+      byBoard.get(boardId)!.items.push(hit)
     }
     return [...byBoard.values()]
   }, [search, items, placements, boards])
@@ -83,7 +89,7 @@ export function GlobalSearch() {
       setActive((a) => Math.max(a - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (flat[active]) choose(flat[active].id)
+      if (flat[active]) choose(flat[active].item.id)
     } else if (e.key === 'Escape') {
       setOpen(false)
     }
@@ -101,7 +107,7 @@ export function GlobalSearch() {
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder="Search all boards…"
-        title="Search every board by title or ref — or press ⌘K for the command palette"
+        title="Search every board by title, description or note — or press ⌘K for the command palette"
         className="w-44 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2 text-meta text-slate-800 placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-400"
       />
       {showResults && (
@@ -112,19 +118,29 @@ export function GlobalSearch() {
               <div className="sticky top-0 bg-white/95 px-3 py-1 text-micro font-bold uppercase tracking-wide text-slate-600">
                 {g.name}
               </div>
-              {g.items.map((i) => {
-                const idx = flat.indexOf(i)
+              {g.items.map((hit) => {
+                const idx = flat.indexOf(hit)
                 return (
                   <button
-                    key={i.id}
+                    key={hit.item.id}
                     onMouseEnter={() => setActive(idx)}
-                    onClick={() => choose(i.id)}
+                    onClick={() => choose(hit.item.id)}
                     className={cn(
-                      'flex w-full items-center gap-2 px-3 py-1.5 text-left transition',
+                      'flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left transition',
                       idx === active ? 'bg-indigo-50' : 'hover:bg-slate-50',
                     )}
                   >
-                    <span className="min-w-0 flex-1 truncate text-meta text-slate-800">{i.title}</span>
+                    <span className="min-w-0 max-w-full truncate text-meta text-slate-800">{hit.item.title}</span>
+                    {hit.match.field !== 'title' && (
+                      <span data-search-match className="line-clamp-2 text-micro leading-snug text-slate-600">
+                        <span className="font-semibold uppercase tracking-wide text-slate-500">
+                          {SEARCH_FIELD_LABEL[hit.match.field]}
+                        </span>{' '}
+                        {hit.match.before}
+                        <mark className="rounded-sm bg-amber-100 px-px font-semibold text-slate-900">{hit.match.matched}</mark>
+                        {hit.match.after}
+                      </span>
+                    )}
                   </button>
                 )
               })}
