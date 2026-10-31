@@ -108,8 +108,7 @@ initiatives that serve it, so there is no hand-entered percentage that can disag
 **Map an initiative…** at the bottom of an objective card to attach one, then **Map**. An initiative
 serves one objective, so choosing one that already serves another moves it; the option says
 “moves from …” before you commit. Detach one with the × beside it. Mapping is attribution: it never
-counts as WIP, and it does not move a card. A portfolio board makes no initiatives of its own — there
-is no **Initiative** button, because the ones it connects already exist.
+counts as WIP, and it does not move a card.
 
 **See the gaps.** The strategy map groups the portfolio's initiatives by the objective they serve,
 and shows both coverage gaps: an objective that nothing serves, and an initiative that serves
