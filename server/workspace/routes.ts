@@ -11,7 +11,7 @@ import type { Runtime } from '../runtime'
 import { refusalFor, requireWorkspace } from '../access'
 import type { Item } from '../../src/domain/types'
 import { WORKSPACE_ID } from '../auth/session'
-import { itemBelongsElsewhere, readItem, readItemsByIds, readVocabularyRev, readWorkspace } from './read'
+import { itemBelongsElsewhere, readGraph, readItem, readItemsByIds, readVocabularyRev, readWorkspace } from './read'
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
 import { schemaVersion } from '../migrate'
 import { acquire, heldByOther, heldLocks, lockOf, release, renew } from './locks'
@@ -21,7 +21,7 @@ import { statement } from '../audit'
 import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
 import { findBandChange, readBoardBands, readDesign, readStructureRev, writeDesign } from './structure'
 import { writeVocabularyDocument } from './vocabulary'
-import { emitItemChange } from '../events'
+import { emitItemChange, graphWithItem } from '../events'
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
 function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
@@ -372,16 +372,11 @@ export function workspaceRoutes(runtime: Runtime) {
       if (refused) return c.json(refused, 403)
     }
 
-    // The state the change is based on, for the health comparison a write can move. The item's
-    // own fields are checked above; this read is allowed to be a little more expensive.
-    const beforeState = await readWorkspace(allowed.db, allowed.workspaceId)
-    const beforeGraph = {
-      items: beforeState.items,
-      edges: beforeState.edges,
-      links: beforeState.links,
-      placements: beforeState.placements,
-      lanes: beforeState.lanes,
-    }
+    // The state the change is based on, for the health comparison a write can move. Only the graph
+    // is read — settings, templates and the rest of the workspace cannot change a health reading —
+    // and the after graph is derived from it after the write, because a card's own fields are the
+    // only thing this endpoint moves.
+    const beforeGraph = await readGraph(allowed.db, allowed.workspaceId)
 
     const stored = { ...item, rev: baseRev + 1 }
     await writeItem(allowed.db, stored, allowed.workspaceId, key)
@@ -390,7 +385,10 @@ export function workspaceRoutes(runtime: Runtime) {
     await runtime.live?.publish(c.env, WORKSPACE_ID, stored.rev ?? 0)
     // Webhooks are a post-write reading, never part of the write. `emitItemChange` catches its own
     // failures, so a receiver being down cannot turn a saved card into an error.
-    await emitItemChange(allowed.db, allowed.workspaceId, current, stored, beforeGraph, allowed.user.id)
+    await emitItemChange(allowed.db, allowed.workspaceId, current, stored, beforeGraph, allowed.user.id, {
+      graph: graphWithItem(beforeGraph, stored),
+      issueTypes: beforeGraph.issueTypes,
+    })
     return c.json({ item: stored })
   })
 

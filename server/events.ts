@@ -15,7 +15,7 @@
 import { isInitiativeItem } from '../src/domain/board'
 import { decompositionParent, type Graph } from '../src/domain/derive'
 import { initiativeHealth, type InitiativeHealth } from '../src/domain/health'
-import type { Item } from '../src/domain/types'
+import type { Item, IssueType } from '../src/domain/types'
 import type { WebhookEventType } from '../src/domain/webhooks'
 import type { Database, Statement } from './db'
 import { readWorkspace } from './workspace/read'
@@ -99,6 +99,27 @@ function graphOf(state: Awaited<ReturnType<typeof readWorkspace>>): Graph {
   return { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
 }
 
+/** The after graph when the caller already holds it, with the vocabulary health needs. */
+export interface AfterGraph {
+  graph: Graph
+  issueTypes: IssueType[]
+}
+
+/**
+ * The graph after one item's own fields changed.
+ *
+ * A card write does not move a placement, a lane, an edge or a link — those have their own writes.
+ * So the after graph is the before graph with one item replaced or added, in the same order
+ * `readWorkspace` uses. This is what lets a save skip reading the workspace a second time.
+ */
+export function graphWithItem(graph: Graph, item: Item): Graph {
+  const exists = graph.items.some((entry) => entry.id === item.id)
+  const items = exists
+    ? graph.items.map((entry) => (entry.id === item.id ? item : entry))
+    : [...graph.items, item].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+  return { ...graph, items }
+}
+
 function healthWords(health: InitiativeHealth): { level: string; flags: string[] } {
   return { level: health.level, flags: health.flags.map((flag) => flag.flag) }
 }
@@ -108,8 +129,12 @@ function healthWords(health: InitiativeHealth): { level: string; flags: string[]
  *
  * `beforeGraph` is the state the change was based on. Without it the item events still fire; the
  * derived health comparison is skipped, because a comparison against the wrong "before" would be
- * an invented change. The after state is always read, because the board a new card landed on is a
- * fact only the database knows.
+ * an invented change.
+ *
+ * `afterState` is the same graph after the write, when the caller already holds it. A card save
+ * reads the graph once before writing and derives the after graph in memory (`graphWithItem`), so
+ * it does not pay for a second whole-workspace read. A caller that does not supply it still gets
+ * the after state read here — the item events always need the board the item landed on.
  */
 export async function emitItemChange(
   db: Database,
@@ -118,10 +143,19 @@ export async function emitItemChange(
   after: Item | undefined,
   beforeGraph: Graph | undefined,
   actorId?: string,
+  afterState?: AfterGraph,
 ): Promise<void> {
   try {
-    const afterState = await readWorkspace(db, workspaceId)
-    const afterGraph = graphOf(afterState)
+    let afterGraph: Graph
+    let issueTypes: IssueType[]
+    if (afterState) {
+      afterGraph = afterState.graph
+      issueTypes = afterState.issueTypes
+    } else {
+      const read = await readWorkspace(db, workspaceId)
+      afterGraph = graphOf(read)
+      issueTypes = read.issueTypes
+    }
     const boardId = after
       ? (afterGraph.placements.find((placement) => placement.itemId === after.id)?.boardId ??
         movedEntry(after)?.boardId)
@@ -180,7 +214,6 @@ export async function emitItemChange(
     // The item itself, if it is an initiative, and every initiative above it. Both the before and
     // after graphs are walked: a parent set by this write is an initiative in only one of them.
     const ids = new Set<string>()
-    const issueTypes = afterState.issueTypes
     for (const item of [before, after]) {
       if (!item) continue
       if (isInitiativeItem(item, issueTypes)) ids.add(item.id)

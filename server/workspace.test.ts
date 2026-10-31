@@ -14,7 +14,7 @@ import { createApp } from './app'
 import { issueSession } from './auth/session'
 import type { Database } from './db'
 import { fromSqlite } from './sqlite'
-import { readWorkspace } from './workspace/read'
+import { readGraph, readWorkspace } from './workspace/read'
 import { acquire, LEASE_MS, lockOf, release } from './workspace/locks'
 import type { Board, BoardFlow, Item, Lane } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
@@ -48,6 +48,29 @@ async function signedIn(db: Database, id = 'u-ada', member = true): Promise<{ co
 function instance(db: Database) {
   const app = createApp({ database: () => db, clientIp: () => '203.0.113.7' })
   return (path: string, init?: RequestInit) => app.request(path, init, {})
+}
+
+/** A database that remembers every statement a request made, for counting reads. */
+function counted(db: Database): { db: Database; queries: string[] } {
+  const queries: string[] = []
+  return {
+    queries,
+    db: {
+      all: (sql, params) => {
+        queries.push(sql)
+        return db.all(sql, params)
+      },
+      get: (sql, params) => {
+        queries.push(sql)
+        return db.get(sql, params)
+      },
+      run: (sql, params) => db.run(sql, params),
+      batch: (statements) => {
+        for (const statement of statements) queries.push(statement.sql)
+        return db.batch(statements)
+      },
+    },
+  }
 }
 
 /** A workspace that uses every table, most optional fields, and a tree three lanes deep. */
@@ -219,6 +242,21 @@ describe('the workspace', () => {
       ...workspace,
       lanes: [...workspace.lanes].sort(byId),
     })
+  })
+
+  it('reads the graph without the workspace around it', async () => {
+    const db = database()
+    await writeWorkspace(db, workspace, 'workspace')
+
+    const graph = await readGraph(db)
+    // The graph is what a write's health comparison needs: structure and state, not prose.
+    const withoutHistory = workspace.items.map(({ log: _log, checklist: _checklist, ...item }) => item)
+    expect(graph.items).toEqual(withoutHistory)
+    expect(graph.edges).toEqual(workspace.edges)
+    expect(graph.links).toEqual(workspace.links)
+    expect(graph.placements).toEqual(workspace.placements)
+    expect(graph.lanes).toEqual((await readWorkspace(db)).lanes)
+    expect(graph.issueTypes).toEqual(workspace.issueTypes)
   })
 
   it('is empty rather than broken when nothing has been written', async () => {
@@ -536,6 +574,33 @@ describe('writing one item', () => {
     const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
     expect(body.items[0].log?.[0]?.mentions).toEqual(['u-ada'])
     expect(body.items[0].log?.[0]?.note).toBe('@Ada can you look at this?')
+  })
+
+  it('reads the graph once on a card save, not the whole workspace twice', async () => {
+    const base = database()
+    const { cookie } = await signedIn(base)
+    const { db, queries } = counted(base)
+    const request = instance(db)
+    const patch = (id: string, body: unknown) =>
+      request(`/api/workspace/items/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify(body),
+      })
+
+    // The first write creates the card; the second is the save this test measures.
+    expect((await patch('i-card', { baseRev: 0, item: card() })).status).toBe(200)
+    queries.length = 0
+    const response = await patch('i-card', { baseRev: 1, item: card({ rev: 1, title: 'A renamed card' }) })
+    expect(response.status).toBe(200)
+
+    // A card save never reads the whole workspace: no settings, boards, flows, periods, objectives,
+    // templates or people. Those are the tables only `readWorkspace` visits.
+    for (const table of ['workspace', 'boards', 'flows', 'periods', 'objectives', 'key_results', 'board_templates', 'people']) {
+      expect(queries.filter((sql) => new RegExp(`FROM ${table}\\b`).test(sql)), table).toEqual([])
+    }
+    // The graph itself is read once, before the write; the after graph is derived from it.
+    expect(queries.filter((sql) => /FROM edges WHERE workspace_id/.test(sql))).toHaveLength(1)
   })
 
   it('emits item events for an endpoint that subscribes to them', async () => {

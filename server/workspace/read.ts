@@ -35,6 +35,7 @@ import type {
 import type { Database } from '../db'
 import type { Workspace } from './types'
 import { WORKSPACE_ROW } from './types'
+import type { Graph } from '../../src/domain/derive'
 
 type Row = Record<string, unknown>
 
@@ -129,25 +130,27 @@ async function readLanes(db: Database, workspaceId: string): Promise<Lane[]> {
     'SELECT * FROM lanes WHERE workspace_id = ?1 ORDER BY board_id, flow_id, position, id',
     [workspaceId],
   )
-  return rows.map((row) => {
-    const lane: Lane = {
-      id: text(row.id),
-      boardId: text(row.board_id),
-      parentId: typeof row.parent_id === 'string' ? row.parent_id : null,
-      order: count(row.position),
-      name: text(row.name),
-      flowId: text(row.flow_id),
-    }
-    const orientation = maybeText(row.orientation)
-    if (orientation !== undefined) lane.orientation = orientation as SplitOrientation
-    const stage = maybeText(row.stage)
-    if (stage !== undefined) lane.stage = stage as Stage
-    const limit = maybeCount(row.wip_limit)
-    if (limit !== undefined) lane.wipLimit = limit
-    const description = maybeText(row.description)
-    if (description !== undefined) lane.description = description
-    return lane
-  })
+  return rows.map(laneFrom)
+}
+
+function laneFrom(row: Row): Lane {
+  const lane: Lane = {
+    id: text(row.id),
+    boardId: text(row.board_id),
+    parentId: typeof row.parent_id === 'string' ? row.parent_id : null,
+    order: count(row.position),
+    name: text(row.name),
+    flowId: text(row.flow_id),
+  }
+  const orientation = maybeText(row.orientation)
+  if (orientation !== undefined) lane.orientation = orientation as SplitOrientation
+  const stage = maybeText(row.stage)
+  if (stage !== undefined) lane.stage = stage as Stage
+  const limit = maybeCount(row.wip_limit)
+  if (limit !== undefined) lane.wipLimit = limit
+  const description = maybeText(row.description)
+  if (description !== undefined) lane.description = description
+  return lane
 }
 
 async function readItems(db: Database, workspaceId: string): Promise<Item[]> {
@@ -302,6 +305,66 @@ export async function readItem(db: Database, id: string, workspaceId: string = W
   return itemFrom(row, checklist, log)
 }
 
+function edgeFrom(row: Row): Edge {
+  return { id: text(row.id), kind: text(row.kind) as EdgeKind, from: text(row.from_id), to: text(row.to_id) }
+}
+
+function linkFrom(row: Row): ItemLink {
+  const link: ItemLink = { id: text(row.id), from: text(row.from_id), to: text(row.to_id) }
+  const reason = maybeText(row.reason)
+  if (reason !== undefined) link.reason = reason
+  return link
+}
+
+function placementFrom(row: Row): Placement {
+  const placement: Placement = {
+    id: text(row.id),
+    boardId: text(row.board_id),
+    itemId: text(row.item_id),
+    laneId: text(row.lane_id),
+  }
+  const entered = maybeCount(row.lane_entered_at)
+  if (entered !== undefined) placement.laneEnteredAt = entered
+  const rank = maybeCount(row.rank)
+  if (rank !== undefined) placement.rank = rank
+  return placement
+}
+
+function issueTypeFrom(row: Row): IssueType {
+  return { id: text(row.id), name: text(row.name), color: text(row.color) }
+}
+
+/**
+ * The graph a write's health comparison needs, without the workspace around it.
+ *
+ * A card save needs the items, the relationships, the placements, the lanes and the vocabulary that
+ * decides what an initiative is — and none of the settings, templates, objectives, periods or
+ * history rows. Reading only those is what keeps a save from multiplying its cost by workspace size.
+ * Items come back without their logs and checklists: health reads structure and state, not prose.
+ */
+export interface WorkspaceGraph extends Graph {
+  issueTypes: IssueType[]
+}
+
+export async function readGraph(db: Database, workspaceId: string = WORKSPACE_ROW): Promise<WorkspaceGraph> {
+  const [items, edges, links, placements, lanes, issueTypes] = await Promise.all([
+    db.all<Row>('SELECT * FROM items WHERE workspace_id = ?1 ORDER BY created_at, id', [workspaceId]),
+    db.all<Row>('SELECT * FROM edges WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+    db.all<Row>('SELECT * FROM links WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+    db.all<Row>('SELECT * FROM placements WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+    db.all<Row>('SELECT * FROM lanes WHERE workspace_id = ?1 ORDER BY board_id, flow_id, position, id', [workspaceId]),
+    db.all<Row>('SELECT * FROM issue_types WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+  ])
+  return {
+    items: items.map((row) => itemFrom(row, [], [])),
+    edges: edges.map(edgeFrom),
+    links: links.map(linkFrom),
+    placements: placements.map(placementFrom),
+    lanes: lanes.map(laneFrom),
+    issueTypes: issueTypes.map(issueTypeFrom),
+  }
+}
+
 
 async function readTemplates(db: Database, workspaceId: string): Promise<BoardTemplate[]> {
   const [templates, flows, lanes] = await Promise.all([
@@ -405,19 +468,10 @@ export async function readWorkspace(db: Database, workspaceId: string = WORKSPAC
       if (avatarUrl !== undefined) user.avatarUrl = avatarUrl
       return user
     }),
-    issueTypes: issueTypes.map(
-      (row): IssueType => ({ id: text(row.id), name: text(row.name), color: text(row.color) }),
-    ),
+    issueTypes: issueTypes.map(issueTypeFrom),
     items,
-    edges: edges.map(
-      (row): Edge => ({ id: text(row.id), kind: text(row.kind) as EdgeKind, from: text(row.from_id), to: text(row.to_id) }),
-    ),
-    links: links.map((row): ItemLink => {
-      const link: ItemLink = { id: text(row.id), from: text(row.from_id), to: text(row.to_id) }
-      const reason = maybeText(row.reason)
-      if (reason !== undefined) link.reason = reason
-      return link
-    }),
+    edges: edges.map(edgeFrom),
+    links: links.map(linkFrom),
     objectives: objectives.map((row): Objective => {
       return {
         id: text(row.id),
@@ -441,18 +495,6 @@ export async function readWorkspace(db: Database, workspaceId: string = WORKSPAC
     boards,
     flows,
     lanes,
-    placements: placements.map((row): Placement => {
-      const placement: Placement = {
-        id: text(row.id),
-        boardId: text(row.board_id),
-        itemId: text(row.item_id),
-        laneId: text(row.lane_id),
-      }
-      const entered = maybeCount(row.lane_entered_at)
-      if (entered !== undefined) placement.laneEnteredAt = entered
-      const rank = maybeCount(row.rank)
-      if (rank !== undefined) placement.rank = rank
-      return placement
-    }),
+    placements: placements.map(placementFrom),
   }
 }
