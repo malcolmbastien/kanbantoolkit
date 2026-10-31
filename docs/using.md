@@ -33,6 +33,11 @@ one — a split cell is still in its stage, the work simply reads more precisely
 only while it is **empty**: deleting a column never moves a card, and a split whose remaining cell
 holds cards is left as it is rather than folded over them.
 
+<img src="img/guide/board-overview.webp" alt="The Team Atlas demo board: the initiatives flow above the team's Cards flow, with Backlog, Not Started, In Progress and Done columns" width="1100">
+
+*The Team Atlas demo board. The initiatives flow sits above the team's Cards flow; both read the same
+four stages, and the cards' progress rolls into the initiatives above them.*
+
 A **portfolio** board has no **Edit board**: its shape is its objectives, made in the strategy map,
 and the sections beneath them are the organisation's standard reading rather than a team's to rework.
 
@@ -61,6 +66,10 @@ The keyboard is a full way in, not a fallback: focus a card and press
 back. Press <kbd>?</kbd> anywhere you are not typing — or choose **Keyboard shortcuts** in the command
 palette — for the full sheet, grouped by where each key works.
 
+<img src="img/guide/keyboard-sheet.webp" alt="The Keyboard shortcuts sheet, grouped into Everywhere, Board, Card drawer, Search and palette, and Dialogs" width="720">
+
+*The shortcut sheet: every key path, grouped by where it works.*
+
 ## A card
 
 Choose a card to open its panel. **Overview** holds the title, the description (Markdown), status,
@@ -68,10 +77,20 @@ priority, type, people, tags and target dates; the creator is recorded and is no
 **Hierarchy** shows the parent and the work below. **Activity** is the card's own history — every
 move, edit, note and dependency, with who and when.
 
+<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form: type, title, Overview, Hierarchy and Activity tabs, status, priority, people and the parent initiative" width="420">
+
+*The side drawer, with the board still behind it: the fields in Overview, the parent in Hierarchy and
+the item's history in Activity.*
+
 A note is a comment on the card, and typing `@` offers a teammate to mention. Mentions are flat:
 there are no replies and no threads. The person is recorded on the note, named under it in
 **Activity**, and the note appears under **Mentions** in **My work** — the place that brings a
 mention back to the person it names.
+
+<img src="img/guide/mention-activity.webp" alt="Activity in the card drawer showing a note that mentions Riley Kim, with the mention named beneath the note" width="420">
+
+*A mention is part of the note: the name stays in the sentence and the person it means is recorded
+beside it.*
 
 The checklist holds the card's sub-tasks. A card can wait on another: the waiting state is read from
 the two ends, so it clears when the blocker reaches Done — there is nothing to update by hand.

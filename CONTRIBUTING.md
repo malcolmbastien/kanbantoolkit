@@ -32,6 +32,9 @@ The browsable guide in the wiki is generated from a curated map in `scripts/wiki
 edited there: after a change to one of its pages, `npm run docs:wiki` republishes it. `npm run
 docs:check` fails when the map names a document that is gone.
 
+The guide's screenshots are taken from the built app, never drawn by hand: `npm run build && npm run
+docs:shots` writes them to `docs/img/guide/` from the demo workspace.
+
 ## Where things are
 
 - `src/domain/` — the rules, as pure functions: no framework, no store, no network, unit tested.

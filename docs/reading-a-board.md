@@ -4,6 +4,11 @@ A board is more than one list of cards. It has columns, one or more cards flows,
 work up, a side drawer for the detail, and a boundary for work that lives somewhere else. This page
 explains what each part is showing.
 
+<img src="img/guide/board-overview.webp" alt="The Team Atlas board with its initiatives flow above the Cards flow, and the four typed columns in each" width="1100">
+
+*The two altitudes on one board: the initiatives flow above, the team's Cards flow beneath, both
+using Backlog, Not Started, In Progress and Done.*
+
 ## The four top-level columns
 
 Every flow has the same four top-level columns, and they are fixed:
@@ -58,10 +63,20 @@ button on an initiative starts **Focus**, which highlights its lineage on the bo
 archived item does not start it.
 <kbd>Escape</kbd> closes the drawer.
 
+<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form, with Overview, Hierarchy and Activity tabs" width="420">
+
+*The drawer is the card's own page beside the board: fields in Overview, lineage in Hierarchy and the
+history in Activity.*
+
 ## What an initiative shows
 
 An initiative is the outcome above the cards. It has no status field and no estimate of its own:
 its status is read from the leaves below it, and its size is the number of those leaves.
+
+<img src="img/guide/initiative-rollup.webp" alt="An initiative card for Signup redesign showing three child pips, a 33 percent progress bar, a still 19d warning and the people on it" width="640">
+
+*An initiative card: the pips are its direct children, the percentage is the share of leaves done,
+and the roll-up label says what it rolls up to.*
 
 ### Card pips
 
@@ -110,6 +125,11 @@ section rather than in the wrong column.
 
 Some work waits on something that lives on **another board**. The **Boundary — waiting on** section
 below the cards is where that edge is read.
+
+<img src="img/guide/boundary-workflow.webp" alt="The Boundary — waiting on workflow, with external items in their stages and the cards here that wait on them" width="1000">
+
+*The boundary is a lens over external work: the item is shown in the stage its own rollup gives it,
+and the cards here that wait on it are named beside it.*
 
 - It appears only when at least one card on this board depends on an item placed on another board.
 - The external item is shown in the column its **own rollup** selects, on its own home board. It is

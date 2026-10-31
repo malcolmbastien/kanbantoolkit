@@ -41,6 +41,11 @@ the files with their size and time. **Download** saves one; **Restore from a fil
 uploaded database and stages it — it does **not** replace the live file while connections are open.
 The screen says what was verified and what to do next.
 
+<img src="img/guide/backups-admin.webp" alt="Admin → Backups: restore from a file, a list of database copies with size and time, and the confirmation that a copy was taken" width="1000">
+
+*Admin → Backups: a verified copy, a list of the copies on the machine, and the stage-and-restart
+route for putting one back.*
+
 A Worker has no filesystem. Its Backups tab says the database provider owns backup and restore, and
 points at the provider's console; it does not pretend an in-app file copy exists.
 

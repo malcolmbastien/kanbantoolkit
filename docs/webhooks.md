@@ -7,6 +7,11 @@ without polling the API or reading the database.
 A workspace administrator adds an endpoint under **Admin → Webhooks**. The endpoint is a URL, a set
 of events and a signing secret. The secret is shown once, when the endpoint is made.
 
+<img src="img/guide/webhooks-admin.webp" alt="Admin → Webhooks: endpoint URL, event checkboxes, the endpoint list with pause, test and delete, and recent deliveries" width="1000">
+
+*Admin → Webhooks: one endpoint, the events it subscribes to, and the delivery log that says what
+answered.*
+
 ## The events
 
 | Event | When |

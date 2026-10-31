@@ -72,6 +72,11 @@ A portfolio has no cards flow and no bands. Its links to programmes still exist 
 the portfolio surface chooses to read the work by objective rather than by team. That is the point of
 the level: a reader should see whether the strategy is covered, not which squad is busiest.
 
+<img src="img/guide/portfolio-overview.webp" alt="The Company Strategy portfolio board: Portfolio at a glance above objective flows for Grow activation, Improve reliability and Reduce cost to serve" width="1100">
+
+*A portfolio board: the risk reading at the top, then each objective with the initiatives mapped to
+it in the board's own four-stage flow.*
+
 **Use it for**
 
 - An annual or quarterly strategy with a small set of objectives, each carrying the strategic
@@ -121,6 +126,11 @@ target date and the open commitments already past it. The five readings — **No
 risk**, **Overdue**, **Watch** and **On track** — are derived from the same rules the cards and the
 strategy map use, and every cell says its reading in words as well as colour. Choosing an objective
 takes you to its flow below; the heatmap is a way in, not a second report.
+
+<img src="img/guide/portfolio-heatmap.webp" alt="Portfolio at a glance: three objectives by period with coverage, progress and health columns" width="1000">
+
+*The heatmap is a reading, not a second report: one row per objective, with the period's window,
+coverage, progress and health all derived from the work below.*
 
 ## Choosing a type
 

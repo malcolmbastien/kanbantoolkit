@@ -40,6 +40,7 @@
     "docs:check": "node scripts/check-docs.mjs",
     "docs:wiki": "node scripts/publish-wiki.mjs",
     "shots": "tsx scripts/shots.ts",
+    "docs:shots": "tsx scripts/docs-shots.ts",
     "demo": "tsx scripts/demo-clip.ts",
     "kanbantoolkit": "node scripts/kanbantoolkit.mjs",
     "mcp": "tsx server/mcp.ts"

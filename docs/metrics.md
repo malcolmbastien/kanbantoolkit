@@ -12,6 +12,10 @@ The screen is the header reading, the cycle-time scatter, the cycle-time distrib
 the cumulative flow diagram, throughput, and one **Planning** panel with three readings: the service
 level expectation, when the open work will be done, and how many by a date.
 
+<img src="img/guide/flow-view.webp" alt="The Flow view for Team Atlas: the header reading, cycle-time scatter and distribution, aging work, cumulative flow, throughput and the planning panel" width="1100">
+
+*The Flow view: the window and cards flow at the top, with the delivery history beneath them.*
+
 Four things were built and then removed when the screen was narrowed: **blocked work**, **Little's
 Law**, the **CSV export**, and the **data-quality section**. None was wrong; together they made the
 screen longer than the reading it is for. The phase tables below are the record of how it got here —
@@ -104,6 +108,11 @@ Minimums before forecasting: at least 4 weeks in the window and at least 8 deliv
 Below that the screen says what is missing and shows nothing else. Magennis's range estimates are
 the right fallback, and they are deliberately not built: a typed range would be a second source of
 truth beside the board.
+
+<img src="img/guide/flow-planning.webp" alt="The Planning panel: service level, when the open work will be done, and how many by a date" width="1100">
+
+*The Planning panel reads the same window and throughput three ways: the service level of the past,
+the forecast range for the open scope, and the chance of a number by a date.*
 
 **Ends with:** "at this pace, this scope is done between these two dates, with this confidence" — and
 the evidence to argue with it on the same screen.

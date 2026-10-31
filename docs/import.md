@@ -31,6 +31,11 @@ attachments and issue links are not imported.
 
 The source cannot know what its list names mean here, so the dialog asks:
 
+<img src="img/guide/import-mapping.webp" alt="The Import a board dialog after reading a Trello file: source and file, lists mapped to stages, people mapping and a preview of three cards" width="1000">
+
+*The mapping step: what the source calls a list becomes a stage, a person becomes somebody here, and
+the preview says what will be created before Import is pressed.*
+
 - **Lists → stages.** Every source list maps to Backlog, Not Started, In Progress or Done. Two
   source lists mapped to the same stage become two **cells** in that column, named after the lists,
   so the distinction is kept rather than flattened.
