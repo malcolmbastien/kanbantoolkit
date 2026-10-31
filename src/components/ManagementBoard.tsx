@@ -5,7 +5,7 @@ import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
 import { StrategyMap } from './StrategyMap'
 import { BAND_ACCENT } from '@/lib/colors'
-import { isPortfolio, linkableBoards } from '@/domain/board'
+import { linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -38,7 +38,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
     .filter((b) => !b.archived)
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linkedIds.includes(b.id))
-  const portfolio = isPortfolio(board)
+  const portfolio = board.band === 'portfolio'
   // The initiatives surface wears the board's band colour (Team = green, Program = blue, Portfolio = violet).
   const accent = BAND_ACCENT[board.band]
   // Drag empty workflow space to move the board. See usePanScroll.
