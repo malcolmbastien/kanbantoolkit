@@ -159,6 +159,21 @@ function laneFrom(row: Row): Lane {
   return lane
 }
 
+/**
+ * Readers of item history, recorded before it leaves the workspace read:
+ *
+ * - `server/events.ts` (`movedEntry`) reads only the last `moved` entry of the before and after card.
+ * - `src/domain/metrics.ts` (`flowRecord`) reads every `moved` entry for a board's cards, and
+ *   `MetricsView` builds those records for the flow view.
+ * - `src/components/ItemPanel.tsx` reads every entry for one card's Activity tab.
+ * - `src/domain/search.ts` and `src/domain/mentions.ts` read `noted` entries (the text and the
+ *   people named); the v1 search endpoint has its own SQL match.
+ * - `src/store.ts` appends locally and reads `created` for attribution, and the drawer/archive use
+ *   the entries they just wrote.
+ *
+ * A movement history read serves metrics; a paginated per-card read serves the drawer. Search,
+ * mentions and the local-first store need their own plan before the workspace stops carrying logs.
+ */
 async function readItems(db: Database, workspaceId: string): Promise<Item[]> {
   const [items, checklists, logs] = await Promise.all([
     db.all<Row>('SELECT * FROM items WHERE workspace_id = ?1 ORDER BY created_at, id', [workspaceId]),
