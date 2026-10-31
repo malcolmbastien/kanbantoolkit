@@ -15,7 +15,7 @@
  * their own path, and a position is late rather than lost — the next write carries it.
  */
 
-import type { Board, BoardFlow, Lane, Placement } from '../../src/domain/types'
+import type { Board, BoardBand, BoardFlow, Lane, Placement } from '../../src/domain/types'
 import type { Database } from '../db'
 
 type Value = string | number | bigint | null | Uint8Array
@@ -29,6 +29,40 @@ export async function readStructureRev(db: Database, workspaceId: string): Promi
     [workspaceId],
   )
   return row?.rev ?? 0
+}
+
+/** The bands a stored board may have. Anything else reads as team, as the reader does. */
+const bandOf = (value: unknown): BoardBand => (value === 'program' || value === 'portfolio' ? value : 'team')
+
+/** The bands of the boards this workspace already has, by id. */
+export async function readBoardBands(db: Database, workspaceId: string): Promise<Map<string, BoardBand>> {
+  const rows = await db.all<{ id: string; band: string | null }>(
+    'SELECT id, band FROM boards WHERE workspace_id = ?1',
+    [workspaceId],
+  )
+  return new Map(rows.map((row) => [row.id, bandOf(row.band)]))
+}
+
+/**
+ * A board's flight level is fixed when it is made.
+ *
+ * A design may add a board of any band, and may delete one; it may not move a board that already
+ * exists from one band to another. The band decides which surfaces the board has and where its
+ * initiatives roll up, so a change would not move the work — it would hide a cards flow or a set
+ * of bands behind a type the board was never shaped for. Answering the first such change rather
+ * than writing the rest is the point: a refused design changes nothing.
+ */
+export function findBandChange(
+  boards: Board[],
+  stored: Map<string, BoardBand>,
+): { boardId: string; from: BoardBand; to: BoardBand } | undefined {
+  for (const board of boards) {
+    const before = stored.get(board.id)
+    if (before === undefined) continue
+    const after = bandOf(board.band)
+    if (before !== after) return { boardId: board.id, from: before, to: after }
+  }
+  return undefined
 }
 
 /** The id ceiling the item parser uses, so a design cannot carry an id an item could not. */

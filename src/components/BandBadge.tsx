@@ -26,8 +26,8 @@ export const BAND_STYLES: Record<BoardBand, { label: string; hint: string; chip:
 }
 
 /**
- * Flight-level band badge. Read-only — the band is a board *setting*, changed in
- * Board settings, so the header never edits it.
+ * Flight-level band badge. Read-only — a board's type is fixed when it is created, and the
+ * header only says which one it is.
  */
 export function BandBadge({ band }: { band: BoardBand }) {
   // Defensive: persisted boards from before bands existed default to Team.

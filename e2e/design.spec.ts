@@ -94,3 +94,18 @@ test('the design controls are not on the working board', async ({ page }) => {
   await saveBoard(page)
   await expect(split).toHaveCount(0)
 })
+
+test('a board type is shown but cannot be changed in settings', async ({ page }) => {
+  await openBoard(page)
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const dialog = page.locator('[data-board-settings]')
+  await expect(dialog).toBeVisible()
+
+  const band = dialog.locator('[data-board-band-fixed]')
+  await expect(band).toContainText('Team')
+  await expect(band).toContainText('Fixed when the board was made')
+  // No band chooser, and no warning-and-proceed path either.
+  await expect(dialog.getByRole('button', { name: 'Program', exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('button', { name: 'Portfolio', exact: true })).toHaveCount(0)
+  await expect(dialog).toContainText('A board’s type is fixed when it is created')
+})

@@ -124,9 +124,12 @@ Ask what the board is for, not who opens it:
 - **Are you deciding or communicating what the work is for, with objectives and coverage?** A
   portfolio board.
 
-The type is a board setting, but it is not a skin: it decides which surfaces exist and where the
-initiatives roll up. A board made as a team board and later changed to a programme does not gain the
-bands of work that was never linked to it. Start at the level the work belongs to.
+The type is fixed when the board is created. It is not a skin: it decides which surfaces exist and
+where the initiatives roll up. A board made as a team board and later changed to a programme would
+not gain the bands of work that was never linked to it — it would lose the cards flow that holds its
+work instead. So the application refuses the change in the settings panel, in the store and on the
+server, rather than warning and proceeding. To change the level, create a new board of the other type
+and move or link the work there. Start at the level the work belongs to.
 
 ## A worked example
 

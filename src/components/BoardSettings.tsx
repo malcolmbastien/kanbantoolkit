@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { LayoutTemplate, Minus, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
-import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
+import { BAND_STYLES } from './BandBadge'
 import { cardTypes, defaultCardTypeId, isAggregating, linkableBoards, NONE_TYPE_ID } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
@@ -11,9 +11,9 @@ import { cardsFlows } from '@/domain/flows'
 import { VocabularySaveError } from './VocabularySaveError'
 
 /**
- * Board settings: title, flight-level band, which card types the board
- * allows (and which is the default), WIP enforcement, and — for a coordination
- * or strategic board — the boards it aggregates.
+ * Board settings: title, the flight-level band (shown, fixed at creation), which card types the
+ * board allows (and which is the default), WIP enforcement, and — for a coordination or strategic
+ * board — the boards it aggregates.
  */
 export function BoardSettings() {
   const boards = useStore((s) => s.boards)
@@ -21,7 +21,6 @@ export function BoardSettings() {
   const issueTypes = useStore((s) => s.issueTypes)
   const renameBoard = useStore((s) => s.renameBoard)
   const setBoardDescription = useStore((s) => s.setBoardDescription)
-  const setBoardBand = useStore((s) => s.setBoardBand)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
   const setBoardDefaultDropLane = useStore((s) => s.setBoardDefaultDropLane)
   const lanes = useStore((s) => s.lanes)
@@ -159,27 +158,25 @@ export function BoardSettings() {
             <p className="mt-1 text-micro text-slate-600">A short description of this board; the command palette searches it too.</p>
           </div>
 
-          {/* Flight-level band */}
+          {/* Flight-level band — the board's type, fixed when it was made. It decides which
+              surfaces exist and where the initiatives roll up, so changing it would hide work
+              rather than move it. The panel says the rule instead of offering a warning. */}
           <div>
             <div className={label}>Flight-level band</div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {BOARD_BANDS.map((b) => (
-                <button
-                  key={b}
-                  onClick={() => setBoardBand(board.id, b)}
-                  title={BAND_STYLES[b].hint}
-                  className={cn(
-                    'rounded border px-2 py-1.5 text-meta font-medium transition',
-                    board.band === b
-                      ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-                  )}
-                >
-                  {BAND_STYLES[b].label}
-                </button>
-              ))}
+            <div
+              data-board-band
+              data-board-band-fixed
+              className="flex items-center gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5"
+            >
+              <span className="rounded bg-white px-1.5 py-0.5 text-meta font-semibold text-slate-700 ring-1 ring-slate-200">
+                {BAND_STYLES[board.band]?.label ?? board.band}
+              </span>
+              <span className="text-micro text-slate-600">Fixed when the board was made</span>
             </div>
-            <p className="mt-1 text-micro text-slate-600">{BAND_STYLES[board.band]?.hint}</p>
+            <p className="mt-1 text-micro text-slate-600">
+              {BAND_STYLES[board.band]?.hint} A board&rsquo;s type is fixed when it is created: to change it, create
+              a new board of the other type and move or link the work there.
+            </p>
           </div>
 
           {/* Card types — the workspace's vocabulary, not this board's: every board offers all

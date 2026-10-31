@@ -29,7 +29,7 @@ import { statement } from '../audit'
 import { NONE_TYPE_ID } from '../../src/domain/board'
 import { can, type Action } from '../../src/domain/roles'
 import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
-import { readDesign, readStructureRev, writeDesign } from './structure'
+import { findBandChange, readBoardBands, readDesign, readStructureRev, writeDesign } from './structure'
 
 /** Which tab is asking. Two tabs of one person are two sessions, and the lease says so. */
 function tabOf(c: { req: { header: (name: string) => string | undefined } }): string {
@@ -168,6 +168,21 @@ export function workspaceRoutes(runtime: Runtime) {
     const current = await readStructureRev(allowed.db, allowed.workspaceId)
     if (rev !== current) {
       return c.json({ error: 'this board has been designed since you read it', rev: current }, 409)
+    }
+
+    // The band is chosen when a board is made and is not a design change. A write that tries to
+    // move an existing board between types is refused whole, before anything is written, with a
+    // stable code so the client can say what happened rather than retry the same design.
+    const bandChange = findBandChange(design.boards, await readBoardBands(allowed.db, allowed.workspaceId))
+    if (bandChange) {
+      return c.json(
+        {
+          error: "a board's type is fixed when it is created",
+          code: 'band_fixed',
+          ...bandChange,
+        },
+        409,
+      )
     }
 
     const written = await writeDesign(allowed.db, allowed.workspaceId, design, current)

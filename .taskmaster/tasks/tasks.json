@@ -3714,9 +3714,9 @@
         "testStrategy": "Store tests: setBoardBand leaves every board unchanged; addBoard still creates each band; duplicateBoard and template instantiation preserve the chosen band. Server tests: a structure write that changes an existing band is 409 and changes no row; a new board with any band is accepted; deleting a board still works; a stale rev is still 409. E2E: Board settings has no band controls and explains why. Run npm test, npm run scan and npm run docs:check.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:15:08.641Z"
       },
       {
         "id": "183",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:11:33.636Z",
+      "lastModified": "2026-10-31T03:15:08.641Z",
       "taskCount": 188,
-      "completedCount": 154,
+      "completedCount": 155,
       "tags": [
         "backlog"
       ]

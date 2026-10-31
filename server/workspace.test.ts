@@ -354,6 +354,40 @@ describe('writing the board design', () => {
     expect(body.structureRev).toBe(rev + 1)
   })
 
+  it('refuses to change the band of a board that already exists, and writes nothing', async () => {
+    const { put, request, cookie, rev } = await designer()
+    const first = await put({ rev, design: { boards: [board()], flows: [flow()], lanes: [lane()], placements: [] } })
+    expect(first.status).toBe(200)
+
+    const changed = await put({
+      rev: rev + 1,
+      design: { boards: [board({ band: 'program' })], flows: [flow()], lanes: [lane()], placements: [] },
+    })
+    expect(changed.status).toBe(409)
+    expect(await changed.json()).toMatchObject({ code: 'band_fixed', boardId: 'b-new', from: 'team', to: 'program' })
+
+    // The refusal is whole: the board is still a team board and the design revision has not moved.
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace & {
+      structureRev: number
+    }
+    expect(body.boards.find((b) => b.id === 'b-new')?.band).toBe('team')
+    expect(body.structureRev).toBe(rev + 1)
+  })
+
+  it('lets a new board choose any band', async () => {
+    const { put, rev } = await designer()
+    const response = await put({
+      rev,
+      design: {
+        boards: [board(), board({ id: 'b-program', name: 'A programme', band: 'program' })],
+        flows: [flow()],
+        lanes: [lane()],
+        placements: [],
+      },
+    })
+    expect(response.status).toBe(200)
+  })
+
   it('keeps two cards flows apart, and refuses a lane that names no flow it can place', async () => {
     const { put, request, cookie, rev } = await designer()
     const support = flow({ id: 'f-support', name: 'Support', order: 1 })

@@ -20,7 +20,9 @@ by title, description and note, and shows the line that matched.
 ## A board
 
 Every board is a **team**, **programme** or **portfolio** board; [Board types](board-types.md) explains
-what each level is for and when to choose it.
+what each level is for and when to choose it. The level is fixed when the board is made: **Settings**
+shows it but does not offer to change it, because a different type would hide the work the board
+already holds.
 
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a

@@ -336,12 +336,13 @@ describe('store actions', () => {
     expect(counts()).toEqual(countsBefore)
   })
 
-  it('boards carry a flight-level band that can be changed', () => {
+  it('a board keeps the flight-level band it was made with', () => {
     expect(s().boards.find((b) => b.id === 'b-strategy')?.band).toBe('portfolio')
     expect(s().boards.find((b) => b.id === 'b-portfolio')?.band).toBe('program')
     expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('team')
-    s().setBoardBand('b-atlas', 'program')
-    expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('program')
+    // Refused, not warned: the board that is already there does not change type.
+    expect(s().setBoardBand('b-atlas', 'program')).toBe(false)
+    expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('team')
     const before = s().boards.length
     s().addBoard('Fresh')
     expect(s().boards.length).toBe(before + 1)

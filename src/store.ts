@@ -335,7 +335,13 @@ export interface Actions {
   renameBoard: (id: string, name: string) => void
   /** Write the board's own description. */
   setBoardDescription: (id: string, description: string) => void
-  setBoardBand: (id: string, band: BoardBand) => void
+  /**
+   * A board's flight level is fixed when it is made — it decides which surfaces the board has and
+   * where its initiatives roll up, so changing it on a board that already holds work would hide
+   * that work rather than move it. Refused here as well as in the settings panel and on the
+   * server: a stale tab or a queued design cannot talk its way past the rule. Answers false.
+   */
+  setBoardBand: (id: string, band: BoardBand) => boolean
   setBoardDefaultCardType: (id: string, typeId: string | undefined) => void
   /**
    * Move a selection to another board. It lands in that board's default drop column — the same
@@ -2144,7 +2150,7 @@ export const useStore = create<Store>()(
       renameBoard: (id, name) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, name } : b)) }),
       setBoardDescription: (id, description) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, description } : b)) }),
-      setBoardBand: (id, band) => set({ boards: get().boards.map((b) => (b.id === id ? { ...b, band } : b)) }),
+      setBoardBand: () => false,
       setBoardDefaultCardType: (id, defaultCardTypeId) =>
         set({ boards: get().boards.map((b) => (b.id === id ? { ...b, defaultCardTypeId } : b)) }),
 
