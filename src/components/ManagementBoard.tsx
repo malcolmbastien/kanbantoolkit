@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, ExternalLink, Layers, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, Layers, Lock, Plus, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
 import { StrategyMap } from './StrategyMap'
 import { BAND_ACCENT } from '@/lib/colors'
-import { linkableBoards } from '@/domain/board'
+import { isPortfolio, linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -38,7 +38,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
     .filter((b) => !b.archived)
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linkedIds.includes(b.id))
-  const isPortfolio = board.band === 'portfolio'
+  const portfolio = isPortfolio(board)
   // The initiatives surface wears the board's band colour (Team = green, Program = blue, Portfolio = violet).
   const accent = BAND_ACCENT[board.band]
   // Drag empty workflow space to move the board. See usePanScroll.
@@ -91,7 +91,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
       <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 space-y-3 overflow-y-auto p-3', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
         {/* A portfolio leads with strategy: objectives and the initiatives that serve
             them on one page. Other coordination boards show the initiatives workflow. */}
-        {isPortfolio
+        {portfolio
           ? section(
               `${board.id}-strategy`,
               <>
@@ -126,13 +126,21 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             board's flow is a different reading of the same work. The links themselves stay in the
             model (a programme beneath it still rolls up), so this is a decision about one surface
             and not about the data. */}
-        {!isPortfolio && section(
+        {!portfolio && section(
           `${board.id}-linked`,
           <>
             <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Linked boards</span>
             <span className="text-micro text-slate-600">
               {linked.length} board{linked.length === 1 ? '' : 's'} roll up here
             </span>
+            {linked.length > 0 && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200"
+                title="The bands below are read from their own boards. Open one to move its work or change its flow."
+              >
+                <Lock size={9} aria-hidden /> read-only
+              </span>
+            )}
           </>,
           <div className="space-y-3 p-2">
             {linked.length === 0 && (
@@ -154,13 +162,19 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
                     <span className={cn('h-2 w-2 shrink-0 rounded-full', BAND_ACCENT[t.band].dot)} />
                     <BandBadge band={t.band} />
                     <span className="min-w-0 truncate text-meta font-semibold text-slate-800">{t.name}</span>
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200"
+                      title={`Read-only here — this band is read from ${t.name}. Open its board to move work or change its flow.`}
+                    >
+                      <Lock size={9} aria-hidden /> Read-only
+                    </span>
                     <span className="ml-auto flex shrink-0 items-center gap-1">
                       <button
                         onClick={() => selectBoard(t.id)}
                         className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-micro font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                        title="Open this board"
+                        title={`Open ${t.name} in its own board`}
                       >
-                        <ExternalLink size={10} /> open
+                        <ExternalLink size={10} /> Open board
                       </button>
                       <button
                         onClick={() => removeLinkedBoard(board.id, t.id)}
@@ -201,9 +215,9 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           false,
         )}
 
-        {!isPortfolio && (
+        {!portfolio && (
           <div className="flex items-center gap-1 px-1 text-micro text-slate-600">
-            <Layers size={11} /> Each band is a rollup of that board’s initiatives — Not Started / In Progress / Done. Card symbols show linked initiatives.
+            <Layers size={11} /> Each band is a read-only rollup of that board’s initiatives — Not Started / In Progress / Done. Open a board to move its work or change its flow.
           </div>
         )}
       </div>

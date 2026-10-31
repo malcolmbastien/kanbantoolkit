@@ -47,6 +47,10 @@ The programme is for the questions a single team cannot answer: which initiative
 are blocked or waiting, which teams depend on each other, and what the combined picture looks like.
 Its dashboard and timeline read the same initiatives, not a copy of them.
 
+Each linked band is **read-only**: it is a rollup of that board's initiatives, and the band says so
+at its header. To move an initiative, change its flow or edit its board design, use **Open board** —
+the work stays on the board that owns it.
+
 **Use it for**
 
 - A value stream over three squads: one band per squad, read for progress, risk and dependencies.
