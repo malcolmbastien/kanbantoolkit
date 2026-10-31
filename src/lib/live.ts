@@ -38,6 +38,8 @@ interface Feed {
   changes: Change[]
   cursor: number
   locks?: Lock[]
+  /** The cursor is older than the feed's retention, so the client must reload the workspace. */
+  expired?: boolean
 }
 
 let cursor = 0
@@ -47,10 +49,16 @@ let retry: ReturnType<typeof setTimeout> | undefined
 let attempts = 0
 let watching = false
 let adopt: (item: Item) => void = () => {}
+let reload: () => Promise<unknown> | void = () => {}
 
 /** What to do with a card that arrived. Registered once, by the store. */
 export function onLiveItem(handler: (item: Item) => void): void {
   adopt = handler
+}
+
+/** What to do when the server says this cursor has fallen out of retention. */
+export function onFeedExpired(handler: () => Promise<unknown> | void): void {
+  reload = handler
 }
 
 /** The cursor this client has read up to, for tests and for a future reconnect. */
@@ -68,6 +76,14 @@ export async function poll(): Promise<Change[]> {
   if (!response.ok) return []
 
   const feed = (await response.json()) as Feed
+  if (feed.expired) {
+    // The rows between this cursor and the oldest one kept are gone. Reload the workspace as a
+    // whole, then read the feed from the beginning of what is retained.
+    cursor = 0
+    usePresence.getState().receive(feed.locks ?? [])
+    await reload()
+    return []
+  }
   for (const change of feed.changes) {
     if (change.item) adopt(change.item)
   }

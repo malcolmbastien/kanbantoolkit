@@ -267,7 +267,7 @@ export async function writeItemAndPlacements(
 
   // The feed a second device reads. Written with the change, so a change that landed is a change
   // that is announced, and a batch that failed announced nothing.
-  statements.push({ sql: 'INSERT INTO changes (item_id, rev) VALUES (?1, ?2)', params: [item.id, item.rev ?? 0] })
+  statements.push({ sql: 'INSERT INTO changes (item_id, rev, workspace_id) VALUES (?1, ?2, ?3)', params: [item.id, item.rev ?? 0, workspaceId] })
 
   if (key) {
     // The key is recorded in the same batch as the change it names: either both land or neither
@@ -478,7 +478,7 @@ export async function writeWorkspace(
 
   for (const item of workspace.items) {
     addItem(statements, item, workspaceId)
-    statements.push({ sql: 'INSERT INTO changes (item_id, rev) VALUES (?1, ?2)', params: [item.id, item.rev ?? 0] })
+    statements.push({ sql: 'INSERT INTO changes (item_id, rev, workspace_id) VALUES (?1, ?2, ?3)', params: [item.id, item.rev ?? 0, workspaceId] })
   }
 
   for (const placement of workspace.placements) {

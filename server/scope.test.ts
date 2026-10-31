@@ -224,9 +224,9 @@ describe('the seal, at the door', () => {
     const ada = await dev('ada@example.com')
 
     await db.run("INSERT INTO items (id, title, type_id, created_at, rev, workspace_id) VALUES ('i-theirs', 'Theirs', 't-card', 0, 1, 'other')")
-    await db.run("INSERT INTO changes (item_id, rev) VALUES ('i-theirs', 1)")
+    await db.run("INSERT INTO changes (item_id, rev, workspace_id) VALUES ('i-theirs', 1, 'other')")
     await db.run("INSERT INTO items (id, title, type_id, created_at, rev, workspace_id) VALUES ('i-mine', 'Mine', 't-card', 0, 1, 'workspace')")
-    await db.run("INSERT INTO changes (item_id, rev) VALUES ('i-mine', 1)")
+    await db.run("INSERT INTO changes (item_id, rev, workspace_id) VALUES ('i-mine', 1, 'workspace')")
 
     const feed = (await (await as(ada.cookie)('/api/workspace/changes?since=0')).json()) as {
       changes: Array<{ item: { id: string } | null }>

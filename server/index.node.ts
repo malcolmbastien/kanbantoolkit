@@ -25,6 +25,7 @@ import type { Migration } from './migrate'
 import { openSqlite } from './sqlite'
 import { workspaceName } from './config'
 import { dispatchDue } from './webhooks'
+import { changeRetentionDays, pruneChanges } from './workspace/changes'
 import { fileBackups } from './file-backup'
 import { record } from './audit'
 
@@ -99,6 +100,15 @@ if (process.env.WEBHOOKS !== '0') {
   // A test or a one-shot command should not be kept alive by a delivery timer.
   timer.unref?.()
 }
+
+// The change feed is pruned on a timer of its own: a deployment that has turned deliveries off
+// still writes changes, and a feed that grows forever is a second history nobody asked for.
+const feedRetention = setInterval(() => {
+  void pruneChanges(db, { days: changeRetentionDays(process.env) }).catch((error) =>
+    console.error('change feed prune failed', error),
+  )
+}, 15_000)
+feedRetention.unref?.()
 
 /**
  * Mail, if this machine has a relay.

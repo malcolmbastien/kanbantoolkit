@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { poll, resetLive } from './live'
+import { onFeedExpired, poll, resetLive } from './live'
 import { useAuth } from './auth'
 
 const realFetch = globalThis.fetch
@@ -16,6 +16,7 @@ describe('the change feed', () => {
 
   afterEach(() => {
     resetLive()
+    onFeedExpired(() => {})
     vi.stubGlobal('fetch', realFetch)
     useAuth.setState({ providers: [], user: null, dev: false, loaded: false })
   })
@@ -38,6 +39,26 @@ describe('the change feed', () => {
 
     expect(await poll()).toEqual([])
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('reloads the workspace and rewinds when the cursor is older than retention', async () => {
+    let reloads = 0
+    onFeedExpired(async () => {
+      reloads += 1
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ changes: [], cursor: 0, locks: [], expired: true }), { status: 200 })),
+    )
+
+    expect(await poll()).toEqual([])
+    expect(reloads).toBe(1)
+
+    // The next poll starts at the beginning of what the feed still keeps.
+    const next = feed(3)
+    vi.stubGlobal('fetch', next)
+    await poll()
+    expect(next).toHaveBeenLastCalledWith('/api/workspace/changes?since=0')
   })
 
   it('does not move the cursor when the server cannot answer', async () => {

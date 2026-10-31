@@ -24,7 +24,7 @@ import { queue, newKey, type QueuedWrite } from '@/lib/queue'
 import type { CommitAnswer } from '@/lib/repository'
 import { useAuth } from '@/lib/auth'
 import { isFrozen, useSync } from '@/lib/sync'
-import { onLiveItem, startLive, stopLive } from '@/lib/live'
+import { onFeedExpired, onLiveItem, startLive, stopLive } from '@/lib/live'
 import { reflectAccount } from '@/lib/workspaceSync'
 import { uid as makeUid } from '@/lib/utils'
 import type { ImportPlan } from '@/domain/import'
@@ -3287,6 +3287,12 @@ useAuth.subscribe((state) => {
  * Adopted only when the revision is greater, which is what makes an echo a no-op: the tab that
  * wrote already holds that revision, so it has nothing to do and writes nothing back.
  */
+onFeedExpired(() => {
+  // The cursor fell behind retention. A full read is the only answer that cannot leave a gap.
+  const user = useAuth.getState().user
+  if (user) void reflectAccount(user.id)
+})
+
 onLiveItem((item) => {
   useStore.setState((state) => {
     const index = state.items.findIndex((local) => local.id === item.id)

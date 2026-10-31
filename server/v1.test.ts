@@ -299,7 +299,7 @@ describe('reading', () => {
     // `changes` rows, so the baseline is "now", not "a minute ago".
     const baseline = new Date().toISOString()
     await new Promise((resolve) => setTimeout(resolve, 5))
-    await db.run("INSERT INTO changes (item_id, rev) VALUES ('i-2', 2)")
+    await db.run("INSERT INTO changes (item_id, rev, workspace_id) VALUES ('i-2', 2, 'workspace')")
 
     const changed = (await (await reader.call(`/items?updatedSince=${encodeURIComponent(baseline)}`)).json()) as {
       data: Array<{ id: string }>

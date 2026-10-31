@@ -286,16 +286,27 @@ export function workspaceRoutes(runtime: Runtime) {
     const asked = Number(c.req.query('since') ?? '0')
     const since = Number.isInteger(asked) && asked > 0 ? asked : 0
 
-    const rows = await allowed.db.all<{ id: number; item_id: string; rev: number }>(
-      // The feed is the workspace's: a change names an item, and an item belongs to one workspace.
-      `SELECT id, item_id, rev FROM changes
-        WHERE id > ?2 AND item_id IN (SELECT id FROM items WHERE workspace_id = ?1)
-        ORDER BY id LIMIT 50`,
-      [allowed.workspaceId, since],
-    )
     // The leases ride the same poll as the changes: one request, one cursor, one picture of what is
     // going on in this workspace.
     const locks = await heldLocks(allowed.db)
+
+    // A cursor older than what survives retention is answered explicitly: the client must reload
+    // the workspace, because the changes between its cursor and the oldest row are gone.
+    const oldest = await allowed.db.get<{ id: number | null }>(
+      'SELECT MIN(id) AS id FROM changes WHERE workspace_id = ?1',
+      [allowed.workspaceId],
+    )
+    if (since > 0 && oldest?.id !== null && oldest?.id !== undefined && since < oldest.id) {
+      return c.json({ expired: true, changes: [], cursor: 0, locks })
+    }
+
+    const rows = await allowed.db.all<{ id: number; item_id: string; rev: number }>(
+      // scoped by workspace_id: the change names its own workspace, so the feed is one indexed read.
+      `SELECT id, item_id, rev FROM changes
+        WHERE workspace_id = ?1 AND id > ?2
+        ORDER BY id LIMIT 50`,
+      [allowed.workspaceId, since],
+    )
     if (!rows.length) return c.json({ changes: [], cursor: since, locks })
 
     // A card written twice in one page is one card that changed, at its latest revision. The feed

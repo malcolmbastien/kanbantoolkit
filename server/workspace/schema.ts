@@ -77,5 +77,9 @@ export const WORKSPACE_SCHEMA = 1
  * filter, the placement a card is listed by, and the change row `updatedSince` asks for. They are
  * performance, not shape, but they arrive with the code that needs them so a large workspace is
  * not listed by loading it first.
+ *
+ * 38 gives a change its workspace. A shared instance's feed was scoped by a join through items;
+ * the change now names the workspace itself, so the feed filter is indexed and one tenant's cursor
+ * cannot see another tenant's row. Existing ids are kept, because they are client cursors.
  */
-export const REQUIRED_SCHEMA = 37
+export const REQUIRED_SCHEMA = 38

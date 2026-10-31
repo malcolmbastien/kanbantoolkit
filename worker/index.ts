@@ -13,6 +13,7 @@ import { createApp } from '../server/app'
 import { liveCaller } from '../server/live'
 import { WORKSPACE_ID } from '../server/auth/session'
 import { dispatchDue } from '../server/webhooks'
+import { changeRetentionDays, pruneChanges } from '../server/workspace/changes'
 import { d1 } from './d1'
 
 export { WorkspaceChannel } from './channel'
@@ -24,6 +25,8 @@ export interface Env {
   ERROR_SALT?: string
   /** The live channel: one Durable Object per workspace. See `channel.ts`. */
   WORKSPACE_CHANNEL?: DurableObjectNamespace
+  /** How long the change feed is kept, in days; the default is documented in `workspace/changes.ts`. */
+  CHANGE_RETENTION_DAYS?: string
 }
 
 const database = (env: unknown) => {
@@ -100,5 +103,10 @@ export default {
     const db = database(env)
     if (!db) return
     ctx.waitUntil(dispatchDue(db).catch((error) => console.error('webhook dispatch failed', error)))
+    ctx.waitUntil(
+      pruneChanges(db, { days: changeRetentionDays(env) }).catch((error) =>
+        console.error('change feed prune failed', error),
+      ),
+    )
   },
 }
