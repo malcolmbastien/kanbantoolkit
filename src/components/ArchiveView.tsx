@@ -102,6 +102,7 @@ export function ArchiveView() {
                 return (
                   <tr
                     key={item.id}
+                    data-item-row={item.id}
                     onClick={() => openItem(item.id, { focus: false })}
                     className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-200"
                   >

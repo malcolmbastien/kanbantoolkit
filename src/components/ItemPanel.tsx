@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, ArchiveX, ArrowRight, Ban, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Archive, ArchiveX, ArrowRight, Ban, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
   archiveOutcome,
   attributedObjectives,
@@ -152,7 +152,10 @@ export function ItemPanel({ itemId }: Props) {
   // field that is closed and a sentence saying why.
   const may = useMay()
   const canWrite = may('item.write')
-  const locked = Boolean(held) || !canWrite
+  // The Archive reads filed work. Nothing there is edited: a completed or discarded item's fields
+  // are closed until it is restored, and its warnings are not raised for work that has left play.
+  const archived = Boolean(item?.archived)
+  const locked = Boolean(held) || !canWrite || archived
   const refusal = useSync((s) => s.refusals[itemId])
 
   // A refusal that was only a lease ends when the lease does: the card is editable again without
@@ -298,7 +301,7 @@ export function ItemPanel({ itemId }: Props) {
   // not go on saying "still 12d".
   const today = Math.floor(Date.now() / 86_400_000)
   const warnings = useMemo(() => {
-    if (!isInitiative) return []
+    if (!isInitiative || item.archived) return []
     const g: Graph = { items, edges, links, placements, lanes }
     const rows = initiativeHealth(item.id, g, Date.now()).flags.map((f) => ({
       key: f.flag as string,
@@ -318,7 +321,7 @@ export function ItemPanel({ itemId }: Props) {
       })
     }
     return rows
-  }, [isInitiative, item.id, items, edges, links, placements, lanes, issueTypes, today])
+  }, [isInitiative, item.id, item.archived, items, edges, links, placements, lanes, issueTypes, today])
   const openWarningRow = warnings.find((w) => w.key === openWarning)
 
   /**
@@ -508,14 +511,16 @@ export function ItemPanel({ itemId }: Props) {
             </button>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
-            <IconButton
-              title={focusOn ? 'Stop focusing this line' : 'Focus this line on the board'}
-              active={focusOn}
-              onClick={() => toggleLens(item.id)}
-            >
-              <Eye size={15} />
-            </IconButton>
-            {canWrite && (
+            {!archived && (
+              <IconButton
+                title={focusOn ? 'Stop focusing this line' : 'Focus this line on the board'}
+                active={focusOn}
+                onClick={() => toggleLens(item.id)}
+              >
+                <Eye size={15} />
+              </IconButton>
+            )}
+            {canWrite && !archived && (
               <IconButton
                 title="More — duplicate, archive, delete"
                 active={moreOpen}
@@ -523,6 +528,15 @@ export function ItemPanel({ itemId }: Props) {
               >
                 <MoreHorizontal size={15} />
               </IconButton>
+            )}
+            {archived && (
+              <button
+                onClick={() => unarchiveItem(item.id)}
+                title="Restore this item to its board"
+                className="flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-micro font-semibold text-amber-800 transition hover:bg-amber-100"
+              >
+                <RotateCcw size={12} /> Restore
+              </button>
             )}
             <IconButton title="Close" danger onClick={() => close(null)}>
               <X size={16} />
@@ -621,7 +635,7 @@ export function ItemPanel({ itemId }: Props) {
               On {itemBoard.name}
             </span>
           )}
-          {canWrite && (item.blocked ? (
+          {canWrite && !archived && (item.blocked ? (
             <button
               onClick={() => unblockItem(item.id)}
               className="ml-auto flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 text-meta font-semibold text-white transition hover:bg-rose-700"
@@ -643,12 +657,12 @@ export function ItemPanel({ itemId }: Props) {
           ))}
         </div>
 
-        {item.blocked && item.blockedReason && (
+        {!archived && item.blocked && item.blockedReason && (
           <p className="mt-2 rounded-lg bg-rose-50 px-2.5 py-1.5 text-meta text-rose-800 ring-1 ring-rose-200">
             {item.blockedReason}
           </p>
         )}
-        {blockOpen && !item.blocked && (
+        {!archived && blockOpen && !item.blocked && (
           <div className="mt-2 flex items-center gap-1.5">
             <input
               value={blockReason}
@@ -753,7 +767,13 @@ export function ItemPanel({ itemId }: Props) {
         </div>
       )}
 
-      {!canWrite && (
+      {archived && (
+        <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-2 text-meta text-slate-700">
+          This item is <span className="font-semibold">archived</span>, so it is read-only. Restore it to edit it.
+        </div>
+      )}
+
+      {!canWrite && !archived && (
         <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-2 text-meta text-slate-700">
           You are a <span className="font-semibold">Viewer</span> here, so this card is read-only. A note
           at the bottom is yours to leave.
@@ -775,7 +795,7 @@ export function ItemPanel({ itemId }: Props) {
             {/* Warnings first, because that is what they are for: the card's badge row says
                 something is wrong, and this says how much and takes you to it. One chip per
                 signal — the summary — and the work behind a chip on request. */}
-            {isInitiative && warnings.length > 0 && (
+            {isInitiative && !archived && warnings.length > 0 && (
               <section className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-1.5 text-meta font-semibold text-amber-900">

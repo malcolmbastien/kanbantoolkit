@@ -50,8 +50,50 @@ test('a card in play is discarded, and the archive says so without keeping its c
   const drawer = page.locator('[data-item-panel]')
   await expect(drawer).toBeVisible()
   expect(await drawer.getAttribute('aria-label')).toContain('Add usage-based billing events')
+
+  // The drawer is read-only in the archive.
+  await expect(drawer.getByLabel('Title')).toBeDisabled()
+  await expect(drawer.getByText(/archived, so it is read-only/)).toBeVisible()
+  await expect(drawer.getByRole('button', { name: 'Mark blocked' })).toHaveCount(0)
+  // Read-only fields, but the one action that brings it back is still there.
+  await expect(drawer.getByRole('button', { name: 'Restore' })).toBeVisible()
+
+  // Pressing on another row is not a click on the backdrop: the drawer must not close before the
+  // row's own click opens the next item.
+  const other = page.locator('tr', { hasText: 'Rate limit messaging' })
+  await expect(other).toBeVisible()
+  await other.dispatchEvent('mousedown')
+  await expect(drawer).toBeVisible()
+  expect(await drawer.getAttribute('aria-label')).toContain('Add usage-based billing events')
+  await other.click()
+  await expect(drawer).toHaveAttribute('aria-label', /Rate limit messaging/)
+
   await page.keyboard.press('Escape')
   await expect(drawer).toHaveCount(0)
+})
+
+test('an archived initiative is read-only and raises no warnings', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="init-billing"]').first().click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel.getByText(/^\d+ warnings?$/)).toBeVisible()
+
+  // Discard it: it leaves play, and its warnings leave with it.
+  await panel.getByRole('button', { name: /More — duplicate/ }).click()
+  await panel.getByRole('button', { name: 'Discard', exact: true }).click()
+  await expect(panel.getByText(/^\d+ warnings?$/)).toHaveCount(0)
+  await expect(panel.getByLabel('Title')).toBeDisabled()
+  await expect(panel.getByText(/archived, so it is read-only/)).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await page.goto('/app?board=b-atlas&view=archive')
+  const row = page.locator('tr', { hasText: 'Billing migration' })
+  await expect(row).toBeVisible()
+  await row.click()
+  const drawer = page.locator('[data-item-panel]')
+  await expect(drawer).toBeVisible()
+  await expect(drawer.getByText(/^\d+ warnings?$/)).toHaveCount(0)
+  await expect(drawer.getByLabel('Title')).toBeDisabled()
 })
 
 test('done work is archived, and restoring it puts the card back in play', async ({ page }) => {
