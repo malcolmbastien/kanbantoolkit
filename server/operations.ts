@@ -202,6 +202,7 @@ export async function listBoards(caller: OpCaller, input: { limit?: unknown; cur
   }
   params.push(limit + 1)
   const rows = await caller.db.all<Record<string, unknown> & { id: string }>(
+    // scoped by its workspace_id: the WHERE always starts with it, and the cursor narrows within it.
     `SELECT * FROM boards WHERE ${where} ORDER BY id LIMIT ?${params.length}`,
     params,
   )
@@ -258,6 +259,7 @@ export async function listItems(caller: OpCaller, filters: ItemFilters): Promise
       `(instr(lower(i.title), ${needle}) > 0
         OR instr(lower(coalesce(i.description, '')), ${needle}) > 0
         OR EXISTS (
+          -- scoped by its item, which the listing has already scoped to this workspace
           SELECT 1 FROM item_log note
            WHERE note.item_id = i.id AND note.kind = 'noted'
              AND instr(lower(coalesce(note.note, '')), ${needle}) > 0
@@ -282,6 +284,7 @@ export async function listItems(caller: OpCaller, filters: ItemFilters): Promise
     ? `WITH RECURSIVE subtree(id) AS (
          SELECT id FROM lanes WHERE workspace_id = ?1 AND id = ?2
          UNION ALL
+         -- scoped by the workspace_id the CTE is seeded with and every step repeats
          SELECT lane.id FROM lanes lane JOIN subtree ON lane.parent_id = subtree.id
           WHERE lane.workspace_id = ?1
        ) `
@@ -292,8 +295,10 @@ export async function listItems(caller: OpCaller, filters: ItemFilters): Promise
             p.board_id AS placement_board_id,
             p.lane_id AS placement_lane_id,
             p.rank AS placement_rank
+       -- scoped by its workspace_id: every join and the WHERE name it
        FROM items i
        LEFT JOIN placements p ON p.id = (
+         -- scoped by the workspace_id the item row carries and this subquery repeats
          SELECT MAX(p2.id) FROM placements p2
           WHERE p2.item_id = i.id AND p2.workspace_id = i.workspace_id
        )
