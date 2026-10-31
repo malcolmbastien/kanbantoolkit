@@ -212,14 +212,12 @@ export function BoardView({ requestMove }: Props) {
           return (
             <section
               key={flow.id}
-              // The cards run to the edge of the window; a wide flow should scroll out of view
-              // there rather than stop at the board's own padding. The header keeps its inset.
-              className="-mx-4 space-y-2.5"
+              className="space-y-2.5"
               data-flow-band={flow.id}
               data-flow-name={name}
               aria-label={`${name} — cards flow`}
             >
-              <div className="sticky top-0 z-20 mx-4 flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 shadow-sm">
+              <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 shadow-sm">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
                   <h2 className="flex shrink-0 items-center text-body font-bold uppercase tracking-wide text-slate-900">

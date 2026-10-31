@@ -48,9 +48,9 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
 
 Each flow's header stays at the top of the board while its columns scroll, so a reader moving through
 a long lane never loses which flow — and which set of columns — is in front of them. The initiatives
-and boundary bands behave the same way. A cards flow wider than the window is clipped at the window
-edge rather than at an inset frame, so a card leaves the screen the way a horizontal list should;
-the header keeps its inset above it.
+and boundary bands behave the same way. A cards flow uses the board's own margin rather than adding a
+second inset inside it: a wide flow has the width it needs, and its columns line up with the bands
+above and below.
 
 ## The side drawer
 

@@ -274,18 +274,28 @@ test('workflow headers stay in view while their columns scroll', async ({ page }
   expect(held).toBeLessThanOrEqual(20)
 })
 
-test('a cards flow reaches the window edge instead of stopping at the board padding', async ({ page }) => {
+
+test('a cards flow keeps the board margin without a second inset', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1100 })
   await openBoard(page)
-  const section = flowBand(page, 'Cards')
-  const canvas = section.locator('[data-workflow="cards"] > div').first()
-  const [sectionBox, canvasBox] = await Promise.all([section.boundingBox(), canvas.boundingBox()])
-  expect(sectionBox).toBeTruthy()
+  const cards = flowBand(page, 'Cards')
+  const initiatives = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Initiatives workflow' }) })
+    .first()
+  const canvas = cards.locator('[data-workflow="cards"] > div').first()
+  const [cardsBox, initiativesBox, canvasBox] = await Promise.all([
+    cards.boundingBox(),
+    initiatives.boundingBox(),
+    canvas.boundingBox(),
+  ])
+  expect(cardsBox).toBeTruthy()
+  expect(initiativesBox).toBeTruthy()
   expect(canvasBox).toBeTruthy()
-  // The band is pulled out of the board's horizontal padding, and its canvas is the same width:
-  // a wide flow scrolls out at the window edge, not at an inset edge.
-  expect(Math.round(sectionBox!.x)).toBe(0)
-  expect(Math.round(sectionBox!.width)).toBe(Math.round(canvasBox!.width))
+  // One margin for every band; the cards canvas gives it no second inset of its own.
+  expect(Math.round(cardsBox!.x)).toBe(Math.round(initiativesBox!.x))
+  expect(Math.round(canvasBox!.x)).toBe(Math.round(cardsBox!.x))
+  expect(Math.round(canvasBox!.width)).toBe(Math.round(cardsBox!.width))
   expect(await canvas.evaluate((element) => getComputedStyle(element).paddingLeft)).toBe('0px')
   expect(await canvas.evaluate((element) => getComputedStyle(element).paddingRight)).toBe('0px')
 })
