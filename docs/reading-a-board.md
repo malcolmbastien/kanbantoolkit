@@ -58,8 +58,13 @@ Clicking a card or an initiative opens the **side drawer** on the right; the boa
 beside it. The same drawer opens from search, the dashboard, the timeline and the archive.
 
 - **Overview** holds the fields: title, description (Markdown), status, priority, type, people, tags,
-  target dates, checklist and dependencies.
-- **Hierarchy** shows the parent and the work below.
+  target dates and checklist.
+- **Hierarchy** shows the parent, the work below, and dependencies. A dependency links two items and
+  says one waits for the other; it runs **across** the hierarchy, never along it. A card cannot wait
+  on its own parent or on anything below it, and a link that would close a loop is refused rather
+  than corrected — the picker offers only the items the link would be accepted for. A dependency is
+  a plan, not a block: it never stops a move, and it clears itself when the item waited on reaches
+  Done.
 - **Activity** is the item's own history: every move, edit, note and link, with who and when.
 
 The drawer is where editing happens. If somebody else is editing the same card, their lease is shown

@@ -3,6 +3,7 @@ import { Archive, ArchiveX, ArrowRight, Ban, CalendarDays, Check, ChevronDown, C
 import {
   archiveOutcome,
   attributedObjectives,
+  canDepend,
   checklistItems,
   decompositionChildren,
   decompositionParent,
@@ -358,6 +359,10 @@ export function ItemPanel({ itemId }: Props) {
   // here so the select cannot propose something that would be refused, including a mapped
   // initiative that has to stay a root.
   const candidates = items.filter((i) => canSetParent(item.id, i.id, graph, issueTypes))
+  // A dependency is a link across the decomposition, never along it, and never one that closes a
+  // loop — the same rule the store enforces (`canDepend`). The picker therefore offers only the
+  // cards the link would actually be made to: not the item itself, not a parent or a descendant.
+  const dependencyCandidates = items.filter((i) => canDepend(item.id, i.id, graph))
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   // Every card type is offered; the item's current type is always among them.
   const typeOptions = cardTypes(issueTypes)
@@ -1515,12 +1520,13 @@ export function ItemPanel({ itemId }: Props) {
               )}
               <div className="flex items-center gap-1.5">
                 <select
+                  data-dependency-picker
                   value={dependencyId}
                   onChange={(e) => setDependencyId(e.target.value)}
                   className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
                 >
                   <option value="">This depends on…</option>
-                  {candidates.map((c) => (
+                  {dependencyCandidates.map((c) => (
                     <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
                 </select>

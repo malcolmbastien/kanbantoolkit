@@ -166,7 +166,11 @@ task-master list            # terminal 2
   `linkTeamInitiative` creates a team initiative as a decomposition child of a management
   initiative so it rolls up.
 - Dependency state is derived from the two endpoints' cells; never store a dependency
-  status field. Attribution never counts as WIP. **An objective is served by a root initiative** —
+  status field. A dependency runs **across** the decomposition, never along it: `canDepend` refuses
+  a self-link, a link to a parent or descendant (the rollup already orders those), and any link
+  that would close a loop through the links and children already there. The picker and the store
+  read the same rule, so a target that is offered is a target the write accepts. Attribution never
+  counts as WIP. **An objective is served by a root initiative** —
   one with no decomposition parent, wherever the board that carries it sits (`canServeObjective`).
   A nested initiative inherits its parent's objective through the decomposition, and a card is
   never mapped; `setParent` refuses to give a mapped initiative a parent, so a mapped outcome stays

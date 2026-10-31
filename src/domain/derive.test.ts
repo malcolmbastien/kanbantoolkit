@@ -5,6 +5,7 @@ import {
   objectiveRollup,
   okrCoverage,
   blockedBelow,
+  canDepend,
   checklistItems,
   checklistProgress,
   dependentSummary,
@@ -168,6 +169,46 @@ describe('dependency state is computed from cells', () => {
 
   it('shows one open dependency on the dependent', () => {
     expect(openDependenciesOf('st-email', g).length).toBe(1)
+  })
+})
+
+describe('a dependency never runs along the decomposition', () => {
+  const s = createFixture()
+  const g = graphOf(s)
+
+  it('refuses a card waiting on its parent, and a parent waiting on its card', () => {
+    // `st-email` rolls up to `init-signup`; either direction would make the rollup a loop.
+    expect(canDepend('st-email', 'init-signup', g)).toBe(false)
+    expect(canDepend('init-signup', 'st-email', g)).toBe(false)
+    // The same holds at any depth, not only for the immediate parent.
+    expect(canDepend('st-email', 'init-onboarding', g)).toBe(false)
+    expect(canDepend('init-onboarding', 'st-email', g)).toBe(false)
+  })
+
+  it('refuses the item itself and an item the graph does not hold', () => {
+    expect(canDepend('st-email', 'st-email', g)).toBe(false)
+    expect(canDepend('st-email', 'not-on-this-graph', g)).toBe(false)
+    expect(canDepend('not-on-this-graph', 'st-email', g)).toBe(false)
+  })
+
+  it('accepts two cards side by side in the same subtree', () => {
+    expect(canDepend('st-email', 'st-sso', g)).toBe(true)
+    expect(canDepend('st-email', 'st-signup-form', g)).toBe(true)
+  })
+
+  it('refuses a link that would close a loop through an existing one', () => {
+    // The fixture already has `st-email` waiting on `init-gateway`. The other direction would
+    // make each one wait for the other.
+    expect(canDepend('init-gateway', 'st-email', g)).toBe(false)
+    // …and an existing link is not a new one.
+    expect(canDepend('st-email', 'init-gateway', g)).toBe(false)
+  })
+
+  it('refuses a loop that mixes a link with the decomposition', () => {
+    // `init-gateway` is not an ancestor of `st-email`, so the hierarchy alone cannot see this:
+    // `st-email` waits on `init-gateway`, and `init-gateway` is done only when
+    // `st-gateway-contract` is. Adding the third edge would close the loop.
+    expect(canDepend('st-gateway-contract', 'st-email', g)).toBe(false)
   })
 })
 

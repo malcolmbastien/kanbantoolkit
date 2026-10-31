@@ -130,6 +130,47 @@ export type DependencyState =
   | 'OpenPlanningRisk'
   | 'OpenLiveBlockage'
 
+/**
+ * Whether `dependentId` may wait on `dependencyId`.
+ *
+ * A dependency is a relationship *across* the decomposition, never along it. A card that waits
+ * on its own parent can never start — the parent is not done until the card is — and a parent
+ * that waits on its own descendant says only what the rollup already says. Links also may not
+ * close a loop through work that already waits: a link is a promise about which of two items
+ * finishes first, and work that waits on itself has no first.
+ *
+ * This is the one rule, read by the item panel (so its picker offers only links it would accept)
+ * and by the store (so no other path can write one). It judges a proposed link, not a stored one:
+ * the demo and every existing graph are checked against it in their own tests.
+ */
+export function canDepend(dependentId: string, dependencyId: string, graph: Graph): boolean {
+  if (dependentId === dependencyId) return false
+  if (!graph.items.some((i) => i.id === dependentId) || !graph.items.some((i) => i.id === dependencyId)) return false
+  // An existing link is not a new one.
+  if (graph.links.some((link) => link.from === dependencyId && link.to === dependentId)) return false
+
+  // The decomposition is already a waiting order: a parent is done when the work below it is.
+  // So neither end of a link may sit above the other. Both directions are refused, not corrected.
+  if (descendants(dependencyId, graph).includes(dependentId)) return false
+  if (descendants(dependentId, graph).includes(dependencyId)) return false
+
+  // Would the new link close a loop? Walk from the dependency along what it already waits for.
+  // Reaching the dependent means the new link would come back round. A decomposition edge joins
+  // the walk because a parent waits on its children; a link joins it in the direction the link
+  // waits — the dependent, then the dependency it points at.
+  const seen = new Set<string>()
+  const stack = [dependencyId]
+  while (stack.length > 0) {
+    const next = stack.pop()!
+    if (next === dependentId) return false
+    if (seen.has(next)) continue
+    seen.add(next)
+    for (const edge of graph.edges) if (edge.kind === 'decomposition' && edge.from === next) stack.push(edge.to)
+    for (const link of graph.links) if (link.to === next) stack.push(link.from)
+  }
+  return true
+}
+
 export function dependencyState(dependencyId: string, dependentId: string, graph: Graph): DependencyState {
   const dep = statusOf(dependencyId, graph)
   const d = statusOf(dependentId, graph)

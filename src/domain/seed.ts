@@ -393,12 +393,16 @@ export function createSeed(): FlowState {
    * Dependencies — links, never a status. The one that matters is the
    * first: Team Atlas cannot finish SSO until Team Nova's identity
    * platform is done, so it shows up in the boundary workflow on Atlas.
+   *
+   * A link runs across the decomposition, never along it: a card never
+   * waits on its own parent or its own descendant, because that is a
+   * loop the rollup already describes. So these internal links join two
+   * cards below the same initiative, not the initiative and its child.
    * ---------------------------------------------------------------- */
 
   link('init-identity', 'st-enterprise-sso', { reason: 'SSO is built on the identity platform' })
-  link('init-lakehouse', 'st-cost-attribution', { reason: 'Attribution needs the lakehouse tables' })
-  link('init-audit', 'st-auth-retire', { reason: 'Retiring auth needs the audit trail in place' })
-  link('init-billing', 'st-payment-retries', { reason: 'Retries land with the billing migration' })
+  link('st-lakehouse-ingest', 'st-cost-attribution', { reason: 'Attribution needs the lakehouse tables' })
+  link('st-audit-backfill', 'st-auth-retire', { reason: 'Retiring auth needs the audit trail in place' })
   link('st-identity-contract', 'st-enterprise-sso', { reason: 'The SSO buttons consume the contract' })
 
   /* ---------------------------------------------------------------- *

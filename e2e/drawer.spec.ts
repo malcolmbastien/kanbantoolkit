@@ -105,3 +105,20 @@ test('a parent set in the drawer is the card’s lineage', async ({ page }) => {
 
   await expect(card(page, id)).toContainText('Trial experience')
 })
+
+test('the dependency picker offers only links across the hierarchy', async ({ page }) => {
+  await openBoard(page)
+  // A card inside Billing migration: its own initiative is its parent, so it is not a place the
+  // card can wait on, and neither is the card itself.
+  await page.locator('[data-card-id="st-payment-retries"]').click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toHaveAttribute('aria-label', 'Card details: Payment retries on soft decline')
+  await panel.getByRole('button', { name: 'Hierarchy' }).click()
+  const picker = panel.locator('[data-dependency-picker]')
+  await expect(picker).toBeVisible()
+
+  await expect(picker.locator('option', { hasText: 'Billing migration' })).toHaveCount(0)
+  await expect(picker.locator('option', { hasText: 'Payment retries on soft decline' })).toHaveCount(0)
+  // A card beside it in the same initiative is a valid target.
+  await expect(picker.locator('option', { hasText: 'Migrate invoice numbering' })).toHaveCount(1)
+})

@@ -3,7 +3,7 @@ import { createSeed } from './seed'
 import { demoWorkspace } from './demo'
 import { kindOf } from './flows'
 import { boardInitiatives, canServeObjective, initiativeTypeId, portfolioInitiatives } from './board'
-import { blockedBelow, descendants, openDependenciesOf, rollupOf, type Graph } from './derive'
+import { blockedBelow, canDepend, descendants, openDependenciesOf, rollupOf, type Graph } from './derive'
 import { initiativeHealth } from './health'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, placementsInOrder, topLevelLanes } from './lanes'
 import { bucketsFor, flowRecord, forecastWhen, throughput } from './metrics'
@@ -96,6 +96,13 @@ describe('the demo dataset', () => {
       expect(ids.has(edge.from) && ids.has(edge.to), `${edge.from}→${edge.to}`).toBe(true)
     }
     for (const link of links) expect(ids.has(link.from) && ids.has(link.to), `${link.from}→${link.to}`).toBe(true)
+    // A dependency runs across the decomposition, never along it, and never in a loop — the
+    // demo must not contain the contradiction the app refuses to create. Each link is judged
+    // against the rest of the graph, since the link being checked is already in it.
+    for (const link of links) {
+      const others = { ...graph, links: links.filter((l) => l !== link) }
+      expect(canDepend(link.to, link.from, others), `${link.to} waits on ${link.from}`).toBe(true)
+    }
     const objectiveIds = new Set(seed.objectives.map((o) => o.id))
     for (const edge of edges.filter((e) => e.kind === 'attribution')) {
       expect(objectiveIds.has(edge.from) && ids.has(edge.to), `${edge.from}→${edge.to}`).toBe(true)

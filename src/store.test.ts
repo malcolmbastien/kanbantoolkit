@@ -643,14 +643,31 @@ describe('store actions', () => {
 
   it('links are the only item-to-item dependency relationships', () => {
     const before = s().links.length
-    s().addDependency('st-signup-form', 'st-signup-design')
+    expect(s().addDependency('st-signup-form', 'st-signup-design')).toBe(true)
     expect(s().links.length).toBe(before + 1)
     const link = s().links[s().links.length - 1]
     expect(link).toMatchObject({ from: 'st-signup-form', to: 'st-signup-design' })
     expect('status' in link).toBe(false) // links are immediate — no approval state
     // Duplicates are ignored.
-    s().addDependency('st-signup-form', 'st-signup-design')
+    expect(s().addDependency('st-signup-form', 'st-signup-design')).toBe(false)
     expect(s().links.length).toBe(before + 1)
+  })
+
+  it('refuses a dependency that runs along the decomposition, or closes a loop', () => {
+    const before = s().links.length
+    const logs = s().items.find((i) => i.id === 'st-email')!.log?.length ?? 0
+
+    // `st-email` rolls up to `init-signup`: neither direction is a link between two items.
+    expect(s().addDependency('init-signup', 'st-email')).toBe(false)
+    expect(s().addDependency('st-email', 'init-signup')).toBe(false)
+    // Itself is never a target.
+    expect(s().addDependency('st-email', 'st-email')).toBe(false)
+    // The fixture already has `st-email` waiting on `init-gateway`; the reverse would loop.
+    expect(s().addDependency('st-email', 'init-gateway')).toBe(false)
+
+    // A refusal writes nothing: no link, no history entry.
+    expect(s().links).toHaveLength(before)
+    expect(s().items.find((i) => i.id === 'st-email')!.log?.length ?? 0).toBe(logs)
   })
 
   it('migrateState moves legacy dependency edges into links, dropping rejected ones', () => {

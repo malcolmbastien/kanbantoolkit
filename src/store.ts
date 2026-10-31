@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, laneHoldsCards, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
 import { boardTags, canDesignBoard, canFocusBoard, canLinkBoard, canRetype, canServeObjective, canSetParent, defaultDropLane, isAggregating, isPortfolio, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
-import { canPlaceInSection, decompositionParent, descendants, isComplete, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
+import { canDepend, canPlaceInSection, decompositionParent, descendants, isComplete, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import {
   canRemoveFlow,
   canRenameFlow,
@@ -511,8 +511,10 @@ export interface Actions {
   /** Create a team-level initiative on a team board, linked (as a child) to a management initiative. */
   linkTeamInitiative: (parentId: string, boardId: string, title: string) => void
 
-  /** Link two items: `dependentId` depends on `dependencyId`. Immediate — no approval step. */
-  addDependency: (dependencyId: string, dependentId: string, reason?: string) => void
+  /** Link two items: `dependentId` depends on `dependencyId`. Immediate — no approval step.
+   *  Answers whether the link was made; a self-link, a link along the decomposition or one that
+   *  would close a loop is refused without writing. */
+  addDependency: (dependencyId: string, dependentId: string, reason?: string) => boolean
   /** Remove a dependency link. Both directions are in the dependent's own history. */
   removeDependency: (dependencyId: string, dependentId: string) => void
   setAttribution: (itemId: string, objectiveId: string, on: boolean) => void
@@ -3064,9 +3066,10 @@ export const useStore = create<Store>()(
       },
 
       addDependency: (dependencyId, dependentId, reason) => {
-        if (dependencyId === dependentId) return
         const state = get()
-        if (state.links.some((l) => l.from === dependencyId && l.to === dependentId)) return
+        if (state.links.some((l) => l.from === dependencyId && l.to === dependentId)) return false
+        const graph = { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
+        if (!canDepend(dependentId, dependencyId, graph)) return false
         const waitsOn = state.items.find((i) => i.id === dependencyId)?.title ?? 'something'
         set({
           links: [...state.links, { id: uid(), from: dependencyId, to: dependentId, reason }],
@@ -3076,6 +3079,7 @@ export const useStore = create<Store>()(
             i.id === dependentId ? { ...i, log: [...(i.log ?? []), logEntry('linked', `waits on ${waitsOn}`)] } : i,
           ),
         })
+        return true
       },
 
       removeDependency: (dependencyId, dependentId) => {

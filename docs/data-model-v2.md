@@ -22,6 +22,10 @@ Placement  { id, boardId, itemId, laneId }                  # the card's board +
 
 - **One parent, many children.** `setParent` replaces any existing parent, so a card has at
   most one.
+- **A dependency runs across the decomposition, never along it.** A link may not join an item to
+  its own parent or to anything below it, and may not close a loop through links already made:
+  work that waits on itself has no first. `canDepend` is the one rule, read by the picker and the
+  store; a refused link writes nothing.
 - **A board carries flows, and every lane names its own.** One **initiatives** flow (the external
   representation: typed sections, cells initiatives are arranged in) and one or more **cards**
   flows (the team's own column sets). A lane belongs to exactly one flow, and a subtree never
