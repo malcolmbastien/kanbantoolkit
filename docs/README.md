@@ -76,6 +76,7 @@ the build.
 | **[SECURITY](../SECURITY.md)** | how to report a vulnerability, and what is out of scope |
 | **[AGENTS](../AGENTS.md)** | the house rules, including the one about which services this project does not use |
 | **[Roadmap](roadmap.md)** | what is built, what is next, and what is deliberately not planned |
+| **[Product review](product-review.md)** | where the product is strong, where it is thin, and candidate enhancements |
 
 ## How this documentation is kept honest
 
