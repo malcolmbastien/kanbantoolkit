@@ -21,9 +21,11 @@ finding.
 | --- | --- | --- |
 | **Blocked**, a full-width red band with the reason | A person marked the card stopped for something that is not another card. It is the loudest fact on the card. | **Unblock** in the card's panel, which records the change in its history. |
 | **N blocked**, a red pill on an initiative card | N cards below are explicitly blocked and still open. On a programme or portfolio board the same count is amber and says **N blocked below**, so a blockage several levels down does not shout at a reader who cannot act on it. | The cards below are unblocked or finished. |
-| **N depend on it**, an amber shield | N unresolved items depend on this one; if it slips, they are blocked. | The dependents finish, or the links are removed. |
+| **N depend on it**, an amber shield | N unresolved items depend on this one; if it slips, they are blocked. It is not shown once this item is done — the dependency is satisfied. | The dependents finish, or the links are removed. |
 | **Waiting on**, one or more named chips | The card is waiting on work **outside this board** — the boundary workflow. Each chip names it and takes you to the other end. | The external work reaches Done, or the boundary link is removed. |
-| **Nd in lane**, a grey clock | The card has been in its current lane for at least 7 days. It is an age cue for any card, including one in Backlog; it is not the same as **Stale** (see below), which only counts committed work. | The card moves to another lane. |
+| **Nd in lane**, a grey clock | The card has been in its current committed lane (Not Started or In Progress) for at least 7 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. It is not the same as **Stale** (see below), which only counts committed work. | The card moves to another lane. |
+
+A Done card keeps its history but not its warnings: a finished item has no action left, so the age cue, a blocked band, a dependents shield and a boundary chip are not drawn on its face. The same applies to a completed initiative's health flags and warnings.
 
 A card's own dependency on another card is a derived state, not a badge on its face: it is read in
 the card's **Dependencies** section and it clears when the card it waits on reaches Done. An

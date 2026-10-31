@@ -306,7 +306,7 @@ export function ItemPanel({ itemId }: Props) {
   // not go on saying "still 12d".
   const today = Math.floor(Date.now() / 86_400_000)
   const warnings = useMemo(() => {
-    if (!isInitiative || item.archived) return []
+    if (!isInitiative || item.archived || complete) return []
     const g: Graph = { items, edges, links, placements, lanes }
     const rows = initiativeHealth(item.id, g, Date.now()).flags.map((f) => ({
       key: f.flag as string,
@@ -326,7 +326,7 @@ export function ItemPanel({ itemId }: Props) {
       })
     }
     return rows
-  }, [isInitiative, item.id, item.archived, items, edges, links, placements, lanes, issueTypes, today])
+  }, [isInitiative, item.id, item.archived, complete, items, edges, links, placements, lanes, issueTypes, today])
   const openWarningRow = warnings.find((w) => w.key === openWarning)
 
   /**

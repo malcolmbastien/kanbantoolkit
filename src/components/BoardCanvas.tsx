@@ -470,6 +470,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           const p = pid ? items.find((i) => i.id === pid) : undefined
           const parent: CardParent | undefined = p ? { id: p.id, title: p.title, type: typeOf(p.typeId) } : undefined
           const roll = rollupOf(c.id, graph)
+          const stage = ctx.effectiveLane.get(c.id) ? effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) : undefined
           return {
             id: c.id,
             node: (
@@ -501,6 +502,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               locked={ctx.editMode}
               onOpen={ctx.openCard}
               tags={tagsOf(ctx.boards, c)}
+              completed={stage === 'done'}
               summary={{
                 childCount: decompositionChildren(c.id, graph.edges).length,
                 dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
@@ -508,8 +510,9 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 openDescendants: openDescendants(c.id, graph).length,
                 rollupPercent: decompositionChildren(c.id, graph.edges).length > 0 ? roll.percent : undefined,
                 done: isComplete(c.id, graph),
-                // Backlog is uncommitted inventory and legitimately rests, so it is not aged.
-                ageDays: ctx.effectiveLane.get(c.id) && effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) !== 'backlog' ? ctx.ageOf(c.id) : undefined,
+                // Backlog is uncommitted inventory and legitimately rests; Done is finished, so
+                // neither is aged. A card in Done with an open child is still done.
+                ageDays: stage && stage !== 'backlog' && stage !== 'done' ? ctx.ageOf(c.id) : undefined,
                 checklist: checklistProgress(c),
               }}
             />

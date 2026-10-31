@@ -73,6 +73,8 @@ interface Props {
   item: Item
   type: IssueType
   summary: CardSummary
+  /** The item's own column is Done, even when a child is still open. Warnings stop there. */
+  completed?: boolean
   /** The people directory, to resolve `item.assignees` ids to names / initials. */
   users?: User[]
   parent?: CardParent
@@ -253,7 +255,8 @@ function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (depend
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+  const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
   const dragProps =
     draggable && !locked
@@ -316,7 +319,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
   // A card's *own* blocked state is the loudest thing that can be true of a card, so it is a
   // full-width alert rather than a chip the size of the link count. The rolled-up count stays a
   // chip, because it is metadata about the work below rather than a statement about this card.
-  const blockedAlert = item.blocked ? (
+  const blockedAlert = item.blocked && !complete ? (
     <span
       className="flex w-full items-start gap-1.5 rounded-md bg-rose-50 px-2 py-1.5 text-rose-700 ring-1 ring-rose-200"
       title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
@@ -330,7 +333,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
   ) : null
 
   const rolledUpBlocked =
-    !item.blocked && summary.blockedBelow > 0 ? (
+    !complete && !item.blocked && summary.blockedBelow > 0 ? (
       // Rolled up: a solid pill on the initiative, so a blockage anywhere beneath it reads at a
       // glance rather than as another piece of metadata. The aggregate tone stays softer in colour
       // for a top-level initiative, but keeps the same weight of shape.
@@ -351,7 +354,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
 
   // How long it has sat where it is, when that is long enough to be worth saying. Shown on the
   // card's own values line, beside the size and the people.
-  const aged = summary.ageDays !== undefined && summary.ageDays >= STALE_AFTER_DAYS
+  const aged = !complete && summary.ageDays !== undefined && summary.ageDays >= STALE_AFTER_DAYS
   const checklist = summary.checklist
   const hasChecklist = Boolean(checklist && checklist.total > 0)
   const checklistDone = checklist?.done ?? 0
@@ -379,7 +382,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
     // not shouted at with a fact three levels down; and "Waiting on" joins them, because it is the
     // one warning the health rules do not own — it is about the item itself, not the work below.
     const badges: { key: string; label: string; why: string; tone: 'risk' | 'watch' }[] = [
-      ...(flags ?? []).map((f) => {
+      ...(complete ? [] : (flags ?? []).map((f) => {
           const soft = f.flag === 'blocked' && blockedTone === 'aggregate'
           return {
             key: f.flag,
@@ -387,8 +390,8 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             why: soft ? `${summary.blockedBelow} blocked below — rolled up from team cards` : f.why,
             tone: soft ? ('watch' as const) : f.tone,
           }
-        }),
-      ...(summary.dependentsCount > 0
+        })),
+      ...(!complete && summary.dependentsCount > 0
         ? [
             {
               key: 'dependents',
@@ -398,7 +401,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
             },
           ]
         : []),
-      ...(boundary
+      ...(!complete && boundary
         ? [
             {
               key: 'boundary',
@@ -576,7 +579,7 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
           {/* The warnings, as one set of badges in one place — always here, above the rule, so a
               reader scanning a column knows where to look. Never hidden, and never softened into
               the values around them. */}
-          <WaitChips waits={waitingOn} onBoundary={onBoundary} />
+          <WaitChips waits={complete ? [] : waitingOn} onBoundary={onBoundary} />
           {badges.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               {badges.map((b) => (
@@ -697,8 +700,8 @@ function CardBase({ item, type, summary, parent, wide, symbols, flags, kind, kin
               above the telemetry row, so nothing there can be read as one of these. */}
           {blockedAlert}
           {rolledUpBlocked}
-          <WaitChips waits={waitingOn} onBoundary={onBoundary} />
-          {summary.dependentsCount > 0 && (
+          <WaitChips waits={complete ? [] : waitingOn} onBoundary={onBoundary} />
+          {!complete && summary.dependentsCount > 0 && (
             <span
               className="flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
               title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}

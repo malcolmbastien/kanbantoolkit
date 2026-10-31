@@ -75,3 +75,13 @@ test('pressing the roll-up opens the card it sits on, not the card it names', as
     'Card details: Rebuild the signup form',
   )
 })
+
+test('a Done card keeps no lane-age warning', async ({ page }) => {
+  await openBoard(page)
+  // The seeded Done card has an arrival stamp old enough to age in any other column. Done is
+  // finished, so the age cue has nothing left to ask a reader to do.
+  const done = page.locator('[data-workflow="cards"] [data-card-id="st-signup-screens"]')
+  await expect(done).toBeVisible()
+  await expect(done.locator('[title$="days in this lane"]')).toHaveCount(0)
+  await expect(done.getByText(/in lane/)).toHaveCount(0)
+})
