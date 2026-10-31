@@ -114,11 +114,34 @@ test('the dependency picker offers only links across the hierarchy', async ({ pa
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toHaveAttribute('aria-label', 'Card details: Payment retries on soft decline')
   await panel.getByRole('button', { name: 'Hierarchy' }).click()
-  const picker = panel.locator('[data-dependency-picker]')
+
+  await panel.getByRole('button', { name: 'Add a dependency' }).click()
+  const picker = page.locator('[data-item-picker]')
+  await expect(picker).toBeVisible()
+  const search = picker.getByLabel('Search items')
+  await expect(search).toBeFocused()
+
+  // Escape closes the picker, not the drawer underneath it.
+  await search.press('Escape')
+  await expect(picker).toHaveCount(0)
+  await expect(panel).toBeVisible()
+
+  await panel.getByRole('button', { name: 'Add a dependency' }).click()
   await expect(picker).toBeVisible()
 
-  await expect(picker.locator('option', { hasText: 'Billing migration' })).toHaveCount(0)
-  await expect(picker.locator('option', { hasText: 'Payment retries on soft decline' })).toHaveCount(0)
-  // A card beside it in the same initiative is a valid target.
-  await expect(picker.locator('option', { hasText: 'Migrate invoice numbering' })).toHaveCount(1)
+  // The list is a search, not a column of bare titles: a card is found by its title or its board.
+  await search.fill('invoice')
+  const option = picker.getByRole('option', { name: /Migrate invoice numbering/ })
+  await expect(option).toBeVisible()
+  await expect(option).toContainText('Team Atlas')
+
+  // The parent, and the card itself, are not offered at all.
+  await search.fill('')
+  await expect(picker.getByRole('option', { name: /Billing migration/ })).toHaveCount(0)
+  await expect(picker.getByRole('option', { name: /Payment retries on soft decline/ })).toHaveCount(0)
+
+  await search.fill('invoice')
+  await option.click()
+  await expect(picker).toHaveCount(0)
+  await expect(panel.getByText('Migrate invoice numbering')).toBeVisible()
 })

@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { Plus, Target, TriangleAlert } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
-import { InitiativePicker } from './InitiativePicker'
+import { ItemPicker } from './ItemPicker'
 import { PortfolioHeatmap } from './PortfolioHeatmap'
 import { objectiveInitiatives, portfolioInitiatives } from '@/domain/board'
 import { portfolioHeatmap } from '@/domain/portfolio'
@@ -188,8 +188,8 @@ export function StrategyMap({ boardId }: { boardId: string }) {
 
           <div className="mt-auto">
             <div className="mt-1">
-              <InitiativePicker
-                initiatives={available}
+              <ItemPicker
+                items={available}
                 boardOf={boardNameOf}
                 movesFrom={(itemId) =>
                   ordered.find((objective) => attribution.some((e) => e.from === objective.id && e.to === itemId))?.title

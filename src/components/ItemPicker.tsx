@@ -5,15 +5,23 @@ import { cn } from '@/lib/utils'
 import type { Item } from '@/domain/types'
 
 interface Props {
-  /** The initiatives that can be linked here — roots, already sorted by title. */
-  initiatives: Item[]
-  /** The board an initiative is carried by: the context that tells two similar outcomes apart. */
+  /** The items that can be linked here — already sorted the way the list should read. */
+  items: Item[]
+  /** The board an item is carried by: the context that tells two similar titles apart. */
   boardOf: (itemId: string) => string | undefined
   /** The objective it already serves, when picking it here would move it. */
   movesFrom?: (itemId: string) => string | undefined
   onPick: (itemId: string) => void
   /** The trigger's words. */
   label?: string
+  /** What the things in the list are, for the accessible names and the empty states. */
+  noun?: string
+  /** The sentence shown when there is nothing to pick at all. */
+  emptyLabel?: string
+  /** The sentence shown when a search matches nothing. */
+  noMatchLabel?: string
+  /** The trigger's width, when a surface needs it wider or narrower than `w-60`. */
+  triggerClassName?: string
 }
 
 /** Where the panel sits, in viewport coordinates: it is fixed so no card can clip it. */
@@ -25,15 +33,27 @@ interface PanelPosition {
 }
 
 /**
- * The control that links an initiative to an objective: a compact trigger opening a searchable
- * list, rather than a select the width of the page and a column of bare titles.
+ * The control that links one item to another: a compact trigger opening a searchable list, rather
+ * than a select the width of a page and a column of bare titles.
  *
- * Two things are deliberate. The panel is **portalled and fixed**, because an objective card clips
- * its own overflow and a dropdown inside it would be cut off at the card's bottom edge. And the
- * list is **searched, not scanned**: an initiative is found by its title or by the board that
- * carries it, which is how someone who works across teams knows the work.
+ * Two things are deliberate. The panel is **portalled and fixed**, because the surface that owns
+ * the trigger — an objective card, or the side drawer — clips its own overflow and a dropdown
+ * inside it would be cut off at the edge. And the list is **searched, not scanned**: an item is
+ * found by its title or by the board that carries it, which is how someone who works across teams
+ * knows the work. The same control maps an initiative to an objective and chooses what a card
+ * depends on; only its words differ.
  */
-export function InitiativePicker({ initiatives, boardOf, movesFrom, onPick, label = 'Map an initiative' }: Props) {
+export function ItemPicker({
+  items,
+  boardOf,
+  movesFrom,
+  onPick,
+  label = 'Map an initiative',
+  noun = 'initiative',
+  emptyLabel,
+  noMatchLabel,
+  triggerClassName,
+}: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -42,13 +62,14 @@ export function InitiativePicker({ initiatives, boardOf, movesFrom, onPick, labe
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listId = useId()
+  const listLabel = `${noun[0]?.toUpperCase() ?? ''}${noun.slice(1)}s`
 
   const needle = query.trim().toLowerCase()
   const rows = needle
-    ? initiatives.filter(
+    ? items.filter(
         (item) => item.title.toLowerCase().includes(needle) || (boardOf(item.id) ?? '').toLowerCase().includes(needle),
       )
-    : initiatives
+    : items
   // A narrowing search can leave the highlight past the end; the row under it is clamped, not lost.
   const current = rows.length === 0 ? -1 : Math.min(active, rows.length - 1)
 
@@ -121,6 +142,8 @@ export function InitiativePicker({ initiatives, boardOf, movesFrom, onPick, labe
       if (current >= 0) choose(rows[current].id)
     } else if (event.key === 'Escape') {
       event.preventDefault()
+      // The picker is the topmost layer: Escape closes it, not the drawer or page beneath it.
+      event.stopPropagation()
       close(true)
     } else if (event.key === 'Tab') {
       // The panel is portalled away from the trigger; put the caret back on it so Tab continues
@@ -138,7 +161,10 @@ export function InitiativePicker({ initiatives, boardOf, movesFrom, onPick, labe
         aria-haspopup="listbox"
         aria-expanded={open}
         title={`${label} — search by title or board`}
-        className="flex w-60 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+        className={cn(
+          'flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900',
+          triggerClassName ?? 'w-60',
+        )}
       >
         <Plus size={12} className="shrink-0" />
         <span className="min-w-0 flex-1 truncate text-left">{label}</span>
@@ -150,7 +176,7 @@ export function InitiativePicker({ initiatives, boardOf, movesFrom, onPick, labe
         createPortal(
           <div
             ref={panelRef}
-            data-initiative-picker
+            data-item-picker
             className="fixed z-[60] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
             style={{
               left: position.left,
@@ -169,7 +195,7 @@ export function InitiativePicker({ initiatives, boardOf, movesFrom, onPick, labe
                 }}
                 onKeyDown={onSearchKeyDown}
                 placeholder="Search by title or board…"
-                aria-label="Search initiatives"
+                aria-label={`Search ${noun}s`}
                 role="combobox"
                 aria-expanded
                 aria-controls={listId}
@@ -179,10 +205,12 @@ export function InitiativePicker({ initiatives, boardOf, movesFrom, onPick, labe
               />
             </div>
 
-            <div id={listId} role="listbox" aria-label="Initiatives" className="max-h-64 overflow-y-auto py-1">
+            <div id={listId} role="listbox" aria-label={listLabel} className="max-h-64 overflow-y-auto py-1">
               {rows.length === 0 && (
                 <p className="px-3 py-2 text-meta text-slate-600">
-                  {initiatives.length === 0 ? 'No initiative is available to map here.' : 'No initiative matches.'}
+                  {items.length === 0
+                    ? (emptyLabel ?? `No ${noun} is available to map here.`)
+                    : (noMatchLabel ?? `No ${noun} matches.`)}
                 </p>
               )}
               {rows.map((item, index) => {

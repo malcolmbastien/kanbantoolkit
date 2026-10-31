@@ -8,7 +8,7 @@ import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { VocabularySaveError } from './VocabularySaveError'
-import { InitiativePicker } from './InitiativePicker'
+import { ItemPicker } from './ItemPicker'
 import type { IssueType, Item, Objective } from '@/domain/types'
 
 const COMMITMENT_LIMIT = 5 // "3–5 objectives" is a commitment limit, not a WIP limit
@@ -435,8 +435,8 @@ export function ObjectivesView() {
                       })}
                     </div>
                     <div className="mt-1">
-                      <InitiativePicker
-                        initiatives={initiatives.filter((i) => !work.some((w) => w.id === i.id))}
+                      <ItemPicker
+                        items={initiatives.filter((i) => !work.some((w) => w.id === i.id))}
                         boardOf={boardNameOf}
                         movesFrom={(itemId) =>
                           objectives.find(

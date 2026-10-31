@@ -35,6 +35,7 @@ import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
 import { PersonAvatar } from './PersonAvatar'
 import { PersonPicker } from './PersonPicker'
+import { ItemPicker } from './ItemPicker'
 import type { Item, ItemLogEntry, Stage } from '@/domain/types'
 
 interface Props {
@@ -114,7 +115,6 @@ export function ItemPanel({ itemId }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [priorityOpen, setPriorityOpen] = useState(false)
   const [blockOpen, setBlockOpen] = useState(false)
-  const [dependencyId, setDependencyId] = useState('')
   const [parentChoice, setParentChoice] = useState('')
   const [parentEditorOpen, setParentEditorOpen] = useState(false)
   // Which warning's affected work is open. Closed by default: the chip row is the summary, and
@@ -362,7 +362,9 @@ export function ItemPanel({ itemId }: Props) {
   // A dependency is a link across the decomposition, never along it, and never one that closes a
   // loop — the same rule the store enforces (`canDepend`). The picker therefore offers only the
   // cards the link would actually be made to: not the item itself, not a parent or a descendant.
-  const dependencyCandidates = items.filter((i) => canDepend(item.id, i.id, graph))
+  const dependencyCandidates = items
+    .filter((i) => canDepend(item.id, i.id, graph))
+    .sort((a, b) => a.title.localeCompare(b.title))
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   // Every card type is offered; the item's current type is always among them.
   const typeOptions = cardTypes(issueTypes)
@@ -1518,26 +1520,16 @@ export function ItemPanel({ itemId }: Props) {
                 'Nothing waits on this card yet. The link is added from the card that waits.',
                 dependents.map((dep) => linkRow(dep.dependent)),
               )}
-              <div className="flex items-center gap-1.5">
-                <select
-                  data-dependency-picker
-                  value={dependencyId}
-                  onChange={(e) => setDependencyId(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
-                >
-                  <option value="">This depends on…</option>
-                  {dependencyCandidates.map((c) => (
-                    <option key={c.id} value={c.id}>{c.title}</option>
-                  ))}
-                </select>
-                <button
-                  disabled={!dependencyId}
-                  onClick={() => { addDependency(dependencyId, item.id); setDependencyId('') }}
-                  className="shrink-0 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-meta font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
-                >
-                  Add link
-                </button>
-              </div>
+              <ItemPicker
+                items={dependencyCandidates}
+                boardOf={(id) => boardOf(id)?.name}
+                onPick={(id) => { addDependency(id, item.id) }}
+                label="Add a dependency"
+                noun="item"
+                emptyLabel="Nothing is available to depend on."
+                noMatchLabel="No item matches."
+                triggerClassName="w-full"
+              />
               <p className="text-micro text-slate-600">A link says one item depends on another. It never blocks anything by itself.</p>
             </Section>
 

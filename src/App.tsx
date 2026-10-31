@@ -137,6 +137,7 @@ export default function App() {
         target?.closest('[data-item-row]') ||
         target?.closest('[data-bulk-actions]') ||
         target?.closest('[data-item-panel]') ||
+        target?.closest('[data-item-picker]') ||
         target?.closest('[data-confirm-dialog]') ||
         target?.closest('[data-lane-settings]') ||
         target?.closest('[data-board-settings]') ||
