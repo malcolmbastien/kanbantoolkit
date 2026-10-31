@@ -79,7 +79,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
         if (boundaryId && !(event.target as HTMLElement).closest?.('[data-boundary-card]')) toggleBoundary(boundaryId)
       }}
     >
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2">
+      <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2 shadow-sm">
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-2 w-2 shrink-0 rounded-full bg-amber-600" />
           <h2 id="boundary-workflow-title" className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">

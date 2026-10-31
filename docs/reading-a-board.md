@@ -46,6 +46,10 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
 - A **template** captures a set of cards flows — their names, columns and limits — and a new board
   made from it gets all of them. A programme or portfolio board has no cards flow of its own.
 
+Each flow's header stays at the top of the board while its columns scroll, so a reader moving through
+a long lane never loses which flow — and which set of columns — is in front of them. The initiatives
+and boundary bands behave the same way.
+
 ## The side drawer
 
 Clicking a card or an initiative opens the **side drawer** on the right; the board stays visible

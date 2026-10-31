@@ -185,7 +185,7 @@ export function BoardView({ requestMove }: Props) {
             a tinted band of its own, so a reader knows which workflow they are looking at
             before reading a single column. */}
         <section className="space-y-2.5">
-          <div className={cn('flex items-center justify-between gap-2 rounded-lg border px-3 py-2', accent.section)}>
+          <div className={cn('sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 shadow-sm', accent.section, 'bg-white/95 backdrop-blur-sm')}>
             <div className="flex min-w-0 items-center gap-2">
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
               <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
@@ -217,7 +217,7 @@ export function BoardView({ requestMove }: Props) {
               data-flow-name={name}
               aria-label={`${name} — cards flow`}
             >
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50/50 px-3 py-2">
+              <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 shadow-sm">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
                   <h2 className="flex shrink-0 items-center text-body font-bold uppercase tracking-wide text-slate-900">

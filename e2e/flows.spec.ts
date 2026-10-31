@@ -231,3 +231,45 @@ test('a card finished in a second flow is archived as completed', async ({ page 
   await expect(row.getByText('Completed')).toBeVisible()
   await expect(row.getByText('Discarded')).toHaveCount(0)
 })
+
+test('workflow headers stay in view while their columns scroll', async ({ page }) => {
+  await openBoard(page)
+  const scroller = page.locator('[data-board-scroll]')
+  const cards = flowBand(page, 'Cards')
+  const cardsHeader = cards.locator(':scope > div').first()
+  const initiativesHeader = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Initiatives workflow' }) })
+    .locator(':scope > div')
+    .first()
+  const boundaryHeader = page.locator('[data-workflow="boundary"] > div').first()
+
+  for (const header of [initiativesHeader, cardsHeader, boundaryHeader]) {
+    expect(await header.evaluate((element) => getComputedStyle(element).position)).toBe('sticky')
+  }
+
+  // Scroll just inside the Cards band: its own header has passed the top, so it should be held
+  // there rather than disappearing behind the initiatives above it.
+  const offsets = await cards.evaluate((section) => {
+    const box = section.closest('[data-board-scroll]') as HTMLElement
+    const header = section.firstElementChild as HTMLElement
+    return {
+      top: box.scrollTop + header.getBoundingClientRect().top - box.getBoundingClientRect().top,
+      height: section.getBoundingClientRect().height,
+      headerHeight: header.getBoundingClientRect().height,
+    }
+  })
+  expect(offsets.height, 'the Cards band is tall enough to scroll inside').toBeGreaterThan(offsets.headerHeight + 80)
+  await scroller.evaluate((element, top) => {
+    element.scrollTop = top
+  }, offsets.top + 60)
+
+  const held = await cardsHeader.evaluate((header) => {
+    const box = header.closest('[data-board-scroll]')
+    if (!box) return Number.NaN
+    return Math.round(header.getBoundingClientRect().top - box.getBoundingClientRect().top)
+  })
+  // The board scroller has p-4, so its content box starts 16px below the scroller's edge.
+  expect(held, 'the Cards header is held at the top of the scroller').toBeGreaterThanOrEqual(-1)
+  expect(held).toBeLessThanOrEqual(20)
+})
