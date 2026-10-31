@@ -19,6 +19,7 @@ import { acquire, LEASE_MS, lockOf, release } from './workspace/locks'
 import type { Board, BoardFlow, Item, Lane } from '../src/domain/types'
 import type { Workspace } from './workspace/types'
 import { writeWorkspace } from './workspace/write'
+import { REQUIRED_SCHEMA } from './workspace/schema'
 
 const MIGRATIONS = new URL('../migrations/', import.meta.url)
 
@@ -468,7 +469,7 @@ describe('writing the board design', () => {
     const db = database()
     const { cookie } = await signedIn(db)
     // The floor is the newest migration: a database behind it cannot be read honestly.
-    await db.run('DELETE FROM schema_migrations WHERE version = 36')
+    await db.run('DELETE FROM schema_migrations WHERE version = ?1', [REQUIRED_SCHEMA])
     const response = await instance(db)('/api/workspace/structure', {
       method: 'PUT',
       headers: { 'content-type': 'application/json', cookie },

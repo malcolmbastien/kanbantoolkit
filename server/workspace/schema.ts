@@ -72,5 +72,10 @@ export const WORKSPACE_SCHEMA = 1
  * `objectives.period` and `objectives.score` are dropped. A database without it cannot commit an
  * objective to a window, and would keep answering with a score the app no longer reads — refused
  * rather than half-read, like every number before it.
+ *
+ * 37 adds the indexes the v1 listings page over: a workspace's boards and items by id, a type
+ * filter, the placement a card is listed by, and the change row `updatedSince` asks for. They are
+ * performance, not shape, but they arrive with the code that needs them so a large workspace is
+ * not listed by loading it first.
  */
-export const REQUIRED_SCHEMA = 36
+export const REQUIRED_SCHEMA = 37

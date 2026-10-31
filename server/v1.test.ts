@@ -14,6 +14,10 @@ import { createApp } from './app'
 import type { Database } from './db'
 import { fromSqlite } from './sqlite'
 import { writeWorkspace } from './workspace/write'
+import { readWorkspace } from './workspace/read'
+import { boardView, compactItem, listBoards, listItems, type ItemFilters } from './operations'
+import { searchHits } from '../src/domain/search'
+import { STRESS_BOARD_ID, stressBoard } from '../src/domain/stressBoard'
 import type { Workspace } from './workspace/types'
 import type { Board, BoardFlow, Item, Lane, Placement } from '../src/domain/types'
 
@@ -107,9 +111,11 @@ const cookieOf = (response: Response) =>
 
 type Init = RequestInit & { bearer?: string }
 
-async function world(env: Record<string, string> = {}, options: { empty?: boolean } = {}) {
+async function world(env: Record<string, string> = {}, options: { empty?: boolean; workspace?: Workspace } = {}) {
   const db = database()
-  await writeWorkspace(db, options.empty ? { ...seeded(), boards: [], flows: [], lanes: [], items: [], placements: [] } : seeded(), 'workspace')
+  const initial =
+    options.workspace ?? (options.empty ? { ...seeded(), boards: [], flows: [], lanes: [], items: [], placements: [] } : seeded())
+  await writeWorkspace(db, initial, 'workspace')
   await db.run('UPDATE instance_settings SET allowed_domains = ?1', [JSON.stringify(['example.com'])])
 
   const app = createApp({ database: () => db, clientIp: () => '203.0.113.9' })
@@ -313,6 +319,126 @@ describe('reading', () => {
     }
     expect(body.data).toHaveLength(1)
     expect(body.data[0]).toMatchObject({ id: 'i-2', match: { field: 'description', matched: 'retries' } })
+  })
+})
+
+describe('listing parity', () => {
+  /** The in-memory path the SQL replaced, kept here as the thing the SQL is checked against. */
+  const oldListBoards = async (db: Database, input: { limit?: unknown; cursor?: string }) => {
+    const state = await readWorkspace(db, 'workspace')
+    const cursor = input.cursor ? atob(input.cursor.replace(/-/g, '+').replace(/_/g, '/')) : undefined
+    const rows = [...state.boards].sort((a, b) => a.id.localeCompare(b.id)).filter((board) => !cursor || board.id > cursor)
+    const limit = Math.min(200, Math.max(1, Number(input.limit ?? 50)))
+    const slice = rows.slice(0, limit)
+    return {
+      data: slice.map(boardView),
+      nextCursor: rows.length > limit ? btoa(slice[slice.length - 1].id).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : null,
+    }
+  }
+
+  const oldListItems = async (db: Database, filters: ItemFilters) => {
+    const state = await readWorkspace(db, 'workspace')
+    const placements = new Map(state.placements.map((p) => [p.itemId, p]))
+    let rows = state.items.filter((item) => filters.includeArchived || !item.archived)
+    if (filters.boardId) rows = rows.filter((item) => placements.get(item.id)?.boardId === filters.boardId)
+    if (filters.laneId) {
+      const laneIds = new Set<string>([filters.laneId])
+      let grew = true
+      while (grew) {
+        grew = false
+        for (const lane of state.lanes) {
+          if (lane.parentId && laneIds.has(lane.parentId) && !laneIds.has(lane.id)) {
+            laneIds.add(lane.id)
+            grew = true
+          }
+        }
+      }
+      rows = rows.filter((item) => {
+        const lane = placements.get(item.id)?.laneId
+        return lane ? laneIds.has(lane) : false
+      })
+    }
+    if (filters.typeId) rows = rows.filter((item) => item.typeId === filters.typeId)
+    if (filters.q?.trim()) {
+      const found = new Set(searchHits(rows, filters.q).map((hit) => hit.item.id))
+      rows = rows.filter((item) => found.has(item.id))
+    }
+    if (filters.updatedSince) {
+      const at = new Date(filters.updatedSince)
+      const changed = await db.all<{ item_id: string }>('SELECT DISTINCT item_id FROM changes WHERE at > ?1', [at.toISOString()])
+      const ids = new Set(changed.map((row) => row.item_id))
+      rows = rows.filter((item) => ids.has(item.id))
+    }
+    rows = [...rows].sort((a, b) => a.id.localeCompare(b.id))
+    const cursor = filters.cursor ? atob(filters.cursor.replace(/-/g, '+').replace(/_/g, '/')) : undefined
+    if (cursor) rows = rows.filter((item) => item.id > cursor)
+    const limit = Math.min(200, Math.max(1, Number(filters.limit ?? 50)))
+    const slice = rows.slice(0, limit)
+    return {
+      data: slice.map((item) => compactItem(item, placements.get(item.id))),
+      nextCursor: rows.length > limit ? btoa(slice[slice.length - 1].id).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : null,
+    }
+  }
+
+  it('answers the same ids, order and cursor as the in-memory listing', async () => {
+    const base = seeded()
+    const stress = stressBoard(300, base.issueTypes)
+    // One card on two boards: the listing names the last placement, as the old map did.
+    const extra: Placement = { id: 'p-i-1-last', boardId: STRESS_BOARD_ID, itemId: 'i-1', laneId: stress.lanes[0].id, rank: 0 }
+    const site = await world({}, {
+      workspace: {
+        ...base,
+        users: [...base.users, ...stress.users],
+        boards: [...base.boards, stress.board],
+        flows: [...base.flows, ...stress.flows],
+        lanes: [...base.lanes, ...stress.lanes],
+        items: [...base.items, ...stress.items],
+        placements: [...base.placements, extra, ...stress.placements],
+        edges: [...base.edges, ...stress.edges],
+        links: [...base.links, ...stress.links],
+      },
+    })
+    const caller = { db: site.db, workspaceId: 'workspace' } as never
+
+    const boards = await listBoards(caller)
+    expect(boards.ok && boards.value).toEqual(await oldListBoards(site.db, {}))
+    if (boards.ok) {
+      const paged = await listBoards(caller, { limit: 1, cursor: boards.value.nextCursor! })
+      expect(paged.ok && paged.value).toEqual(await oldListBoards(site.db, { limit: 1, cursor: boards.value.nextCursor! }))
+    }
+
+    const filters: ItemFilters[] = [
+      {},
+      { includeArchived: true },
+      { boardId: 'b-1' },
+      { boardId: STRESS_BOARD_ID },
+      { laneId: 'l-backlog' },
+      { laneId: 'l-sec-backlog' },
+      { laneId: 'l-cell-backlog' },
+      { typeId: 't-card' },
+      { typeId: 't-init' },
+      { q: 'retries' },
+      { q: 'stress' },
+      { q: '%' },
+      { updatedSince: new Date(0).toISOString() },
+      { updatedSince: new Date(Date.now() + 60_000).toISOString() },
+      { limit: 7 },
+      { boardId: STRESS_BOARD_ID, typeId: 't-card', q: 'stress' },
+      { laneId: 'l-backlog', includeArchived: true },
+    ]
+
+    for (const filter of filters) {
+      const answer = await listItems(caller, filter)
+      expect(answer.ok && answer.value, JSON.stringify(filter)).toEqual(await oldListItems(site.db, filter))
+    }
+
+    // The cursor crosses a page boundary with the same filter still applied.
+    const first = await listItems(caller, { boardId: STRESS_BOARD_ID, limit: 2 })
+    if (!first.ok || !first.value.nextCursor) throw new Error('expected a first page')
+    const second = await listItems(caller, { boardId: STRESS_BOARD_ID, limit: 2, cursor: first.value.nextCursor })
+    expect(second.ok && second.value).toEqual(
+      await oldListItems(site.db, { boardId: STRESS_BOARD_ID, limit: 2, cursor: first.value.nextCursor }),
+    )
   })
 })
 

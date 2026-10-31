@@ -69,13 +69,8 @@ async function readBoards(db: Database, workspaceId: string): Promise<Board[]> {
   const tagsByBoard = group(tags, (row) => text(row.board_id))
 
   return boards.map((row) => {
-    const id = text(row.id)
-    const board: Board = {
-      id,
-      name: text(row.name),
-      band: text(row.band) as BoardBand,
-      description: text(row.description),
-    }
+    const board = boardFromRow(row)
+    const id = board.id
 
     const boardKinds = kindsByBoard.get(id) ?? []
     if (boardKinds.length) {
@@ -91,21 +86,32 @@ async function readBoards(db: Database, workspaceId: string): Promise<Board[]> {
       board.tags = boardTags.map((tag) => ({ id: text(tag.id), name: text(tag.name), color: text(tag.color) }))
     }
 
-    const archived = maybeFlag(row.archived)
-    if (archived !== undefined) board.archived = archived
-    const archivedAt = maybeCount(row.archived_at)
-    if (archivedAt !== undefined) board.archivedAt = archivedAt
-    const linked = parse<string[]>(row.linked_board_ids)
-    if (linked !== undefined) board.linkedBoardIds = linked
-    const cardType = maybeText(row.default_card_type_id)
-    if (cardType !== undefined) board.defaultCardTypeId = cardType
-    const dropLane = maybeText(row.default_drop_lane_id)
-    if (dropLane !== undefined) board.defaultDropLaneId = dropLane
-    const enforcement = maybeText(row.wip_enforcement)
-    if (enforcement !== undefined) board.wipEnforcement = enforcement as Board['wipEnforcement']
-
     return board
   })
+}
+
+/** One board's own columns, without the vocabulary attached (that is `readBoards`' job). */
+export function boardFromRow(row: Record<string, unknown>): Board {
+  const id = text(row.id)
+  const board: Board = {
+    id,
+    name: text(row.name),
+    band: text(row.band) as BoardBand,
+    description: text(row.description),
+  }
+  const archived = maybeFlag(row.archived)
+  if (archived !== undefined) board.archived = archived
+  const archivedAt = maybeCount(row.archived_at)
+  if (archivedAt !== undefined) board.archivedAt = archivedAt
+  const linked = parse<string[]>(row.linked_board_ids)
+  if (linked !== undefined) board.linkedBoardIds = linked
+  const cardType = maybeText(row.default_card_type_id)
+  if (cardType !== undefined) board.defaultCardTypeId = cardType
+  const dropLane = maybeText(row.default_drop_lane_id)
+  if (dropLane !== undefined) board.defaultDropLaneId = dropLane
+  const enforcement = maybeText(row.wip_enforcement)
+  if (enforcement !== undefined) board.wipEnforcement = enforcement as Board['wipEnforcement']
+  return board
 }
 
 async function readFlows(db: Database, workspaceId: string): Promise<BoardFlow[]> {
@@ -251,6 +257,11 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
     }
 
   return item
+}
+
+/** One item's own fields, without its checklist or history — what a listing needs. */
+export function itemFromRow(row: Record<string, unknown>): Item {
+  return itemFrom(row, [], [])
 }
 
 /**

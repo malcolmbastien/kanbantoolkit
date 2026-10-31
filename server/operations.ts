@@ -23,7 +23,7 @@ import { statement } from './audit'
 import type { Database, Statement } from './db'
 import { randomToken } from './auth/oauth'
 import type { AuthUser } from './auth/session'
-import { readItem, readWorkspace } from './workspace/read'
+import { boardFromRow, itemFromRow, readItem, readWorkspace } from './workspace/read'
 import { appliedItemOf, writeItemAndPlacements, writeWorkspace } from './workspace/write'
 import { emitItemChange, emitObjectiveMapping } from './events'
 import { parseItem, parseWorkspace } from './workspace/validate'
@@ -156,8 +156,6 @@ export function pageOf<T extends { id: string }>(rows: T[], limit: number) {
   }
 }
 
-const afterId = <T extends { id: string }>(rows: T[], cursor: string | undefined) =>
-  cursor ? rows.filter((row) => row.id > cursor) : rows
 
 /* ---- The trail ---------------------------------------------------------------------------- */
 
@@ -186,10 +184,28 @@ const editedEntry = (context: { id: () => string; at: number; by: string }, what
 
 /* ---- Reads -------------------------------------------------------------------------------- */
 
+/**
+ * Boards, in the database, one cursor page at a time.
+ *
+ * Every board in the workspace is listed, archived ones included (they carry `archived`). Order is
+ * id; the cursor is the base64url of the last id returned, and the limit is bounded to 1..200 with
+ * 50 as the default — the same contract the in-memory listing had.
+ */
 export async function listBoards(caller: OpCaller, input: { limit?: unknown; cursor?: string } = {}): Promise<Op<{ data: ReturnType<typeof boardView>[]; nextCursor: string | null }>> {
-  const state = await readWorkspace(caller.db, caller.workspaceId)
-  const rows = afterId([...state.boards].sort((a, b) => a.id.localeCompare(b.id)), decodeCursor(input.cursor)).map(boardView)
-  return ok(pageOf(rows, boundedLimit(input.limit)))
+  const limit = boundedLimit(input.limit)
+  const cursor = decodeCursor(input.cursor)
+  const params: unknown[] = [caller.workspaceId]
+  let where = 'workspace_id = ?1'
+  if (cursor) {
+    params.push(cursor)
+    where += ` AND id > ?${params.length}`
+  }
+  params.push(limit + 1)
+  const rows = await caller.db.all<Record<string, unknown> & { id: string }>(
+    `SELECT * FROM boards WHERE ${where} ORDER BY id LIMIT ?${params.length}`,
+    params,
+  )
+  return ok(pageOf(rows.map((row) => boardView(boardFromRow(row))), limit))
 }
 
 export interface ItemFilters {
@@ -203,46 +219,104 @@ export interface ItemFilters {
   cursor?: string
 }
 
+/**
+ * Items, filtered and paged in the database.
+ *
+ * The contract the old in-memory path promised, now expressed in SQL: archived items are omitted
+ * unless `includeArchived`; `boardId` and `laneId` read the item's **last placement** by placement
+ * id (the same placement the old item->placement map kept); `laneId` includes that lane's whole
+ * subtree; `typeId` is exact; `q` is a case-insensitive substring of the title, description or a
+ * noted log entry; `updatedSince` keeps cards with a `changes.at` strictly after the ISO instant.
+ * Order is item id, the cursor is the base64url of the last id, and the next cursor appears only
+ * when another page exists.
+ */
 export async function listItems(caller: OpCaller, filters: ItemFilters): Promise<Op<{ data: ReturnType<typeof compactItem>[]; nextCursor: string | null }>> {
-  const state = await readWorkspace(caller.db, caller.workspaceId)
-  const placements = new Map(state.placements.map((p) => [p.itemId, p]))
-  let rows = state.items.filter((item) => filters.includeArchived || !item.archived)
-
-  if (filters.boardId) rows = rows.filter((item) => placements.get(item.id)?.boardId === filters.boardId)
-  if (filters.laneId) {
-    // A lane's subtree: "in Done" means the column, not one cell of a split.
-    const laneIds = new Set<string>([filters.laneId])
-    let grew = true
-    while (grew) {
-      grew = false
-      for (const lane of state.lanes) {
-        if (lane.parentId && laneIds.has(lane.parentId) && !laneIds.has(lane.id)) {
-          laneIds.add(lane.id)
-          grew = true
-        }
-      }
-    }
-    rows = rows.filter((item) => {
-      const lane = placements.get(item.id)?.laneId
-      return lane ? laneIds.has(lane) : false
-    })
+  const limit = boundedLimit(filters.limit)
+  const cursor = decodeCursor(filters.cursor)
+  const params: unknown[] = [caller.workspaceId]
+  // A lane's subtree: "in Done" means the column, not one cell of a split. The recursive walk
+  // stays in the database, scoped to this workspace, so the listing never loads the tree to filter
+  // one page of cards.
+  if (filters.laneId) params.push(filters.laneId)
+  const where: string[] = ['i.workspace_id = ?1']
+  if (!filters.includeArchived) where.push('(i.archived IS NULL OR i.archived = 0)')
+  if (filters.boardId) {
+    params.push(filters.boardId)
+    where.push(`p.board_id = ?${params.length}`)
   }
-  if (filters.typeId) rows = rows.filter((item) => item.typeId === filters.typeId)
+  if (filters.laneId) where.push('p.lane_id IN (SELECT id FROM subtree)')
+  if (filters.typeId) {
+    params.push(filters.typeId)
+    where.push(`i.type_id = ?${params.length}`)
+  }
   if (filters.q?.trim()) {
-    const found = new Set(searchHits(rows, filters.q).map((hit) => hit.item.id))
-    rows = rows.filter((item) => found.has(item.id))
+    // `searchHits` matches title, description and the notes on the card; this is the same set,
+    // asked in SQL. `instr` is literal, so a percent sign in a query is a percent sign.
+    params.push(filters.q.trim().toLowerCase())
+    const needle = `?${params.length}`
+    where.push(
+      `(instr(lower(i.title), ${needle}) > 0
+        OR instr(lower(coalesce(i.description, '')), ${needle}) > 0
+        OR EXISTS (
+          SELECT 1 FROM item_log note
+           WHERE note.item_id = i.id AND note.kind = 'noted'
+             AND instr(lower(coalesce(note.note, '')), ${needle}) > 0
+        ))`,
+    )
   }
   if (filters.updatedSince) {
     const at = new Date(filters.updatedSince)
     if (Number.isNaN(at.getTime())) return no(422, 'invalid', '`updatedSince` must be an ISO timestamp')
-    const changed = await caller.db.all<{ item_id: string }>('SELECT DISTINCT item_id FROM changes WHERE at > ?1', [at.toISOString()])
-    const ids = new Set(changed.map((row) => row.item_id))
-    rows = rows.filter((item) => ids.has(item.id))
+    params.push(at.toISOString())
+    where.push(`EXISTS (SELECT 1 FROM changes c WHERE c.item_id = i.id AND c.at > ?${params.length})`)
   }
+  if (cursor) {
+    params.push(cursor)
+    where.push(`i.id > ?${params.length}`)
+  }
+  params.push(limit + 1)
 
-  rows = [...rows].sort((a, b) => a.id.localeCompare(b.id))
-  const answered = afterId(rows, decodeCursor(filters.cursor)).map((item) => compactItem(item, placements.get(item.id)))
-  return ok(pageOf(answered, boundedLimit(filters.limit)))
+  // The placement a listing names is the last one read, which is the one `readWorkspace` handed the
+  // in-memory version (`ORDER BY id` and a map that overwrote). `MAX(p2.id)` is that rule in SQL.
+  const cte = filters.laneId
+    ? `WITH RECURSIVE subtree(id) AS (
+         SELECT id FROM lanes WHERE workspace_id = ?1 AND id = ?2
+         UNION ALL
+         SELECT lane.id FROM lanes lane JOIN subtree ON lane.parent_id = subtree.id
+          WHERE lane.workspace_id = ?1
+       ) `
+    : ''
+  const rows = await caller.db.all<Record<string, unknown> & { id: string }>(
+    `${cte}SELECT i.*,
+            p.id AS placement_id,
+            p.board_id AS placement_board_id,
+            p.lane_id AS placement_lane_id,
+            p.rank AS placement_rank
+       FROM items i
+       LEFT JOIN placements p ON p.id = (
+         SELECT MAX(p2.id) FROM placements p2
+          WHERE p2.item_id = i.id AND p2.workspace_id = i.workspace_id
+       )
+      WHERE ${where.join(' AND ')}
+      ORDER BY i.id
+      LIMIT ?${params.length}`,
+    params,
+  )
+
+  const answered = rows.map((row) => {
+    const item = itemFromRow(row)
+    const placement = row.placement_id
+      ? {
+          id: String(row.placement_id),
+          boardId: String(row.placement_board_id),
+          itemId: item.id,
+          laneId: String(row.placement_lane_id),
+          ...(typeof row.placement_rank === 'number' ? { rank: row.placement_rank } : {}),
+        }
+      : undefined
+    return compactItem(item, placement)
+  })
+  return ok(pageOf(answered, limit))
 }
 
 export async function getBoard(caller: OpCaller, boardId: string) {
