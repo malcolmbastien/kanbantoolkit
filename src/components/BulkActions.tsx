@@ -6,6 +6,7 @@ import { lanePath, leafLanes } from '@/domain/lanes'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
 import { cardsFlows } from '@/domain/flows'
+import { PersonPicker } from './PersonPicker'
 
 /*
  * The bar is a floating panel like the card menu and the palette — white, slate-bordered, one
@@ -18,8 +19,6 @@ const BAR_CLS =
 const LABEL_CLS = 'flex items-center gap-1.5 text-slate-600'
 const SELECT_CLS =
   'rounded-md border border-slate-200 bg-white px-1.5 py-1 text-body text-slate-800 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400'
-const FIELD_CLS =
-  'w-28 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-body text-slate-800 placeholder:text-slate-500 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400'
 const PRIMARY_CLS =
   'rounded-md bg-indigo-600 px-2 py-1 font-medium text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40'
 const SECONDARY_CLS =
@@ -61,7 +60,6 @@ export function BulkActions() {
   const links = useStore((s) => s.links)
   const placements = useStore((s) => s.placements)
 
-  const [assignee, setAssignee] = useState('')
   const [targetBoard, setTargetBoard] = useState('')
   const [parentTarget, setParentTarget] = useState('')
   const [parentRefused, setParentRefused] = useState(false)
@@ -102,12 +100,6 @@ export function BulkActions() {
     if (applied) setParentTarget('')
   }
 
-  const applyAssignee = () => {
-    const name = assignee.trim()
-    if (!name) return
-    addItemsAssignee(multiSelect, name)
-    setAssignee('')
-  }
 
   const locks = usePresence((state) => state.locks)
   // One held card refuses the whole selection: a bulk action that half-applied would be a worse
@@ -245,24 +237,12 @@ export function BulkActions() {
 
       <label className={LABEL_CLS}>
         Assign
-        <input
-          list="bulk-assignees"
-          value={assignee}
-          onChange={(e) => setAssignee(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') applyAssignee()
-          }}
-          placeholder="full name…"
-          className={FIELD_CLS}
+        <PersonPicker
+          users={users}
+          onPick={(user) => addItemsAssignee(multiSelect, user.id)}
+          label="Add a person to the selected cards"
+          className="w-36"
         />
-        <datalist id="bulk-assignees">
-          {users.map((u) => (
-            <option key={u.id} value={u.name} />
-          ))}
-        </datalist>
-        <button disabled={Boolean(held)} onClick={applyAssignee} className={SECONDARY_CLS} title="Add this person to every selected card">
-          Add
-        </button>
         <button
           onClick={() => clearItemsAssignees(multiSelect)}
           className={GHOST_CLS}

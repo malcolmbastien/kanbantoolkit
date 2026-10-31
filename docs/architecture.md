@@ -32,7 +32,7 @@ Two consequences worth holding on to:
 ## The boundary
 
 One deployment is one workspace. The workspace is the tenant, and every row of work names it:
-`boards`, `lanes`, `items`, `placements`, `edges`, `links`, `objectives`, `key_results`,
+`boards`, `lanes`, `items`, `placements`, `edges`, `links`, `periods`, `objectives`, `key_results`,
 `board_templates`, `people`, `issue_types`, `item_log`. A trigger refuses an insert or an update that
 leaves `workspace_id` empty.
 

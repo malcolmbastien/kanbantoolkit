@@ -234,17 +234,17 @@ describe('composition pressure and attribution', () => {
     expect(openDescendants('init-signup', g).length).toBe(4)
   })
 
-  it('a strategic initiative can map to several OKRs', () => {
+  it('attributedObjectives reads the attribution edges it is given', () => {
     const edges = [...s.edges, { id: 'x1', kind: 'attribution' as const, from: 'obj-efficiency', to: 'init-activation' }]
     const objs = attributedObjectives('init-activation', edges, s.objectives)
     expect(objs.map((o) => o.id).sort()).toEqual(['obj-activation', 'obj-efficiency'])
   })
 
   it('okrCoverage reports unmapped initiatives and unserved OKRs', () => {
-    const strategic = ['init-activation', 'init-efficiency', 'init-explore'].map(
+    const population = ['init-activation', 'init-efficiency', 'init-explore'].map(
       (id) => s.items.find((i) => i.id === id)!,
     )
-    const { unmapped, unserved } = okrCoverage(strategic, s.objectives, s.edges)
+    const { unmapped, unserved } = okrCoverage(population, s.objectives, s.edges)
     expect(unmapped.map((i) => i.id)).toEqual(['init-explore'])
     expect(unserved.map((o) => o.id)).toEqual(['obj-reliability'])
   })
@@ -322,8 +322,8 @@ describe('an objective is as far along as the work that serves it', () => {
   it('agrees with okrCoverage about which objectives are served', () => {
     expect(objectiveRollup('obj-activation', g)).toBeDefined()
     expect(objectiveRollup('obj-reliability', g)).toBeUndefined()
-    const strategic = ['init-activation', 'init-efficiency', 'init-explore'].map((id) => s.items.find((i) => i.id === id)!)
-    const { unserved } = okrCoverage(strategic, s.objectives, s.edges)
+    const population = ['init-activation', 'init-efficiency', 'init-explore'].map((id) => s.items.find((i) => i.id === id)!)
+    const { unserved } = okrCoverage(population, s.objectives, s.edges)
     for (const o of unserved) expect(objectiveRollup(o.id, g)).toBeUndefined()
   })
 })

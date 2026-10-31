@@ -62,7 +62,9 @@ test('a type, a template and an objective outlive the browser', async ({ page })
   await expect(page.getByRole('button', { name: /Probe Design/ })).toBeVisible()
   await landing
 
-  // An objective, on a portfolio board — the one surface that reads them.
+  // An objective, on a portfolio board — the one surface that reads them. An objective is
+  // committed for a period, so the period is named first: it is a record with a window now, not a
+  // label the objective invents.
   await home(page, 'Boards')
   await page.getByRole('button', { name: 'New board' }).first().click()
   const creator = page.getByRole('dialog')
@@ -73,8 +75,14 @@ test('a type, a template and an objective outlive the browser', async ({ page })
   await page.getByRole('button', { name: /Strategy/ }).first().click()
   await expect(page.getByText('Strategy map')).toBeVisible()
 
-  landing = saved(page)
   await page.getByRole('button', { name: 'Objectives', exact: true }).click()
+  await page.getByRole('button', { name: 'New period' }).click()
+  await page.getByLabel('New period', { exact: true }).fill('FY27 Q1')
+  const periodSave = saved(page)
+  await page.getByRole('button', { name: 'Create period' }).click()
+  await periodSave
+
+  landing = saved(page)
   const objective = 'A probe objective'
   await page.getByPlaceholder(/New objective in/).fill(objective)
   await page.getByRole('button', { name: 'New objective' }).click()
@@ -156,6 +164,7 @@ test('a viewer is offered nothing that writes, and the server refuses it anyway'
         rev: workspace.vocabularyRev ?? 0,
         issueTypes: workspace.issueTypes,
         boardTemplates: [],
+        periods: [],
         objectives: [],
         keyResults: [],
       },

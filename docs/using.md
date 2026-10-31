@@ -131,9 +131,11 @@ happens to be open. The board stays in front; clicking a card replaces the drawe
 item panel on the same side.
 
 Objectives and key results are **not** a global view. They are created and managed from a
-**Portfolio** board, whose Strategy map carries them and the initiatives that serve them. The
-**Period** field names the period an objective joins and filters the cards; [Board types](board-types.md)
-walks through periods, key results and mapping an initiative to an objective.
+**Portfolio** board, whose Strategy map carries them and the initiatives mapped to them. A
+**period** is a record with a window: choose it in the **Period** field, set its start and end dates
+once, and every objective committed for it is due then — an objective has no target date of its own.
+[Board types](board-types.md) walks through periods, key results and mapping an initiative to an
+objective.
 
 ## Keeping a copy
 

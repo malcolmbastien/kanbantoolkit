@@ -1,10 +1,10 @@
 /**
  * A change to the workspace's words that did not land, said where it was made.
  *
- * Types, templates, objectives and key results are written on the server, and a refusal — a role
- * that may not change this list, a document the server would not take, a workspace whose words
- * somebody else changed — must not look like a save. The local edit stays on screen, because it is
- * still this browser's; the line beside it says that the workspace has not taken it.
+ * Types, templates, periods, objectives and key results are written on the server, and a refusal —
+ * a role that may not change this list, a document the server would not take, a workspace whose
+ * words somebody else changed — must not look like a save. The local edit stays on screen, because
+ * it is still this browser's; the line beside it says that the workspace has not taken it.
  *
  * An error that named a list is shown only beside that list; one that named none is the document's
  * as a whole, and belongs wherever the person was editing.

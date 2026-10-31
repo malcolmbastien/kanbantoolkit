@@ -1,6 +1,6 @@
 import { ChartNoAxesGantt } from 'lucide-react'
 import { Card } from './Card'
-import { boardInitiatives } from '@/domain/board'
+import { boardInitiatives, isPortfolio, portfolioInitiatives } from '@/domain/board'
 import { blockedBelow, checklistProgress, decompositionChildren, dependentsOf, isComplete, openDescendants, rollupOf, statusOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { layoutTimeline } from '@/domain/timelineLayout'
 import { parseDay } from '@/domain/filters'
@@ -62,7 +62,11 @@ export function TimelineView({ boardId }: { boardId: string }) {
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
   const board = boards.find((b) => b.id === boardId)
-  const initiatives = boardInitiatives(graph, boardId, issueTypes)
+  // A portfolio holds no initiatives of its own: its timeline reads the outcomes in its remit and
+  // those linked to its objectives, wherever their board sits.
+  const initiatives = isPortfolio(board)
+    ? portfolioInitiatives(graph, boards, boardId, issueTypes)
+    : boardInitiatives(graph, boardId, issueTypes)
   const layout = layoutTimeline(
     initiatives.map((i) => ({
       id: i.id,

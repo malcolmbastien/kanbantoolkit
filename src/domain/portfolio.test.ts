@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { portfolioHeatmap } from './portfolio'
 import type { Graph } from './derive'
-import type { Edge, Item, Lane, Objective, Placement } from './types'
+import type { Edge, Item, Lane, Objective, Period, Placement } from './types'
 
 const now = new Date('2026-10-30T12:00:00').getTime()
 const lanes: Lane[] = [
@@ -22,7 +22,10 @@ const decomposition = (parent: string, child: string): Edge => ({
   from: parent,
   to: child,
 })
-const objective = (id: string, period: string, title = id): Objective => ({ id, title, period, status: 'active' })
+const objective = (id: string, periodId: string, title = id): Objective => ({ id, title, periodId, status: 'active' })
+
+const q4: Period = { id: 'p-q4', name: 'FY26 Q4', start: '2026-10-01', end: '2026-12-31' }
+const q1: Period = { id: 'p-q1', name: 'FY27 Q1', start: '2027-01-01', end: '2027-03-31' }
 
 /** One initiative with one leaf, so its rollup and health have something to read. */
 function project(id: string, stage: 'l-todo' | 'l-done', extra: Partial<Item> = {}) {
@@ -47,12 +50,12 @@ function graphOf(initiatives: Item[], edges: Edge[], placements: Placement[]): G
 }
 
 describe('the portfolio risk heatmap', () => {
-  it('reads coverage, progress, health and the nearest target from the work', () => {
+  it('reads coverage, progress, health and its period from the work', () => {
     const risk = project('i-risk', 'l-todo', { targetEndDate: '2026-10-01' })
-    // The leaf is blocked, so the initiative is at risk even before its date is considered.
+    // The leaf is blocked, so the initiative is at risk even though its own date means nothing here.
     risk.leaf.blocked = true
     const healthy = project('i-healthy', 'l-done', { targetEndDate: '2027-01-01' })
-    const objectives = [objective('o-risk', 'FY26 Q4'), objective('o-healthy', 'FY26 Q4'), objective('o-gap', 'FY26 Q4')]
+    const objectives = [objective('o-risk', 'p-q4'), objective('o-healthy', 'p-q4'), objective('o-gap', 'p-q4')]
     const graph = graphOf(
       [risk.initiative, healthy.initiative],
       [attribution('o-risk', 'i-risk'), decomposition('i-risk', 'i-risk-card'), attribution('o-healthy', 'i-healthy'), decomposition('i-healthy', 'i-healthy-card')],
@@ -61,16 +64,15 @@ describe('the portfolio risk heatmap', () => {
     // `graphOf` builds the leaf from its placement; the blocked flag belongs to that copy.
     graph.items.find((entry) => entry.id === 'i-risk-card')!.blocked = true
 
-    const map = portfolioHeatmap(objectives, graph, [risk.initiative, healthy.initiative], now)
+    const map = portfolioHeatmap(objectives, [q4], graph, now)
     const row = (id: string) => map.rows.find((entry) => entry.objective.id === id)!
 
     expect(row('o-risk')).toMatchObject({
       coverageGap: false,
       risk: 'atRisk',
-      overdue: 1,
-      targetEnd: '2026-10-01',
       rollup: { total: 1, done: 0, percent: 0 },
     })
+    expect(row('o-risk').period).toEqual(q4)
     expect(row('o-risk').health.level).toBe('atRisk')
     expect(row('o-healthy')).toMatchObject({ risk: 'onTrack', rollup: { total: 1, done: 1, percent: 100 } })
     expect(row('o-gap')).toMatchObject({ coverageGap: true, risk: 'unserved' })
@@ -78,30 +80,48 @@ describe('the portfolio risk heatmap', () => {
     expect(map.counts).toMatchObject({ objectives: 3, atRisk: 1, onTrack: 1, unserved: 1 })
   })
 
-  it('calls an open commitment past its date overdue even when its health is quiet', () => {
-    const late = project('i-late', 'l-todo', { targetEndDate: '2026-10-01' })
-    const objectives = [objective('o-late', 'FY26 Q4')]
-    const graph = graphOf([late.initiative], [attribution('o-late', 'i-late'), decomposition('i-late', 'i-late-card')], late.placements)
-    expect(portfolioHeatmap(objectives, graph, [late.initiative], now).rows[0]).toMatchObject({
-      risk: 'overdue',
-      health: { level: 'healthy' },
-      overdue: 1,
-    })
+  it('has no date of its own: an objective is due when its period ends, so the row carries the period', () => {
+    const work = project('i-a', 'l-todo')
+    const objectives = [objective('o-a', 'p-q4', 'A'), objective('o-stale', 'p-gone', 'Gone')]
+    const graph = graphOf(
+      [work.initiative],
+      [attribution('o-a', 'i-a'), decomposition('i-a', 'i-a-card')],
+      work.placements,
+    )
+    const map = portfolioHeatmap(objectives, [q4], graph, now)
+    // A row whose period is gone is still a row — the work it carries must not vanish with it.
+    expect(map.rows.map((row) => [row.objective.title, row.period?.name])).toEqual([
+      ['A', 'FY26 Q4'],
+      ['Gone', undefined],
+    ])
   })
 
-  it('lists periods in reading order and keeps an empty portfolio empty', () => {
+  it('counts an initiative mapped from another board, wherever it is placed', () => {
+    const work = project('i-team', 'l-done')
+    // The initiative lives on a team board; nothing about it is placed on the portfolio.
+    const graph = graphOf(
+      [work.initiative],
+      [attribution('o-1', 'i-team'), decomposition('i-team', 'i-team-card')],
+      work.placements,
+    )
+    const map = portfolioHeatmap([objective('o-1', 'p-q4')], [q4], graph, now)
+    expect(map.rows[0].serving.map((item) => item.id)).toEqual(['i-team'])
+    expect(map.rows[0].rollup).toMatchObject({ total: 1, done: 1, percent: 100 })
+  })
+
+  it('lists the periods its objectives are committed for, in reading order', () => {
     const a = project('i-a', 'l-todo')
     const b = project('i-b', 'l-todo')
-    const objectives = [objective('o-b', 'FY27 Q1', 'B'), objective('o-a', 'FY26 Q4', 'A')]
+    const objectives = [objective('o-b', 'p-q1', 'B'), objective('o-a', 'p-q4', 'A')]
     const graph = graphOf(
       [a.initiative, b.initiative],
       [attribution('o-a', 'i-a'), decomposition('i-a', 'i-a-card'), attribution('o-b', 'i-b'), decomposition('i-b', 'i-b-card')],
       [...a.placements, ...b.placements],
     )
-    const map = portfolioHeatmap(objectives, graph, [a.initiative, b.initiative], now)
-    expect(map.periods).toEqual(['FY26 Q4', 'FY27 Q1'])
+    const map = portfolioHeatmap(objectives, [q1, q4], graph, now)
+    expect(map.periods.map((period) => period.name)).toEqual(['FY26 Q4', 'FY27 Q1'])
     expect(map.rows.map((row) => row.objective.title)).toEqual(['A', 'B'])
-    expect(portfolioHeatmap([], graph, [], now)).toMatchObject({ rows: [], periods: [], counts: { objectives: 0 } })
+    expect(portfolioHeatmap([], [q4], graph, now)).toMatchObject({ rows: [], periods: [], counts: { objectives: 0 } })
   })
 
   it('counts a shared leaf once, and a flag once per initiative that raises it', () => {
@@ -122,7 +142,7 @@ describe('the portfolio risk heatmap', () => {
       placements: [place(one.leaf.id, 'l-todo')],
       lanes,
     }
-    const map = portfolioHeatmap([objective('o-1', 'FY26 Q4')], graph, [one.initiative, two.initiative], now)
+    const map = portfolioHeatmap([objective('o-1', 'p-q4')], [q4], graph, now)
     expect(map.rows[0].rollup?.total).toBe(1)
     expect(map.rows[0].health.flags.filter((flag) => flag.flag === 'unowned')).toEqual([
       expect.objectContaining({ initiatives: 2 }),

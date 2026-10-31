@@ -45,6 +45,7 @@ const seeded = (): Workspace => {
     edges: [],
     links: [],
     objectives: [],
+    periods: [],
     keyResults: [],
     boardTemplates: [],
     savedFilters: [],

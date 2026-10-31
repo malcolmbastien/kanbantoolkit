@@ -87,6 +87,32 @@ describe('a card move', () => {
     expect(outcome.items.find((i) => i.id === 'i-1')!.resolvedAt).toBe(context.at)
   })
 
+  it('keeps the arrival stamp when the card is only repositioned in its lane', () => {
+    const old = 1_600_000_000_000
+    const base = slice({
+      placements: [
+        { ...place('i-1', 'backlog', 0), laneEnteredAt: old },
+        place('i-2', 'backlog', 1),
+      ],
+    })
+    const outcome = moveCard(base, { itemId: 'i-1', boardId: 'b', laneId: 'backlog', index: 1 }, context)
+    expect(outcome.kind).toBe('moved')
+    if (outcome.kind !== 'moved') return
+    // A drop within the lane is a position, not an arrival — the clock it earned keeps running.
+    expect(outcome.positionOnly).toBe(true)
+    expect(outcome.placements.find((p) => p.itemId === 'i-1')!.laneEnteredAt).toBe(old)
+
+    // Crossing into another lane is an arrival, and stamps.
+    const crossed = moveCard(
+      slice({ items: outcome.items, placements: outcome.placements }),
+      { itemId: 'i-1', boardId: 'b', laneId: 'doing' },
+      context,
+    )
+    expect(crossed.kind).toBe('moved')
+    if (crossed.kind !== 'moved') return
+    expect(crossed.placements.find((p) => p.itemId === 'i-1')!.laneEnteredAt).toBe(context.at)
+  })
+
   it('clears the Done clock when it leaves', () => {
     const before = slice({ items: [item('i-1', { resolvedAt: 5 }), item('i-2'), item('i-3')] })
     const outcome = moveCard(before, { itemId: 'i-1', boardId: 'b', laneId: 'doing' }, context)

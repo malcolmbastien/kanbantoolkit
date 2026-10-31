@@ -32,6 +32,20 @@ test('a card dragged within its lane reorders, and the order survives a reload',
   expect(await cardsIn(page, 'Not Started')).toEqual([second, first, ...order.slice(2)])
 })
 
+test('a drop within its own lane keeps the arrival clock, so the age warning stays', async ({ page }) => {
+  await openBoard(page)
+  // A card the demo has held in Not Started long enough to carry the “Nd in lane” warning.
+  const card = page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'Migrate invoice numbering' })
+  const badge = card.getByText(/\d+d in lane/)
+  await expect(badge).toBeVisible()
+  const before = (await badge.innerText()).trim()
+  const id = (await card.getAttribute('data-card-id'))!
+
+  // A drop at the end of the same lane is a position, not an arrival. The warning must survive it.
+  await dropAtEnd(page, id, 'Not Started')
+  await expect(page.locator(`[data-card-id="${id}"]`).getByText(/\d+d in lane/)).toHaveText(before)
+})
+
 test('a card dropped past the last card lands at the end of the lane', async ({ page }) => {
   await openBoard(page)
   const backlog = await cardsIn(page, 'Backlog')

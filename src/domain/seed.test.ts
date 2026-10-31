@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createSeed } from './seed'
 import { demoWorkspace } from './demo'
 import { kindOf } from './flows'
-import { boardInitiatives, initiativeTypeId, isStrategicInitiative } from './board'
+import { boardInitiatives, canServeObjective, initiativeTypeId, portfolioInitiatives } from './board'
 import { blockedBelow, descendants, openDependenciesOf, rollupOf, type Graph } from './derive'
 import { initiativeHealth } from './health'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, placementsInOrder, topLevelLanes } from './lanes'
@@ -46,7 +46,14 @@ describe('the demo dataset', () => {
   it('gives every board work to show, and every card a cell of its own flow', () => {
     for (const board of boards) {
       const here = boardInitiatives(graph, board.id, seed.issueTypes)
-      expect(here.length, `${board.name} has no initiatives`).toBeGreaterThan(0)
+      if (board.band === 'portfolio') {
+        // A portfolio holds no initiatives of its own: it reads the outcomes that live on the
+        // programmes beneath it and are linked to its objectives.
+        expect(here, `${board.name} holds initiatives`).toHaveLength(0)
+        expect(portfolioInitiatives(graph, boards, board.id, seed.issueTypes).length, `${board.name} has no work to read`).toBeGreaterThan(0)
+      } else {
+        expect(here.length, `${board.name} has no initiatives`).toBeGreaterThan(0)
+      }
     }
     for (const card of cards) {
       const placement = at(card.id)
@@ -111,16 +118,16 @@ describe('the demo dataset', () => {
     }
   })
 
-  it('maps OKRs to strategic initiatives only, and leaves both coverage gaps showing', () => {
-    const strategic = initiatives.filter((i) => isStrategicInitiative(i.id, { ...graph, boards, issueTypes: seed.issueTypes }))
-    expect(strategic.length).toBeGreaterThanOrEqual(3)
+  it('maps objectives to root initiatives only, and leaves both coverage gaps showing', () => {
+    const roots = initiatives.filter((i) => canServeObjective(i, graph, seed.issueTypes))
+    expect(roots.length).toBeGreaterThanOrEqual(3)
     const mapped = new Set(edges.filter((e) => e.kind === 'attribution').map((e) => e.to))
     for (const id of mapped) {
-      expect(strategic.some((i) => i.id === id), `${id} is not strategic`).toBe(true)
+      expect(roots.some((i) => i.id === id), `${id} is not a root initiative`).toBe(true)
     }
-    // One strategic initiative serves no OKR…
-    expect(strategic.filter((i) => !mapped.has(i.id)).map((i) => i.id)).toEqual(['init-trust'])
-    // …and one objective is served by no strategic initiative.
+    // The root outcomes that serve no OKR: the deliberate gap, and an outcome with nothing below it.
+    expect(roots.filter((i) => !mapped.has(i.id)).map((i) => i.id)).toEqual(['init-trust', 'init-data-quality'])
+    // …and one objective is served by no initiative.
     const served = new Set(edges.filter((e) => e.kind === 'attribution').map((e) => e.from))
     expect(seed.objectives.filter((o) => !served.has(o.id)).map((o) => o.id)).toEqual(['obj-reliability'])
   })
@@ -162,7 +169,8 @@ describe('the demo dataset', () => {
 
   it('labels initiatives with the board’s own kinds, and leaves the team boards plain', () => {
     const kinds = (boardId: string) => boards.find((b) => b.id === boardId)!.initiativeTypes ?? []
-    expect(kinds('b-strategy').map((k) => k.name)).toEqual(['Bet', 'Programme', 'Experiment'])
+    // A portfolio defines no kinds: it holds no initiatives of its own to label.
+    expect(kinds('b-strategy')).toEqual([])
     expect(kinds('b-portfolio').map((k) => k.name)).toEqual(['Workstream', 'Enabler'])
     // A team board has none, which is what "None is the only option" looks like.
     expect(kinds('b-atlas')).toEqual([])
@@ -174,7 +182,7 @@ describe('the demo dataset', () => {
       if (!init.initiativeTypeId) continue
       expect(board.initiativeTypes?.some((k) => k.id === init.initiativeTypeId), init.title).toBe(true)
     }
-    expect(initiatives.filter((i) => i.initiativeTypeId).length).toBeGreaterThanOrEqual(6)
+    expect(initiatives.filter((i) => i.initiativeTypeId).length).toBeGreaterThanOrEqual(3)
     expect(boards.flatMap((b) => b.initiativeTypes ?? []).every((k) => !/^none$/i.test(k.name))).toBe(true)
   })
 

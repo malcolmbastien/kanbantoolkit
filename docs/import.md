@@ -39,20 +39,21 @@ the preview says what will be created before Import is pressed.*
 - **Lists → stages.** Every source list maps to Backlog, Not Started, In Progress or Done. Two
   source lists mapped to the same stage become two **cells** in that column, named after the lists,
   so the distinction is kept rather than flattened.
-- **People.** Each source person is either an existing person (matched by exact name by default) or
-  a new person created by the import.
-- **Types.** Each Jira issue type maps to one of the workspace's card types. A missing type falls
-  back to the board's default and says so.
+- **People.** Each source person can be associated with a person already in this workspace. There is
+  no “create a person” answer — an import is not a place to mint accounts — so anyone left as
+  **None** is imported without an assignee, and the preview says how many names were unmatched.
+- **Types.** Each Jira issue type maps to one of the workspace's card types. A missing or unmatched
+  type becomes **None**, and the warning says so.
 
-The preview says how many cards and people will be created, and lists the warnings before anything
-is written.
+The preview says how many cards will be created, and lists the warnings — including any people it
+could not match — before anything is written.
 
 ## What is created
 
 One team board with a **Cards** flow (the four typed columns, split where the mapping needs it) and
 the standard **Initiatives** flow. Imported cards carry a log entry naming the source and its key, so
-the origin stays readable in Activity. A used tag is added to the board's own tags; a new person is
-added to the workspace directory.
+the origin stays readable in Activity. A used tag is added to the board's own tags; the workspace
+directory is unchanged — an import never creates a person.
 
 ## What is not
 

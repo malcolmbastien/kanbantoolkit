@@ -43,12 +43,33 @@ test('a person added in the drawer is on the card', async ({ page }) => {
   await openBoard(page)
   const id = await openFirstBacklogCard(page)
 
-  const people = page.getByPlaceholder('Add a name…')
+  const people = page.getByPlaceholder('Add a person…')
   await people.fill('Maya Blake')
   await people.press('Enter')
   await closeDrawer(page)
 
   // The card wears initials rather than names, because a card is small.
+  await expect(card(page, id)).toContainText('MB')
+})
+
+test('only an existing person can be added, and the list can be clicked', async ({ page }) => {
+  await openBoard(page)
+  const id = await openFirstBacklogCard(page)
+
+  const people = page.getByPlaceholder('Add a person…')
+  // Typing a name nobody has is a search, not a create: Enter adds nothing.
+  await people.fill('Zoe Zimmer')
+  await people.press('Enter')
+  await expect(page.getByText(/No one in this workspace matches/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Remove Zoe Zimmer' })).toHaveCount(0)
+
+  // The list shows the person's initials, and a click on the row adds them — no keyboard step.
+  await people.fill('Maya')
+  const option = page.getByRole('option', { name: /Maya Blake/ })
+  await expect(option).toContainText('MB')
+  await option.click()
+  await closeDrawer(page)
+
   await expect(card(page, id)).toContainText('MB')
 })
 

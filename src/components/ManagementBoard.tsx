@@ -102,7 +102,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
               <button
                 onClick={() => setObjectives(true)}
                 className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-micro font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                title="Open the Objectives view — period, key results, scores"
+                title="Open the Objectives view — period, key results, mapped initiatives"
               >
                 <ExternalLink size={10} /> Objectives
               </button>,

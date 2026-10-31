@@ -6,7 +6,7 @@ import { ImportNotice } from './ImportNotice'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
 import { useMay } from '@/lib/permissions'
-import { isAggregating } from '@/domain/board'
+import { canAddInitiative, canDesignBoard, isAggregating, isPortfolio } from '@/domain/board'
 import { isBoardSurface } from '@/store'
 import type { Board } from '@/domain/types'
 
@@ -56,10 +56,17 @@ export function TopBar(props: Props) {
   const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMetrics, showAdmin })
   // A card belongs to a board that renders a cards workflow. A coordination board — a programme or
   // a portfolio — shows bands or objective-grouped flows and no cards workflow at all, so a card
-  // made here would be one nobody could see on the board that made it. An initiative still can be:
-  // on a portfolio it arrives in the map, with its coverage gap, until an objective carries it.
-  // Flow is the same rule: it reads a cards flow's history, so a board with no cards flow has none.
-  const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
+  // made here would be one nobody could see on the board that made it. An initiative is different:
+  // a team or programme board makes its own, while a portfolio *connects* ones that already exist,
+  // so it has no Initiative button either. Flow is the same rule as cards: it reads a cards flow's
+  // history, so a board with no cards flow has none.
+  const board = boards.find((b) => b.id === boardId)
+  const makesCards = !isAggregating(board)
+  // Edit board is a team's and a programme's act: a portfolio's shape is its objectives, made in the
+  // strategy map, so there is no lane tree there for it to open. A mode already open is finished or
+  // cancelled wherever the reader is — it can only have been started on another board.
+  const mayDesignThisBoard = mayDesign && canDesignBoard(board)
+  const inEditMode = editMode && mayDesign
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 shadow-sm">
@@ -178,7 +185,7 @@ export function TopBar(props: Props) {
                 <Plus size={13} /> Card
               </button>
             )}
-            {mayWrite && (
+            {mayWrite && canAddInitiative(board) && (
             <button
               onClick={onAddInitiative}
               disabled={editMode}
@@ -197,15 +204,15 @@ export function TopBar(props: Props) {
           <button
             onClick={onOpenBoardSettings}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
-            title="Board settings — title, flight level, card types, WIP"
+            title={isPortfolio(board) ? 'Board settings — title, flight level, linked boards' : 'Board settings — title, flight level, card types, WIP'}
           >
             <Settings size={13} /> Settings
           </button>
         )}
 
 
-        {boardActive && mayDesign &&
-          (editMode ? (
+        {boardActive && (inEditMode || mayDesignThisBoard) &&
+          (inEditMode ? (
             <>
               <button
                 onClick={onSaveEdit}

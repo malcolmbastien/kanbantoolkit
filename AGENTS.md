@@ -156,23 +156,27 @@ task-master list            # terminal 2
   "portfolio" surface is a coordination board; there is no separate portfolio entity.
   A **portfolio** board leads with a **strategy map** (`StrategyMap`) and nothing else: each
   **objective** heads the board's own **initiatives flow** (`BoardSummary` narrowed with
-  `onlyIds`) holding the strategic initiatives attributed to it, with both coverage gaps inline —
-  an objective nothing serves says so in words, and an initiative serving nothing gets a flow of
-  its own. The map is therefore the portfolio's flow *and* the OKR-coverage section, grouped by
-  what the work is for, and it carries **no bands**: a portfolio is read for what the work is
-  *for*, and the rollups of the boards beneath it belong to the programme boards. The links stay
-  in the model — a programme under a portfolio still rolls up — so this is one surface's choice,
-  not a rule about the data.
+  `onlyIds`) holding the initiatives attributed to it — from any board, not only this one — with
+  both coverage gaps inline: an objective nothing serves says so in words, and an initiative in the
+  portfolio's remit serving nothing gets a flow of its own. The map is therefore the portfolio's
+  flow *and* the OKR-coverage section, grouped by what the work is for, and it carries **no bands**:
+  a portfolio is read for what the work is *for*, and the rollups of the boards beneath it belong to
+  the programme boards. The links stay in the model — a programme under a portfolio still rolls up —
+  so this is one surface's choice, not a rule about the data.
   `linkTeamInitiative` creates a team initiative as a decomposition child of a management
   initiative so it rolls up.
 - Dependency state is derived from the two endpoints' cells; never store a dependency
-  status field. Attribution never counts as WIP. OKRs attach to **strategic initiatives**
-  only — an Initiative placed on a portfolio board; everything below inherits through the
-  decomposition (`isStrategicInitiative`). **An initiative serves one objective**, so attribution
+  status field. Attribution never counts as WIP. **An objective is served by a root initiative** —
+  one with no decomposition parent, wherever the board that carries it sits (`canServeObjective`).
+  A nested initiative inherits its parent's objective through the decomposition, and a card is
+  never mapped; `setParent` refuses to give a mapped initiative a parent, so a mapped outcome stays
+  a root. That is what keeps progress a partition: the decomposition is a single-parent forest, so
+  two mapped roots never share a leaf, each leaf counts toward one objective, and a mapped
+  initiative's percentage is its own rollup. **An initiative serves one objective**, so attribution
   is a choice and not a set: mapping one that already serves another *moves* it, the same shape as
   `setParent` and a board's kind, and `setAttribution` is the one door that keeps it.
-  `okrCoverage` surfaces the two gaps: a strategic initiative with no OKR, and an OKR with no
-  strategic initiative.
+  `okrCoverage` surfaces the two gaps: a root initiative in the portfolio's remit with no objective,
+  and an objective with no initiative.
 - **A key result is a statement, not a measurement.** It is an id, an objective and a line of
   text — what the objective means, in the words of the people who set it — and nothing else. A
   number entered by hand cannot be connected to the work, so it can disagree with the work and no
@@ -180,8 +184,11 @@ task-master list            # terminal 2
   it**: `objectiveRollup` returns the same `Rollup` an item gets, over the union of the leaves
   below the initiatives attributed to the objective — each leaf once, however many attributed
   initiatives sit above it. An objective nothing serves has **no** rollup (`undefined`), not 0%:
-  the coverage gap says that in words. The `score` is a different thing and stays — the grade a
-  person gives at the end of a period.
+  the coverage gap says that in words. An objective has **no score and no target date of its own**:
+  a **period** is the record that says when it is due, carrying a name and a window
+  (`start`/`end`), and an objective names one (`periodId`). An objective's completeness is the only
+  measure a person reads; a number typed at the end of a period would be a second answer to the
+  same question.
 - Limits are per-lane `wipLimit`s, and a board's `wipEnforcement` says what they do: **visualize**
   (the default) tints a lane at or over its limit and lets moves through, **justify** holds a move
   that would breach until a reason is given — recorded on the card — and **block** refuses it. The

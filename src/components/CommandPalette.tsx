@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Command, LayoutGrid, Search } from 'lucide-react'
-import { isInitiativeItem } from '@/domain/board'
+import { canDesignBoard, isInitiativeItem, isPortfolio } from '@/domain/board'
 import { KIND_LABEL, rankEntries, type PaletteEntry, type PaletteKind } from '@/domain/palette'
 import { openShortcuts } from '@/lib/shortcutDialog'
 import { cn } from '@/lib/utils'
@@ -13,6 +13,8 @@ interface Props {
   onNewInitiative: () => void
   /** False on a board that renders no cards workflow — the same rule the toolbar's button keeps. */
   makesCards: boolean
+  /** False on a portfolio, which connects the initiatives that exist rather than making new ones. */
+  addsInitiatives: boolean
 }
 
 /**
@@ -26,9 +28,10 @@ interface Props {
  * An empty palette is not blank: it leads with the cards opened lately, then the boards, then the
  * actions. That list is view state — it is about this session, not about the work.
  */
-export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props) {
+export function CommandPalette({ onNewCard, onNewInitiative, makesCards, addsInitiatives }: Props) {
   const items = useStore((s) => s.items)
   const boards = useStore((s) => s.boards)
+  const boardId = useStore((s) => s.boardId)
   const placements = useStore((s) => s.placements)
   const issueTypes = useStore((s) => s.issueTypes)
   const recentItemIds = useStore((s) => s.recentItemIds)
@@ -108,16 +111,26 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
       ...(makesCards && canWrite
         ? [{ id: 'action:new-card', kind: 'action' as PaletteKind, label: 'New card', hint: "Add a card to this board's default cell", keywords: 'create add task story bug', run: onNewCard }]
         : []),
-      ...(canWrite
+      ...(addsInitiatives && canWrite
         ? [{ id: 'action:new-initiative', kind: 'action' as PaletteKind, label: 'New initiative', hint: 'Add an initiative to this board', keywords: 'create outcome', run: onNewInitiative }]
         : []),
-      ...(editMode || !canDesign
+      ...(editMode || !canDesign || !canDesignBoard(boards.find((b) => b.id === boardId))
         ? []
         : [{ id: 'action:edit', kind: 'action' as PaletteKind, label: 'Edit board design', hint: 'Split, add, rename and delete lanes; add a cards flow', keywords: 'lanes columns rows wip', run: beginEdit }]),
       { id: 'action:filters', kind: 'action', label: 'Filters', hint: 'Narrow the cards shown on this board, across every flow', keywords: 'find narrow', run: toggleFilters },
       { id: 'action:shortcuts', kind: 'action', label: 'Keyboard shortcuts', hint: 'Every key path in the app', keywords: 'keys help ? reference', run: openShortcuts },
       ...(canSettings
-        ? [{ id: 'action:settings', kind: 'action' as PaletteKind, label: 'Board settings', hint: 'Band, WIP enforcement, default drop cell', keywords: 'configure', run: toggleBoardSettings }]
+        ? [{
+            id: 'action:settings',
+            kind: 'action' as PaletteKind,
+            label: 'Board settings',
+            // A portfolio's settings are its title, band and links: there is no WIP or landing cell there.
+            hint: isPortfolio(boards.find((b) => b.id === boardId))
+              ? 'Title, flight level and linked boards'
+              : 'Band, WIP enforcement, default drop cell',
+            keywords: 'configure',
+            run: toggleBoardSettings,
+          }]
         : []),
       { id: 'action:board', kind: 'action', label: 'Go to the board', hint: 'Leave whatever view is open', keywords: 'back home', run: setBoard },
       { id: 'action:dashboard', kind: 'action', label: 'Dashboard', hint: "This board's initiatives", keywords: 'summary overview', run: () => setDashboard(true) },
@@ -129,7 +142,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards }: Props
       { id: 'action:mywork', kind: 'action', label: 'My work', hint: 'Everything assigned to one person', keywords: 'mine assigned', run: () => setMyWork(true) },
       { id: 'action:boards', kind: 'action', label: 'All boards', hint: 'The board workspace', keywords: 'workspace switch', run: () => setBoards(true) },
     ],
-    [beginEdit, canDesign, canSettings, canWrite, editMode, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setTimeline, toggleBoardSettings, toggleFilters],
+    [addsInitiatives, beginEdit, boardId, boards, canDesign, canSettings, canWrite, editMode, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setTimeline, toggleBoardSettings, toggleFilters],
   )
 
   const liveBoards = boards.filter((b) => !b.archived)

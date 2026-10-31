@@ -42,6 +42,7 @@ const workspace: Workspace = {
   edges: [],
   links: [],
   objectives: [],
+  periods: [],
   keyResults: [],
   boardTemplates: [],
   savedFilters: [],

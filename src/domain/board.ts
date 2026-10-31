@@ -324,6 +324,50 @@ export function isAggregating(board: Board | undefined): boolean {
   return board?.band === 'program' || board?.band === 'portfolio'
 }
 
+/** A portfolio board — the strategy lens: objectives and the initiatives that serve them. */
+export function isPortfolio(board: Board | undefined): boolean {
+  return board?.band === 'portfolio'
+}
+
+/**
+ * Whether a board's design is a person's to edit — its lanes split, named, added and removed.
+ *
+ * A **team** board's cards flows are the team's own, and a **programme** board arranges its
+ * initiatives sections by hand, so both are designed. A **portfolio** is not: its shape is its
+ * objectives, made in the strategy map, and the sections beneath them are the organisation's
+ * standard reading rather than something a team reworks. Edit mode would have nothing to act on
+ * there, so it is not offered — and `beginEdit` refuses it, which is what keeps the toolbar, the
+ * palette and a `?edit` link from disagreeing.
+ */
+export function canDesignBoard(board: Board | undefined): boolean {
+  return !isPortfolio(board)
+}
+
+/**
+ * Whether the lineage **focus** lens is offered on this board.
+ *
+ * Focus dims a board to one initiative's line — what it rolls up to and what it is made of. A
+ * portfolio has no board of its own to dim: the initiatives it reads live on the programmes and
+ * teams below it, and the strategy map is already grouped by what the work is for. So opening an
+ * initiative there reads it without entering focus, and the lens is not offered.
+ */
+export function canFocusBoard(board: Board | undefined): boolean {
+  return !isPortfolio(board)
+}
+
+/**
+ * Whether a new initiative is made *here*.
+ *
+ * A team board's initiatives are how its cards roll up, and a programme board's are the outcomes it
+ * coordinates, so both make them. A **portfolio** does not: it is read for the initiatives that
+ * already exist, and **connects** one to an objective in the strategy map. So its toolbar has no
+ * **Initiative** button and the palette no **New initiative** verb, and `quickAddInitiative`
+ * refuses — the one seam both of them go through.
+ */
+export function canAddInitiative(board: Board | undefined): boolean {
+  return !isPortfolio(board)
+}
+
 /** Every board beneath this one in the aggregation graph (transitive, deduped). */
 export function descendantBoards(boards: Board[], boardId: string): Board[] {
   const out: Board[] = []
@@ -369,32 +413,61 @@ export function linkableBoards(boards: Board[], boardId: string): Board[] {
 }
 
 /* ------------------------------------------------------------------ *
- * Strategic initiatives — the only place OKRs attach
+ * Which initiatives serve an objective — the only place OKRs attach
  * ------------------------------------------------------------------ */
 
-/** What `isStrategicInitiative` needs to look at. */
-export interface StrategicCtx {
-  items: Item[]
-  placements: Placement[]
-  boards: Board[]
-  issueTypes: IssueType[]
+/**
+ * Whether an initiative can serve an objective: it is an Initiative, and it is a **root** — one
+ * with no decomposition parent.
+ *
+ * That is the rule that keeps progress honest. The decomposition is a single-parent forest, so the
+ * subtrees of two roots never overlap: mapping only roots makes an objective's completeness a
+ * partition of the work, each leaf counting toward at most one objective, and a mapped initiative's
+ * percentage is exactly its own rollup — the card and the map cannot disagree.
+ *
+ * A nested initiative is already part of the outcome above it. Linking it separately would either
+ * double-count that work (its parent is mapped too) or leave the parent's card and the objective
+ * reading different numbers (the work was counted elsewhere). So the link names the outcome, and a
+ * card is never mapped at all — it inherits its initiative's objective through the tree.
+ */
+export function canServeObjective(item: Item | undefined, graph: Graph, issueTypes: IssueType[]): boolean {
+  if (!item || item.archived || !isInitiativeItem(item, issueTypes)) return false
+  return decompositionParent(item.id, graph.edges) === undefined
 }
 
 /**
- * A strategic initiative is an ordinary Initiative placed on a portfolio-band
- * board. There is no flag or entity: "strategic" is *where it sits*.
+ * Every initiative that can serve an objective — the candidates a portfolio's strategy map and the
+ * Objectives view offer, wherever the board that carries them sits.
  */
-export function isStrategicInitiative(itemId: string, ctx: StrategicCtx): boolean {
-  const item = ctx.items.find((i) => i.id === itemId)
-  if (!item || item.typeId !== initiativeTypeId(ctx.issueTypes)) return false
-  return ctx.placements.some(
-    (p) => p.itemId === itemId && ctx.boards.find((b) => b.id === p.boardId)?.band === 'portfolio',
+export function objectiveInitiatives(graph: Graph, issueTypes: IssueType[]): Item[] {
+  // One pass over the edges rather than one `decompositionParent` walk per item: this list is read
+  // on every render of a portfolio surface, and a workspace of thousands of items pays for it.
+  const parented = new Set(
+    graph.edges.filter((edge) => edge.kind === 'decomposition').map((edge) => edge.to),
   )
+  return graph.items
+    .filter((item) => !item.archived && !parented.has(item.id) && isInitiativeItem(item, issueTypes))
+    .sort((a, b) => a.title.localeCompare(b.title))
 }
 
-/** Every strategic initiative in the graph. */
-export function strategicInitiatives(ctx: StrategicCtx): Item[] {
-  return ctx.items.filter((i) => isStrategicInitiative(i.id, ctx))
+/**
+ * The initiatives a **portfolio** board is read for.
+ *
+ * A team or programme board's population is its own initiatives flow (`boardInitiatives`). A
+ * portfolio holds no work of its own: its dashboard, timeline and gap list read what its strategy
+ * covers — the root outcomes in its remit (placed on it or on the boards beneath it) plus any root
+ * mapped to an objective, wherever that work lives.
+ */
+export function portfolioInitiatives(
+  graph: Graph,
+  boards: Board[],
+  boardId: string,
+  issueTypes: IssueType[],
+): Item[] {
+  const scope = new Set([boardId, ...descendantBoards(boards, boardId).map((board) => board.id)])
+  const inScope = new Set(graph.placements.filter((p) => scope.has(p.boardId)).map((p) => p.itemId))
+  const mapped = new Set(graph.edges.filter((edge) => edge.kind === 'attribution').map((edge) => edge.to))
+  return objectiveInitiatives(graph, issueTypes).filter((item) => mapped.has(item.id) || inScope.has(item.id))
 }
 
 /**
@@ -487,13 +560,15 @@ export function isInitiativeItem(item: Item | undefined, types: IssueType[]): bo
 /**
  * Would `setParent` accept this? One rule, so a drop preview and the store cannot disagree.
  *
- * A parent is always an initiative, and an item is never its own ancestor. The drawer's picker
- * excludes an item's descendants, which is why the ancestor rule could be left to the interface;
- * a drop target excludes nothing, so the rule has to live where both of them can read it.
+ * A parent is always an initiative, an item is never its own ancestor, and an **initiative that
+ * serves an objective stays a root** — giving it a parent would count its work under two outcomes
+ * and leave its own rollup disagreeing with the objective's percentage. The preview reads this too,
+ * so a mapped initiative's drop target does not light up.
  */
 export function canSetParent(childId: string, parentId: string, graph: Graph, issueTypes: IssueType[]): boolean {
   if (childId === parentId) return false
   if (!isInitiativeItem(graph.items.find((i) => i.id === parentId), issueTypes)) return false
+  if (graph.edges.some((edge) => edge.kind === 'attribution' && edge.to === childId)) return false
   return !descendants(childId, graph).includes(parentId)
 }
 

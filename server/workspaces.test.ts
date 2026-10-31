@@ -42,6 +42,7 @@ const SCOPED = [
   'edges',
   'links',
   'objectives',
+  'periods',
   'key_results',
   'board_templates',
 ]
@@ -59,6 +60,7 @@ const workspace = (): Workspace => ({
   edges: [],
   links: [],
   objectives: [],
+  periods: [],
   keyResults: [],
   boardTemplates: [],
   savedFilters: [],

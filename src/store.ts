@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, laneHoldsCards, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
-import { boardTags, canLinkBoard, canRetype, canSetParent, defaultDropLane, isAggregating, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, isStrategicInitiative, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
+import { boardTags, canDesignBoard, canFocusBoard, canLinkBoard, canRetype, canServeObjective, canSetParent, defaultDropLane, isAggregating, isPortfolio, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
 import { canPlaceInSection, decompositionParent, descendants, isComplete, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import {
   canRemoveFlow,
@@ -30,7 +30,7 @@ import { uid as makeUid } from '@/lib/utils'
 import type { ImportPlan } from '@/domain/import'
 import type { ViewName } from '@/lib/url'
 import { DEFAULT_FLOW_WINDOW, type FlowWindow } from '@/domain/flowWindow'
-import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
+import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Period, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -234,10 +234,13 @@ export interface Actions {
   /** Bulk actions over the multi-select group. */
   moveCardsToLane: (itemIds: string[], laneId: string) => void
   setItemsType: (itemIds: string[], typeId: string) => void
-  /** Add an assignee by full name to an item (creating the user if new). */
-  addAssignee: (itemId: string, name: string) => void
-  /** Add an assignee by full name to every listed item (creating the user if new). */
-  addItemsAssignee: (itemIds: string[], name: string) => void
+  /**
+   * Add an **existing** person to an item. A person is named by id, and an id the directory does
+   * not hold is refused: an item does not mint people, and an invitation is the way in.
+   */
+  addAssignee: (itemId: string, userId: string) => void
+  /** Add an existing person, by id, to every listed item. */
+  addItemsAssignee: (itemIds: string[], userId: string) => void
   /** Clear every assignee on the listed items. */
   clearItemsAssignees: (itemIds: string[]) => void
   /** Remove one assignee (by user id) from every listed item. */
@@ -262,9 +265,14 @@ export interface Actions {
   /** The initiative a card in the air would become a child of — see `dropTargetId`. */
   setDropTarget: (dropTargetId: string | null) => void
 
-  addObjective: (title: string, period: string) => void
+  addObjective: (title: string, periodId: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
   removeObjective: (id: string) => void
+  /** A new period, refused when the name is already taken (two periods called Q4 are one period). */
+  addPeriod: (name: string, start?: string, end?: string) => string | undefined
+  updatePeriod: (id: string, patch: Partial<Period>) => void
+  /** Removes a period only while no objective is committed for it — an objective never loses its window. */
+  removePeriod: (id: string) => void
   addKeyResult: (objectiveId: string, title: string) => void
   updateKeyResult: (id: string, patch: Partial<KeyResult>) => void
   removeKeyResult: (id: string) => void
@@ -598,7 +606,12 @@ function placeCard(
   const stage = effectiveStage(state.lanes, laneId)
   set({
     placements: state.placements.map((p) => {
-      if (p.id === moving.id) return { ...p, laneId, laneEnteredAt: Date.now(), rank: rankById.get(p.id) ?? 0 }
+      if (p.id === moving.id) {
+        // Arriving is entering a lane. A drop within the same lane is a position, not an arrival,
+        // so its age keeps running — the warning it earned does not disappear because it moved a
+        // few pixels.
+        return { ...p, laneId, ...(p.laneId === laneId ? {} : { laneEnteredAt: Date.now() }), rank: rankById.get(p.id) ?? 0 }
+      }
       return rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p
     }),
     // The Done stamp belongs to leaf work only: an initiative's completion is derived from the
@@ -824,16 +837,6 @@ export async function flushQueue(): Promise<void> {
   }
 }
 
-/** The first lane (target or ancestor) whose WIP limit a move would exceed. */
-/** Find a user by full name (case-insensitive), or create one. */
-function ensureUser(users: User[], name: string): { id: string; users: User[] } {
-  const trimmed = name.trim()
-  const existing = users.find((u) => u.name.toLowerCase() === trimmed.toLowerCase())
-  if (existing) return { id: existing.id, users }
-  const id = uid()
-  return { id, users: [...users, { id, name: trimmed }] }
-}
-
 /**
  * Whose changes these are: `meUserId`, where a plain helper can see it.
  *
@@ -1008,8 +1011,8 @@ const initialView: ViewState = {
  * - assignees became user ids backed by a `users` directory (v15);
  * - `Board.level` became `Board.band` (team/program/portfolio) and
  *   `teamBoardIds` became `linkedBoardIds` (v16/v17);
- * - OKRs attach only to strategic initiatives — attribution pointing lower down
- *   is dropped (v18).
+ * - OKRs attach only to root initiatives — a nested one inherits through the decomposition, and a
+ *   mapped initiative cannot be given a parent (v38).
  * Exported for testing.
  */
 export function migrateState(persisted: unknown): Partial<Store> {
@@ -1109,24 +1112,10 @@ export function migrateState(persisted: unknown): Partial<Store> {
     )
     p.users = users
   }
-  // v18: OKRs attach only to strategic initiatives (an Initiative on a portfolio
-  // board). Anything mapped lower down inherits through the decomposition instead,
-  // so those edges are dropped.
-  if (
-    Array.isArray(p.edges) &&
-    Array.isArray(p.items) &&
-    Array.isArray(p.placements) &&
-    Array.isArray(p.boards) &&
-    Array.isArray(p.issueTypes)
-  ) {
-    const ctx = {
-      items: p.items as Item[],
-      placements: p.placements as Placement[],
-      boards: p.boards as Board[],
-      issueTypes: p.issueTypes as IssueType[],
-    }
-    p.edges = (p.edges as Edge[]).filter((e) => e.kind !== 'attribution' || isStrategicInitiative(e.to, ctx))
-  }
+  // v18 used to drop attribution edges whose target was not a "strategic" initiative — one placed
+  // on a portfolio board. The rule is now "any root initiative, wherever it sits", so that filter
+  // is gone: an attribution to an initiative is valid wherever the initiative lives. The v12 rule
+  // above still refuses attributions to cards, which is a fact about the model, not about a board.
   // v19: `Board.derived` (the "rollup board" flag) is gone — a parent's status already
   // rolls up from the work beneath it, with no per-board mode. Drop the stale flag.
   if (Array.isArray(p.boards)) {
@@ -1299,6 +1288,39 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return typeof board.description === 'string' ? board : { ...board, description: '' }
     })
   }
+  // v38: a period is a record with a window of its own, and an objective names one. The label an
+  // objective used to carry ("FY26 Q4") becomes the first period of that name — with no dates,
+  // because nobody has told us its window and a date invented here would be a commitment on the
+  // wrong day. The objective's score goes with the change: completeness is read from the work
+  // below, and a number typed at the end of a period was a second answer to the same question.
+  type LegacyObjective = Omit<Objective, 'periodId' | 'status'> & {
+    periodId?: string
+    period?: string
+    score?: number
+    status: Objective['status'] | 'scored'
+  }
+  if (Array.isArray(p.objectives)) {
+    const periods: Period[] = Array.isArray(p.periods) ? (p.periods as Period[]) : []
+    const idOfName = (name: string): string => {
+      const label = name.trim() || 'Unnamed period'
+      const known = periods.find((period) => period.name.trim().toLowerCase() === label.toLowerCase())
+      if (known) return known.id
+      const id = uid()
+      periods.push({ id, name: label })
+      return id
+    }
+    p.objectives = (p.objectives as LegacyObjective[]).map((objective) => {
+      const { period, score: _score, ...rest } = objective
+      return {
+        ...rest,
+        periodId: objective.periodId ?? idOfName(period ?? ''),
+        status: objective.status === 'scored' ? 'reviewed' : objective.status,
+      }
+    })
+    p.periods = periods
+  } else if (!Array.isArray(p.periods)) {
+    p.periods = []
+  }
   return p as Partial<Store>
 }
 
@@ -1344,8 +1366,11 @@ const repository = chooseRepository()
  *
  * 37 is the same for templates: a template describes a set of cards flows, so an older one gains a
  * flow named "Cards" and every lane names it.
+ *
+ * 38 is the objective's period: a period is a record with a window (`periods`), an objective names
+ * one (`periodId`) instead of carrying a label, and the objective's `score` is gone.
  */
-export const PERSIST_VERSION = 37
+export const PERSIST_VERSION = 38
 /**
  * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
  * guess is not what a person's workspace gets.
@@ -1381,6 +1406,8 @@ export function persistedSlice(s: Store): Partial<Store> {
     edges: s.edges,
     links: s.links,
     objectives: s.objectives,
+    /** The windows objectives are committed for: workspace data, so it rides in the vocabulary. */
+    periods: s.periods,
     keyResults: s.keyResults,
     boardTemplates: s.boardTemplates,
     autoArchiveDays: s.autoArchiveDays,
@@ -1408,6 +1435,7 @@ export const WORKSPACE_KEYS = [
   'edges',
   'links',
   'objectives',
+  'periods',
   'keyResults',
   'boardTemplates',
   'autoArchiveDays',
@@ -1438,8 +1466,11 @@ export const useStore = create<Store>()(
       ...createSeed(),
       ...initialView,
 
-      selectBoard: (boardId) =>
-        // Objectives are a portfolio board's own surface, so opening another board leaves it.
+      selectBoard: (boardId) => {
+        // Objectives are a portfolio board's own surface, so opening another board leaves it. A
+        // portfolio also ends any focus: its outcomes live on the boards beneath it, and there is
+        // no board of its own to dim (see `canFocusBoard`).
+        const portfolio = !canFocusBoard(get().boards.find((b) => b.id === boardId))
         set({
           boardId,
           selectedItemId: null,
@@ -1454,20 +1485,26 @@ export const useStore = create<Store>()(
           boundaryId: null,
           multiSelect: [],
           cardMenu: null,
-                  dropTargetId: null,
-        }),
+          dropTargetId: null,
+          ...(portfolio ? { lensId: null } : {}),
+        })
+      },
       openItem: (selectedItemId, options) => {
         const s = get()
         const focus = options?.focus ?? true
+        // The selection is what sets focus — except on a portfolio, whose outcomes live on the
+        // boards beneath it: there is no board of its own to dim, so selecting one reads it without
+        // entering the lens (`canFocusBoard`).
+        const focusHere = focus && canFocusBoard(s.boards.find((b) => b.id === s.boardId))
         const opened = selectedItemId ? s.items.find((i) => i.id === selectedItemId) : undefined
-        // The selection is what sets focus. An initiative is read for its lineage — what it rolls
-        // up to and what it is made of — so opening one enters focus, wherever the click came
-        // from: the initiative card itself, a card's parent chip, the drawer's hierarchy, search.
-        // Opening an ordinary card ends it, and so does closing the selection.
+        // An initiative is read for its lineage — what it rolls up to and what it is made of — so
+        // opening one enters focus, wherever the click came from: the initiative card itself, a
+        // card's parent chip, the drawer's hierarchy, search. Opening an ordinary card ends it, and
+        // so does closing the selection.
         //
         // Re-opening the item that is already focused keeps it, so the selection that set the
         // focus does not blink it off and on again.
-        const lensId = !focus
+        const lensId = !focusHere
           ? null
           : opened && isInitiativeItem(opened, s.issueTypes)
             ? opened.id
@@ -1641,7 +1678,9 @@ export const useStore = create<Store>()(
             const rankOf = new Map(ordered.map((p, i) => [p.id, base + i]))
             return state.placements.map((p) => {
               if (p.boardId !== state.boardId || !ids.has(p.itemId)) return p
-              return { ...p, laneId, laneEnteredAt: Date.now(), rank: rankOf.get(p.id) ?? base }
+              // A card already in the target lane keeps the clock it has: a bulk reorder is not an
+              // arrival.
+              return { ...p, laneId, ...(p.laneId === laneId ? {} : { laneEnteredAt: Date.now() }), rank: rankOf.get(p.id) ?? base }
             })
           })(),
           // Keep the auto-archive clock in step with the target stage.
@@ -1673,24 +1712,24 @@ export const useStore = create<Store>()(
         })
       },
 
-      addAssignee: (itemId, name) => {
+      addAssignee: (itemId, userId) => {
         const state = get()
-        const { id, users } = ensureUser(state.users, name)
+        // An item does not mint people: the id has to be somebody this workspace already has.
+        if (!state.users.some((user) => user.id === userId)) return
         set({
-          users,
           items: writeItems(state, (i) =>
-            i.id === itemId && !(i.assignees ?? []).includes(id) ? { ...i, assignees: [...(i.assignees ?? []), id] } : i,
+            i.id === itemId && !(i.assignees ?? []).includes(userId) ? { ...i, assignees: [...(i.assignees ?? []), userId] } : i,
           ),
         })
       },
-      addItemsAssignee: (itemIds, name) => {
+      addItemsAssignee: (itemIds, userId) => {
         const state = get()
-        const { id, users } = ensureUser(state.users, name)
+        // The directory is the source of people; a bulk assignment cannot invent one either.
+        if (!state.users.some((user) => user.id === userId)) return
         const ids = new Set(itemIds)
         set({
-          users,
           items: writeItems(state, (i) =>
-            ids.has(i.id) && !(i.assignees ?? []).includes(id) ? { ...i, assignees: [...(i.assignees ?? []), id] } : i,
+            ids.has(i.id) && !(i.assignees ?? []).includes(userId) ? { ...i, assignees: [...(i.assignees ?? []), userId] } : i,
           ),
         })
       },
@@ -1762,6 +1801,10 @@ export const useStore = create<Store>()(
       beginEdit: () => {
         const s = get()
         if (s.editMode) return
+        // A portfolio has no design of its own to shape: its objectives are its shape, and they are
+        // made in the strategy map. Refused here rather than only hidden, so no entry point — the
+        // toolbar, the palette or a `?edit` link — can open an edit mode with nothing to act on.
+        if (!canDesignBoard(s.boards.find((b) => b.id === s.boardId))) return
         set({
           editMode: true,
           draft: {
@@ -1774,8 +1817,17 @@ export const useStore = create<Store>()(
         })
       },
       saveEdit: () => set({ editMode: false, draft: null }),
-      toggleLens: (id) => set({ lensId: get().lensId === id ? null : id }),
-      setLens: (id) => set({ lensId: id }),
+      toggleLens: (id) => {
+        // A portfolio has no board of its own to dim: its outcomes live elsewhere and its strategy
+        // map is already grouped by what the work is for.
+        if (!canFocusBoard(get().boards.find((b) => b.id === get().boardId))) return
+        set({ lensId: get().lensId === id ? null : id })
+      },
+      setLens: (id) => {
+        // Clearing is always allowed; setting one is not offered on a portfolio.
+        if (id && !canFocusBoard(get().boards.find((b) => b.id === get().boardId))) return
+        set({ lensId: id })
+      },
       clearLens: () => set({ lensId: null }),
       toggleBoardSettings: () => set({ showBoardSettings: !get().showBoardSettings }),
       setMyWork: (v) =>
@@ -1793,7 +1845,7 @@ export const useStore = create<Store>()(
        */
       setObjectives: (v) => {
         const board = get().boards.find((b) => b.id === get().boardId)
-        if (v && board?.band !== 'portfolio') return
+        if (v && !isPortfolio(board)) return
         set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) })
       },
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
@@ -1864,8 +1916,31 @@ export const useStore = create<Store>()(
             : {}),
         }),
 
-      addObjective: (title, period) =>
-        set({ objectives: [...get().objectives, { id: uid(), title, period, status: 'active' }] }),
+      addPeriod: (name, start, end) => {
+        const state = get()
+        const label = name.trim()
+        // Two periods called "Q4" would be two windows a reader cannot tell apart in a select.
+        if (!label || state.periods.some((p) => p.name.trim().toLowerCase() === label.toLowerCase())) return undefined
+        const id = uid()
+        set({
+          periods: [
+            ...state.periods,
+            { id, name: label, ...(start ? { start } : {}), ...(end ? { end } : {}) },
+          ],
+        })
+        return id
+      },
+      updatePeriod: (id, patch) =>
+        set({ periods: get().periods.map((p) => (p.id === id ? { ...p, ...patch } : p)) }),
+      removePeriod: (id) => {
+        const state = get()
+        // A period retires with its last objective: an objective never loses the window it is
+        // committed for, and a period nobody is working for is just a leftover in a select.
+        if (state.objectives.some((o) => o.periodId === id)) return
+        set({ periods: state.periods.filter((p) => p.id !== id) })
+      },
+      addObjective: (title, periodId) =>
+        set({ objectives: [...get().objectives, { id: uid(), title, periodId, status: 'active' }] }),
       updateObjective: (id, patch) =>
         set({ objectives: get().objectives.map((o) => (o.id === id ? { ...o, ...patch } : o)) }),
       removeObjective: (id) =>
@@ -1918,6 +1993,7 @@ export const useStore = create<Store>()(
           edges: [],
           links: [],
           objectives: [],
+          periods: [],
           keyResults: [],
           boardTemplates: [],
           autoArchiveDays: undefined,
@@ -1999,6 +2075,7 @@ export const useStore = create<Store>()(
           edges: [],
           links: [],
           objectives: [],
+          periods: [],
           keyResults: [],
           savedFilters: [],
           collapsedLanes: {},
@@ -2068,7 +2145,7 @@ export const useStore = create<Store>()(
           boards: [...get().boards, board],
           flows: [...get().flows, ...cardsFlowsForBoard, initFlow],
           lanes: [...get().lanes, ...cardsRoots, initRoot, ...cards, ...initiatives],
-          ...(open ? { boardId, editMode: true } : {}),
+          ...(open ? { boardId, editMode: canDesignBoard(board) } : {}),
         })
       },
 
@@ -2251,7 +2328,6 @@ export const useStore = create<Store>()(
           items: [...state.items, ...items],
           placements: [...state.placements, ...placements],
           edges: [...state.edges, ...edges],
-          users: [...state.users, ...plan.people.filter((person) => !state.users.some((user) => user.id === person.id))],
         })
         return boardId
       },
@@ -2895,6 +2971,16 @@ export const useStore = create<Store>()(
         const after = parentId && canSetParent(childId, parentId, state, state.issueTypes) ? parentId : undefined
         const child = state.items.find((i) => i.id === childId)?.title ?? 'The item'
         const target = state.items.find((i) => i.id === parentId)?.title ?? 'that item'
+        // A mapped initiative is a root by rule: its leaves are the objective's work, and giving it
+        // a parent would count the same work under another outcome — and leave the initiative's own
+        // rollup and the objective's percentage disagreeing. Refused rather than corrected: unmap it
+        // first if the work really belongs to the other outcome.
+        const serves = state.edges.find((e) => e.kind === 'attribution' && e.to === childId)
+        if (parentId && serves) {
+          const objective = state.objectives.find((o) => o.id === serves.from)?.title ?? 'an objective'
+          announce(`${child} serves ${objective}: detach it from that objective before rolling it up to ${target}.`)
+          return
+        }
         if (parentId && !after) {
           announce(`${child} cannot roll up to ${target}: a parent must be an initiative, and nothing can be its own ancestor.`)
           return
@@ -3006,9 +3092,10 @@ export const useStore = create<Store>()(
 
       setAttribution: (itemId, objectiveId, on) => {
         const state = get()
-        // OKRs attach to strategic initiatives only — an Initiative placed on a
-        // portfolio-band board. Everything below inherits through the decomposition.
-        if (on && !isStrategicInitiative(itemId, state)) return
+        // Only a root initiative can serve an objective: its subtree is then the objective's work,
+        // and roots never overlap. A nested initiative inherits its parent's objective through the
+        // decomposition, and a card is never mapped at all.
+        if (on && !canServeObjective(state.items.find((i) => i.id === itemId), state, state.issueTypes)) return
         const serves = state.edges.filter((e) => e.kind === 'attribution' && e.to === itemId)
         if (!on) {
           set({ edges: state.edges.filter((e) => !(e.kind === 'attribution' && e.from === objectiveId && e.to === itemId)) })

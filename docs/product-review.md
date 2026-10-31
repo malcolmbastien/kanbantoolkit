@@ -46,8 +46,9 @@ The board itself is mature. The gaps are mostly at its **edges**:
 4. **Reading dependencies.** Dependencies exist per card, health rolls up "waiting", and the
    boundary band shows external links. There is no map of what depends on what across teams, and
    creating a cross-board link is not a prominent path.
-5. **Reviewing the portfolio over time.** Objectives carry a score and coverage is visible, but
-   there is no period-over-period review or trend; the score is a number without a history.
+5. **Reviewing the portfolio over time.** Objectives are committed for a period with a window, and
+   coverage is visible, but there is no period-over-period review or trend: a period's state is not
+   kept when the next one begins.
 6. **Using it on a phone.** The static build is not installable and has no offline shell; the board
    is usable but not designed for a phone first.
 7. **Technical headroom.** The first download is at 166.9 KB of a 167 KB budget, and any new
@@ -74,8 +75,8 @@ The board itself is mature. The gaps are mostly at its **edges**:
 | --- | --- | --- | --- |
 | **C1** | **Dependencies, end to end.** A cross-board dependency map, plus a proper "link work from another board" picker in the card panel. | The product promises "what depends on what". Today it is per-card links, a health count and a read-only boundary band. No new model is needed — the links and states already exist. | M |
 | **C2** | **Comment threads and @mentions** on an item, with the person mentioned in the activity. | Notes are flat and easy to miss. This is the collaboration gap between a board and the chat tool a team already uses. | M |
-| **C3** | **Portfolio risk and coverage heatmap.** Objectives by period, coverage, the health of the initiatives serving them, and target dates, in one reading. | The strategy map shows what serves what; a leadership review also needs to see where the risk is concentrated. All derived. | M |
-| **C4** | **A period review for OKRs.** Freeze a period's scores and notes, so the next period can be read against the last. | The score exists but has no history. Do not reintroduce a typed percentage of progress; store the score and the review note only. | M |
+| **C3** | **Portfolio risk and coverage heatmap.** Objectives by period, the period's window, coverage and the health of the initiatives serving them, in one reading. | The strategy map shows what serves what; a leadership review also needs to see where the risk is concentrated. All derived. | M |
+| **C4** | **A period review for OKRs.** Freeze a period's notes and the state of its work, so the next period can be read against the last. | A period has a window but no review record yet. Do not reintroduce a typed percentage or a grade: completeness comes from the work below. | M |
 | **C5** | **CSV import with a mapping step.** Board, column, title, type, assignees, dates. | The first day of a real team is a spreadsheet. JSON import is for a whole workspace, not a team arriving with a backlog. | M |
 | **C6** | **Outbound webhooks.** Signed events for item created/moved/blocked, initiative health changed, objective mapped. | One event layer enables Slack/Teams/CI integrations without building chat. It also gives self-hosters a supported automation seam. | M |
 | **C7** | **Backup and restore from Admin**, for an instance administrator. | The CLI works, but a self-hoster should not have to read a backup guide to take a copy. Keep restore guarded and explicit. | M |

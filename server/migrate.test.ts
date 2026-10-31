@@ -89,6 +89,42 @@ describe('the server schema', () => {
     })
   })
 
+  it('turns an objective’s period label into a period record, and drops the score', async () => {
+    const raw = new DatabaseSync(':memory:')
+    for (const migration of all.filter((candidate) => candidate.version < 36)) raw.exec(migration.sql)
+    raw.exec(`
+      INSERT INTO objectives (id, title, period, status, score, workspace_id) VALUES
+        ('o-1', 'Grow', 'FY26 Q4', 'scored', 0.7, 'workspace'),
+        ('o-2', 'Ship', 'FY26 Q4', 'active', NULL, 'workspace'),
+        ('o-3', 'Later', 'FY27 Q1', 'active', 45, 'workspace');
+    `)
+
+    const db = fromSqlite(raw)
+    await migrate(db, all)
+
+    // A label was one period, not one per objective: both quarters are made once, with no window.
+    const periods = await db.all<{ id: string; name: string; start: string | null; end: string | null }>(
+      'SELECT id, name, start, end FROM periods ORDER BY name',
+    )
+    expect(periods.map((period) => [period.name, period.start, period.end])).toEqual([
+      ['FY26 Q4', null, null],
+      ['FY27 Q1', null, null],
+    ])
+
+    const objectives = await db.all<{ id: string; period_id: string; status: string }>(
+      'SELECT id, period_id, status FROM objectives ORDER BY id',
+    )
+    expect(objectives[0].period_id).toBe(objectives[1].period_id)
+    expect(objectives[0].period_id).toBe(periods[0].id)
+    expect(objectives[2].period_id).toBe(periods[1].id)
+    // `scored` was the old word for a reviewed objective; the score itself is gone.
+    expect(objectives[0].status).toBe('reviewed')
+
+    const columns = (await db.all<{ name: string }>('PRAGMA table_info(objectives)')).map((column) => column.name)
+    expect(columns).not.toContain('score')
+    expect(columns).not.toContain('period')
+  })
+
   it('takes the bill away and keeps the workspace it belonged to', async () => {
     const raw = new DatabaseSync(':memory:')
     // A database from before task 166: the workspace carries an owner and a billing record.

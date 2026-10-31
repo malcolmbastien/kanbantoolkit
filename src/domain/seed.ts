@@ -1,6 +1,6 @@
 import { STAGES, STAGE_LABELS } from './lanes'
 import { demoWorkspace } from './demo'
-import type { Edge, FlowState, Item, ItemLink, ItemLogEntry, Lane, Objective, Placement, Stage } from './types'
+import type { Edge, FlowState, Item, ItemLink, ItemLogEntry, Lane, Objective, Period, Placement, Stage } from './types'
 
 export { BUILT_IN_TEMPLATES } from './demo'
 
@@ -21,8 +21,8 @@ export { BUILT_IN_TEMPLATES } from './demo'
  * - **Two cards are blocked**, one of them in Backlog — blocked work that nobody has picked up.
  * - **Some work is stale, some is unowned, one initiative has nothing under it yet**, so the health
  *   column is not a row of identical green badges.
- * - **One strategic initiative serves no OKR, and one objective is served by nothing**, which is
- *   what the coverage gaps on the strategy map are for.
+ * - **Two root outcomes serve no OKR, and one objective is served by nothing**, which is what the
+ *   coverage gaps on the strategy map are for.
  *
  * Everything else is meant to read like a company that is doing fine: a queue, work in flight,
  * things delivered and filed away, and a history old enough that Flow has a shape.
@@ -39,23 +39,18 @@ const ago = (n: number) => T - n * DAY
 const day = (n: number) => new Date(T + n * DAY).toISOString().slice(0, 10)
 
 export function createSeed(): FlowState {
-  const { users, issueTypes, boards, flows, lanes, boardTemplates, st, lob, del, p, a, n } = demoWorkspace()
+  const { users, issueTypes, boards, flows, lanes, boardTemplates, lob, del, p, a, n } = demoWorkspace()
 
   // A board's own vocabulary for its initiatives — deliberately per board, and deliberately not
-  // everywhere: the strategic board says what kind of bet each initiative is, the value stream
-  // says how the work is shaped, and the two team boards have none at all, which is what "None is
-  // the only option" looks like in practice.
+  // everywhere: the value stream says how the work is shaped, and the two team boards have none at
+  // all, which is what "None is the only option" looks like in practice. A portfolio defines none:
+  // it holds no initiatives of its own, so it has no vocabulary for them.
   const kindsFor = (boardId: string, defs: [string, string][]) => {
     const made = defs.map(([name, color]) => ({ id: `kind-${boardId}-${name.toLowerCase()}`, name, color }))
     const board = boards.find((b) => b.id === boardId)!
     board.initiativeTypes = made
     return new Map(made.map((k) => [k.name, k.id]))
   }
-  const strategyKinds = kindsFor('b-strategy', [
-    ['Bet', '#8b5cf6'],
-    ['Programme', '#0ea5e9'],
-    ['Experiment', '#f59e0b'],
-  ])
   const streamKinds = kindsFor('b-portfolio', [
     ['Workstream', '#0ea5e9'],
     ['Enabler', '#64748b'],
@@ -151,7 +146,7 @@ export function createSeed(): FlowState {
 
   /* ---------------------------------------------------------------- *
    * The strategy, the line of business and delivery — the top of the
-   * chain. OKRs attach to the strategic initiatives; everything below
+   * chain. Objectives attach to the root outcomes; everything below
    * inherits through the decomposition.
    * ---------------------------------------------------------------- */
 
@@ -410,12 +405,12 @@ export function createSeed(): FlowState {
    * Placements — the work above, in the cells of each board's own flow.
    * ---------------------------------------------------------------- */
 
-  // Company Strategy: strategic initiatives, in the section their rollup names.
-  place('init-revenue', 'b-strategy', st.init.ip.id)
-  place('init-margin', 'b-strategy', st.init.ip.id)
-  place('init-trust', 'b-strategy', st.init.ip.id)
+  // Company Strategy holds no initiatives of its own: its strategy map reads the outcomes below,
+  // which live on the programme boards that own them and are linked to objectives by attribution.
 
-  // Digital line of business.
+  // Digital line of business — the two commercial outcomes, and the programmes under them.
+  place('init-revenue', 'b-lob', lob.init.ip.id)
+  place('init-margin', 'b-lob', lob.init.ip.id)
   place('init-selfserve', 'b-lob', lob.init.ip.id)
   place('init-consolidation', 'b-lob', lob.init.ip.id)
 
@@ -423,7 +418,8 @@ export function createSeed(): FlowState {
   place('init-checkout', 'b-delivery', del.init.ip.id)
   place('init-data', 'b-delivery', del.init.ip.id)
 
-  // Growth value stream — where the teams' outcomes are coordinated.
+  // Growth value stream — the trust outcome, and the teams' outcomes it coordinates.
+  place('init-trust', 'b-portfolio', p.init.ip.id)
   place('init-journey', 'b-portfolio', p.init.ip.id)
   place('init-reliability', 'b-portfolio', p.init.ip.id)
   place('init-sso', 'b-portfolio', p.init.ip.id)
@@ -452,9 +448,6 @@ export function createSeed(): FlowState {
   }
   // Only where the board has kinds: a label belongs to the board that owns the outcome, so the
   // line of business and the delivery bridge — which have none — stay plain.
-  kindOf('init-revenue', strategyKinds.get('Bet'))
-  kindOf('init-trust', strategyKinds.get('Bet'))
-  kindOf('init-margin', strategyKinds.get('Programme'))
   kindOf('init-journey', streamKinds.get('Workstream'))
   kindOf('init-reliability', streamKinds.get('Workstream'))
   kindOf('init-sso', streamKinds.get('Workstream'))
@@ -483,16 +476,19 @@ export function createSeed(): FlowState {
 
   /* ---------------------------------------------------------------- *
    * Objectives & Key Results — commitment-limited, never in columns.
-   * OKRs attach to *strategic* initiatives only, and everything below
+   * An objective attaches to a root initiative; everything below it
    * inherits through the decomposition.
    * ---------------------------------------------------------------- */
 
+  const periods: Period[] = [
+    { id: 'p-fy26-q4', name: 'FY26 Q4', start: '2026-10-01', end: '2026-12-31' },
+  ]
   const objectives: Objective[] = [
-    { id: 'obj-activation', title: 'Grow activation', period: 'FY26 Q4', status: 'active', score: 45 },
-    { id: 'obj-efficiency', title: 'Reduce cost to serve', period: 'FY26 Q4', status: 'active' },
-    // Deliberately unserved: no strategic initiative carries it, which is one of the two gaps
+    { id: 'obj-activation', title: 'Grow activation', periodId: 'p-fy26-q4', status: 'active' },
+    { id: 'obj-efficiency', title: 'Reduce cost to serve', periodId: 'p-fy26-q4', status: 'active' },
+    // Deliberately unserved: no initiative carries it, which is one of the two gaps
     // the strategy map exists to show.
-    { id: 'obj-reliability', title: 'Improve reliability', period: 'FY26 Q4', status: 'active' },
+    { id: 'obj-reliability', title: 'Improve reliability', periodId: 'p-fy26-q4', status: 'active' },
   ]
   const keyResults = [
     { id: 'kr-completion', objectiveId: 'obj-activation', title: 'Signup completion 85%' },
@@ -517,6 +513,7 @@ export function createSeed(): FlowState {
     edges,
     links,
     objectives,
+    periods,
     keyResults,
     boardTemplates,
   }

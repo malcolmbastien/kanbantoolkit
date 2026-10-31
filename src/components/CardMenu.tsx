@@ -25,8 +25,8 @@ import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isI
 import { decompositionParent, isComplete } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
-import { initialsOf } from '@/domain/users'
 import { cn } from '@/lib/utils'
+import { PersonAvatar } from './PersonAvatar'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
 import { cardsFlows } from '@/domain/flows'
@@ -326,32 +326,12 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
               <input
                 type="checkbox"
                 checked={assigneeAllHave(u.id)}
-                onChange={(e) => (e.target.checked ? addItemsAssignee(itemIds, u.name) : removeItemsAssignee(itemIds, u.id))}
+                onChange={(e) => (e.target.checked ? addItemsAssignee(itemIds, u.id) : removeItemsAssignee(itemIds, u.id))}
               />
-              <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-700 text-micro font-bold text-white">
-                {initialsOf(u.name)}
-              </span>
+              <PersonAvatar user={u} small />
               <span className="flex-1">{u.name}</span>
             </label>
           ))}
-          <div className="flex items-center gap-1 px-2.5 py-1">
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && draft.trim()) run(() => addItemsAssignee(itemIds, draft))
-              }}
-              placeholder="new person…"
-              className={FIELD}
-            />
-            <button
-              disabled={!draft.trim()}
-              onClick={() => run(() => addItemsAssignee(itemIds, draft))}
-              className="rounded bg-slate-800 px-2 py-1 text-meta font-medium text-white disabled:opacity-40"
-            >
-              Add
-            </button>
-          </div>
         </>,
       )
     }

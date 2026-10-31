@@ -60,7 +60,7 @@ tightens every token its holder has, with nothing to revoke.
 | `items:comment` | notes on cards |
 | `boards:write` | creating and reshaping boards, within the role |
 | `items:write` | creating, changing and moving cards and initiatives |
-| `objectives:write` | objectives and key results |
+| `objectives:write` | periods, objectives and key results |
 | `workspace:admin` | settings, people, import and export |
 
 A route that needs a scope your token does not have answers `403 scope_required` with the scope in
@@ -78,8 +78,8 @@ difference is worth reading: the first is the token you chose, the second is the
 | `POST /items` | `items:write` | create a card or an initiative and place it |
 | `PATCH /items/{itemId}` | `items:write` | change its fields; `baseRev` is required |
 | `POST /boards/{boardId}/items/{itemId}/move` | `items:write` | move it into a cell, at a position |
-| `GET /objectives` | `objectives:write` | objectives with their completeness and key results |
-| `POST /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | map a strategic initiative to an objective; one objective per initiative, so this moves it |
+| `GET /objectives` | `objectives:write` | objectives with their period window, completeness and key results |
+| `POST /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | map a top-level initiative to an objective; one objective per initiative, so this moves it |
 | `DELETE /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | unmap it |
 | `GET /vocabulary` | `boards:read` | issue types, board templates, objectives, key results and the auto-archive policy, with `rev` |
 | `PUT /vocabulary` | `boards:read`, then per list | replace the whole vocabulary; requires `rev`, and a list the token's scopes or the role do not allow refuses the document |

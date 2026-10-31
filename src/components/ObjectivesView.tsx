@@ -1,17 +1,21 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, Target, Trash2, TriangleAlert, X } from 'lucide-react'
-import { isStrategicInitiative } from '@/domain/board'
+import { objectiveInitiatives } from '@/domain/board'
 import { objectiveRollup, rollupOf, type Graph } from '@/domain/derive'
+import { periodsInOrder } from '@/domain/periods'
+import { periodRangeLabel } from '@/lib/periodRange'
 import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { VocabularySaveError } from './VocabularySaveError'
+import { InitiativePicker } from './InitiativePicker'
 import type { IssueType, Item, Objective } from '@/domain/types'
 
 const COMMITMENT_LIMIT = 5 // "3–5 objectives" is a commitment limit, not a WIP limit
 
 export function ObjectivesView() {
   const objectives = useStore((s) => s.objectives)
+  const periods = useStore((s) => s.periods)
   const keyResults = useStore((s) => s.keyResults)
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
@@ -23,6 +27,9 @@ export function ObjectivesView() {
   const addObjective = useStore((s) => s.addObjective)
   const updateObjective = useStore((s) => s.updateObjective)
   const removeObjective = useStore((s) => s.removeObjective)
+  const addPeriod = useStore((s) => s.addPeriod)
+  const updatePeriod = useStore((s) => s.updatePeriod)
+  const removePeriod = useStore((s) => s.removePeriod)
   const addKeyResult = useStore((s) => s.addKeyResult)
   const updateKeyResult = useStore((s) => s.updateKeyResult)
   const removeKeyResult = useStore((s) => s.removeKeyResult)
@@ -32,45 +39,60 @@ export function ObjectivesView() {
   const graph: Graph = { items, edges, links, placements, lanes }
   const typeOf = (id: string): IssueType => issueTypes.find((t) => t.id === id) ?? { id, name: 'Item', color: '#64748b' }
 
-  const periods = [...new Set(objectives.map((o) => o.period))]
-  const [period, setPeriod] = useState(periods[0] ?? 'FY26 Q1')
-  // A period is the label on an objective, not a record of its own: typing a new one and adding an
-  // objective is how it comes into being. The field filters the list and names the period the next
-  // objective will join.
-  const periodName = period.trim()
-  const shown = objectives.filter((o) => o.period === periodName)
-  // A period not in the list is one just named and waiting for its first objective; it stays
-  // visible in the select so the reader can see which period the next objective will join.
-  const periodOptions = periodName && !periods.includes(periodName) ? [...periods, periodName] : periods
+  // A period is a record with a window, so the view selects one by id and shows the window it is
+  // committed in. Objectives are filtered by it — the list is one period at a time, which is what
+  // makes "3–5 objectives" a commitment limit rather than a display choice.
+  const ordered = periodsInOrder(periods)
+  const [periodId, setPeriodId] = useState(ordered[0]?.id ?? '')
+  const selected = ordered.find((p) => p.id === periodId)
+  const shown = objectives.filter((o) => o.periodId === periodId)
+  // A period can be removed — by this view, or by somebody else — while it is selected. The view
+  // falls to the first period rather than showing an empty list under a window nobody has.
+  useEffect(() => {
+    if (periodId && !periods.some((p) => p.id === periodId)) setPeriodId(periodsInOrder(periods)[0]?.id ?? '')
+  }, [periodId, periods])
   const [newPeriodOpen, setNewPeriodOpen] = useState(false)
   const [newPeriod, setNewPeriod] = useState('')
+  const [newPeriodStart, setNewPeriodStart] = useState('')
+  const [newPeriodEnd, setNewPeriodEnd] = useState('')
+  const [periodError, setPeriodError] = useState('')
   const objectiveTitle = useRef<HTMLInputElement>(null)
 
   const createPeriod = () => {
     const name = newPeriod.trim()
     if (!name) return
-    setPeriod(name)
+    const id = addPeriod(name, newPeriodStart || undefined, newPeriodEnd || undefined)
+    if (!id) {
+      setPeriodError('A period with that name already exists.')
+      return
+    }
+    setPeriodId(id)
     setNewPeriodOpen(false)
     setNewPeriod('')
+    setNewPeriodStart('')
+    setNewPeriodEnd('')
+    setPeriodError('')
     // The empty state is already saying what to do; put the caret where it belongs.
     requestAnimationFrame(() => objectiveTitle.current?.focus())
   }
 
   const [newTitle, setNewTitle] = useState('')
   const [krDraft, setKrDraft] = useState<Record<string, string>>({})
-  const [attrPick, setAttrPick] = useState<Record<string, string>>({})
 
-  // OKRs attach to strategic initiatives only — an Initiative on a portfolio board.
-  const strategicCtx = { items, placements, boards, issueTypes }
-  const initiatives = items
-    .filter((i) => isStrategicInitiative(i.id, strategicCtx))
-    .sort((a, b) => a.title.localeCompare(b.title))
+  // An objective is served by root initiatives — any board's, not only one placed here. A nested
+  // initiative inherits its parent's objective, and a card is never mapped.
+  const initiatives = objectiveInitiatives(graph, issueTypes)
+  /** The board an initiative is carried by, said beside it because the work may live anywhere. */
+  const boardNameOf = (itemId: string): string | undefined => {
+    const placement = placements.find((p) => p.itemId === itemId)
+    return placement ? boards.find((b) => b.id === placement.boardId)?.name : undefined
+  }
 
   const attributedItems = (objectiveId: string): Item[] =>
     edges
       .filter((e) => e.kind === 'attribution' && e.from === objectiveId)
       .map((e) => items.find((i) => i.id === e.to))
-      .filter((i): i is Item => i !== undefined && isStrategicInitiative(i.id, strategicCtx))
+      .filter((i): i is Item => i !== undefined && !i.archived)
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
@@ -93,7 +115,7 @@ export function ObjectivesView() {
               )}
             </div>
             <div className="text-meta text-slate-600">
-              What the work is for: each objective carries the key results that say what it means, and the strategic initiatives that serve it. The completeness comes from the work below those initiatives, never from a number typed in. Mapping one here is attribution — it never counts as WIP.
+              What the work is for: each objective carries the key results that say what it means, and the initiatives mapped to it. The completeness comes from the work below those initiatives, never from a number typed in. Mapping one here is attribution — it never counts as WIP.
             </div>
           </div>
 
@@ -102,25 +124,77 @@ export function ObjectivesView() {
               Period
               <select
                 aria-label="Period"
-                value={periodName}
-                onChange={(e) => setPeriod(e.target.value)}
-                className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300"
+                value={periodId}
+                onChange={(e) => setPeriodId(e.target.value)}
+                disabled={ordered.length === 0}
+                className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
               >
-                {periodOptions.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
+                {ordered.length === 0 && <option value="">No periods yet</option>}
+                {ordered.map((p) => {
+                  const range = periodRangeLabel(p)
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {range ? `${p.name} · ${range}` : p.name}
+                    </option>
+                  )
+                })}
               </select>
             </label>
+
+            {/* The window belongs to the period, not to an objective: set it once here and every
+                objective committed for it is due at the same time. */}
+            <div className="flex items-end gap-1.5">
+              <label className="flex flex-col gap-0.5 text-micro font-medium text-slate-600">
+                Starts
+                <input
+                  type="date"
+                  aria-label="Period start"
+                  value={selected?.start ?? ''}
+                  disabled={!selected}
+                  onChange={(e) => selected && updatePeriod(selected.id, { start: e.target.value || undefined })}
+                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
+                />
+              </label>
+              <span className="pb-1.5 text-slate-400" aria-hidden="true">–</span>
+              <label className="flex flex-col gap-0.5 text-micro font-medium text-slate-600">
+                Ends
+                <input
+                  type="date"
+                  aria-label="Period end"
+                  value={selected?.end ?? ''}
+                  disabled={!selected}
+                  onChange={(e) => selected && updatePeriod(selected.id, { end: e.target.value || undefined })}
+                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
+                />
+              </label>
+            </div>
+
             <button
               type="button"
-              onClick={() => setNewPeriodOpen((open) => !open)}
+              onClick={() => {
+                setNewPeriodOpen((open) => !open)
+                setPeriodError('')
+              }}
               className="flex items-center gap-1 rounded-md border border-violet-300 bg-white px-2 py-1 text-meta font-medium text-violet-700 transition hover:bg-violet-50"
-              title="Name a new period, then add its first objective"
+              title="Name a new period and set its window, then add its first objective"
             >
               <Plus size={12} /> New period
             </button>
+
+            {selected && shown.length === 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  removePeriod(selected.id)
+                  setPeriodId(ordered.find((p) => p.id !== selected.id)?.id ?? '')
+                }}
+                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-rose-300 hover:text-rose-600"
+                title={`Delete ${selected.name} — offered only while no objective is committed for it`}
+              >
+                <Trash2 size={12} /> Delete period
+              </button>
+            )}
+
             <div className="flex items-center gap-1">
               <input
                 ref={objectiveTitle}
@@ -128,18 +202,18 @@ export function ObjectivesView() {
                 onChange={(e) => setNewTitle(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key !== 'Enter' || newTitle.trim().length < 2) return
-                  if (!periodName) return
-                  addObjective(newTitle.trim(), periodName)
+                  if (!periodId) return
+                  addObjective(newTitle.trim(), periodId)
                   setNewTitle('')
                 }}
-                placeholder={`New objective in ${periodName || 'a period'}…`}
+                placeholder={`New objective in ${selected?.name ?? 'a period'}…`}
                 className="w-48 rounded border border-slate-200 bg-white px-2 py-1 text-meta text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300"
               />
               <button
-                disabled={!periodName || newTitle.trim().length < 2}
+                disabled={!periodId || newTitle.trim().length < 2}
                 onClick={() => {
-                  if (!periodName) return
-                  addObjective(newTitle.trim(), periodName)
+                  if (!periodId) return
+                  addObjective(newTitle.trim(), periodId)
                   setNewTitle('')
                 }}
                 className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
@@ -166,10 +240,33 @@ export function ObjectivesView() {
                     if (e.key === 'Escape') {
                       setNewPeriodOpen(false)
                       setNewPeriod('')
+                      setNewPeriodStart('')
+                      setNewPeriodEnd('')
+                      setPeriodError('')
                     }
                   }}
                   placeholder="e.g. FY27 Q1"
                   className="w-40 rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5 text-micro font-medium text-slate-600">
+                Starts
+                <input
+                  type="date"
+                  aria-label="New period start"
+                  value={newPeriodStart}
+                  onChange={(e) => setNewPeriodStart(e.target.value)}
+                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5 text-micro font-medium text-slate-600">
+                Ends
+                <input
+                  type="date"
+                  aria-label="New period end"
+                  value={newPeriodEnd}
+                  onChange={(e) => setNewPeriodEnd(e.target.value)}
+                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-violet-300"
                 />
               </label>
               <button
@@ -185,27 +282,37 @@ export function ObjectivesView() {
                 onClick={() => {
                   setNewPeriodOpen(false)
                   setNewPeriod('')
+                  setNewPeriodStart('')
+                  setNewPeriodEnd('')
+                  setPeriodError('')
                 }}
                 className="rounded-md border border-slate-200 px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-slate-300"
               >
                 Cancel
               </button>
               <span className="text-micro text-slate-500">
-                A period is kept by its objectives; add the first one next.
+                The window is the objective's deadline: a period's work is due when it ends.
               </span>
+              {periodError && <span className="text-micro font-medium text-rose-700">{periodError}</span>}
             </div>
           )}
 
           {/* An objective or a key result that did not land says so where it was named. */}
           <div className="w-full">
-            <VocabularySaveError lists={['objectives', 'keyResults']} />
+            <VocabularySaveError lists={['periods', 'objectives', 'keyResults']} />
           </div>
         </div>
 
         {shown.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
-            No objectives in {periodName || 'this period'} yet. Name one above and press{' '}
-            <span className="font-semibold text-slate-700">New objective</span>.
+            {ordered.length === 0 ? (
+              <>No periods yet. Name one above, set its window, then add its first objective.</>
+            ) : (
+              <>
+                No objectives in {selected?.name ?? 'this period'} yet. Name one above and press{' '}
+                <span className="font-semibold text-slate-700">New objective</span>.
+              </>
+            )}
           </div>
         )}
 
@@ -227,7 +334,7 @@ export function ObjectivesView() {
                     className={cn('rounded px-1 py-px text-micro font-semibold ring-1 outline-none', OBJECTIVE_STATUS_STYLES[o.status])}
                   >
                     <option value="active">active</option>
-                    <option value="scored">scored</option>
+                    <option value="reviewed">reviewed</option>
                   </select>
                   <button onClick={() => removeObjective(o.id)} className="text-slate-600 hover:text-rose-500" title="Delete objective">
                     <Trash2 size={13} />
@@ -255,25 +362,13 @@ export function ObjectivesView() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-meta text-amber-800">
-                        <TriangleAlert size={11} className="shrink-0" /> No strategic initiative serves this OKR.
+                        <TriangleAlert size={11} className="shrink-0" /> No initiative is mapped to this objective.
                       </div>
                     )
                   })()}
 
-                  {/* score */}
-                  <label className="flex items-center gap-2 text-slate-600">
-                    Score
-                    <input
-                      type="number" min={0} max={100}
-                      value={o.score ?? ''}
-                      onChange={(e) => updateObjective(o.id, { score: e.target.value === '' ? undefined : Number(e.target.value) })}
-                      className="w-16 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
-                    />
-                    <span className="text-slate-600">/ 100</span>
-                  </label>
-
                   {/* key results — what the objective means, in words. The number that says how
-                      far along it is comes from the work that serves it, below. */}
+                      far along it is comes from the work that serves it, above. */}
                   <div>
                     <div className="mb-1 text-micro font-bold uppercase tracking-wide text-slate-600">Key results</div>
                     <div className="space-y-1">
@@ -339,34 +434,17 @@ export function ObjectivesView() {
                         )
                       })}
                     </div>
-                    <div className="mt-1 flex items-center gap-1">
-                      <select
-                        value={attrPick[o.id] ?? ''}
-                        onChange={(e) => setAttrPick((p) => ({ ...p, [o.id]: e.target.value }))}
-                        className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
-                      >
-                        <option value="">Map an initiative…</option>
-                        {initiatives.map((i) => {
-                          // One objective per initiative: mapping one that already serves another
-                          // moves it, which the option says before it is chosen.
-                          const from = objectives.find((x) => x.id !== o.id && edges.some((e) => e.kind === 'attribution' && e.from === x.id && e.to === i.id))
-                          return (
-                            <option key={i.id} value={i.id}>
-                              {i.title}{from ? ` — moves from ${from.title}` : ''}
-                            </option>
-                          )
-                        })}
-                      </select>
-                      <button
-                        disabled={!attrPick[o.id]}
-                        onClick={() => {
-                          setAttribution(attrPick[o.id], o.id, true)
-                          setAttrPick((p) => ({ ...p, [o.id]: '' }))
-                        }}
-                        className="rounded bg-indigo-600 px-2 py-0.5 text-meta font-medium text-white disabled:opacity-40"
-                      >
-                        Map
-                      </button>
+                    <div className="mt-1">
+                      <InitiativePicker
+                        initiatives={initiatives.filter((i) => !work.some((w) => w.id === i.id))}
+                        boardOf={boardNameOf}
+                        movesFrom={(itemId) =>
+                          objectives.find(
+                            (x) => x.id !== o.id && edges.some((e) => e.kind === 'attribution' && e.from === x.id && e.to === itemId),
+                          )?.title
+                        }
+                        onPick={(itemId) => setAttribution(itemId, o.id, true)}
+                      />
                     </div>
                   </div>
                 </div>

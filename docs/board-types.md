@@ -6,7 +6,7 @@ initiatives roll up. Choose it when the board is made.
 
 | | Team | Programme | Portfolio |
 | --- | --- | --- | --- |
-| **What it holds** | Its team's cards, and the initiatives they roll up into | Its own initiatives, plus a band for each linked board | Objectives and the strategic initiatives that serve them |
+| **What it holds** | Its team's cards, and the initiatives they roll up into | Its own initiatives, plus a band for each linked board | Objectives and the initiatives mapped to them, wherever those live |
 | **What it shows** | Cards flows, the initiatives flow, dashboard, timeline, flow metrics, archive | The initiatives flow and bands of linked boards; dashboard and timeline | A strategy map: objectives, key results, coverage gaps |
 | **Cards** | Yes — a card belongs to a team board | No cards flow | No cards flow |
 | **Flow metrics** | Yes | Not offered | Not offered |
@@ -79,53 +79,70 @@ it in the board's own four-stage flow.*
 
 **Use it for**
 
-- An annual or quarterly strategy with a small set of objectives, each carrying the strategic
-  initiatives that serve it, reviewed for coverage and dropped work.
+- An annual or quarterly strategy with a small set of objectives, each carrying the initiatives
+  that serve it, reviewed for coverage and dropped work.
 - An investment review: what is being funded, what it is for, and where a stated objective has no
   initiative behind it.
 - A leadership board that connects outcomes to delivery without turning into a delivery board.
 
 **Not for:** tracking cards or team flow. Use the programme and team boards beneath it for that.
 
+**Its settings.** A portfolio board's settings are its title, its description, the fixed flight level
+and the boards it reads. It has none of the work-shaped settings a team board has — no card types, no
+initiative kinds, no tags, no cell for new cards to land in, no WIP policy and no template — because
+it holds no cards and arranges no lanes of its own.
+
 ### Using objectives on a portfolio board
 
 Open the portfolio board and choose **Objectives**. This is the only place objectives and key
 results are authored; they are not a global view.
 
-**Periods.** A period is a label on an objective, not a separate record, so there is no separate
-period screen to visit. Choose an existing period in **Period**, or press **New period**, name it
-(for example `FY27 Q1`) and press **Create period**. Then add the first objective; it joins that
-period. A period exists while an objective uses it, so an empty period is not kept after you leave
-the view: add its first objective before moving on. Periods are matched exactly, so keep one
-spelling — `FY26 Q4` and `fy26 q4` are two different periods.
+**Periods.** A period is a record with a name and the window it covers — not a label typed onto
+each objective. Choose one in **Period**, or press **New period**, name it (for example `FY27 Q1`)
+and give it a **Starts** and **Ends** date; its first objective joins it. The window belongs to the
+period, so setting it once is the deadline for every objective committed for it: an objective has
+no target date of its own. Set or change the dates beside the **Period** select at any time; a
+period can be deleted only while no objective is committed for it. Periods read in calendar order —
+start date, then name — and a period with no window yet sorts after the dated ones.
 
 **Add an objective.** With the period chosen, type the outcome beside **New objective** and press
 Enter or the button. The card's title is editable in place. Aim for three to five objectives in a
 period; the view warns above five, because the limit is a commitment rather than a capacity. Keep
-the status **active** while the period is running and move it to **scored** at the end; the score
-(0–100) is a person's grade of how the period went, and is separate from the completeness below.
+the status **active** while the period is running and move it to **reviewed** at the end. There is
+no score: the completeness read from the work below is the measure.
 
 **Key results.** Add the statements that say what the objective means. A key result is a line of
 text, not a number or a target: the objective's completeness is computed from the work below the
 initiatives that serve it, so there is no hand-entered percentage that can disagree with the work.
 
-**Connect an initiative.** A strategic initiative is an initiative placed on a portfolio board. Use
-**Map an initiative…** at the bottom of an objective card to attach one, then **Map**. An initiative
-serves one objective, so choosing one that already serves another moves it; the option says
-“moves from …” before you commit. Detach one with the × beside it. Mapping is attribution: it never
-counts as WIP, and it does not move a card.
+**Connect an initiative.** Any initiative that is a **top-level outcome** — one that is not part
+of another initiative — can be mapped to an objective, wherever its board sits: a team's own
+initiative, a programme's, or one placed on the portfolio. At the bottom of an objective card,
+**Map an initiative** opens a searchable list: type a title or a board to narrow it, and choose the
+outcome. The board it lives on is named beside each one. An initiative serves one objective, so
+choosing one that already serves another moves it; the row says “moves from …” before you commit.
+Detach one with the × beside it. Mapping is attribution: it never counts as WIP, and it does not
+move a card.
 
-**See the gaps.** The strategy map groups the portfolio's initiatives by the objective they serve,
-and shows both coverage gaps: an objective that nothing serves, and an initiative that serves
-nothing. An objective's completeness is the union of the leaves below its initiatives — each leaf
-once — and an objective nothing serves has no percentage at all, because there is no work to read.
+**Why only a top-level outcome.** An objective's completeness is the work below its mapped
+initiatives. A nested initiative inherits its parent's objective through the hierarchy, so mapping
+it as well would count the same work twice — or leave the parent's card and the objective reading
+different numbers. The rule keeps progress a partition: each piece of work counts toward exactly
+one objective, and a mapped initiative's percentage is its own rollup. An initiative that is
+already mapped cannot be rolled up under another; unmap it first if the work belongs elsewhere.
+
+**See the gaps.** The strategy map groups the initiatives mapped to each objective, wherever they
+live, and shows both coverage gaps: an objective that nothing serves, and a top-level initiative in
+the portfolio's remit — its own and those of the boards beneath it — that serves nothing. An
+objective's completeness is the union of the leaves below its initiatives — each leaf once — and an
+objective nothing serves has no percentage at all, because there is no work to read.
 
 **Read the risk.** Above the flows, **Portfolio at a glance** is one row per objective, grouped by
-period: how many initiatives serve it, its completeness, the health of those initiatives, the nearest
-target date and the open commitments already past it. The five readings — **No coverage**, **At
-risk**, **Overdue**, **Watch** and **On track** — are derived from the same rules the cards and the
-strategy map use, and every cell says its reading in words as well as colour. Choosing an objective
-takes you to its flow below; the heatmap is a way in, not a second report.
+period: the period's window, how many initiatives are mapped to it, its completeness and the health
+of those initiatives. The four readings — **No coverage**, **At risk**, **Watch** and **On track** —
+are derived from the same rules the cards and the strategy map use, and every cell says its reading
+in words as well as colour. Choosing an objective takes you to its flow below; the heatmap is a way
+in, not a second report.
 
 <img src="img/guide/portfolio-heatmap.webp" alt="Portfolio at a glance: three objectives by period with coverage, progress and health columns" width="1000">
 
@@ -151,9 +168,11 @@ and move or link the work there. Start at the level the work belongs to.
 ## A worked example
 
 A company runs one portfolio, **Company Strategy**, with objectives such as “Recurring revenue
-engine”. Beneath it, a programme board, **Product Delivery**, links the team boards **Team Atlas** and
-**Team Nova**. Atlas and Nova each work their own cards; their initiatives appear as bands on Product
-Delivery; the strategic initiatives that serve an objective appear on the portfolio's strategy map.
+engine”. The outcome itself lives on the programme board that owns it — **Digital line of business** —
+and the portfolio links it to the objective; the portfolio holds no initiatives of its own.
+**Product Delivery** links the team boards **Team Atlas** and **Team Nova**. Atlas and Nova each work
+their own cards; their initiatives appear as bands on Product Delivery; the initiatives that serve an
+objective appear on the portfolio's strategy map, whether they live on a programme or a team board.
 
 The same card is read three ways without being copied: the team moves it, the programme rolls it up,
 and the portfolio asks which objective it serves. No level keeps its own version of the work.

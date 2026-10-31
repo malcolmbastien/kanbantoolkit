@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/domain/derive'
-import { boardInitiatives, initiativeTypeById, tagsOf } from '@/domain/board'
+import { boardInitiatives, initiativeTypeById, isPortfolio, portfolioInitiatives, tagsOf } from '@/domain/board'
 import { ATTENTION_TILES, boardAttention, type AttentionKey } from '@/domain/attention'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
 import { csvFilename, dashboardCsv } from '@/domain/csv'
@@ -120,9 +120,13 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     .filter((n): n is string => Boolean(n))
 
   // Board-local top-level initiatives — the same computation the initiatives workflow and the
-  // timeline read, so the surfaces cannot disagree about what this board's initiatives are.
+  // timeline read, so the surfaces cannot disagree about what this board's initiatives are. A
+  // portfolio has none of its own: it reads the outcomes in its remit and those linked to its
+  // objectives, wherever they live.
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
-  const initiatives = boardInitiatives(graph, boardId, issueTypes)
+  const initiatives = isPortfolio(board)
+    ? portfolioInitiatives(graph, boards, boardId, issueTypes)
+    : boardInitiatives(graph, boardId, issueTypes)
 
   const rows = initiatives.map((item) => {
     const roll = rollupOf(item.id, graph)

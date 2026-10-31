@@ -60,7 +60,11 @@ The drawer is where editing happens. If somebody else is editing the same card, 
 and the fields are closed for you until they finish; a Viewer, and an archived or discarded item, are
 read-only. A Viewer can still leave a note; an archived item accepts no edits or notes. The eye
 button on an initiative starts **Focus**, which highlights its lineage on the board; opening an
-archived item does not start it.
+archived item does not start it. A **portfolio** offers no focus: its outcomes live on the programme
+and team boards beneath it, and the strategy map is already grouped by what the work is for, so
+there is no board of its own to dim. People are chosen from the workspace's own directory — with
+their photo, or their initials when there is none — and typing a name searches it; it never creates
+a person, because an account arrives by invitation.
 <kbd>Escape</kbd> closes the drawer.
 
 <img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form, with Overview, Hierarchy and Activity tabs" width="420">

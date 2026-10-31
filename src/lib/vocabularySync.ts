@@ -6,7 +6,7 @@
  * deliberately not inside it: a lane moving and a type being renamed are unrelated acts, and one
  * counter would refuse the second for no reason.
  *
- * This is the client half. It watches the five fields the document is made of, sends what they say a
+ * This is the client half. It watches the lists the document is made of, sends what they say a
  * moment after they stop changing, and keeps the revision the server answered. Four rules keep it
  * honest:
  *
@@ -28,7 +28,7 @@
 
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import type { BoardTemplate, IssueType, KeyResult, Objective } from '@/domain/types'
+import type { BoardTemplate, IssueType, KeyResult, Objective, Period } from '@/domain/types'
 import { useStore } from '@/store'
 import { useAuth } from './auth'
 import { reflectAccount } from './workspaceSync'
@@ -51,6 +51,8 @@ export const useVocabulary = create<VocabularyState>(() => ({ rev: null }))
 export interface VocabularyDocument {
   issueTypes: IssueType[]
   boardTemplates: BoardTemplate[]
+  /** The windows objectives are committed for — a period is a record, so it travels with the words. */
+  periods: Period[]
   objectives: Objective[]
   keyResults: KeyResult[]
   autoArchiveDays?: number
@@ -68,6 +70,7 @@ export function vocabularyDocument(): VocabularyDocument {
   return {
     issueTypes: state.issueTypes,
     boardTemplates: state.boardTemplates,
+    periods: state.periods,
     objectives: state.objectives,
     keyResults: state.keyResults,
     // `undefined` is dropped by `JSON.stringify`, so "no policy" is absence rather than zero.
@@ -191,7 +194,7 @@ async function send(): Promise<void> {
 /**
  * Watch the words and keep them on the server. Mounted once, above the app.
  *
- * The five fields are selected one by one rather than the whole store: a card moving does not touch
+ * The lists are selected one by one rather than the whole store: a card moving does not touch
  * the vocabulary, and sending a document because a card moved would bump a revision for nothing.
  */
 export function useVocabularySync(): void {
@@ -199,6 +202,7 @@ export function useVocabularySync(): void {
   const rev = useVocabulary((s) => s.rev)
   const issueTypes = useStore((s) => s.issueTypes)
   const boardTemplates = useStore((s) => s.boardTemplates)
+  const periods = useStore((s) => s.periods)
   const objectives = useStore((s) => s.objectives)
   const keyResults = useStore((s) => s.keyResults)
   const autoArchiveDays = useStore((s) => s.autoArchiveDays)
@@ -208,5 +212,5 @@ export function useVocabularySync(): void {
     // Adoption already recorded the document it read: nothing has changed since.
     if (!vocabularyChanged()) return
     scheduleVocabularyWrite()
-  }, [signedIn, rev, issueTypes, boardTemplates, objectives, keyResults, autoArchiveDays])
+  }, [signedIn, rev, issueTypes, boardTemplates, periods, objectives, keyResults, autoArchiveDays])
 }

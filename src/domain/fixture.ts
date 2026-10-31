@@ -1,4 +1,4 @@
-import type { Edge, FlowState, Item, ItemLink, ItemLogEntry, Lane, Objective, Placement, Stage } from './types'
+import type { Edge, FlowState, Item, ItemLink, ItemLogEntry, Lane, Objective, Period, Placement, Stage } from './types'
 import { demoWorkspace } from './demo'
 
 /**
@@ -15,15 +15,18 @@ const T = Date.UTC(2026, 9, 15, 9, 0, 0)
 const DAY = 86_400_000
 
 export function createFixture(): FlowState {
-  const { users, issueTypes, boards, flows, lanes, boardTemplates, st, lob, del, p, a, n } = demoWorkspace()
+  const { users, issueTypes, boards, flows, lanes, boardTemplates, lob, del, p, a, n } = demoWorkspace()
   /* ------------------------------------------------------------------ *
    * Objectives & Key Results (commitment-limited; never in columns)
    * ------------------------------------------------------------------ */
+  const periods: Period[] = [
+    { id: 'p-fy26-q1', name: 'FY26 Q1', start: '2026-01-01', end: '2026-03-31' },
+  ]
   const objectives: Objective[] = [
-    { id: 'obj-activation', title: 'Grow activation', period: 'FY26 Q1', status: 'active', score: 45 },
-    { id: 'obj-efficiency', title: 'Reduce cost-to-serve', period: 'FY26 Q1', status: 'active' },
-    // Deliberately unserved — no strategic initiative carries it (an L3 coverage gap).
-    { id: 'obj-reliability', title: 'Improve reliability', period: 'FY26 Q1', status: 'active' },
+    { id: 'obj-activation', title: 'Grow activation', periodId: 'p-fy26-q1', status: 'active' },
+    { id: 'obj-efficiency', title: 'Reduce cost-to-serve', periodId: 'p-fy26-q1', status: 'active' },
+    // Deliberately unserved — no initiative carries it (an L3 coverage gap).
+    { id: 'obj-reliability', title: 'Improve reliability', periodId: 'p-fy26-q1', status: 'active' },
   ]
   const keyResults = [
     { id: 'kr-activation', objectiveId: 'obj-activation', title: 'Activation rate +10pp' },
@@ -209,11 +212,11 @@ export function createFixture(): FlowState {
   const place = (itemId: string, boardId: string, laneId: string, enteredAt?: number) =>
     placements.push({ id: `pl-${++placeSeq}`, boardId, itemId, laneId, ...(enteredAt ? { laneEnteredAt: enteredAt } : {}) })
 
-  // Company strategy + line of business. Initiatives are placed in the board's *initiatives*
-  // workflow — the team's card lanes are a different tree.
-  place('init-activation', 'b-strategy', st.init.ns.id)
-  place('init-efficiency', 'b-strategy', st.init.ns.id)
-  place('init-explore', 'b-strategy', st.init.backlog.id) // uncommitted inventory
+  // The outcomes live on the programme boards that own them; a portfolio board holds none of its
+  // own, and reads them through attribution on its strategy map.
+  place('init-activation', 'b-lob', lob.init.ns.id)
+  place('init-efficiency', 'b-delivery', del.init.ns.id)
+  place('init-explore', 'b-portfolio', p.init.backlog.id) // uncommitted inventory
   place('init-growth', 'b-lob', lob.init.ns.id)
   place('init-delivery', 'b-delivery', del.init.ns.id)
 
@@ -299,6 +302,7 @@ export function createFixture(): FlowState {
     edges,
     links,
     objectives,
+    periods,
     keyResults,
     boardTemplates,
   }

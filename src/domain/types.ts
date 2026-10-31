@@ -453,9 +453,24 @@ export interface Edge {
 export interface Objective {
   id: string
   title: string
-  period: string
-  status: 'active' | 'scored'
-  score?: number
+  /** The period it is committed for — see `Period`. A period is a record, not a label. */
+  periodId: string
+  status: 'active' | 'reviewed'
+}
+
+/**
+ * A period: the window objectives are committed for.
+ *
+ * The window is what a period *is* now, so an objective has no target date of its own: it is due
+ * when its period ends. The dates are ISO days, the same shape an item's target dates take — and
+ * they are optional, because a period named before anyone has set its window is still a period,
+ * and a date invented for it would be a guess dressed as a commitment.
+ */
+export interface Period {
+  id: string
+  name: string
+  start?: string
+  end?: string
 }
 
 /**
@@ -485,6 +500,8 @@ export interface FlowState {
   /** Item-to-item links: dependency relationships only. */
   links: ItemLink[]
   objectives: Objective[]
+  /** The named windows objectives are committed for. One per period name in the workspace. */
+  periods: Period[]
   keyResults: KeyResult[]
   /** Reusable board designs. Part of the workspace's data, not of any one board. */
   boardTemplates: BoardTemplate[]

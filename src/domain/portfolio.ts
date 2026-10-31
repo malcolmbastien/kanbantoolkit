@@ -1,24 +1,25 @@
-import { objectiveRollup, rollupOf, type Graph, type Rollup } from './derive'
-import { parseDay } from './filters'
+import { objectiveRollup, type Graph, type Rollup } from './derive'
 import { initiativeHealth, type HealthFlag, type HealthLevel } from './health'
-import type { Item, Objective } from './types'
+import { periodRank, periodsInOrder } from './periods'
+import type { Item, Objective, Period } from './types'
 
 /**
  * The portfolio at a glance: one row per objective, where the risk is concentrated.
  *
  * The strategy map answers "what serves what"; a leadership review also asks "where is it going
- * wrong, and when is it due". This module answers the second question from the same data — the
- * attribution edges, the work below the serving initiatives and the health rules — and stores
+ * wrong, and which window is it in". This module answers the second question from the same data —
+ * the attribution edges, the work below the serving initiatives and the health rules — and stores
  * nothing. A row's coverage is the initiatives that serve it, its progress is the same
  * `objectiveRollup` the objective card shows, its health is the worst of the initiatives that
- * serve it, and its date is the nearest target among them.
+ * serve it, and its window is the **period** it is committed for. An objective has no target date
+ * of its own: it is due when its period ends, and the period is the record that says so.
  *
  * The ranking is a reading, not a new status: unserved work has no answer at all, an at-risk
- * initiative is a stop somebody can see, an overdue commitment is late even when nobody is blocked,
- * and "watch" is the quiet signal that something has not moved.
+ * initiative is a stop somebody can see, and "watch" is the quiet signal that something has not
+ * moved.
  */
 
-export type PortfolioRisk = 'unserved' | 'atRisk' | 'overdue' | 'watch' | 'onTrack'
+export type PortfolioRisk = 'unserved' | 'atRisk' | 'watch' | 'onTrack'
 
 export interface PortfolioFlag {
   flag: HealthFlag
@@ -37,16 +38,14 @@ export interface PortfolioHealth {
 
 export interface PortfolioRow {
   objective: Objective
-  /** The strategic initiatives attributed to this objective. */
+  /** The window it is committed for. Absent only when the period id is stale. */
+  period?: Period
+  /** The initiatives attributed to this objective — wherever their board sits. */
   serving: Item[]
   coverageGap: boolean
   /** The objective's completeness, from the same rollup an initiative uses. */
   rollup?: Rollup
   health: PortfolioHealth
-  /** The nearest target date among the open serving initiatives, as the item stores it. */
-  targetEnd?: string
-  /** Open serving initiatives whose target date has passed. */
-  overdue: number
   risk: PortfolioRisk
 }
 
@@ -54,7 +53,6 @@ export interface PortfolioCounts {
   objectives: number
   unserved: number
   atRisk: number
-  overdue: number
   watch: number
   onTrack: number
 }
@@ -62,18 +60,26 @@ export interface PortfolioCounts {
 export interface PortfolioHeatmap {
   rows: PortfolioRow[]
   /** The periods the rows belong to, in reading order. */
-  periods: string[]
+  periods: Period[]
   counts: PortfolioCounts
 }
 
 /** One objective's row, from the initiatives that serve it. */
-function rowOf(objective: Objective, strategic: Item[], graph: Graph, now: number): PortfolioRow {
-  const attributed = new Set(
-    graph.edges.filter((edge) => edge.kind === 'attribution' && edge.from === objective.id).map((edge) => edge.to),
-  )
-  const serving = strategic.filter((initiative) => attributed.has(initiative.id))
-  // An objective nothing in this reading serves has no percentage, even if an attribution exists
-  // on another board: the row's coverage and its progress must answer the same question.
+function rowOf(
+  objective: Objective,
+  periods: Period[],
+  graph: Graph,
+  now: number,
+  attributed: Set<string>,
+  itemById: Map<string, Item>,
+): PortfolioRow {
+  // The work an objective is committed for may live on any board: a mapped initiative names the
+  // outcome, wherever the team or programme that carries it sits.
+  const serving = [...attributed]
+    .map((id) => itemById.get(id))
+    .filter((item): item is Item => item !== undefined && !item.archived)
+  // An objective nothing serves has no percentage: its coverage and its progress must answer the
+  // same question.
   const rollup = serving.length > 0 ? objectiveRollup(objective.id, graph) : undefined
 
   // Health is the serving initiatives', never the objective's own: an objective has no status
@@ -95,31 +101,14 @@ function rowOf(objective: Objective, strategic: Item[], graph: Graph, now: numbe
   const level: PortfolioHealth['level'] =
     serving.length === 0 ? 'none' : risk > 0 ? 'atRisk' : watch > 0 ? 'watch' : 'healthy'
 
-  // A finished initiative is not late and is not a date a review is waiting for. If every serving
-  // initiative is done, the row still says when the work was aimed at, because that is its shape.
-  const open = serving.filter((initiative) => rollupOf(initiative.id, graph).bucket !== 'done')
-  const dated = (open.length > 0 ? open : serving)
-    .map((initiative) => ({ iso: initiative.targetEndDate, at: parseDay(initiative.targetEndDate)?.getTime() }))
-    .filter((entry): entry is { iso: string; at: number } => Boolean(entry.iso) && entry.at !== undefined)
-    .sort((a, b) => a.at - b.at)
-  const overdue = open.filter((initiative) => {
-    const end = parseDay(initiative.targetEndDate)?.getTime()
-    return end !== undefined && end < now
-  }).length
-
   const riskRank: PortfolioRisk =
-    serving.length === 0
-      ? 'unserved'
-      : level === 'atRisk'
-        ? 'atRisk'
-        : overdue > 0
-          ? 'overdue'
-          : level === 'watch'
-            ? 'watch'
-            : 'onTrack'
+    serving.length === 0 ? 'unserved' : level === 'atRisk' ? 'atRisk' : level === 'watch' ? 'watch' : 'onTrack'
+
+  const period = periods.find((candidate) => candidate.id === objective.periodId)
 
   return {
     objective,
+    ...(period ? { period } : {}),
     serving,
     coverageGap: serving.length === 0,
     ...(rollup ? { rollup } : {}),
@@ -129,8 +118,6 @@ function rowOf(objective: Objective, strategic: Item[], graph: Graph, now: numbe
       watch,
       flags: [...flags.values()].sort((a, b) => (a.tone === b.tone ? a.flag.localeCompare(b.flag) : a.tone === 'risk' ? -1 : 1)),
     },
-    ...(dated[0] ? { targetEnd: dated[0].iso } : {}),
-    overdue,
     risk: riskRank,
   }
 }
@@ -138,28 +125,45 @@ function rowOf(objective: Objective, strategic: Item[], graph: Graph, now: numbe
 /**
  * Every objective's row, grouped by period in reading order.
  *
- * `strategic` is the set the caller is reading — a portfolio board passes its own strategic
- * initiatives, so the heatmap and the flows beneath it are about the same work. An objective
- * nothing in that set serves is a coverage gap, not a row with 0%.
+ * An objective is read from the initiatives mapped to it — anywhere in the workspace, not only the
+ * ones placed on a portfolio board. An objective nothing serves is a coverage gap, not a row with 0%.
  */
 export function portfolioHeatmap(
   objectives: Objective[],
+  periods: Period[],
   graph: Graph,
-  strategic: Item[],
   now = Date.now(),
 ): PortfolioHeatmap {
-  const rows = objectives
-    .map((objective) => rowOf(objective, strategic, graph, now))
-    .sort((a, b) => a.objective.period.localeCompare(b.objective.period) || a.objective.title.localeCompare(b.objective.title))
+  // One pass over the attribution edges and the items, so a portfolio of many objectives does not
+  // rescan the whole workspace once per row.
+  const attributedByObjective = new Map<string, Set<string>>()
+  for (const edge of graph.edges) {
+    if (edge.kind !== 'attribution') continue
+    const ids = attributedByObjective.get(edge.from)
+    if (ids) ids.add(edge.to)
+    else attributedByObjective.set(edge.from, new Set([edge.to]))
+  }
+  const itemById = new Map(graph.items.map((item) => [item.id, item] as const))
 
-  const periods = [...new Set(rows.map((row) => row.objective.period))]
+  const rows = objectives
+    .map((objective) =>
+      rowOf(objective, periods, graph, now, attributedByObjective.get(objective.id) ?? new Set(), itemById),
+    )
+    .sort(
+      (a, b) =>
+        periodRank(periods, a.objective.periodId) - periodRank(periods, b.objective.periodId) ||
+        a.objective.title.localeCompare(b.objective.title),
+    )
+
+  const read = periodsInOrder(periods).filter((period) =>
+    rows.some((row) => row.objective.periodId === period.id),
+  )
   const counts: PortfolioCounts = {
     objectives: rows.length,
     unserved: rows.filter((row) => row.risk === 'unserved').length,
     atRisk: rows.filter((row) => row.risk === 'atRisk').length,
-    overdue: rows.filter((row) => row.risk === 'overdue').length,
     watch: rows.filter((row) => row.risk === 'watch').length,
     onTrack: rows.filter((row) => row.risk === 'onTrack').length,
   }
-  return { rows, periods, counts }
+  return { rows, periods: read, counts }
 }

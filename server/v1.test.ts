@@ -94,6 +94,7 @@ function seeded(): Workspace {
     edges: [],
     links: [],
     objectives: [],
+    periods: [],
     keyResults: [],
     boardTemplates: [],
     savedFilters: [],
@@ -642,7 +643,8 @@ describe('the workspace vocabulary', () => {
     rev: number
     issueTypes: Array<{ id: string; name: string; color: string }>
     boardTemplates: unknown[]
-    objectives: Array<{ id: string; title: string; period: string; status: string }>
+    periods: Array<{ id: string; name: string; start?: string; end?: string }>
+    objectives: Array<{ id: string; title: string; periodId: string; status: string }>
     keyResults: unknown[]
   }
 
@@ -694,7 +696,7 @@ describe('the workspace vocabulary', () => {
       method: 'PUT',
       body: body({
         ...document,
-        objectives: [{ id: 'o-1', title: 'Grow', period: 'FY26 Q4', status: 'active' }],
+        objectives: [{ id: 'o-1', title: 'Grow', periodId: '', status: 'active' }],
       }),
     })
     expect(refused.status).toBe(403)

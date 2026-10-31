@@ -20,6 +20,7 @@ import type {
   KeyResult,
   Lane,
   Objective,
+  Period,
   Placement,
   Stage,
   TemplateFlow,
@@ -215,6 +216,7 @@ export function parseWorkspace(input: unknown): Workspace | null {
     items,
     edges: rows<Edge>(raw.edges, 20_000),
     links: rows<ItemLink>(raw.links, 20_000),
+    periods: rows<Period>(raw.periods, 500),
     objectives: rows<Objective>(raw.objectives, 2_000),
     keyResults: rows<KeyResult>(raw.keyResults, 5_000),
     boardTemplates: rows<BoardTemplate>(raw.boardTemplates, 200),
@@ -237,7 +239,7 @@ export function parseWorkspace(input: unknown): Workspace | null {
  * ------------------------------------------------------------------ */
 
 /** The ceilings a vocabulary document may not exceed — the workspace parser's own. */
-export const VOCABULARY_LIMITS = { issueTypes: 500, boardTemplates: 200, objectives: 2_000, keyResults: 5_000 } as const
+export const VOCABULARY_LIMITS = { issueTypes: 500, boardTemplates: 200, periods: 500, objectives: 2_000, keyResults: 5_000 } as const
 
 const rowId = (row: unknown): string | undefined =>
   row && typeof row === 'object' && typeof (row as Record<string, unknown>).id === 'string'
@@ -338,6 +340,20 @@ const parseTemplate = (raw: Record<string, unknown>): BoardTemplate | null => {
   }
 }
 
+const parsePeriod = (raw: Record<string, unknown>): Period | null => {
+  const id = requiredText(raw.id, LIMITS.id)
+  const name = requiredText(raw.name, 40)
+  if (!id || !name) return null
+  const start = text(raw.start, 10)
+  const end = text(raw.end, 10)
+  return {
+    id,
+    name,
+    ...(start ? { start } : {}),
+    ...(end ? { end } : {}),
+  }
+}
+
 const parseObjective = (raw: Record<string, unknown>): Objective | null => {
   const id = requiredText(raw.id, LIMITS.id)
   const title = requiredText(raw.title, LIMITS.title)
@@ -345,9 +361,9 @@ const parseObjective = (raw: Record<string, unknown>): Objective | null => {
   return {
     id,
     title,
-    period: text(raw.period, 40) ?? '',
-    status: raw.status === 'scored' ? 'scored' : 'active',
-    ...(number(raw.score) !== undefined ? { score: number(raw.score) } : {}),
+    periodId: text(raw.periodId, LIMITS.id) ?? '',
+    // `scored` is what an older client called a reviewed objective; the score itself is gone.
+    status: raw.status === 'reviewed' || raw.status === 'scored' ? 'reviewed' : 'active',
   }
 }
 
@@ -385,12 +401,18 @@ export function canonicalTemplate(template: BoardTemplate): BoardTemplate {
   }
 }
 
+export const canonicalPeriod = (period: Period): Period => ({
+  id: period.id,
+  name: period.name,
+  ...(period.start ? { start: period.start } : {}),
+  ...(period.end ? { end: period.end } : {}),
+})
+
 export const canonicalObjective = (objective: Objective): Objective => ({
   id: objective.id,
   title: objective.title,
-  period: objective.period,
+  periodId: objective.periodId,
   status: objective.status,
-  ...(objective.score !== undefined ? { score: objective.score } : {}),
 })
 
 export const canonicalKeyResult = (result: KeyResult): KeyResult => ({
@@ -412,20 +434,23 @@ export function parseVocabulary(input: unknown): Vocabulary | null {
 
   const issueTypesRaw = vocabularyRows(raw.issueTypes, VOCABULARY_LIMITS.issueTypes)
   const templatesRaw = vocabularyRows(raw.boardTemplates, VOCABULARY_LIMITS.boardTemplates)
+  const periodsRaw = vocabularyRows(raw.periods, VOCABULARY_LIMITS.periods)
   const objectivesRaw = vocabularyRows(raw.objectives, VOCABULARY_LIMITS.objectives)
   const keyResultsRaw = vocabularyRows(raw.keyResults, VOCABULARY_LIMITS.keyResults)
-  if (!issueTypesRaw || !templatesRaw || !objectivesRaw || !keyResultsRaw) return null
+  if (!issueTypesRaw || !templatesRaw || !periodsRaw || !objectivesRaw || !keyResultsRaw) return null
 
   const issueTypes = issueTypesRaw.map(parseIssueType)
   const boardTemplates = templatesRaw.map(parseTemplate)
+  const periods = periodsRaw.map(parsePeriod)
   const objectives = objectivesRaw.map(parseObjective)
   const keyResults = keyResultsRaw.map(parseKeyResult)
   if (issueTypes.some((t) => t === null) || boardTemplates.some((t) => t === null)) return null
-  if (objectives.some((o) => o === null) || keyResults.some((k) => k === null)) return null
+  if (periods.some((p) => p === null) || objectives.some((o) => o === null) || keyResults.some((k) => k === null)) return null
 
   return {
     issueTypes: (issueTypes as IssueType[]).map(canonicalIssueType),
     boardTemplates: (boardTemplates as BoardTemplate[]).map(canonicalTemplate),
+    periods: (periods as Period[]).map(canonicalPeriod),
     objectives: (objectives as Objective[]).map(canonicalObjective),
     keyResults: (keyResults as KeyResult[]).map(canonicalKeyResult),
     ...(typeof raw.autoArchiveDays === 'number' && raw.autoArchiveDays > 0 ? { autoArchiveDays: raw.autoArchiveDays } : {}),
@@ -436,4 +461,10 @@ export function parseVocabulary(input: unknown): Vocabulary | null {
 export function vocabularyObjectivesKnown(vocabulary: Vocabulary): boolean {
   const ids = new Set(vocabulary.objectives.map((o) => o.id))
   return vocabulary.keyResults.every((k) => ids.has(k.objectiveId))
+}
+
+/** An objective committed for a period the document does not carry would point at nothing. */
+export function vocabularyPeriodsKnown(vocabulary: Vocabulary): boolean {
+  const ids = new Set(vocabulary.periods.map((p) => p.id))
+  return vocabulary.objectives.every((o) => o.periodId === '' || ids.has(o.periodId))
 }

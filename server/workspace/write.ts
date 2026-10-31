@@ -31,6 +31,7 @@ const TABLES = [
   'links',
   'key_results',
   'objectives',
+  'periods',
   'template_lanes',
   'template_flows',
   'board_templates',
@@ -64,6 +65,7 @@ const SCOPED = new Set([
   'edges',
   'links',
   'objectives',
+  'periods',
   'key_results',
   'board_templates',
 ])
@@ -263,7 +265,7 @@ export async function appliedItemOf(db: Database, key: string): Promise<{ itemId
   return row ? { itemId: row.item_id, rev: row.rev } : undefined
 }
 
-/** Types, templates, objectives and key results, as rows — shared by the import and the document. */
+/** Types, templates, periods, objectives and key results, as rows — shared by the import and the document. */
 function addVocabulary(statements: Statement[], vocabulary: Vocabulary, workspaceId: string): void {
   for (const type of vocabulary.issueTypes) {
     add(statements, 'issue_types', { id: type.id, name: type.name, color: type.color }, workspaceId)
@@ -302,13 +304,21 @@ function addVocabulary(statements: Statement[], vocabulary: Vocabulary, workspac
     }
   }
 
+  for (const period of vocabulary.periods) {
+    add(statements, 'periods', {
+      id: period.id,
+      name: period.name,
+      start: value(period.start),
+      end: value(period.end),
+    }, workspaceId)
+  }
+
   for (const objective of vocabulary.objectives) {
     add(statements, 'objectives', {
       id: objective.id,
       title: objective.title,
-      period: objective.period,
+      period_id: value(objective.periodId),
       status: objective.status,
-      score: value(objective.score),
     }, workspaceId)
   }
 
@@ -337,6 +347,7 @@ export async function writeVocabulary(
     { sql: 'DELETE FROM board_templates WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM issue_types WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM objectives WHERE workspace_id = ?1', params: [workspaceId] },
+    { sql: 'DELETE FROM periods WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM key_results WHERE workspace_id = ?1', params: [workspaceId] },
   ]
   addVocabulary(statements, vocabulary, workspaceId)

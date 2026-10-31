@@ -67,5 +67,10 @@ export const WORKSPACE_SCHEMA = 1
  * 35 adds the outbound event layer: events, endpoints and deliveries. A database without them
  * cannot record that a change happened for a receiver, and a webhook that silently drops events is
  * worse than one that says it is not configured — so the same rule applies.
+ *
+ * 36 adds `periods`, and moves an objective's period from a label to `objectives.period_id`;
+ * `objectives.period` and `objectives.score` are dropped. A database without it cannot commit an
+ * objective to a window, and would keep answering with a score the app no longer reads — refused
+ * rather than half-read, like every number before it.
  */
-export const REQUIRED_SCHEMA = 35
+export const REQUIRED_SCHEMA = 36

@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest'
 import {
   activeBoards,
   boardsByBand,
+  canAddInitiative,
+  canDesignBoard,
+  canFocusBoard,
   canRetype,
+  canServeObjective,
   duplicateBoard,
+  isPortfolio,
   lanesFromTemplate,
+  objectiveInitiatives,
+  portfolioInitiatives,
   templateFromBoard,
   boardInitiatives,
   initiativeCellOf,
@@ -84,6 +91,72 @@ describe('board workspace — grouping, ordering and the name filter', () => {
     const withArchived = names(boardsByBand(archived, '', true))
     expect(withArchived).toContain('Team Atlas')
     expect(withArchived).toHaveLength(s.boards.length)
+  })
+})
+
+describe('what a portfolio board reads', () => {
+  const s = createFixture()
+  const graph = { items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes }
+
+  it('holds no initiatives of its own, and reads the mapped outcomes plus the roots in its remit', () => {
+    // A portfolio is a lens: nothing is placed in its own initiatives flow.
+    expect(boardInitiatives(graph, 'b-strategy', s.issueTypes)).toEqual([])
+    const read = portfolioInitiatives(graph, s.boards, 'b-strategy', s.issueTypes).map((item) => item.id)
+    // Mapped to an objective, living on a programme board.
+    expect(read).toContain('init-activation')
+    // Unmapped, but in the portfolio's remit — the coverage gap it can close.
+    expect(read).toContain('init-explore')
+    // A nested team initiative is part of an outcome, not read as one of the portfolio's own.
+    expect(read).not.toContain('init-signup')
+  })
+})
+
+describe('what a board is a person’s to shape', () => {
+  const s = createFixture()
+  const board = (id: string) => s.boards.find((b) => b.id === id)
+
+  it('a team and a programme are designed; a portfolio is not', () => {
+    expect(canDesignBoard(board('b-atlas'))).toBe(true)
+    expect(canDesignBoard(board('b-lob'))).toBe(true)
+    expect(canDesignBoard(board('b-strategy'))).toBe(false)
+  })
+
+  it('a team and a programme make initiatives; a portfolio connects the ones that exist', () => {
+    expect(canAddInitiative(board('b-atlas'))).toBe(true)
+    expect(canAddInitiative(board('b-lob'))).toBe(true)
+    expect(canAddInitiative(board('b-strategy'))).toBe(false)
+  })
+
+  it('a board that is not there reads as no portfolio, which is how the surfaces default', () => {
+    expect(canDesignBoard(undefined)).toBe(true)
+    expect(canAddInitiative(undefined)).toBe(true)
+    expect(isPortfolio(undefined)).toBe(false)
+    // The lineage focus is a team's and a programme's reading, never a portfolio's.
+    expect(canFocusBoard(board('b-atlas'))).toBe(true)
+    expect(canFocusBoard(board('b-lob'))).toBe(true)
+    expect(canFocusBoard(board('b-strategy'))).toBe(false)
+  })
+})
+
+describe('which initiatives can serve an objective', () => {
+  const s = createFixture()
+  const graph = { items: s.items, edges: s.edges, links: s.links, placements: s.placements, lanes: s.lanes }
+  const item = (id: string) => s.items.find((i) => i.id === id)
+
+  it('a root outcome can, wherever its board sits; a nested initiative and a card cannot', () => {
+    expect(canServeObjective(item('init-activation'), graph, s.issueTypes)).toBe(true)
+    expect(canServeObjective(item('init-growth'), graph, s.issueTypes)).toBe(false)
+    expect(canServeObjective(item('st-signup-form'), graph, s.issueTypes)).toBe(false)
+    expect(canServeObjective(undefined, graph, s.issueTypes)).toBe(false)
+  })
+
+  it('offers the roots as candidates, and never an archived outcome', () => {
+    const roots = objectiveInitiatives(graph, s.issueTypes).map((i) => i.id)
+    expect(roots).toContain('init-activation')
+    expect(roots).not.toContain('init-growth')
+    expect(roots).not.toContain('st-signup-form')
+    const archived = { ...item('init-activation')!, archived: true }
+    expect(canServeObjective(archived, graph, s.issueTypes)).toBe(false)
   })
 })
 

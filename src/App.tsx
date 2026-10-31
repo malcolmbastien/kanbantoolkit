@@ -13,7 +13,7 @@ import { FocusChip } from './components/FocusChip'
 
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
-import { boardCardTypeId, defaultDropLane, initiativeTypeId, isAggregating } from './domain/board'
+import { boardCardTypeId, canAddInitiative, defaultDropLane, initiativeTypeId, isAggregating } from './domain/board'
 import { initiativesFlow } from './domain/flows'
 import { leafLanes } from './domain/lanes'
 import { useUrl } from './lib/useUrl'
@@ -157,6 +157,9 @@ export default function App() {
 
   // A card belongs to a board that renders a cards workflow; a coordination board does not.
   const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
+  // A portfolio connects the initiatives that already exist rather than making new ones,
+  // so neither the palette nor the toolbar offers a way to make one there.
+  const addsInitiatives = canAddInitiative(boards.find((b) => b.id === boardId))
 
   /**
    * The seam a board's WIP policy intercepts. The place a drop offered travels with it, because
@@ -192,8 +195,13 @@ export default function App() {
    * label — it lives in the other lane tree, in a cell of a section, and the Initiative type is
    * the one type a person never chooses. Which is exactly why the button matters, since until
    * now the only way to make one was to link it from another board.
+   *
+   * Not on a portfolio, which has no initiative of its own to make: it is read for the ones that
+   * already exist, connected to an objective in the strategy map. Refused here, the one door the
+   * toolbar's button and the palette's verb both come through.
    */
   const quickAddInitiative = () => {
+    if (!addsInitiatives) return
     const typeId = initiativeTypeId(issueTypes)
     const flow = initiativesFlow(flows, boardId)
     const firstLeaf = flow ? leafLanes(lanes, flow.id)[0] : undefined
@@ -211,10 +219,11 @@ export default function App() {
           refused, a warning that arrived. One region for the whole app. */}
       <Announcer />
       {/* One palette for the whole app: boards, cards and the app's own verbs. It answers to the
-          same rule the toolbar's buttons do — a board that renders no cards workflow does not make
-          cards — so the two ways in cannot disagree. */}
+          same rules the toolbar's buttons do — a board that renders no cards workflow does not make
+          cards, and a portfolio connects initiatives rather than making them — so the two ways in
+          cannot disagree. */}
       <Suspense fallback={null}>
-        <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} makesCards={makesCards} />
+        <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} makesCards={makesCards} addsInitiatives={addsInitiatives} />
       </Suspense>
       <TopBar
         boards={boards}

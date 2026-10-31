@@ -115,10 +115,38 @@ ABC-3,Other card,,Incident,To Do,,,2026-10-04T10:00:00Z,,,
     expect(plan.cards[0].resolvedAt).toBeUndefined()
   })
 
+  it('leaves an unmatched person unassigned, never creates an account, and defaults the type to None', () => {
+    const file = JSON.stringify({
+      name: 'People Board',
+      lists: [{ id: 'l-todo', name: 'To Do' }],
+      members: [{ id: 'm-sam', fullName: 'Sam Lee' }],
+      cards: [{ id: 'c-1', name: 'A card', idList: 'l-todo', idMembers: ['m-sam'] }],
+    })
+    const plan = planImport(
+      parseTrello(file),
+      { listStages: { 'l-todo': 'notStarted' } },
+      { types, users, defaultTypeId: 't-none' },
+    )
+    expect(plan.cards[0]).toMatchObject({ typeId: 't-none', assigneeIds: [] })
+    expect(plan.warnings.some((warning) => /no matching account/i.test(warning))).toBe(true)
+  })
+
+  it('None is a choice: a matching name is not assigned against an explicit None', () => {
+    const plan = planImport(
+      parseTrello(trello),
+      { listStages: { 'l-todo': 'backlog' }, people: { 'm-riley': null } },
+      { types, users, defaultTypeId: 't-none' },
+    )
+    expect(plan.cards.find((card) => card.title === 'First imported card')?.assigneeIds).toEqual([])
+    expect(plan.warnings.some((warning) => /no matching account/i.test(warning))).toBe(true)
+  })
+
   it('falls back to the default type with a warning, and reads either format automatically', () => {
     const parsed = parseImport(csv)
-    const plan = planImport(parsed, { listStages: {} }, { types, users, defaultTypeId: 't-story' })
+    const plan = planImport(parsed, { listStages: {} }, { types, users, defaultTypeId: 't-none' })
     expect(plan.warnings.some((warning) => /“Incident” is not an issue type/.test(warning))).toBe(true)
+    // A card with no type of its own is None, not the first real card type.
+    expect(plan.cards[2].typeId).toBe('t-none')
     expect(parseImport(trello).source).toBe('trello')
   })
 

@@ -96,6 +96,7 @@ function seeded(): Workspace {
     edges: [{ id: 'e-1', kind: 'decomposition', from: 'i-init', to: 'i-kid' }],
     links: [],
     objectives: [],
+    periods: [],
     keyResults: [],
     boardTemplates: [],
     savedFilters: [],

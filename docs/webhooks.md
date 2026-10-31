@@ -21,7 +21,7 @@ answered.*
 | `item.blocked` | A card is explicitly blocked. |
 | `item.unblocked` | That block is cleared. |
 | `initiative.health_changed` | The derived health of an initiative above the changed item changes. |
-| `objective.mapped` | A strategic initiative is mapped to an objective. |
+| `objective.mapped` | A top-level initiative is mapped to an objective. |
 | `objective.unmapped` | That mapping is removed. |
 | `webhook.test` | The administrator's test delivery. |
 

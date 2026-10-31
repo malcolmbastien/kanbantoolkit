@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { LayoutTemplate, Minus, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
-import { cardTypes, defaultCardTypeId, isAggregating, linkableBoards, NONE_TYPE_ID } from '@/domain/board'
+import { cardTypes, defaultCardTypeId, isAggregating, isPortfolio, linkableBoards, NONE_TYPE_ID } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
 import { cn } from '@/lib/utils'
@@ -11,9 +11,13 @@ import { cardsFlows } from '@/domain/flows'
 import { VocabularySaveError } from './VocabularySaveError'
 
 /**
- * Board settings: title, the flight-level band (shown, fixed at creation), which card types the
- * board allows (and which is the default), WIP enforcement, and — for a coordination or strategic
- * board — the boards it aggregates.
+ * Board settings: title, the flight-level band (shown, fixed at creation), and — for a team or
+ * programme board — its card-type default, its initiatives kinds, its tags and its WIP policy.
+ *
+ * A **portfolio** board has none of the work-shaped settings: it renders no cards workflow, makes no
+ * initiatives of its own and arranges no lanes, so a default card type, a landing cell, its own
+ * kinds, its own tags, a WIP policy and a template of its columns would all be settings with nothing
+ * to act on. What it keeps is the title, the band, and the boards it reads beneath it.
  */
 export function BoardSettings() {
   const boards = useStore((s) => s.boards)
@@ -75,6 +79,8 @@ export function BoardSettings() {
   const tags = board.tags ?? []
   const linked = board.linkedBoardIds ?? []
   const isAggregatingBoard = isAggregating(board)
+  // A portfolio reads work rather than holding it: none of the card-shaped settings below apply.
+  const portfolio = isPortfolio(board)
   // Any board that keeps the aggregation graph acyclic and isn't already linked.
   const candidates = linkableBoards(boards, board.id).filter((b) => !linked.includes(b.id))
 
@@ -182,6 +188,7 @@ export function BoardSettings() {
           {/* Card types — the workspace's vocabulary, not this board's: every board offers all
               of them and picks only a default (v27). The label said "on this board", which the
               per-board subsets used to make true. */}
+          {!portfolio && (
           <div>
             <div className={label}>Card types</div>
             <p className="mb-1.5 text-micro text-slate-600">
@@ -371,10 +378,12 @@ export function BoardSettings() {
               None is a built-in card type, always available and never edited or removed.
             </p>
           </div>
+          )}
 
           {/* Initiative kinds — this board's own vocabulary, deliberately not the workspace's.
               None is not an entry here: it is the *absence* of a kind, so there is nothing to
               remove and nothing to protect from removal. */}
+          {!portfolio && (
           <div>
             <div className={label}>Initiative kinds</div>
             <p className="mb-1.5 text-micro text-slate-600">
@@ -458,9 +467,11 @@ export function BoardSettings() {
               </button>
             </div>
           </div>
+          )}
 
           {/* Tags — this board's own labels, like its kinds. A set rather than a choice, so
               there is no None to protect: an item with no tags simply has none. */}
+          {!portfolio && (
           <div>
             <div className={label}>Tags</div>
             <p className="mb-1.5 text-micro text-slate-600">
@@ -537,8 +548,10 @@ export function BoardSettings() {
               </button>
             </div>
           </div>
+          )}
 
           {/* WIP enforcement */}
+          {!portfolio && (
           <div>
             <label className={label} htmlFor="board-wip">
               WIP limit enforcement
@@ -557,8 +570,11 @@ export function BoardSettings() {
               <p className="mt-1 text-micro text-slate-600">The policy is the board’s, and applies to every cards flow.</p>
             )}
           </div>
+          )}
 
-          {/* Template — a board design, reusable when creating boards */}
+          {/* Template — a board design, reusable when creating boards. A portfolio has no columns
+              of its own to keep, so there is nothing to save. */}
+          {!portfolio && (
           <div>
             <div className={label}>Template</div>
             <div className="flex flex-wrap items-center gap-2">
@@ -581,6 +597,7 @@ export function BoardSettings() {
               </p>
             )}
           </div>
+          )}
 
           {/* Linked boards (coordination/strategic) */}
           {isAggregatingBoard && (
@@ -620,7 +637,7 @@ export function BoardSettings() {
               </p>
               {/* Said here because this is where the link is made, and a portfolio is the one board
                   whose surface will not show it. */}
-              {board.band === 'portfolio' && (
+              {portfolio && (
                 <p className="mt-1 text-micro text-slate-600">
                   A portfolio shows no bands: these roll up on the programme boards beneath it. Its own surface is its
                   objectives and the initiatives that serve them.

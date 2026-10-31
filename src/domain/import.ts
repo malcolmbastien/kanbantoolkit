@@ -64,7 +64,7 @@ export interface ImportMapping {
   listStages: Record<string, Stage>
   /** Source type name → an issue type id. A source without types leaves this out. */
   types?: Record<string, string>
-  /** Source person key → an existing user id, or null to make a new person. */
+  /** Source person key → an **existing** user id, or null to leave the card unassigned. */
   people?: Record<string, string | null>
 }
 
@@ -106,8 +106,6 @@ export interface ImportPlan {
   lanes: PlanLane[]
   cards: PlanCard[]
   tags: PlanTag[]
-  /** People the import creates because no existing person was chosen. */
-  people: User[]
   warnings: string[]
 }
 
@@ -366,13 +364,6 @@ export function parseImport(source: string, format?: ImportSource): ParsedImport
   return kind === 'trello' ? parseTrello(source) : parseJiraCsv(source)
 }
 
-const slug = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 40) || 'person'
-
 /**
  * Turn what was parsed into a board design, with the mapping answers applied.
  *
@@ -421,15 +412,16 @@ export function planImport(
     }
   }
 
-  // People: an explicit choice wins; an exact name match is the sensible default; anything else is
-  // a new person, with an id the source cannot collide with.
+  // People: an explicit choice among the workspace's existing people wins, and an exact name is
+  // the sensible default. There is no "create a person" answer — an import is not a place to mint
+  // accounts — so anyone unmatched is imported without an assignee and said once.
   const userIdOf = new Map<string, string>()
-  const created: User[] = []
-  const usedIds = new Set(options.users.map((user) => user.id))
+  let unmatchedPeople = 0
   for (const person of parsed.people) {
     const chosen = mapping.people?.[person.key]
-    if (typeof chosen === 'string' && chosen) {
-      userIdOf.set(person.key, chosen)
+    const existing = typeof chosen === 'string' && chosen ? options.users.find((user) => user.id === chosen) : undefined
+    if (existing) {
+      userIdOf.set(person.key, existing.id)
       continue
     }
     if (chosen === undefined) {
@@ -439,12 +431,12 @@ export function planImport(
         continue
       }
     }
-    let id = `import-${parsed.source}-${slug(person.key || person.name)}`
-    let suffix = 2
-    while (usedIds.has(id)) id = `import-${parsed.source}-${slug(person.key || person.name)}-${suffix++}`
-    usedIds.add(id)
-    created.push({ id, name: person.name })
-    userIdOf.set(person.key, id)
+    unmatchedPeople++
+  }
+  if (unmatchedPeople > 0) {
+    warnings.push(
+      `${unmatchedPeople} person${unmatchedPeople === 1 ? '' : 's'} in the file ${unmatchedPeople === 1 ? 'has' : 'have'} no matching account here; ${unmatchedPeople === 1 ? 'their card is' : 'their cards are'} imported without an assignee.`,
+    )
   }
 
   // Types: the chosen id, an exact name, or the board's default. A fallback is a warning, because
@@ -511,7 +503,6 @@ export function planImport(
     lanes,
     cards,
     tags,
-    people: created,
     warnings,
   }
 }

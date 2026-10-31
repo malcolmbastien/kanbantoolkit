@@ -59,7 +59,7 @@ test('a screen is downloaded when it is first opened, not before', async ({ page
   // and the command palette — not one file per screen. The build may split small shared modules
   // (icons, users, health) into chunks of their own, so the count is a sanity bound; the list below
   // is the promise, and it is what keeps a screen from being downloaded before it is opened.
-  expect(atBoard.size).toBeLessThan(16)
+  expect(atBoard.size).toBeLessThan(20)
   for (const screen of ['ItemPanel', 'AdminView', 'TimelineView', 'ManagementDashboard', 'MetricsView', 'ObjectivesView', 'MyWorkView', 'ArchiveView', 'BoardSettings', 'SignInPanel']) {
     expect([...atBoard].some((url) => url.includes(`/${screen}-`)), screen).toBe(false)
   }

@@ -8,17 +8,17 @@ import {
   decompositionParent,
   dependenciesOf,
   dependentsOf,
-  descendants,
   lineageOf,
   isComplete,
   objectiveRollup,
   rollupOf,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiativeTypes, boardTags, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
-import { insertMention, mentionQueryAt, mentionedIds } from '@/domain/mentions'
+import { boardInitiativeTypes, boardTags, canFocusBoard, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, placementOn, tagsOf } from '@/domain/board'
+import { periodNameOf } from '@/domain/periods'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
+import { insertMention, mentionQueryAt, mentionedIds } from '@/domain/mentions'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { FORMER_MEMBER, initialsOf, nameOfUser } from '@/domain/users'
@@ -32,6 +32,8 @@ import { useMay } from '@/lib/permissions'
 import { useSync } from '@/lib/sync'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
+import { PersonAvatar } from './PersonAvatar'
+import { PersonPicker } from './PersonPicker'
 import type { Item, ItemLogEntry, Stage } from '@/domain/types'
 
 interface Props {
@@ -69,6 +71,7 @@ export function ItemPanel({ itemId }: Props) {
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
   const objectives = useStore((s) => s.objectives)
+  const periods = useStore((s) => s.periods)
   const keyResults = useStore((s) => s.keyResults)
   const users = useStore((s) => s.users)
   const close = useStore((s) => s.openItem)
@@ -100,7 +103,7 @@ export function ItemPanel({ itemId }: Props) {
   const boardSurface = useStore(isBoardSurface)
   const addAssignee = useStore((s) => s.addAssignee)
   const boardId = useStore((s) => s.boardId)
-  const onPortfolioBoard = useStore((s) => s.boards.find((b) => b.id === s.boardId)?.band === 'portfolio')
+  const onPortfolioBoard = useStore((s) => isPortfolio(s.boards.find((b) => b.id === s.boardId)))
   const selectBoard = useStore((s) => s.selectBoard)
   const setObjectives = useStore((s) => s.setObjectives)
   const toggleLens = useStore((s) => s.toggleLens)
@@ -143,7 +146,6 @@ export function ItemPanel({ itemId }: Props) {
   // Escape closes the editor without saving, and the blur that follows must not put the text
   // back. A ref rather than state, because the blur can arrive before a render.
   const abandoned = useRef(false)
-  const [assigneeDraft, setAssigneeDraft] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const item = items.find((i) => i.id === itemId)
@@ -193,11 +195,10 @@ export function ItemPanel({ itemId }: Props) {
   const isSubtask = item.typeId === issueTypes.find((t) => t.name === 'Sub-task')?.id
   // Two types belong to the system rather than the user, so the control is not offered.
   const typeIsFixed = isInitiative || isSubtask
-  // OKRs attach to *strategic* initiatives — a portfolio board's own — and everything below inherits
-  // through the decomposition. The model refuses the rest (`setAttribution`), so the panel offers the
-  // control only where it works and says why where it does not: a checkbox that quietly does nothing
-  // is the one failure the house rules are most against.
-  const isStrategic = isInitiative && isStrategicInitiative(item.id, { items, placements, boards, issueTypes })
+  // An objective is served by a root initiative — one with no decomposition parent, wherever its
+  // board sits. A nested initiative inherits its parent's objective (said in the panel), so the
+  // model refuses it (`setAttribution`), and the panel offers the control only where it works.
+  const canServe = isInitiative && canServeObjective(item, graph, issueTypes)
   // A copy lands in the original's cell, so Duplicate needs one: this card, in a cell of the
   // board in front of us. Everywhere else there is nothing for a copy to land on.
   const duplicateCell = placementOn(placements, item.id, boardId)
@@ -237,12 +238,6 @@ export function ItemPanel({ itemId }: Props) {
     setChecklistEntryText(item.id, entryId, entryDraft)
     setEditingEntry(null)
   }
-  const applyAssignee = () => {
-    const name = assigneeDraft.trim()
-    if (!name) return
-    addAssignee(item.id, name)
-    setAssigneeDraft('')
-  }
   // The chain from the root down to this item, plus the OKRs its ancestors map to.
   const lineage = lineageOf(item.id, graph)
   const lineageObjectives = [
@@ -251,6 +246,9 @@ export function ItemPanel({ itemId }: Props) {
     ).values(),
   ]
   const focusOn = lensId === item.id
+  // Focus dims the board behind the drawer to this initiative's line. A portfolio has no board of
+  // its own to dim — its outcomes live on the programmes beneath it — so the control is not offered.
+  const focusable = canFocusBoard(boards.find((b) => b.id === boardId))
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
   // Where this item actually sits — its own board, never the one behind the panel. The two differ
@@ -356,11 +354,10 @@ export function ItemPanel({ itemId }: Props) {
   /** How many of a warning's cards are named before the rest are counted. */
   const WARN_CARDS = 4
 
-  // A parent is always an initiative — the same rule the store enforces, offered here so the
-  // select cannot propose something that would be refused.
-  const candidates = items.filter(
-    (i) => i.id !== item.id && !descendants(item.id, graph).includes(i.id) && isInitiativeItem(i, issueTypes),
-  )
+  // A parent is always an initiative — the same rule the store enforces (`canSetParent`), offered
+  // here so the select cannot propose something that would be refused, including a mapped
+  // initiative that has to stay a root.
+  const candidates = items.filter((i) => canSetParent(item.id, i.id, graph, issueTypes))
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   // Every card type is offered; the item's current type is always among them.
   const typeOptions = cardTypes(issueTypes)
@@ -546,7 +543,7 @@ export function ItemPanel({ itemId }: Props) {
             </button>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
-            {!archived && (
+            {!archived && focusable && (
               <IconButton
                 title={focusOn ? 'Stop focusing this line' : 'Focus this line on the board'}
                 active={focusOn}
@@ -1001,32 +998,29 @@ export function ItemPanel({ itemId }: Props) {
                 )}
 
                 <Field label="People" className="col-span-2">
-                  {/* The way in comes first and the names follow it. A list grows downward, and
-                      the one thing in this field that must not move is the box you type in —
-                      with the tags after it, the box was pushed down the panel as they arrived.
-                      Full width, because a name is not a half-column's worth of room. */}
+                  {/* Typing searches the workspace's own people: there is no way here to invent
+                      one, because a person is an account and an invitation is the way in. */}
                   <div className="flex flex-wrap items-center gap-1">
-                    <input
-                      list="kanbantoolkit-assignees"
-                      value={assigneeDraft}
-                      onChange={(e) => setAssigneeDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          applyAssignee()
-                        }
-                      }}
-                      placeholder="Add a name…"
-                      className="min-w-[6rem] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
+                    <PersonPicker
+                      users={users}
+                      exclude={item.assignees ?? []}
+                      onPick={(user) => addAssignee(item.id, user.id)}
+                      label="Add a person"
+                      emptyLabel="Everyone in this workspace is already on the card."
+                      className="flex-1"
                     />
                     {(item.assignees ?? []).map((id) => {
                       const u = userById(id)
                       const name = nameOfUser(users, id) ?? FORMER_MEMBER
                       return (
                         <span key={id} className={CHIP} title={u ? name : `${name} — their account has been removed`}>
-                          <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-white text-micro font-bold text-slate-600 ring-1 ring-slate-200">
-                            {u ? initialsOf(name) : '?'}
-                          </span>
+                          {u ? (
+                            <PersonAvatar user={u} small />
+                          ) : (
+                            <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-200 text-micro font-bold text-slate-600 ring-1 ring-slate-200">
+                              ?
+                            </span>
+                          )}
                           {name}
                           <button
                             onClick={() => setItemFields(item.id, { assignees: (item.assignees ?? []).filter((x) => x !== id) })}
@@ -1039,11 +1033,6 @@ export function ItemPanel({ itemId }: Props) {
                         </span>
                       )
                     })}
-                    <datalist id="kanbantoolkit-assignees">
-                      {users.map((u) => (
-                        <option key={u.id} value={u.name} />
-                      ))}
-                    </datalist>
                   </div>
                 </Field>
 
@@ -1209,12 +1198,13 @@ export function ItemPanel({ itemId }: Props) {
               )}
             </Section>
 
-            {/* Strategic impact — OKRs attach to initiatives, and to nothing else. A card is
-                not shown its initiative's OKRs either: relating work to strategy is the
-                initiative's job, and asking a team to do it card by card is the thing
-                initiatives exist to save them from. */}
-            {isStrategic && (
+            {/* Strategic impact — an objective is served by a **top-level** initiative, wherever its
+                board sits. Everything below one inherits through the decomposition, so a nested
+                initiative is not offered as a second link. A card is not shown its initiative's OKRs
+                either: relating work to strategy is the initiative's job. */}
+            {isInitiative && (
               <Section label="Strategic impact">
+                {canServe ? (
                 <div className="space-y-2 rounded-xl bg-indigo-50/60 p-3 ring-1 ring-indigo-100">
                     {/* One choice, not a set — the shape the kind and the type already have, and the
                         shape the model keeps. Choosing another objective moves the initiative, so
@@ -1233,7 +1223,7 @@ export function ItemPanel({ itemId }: Props) {
                         <option value="">No objective</option>
                         {objectives.map((o) => (
                           <option key={o.id} value={o.id}>
-                            {o.title} · {o.period}
+                            {o.title} · {periodNameOf(periods, o.periodId)}
                           </option>
                         ))}
                       </select>
@@ -1263,6 +1253,12 @@ export function ItemPanel({ itemId }: Props) {
                     </>
                   )}
                 </div>
+                ) : (
+                  <p className="rounded-xl bg-slate-50 p-3 text-meta text-slate-600 ring-1 ring-slate-200">
+                    {parent?.title ?? 'Another initiative'} carries this initiative, so its work serves that
+                    outcome&rsquo;s objective. Only a top-level initiative is mapped to an objective.
+                  </p>
+                )}
               </Section>
             )}
 

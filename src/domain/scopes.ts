@@ -94,7 +94,7 @@ export const SCOPES: Record<Scope, ScopeInfo> = {
   'objectives:write': {
     actions: ['objective.write'],
     label: 'change objectives',
-    does: 'create and change objectives and key results',
+    does: 'create and change periods, objectives and key results',
   },
   'people:read': {
     actions: ['people.read'],

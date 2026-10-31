@@ -60,6 +60,7 @@ describe('keeping the workspace’s words on the server', () => {
         { id: 't-init', name: 'Initiative', color: '#7c3aed' },
       ],
       boardTemplates: [],
+      periods: [],
       objectives: [],
       keyResults: [],
       autoArchiveDays: undefined,
@@ -82,6 +83,8 @@ describe('keeping the workspace’s words on the server', () => {
     // Two edits inside the debounce are one document, not two writes.
     useStore.getState().addIssueType('Probe', '#123456')
     useStore.getState().addIssueType('Probe again', '#123456')
+    // A period is a record now, so its window travels with the words like an objective does.
+    useStore.getState().addPeriod('FY27 Q2', '2027-04-01', '2027-06-30')
     scheduleVocabularyWrite()
     scheduleVocabularyWrite()
     await vi.advanceTimersByTimeAsync(700)
@@ -92,6 +95,7 @@ describe('keeping the workspace’s words on the server', () => {
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
     expect(body.rev).toBe(4)
     expect((body.issueTypes as { name: string }[]).map((t) => t.name)).toContain('Probe again')
+    expect(body.periods).toEqual([expect.objectContaining({ name: 'FY27 Q2', start: '2027-04-01', end: '2027-06-30' })])
     // The revision the server answered is the one the next write is based on.
     expect(useVocabulary.getState().rev).toBe(5)
   })
@@ -126,6 +130,7 @@ describe('keeping the workspace’s words on the server', () => {
           links: [],
           users: [{ id: 'u_ada', name: 'Ada' }],
           issueTypes: [{ id: 't-server', name: 'Theirs', color: '#0ea5e9' }],
+          periods: [],
           objectives: [],
           keyResults: [],
           boardTemplates: [],

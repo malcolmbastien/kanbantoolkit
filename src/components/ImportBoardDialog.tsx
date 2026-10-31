@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { FileUp, Upload, X } from 'lucide-react'
-import { cardTypes, defaultCardTypeId } from '@/domain/board'
+import { cardTypes, NONE_TYPE_ID } from '@/domain/board'
 import { inferStage, parseImport, planImport, type ImportMapping, type ImportSource, type ParsedImport } from '@/domain/import'
-import { STAGE_LABELS } from '@/domain/lanes'
+import { StagePicker } from './StagePicker'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -39,7 +39,10 @@ export function ImportBoardDialog({ onClose }: { onClose: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const types = cardTypes(issueTypes)
-  const defaultTypeId = defaultCardTypeId(issueTypes) ?? types[0]?.id ?? ''
+  // An imported card has no type of ours until somebody says so. "None" is that answer — the
+  // built-in label for "no type" — rather than the first real card type, which would assert that
+  // every Trello card is a Story.
+  const defaultTypeId = types.find((type) => type.name === 'None')?.id ?? NONE_TYPE_ID
   const typeNames = parsed ? [...new Set(parsed.cards.map((card) => card.typeName).filter((name): name is string => Boolean(name)))] : []
 
   const read = async (file: File | undefined) => {
@@ -81,7 +84,7 @@ export function ImportBoardDialog({ onClose }: { onClose: () => void }) {
         includeArchived,
         boardName,
       })
-    } catch (reason) {
+    } catch {
       return undefined
     }
   }, [parsed, mapping, types, users, defaultTypeId, includeArchived, boardName])
@@ -89,9 +92,9 @@ export function ImportBoardDialog({ onClose }: { onClose: () => void }) {
   const setListStage = (key: string, stage: Stage) =>
     setMapping((current) => ({ ...current, listStages: { ...current.listStages, [key]: stage } }))
   const setType = (name: string, id: string) =>
-    setMapping((current) => ({ ...current, types: { ...(current.types ?? {}), [name]: id } }))
+    setMapping((current) => ({ ...current, types: { ...current.types, [name]: id } }))
   const setPerson = (key: string, id: string) =>
-    setMapping((current) => ({ ...current, people: { ...(current.people ?? {}), [key]: id === '__new' ? null : id } }))
+    setMapping((current) => ({ ...current, people: { ...current.people, [key]: id || null } }))
 
   const importNow = () => {
     if (!plan) return
@@ -186,18 +189,11 @@ export function ImportBoardDialog({ onClose }: { onClose: () => void }) {
                     {parsed.lists.map((list) => (
                       <label key={list.key} className="flex items-center gap-2 text-meta text-slate-700">
                         <span className="min-w-0 flex-1 truncate">{list.name}</span>
-                        <select
+                        <StagePicker
                           value={mapping.listStages[list.key] ?? inferStage(list.name)}
-                          onChange={(event) => setListStage(list.key, event.target.value as Stage)}
-                          className={FIELD}
-                          aria-label={`Stage for ${list.name}`}
-                        >
-                          {(['backlog', 'notStarted', 'inProgress', 'done'] as Stage[]).map((stage) => (
-                            <option key={stage} value={stage}>
-                              {STAGE_LABELS[stage]}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(stage) => setListStage(list.key, stage)}
+                          label={`Stage for ${list.name}`}
+                        />
                       </label>
                     ))}
                   </div>
@@ -208,26 +204,32 @@ export function ImportBoardDialog({ onClose }: { onClose: () => void }) {
                   {parsed.people.length === 0 ? (
                     <p className="mt-1 text-meta text-slate-500">No people named in this file.</p>
                   ) : (
-                    <div className="mt-1 space-y-1.5">
-                      {parsed.people.map((person) => (
-                        <label key={person.key} className="flex items-center gap-2 text-meta text-slate-700">
-                          <span className="min-w-0 flex-1 truncate">{person.name}</span>
-                          <select
-                            value={mapping.people?.[person.key] ?? '__new'}
-                            onChange={(event) => setPerson(person.key, event.target.value)}
-                            className={FIELD}
-                            aria-label={`Person for ${person.name}`}
-                          >
-                            <option value="__new">Create a new person</option>
-                            {users.map((user) => (
-                              <option key={user.id} value={user.id}>
-                                {user.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      ))}
-                    </div>
+                    <>
+                      <p className="mt-1 text-micro text-slate-600">
+                        Only people already in this workspace can be chosen. Anyone left as <span className="font-semibold">None</span> is
+                        imported without an assignee.
+                      </p>
+                      <div className="mt-1 space-y-1.5">
+                        {parsed.people.map((person) => (
+                          <label key={person.key} className="flex items-center gap-2 text-meta text-slate-700">
+                            <span className="min-w-0 flex-1 truncate">{person.name}</span>
+                            <select
+                              value={mapping.people?.[person.key] ?? ''}
+                              onChange={(event) => setPerson(person.key, event.target.value)}
+                              className={FIELD}
+                              aria-label={`Person for ${person.name}`}
+                            >
+                              <option value="">None</option>
+                              {users.map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </section>
               </div>
@@ -235,6 +237,9 @@ export function ImportBoardDialog({ onClose }: { onClose: () => void }) {
               {typeNames.length > 0 && (
                 <section className="mt-3 rounded-lg border border-slate-200 p-3">
                   <h3 className="text-micro font-bold uppercase tracking-wide text-slate-500">Types</h3>
+                  <p className="mt-1 text-micro text-slate-600">
+                    A source type that is not one of these becomes <span className="font-semibold">None</span>.
+                  </p>
                   <div className="mt-1 grid gap-1.5 sm:grid-cols-2">
                     {typeNames.map((name) => (
                       <label key={name} className="flex items-center gap-2 text-meta text-slate-700">
@@ -268,7 +273,6 @@ export function ImportBoardDialog({ onClose }: { onClose: () => void }) {
                   <span className="font-semibold">{parsed.lists.length}</span> source list{parsed.lists.length === 1 ? '' : 's'}, on one board
                   with four stages.
                 </p>
-                {plan && plan.people.length > 0 && <p className="mt-0.5 text-micro">Creates {plan.people.map((person) => person.name).join(', ')}.</p>}
                 {plan && plan.warnings.length > 0 && (
                   <ul className="mt-1 list-disc space-y-0.5 pl-4 text-micro text-amber-800">
                     {plan.warnings.slice(0, 8).map((warning) => (

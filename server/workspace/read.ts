@@ -26,6 +26,7 @@ import type {
   KeyResult,
   Lane,
   Objective,
+  Period,
   Placement,
   SplitOrientation,
   Stage,
@@ -378,7 +379,7 @@ async function readSettings(db: Database, workspaceId: string): Promise<{ boardI
 }
 
 export async function readWorkspace(db: Database, workspaceId: string = WORKSPACE_ROW): Promise<Workspace> {
-  const [settings, boards, lanes, flows, items, placements, edges, links, objectives, keyResults, boardTemplates, users, issueTypes] =
+  const [settings, boards, lanes, flows, items, placements, edges, links, periods, objectives, keyResults, boardTemplates, users, issueTypes] =
     await Promise.all([
       readSettings(db, workspaceId),
       readBoards(db, workspaceId),
@@ -388,6 +389,7 @@ export async function readWorkspace(db: Database, workspaceId: string = WORKSPAC
       db.all<Row>('SELECT * FROM placements WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM edges WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM links WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+      db.all<Row>('SELECT * FROM periods WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM objectives WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM key_results WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       readTemplates(db, workspaceId),
@@ -417,15 +419,20 @@ export async function readWorkspace(db: Database, workspaceId: string = WORKSPAC
       return link
     }),
     objectives: objectives.map((row): Objective => {
-      const objective: Objective = {
+      return {
         id: text(row.id),
         title: text(row.title),
-        period: text(row.period),
-        status: text(row.status) as Objective['status'],
+        periodId: text(row.period_id),
+        status: text(row.status) === 'reviewed' ? 'reviewed' : 'active',
       }
-      const score = maybeCount(row.score)
-      if (score !== undefined) objective.score = score
-      return objective
+    }),
+    periods: periods.map((row): Period => {
+      const period: Period = { id: text(row.id), name: text(row.name) }
+      const start = maybeText(row.start)
+      const end = maybeText(row.end)
+      if (start !== undefined) period.start = start
+      if (end !== undefined) period.end = end
+      return period
     }),
     keyResults: keyResults.map(
       (row): KeyResult => ({ id: text(row.id), objectiveId: text(row.objective_id), title: text(row.title) }),

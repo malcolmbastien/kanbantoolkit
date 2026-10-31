@@ -934,18 +934,92 @@ describe('store actions', () => {
     expect(boardCardTypeId(s().boards.find((b) => b.id === 'b-atlas'), types)).toBe('t-story')
   })
 
-  it('OKRs attach to strategic initiatives only', () => {
-    // A card can't be attributed…
+  it('an objective is served by a root initiative, wherever its board sits', () => {
+    // A card can't be attributed: it inherits its initiative's objective.
     s().setAttribution('st-signup-form', 'obj-efficiency', true)
     expect(s().edges.some((e) => e.kind === 'attribution' && e.to === 'st-signup-form')).toBe(false)
-    // …nor a team or value-stream initiative (they inherit through the decomposition).
+    // A nested initiative inherits too — the outcome above it is the link.
     s().setAttribution('init-signup', 'obj-efficiency', true)
     expect(s().edges.some((e) => e.kind === 'attribution' && e.to === 'init-signup')).toBe(false)
+
+    // A root initiative on a team board can be linked: no portfolio placement is needed. Detaching
+    // it from its parent makes it an outcome of its own.
+    s().setParent('init-onboarding', null)
     s().setAttribution('init-onboarding', 'obj-efficiency', true)
-    expect(s().edges.some((e) => e.kind === 'attribution' && e.to === 'init-onboarding')).toBe(false)
-    // …but a strategic initiative (an Initiative on a portfolio board) can.
-    s().setAttribution('init-explore', 'obj-efficiency', true)
-    expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-explore')).toBe(true)
+    expect(s().edges.some((e) => e.kind === 'attribution' && e.from === 'obj-efficiency' && e.to === 'init-onboarding')).toBe(true)
+
+    // A mapped initiative stays a root: rolling it up under another would count the same work
+    // under two outcomes, and make its own card disagree with the objective.
+    s().setParent('init-onboarding', 'init-activation')
+    expect(decompositionParent('init-onboarding', s().edges)).toBeUndefined()
+    expect(s().edges.some((e) => e.kind === 'attribution' && e.to === 'init-onboarding')).toBe(true)
+  })
+
+  it('migrateState no longer drops an attribution to an initiative outside a portfolio board', () => {
+    const migrated = migrateState({
+      items: [{ id: 'i-team', title: 'A team outcome', typeId: 't-initiative', createdAt: 0 }],
+      placements: [{ id: 'p', boardId: 'b-atlas', itemId: 'i-team', laneId: 'l' }],
+      boards: [{ id: 'b-atlas', name: 'Team Atlas', band: 'team', description: '' }],
+      issueTypes: [{ id: 't-initiative', name: 'Initiative', color: '#8b5cf6' }],
+      edges: [{ id: 'e', kind: 'attribution', from: 'o-1', to: 'i-team' }],
+    }) as { edges: { kind: string; to: string }[] }
+    expect(migrated.edges.some((e) => e.kind === 'attribution' && e.to === 'i-team')).toBe(true)
+  })
+
+  it('a period is a record: named, given a window, and an objective is committed for it', () => {
+    const id = s().addPeriod('FY27 Q2', '2027-04-01', '2027-06-30')!
+    expect(s().periods.find((p) => p.id === id)).toEqual({
+      id,
+      name: 'FY27 Q2',
+      start: '2027-04-01',
+      end: '2027-06-30',
+    })
+    // Two periods with one name would be two windows a reader cannot tell apart in a select.
+    expect(s().addPeriod('fy27 q2')).toBeUndefined()
+    expect(s().periods.filter((p) => p.name.toLowerCase() === 'fy27 q2')).toHaveLength(1)
+
+    // The window is the period's: setting it once is the deadline for every objective in it.
+    s().updatePeriod(id, { end: '2027-07-15' })
+    expect(s().periods.find((p) => p.id === id)!.end).toBe('2027-07-15')
+
+    s().addObjective('Grow the base', id)
+    const objective = s().objectives.at(-1)!
+    expect(objective.periodId).toBe(id)
+    expect(objective.status).toBe('active')
+    // No score and no date of its own: an objective is a title, a period and a review state.
+    expect(Object.keys(objective).sort()).toEqual(['id', 'periodId', 'status', 'title'])
+  })
+
+  it('a period retires only when no objective is committed for it', () => {
+    s().removePeriod('p-fy26-q1')
+    expect(s().periods.some((p) => p.id === 'p-fy26-q1')).toBe(true)
+
+    // An empty one is a leftover in a select, and goes.
+    const empty = s().addPeriod('Empty window')!
+    s().removePeriod(empty)
+    expect(s().periods.some((p) => p.id === empty)).toBe(false)
+  })
+
+  it('migrateState turns a period label into a record, and drops the objective’s score', () => {
+    const migrated = migrateState({
+      objectives: [
+        { id: 'o-1', title: 'A', period: 'FY26 Q4', status: 'active', score: 45 },
+        { id: 'o-2', title: 'B', period: 'FY26 Q4', status: 'scored', score: 70 },
+        { id: 'o-3', title: 'C', period: 'FY27 Q1', status: 'active' },
+      ],
+    }) as {
+      objectives: { id: string; periodId: string; status: string; score?: number; period?: string }[]
+      periods: { id: string; name: string; start?: string; end?: string }[]
+    }
+    expect(migrated.periods.map((p) => p.name)).toEqual(['FY26 Q4', 'FY27 Q1'])
+    // No window is invented: nobody has told us when those quarters ran.
+    expect(migrated.periods.every((p) => p.start === undefined && p.end === undefined)).toBe(true)
+
+    const q4 = migrated.periods[0].id
+    expect(migrated.objectives.map((o) => o.periodId)).toEqual([q4, q4, migrated.periods[1].id])
+    // `scored` was the old word for a reviewed objective; the score itself is gone.
+    expect(migrated.objectives[1].status).toBe('reviewed')
+    expect(migrated.objectives.every((o) => o.score === undefined && o.period === undefined)).toBe(true)
   })
 
   it('a key result is a statement: an id, an objective and a title, and nothing to measure', () => {
@@ -1228,6 +1302,32 @@ describe('store actions', () => {
     expect(s().lanes.every((l) => s().flows.some((f) => f.id === l.flowId))).toBe(true)
   })
 
+  it('edit mode is a team’s and a programme’s — a portfolio has no design to open', () => {
+    // A portfolio's shape is its objectives, made in the strategy map, so edit mode is refused
+    // rather than offered and found empty.
+    s().selectBoard('b-strategy')
+    s().beginEdit()
+    expect(s().editMode).toBe(false)
+
+    // Both designing bands still open it: a programme arranges its initiatives sections by hand.
+    s().selectBoard('b-lob')
+    s().beginEdit()
+    expect(s().editMode).toBe(true)
+    s().cancelEdit()
+    s().selectBoard('b-atlas')
+    s().beginEdit()
+    expect(s().editMode).toBe(true)
+    s().cancelEdit()
+  })
+
+  it('a new portfolio opens without edit mode; a new board that is designed opens in it', () => {
+    s().addBoard('Another strategy', 'portfolio')
+    expect(s().editMode).toBe(false)
+    s().addBoard('Another team', 'team')
+    expect(s().editMode).toBe(true)
+    s().cancelEdit()
+  })
+
   it('a copy is created rather than moved: landing in Done does not tick it resolved', () => {
     s().selectBoard('b-atlas')
     // Seeded in Atlas' Done column, with no checklist.
@@ -1264,12 +1364,12 @@ describe('store actions', () => {
     // Bulk: type, assign (additive), move.
     s().setItemsType(['st-sso'], 't-bug')
     expect(s().items.find((i) => i.id === 'st-sso')?.typeId).toBe('t-bug')
-    s().addItemsAssignee(['st-sso'], 'Zoe Zimmer')
-    s().addItemsAssignee(['st-sso'], 'Zoe Zimmer') // deduped, same person
-    s().addItemsAssignee(['st-sso'], 'Riley Kim') // an existing user, reused
+    s().addItemsAssignee(['st-sso'], 'u-mb')
+    s().addItemsAssignee(['st-sso'], 'u-mb') // deduped, same person
+    s().addItemsAssignee(['st-sso'], 'u-rk') // an existing user, reused
     const st = () => s().items.find((i) => i.id === 'st-sso')!
     const names = (st().assignees ?? []).map((id) => s().users.find((u) => u.id === id)?.name)
-    expect(names).toEqual(['Zoe Zimmer', 'Riley Kim'])
+    expect(names).toEqual(['Maya Blake', 'Riley Kim'])
     s().clearItemsAssignees(['st-sso'])
     expect(st().assignees).toBeUndefined()
 
@@ -1285,6 +1385,22 @@ describe('store actions', () => {
     // Opening a card clears the group.
     s().openItem('st-email')
     expect(s().multiSelect).toEqual([])
+  })
+
+  it('adds a person by id, and never creates one from a name', () => {
+    const card = 'st-signup-form'
+    const before = s().users.length
+    // An id the directory does not hold is refused; nothing is minted and nothing is assigned.
+    s().addAssignee(card, 'nobody-by-that-id')
+    expect(s().users.length).toBe(before)
+    expect(s().items.find((i) => i.id === card)!.assignees ?? []).not.toContain('nobody-by-that-id')
+
+    s().addAssignee(card, 'u-rk')
+    expect(s().items.find((i) => i.id === card)!.assignees).toContain('u-rk')
+    // Adding the same person again changes nothing.
+    const rev = s().items.find((i) => i.id === card)!.rev
+    s().addAssignee(card, 'u-rk')
+    expect(s().items.find((i) => i.id === card)!.rev).toBe(rev)
   })
 
   it('focus follows the selection: an initiative enters it, another card or nothing ends it', () => {
@@ -1315,6 +1431,27 @@ describe('store actions', () => {
     s().setLens('init-signup')
     s().openItem('init-signup', { focus: false })
     expect(s().selectedItemId).toBe('init-signup')
+    expect(s().lensId).toBe(null)
+  })
+
+  it('a portfolio board does not enter focus: its outcomes live elsewhere', () => {
+    s().selectBoard('b-strategy')
+    // Selecting an initiative reads it, but there is no board of the portfolio's own to dim.
+    s().openItem('init-activation')
+    expect(s().selectedItemId).toBe('init-activation')
+    expect(s().lensId).toBe(null)
+
+    // Neither way in offers the lens.
+    s().setLens('init-activation')
+    expect(s().lensId).toBe(null)
+    s().toggleLens('init-activation')
+    expect(s().lensId).toBe(null)
+
+    // A focus opened on a team board ends when a portfolio is opened.
+    s().selectBoard('b-atlas')
+    s().openItem('init-signup')
+    expect(s().lensId).toBe('init-signup')
+    s().selectBoard('b-strategy')
     expect(s().lensId).toBe(null)
   })
 
@@ -1386,6 +1523,25 @@ describe('store actions', () => {
     expect(order).toContain('st-email')
     expect(order).toContain('st-sso')
     expect(order.indexOf('st-email')).toBeLessThan(order.indexOf('st-sso'))
+  })
+
+  it('a drop that stays in its lane keeps the arrival clock', () => {
+    const stamp = (id: string) => s().placements.find((p) => p.itemId === id && p.boardId === 'b-atlas')?.laneEnteredAt
+    const lane = laneByName('b-atlas', 'Not Started')
+    const before = stamp('st-email')
+    expect(before).toBeTruthy()
+
+    // The drag path: the same lane, a new position.
+    s().moveCardToIndex('st-email', 'b-atlas', lane.id, 0)
+    expect(stamp('st-email')).toBe(before)
+    // The keyboard reorder and the bulk move use the same write, and keep it too.
+    s().reorderCard('st-email', 1)
+    expect(stamp('st-email')).toBe(before)
+    s().moveCardsToLane(['st-email'], lane.id)
+    expect(stamp('st-email')).toBe(before)
+    // Entering another lane is still an arrival, and stamps.
+    s().moveCard('st-email', 'b-atlas', laneByName('b-atlas', 'Dev').id)
+    expect(stamp('st-email')).not.toBe(before)
   })
 
   it('every path that moves a card stamps when it arrived', () => {
@@ -1829,19 +1985,19 @@ describe('store actions', () => {
   })
 
   it('an initiative with nothing below it is its own leaf: it can be committed before it is broken down', () => {
-    s().selectBoard('b-strategy')
-    const section = (stage: Stage) => topLevelLanes(s().lanes, flow('b-strategy', 'initiatives')).find((l) => l.stage === stage)!
-    const laneOf = (id: string, boardId = 'b-strategy') => s().placements.find((p) => p.itemId === id && p.boardId === boardId)!.laneId
+    s().selectBoard('b-portfolio')
+    const section = (stage: Stage) => topLevelLanes(s().lanes, flow('b-portfolio', 'initiatives')).find((l) => l.stage === stage)!
+    const laneOf = (id: string, boardId = 'b-portfolio') => s().placements.find((p) => p.itemId === id && p.boardId === boardId)!.laneId
     // The fixture's unplanned initiative: no descendants at all.
     expect(descendants('init-explore', graph())).toEqual([])
     expect(laneOf('init-explore')).toBe(section('backlog').id)
 
     // It moves between sections, and back — the section is the only fact there is.
-    s().moveInitiative('init-explore', 'b-strategy', section('notStarted').id)
+    s().moveInitiative('init-explore', 'b-portfolio', section('notStarted').id)
     expect(laneOf('init-explore')).toBe(section('notStarted').id)
-    s().moveInitiativeToIndex('init-explore', 'b-strategy', section('inProgress').id, 0)
+    s().moveInitiativeToIndex('init-explore', 'b-portfolio', section('inProgress').id, 0)
     expect(laneOf('init-explore')).toBe(section('inProgress').id)
-    s().moveInitiative('init-explore', 'b-strategy', section('backlog').id)
+    s().moveInitiative('init-explore', 'b-portfolio', section('backlog').id)
     expect(laneOf('init-explore')).toBe(section('backlog').id)
     // And it records where it went, like any other move.
     expect((s().items.find((i) => i.id === 'init-explore')!.log ?? []).at(-1)).toMatchObject({ kind: 'moved', toStage: 'backlog' })
@@ -2490,8 +2646,8 @@ describe('store actions', () => {
     s().unblockItems(['st-email', 'st-sso'])
     expect(s().items.find((i) => i.id === 'st-sso')?.blocked).toBe(false)
 
-    s().addItemsAssignee(['st-email'], 'Maya Blake')
     const uid = s().users.find((u) => u.name === 'Maya Blake')!.id
+    s().addItemsAssignee(['st-email'], uid)
     expect(s().items.find((i) => i.id === 'st-email')?.assignees).toEqual([uid])
     s().removeItemsAssignee(['st-email'], uid)
     expect(s().items.find((i) => i.id === 'st-email')?.assignees).toBeUndefined()
@@ -2557,7 +2713,7 @@ describe("an item's revision", () => {
   }
   const freshPerson = () => {
     const item = s().items.find((i) => i.id === card)!
-    return s().users.find((u) => !(item.assignees ?? []).includes(u.id))!.name
+    return s().users.find((u) => !(item.assignees ?? []).includes(u.id))!.id
   }
   const revOf = (id: string) => s().items.find((i) => i.id === id)?.rev ?? 0
 
@@ -2565,7 +2721,7 @@ describe("an item's revision", () => {
     { name: 'setItemFields', run: () => s().setItemFields(card, { title: 'Renamed' }), target: card },
     { name: 'toggleItemTag', run: () => s().toggleItemTag('b-atlas', card, freshTag()), target: card },
     { name: 'addAssignee', run: () => s().addAssignee(card, freshPerson()), target: card },
-    { name: 'addItemsAssignee', run: () => s().addItemsAssignee([card, other], 'Jonah Tran'), target: other },
+    { name: 'addItemsAssignee', run: () => s().addItemsAssignee([card, other], 'u-jt'), target: other },
     { name: 'clearItemsAssignees', run: () => s().clearItemsAssignees([card]), target: card },
     { name: 'setItemsType', run: () => s().setItemsType([card], 't-bug'), target: card },
     { name: 'blockItem', run: () => s().blockItem(card, 'waiting on legal'), target: card },
@@ -2949,12 +3105,14 @@ describe('initiative rank within a cell', () => {
   beforeEach(() => resetToFixture())
 
   it('moveInitiativeToIndex reorders within the cell, rewriting the ranks', () => {
-    // Two backlog initiatives in one cell: init-explore joins init-platform on b-portfolio.
+    // Two backlog initiatives in one cell: init-explore and init-platform share a cell on
+    // b-portfolio, in the order the fixture placed them.
     const cellId = s().placements.find((p) => p.itemId === 'init-platform' && p.boardId === 'b-portfolio')!.laneId
-    s().moveInitiative('init-explore', 'b-portfolio', cellId)
     const order = () => placementsInOrder(s().placements, cellId).map((p) => p.itemId)
+    expect(order()).toEqual(['init-explore', 'init-platform'])
+    s().moveInitiativeToIndex('init-explore', 'b-portfolio', cellId, 1)
     expect(order()).toEqual(['init-platform', 'init-explore'])
-    s().moveInitiativeToIndex('init-platform', 'b-portfolio', cellId, 1)
+    s().moveInitiativeToIndex('init-explore', 'b-portfolio', cellId, 0)
     expect(order()).toEqual(['init-explore', 'init-platform'])
     // The rewrite is dense: the ranks are 0..n-1, not the old numbers with a gap.
     expect(s().placements.filter((p) => p.laneId === cellId).map((p) => p.rank ?? 0).sort((a, b) => a - b)).toEqual([0, 1])
@@ -2964,11 +3122,11 @@ describe('initiative rank within a cell', () => {
     // init-efficiency has work below it (init-delivery, sitting in Not Started), so its section
     // is derived and Done is another section entirely. A childless initiative is its own leaf and
     // *may* cross — that carve-out has its own test.
-    const doneCell = topLevelLanes(s().lanes, flow('b-strategy', 'initiatives')).find((l) => l.stage === 'done')!.id
+    const doneCell = topLevelLanes(s().lanes, flow('b-delivery', 'initiatives')).find((l) => l.stage === 'done')!.id
     expect(descendants('init-efficiency', graph()).length).toBeGreaterThan(0)
     expect(rollupOf('init-efficiency', graph()).bucket).toBe('notStarted')
     const before = JSON.stringify(s().placements)
-    s().moveInitiativeToIndex('init-efficiency', 'b-strategy', doneCell, 0)
+    s().moveInitiativeToIndex('init-efficiency', 'b-delivery', doneCell, 0)
     expect(JSON.stringify(s().placements)).toBe(before)
   })
 })

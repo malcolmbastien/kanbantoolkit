@@ -15,15 +15,18 @@ import { readWorkspace, readVocabularyRev } from './read'
 import {
   canonicalKeyResult,
   canonicalObjective,
+  canonicalPeriod,
   canonicalTemplate,
   parseVocabulary,
   vocabularyObjectivesKnown,
+  vocabularyPeriodsKnown,
 } from './validate'
 import { writeVocabulary } from './write'
 
 export const VOCABULARY_ACTIONS: Record<string, Action> = {
   issueTypes: 'board.settings',
   boardTemplates: 'template.manage',
+  periods: 'objective.write',
   objectives: 'objective.write',
   keyResults: 'objective.write',
   autoArchiveDays: 'workspace.settings',
@@ -33,6 +36,7 @@ export const VOCABULARY_ACTIONS: Record<string, Action> = {
 export const VOCABULARY_SCOPES: Record<string, Scope> = {
   issueTypes: 'boards:write',
   boardTemplates: 'boards:write',
+  periods: 'objectives:write',
   objectives: 'objectives:write',
   keyResults: 'objectives:write',
   autoArchiveDays: 'workspace:admin',
@@ -50,6 +54,7 @@ export interface VocabularyWriteOk {
   changed: string[]
   issueTypes: number
   boardTemplates: number
+  periods: number
   objectives: number
   keyResults: number
 }
@@ -64,6 +69,7 @@ export function changedVocabulary(before: Workspace, vocabulary: Vocabulary): st
   const changed: string[] = []
   if (stable(byId(before.issueTypes)) !== stable(byId(vocabulary.issueTypes))) changed.push('issueTypes')
   if (stable(byId(before.boardTemplates.map(canonicalTemplate))) !== stable(byId(vocabulary.boardTemplates))) changed.push('boardTemplates')
+  if (stable(byId(before.periods.map(canonicalPeriod))) !== stable(byId(vocabulary.periods))) changed.push('periods')
   if (stable(byId(before.objectives.map(canonicalObjective))) !== stable(byId(vocabulary.objectives))) changed.push('objectives')
   if (stable(byId(before.keyResults.map(canonicalKeyResult))) !== stable(byId(vocabulary.keyResults))) changed.push('keyResults')
   if ((before.autoArchiveDays ?? null) !== (vocabulary.autoArchiveDays ?? null)) changed.push('autoArchiveDays')
@@ -77,6 +83,7 @@ export async function readVocabulary(db: Database, workspaceId: string) {
     rev,
     issueTypes: state.issueTypes,
     boardTemplates: state.boardTemplates,
+    periods: state.periods,
     objectives: state.objectives,
     keyResults: state.keyResults,
     ...(state.autoArchiveDays === undefined ? {} : { autoArchiveDays: state.autoArchiveDays }),
@@ -114,6 +121,17 @@ export async function writeVocabularyDocument(input: {
       failure: { status: 422, code: 'invalid', message: 'the built-in types cannot be removed', details: { field: 'issueTypes' } },
     }
   }
+  if (!vocabularyPeriodsKnown(vocabulary)) {
+    return {
+      ok: false,
+      failure: {
+        status: 422,
+        code: 'invalid',
+        message: 'an objective is committed for a period that is not in this workspace',
+        details: { field: 'objectives' },
+      },
+    }
+  }
   if (!vocabularyObjectivesKnown(vocabulary)) {
     return {
       ok: false,
@@ -149,6 +167,7 @@ export async function writeVocabularyDocument(input: {
         changed: [],
         issueTypes: vocabulary.issueTypes.length,
         boardTemplates: vocabulary.boardTemplates.length,
+        periods: vocabulary.periods.length,
         objectives: vocabulary.objectives.length,
         keyResults: vocabulary.keyResults.length,
       },
@@ -204,6 +223,7 @@ export async function writeVocabularyDocument(input: {
       changed,
       issueTypes: vocabulary.issueTypes.length,
       boardTemplates: vocabulary.boardTemplates.length,
+      periods: vocabulary.periods.length,
       objectives: vocabulary.objectives.length,
       keyResults: vocabulary.keyResults.length,
     },

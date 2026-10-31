@@ -438,8 +438,8 @@ export function objectiveRollup(objectiveId: string, graph: Graph): Rollup | und
 }
 
 /**
- * OKR coverage: strategic initiatives that carry no OKR, and OKRs that no
- * strategic initiative serves. Both are first-class gaps on the L3 lens.
+ * OKR coverage: initiatives in the given population that carry no OKR, and OKRs that no
+ * initiative serves. Both are first-class gaps on the L3 lens.
  */
 export function okrCoverage(
   initiatives: Item[],

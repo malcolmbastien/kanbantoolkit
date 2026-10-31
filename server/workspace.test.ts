@@ -154,8 +154,12 @@ const workspace: Workspace = {
   ],
   links: [{ id: 'lk-1', from: 'i-outcome', to: 'i-signin', reason: 'needs it first' }],
   objectives: [
-    { id: 'o-1', title: 'Ship the server', period: '2026-Q4', status: 'active' },
-    { id: 'o-2', title: 'Grow', period: '2026-Q3', status: 'scored', score: 0.7 },
+    { id: 'o-1', title: 'Ship the server', periodId: 'p-q4', status: 'active' },
+    { id: 'o-2', title: 'Grow', periodId: 'p-q3', status: 'reviewed' },
+  ],
+  periods: [
+    { id: 'p-q3', name: '2026-Q3', start: '2026-07-01', end: '2026-09-30' },
+    { id: 'p-q4', name: '2026-Q4', start: '2026-10-01', end: '2026-12-31' },
   ],
   keyResults: [{ id: 'kr-1', objectiveId: 'o-1', title: 'Two devices, one board' }],
   boardTemplates: [
@@ -230,6 +234,7 @@ describe('the workspace', () => {
       edges: [],
       links: [],
       objectives: [],
+      periods: [],
       keyResults: [],
       boardTemplates: [],
       boards: [],
@@ -425,7 +430,7 @@ describe('writing the board design', () => {
     const db = database()
     const { cookie } = await signedIn(db)
     // The floor is the newest migration: a database behind it cannot be read honestly.
-    await db.run('DELETE FROM schema_migrations WHERE version = 35')
+    await db.run('DELETE FROM schema_migrations WHERE version = 36')
     const response = await instance(db)('/api/workspace/structure', {
       method: 'PUT',
       headers: { 'content-type': 'application/json', cookie },
@@ -717,6 +722,7 @@ describe('importing a workspace', () => {
     edges: [],
     links: [],
     objectives: [],
+    periods: [],
     keyResults: [],
     boardTemplates: [],
     placements: [{ id: 'p-new', boardId: 'b-new', itemId: 'i-new', laneId: 'l-new' }],
@@ -1007,7 +1013,8 @@ describe('writing the workspace vocabulary', () => {
         lanes: [{ key: 'l-backlog', flowKey: 'f-cards', parentKey: null, order: 0, name: 'Backlog', stage: 'backlog' as const }],
       },
     ],
-    objectives: [{ id: 'o-1', title: 'Sign in without a password', period: '2026-Q1', status: 'active' as const }],
+    periods: [{ id: 'p-q1', name: '2026-Q1', start: '2026-01-01', end: '2026-03-31' }],
+    objectives: [{ id: 'o-1', title: 'Sign in without a password', periodId: 'p-q1', status: 'active' as const }],
     keyResults: [{ id: 'k-1', objectiveId: 'o-1', title: 'Every member can sign in' }],
     autoArchiveDays: 14,
   })
@@ -1077,7 +1084,7 @@ describe('writing the workspace vocabulary', () => {
     expect((await read()).vocabularyRev).toBe(rev + 1)
   })
 
-  it('refuses a document that drops the built-in labels, and one whose key result points nowhere', async () => {
+  it('refuses a document that drops the built-in labels, and one whose references point nowhere', async () => {
     const { put, read, rev } = await writer()
 
     const noBuiltIns = vocabulary()
@@ -1092,8 +1099,15 @@ describe('writing the workspace vocabulary', () => {
     expect(dangling.status).toBe(422)
     expect(((await dangling.json()) as { field: string }).field).toBe('keyResults')
 
-    // Nothing was written by either refusal: the words are the import's, and their revision is where
-    // it was. The document that dropped `t-none` would have been visible here if it had landed.
+    // An objective committed for a period the document does not carry would point at nothing too.
+    const noPeriod = vocabulary()
+    noPeriod.objectives = [{ ...noPeriod.objectives[0], periodId: 'p-missing' }]
+    const nowhere = await put({ rev, ...noPeriod })
+    expect(nowhere.status).toBe(422)
+    expect(((await nowhere.json()) as { field: string }).field).toBe('objectives')
+
+    // Nothing was written by any refusal: the words are the import's, and their revision is where it
+    // was. The document that dropped `t-none` would have been visible here if it had landed.
     const body = await read()
     expect(body.vocabularyRev).toBe(rev)
     expect(body.issueTypes.some((t) => t.id === 't-none')).toBe(false)

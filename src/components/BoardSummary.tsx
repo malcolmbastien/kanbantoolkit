@@ -80,9 +80,10 @@ export function BoardSummary({
   /** Own surface: drag initiatives between cells and edit the flow. Linked bands set this false. */
   interactive?: boolean
   /**
-   * Show only these initiatives — when a surface groups the same flow by something other than the
-   * flow itself. A portfolio groups it by the objective each initiative serves, so each group is
-   * this board's own columns narrowed to its own members.
+   * Draw exactly these initiatives — when a surface groups a flow by something other than the flow
+   * itself. A portfolio groups it by the objective each initiative serves, and those initiatives
+   * may live on any board: the link names the outcome, not a placement. So a group is the board's
+   * own columns narrowed to named members, wherever they sit.
    *
    * Everything downstream follows from that one narrowing: a cell's badge counts the group's
    * initiatives, and the health is found for them alone — which matters, because the health rules
@@ -146,11 +147,12 @@ export function BoardSummary({
   // to the board's *local* top-level initiatives: ones whose parent is not on this same board,
   // so an initiative can roll up to a top-level initiative on another management board and
   // still appear as top-level on its own board.
-  // The group's own members, if this instance is a group. `null` is "everything", `[]` is "none".
+  // A named set is drawn as named, wherever the initiatives live; otherwise this is the board's
+  // own initiatives, found once so every surface that reads them agrees.
   const only = onlyKey === null ? null : new Set(onlyKey.split(',').filter(Boolean))
-  const allInitiatives = boardInitiatives(graph, boardId, issueTypes, { rootsOnly }).filter(
-    (i) => only === null || only.has(i.id),
-  )
+  const allInitiatives = only
+    ? items.filter((i) => only.has(i.id) && isInitiativeItem(i, issueTypes) && !i.archived)
+    : boardInitiatives(graph, boardId, issueTypes, { rootsOnly })
   const initiatives = allInitiatives
   const boardKinds = boards.find((b) => b.id === boardId)?.initiativeTypes
 

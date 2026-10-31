@@ -233,7 +233,7 @@ Two rows are genuinely a product decision and should be settled before implement
   is the safer default.
 - **Attribution.** Mapping an initiative to an objective is a management act, but it is also
   planning work. Recommendation: Editor may attribute; only Administrator creates or deletes
-  objectives and key results.
+  periods, objectives and key results.
 
 The permission check is a pure domain function, not scattered conditionals:
 

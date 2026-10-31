@@ -19,6 +19,7 @@ import type {
   KeyResult,
   Lane,
   Objective,
+  Period,
   Placement,
   User,
 } from '../../src/domain/types'
@@ -32,6 +33,8 @@ export interface Workspace {
   edges: Edge[]
   links: ItemLink[]
   objectives: Objective[]
+  /** The windows objectives are committed for. */
+  periods: Period[]
   keyResults: KeyResult[]
   boardTemplates: BoardTemplate[]
   autoArchiveDays?: number
@@ -49,12 +52,15 @@ export interface Workspace {
 /**
  * The workspace's words: the lists the app authors as one document, apart from the board design.
  *
- * Types, templates, objectives and key results are whole-list edits — a rename is a new array, not a
- * patch — so they travel together, with the auto-archive policy, under one revision of their own.
+ * Types, templates, periods, objectives and key results are whole-list edits — a rename is a new
+ * array, not a patch — so they travel together, with the auto-archive policy, under one revision of
+ * their own.
  */
 export interface Vocabulary {
   issueTypes: IssueType[]
   boardTemplates: BoardTemplate[]
+  /** The windows objectives are committed for — a period is a record now, not a label. */
+  periods: Period[]
   objectives: Objective[]
   keyResults: KeyResult[]
   autoArchiveDays?: number

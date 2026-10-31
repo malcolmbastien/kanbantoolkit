@@ -1,5 +1,5 @@
 import { rollupOf, type Graph } from './derive'
-import { boardInitiatives, isAggregating } from './board'
+import { boardInitiatives, isAggregating, isPortfolio, portfolioInitiatives } from './board'
 import { ageDays, isOverdue, STALE_AFTER_DAYS } from './filters'
 import { initiativeHealth } from './health'
 import { cardsFlows } from './flows'
@@ -91,7 +91,7 @@ export function boardAttention(
   { boards = [], now = Date.now() }: { boards?: Board[]; now?: number } = {},
 ): Attention {
   const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
-  const rows = makesCards ? cardRows(graph, boardId, flows, now) : initiativeRows(graph, boardId, issueTypes, now)
+  const rows = makesCards ? cardRows(graph, boardId, flows, now) : initiativeRows(graph, boardId, issueTypes, now, boards)
   const counts: AttentionCounts = {
     unfinished: rows.length,
     overdue: 0,
@@ -202,9 +202,20 @@ function cardSignals(item: Item, stage: Stage, age: number | undefined, now: num
  * Initiatives — a board that makes no cards
  * ------------------------------------------------------------------ */
 
-function initiativeRows(graph: Graph, boardId: string, issueTypes: IssueType[], now: number): AttentionRow[] {
+function initiativeRows(
+  graph: Graph,
+  boardId: string,
+  issueTypes: IssueType[],
+  now: number,
+  boards: Board[],
+): AttentionRow[] {
+  // A portfolio holds no initiatives of its own: it reads those in its remit and those linked to
+  // its objectives, wherever the board that carries them sits.
+  const population = isPortfolio(boards.find((b) => b.id === boardId))
+    ? portfolioInitiatives(graph, boards, boardId, issueTypes)
+    : boardInitiatives(graph, boardId, issueTypes)
   const rows: AttentionRow[] = []
-  for (const item of boardInitiatives(graph, boardId, issueTypes)) {
+  for (const item of population) {
     const bucket = rollupOf(item.id, graph).bucket
     if (bucket === 'done') continue
     const placement = graph.placements.find((p) => p.boardId === boardId && p.itemId === item.id)

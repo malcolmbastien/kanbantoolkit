@@ -14,7 +14,7 @@
 
 import { decompositionParent, objectiveRollup, rollupOf } from '../src/domain/derive'
 import { cardsFlows, initiativesFlow, kindOf } from '../src/domain/flows'
-import { boardCardTypeId, boardTags, canRetype, canSetParent, defaultDropLane, isInitiativeItem, isStrategicInitiative } from '../src/domain/board'
+import { boardCardTypeId, boardTags, canRetype, canServeObjective, canSetParent, defaultDropLane, isInitiativeItem } from '../src/domain/board'
 import { searchHits } from '../src/domain/search'
 import { moveCard, moveInitiative } from '../src/domain/move'
 import type { Role } from '../src/domain/roles'
@@ -293,16 +293,29 @@ export async function getItem(caller: OpCaller, itemId: string) {
 export async function listObjectives(caller: OpCaller) {
   const state = await readWorkspace(caller.db, caller.workspaceId)
   return ok({
-    data: state.objectives.map((objective) => ({
-      id: objective.id,
-      title: objective.title,
-      period: objective.period,
-      ...(objective.score !== undefined ? { score: objective.score } : {}),
-      // The completeness the app shows: the rollup of the work that serves it, and `null` when
-      // nothing does — 0% would be a worse way of saying "nothing serves this".
-      completeness: objectiveRollup(objective.id, state) ?? null,
-      keyResults: state.keyResults.filter((kr) => kr.objectiveId === objective.id).map((kr) => ({ id: kr.id, title: kr.title })),
-    })),
+    data: state.objectives.map((objective) => {
+      // The window is the period's, not the objective's: an objective is due when its period ends,
+      // and the record is what says when that is.
+      const period = state.periods.find((candidate) => candidate.id === objective.periodId)
+      return {
+        id: objective.id,
+        title: objective.title,
+        periodId: objective.periodId,
+        period: period
+          ? {
+              id: period.id,
+              name: period.name,
+              ...(period.start ? { start: period.start } : {}),
+              ...(period.end ? { end: period.end } : {}),
+            }
+          : null,
+        status: objective.status,
+        // The completeness the app shows: the rollup of the work that serves it, and `null` when
+        // nothing does — 0% would be a worse way of saying "nothing serves this".
+        completeness: objectiveRollup(objective.id, state) ?? null,
+        keyResults: state.keyResults.filter((kr) => kr.objectiveId === objective.id).map((kr) => ({ id: kr.id, title: kr.title })),
+      }
+    }),
   })
 }
 
@@ -840,8 +853,8 @@ export async function mapInitiative(caller: OpCaller, objectiveId: string, itemI
   if (!objective) return no(404, 'not_found', 'no such objective')
   const item = state.items.find((entry) => entry.id === itemId)
   if (!item) return no(404, 'not_found', 'no such item')
-  if (!isStrategicInitiative(itemId, state)) {
-    return no(422, 'not_strategic', 'only an Initiative placed on a portfolio board can serve an objective', { itemId })
+  if (!canServeObjective(item, state, state.issueTypes)) {
+    return no(422, 'not_an_outcome', 'only a top-level initiative can serve an objective — one that is not part of another', { itemId })
   }
 
   const previous = state.edges.find((edge) => edge.kind === 'attribution' && edge.to === itemId && edge.from !== objectiveId)

@@ -82,8 +82,8 @@ The strategy map and the objectives view add warnings about coverage, not flow:
 
 | What you see | What it means | What clears it |
 | --- | --- | --- |
-| **No strategic initiative serves this OKR**, an amber line on an objective card | The objective has no work mapped to it. It has no completeness figure either, because there is no work to read. | Map a strategic initiative to the objective. |
-| **N gaps** in amber in the strategy map's header | The number of objectives with nothing serving them plus strategic initiatives serving no objective. | Either gap is closed. |
+| **No initiative is mapped to this objective**, an amber line on an objective card | The objective has no work mapped to it. It has no completeness figure either, because there is no work to read. | Map a top-level initiative to the objective. |
+| **N gaps** in amber in the strategy map's header | The number of objectives with nothing serving them plus top-level initiatives in the portfolio's remit serving no objective. | Either gap is closed. |
 | **No objective yet**, an amber group on the strategy map | Strategic initiatives on the portfolio that no objective carries. They are shown as a flow of their own, waiting to be mapped. | Map each to an objective. |
 | **over the commitment limit**, a red badge in the objectives header | The period holds more than five objectives. The limit is a commitment, not a capacity: the view warns, it does not block. | Move an objective to another period or remove one. |
 
@@ -107,8 +107,6 @@ load a column carries.
   badges of their own.
 - A finished item's **archived** or **discarded** outcome is a fact about where it went, not a
   warning.
-- An objective's **score** is a person's grade at the end of a period; it is not derived and never
-  raises a signal.
 
 ## Related
 

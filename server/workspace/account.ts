@@ -140,6 +140,7 @@ export async function deleteWorkspace(db: Database, workspaceId: string, audit: 
     { sql: 'DELETE FROM links WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM key_results WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM objectives WHERE workspace_id = ?1', params: [workspaceId] },
+    { sql: 'DELETE FROM periods WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM items WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM lanes WHERE workspace_id = ?1', params: [workspaceId] },
     { sql: 'DELETE FROM boards WHERE workspace_id = ?1', params: [workspaceId] },

@@ -174,16 +174,20 @@ function placeAt(
   index: number | undefined,
   context: MoveContext,
 ): Placement[] {
+  // Arriving in a lane is what the clock reads. A drop that stays in the same lane is a position,
+  // not an arrival, so the stamp it already carries is kept — otherwise dragging a card within its
+  // own column would make its "days in lane" start again.
+  const enteredAt = moving.laneId === laneId ? moving.laneEnteredAt : context.at
   if (index === undefined) {
     return placements.map((p) =>
-      p.id === moving.id ? { ...p, laneId, laneEnteredAt: context.at, rank: nextRank(placements, laneId) } : p,
+      p.id === moving.id ? { ...p, laneId, laneEnteredAt: enteredAt, rank: nextRank(placements, laneId) } : p,
     )
   }
 
   const rest = placements.filter((p) => p.laneId === laneId && p.id !== moving.id)
   const ordered = placementsInOrder(rest, laneId)
   const at = Math.max(0, Math.min(index, ordered.length))
-  ordered.splice(at, 0, { ...moving, laneId, laneEnteredAt: context.at })
+  ordered.splice(at, 0, { ...moving, laneId, laneEnteredAt: enteredAt })
   const rankById = new Map(ordered.map((p, i) => [p.id, i]))
 
   const others = placements.filter((p) => p.id !== moving.id && p.laneId !== laneId)
@@ -191,7 +195,7 @@ function placeAt(
   return [
     ...others,
     ...landed.map((p) => (rankById.has(p.id) ? { ...p, rank: rankById.get(p.id)! } : p)),
-    { ...moving, laneId, laneEnteredAt: context.at, rank: rankById.get(moving.id) ?? 0 },
+    { ...moving, laneId, laneEnteredAt: enteredAt, rank: rankById.get(moving.id) ?? 0 },
   ]
 }
 
