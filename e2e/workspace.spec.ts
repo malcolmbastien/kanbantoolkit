@@ -80,7 +80,8 @@ test('None is a card type, always offered', async ({ page }) => {
   await panel.getByLabel('Type').selectOption('t-none')
   await expect(panel.getByLabel('Type')).toHaveValue('t-none')
   await page.keyboard.press('Escape')
-  await expect(card).toContainText('None')
+  // No type is the absence of a badge, not the word "None" on the face.
+  await expect(card).not.toContainText('None')
 })
 
 test('objectives open from a portfolio board, not the top bar', async ({ page }) => {

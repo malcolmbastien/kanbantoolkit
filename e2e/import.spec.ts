@@ -60,14 +60,17 @@ test('a Trello board is imported as one board and opens with its cards', async (
   await dialog.getByRole('button', { name: 'Import board' }).click()
   await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
   await expect(page.getByRole('button', { name: /Imported Delivery/ })).toBeVisible()
-  await expect(page.locator('[data-card-id]').filter({ hasText: 'First imported card' })).toBeVisible()
+  const first = page.locator('[data-card-id]').filter({ hasText: 'First imported card' })
+  await expect(first).toBeVisible()
+  // A card with no type of ours carries no type badge at all.
+  await expect(first.getByText('None', { exact: true })).toHaveCount(0)
   await expect(page.locator('[data-card-id]').filter({ hasText: 'Second imported card' })).toBeVisible()
   // The done card's stage is the source list's done, and its imported tag is on the card.
   await expect(page.locator('[data-card-id]').filter({ hasText: 'Already done elsewhere' })).toBeVisible()
   await expect(page.getByText('imported', { exact: true })).toBeVisible()
 
   // A source card with no type of ours is None, not the first real card type.
-  await page.locator('[data-card-id]').filter({ hasText: 'First imported card' }).click()
+  await first.click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel.getByLabel('Type')).toHaveValue('t-none')
   await page.keyboard.press('Escape')

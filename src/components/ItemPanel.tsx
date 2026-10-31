@@ -14,7 +14,7 @@ import {
   rollupOf,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiativeTypes, boardTags, canFocusBoard, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, placementOn, tagsOf } from '@/domain/board'
+import { boardInitiativeTypes, boardTags, canFocusBoard, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, NONE_TYPE_ID, placementOn, tagsOf } from '@/domain/board'
 import { periodNameOf } from '@/domain/periods'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
@@ -651,12 +651,14 @@ export function ItemPanel({ itemId }: Props) {
         )}
 
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          <span
-            className="rounded px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide"
-            style={{ backgroundColor: chipColors(type.color).background, color: chipColors(type.color).color }}
-          >
-            {type.name}
-          </span>
+          {type.id !== NONE_TYPE_ID && (
+            <span
+              className="rounded px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide"
+              style={{ backgroundColor: chipColors(type.color).background, color: chipColors(type.color).color }}
+            >
+              {type.name}
+            </span>
+          )}
           {/* A chip that repeats the board behind the panel says nothing, so it is not drawn.
               When the card is somewhere else, it is the first thing worth saying. */}
           {itemBoard && itemBoard.id !== boardId && (

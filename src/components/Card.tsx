@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { Ban, Check, ChevronDown, Clock, CornerDownRight, Link2, ListChecks, Lock, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR } from '@/lib/colors'
+import { NONE_TYPE_ID } from '@/domain/board'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { FORMER_MEMBER, initialsOf } from '@/domain/users'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
@@ -666,12 +667,14 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         {/* Tier 1 — identity and weight. The type sits at the leading edge and the two marks a
             reader weighs it by sit at the trailing edge, on the same line at every card width. */}
         <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-1.5">
-          <span
-            className="inline-flex min-h-[20px] shrink-0 items-center whitespace-nowrap rounded px-1.5 text-micro font-bold uppercase tracking-wide"
-            style={softChipColors(type.color)}
-          >
-            {type.name}
-          </span>
+          {type.id !== NONE_TYPE_ID && (
+            <span
+              className="inline-flex min-h-[20px] shrink-0 items-center whitespace-nowrap rounded px-1.5 text-micro font-bold uppercase tracking-wide"
+              style={softChipColors(type.color)}
+            >
+              {type.name}
+            </span>
+          )}
           <span className="flex shrink-0 items-center gap-1.5">
             <PriorityBadge priority={item.priority} />
           </span>
