@@ -6,6 +6,7 @@ import { boardInitiatives, initiativeTypeId, isStrategicInitiative } from './boa
 import { blockedBelow, descendants, openDependenciesOf, rollupOf, type Graph } from './derive'
 import { initiativeHealth } from './health'
 import { childrenOf, effectiveStage, isLeaf, laneCardCount, placementsInOrder, topLevelLanes } from './lanes'
+import { bucketsFor, flowRecord, forecastWhen, throughput } from './metrics'
 import type { Stage } from './types'
 
 /**
@@ -208,6 +209,21 @@ describe('the demo dataset', () => {
     // And the health of the whole programme is mixed, not uniformly green.
     const levels = initiatives.map((i) => blockedBelow(i.id, graph))
     expect(levels.some((n) => n > 0)).toBe(true)
+  })
+
+  it('gives Team Atlas a weekly delivery history the forecast can read on first visit', () => {
+    const now = Date.now()
+    // The demo's own board, read the way the Flow screen reads it: every card placed on it,
+    // archived ones included, with the stage its cell gives it.
+    const records = cards
+      .filter((card) => at(card.id).boardId === 'b-atlas')
+      .map((card) => flowRecord(card, stageOf(card.id)))
+    const delivered = throughput(records, bucketsFor(12, records, now))
+    expect(delivered.reduce((sum, n) => sum + n, 0)).toBeGreaterThanOrEqual(8)
+    expect(delivered.filter((n) => n > 0).length).toBeGreaterThanOrEqual(4)
+
+    // A refused forecast is the bug: the first visit should see the reading, not "thin history".
+    expect(forecastWhen(1, delivered, now).ok).toBe(true)
   })
 })
 

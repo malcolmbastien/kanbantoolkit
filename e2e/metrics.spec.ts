@@ -130,17 +130,13 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   await expect(view.getByText('The numbers')).toHaveCount(0)
 })
 
-test('the forecast refuses thin history, and answers with a range when there is history', async ({ page }) => {
-  // The demo's own board has three deliveries: enough for a chart, not for a forecast.
+test('the demo forecast answers with a range and the assumptions behind it', async ({ page }) => {
+  // The demo carries ten archived deliveries over ten weeks, so a first visit sees the answer a
+  // real team would get rather than the thin-history refusal.
   await page.goto(FLOW)
-  await expect(page.locator('[data-flow-view] [data-forecast-refusal]')).toContainText('Not enough history')
-
-  // A load-test board has the history the demo does not. It is built on request and opened on the
-  // next visit, because ?stress= is an intention that lands on the board itself.
-  await page.goto('/app?stress=120')
-  await page.goto('/app?board=stress-board&view=flow&range=all')
   const view = page.locator('[data-flow-view]')
   await expect(view.locator('[data-forecast]')).toBeVisible()
+  await expect(view.locator('[data-forecast-refusal]')).toHaveCount(0)
   for (const share of ['p50', 'p85', 'p95']) {
     await expect(view.locator(`[data-forecast-date="${share}"]`)).not.toHaveText('—')
     await expect(view.locator(`[data-forecast-date="${share}"]`)).toContainText(/\d{4}/)

@@ -273,6 +273,31 @@ export function createSeed(): FlowState {
     assignees: ['u-lm'],
   })
 
+  /**
+   * The delivery history behind the demo's Flow view: ten finished cards, filed away, spread over
+   * ten weeks. They are deliberately not decomposed into an initiative and not attributed to an
+   * objective — they are the team's past, not a change to today's rollups — and archived cards do
+   * not appear in a lane's count. The forecast needs a real weekly sample, and a first visit should
+   * see its answer rather than an apology about thin history.
+   */
+  const delivered = (id: string, title: string, typeId: string, created: number, arrived: number, assignees: string[]) =>
+    card(id, title, typeId, 'b-atlas', a.done, 'done', created, arrived, {
+      assignees,
+      archived: true,
+      archivedAt: ago(arrived - 2),
+    })
+
+  delivered('st-history-pricing', 'Ship the pricing page', 't-story', 33, 21, ['u-rk', 'u-lm'])
+  delivered('st-history-flags', 'Cache the feature flags', 't-task', 40, 28, ['u-ds'])
+  delivered('st-history-payload', 'Reduce the signup payload', 't-task', 47, 35, ['u-rk'])
+  delivered('st-history-banner', 'Retire the old banner', 't-task', 54, 42, ['u-lm'])
+  delivered('st-history-rounding', 'Fix invoice rounding', 't-bug', 61, 49, ['u-ds'])
+  delivered('st-history-usage', 'Add the usage report', 't-story', 68, 56, ['u-ds', 'u-rk'])
+  delivered('st-history-search', 'Speed up the search index', 't-task', 75, 63, ['u-rk'])
+  delivered('st-history-webhooks', 'Clean up the webhook queue', 't-bug', 82, 70, ['u-ds'])
+  delivered('st-history-billing', 'Document the billing API', 't-story', 89, 77, ['u-lm'])
+  delivered('st-history-checkout', 'Tune the checkout retry', 't-task', 96, 84, ['u-rk'])
+
   card('st-rate-limit-msg', 'Rate limit messaging', 't-story', 'b-atlas', a.done, 'done', 70, 44, {
     assignees: ['u-rk'],
     archived: true,

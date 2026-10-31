@@ -3726,9 +3726,9 @@
         "testStrategy": "Add a seed unit test that b-atlas has at least 8 delivered cards across at least 4 sampled weeks and that forecastWhen returns ok for the default range. Re-run the rollup, health and metrics tests to prove the archived cards did not change initiative numbers. E2E: the Flow forecast panel is visible on first visit. Run npm test, npm run build and npm run scan.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:17:06.527Z"
       },
       {
         "id": "184",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:15:08.641Z",
+      "lastModified": "2026-10-31T03:17:06.527Z",
       "taskCount": 188,
-      "completedCount": 155,
+      "completedCount": 156,
       "tags": [
         "backlog"
       ]
