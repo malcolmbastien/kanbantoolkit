@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { Keyboard, X } from 'lucide-react'
 import { SHORTCUT_GROUPS, shortcutsIn } from '@/domain/shortcuts'
-import { SHORTCUTS_EVENT } from '@/lib/shortcutDialog'
 import { useDialogFocus } from '@/lib/useDialogFocus'
-import { useStore } from '@/store'
 
 /**
  * The keyboard's own page: every gesture the app listens for, grouped by where it is used.
@@ -12,45 +10,16 @@ import { useStore } from '@/store'
  * the board behind it is not part of the reading. `?` opens it anywhere a person is not typing, and
  * the command palette offers it by name for anyone who does not know the key.
  */
-export function ShortcutsSheet() {
-  const [open, setOpen] = useState(false)
+export function ShortcutsSheet({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLDivElement>(null)
-  const close = () => setOpen(false)
 
   // Escape, Tab and focus return are the dialog's, not this component's own key handling.
-  useDialogFocus(dialogRef, close, open, '[data-shortcuts-close]')
-
-  useEffect(() => {
-    const show = () => setOpen(true)
-    const onKey = (event: KeyboardEvent) => {
-      // `?` is Shift+/ on most layouts. Some browsers report the character and some the key, so
-      // both spellings open the sheet. A modifier means the person is using another door, and a
-      // field means they are typing the character rather than asking for the sheet.
-      const question = event.key === '?' || (event.key === '/' && event.shiftKey)
-      if (!question || event.metaKey || event.ctrlKey || event.altKey) return
-      const target = event.target as HTMLElement | null
-      if (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)) return
-      const state = useStore.getState()
-      // One layer at a time: a confirm, a card menu or the board's settings already own the
-      // keyboard, and opening a reference on top of them would hide the question being asked.
-      if (state.confirm || state.cardMenu || state.showBoardSettings) return
-      event.preventDefault()
-      setOpen(true)
-    }
-    window.addEventListener(SHORTCUTS_EVENT, show)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener(SHORTCUTS_EVENT, show)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [])
-
-  if (!open) return null
+  useDialogFocus(dialogRef, onClose, true, '[data-shortcuts-close]')
 
   return (
     <div
       className="fixed inset-0 z-[58] grid place-items-center bg-slate-900/50 p-4"
-      onMouseDown={close}
+      onMouseDown={onClose}
     >
       <div
         ref={dialogRef}
@@ -75,7 +44,7 @@ export function ShortcutsSheet() {
           </div>
           <button
             data-shortcuts-close
-            onClick={close}
+            onClick={onClose}
             aria-label="Close keyboard shortcuts"
             title="Close"
             className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"

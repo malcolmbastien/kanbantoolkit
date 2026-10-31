@@ -1,15 +1,16 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { CornerDownRight, X } from 'lucide-react'
-import { CardMenu } from './CardMenu'
-import { ShortcutsSheet } from './ShortcutsSheet'
 import { useStore } from '@/store'
 import { useMay } from '@/lib/permissions'
+import { SHORTCUTS_EVENT } from '@/lib/shortcutDialog'
 
 /**
  * The consent screen is only ever seen from a link a tool printed, so it is not part of the first
  * download: a board must not carry a dialog about credentials it will not show.
  */
 const ApprovalPrompt = lazy(() => import('./ApprovalPrompt').then((m) => ({ default: m.ApprovalPrompt })))
+const CardMenu = lazy(() => import('./CardMenu').then((m) => ({ default: m.CardMenu })))
+const ShortcutsSheet = lazy(() => import('./ShortcutsSheet').then((m) => ({ default: m.ShortcutsSheet })))
 
 /**
  * The code this page was opened with, read once at module load.
@@ -46,6 +47,30 @@ export function Overlays() {
   // Every line in the card menu changes a card, and a Viewer changes none — so the menu does not
   // open. Reading is unaffected: the card, its panel and its history are still there.
   const may = useMay()
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  // The sheet is a lazy chunk: the trigger lives here so a board that never asks for it does not
+  // carry the reference. The checks are the sheet's own — a field keeps its `?`, and one layer at
+  // a time.
+  useEffect(() => {
+    const show = () => setShortcutsOpen(true)
+    const onKey = (event: KeyboardEvent) => {
+      const question = event.key === '?' || (event.key === '/' && event.shiftKey)
+      if (!question || event.metaKey || event.ctrlKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)) return
+      const state = useStore.getState()
+      if (state.confirm || state.cardMenu || state.showBoardSettings) return
+      event.preventDefault()
+      setShortcutsOpen(true)
+    }
+    window.addEventListener(SHORTCUTS_EVENT, show)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener(SHORTCUTS_EVENT, show)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [])
 
   const chip =
     'fixed bottom-4 left-4 z-40 flex max-w-[min(26rem,80vw)] items-center gap-2 rounded-lg border border-indigo-400/60 bg-indigo-600 px-3 py-2 text-meta font-medium text-white shadow-2xl'
@@ -93,16 +118,22 @@ export function Overlays() {
         </Suspense>
       )}
       {cardMenu && may('item.write') && (
-        <CardMenu
-          itemIds={multiSelect.includes(cardMenu.itemId) ? multiSelect : [cardMenu.itemId]}
-          x={cardMenu.x}
-          y={cardMenu.y}
-          onClose={closeCardMenu}
-        />
+        <Suspense fallback={null}>
+          <CardMenu
+            itemIds={multiSelect.includes(cardMenu.itemId) ? multiSelect : [cardMenu.itemId]}
+            x={cardMenu.x}
+            y={cardMenu.y}
+            onClose={closeCardMenu}
+          />
+        </Suspense>
       )}
       {/* The keyboard's reference: mounted here with the other floating surfaces, and opened by
           `?` or by the palette's own verb. It draws nothing until asked. */}
-      <ShortcutsSheet />
+      {shortcutsOpen && (
+        <Suspense fallback={null}>
+          <ShortcutsSheet onClose={() => setShortcutsOpen(false)} />
+        </Suspense>
+      )}
     </>
   )
 }

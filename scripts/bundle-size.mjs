@@ -45,8 +45,13 @@ const DIST = 'dist'
  * written only by an import, so an instance lost them on reload; they now travel as one document,
  * and the watcher that sends it is started by the same adoption that reads the revision it writes
  * against — the same reason the design write is here, and not a screen anyone opens (measured 166.2).
+ *
+ * 168 is the portfolio's period model and the shared people, stage and initiative pickers. The
+ * pickers are used by the board and the drawer; the bulk bar, card menu, filter panel and dialogs
+ * were moved behind lazy imports to pay for most of it, leaving 0.8 KB. The remaining kilobyte is
+ * recorded here rather than shaved out of the store every screen reads.
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 167)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 168)
 
 let manifest
 try {

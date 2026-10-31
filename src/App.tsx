@@ -1,9 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BoardView } from './components/BoardView'
-import { BulkActions } from './components/BulkActions'
-import { ConfirmDialog } from './components/ConfirmDialog'
-import { ReasonDialog } from './components/ReasonDialog'
-import { FilterPanel } from './components/FilterPanel'
 import { StorageBanner } from './components/StorageBanner'
 import { QuarantineBanner } from './components/QuarantineBanner'
 import { StaleTabBanner } from './components/StaleTabBanner'
@@ -40,6 +36,10 @@ const AdminView = lazy(() => import('./components/AdminView').then((m) => ({ def
 const ItemPanel = lazy(() => import('./components/ItemPanel').then((m) => ({ default: m.ItemPanel })))
 const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })))
 const BoardSettings = lazy(() => import('./components/BoardSettings').then((m) => ({ default: m.BoardSettings })))
+const BulkActions = lazy(() => import('./components/BulkActions').then((m) => ({ default: m.BulkActions })))
+const FilterPanel = lazy(() => import('./components/FilterPanel').then((m) => ({ default: m.FilterPanel })))
+const ConfirmDialog = lazy(() => import('./components/ConfirmDialog').then((m) => ({ default: m.ConfirmDialog })))
+const ReasonDialog = lazy(() => import('./components/ReasonDialog').then((m) => ({ default: m.ReasonDialog })))
 
 function ViewLoading() {
   return <div aria-busy="true" className="h-full w-full" />
@@ -60,6 +60,9 @@ export default function App() {
   const showBoards = useStore((s) => s.showBoards)
   const showAdmin = useStore((s) => s.showAdmin)
   const showMyWork = useStore((s) => s.showMyWork)
+  const multiSelect = useStore((s) => s.multiSelect)
+  const confirm = useStore((s) => s.confirm)
+  const wipPrompt = useStore((s) => s.wipPrompt)
   // The tabs go through the same door the URL does, so a tab and a link mean the same thing.
   const setView = useStore((s) => s.setView)
   const showFilters = useStore((s) => s.showFilters)
@@ -284,7 +287,9 @@ export default function App() {
             <MyWorkView />
           </Suspense>
         ) : showFilters && boardSurface ? (
-          <FilterPanel />
+          <Suspense fallback={<aside aria-busy="true" className="h-full w-[420px] shrink-0 border-l border-slate-300 bg-slate-100" />}>
+            <FilterPanel />
+          </Suspense>
         ) : selectedItemId ? (
           <Suspense
             fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-white" />}
@@ -300,9 +305,21 @@ export default function App() {
         </Suspense>
       )}
       <FocusChip />
-      <ConfirmDialog />
-      <ReasonDialog />
-      <BulkActions />
+      {confirm && (
+        <Suspense fallback={null}>
+          <ConfirmDialog />
+        </Suspense>
+      )}
+      {wipPrompt && (
+        <Suspense fallback={null}>
+          <ReasonDialog />
+        </Suspense>
+      )}
+      {multiSelect.length > 0 && (
+        <Suspense fallback={null}>
+          <BulkActions />
+        </Suspense>
+      )}
     </div>
   )
 }
