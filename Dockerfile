@@ -27,6 +27,11 @@ COPY . .
 RUN npm run build:app && npm run build:server
 
 # ---- runtime -------------------------------------------------------------------------------------
+#
+# Base image survey (task 196, 2026-10-31): there is no minimal Node 26 image with a meaningful win.
+# `gcr.io/distroless/nodejs` has 22 and 24, not 26 (24 is 204 MB but the wrong major). Chainguard's
+# node:latest is 26.12.1 and 251 MB, about the same as this alpine base, and its image includes a
+# shell. `node:26-slim` is 350 MB. Alpine keeps the runtime at Node 26 and a shell for debugging.
 FROM node:26-alpine
 
 # Every value an operator can set is documented in docs/configure.md. These three are the defaults
@@ -66,8 +71,9 @@ EXPOSE 8787
 
 # Readiness, the same endpoint an operator would curl. A container that cannot reach its database is
 # not healthy, and says so in its own log rather than accepting traffic and failing per request.
+# The probe is Node itself, so the image needs neither wget nor a shell to answer "is it healthy?".
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:${PORT}/api/health || exit 1
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
 # The same entry a self-hoster runs (`npm run server` points here): one bundle, no shell, no npm.
 CMD ["node", "dist/server.js"]
