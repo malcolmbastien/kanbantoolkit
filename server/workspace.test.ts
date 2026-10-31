@@ -619,6 +619,24 @@ describe('writing one item', () => {
     ])
   })
 
+  it('appends only the new history entries on a save', async () => {
+    const { db, patch } = await writer()
+    const created = { id: 'l-created', at: 1_700_000_000_001, kind: 'created' as const }
+    const noted = { id: 'l-noted', at: 1_700_000_000_002, kind: 'noted' as const, note: 'A note' }
+
+    expect((await patch('i-card', { baseRev: 0, item: card({ log: [created] }) })).status).toBe(200)
+    const readLog = () => db.all<{ id: string }>('SELECT id FROM item_log WHERE item_id = ?1 ORDER BY at, id', ['i-card'])
+    expect((await readLog()).map((row) => row.id)).toEqual(['l-created'])
+
+    // The same history with a new title writes no log rows at all.
+    expect((await patch('i-card', { baseRev: 1, item: card({ rev: 1, title: 'Renamed', log: [created] }) })).status).toBe(200)
+    expect((await readLog()).map((row) => row.id)).toEqual(['l-created'])
+
+    // One new entry writes one row, not a rewrite of the history.
+    expect((await patch('i-card', { baseRev: 2, item: card({ rev: 2, title: 'Renamed', log: [created, noted] }) })).status).toBe(200)
+    expect((await readLog()).map((row) => row.id)).toEqual(['l-created', 'l-noted'])
+  })
+
   it('creates an item the server has never seen, whatever revision the browser based it on', async () => {
     const { patch } = await writer()
     // A workspace that has lived only in a browser arrives with revisions of its own; nothing here

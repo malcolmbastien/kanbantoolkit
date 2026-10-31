@@ -100,65 +100,107 @@ function add(statements: Statement[], table: string, row: Row, workspaceId: stri
   })
 }
 
-/** One item's row, checklist and history. Shared by the whole-workspace write and the item write. */
-function addItem(statements: Statement[], item: Item, workspaceId: string): void {
-    add(statements, 'items', {
-      id: item.id,
-      title: item.title,
-      description: value(item.description),
-      type_id: item.typeId,
-      created_by_id: value(item.createdById),
-      initiative_type_id: value(item.initiativeTypeId),
-      tag_ids: json(item.tagIds),
-      assignees: json(item.assignees),
-      priority: value(item.priority),
-      target_start_date: value(item.targetStartDate),
-      target_end_date: value(item.targetEndDate),
-      created_at: item.createdAt,
-      rev: value(item.rev),
-      resolved_at: item.resolvedAt === undefined ? null : item.resolvedAt,
-      last_move_reason: value(item.lastMoveReason),
-      blocked: flag(item.blocked),
-      blocked_reason: value(item.blockedReason),
-      archived: flag(item.archived),
-      archived_at: value(item.archivedAt),
-      discarded: flag(item.discarded),
-    }, workspaceId)
-
-    for (const [position, entry] of (item.checklist ?? []).entries()) {
-      add(statements, 'item_checklist', {
-        item_id: item.id,
-        id: entry.id,
-        text: entry.text,
-        done: entry.done ? 1 : 0,
-        position,
-      }, workspaceId)
-    }
-
-    for (const entry of item.log ?? []) {
-      add(statements, 'item_log', {
-        item_id: item.id,
-        id: entry.id,
-        at: entry.at,
-        kind: entry.kind,
-        by_user: value(entry.by),
-        note: value(entry.note),
-        mentions: json(entry.mentions),
-        from_lane_id: value(entry.fromLaneId),
-        to_lane_id: value(entry.toLaneId),
-        from_stage: value(entry.fromStage),
-        to_stage: value(entry.toStage),
-        board_id: value(entry.boardId),
-      }, workspaceId)
-    }
+/** An item's own columns, as the row they are stored in. */
+function itemRow(item: Item): Row {
+  return {
+    id: item.id,
+    title: item.title,
+    description: value(item.description),
+    type_id: item.typeId,
+    created_by_id: value(item.createdById),
+    initiative_type_id: value(item.initiativeTypeId),
+    tag_ids: json(item.tagIds),
+    assignees: json(item.assignees),
+    priority: value(item.priority),
+    target_start_date: value(item.targetStartDate),
+    target_end_date: value(item.targetEndDate),
+    created_at: item.createdAt,
+    rev: value(item.rev),
+    resolved_at: item.resolvedAt === undefined ? null : item.resolvedAt,
+    last_move_reason: value(item.lastMoveReason),
+    blocked: flag(item.blocked),
+    blocked_reason: value(item.blockedReason),
+    archived: flag(item.archived),
+    archived_at: value(item.archivedAt),
+    discarded: flag(item.discarded),
+  }
 }
 
 /**
- * One item, replaced whole.
+ * The item row and its checklist, plus the history.
+ *
+ * `appendHistory` is the save path: the row is updated in place and only entries whose id is not
+ * stored yet are inserted, so a card's history grows by what happened rather than by its whole
+ * length on every write. The whole-workspace write starts from empty tables and uses a plain insert.
+ */
+function addItem(statements: Statement[], item: Item, workspaceId: string, appendHistory = false): void {
+  add(statements, 'items', itemRow(item), workspaceId)
+  addChecklist(statements, item, workspaceId)
+  addItemHistory(statements, item, workspaceId, appendHistory)
+}
+
+/** The card's checklist, as a whole set — small, and always written with the card. */
+function addChecklist(statements: Statement[], item: Item, workspaceId: string): void {
+  for (const [position, entry] of (item.checklist ?? []).entries()) {
+    add(statements, 'item_checklist', {
+      item_id: item.id,
+      id: entry.id,
+      text: entry.text,
+      done: entry.done ? 1 : 0,
+      position,
+    }, workspaceId)
+  }
+}
+
+/** The card's history: whole on a workspace write, only the unseen entries on a save. */
+function addItemHistory(statements: Statement[], item: Item, workspaceId: string, append = false): void {
+  for (const entry of item.log ?? []) {
+    const row = {
+      item_id: item.id,
+      id: entry.id,
+      at: entry.at,
+      kind: entry.kind,
+      by_user: value(entry.by),
+      note: value(entry.note),
+      mentions: json(entry.mentions),
+      from_lane_id: value(entry.fromLaneId),
+      to_lane_id: value(entry.toLaneId),
+      from_stage: value(entry.fromStage),
+      to_stage: value(entry.toStage),
+      board_id: value(entry.boardId),
+    }
+    if (append) {
+      const scoped = { ...row, workspace_id: workspaceId }
+      const columns = Object.keys(scoped)
+      statements.push({
+        // scoped by its item: the log belongs to the card, which belongs to the workspace.
+        sql: `INSERT OR IGNORE INTO item_log (${columns.join(', ')}) VALUES (${columns.map((_, index) => `?${index + 1}`).join(', ')})`,
+        params: Object.values(scoped),
+      })
+    } else {
+      add(statements, 'item_log', row, workspaceId)
+    }
+  }
+}
+
+/** Update the item row in place, so its history and placements are not taken by a delete. */
+function updateItem(statements: Statement[], item: Item, workspaceId: string): void {
+  const row = itemRow(item)
+  const columns = Object.keys(row).filter((column) => column !== 'id')
+  statements.push({
+    // scoped by workspace_id in the WHERE below.
+    sql: `UPDATE items SET ${columns.map((column, index) => `${column} = ?${index + 1}`).join(', ')}
+           WHERE id = ?${columns.length + 1} AND workspace_id = ?${columns.length + 2}`,
+    params: [...columns.map((column) => row[column]), item.id, workspaceId],
+  })
+}
+
+/**
+ * One item, saved whole.
  *
  * The server owns the revision: it is given the one the change was based on, and stores that plus
- * one. The children are cleared first because D1 does not cascade a foreign key by default, and a
- * history that outlived its item would be worse than a slow delete.
+ * one. The row is updated in place and the history is appended, so a save does not rewrite what
+ * happened before it.
  */
 export async function writeItem(db: Database, item: Item, workspaceId: string, key?: string): Promise<void> {
   return writeItemAndPlacements(db, item, [], workspaceId, key)
@@ -175,10 +217,9 @@ export async function writeItem(db: Database, item: Item, workspaceId: string, k
  * (task 118 never grew a placement route), which is why `/api/v1` is the first door that puts a move
  * in the database rather than in a cache.
  *
- * **An item write keeps the card where it is.** The row is replaced (delete, then insert) because
- * every column is rewritten, and placements reference the item with `ON DELETE CASCADE` — so the
- * delete takes the card's cells with it. They are read first and written back before the caller's
- * own placements, which then win by id. Without this, editing a card silently took it off its board.
+ * **An item write keeps the card where it is, and what happened to it.** The row is updated in
+ * place, never deleted and reinserted: the history is append-only, and a delete would cascade
+ * through the card's placements and its log. The caller's own placements are upserted after.
  */
 export async function writeItemAndPlacements(
   db: Database,
@@ -188,33 +229,17 @@ export async function writeItemAndPlacements(
   key?: string,
   audit?: Statement,
 ): Promise<void> {
-  // Where the card already sits, read before the row it hangs from is replaced.
-  const existing = await db.all<{
-    id: string
-    board_id: string
-    item_id: string
-    lane_id: string
-    lane_entered_at: number | null
-    rank: number | null
-  }>('SELECT * FROM placements WHERE item_id = ?1 AND workspace_id = ?2', [item.id, workspaceId])
-
+  // The item row is updated in place, never deleted and reinserted: a delete would cascade through
+  // its placements and its history. The checklist is a small whole-set replacement; the history is
+  // append-only, so only entries that are not stored yet are inserted.
+  const stored = await db.get<{ id: string }>('SELECT id FROM items WHERE id = ?1 AND workspace_id = ?2', [item.id, workspaceId])
   const statements: Statement[] = [
     { sql: 'DELETE FROM item_checklist WHERE item_id = ?1', params: [item.id] },
-    // scoped by its item
-    { sql: 'DELETE FROM item_log WHERE item_id = ?1', params: [item.id] },
-    { sql: 'DELETE FROM items WHERE id = ?1 AND workspace_id = ?2', params: [item.id, workspaceId] },
   ]
-  addItem(statements, item, workspaceId)
-
-  // Back where it was, before the caller's own placements — a move may renumber the lane, and that
-  // write must be the one that lands.
-  for (const row of existing) {
-    statements.push({
-      sql: `INSERT OR REPLACE INTO placements (id, board_id, item_id, lane_id, lane_entered_at, rank, workspace_id)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
-      params: [row.id, row.board_id, row.item_id, row.lane_id, row.lane_entered_at, row.rank, workspaceId],
-    })
-  }
+  if (stored) updateItem(statements, item, workspaceId)
+  else add(statements, 'items', itemRow(item), workspaceId)
+  addChecklist(statements, item, workspaceId)
+  addItemHistory(statements, item, workspaceId, true)
 
   // The trail shares the transaction, as every other access change does: a write that landed must
   // be explainable, and one that failed must not leave a claim that it happened.
