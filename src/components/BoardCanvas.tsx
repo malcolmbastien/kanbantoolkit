@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ChevronDown,
@@ -16,17 +16,8 @@ import { parentTargetUnder } from '@/lib/dropTarget'
 import { DropColumn } from './DropColumn'
 import { LanePolicy, LaneSettings } from './LaneSettings'
 import {
-  blockedBelow,
   checklistProgress,
-  decompositionChildren,
-  decompositionParent,
-  dependentsOf,
-  isComplete,
   lensRole,
-  openDescendants,
-  rollupOf,
-  statusOf,
-  waitsOn,
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, tagsOf } from '@/domain/board'
@@ -38,7 +29,8 @@ import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
 import { useDrag } from '@/lib/drag'
-import type { Board, IssueType, Item, Lane, User } from '@/domain/types'
+import { buildBoardModel, type BoardModel } from '@/domain/boardModel'
+import type { Board, IssueType, Item, Lane, Placement, User } from '@/domain/types'
 import type { ConfirmRequest } from '@/store'
 
 
@@ -89,6 +81,8 @@ interface Ctx {
   /** The card waiting for a parent, if any. See `startParentPick`. */
   parentPickId: string | null
   effectiveLane: Map<string, string>
+  /** The board's derived facts, built once for the render rather than per card. */
+  model: BoardModel
   /** How long a card has sat in its lane, when the placement knows. See `ageDays`. */
   ageOf: (itemId: string) => number | undefined
   /** The ids an initiative filter narrows to, when one is active. See `initiativeScope`. */
@@ -139,7 +133,7 @@ interface Ctx {
 const HEAD_ROW = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1'
 
 function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
-  const { lanes, items, issueTypes, graph, editMode, boardItems, effectiveLane } = ctx
+  const { lanes, issueTypes, graph, editMode, boardItems, effectiveLane } = ctx
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBtnRef = useRef<HTMLButtonElement>(null)
   const kids = childrenOf(lanes, lane.id)
@@ -440,7 +434,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   // and a deep-linked ?q= lands in the text filter instead (see App).
   const cards = boardItems
     .filter((i) => effectiveLane.get(i.id) === lane.id)
-    .filter((i) => matchesFilters(i, ctx.filters, statusOf(i.id, graph).resolved, Date.now(), ctx.ageOf(i.id), ctx.initiativeScope))
+    .filter((i) => matchesFilters(i, ctx.filters, ctx.model.status.get(i.id)?.resolved ?? false, Date.now(), ctx.ageOf(i.id), ctx.initiativeScope))
 
   return (
     <div
@@ -467,10 +461,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         draggingHeight={ctx.drag.height}
         at={ctx.drag.laneId === lane.id ? ctx.drag.index : null}
         items={cards.map((c) => {
-          const pid = decompositionParent(c.id, graph.edges)
-          const p = pid ? items.find((i) => i.id === pid) : undefined
+          const pid = ctx.model.parentOf.get(c.id)
+          const p = pid ? ctx.model.itemsById.get(pid) : undefined
           const parent: CardParent | undefined = p ? { id: p.id, title: p.title, type: typeOf(p.typeId) } : undefined
-          const roll = rollupOf(c.id, graph)
+          const roll = ctx.model.rollup.get(c.id)!
           const stage = ctx.effectiveLane.get(c.id) ? effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) : undefined
           return {
             id: c.id,
@@ -482,7 +476,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               parent={parent}
               selected={ctx.selectedItemId === c.id}
               dropTarget={ctx.drag.dropTargetId === c.id}
-              boundary={ctx.boundaryId ? waitsOn(c.id, ctx.boundaryId, graph) : false}
+              boundary={ctx.boundaryId ? ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId) === true : false}
               waitingOn={externalWaits(c.id, graph, ctx.boardId).map((wait) => ({ id: wait.dependency.id, title: wait.dependency.title }))}
               onBoundary={ctx.onBoundary}
               multi={ctx.multiSelect.includes(c.id)}
@@ -490,7 +484,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                 (ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)) ||
                 // A selected boundary card is the thing being read: everything that does not wait
                 // on it recedes, so the relationship is visible across the whole board.
-                (ctx.boundaryId !== null && !waitsOn(c.id, ctx.boundaryId, graph)) ||
+                (ctx.boundaryId !== null && !ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId)) ||
                 // Waiting for a parent, only the initiatives are choices.
                 (ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative')
               }
@@ -505,12 +499,12 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               tags={tagsOf(ctx.boards, c)}
               completed={stage === 'done'}
               summary={{
-                childCount: decompositionChildren(c.id, graph.edges).length,
-                dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
-                blockedBelow: blockedBelow(c.id, graph),
-                openDescendants: openDescendants(c.id, graph).length,
-                rollupPercent: decompositionChildren(c.id, graph.edges).length > 0 ? roll.percent : undefined,
-                done: isComplete(c.id, graph),
+                childCount: ctx.model.childrenOf.get(c.id)?.length ?? 0,
+                dependentsCount: ctx.model.openDependents.get(c.id) ?? 0,
+                blockedBelow: ctx.model.blockedBelow.get(c.id) ?? 0,
+                openDescendants: ctx.model.openDescendants.get(c.id) ?? 0,
+                rollupPercent: (ctx.model.childrenOf.get(c.id)?.length ?? 0) > 0 ? roll.percent : undefined,
+                done: roll.bucket === 'done',
                 // Backlog is uncommitted inventory and legitimately rests; Done is finished, so
                 // neither is aged. A card in Done with an open child is still done.
                 ageDays: stage && stage !== 'backlog' && stage !== 'done' ? ctx.ageOf(c.id) : undefined,
@@ -703,6 +697,8 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const setDragPreview = useDrag((s) => s.setDragPreview)
 
   const graph: Graph = { items, edges, links, placements, lanes }
+  // One pass over the workspace arrays; every card below reads a map instead of scanning them.
+  const model = useMemo(() => buildBoardModel(graph), [items, edges, links, placements, lanes])
   const root = rootLane(lanes, flowId)
   const boardName = boards.find((b) => b.id === boardId)?.name
   const flowName = flows.find((f) => f.id === flowId)?.name
@@ -723,7 +719,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   // The cards workflow shows the team's cards (non-initiative items) in their lanes.
   // The board's initiatives are surfaced separately in the "Initiatives workflow" on top.
   const boardItems = boardPlacements
-    .map((p) => items.find((i) => i.id === p.itemId))
+    .map((p) => model.itemsById.get(p.itemId))
     .filter((i): i is Item => Boolean(i))
     .filter((i) => !isInitiative(i.typeId) && !i.archived)
 
@@ -819,9 +815,12 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     if (!lift) setDragPreview(null)
   }, [lift, setDragPreview])
 
+  const boardPlacement = new Map<string, Placement>()
+  for (const placement of placements) if (placement.boardId === boardId && !boardPlacement.has(placement.itemId)) boardPlacement.set(placement.itemId, placement)
   const ctx: Ctx = {
     lanes, items, issueTypes, graph, users, boards, editMode, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
-    ageOf: (itemId) => ageDays(placements.find((p) => p.itemId === itemId && p.boardId === boardId)),
+    model,
+    ageOf: (itemId) => ageDays(boardPlacement.get(itemId)),
     initiativeScope: initiativeScope(filters, graph),
     interactive,
     parentPickId,

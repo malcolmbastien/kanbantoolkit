@@ -8,20 +8,12 @@ import { parentTargetUnder } from '@/lib/dropTarget'
 import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
 import {
-  blockedBelow,
   checklistProgress,
-  decompositionChildren,
-  decompositionParent,
-  dependentsOf,
-  isComplete,
   lensRole,
-  openDescendants,
   canPlaceInSection,
-  rollupOf,
-  statusOf,
-  uncommittedBelow,
   type Graph,
 } from '@/domain/derive'
+import { buildBoardModel } from '@/domain/boardModel'
 import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
 import { boardInitiatives, initiativeCellOf, initiativeRanks, initiativeTypeById, isInitiativeItem, tagsOf } from '@/domain/board'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
@@ -112,6 +104,8 @@ export function BoardSummary({
   const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
 
   const graph: Graph = { items, edges, links, placements, lanes }
+  // The board's derived facts, once for the render; each initiative card reads a map.
+  const model = useMemo(() => buildBoardModel(graph), [items, edges, links, placements, lanes])
 
   /**
    * Every initiative's health, found once per change to the work rather than once per render.
@@ -314,20 +308,20 @@ export function BoardSummary({
   }
 
   const initiativeCard = (c: Item) => {
-    const pid = decompositionParent(c.id, edges)
-    const p = pid ? items.find((i) => i.id === pid) : undefined
+    const pid = model.parentOf.get(c.id)
+    const p = pid ? model.itemsById.get(pid) : undefined
     const parent: CardParent | undefined = p
       ? { id: p.id, title: p.title, type: typeOf(p.typeId) }
       : undefined
     // The direct children — archived ones included, because the rollup counts them and the count
     // beside the pips has to be the same number the percentage is about. Filtering them out here
     // is what made a card with one filed-away child read "nothing below" and "1 below" at once.
-    const childItems = decompositionChildren(c.id, edges)
-      .map((id) => items.find((i) => i.id === id))
+    const childItems = (model.childrenOf.get(c.id) ?? [])
+      .map((id) => model.itemsById.get(id))
       .filter((i): i is Item => Boolean(i))
     // Symbols summarise the direct children — team initiatives for a top-level
     // initiative, cards for a team-level one — coloured by their status.
-    const symbols = childItems.map((ci) => ({ id: ci.id, bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
+    const symbols = childItems.map((ci) => ({ id: ci.id, bucket: model.rollup.get(ci.id)?.bucket ?? 'backlog', title: ci.title }))
     return (
       <Card
         key={c.id}
@@ -390,13 +384,16 @@ export function BoardSummary({
           if (opts?.reveal) revealCard(id)
         }}
         summary={{
-          childCount: decompositionChildren(c.id, edges).length,
-          dependentsCount: dependentsOf(c.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
-          blockedBelow: blockedBelow(c.id, graph),
-          uncommittedBelow: uncommittedBelow(c.id, graph),
-          openDescendants: openDescendants(c.id, graph).length,
-          rollupPercent: rollupOf(c.id, graph).percent,
-          done: isComplete(c.id, graph),
+          childCount: model.childrenOf.get(c.id)?.length ?? 0,
+          dependentsCount: model.openDependents.get(c.id) ?? 0,
+          blockedBelow: model.blockedBelow.get(c.id) ?? 0,
+          uncommittedBelow:
+            (model.rollup.get(c.id)?.bucket === 'notStarted' || model.rollup.get(c.id)?.bucket === 'inProgress')
+              ? (model.rollup.get(c.id)?.uncommitted ?? 0)
+              : 0,
+          openDescendants: model.openDescendants.get(c.id) ?? 0,
+          rollupPercent: model.rollup.get(c.id)?.percent ?? 0,
+          done: model.rollup.get(c.id)?.bucket === 'done',
           checklist: checklistProgress(c),
         }}
       />
