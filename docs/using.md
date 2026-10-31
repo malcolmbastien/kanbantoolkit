@@ -52,6 +52,10 @@ removed — but only while it is empty and another cards flow remains, so a boar
 and work is never thrown away with a column set. A programme or portfolio board aggregates other
 boards and has no cards flow of its own.
 
+A workflow's chevron folds its whole band away to the header, keeping the name and count in view;
+the initiatives and boundary workflows fold the same way. Folding is a view choice, not an edit, so
+it is offered without **Edit board**.
+
 The drawer, card pips, initiative rollups and the boundary are explained in [Reading a board](reading-a-board.md).
 
 A card is made in a lane's footer (**Add card to …**) or from **Card** in the toolbar. Drag it to

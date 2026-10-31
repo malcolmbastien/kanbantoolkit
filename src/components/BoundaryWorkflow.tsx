@@ -6,6 +6,7 @@ import { chipColors, DEP_STATE_STYLES, STAGE_ACCENT, STAGE_DOT, STAGE_SURFACE } 
 import { announce } from '@/lib/announce'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { WorkflowToggle } from './WorkflowToggle'
 import type { IssueType } from '@/domain/types'
 
 /**
@@ -50,17 +51,25 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
   const edges = useStore((s) => s.edges)
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
+  const [collapsed, setCollapsed] = useState(false)
 
   const graph = { items, edges, links, placements, lanes }
   const entries = boundaryEntries(graph, boardId)
 
   // A selected boundary card is brought into view when the selection came from elsewhere — a
-  // dependent's chip above, or a `?boundary=` deep link. `block: 'nearest'` means a card that is
-  // already on screen does not move, so selecting from this workflow never scrolls away from the
-  // card that was just pressed.
+  // dependent's chip above, or a `?boundary=` deep link. A folded workflow opens before the reveal,
+  // because the card it names is not on screen while the body is away.
   useEffect(() => {
-    if (boundaryId) reveal(`[data-boundary-card="${boundaryId}"]`)
+    if (!boundaryId) return
+    // The selection came from a chip or a deep link, so the workflow must be open to show it.
+    setCollapsed(false)
   }, [boundaryId])
+
+  // `block: 'nearest'` means a card that is already on screen does not move, so selecting from this
+  // workflow never scrolls away from the card that was just pressed.
+  useEffect(() => {
+    if (boundaryId && !collapsed) reveal(`[data-boundary-card="${boundaryId}"]`)
+  }, [boundaryId, collapsed])
 
   if (entries.length === 0) return null
 
@@ -81,6 +90,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
     >
       <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2 shadow-sm">
         <div className="flex min-w-0 items-center gap-2">
+          <WorkflowToggle name="Boundary — waiting on" collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
           <span className="h-2 w-2 shrink-0 rounded-full bg-amber-600" />
           <h2 id="boundary-workflow-title" className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">
             Boundary — waiting on
@@ -100,7 +110,8 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
       {/* Four stages in one row, as the cards workflow's columns are: the board is read across, and
           a column that wrapped to a second row would break that reading. Below the width four
           columns need, the row scrolls sideways instead — the same answer the lanes give. */}
-      <div className="flex gap-2.5 overflow-x-auto overscroll-x-contain pb-1.5">
+      {!collapsed && (
+        <div className="flex gap-2.5 overflow-x-auto overscroll-x-contain pb-1.5">
         {STAGES.map((stage) => {
           const inStage = boundaryInStage(entries, stage)
           return (
@@ -137,7 +148,8 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
             </div>
           )
         })}
-      </div>
+        </div>
+      )}
     </section>
   )
 }

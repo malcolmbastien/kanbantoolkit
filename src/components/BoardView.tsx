@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
@@ -6,6 +6,7 @@ import { InlineEdit } from './InlineEdit'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
+import { WorkflowToggle } from './WorkflowToggle'
 import { isAggregating, isInitiativeItem } from '@/domain/board'
 import { boardCsv, csvFilename } from '@/domain/csv'
 import { activeFilterCount } from '@/domain/filters'
@@ -65,11 +66,19 @@ export function BoardView({ requestMove }: Props) {
   // for an aggregating board and a team board.
   const contentRef = useRef<HTMLDivElement>(null)
   useStillScroll(pan.ref, contentRef, undefined, boardId)
+  // Which workflow bands are folded away. A band is folded on its own, so a reader can keep the
+  // initiatives and the boundary in view while one cards flow takes the room; a board switch starts
+  // fresh because the initiatives key carries the board and a flow id belongs to one board.
+  const [collapsedWorkflows, setCollapsedWorkflows] = useState<Record<string, boolean>>({})
+  const toggleWorkflow = (key: string) =>
+    setCollapsedWorkflows((current) => ({ ...current, [key]: !current[key] }))
 
   // Coordination/strategic boards aggregate; operational boards render the flow.
   if (isAggregating(board)) return <ManagementBoard boardId={boardId} />
 
   const accent = BAND_ACCENT[board?.band ?? 'team']
+  const initiativesKey = `initiatives:${boardId}`
+  const initiativesCollapsed = collapsedWorkflows[initiativesKey] === true
 
   const doneCount = placements.filter(
     (p) => p.boardId === boardId && effectiveStage(lanes, p.laneId) === 'done' && !items.find((i) => i.id === p.itemId)?.archived,
@@ -187,6 +196,11 @@ export function BoardView({ requestMove }: Props) {
         <section className="space-y-2.5">
           <div className={cn('sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 shadow-sm', accent.section, 'bg-white/95 backdrop-blur-sm')}>
             <div className="flex min-w-0 items-center gap-2">
+              <WorkflowToggle
+                name="Initiatives workflow"
+                collapsed={initiativesCollapsed}
+                onToggle={() => toggleWorkflow(initiativesKey)}
+              />
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
               <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
               <span className="truncate text-meta text-slate-600">this team’s initiatives — status rolls up from the cards below</span>
@@ -198,7 +212,7 @@ export function BoardView({ requestMove }: Props) {
           {/* `variant` says this surface is the board's *own* initiatives flow — the one that owns
               the board's kinds. Without it a team board's initiatives were read as somebody else's
               band: a kind could be set and stored, and the card never grew the header that says so. */}
-          <BoardSummary boardId={boardId} variant="initiatives" interactive={editable} />
+          {!initiativesCollapsed && <BoardSummary boardId={boardId} variant="initiatives" interactive={editable} />}
         </section>
 
         {/* Cards flows — the team's own column sets, one band each. Stacked rather than tabbed:
@@ -209,6 +223,7 @@ export function BoardView({ requestMove }: Props) {
           const name = flow.name
           const count = counts[flow.id] ?? 0
           const removable = canRemoveFlow(flows, flow.id, lanes, placements)
+          const collapsed = collapsedWorkflows[flow.id] === true
           return (
             <section
               key={flow.id}
@@ -219,6 +234,7 @@ export function BoardView({ requestMove }: Props) {
             >
               <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 shadow-sm">
                 <div className="flex min-w-0 items-center gap-2">
+                  <WorkflowToggle name={name} collapsed={collapsed} onToggle={() => toggleWorkflow(flow.id)} />
                   <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
                   <h2 className="flex shrink-0 items-center text-body font-bold uppercase tracking-wide text-slate-900">
                     {editMode && editable ? (
@@ -292,7 +308,9 @@ export function BoardView({ requestMove }: Props) {
                   </span>
                 </div>
               </div>
-              <BoardCanvas boardId={boardId} flowId={flow.id} interactive={editable} onMove={requestMove} />
+              {!collapsed && (
+                <BoardCanvas boardId={boardId} flowId={flow.id} interactive={editable} onMove={requestMove} />
+              )}
             </section>
           )
         })}
@@ -318,7 +336,7 @@ export function BoardView({ requestMove }: Props) {
 
         {/* Boundary work: the edge of this board, as a workflow of its own — below the cards, in
             the same four stages, and read-only. It renders nothing when nothing crosses the edge. */}
-        <BoundaryWorkflow boardId={boardId} />
+        <BoundaryWorkflow key={boardId} boardId={boardId} />
         </div>
       </div>
     </div>

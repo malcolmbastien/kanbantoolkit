@@ -52,6 +52,10 @@ and boundary bands behave the same way. A cards flow uses the board's own margin
 second inset inside it: a wide flow has the width it needs, and its columns line up with the bands
 above and below.
 
+A workflow's chevron folds that whole band away to its header: the name, the count and the controls
+stay, and the columns give their room to the workflow below. The initiatives, cards and boundary
+bands each fold on their own, and the state is a view choice rather than an edit.
+
 ## The side drawer
 
 Clicking a card or an initiative opens the **side drawer** on the right; the board stays visible

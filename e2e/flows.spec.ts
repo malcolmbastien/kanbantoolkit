@@ -299,3 +299,33 @@ test('a cards flow keeps the board margin without a second inset', async ({ page
   expect(await canvas.evaluate((element) => getComputedStyle(element).paddingLeft)).toBe('0px')
   expect(await canvas.evaluate((element) => getComputedStyle(element).paddingRight)).toBe('0px')
 })
+
+test('a workflow folds away and keeps its name and count in view', async ({ page }) => {
+  await openBoard(page)
+  const cards = flowBand(page, 'Cards')
+  const initiatives = page.locator('[data-workflow="initiatives"]')
+  const boundary = page.locator('[data-workflow="boundary"]')
+
+  await expect(cards.locator('[data-workflow="cards"]')).toBeVisible()
+  await page.getByRole('button', { name: 'Collapse Cards' }).click()
+  // The body goes; the band the reader is looking at does not. Its heading and count stay.
+  await expect(cards.locator('[data-workflow="cards"]')).toHaveCount(0)
+  await expect(cards.getByRole('heading', { name: 'Cards' })).toBeVisible()
+  await expect(cards.getByText(/^\d+ cards$/)).toBeVisible()
+  await page.getByRole('button', { name: 'Expand Cards' }).click()
+  await expect(cards.locator('[data-workflow="cards"]')).toBeVisible()
+
+  await expect(initiatives).toBeVisible()
+  await page.getByRole('button', { name: 'Collapse Initiatives workflow' }).click()
+  await expect(initiatives).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Initiatives workflow' })).toBeVisible()
+  await page.getByRole('button', { name: 'Expand Initiatives workflow' }).click()
+  await expect(initiatives).toBeVisible()
+
+  await expect(boundary.locator('[data-boundary-stage]')).toHaveCount(4)
+  await page.getByRole('button', { name: 'Collapse Boundary — waiting on' }).click()
+  await expect(boundary.locator('[data-boundary-stage]')).toHaveCount(0)
+  await expect(boundary.getByRole('heading', { name: 'Boundary — waiting on' })).toBeVisible()
+  await page.getByRole('button', { name: 'Expand Boundary — waiting on' }).click()
+  await expect(boundary.locator('[data-boundary-stage]')).toHaveCount(4)
+})
