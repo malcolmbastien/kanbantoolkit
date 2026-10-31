@@ -31,6 +31,12 @@ export const WIKI_PAGES = [
     section: 'use',
   },
   {
+    file: 'warnings.md',
+    page: 'Warnings',
+    note: 'Every warning on a card or an initiative, what raised it, and how it clears.',
+    section: 'use',
+  },
+  {
     file: 'install.md',
     page: 'Install',
     note: 'Node 26, three commands, and what the first run writes.',

@@ -65,6 +65,9 @@ The checklist holds the card's sub-tasks. A card can wait on another: the waitin
 the two ends, so it clears when the blocker reaches Done — there is nothing to update by hand.
 **Mark blocked** records a reason when the work is stopped for something that is not another card.
 
+Every badge a card, initiative or objective can carry is catalogued in [Warnings and signals](warnings.md),
+with what raises it and what clears it.
+
 ## Initiatives
 
 An initiative is the unit the wider organisation reads. It has no estimate and no status field: its
