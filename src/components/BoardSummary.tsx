@@ -44,6 +44,7 @@ import {
   Settings,
 } from 'lucide-react'
 import { useStore } from '@/store'
+import { useDrag } from '@/lib/drag'
 import type { IssueType, Item, Lane, Stage } from '@/domain/types'
 import { initiativesFlow } from '@/domain/flows'
 
@@ -103,8 +104,8 @@ export function BoardSummary({
   const users = useStore((s) => s.users)
   const links = useStore((s) => s.links)
   const selectedItemId = useStore((s) => s.selectedItemId)
-  const dropTargetId = useStore((s) => s.dropTargetId)
-  const setDropTarget = useStore((s) => s.setDropTarget)
+  const dropTargetId = useDrag((s) => s.dropTargetId)
+  const setDropTarget = useDrag((s) => s.setDropTarget)
   const openItem = useStore((s) => s.openItem)
   const lensId = useStore((s) => s.lensId)
   const editMode = useStore((s) => s.editMode)

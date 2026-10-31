@@ -37,6 +37,7 @@ import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_PILL } from '@/lib
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
+import { useDrag } from '@/lib/drag'
 import type { Board, IssueType, Item, Lane, User } from '@/domain/types'
 import type { ConfirmRequest } from '@/store'
 
@@ -693,13 +694,13 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const cancelParentPick = useStore((s) => s.cancelParentPick)
   const childPickId = useStore((s) => s.childPickId)
   const cancelChildPick = useStore((s) => s.cancelChildPick)
-  const dropTargetId = useStore((s) => s.dropTargetId)
-  const setDropTarget = useStore((s) => s.setDropTarget)
+  const dropTargetId = useDrag((s) => s.dropTargetId)
+  const setDropTarget = useDrag((s) => s.setDropTarget)
   // The card in the air and the gap it would land in, shared with every other canvas on the board:
   // a card can be dragged from one cards flow into another, and the shadow must appear in the
   // tree it would land in — which is not the tree that began the gesture.
-  const dragPreview = useStore((s) => s.dragPreview)
-  const setDragPreview = useStore((s) => s.setDragPreview)
+  const dragPreview = useDrag((s) => s.dragPreview)
+  const setDragPreview = useDrag((s) => s.setDragPreview)
 
   const graph: Graph = { items, edges, links, placements, lanes }
   const root = rootLane(lanes, flowId)

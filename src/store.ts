@@ -155,20 +155,6 @@ export interface ViewState {
    * and shows the bulk-action bar. View-only.
    */
   multiSelect: string[]
-  /**
-   * The initiative card a card in the air would become a child of. View state, and the one piece
-   * of the drag that has to be shared: the card is lifted by the surface it came from and dropped
-   * on a card another surface drew, so neither of them can hold it alone.
-   */
-  dropTargetId: string | null
-  /**
-   * The card a pointer is carrying and the gap it would land in.
-   *
-   * Shared rather than local to one canvas: a board may carry several cards flows, and the card in
-   * the air can be over a tree that is not the one it came from. The shadow it leaves is a fact
-   * about the gesture, so every canvas reads it and only the lane it names shows it.
-   */
-  dragPreview: { itemId: string; height: number; laneId: string | null; index: number | null } | null
   /** Pending confirmation (destructive actions) — rendered by ConfirmDialog. */
   confirm: ConfirmRequest | null
   /** A move held back by a `justify` WIP limit — rendered by ReasonDialog. */
@@ -184,8 +170,6 @@ export interface Actions {
    */
   openItem: (id: string | null, options?: { focus?: boolean }) => void
   setSearch: (q: string) => void
-  /** Say where a lift would land, for every canvas that could show it. */
-  setDragPreview: (preview: ViewState['dragPreview']) => void
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
@@ -262,8 +246,6 @@ export interface Actions {
   /** Open/close the card context menu. */
   openCardMenu: (itemId: string, x: number, y: number) => void
   closeCardMenu: () => void
-  /** The initiative a card in the air would become a child of — see `dropTargetId`. */
-  setDropTarget: (dropTargetId: string | null) => void
 
   addObjective: (title: string, periodId: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
@@ -971,7 +953,6 @@ const initialView: ViewState = {
   selectedItemId: null,
   search: '',
   editMode: false,
-  dragPreview: null,
   draft: null,
   lensId: null,
   showObjectives: false,
@@ -996,7 +977,6 @@ const initialView: ViewState = {
   parentPickId: null,
   childPickId: null,
   multiSelect: [],
-  dropTargetId: null,
   confirm: null,
   wipPrompt: null,
   cardMenu: null,
@@ -1487,8 +1467,7 @@ export const useStore = create<Store>()(
           boundaryId: null,
           multiSelect: [],
           cardMenu: null,
-          dropTargetId: null,
-          ...(portfolio ? { lensId: null } : {}),
+                  ...(portfolio ? { lensId: null } : {}),
         })
       },
       openItem: (selectedItemId, options) => {
@@ -1533,7 +1512,6 @@ export const useStore = create<Store>()(
         })
       },
       setSearch: (search) => set({ search }),
-      setDragPreview: (dragPreview) => set({ dragPreview }),
       toggleFilters: () => {
         const show = !get().showFilters
         // One side panel at a time: opening filters dismisses an open card or My work.
@@ -1617,12 +1595,6 @@ export const useStore = create<Store>()(
       cancelWipPrompt: () => set({ wipPrompt: null }),
       openCardMenu: (itemId, x, y) => set({ cardMenu: { itemId, x, y } }),
       closeCardMenu: () => set({ cardMenu: null }),
-      // Called on every pointer move while a card is in the air, so it writes only on a change:
-      // a store write re-renders the board, and the pointer moves many times per second.
-      setDropTarget: (dropTargetId) => {
-        if (get().dropTargetId === dropTargetId) return
-        set({ dropTargetId })
-      },
 
       moveCardsToBoard: (itemIds, targetBoardId) => {
         const state = get()
