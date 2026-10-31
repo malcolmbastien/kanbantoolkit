@@ -50,8 +50,13 @@ const DIST = 'dist'
  * pickers are used by the board and the drawer; the bulk bar, card menu, filter panel and dialogs
  * were moved behind lazy imports to pay for most of it, leaving 0.8 KB. The remaining kilobyte is
  * recorded here rather than shaved out of the store every screen reads.
+ *
+ * 169 is dependency validation (`canDepend`). A link may not run along the decomposition or close
+ * a loop, and the same rule is read by the store — which every screen loads — and by the item
+ * panel's picker, so it cannot be a lazy screen of its own. It is the rule that keeps a card from
+ * waiting on its own parent.
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 168)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 169)
 
 let manifest
 try {
