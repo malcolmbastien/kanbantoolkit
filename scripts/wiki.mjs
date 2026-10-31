@@ -31,6 +31,12 @@ export const WIKI_PAGES = [
     section: 'use',
   },
   {
+    file: 'reading-a-board.md',
+    page: 'Reading-a-board',
+    note: 'The drawer, the four columns, pips, rollups, multiple flows and the boundary.',
+    section: 'use',
+  },
+  {
     file: 'warnings.md',
     page: 'Warnings',
     note: 'Every warning on a card or an initiative, what raised it, and how it clears.',

@@ -141,4 +141,5 @@ and the portfolio asks which objective it serves. No level keeps its own version
 ## Related
 
 - [Using the application](using.md) — the board, a card, an initiative and the views.
+- [Reading a board](reading-a-board.md) — the drawer, columns, pips, rollups, multiple flows and the boundary.
 - [Lean metrics](metrics.md) — the Flow view, which is a team board's own reading.

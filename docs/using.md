@@ -43,6 +43,8 @@ removed — but only while it is empty and another cards flow remains, so a boar
 and work is never thrown away with a column set. A programme or portfolio board aggregates other
 boards and has no cards flow of its own.
 
+The drawer, card pips, initiative rollups and the boundary are explained in [Reading a board](reading-a-board.md).
+
 A card is made in a lane's footer (**Add card to …**) or from **Card** in the toolbar. Drag it to
 another cell to move it — including into another cards flow, where the target flow's WIP limit
 applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — tint the column

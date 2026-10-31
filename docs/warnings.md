@@ -109,3 +109,8 @@ load a column carries.
   warning.
 - An objective's **score** is a person's grade at the end of a period; it is not derived and never
   raises a signal.
+
+## Related
+
+- [Reading a board](reading-a-board.md) — the columns, pips, rollups, multiple flows and the boundary.
+- [Board types](board-types.md) — team, programme and portfolio boards.
