@@ -505,7 +505,11 @@ export interface Actions {
   /** Explicitly block/unblock an item — a status independent of any link. */
   blockItem: (itemId: string, reason?: string) => void
   unblockItem: (itemId: string, note?: string) => void
-  addLogNote: (itemId: string, note: string) => void
+  /**
+   * Leave a note on an item, with the people it mentions as ids. A mention is part of the note;
+   * there is no reply or thread. The ids are deduplicated and omitted when there are none.
+   */
+  addLogNote: (itemId: string, note: string, mentions?: string[]) => void
   /**
    * Record a free-text edit once the person has finished typing it. The panel calls this on
    * blur: a title is typed a letter at a time, and a history of every keystroke is not a
@@ -843,11 +847,12 @@ let currentAuthor: string | undefined
  */
 const creator = (): { createdById?: string } => (currentAuthor ? { createdById: currentAuthor } : {})
 
-const logEntry = (kind: ItemLogEntry['kind'], note?: string): ItemLogEntry => ({
+const logEntry = (kind: ItemLogEntry['kind'], note?: string, mentions?: string[]): ItemLogEntry => ({
   id: uid(),
   at: Date.now(),
   kind,
   ...(note ? { note } : {}),
+  ...(mentions?.length ? { mentions: [...new Set(mentions)] } : {}),
   ...(currentAuthor ? { by: currentAuthor } : {}),
 })
 
@@ -2939,9 +2944,11 @@ export const useStore = create<Store>()(
         })
       },
 
-      addLogNote: (itemId, note) =>
+      addLogNote: (itemId, note, mentions) =>
         set({
-          items: writeItems(get(), (i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('noted', note)] } : i)),
+          items: writeItems(get(), (i) =>
+            i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('noted', note, mentions)] } : i,
+          ),
         }),
 
       logTextEdit: (itemId, field, before) => {

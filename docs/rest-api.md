@@ -84,6 +84,9 @@ difference is worth reading: the first is the token you chose, the second is the
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
 | `POST /workspace` | `workspace:admin` | restore a file into an empty instance |
 
+A note is an item-log entry of kind `noted`. It may carry `mentions`, an additive list of user ids:
+a mention is part of the note, never a thread, and the typed `@Name` stays in `note`.
+
 Two writes travel as whole documents and are deliberately **not** on this surface:
 `PUT /api/workspace/structure` (the board design — boards, flows, lanes and placements) and
 `PUT /api/workspace/vocabulary` (issue types, board templates, objectives, key results and the

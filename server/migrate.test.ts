@@ -72,6 +72,23 @@ describe('the server schema', () => {
     expect(await db.get("SELECT name FROM workspaces WHERE id = 'workspace'")).toEqual({ name: 'Kanban Toolkit' })
   })
 
+  it('adds mentions to notes written before mentions existed, without losing the note', async () => {
+    const raw = new DatabaseSync(':memory:')
+    const before = all.filter((migration) => migration.version < 34)
+    for (const migration of before) raw.exec(migration.sql)
+    raw.exec(`
+      INSERT INTO items (id, title, type_id, created_at, workspace_id) VALUES ('i-1', 'A card', 't-card', 0, 'workspace');
+      INSERT INTO item_log (item_id, id, at, kind, note, workspace_id) VALUES ('i-1', 'l-1', 0, 'noted', 'Before mentions', 'workspace');
+    `)
+
+    const db = fromSqlite(raw)
+    await migrate(db, all)
+    expect(await db.get("SELECT note, mentions FROM item_log WHERE id = 'l-1'")).toEqual({
+      note: 'Before mentions',
+      mentions: null,
+    })
+  })
+
   it('takes the bill away and keeps the workspace it belonged to', async () => {
     const raw = new DatabaseSync(':memory:')
     // A database from before task 166: the workspace carries an owner and a billing record.

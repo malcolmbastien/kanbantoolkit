@@ -59,5 +59,9 @@ export const WORKSPACE_SCHEMA = 1
  * objectives and key results — which the app writes as one document. A database without it cannot
  * refuse a stale write, so it is refused at the door instead of letting two people overwrite each
  * other's vocabulary without either being told.
+ *
+ * 34 adds `item_log.mentions`: the people a note names, as user ids. A database without it cannot
+ * store a mention, so a note would be written with its words but without the identity behind them —
+ * a half-answer worse than refusing to serve until the migration runs.
  */
-export const REQUIRED_SCHEMA = 33
+export const REQUIRED_SCHEMA = 34

@@ -141,6 +141,7 @@ function addItem(statements: Statement[], item: Item, workspaceId: string): void
         kind: entry.kind,
         by_user: value(entry.by),
         note: value(entry.note),
+        mentions: json(entry.mentions),
         from_lane_id: value(entry.fromLaneId),
         to_lane_id: value(entry.toLaneId),
         from_stage: value(entry.fromStage),

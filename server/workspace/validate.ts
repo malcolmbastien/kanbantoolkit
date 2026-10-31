@@ -105,6 +105,9 @@ function log(value: unknown): ItemLogEntry[] | undefined {
       if (by !== undefined) line.by = by
       const note = text(raw.note, LIMITS.text)
       if (note !== undefined) line.note = note
+      const mentions = strings(raw.mentions)
+      // A note with no names is written without the field, so old and new entries have one shape.
+      if (mentions !== undefined && mentions.length > 0) line.mentions = [...new Set(mentions)]
       const fromLaneId = text(raw.fromLaneId, LIMITS.id)
       if (fromLaneId !== undefined) line.fromLaneId = fromLaneId
       const toLaneId = text(raw.toLaneId, LIMITS.id)

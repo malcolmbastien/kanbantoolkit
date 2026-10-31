@@ -299,6 +299,13 @@ export interface ItemLogEntry {
   /** What happened, in the words of the moment — a move's lane names as they were then. */
   note?: string
   /**
+   * The people a note mentions, as user ids. Part of the note, never a thread: there is no reply
+   * and no parent. The typed `@Name` stays in `note`; this is the identity behind it, so a rename
+   * does not turn a mention into somebody else and a removed account still has a name to fall back
+   * to. Absent on every entry that is not a note, and on notes written before mentions existed.
+   */
+  mentions?: string[]
+  /**
    * For a move: the cell it came from and the one it went to. Linkage, not display — the note
    * is what a person reads, and it stays true after a lane is renamed or removed, which is why
    * neither the note nor the panel ever looks a lane up. Optional, so an entry written before

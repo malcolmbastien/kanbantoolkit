@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import { Ban, CalendarClock, Check, PanelRight, TriangleAlert, UserRound, X } from 'lucide-react'
+import { AtSign, Ban, CalendarClock, Check, PanelRight, TriangleAlert, UserRound, X } from 'lucide-react'
 import { BandBadge } from './BandBadge'
 import { myWork, type MyWorkEntry } from '@/domain/mywork'
+import { mentionsFor } from '@/domain/mentions'
 import { initialsOf } from '@/domain/users'
 import { chipColors } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,9 @@ export function MyWorkView() {
     () => myWork(items, placements, lanes, boards, flows, meUserId),
     [items, placements, lanes, boards, flows, meUserId],
   )
+  // Notes that name this person, across every board. A mention is not assigned work, so it is a
+  // reading of its own above the assignment groups rather than another row in them.
+  const mentions = useMemo(() => mentionsFor(items, placements, meUserId), [items, placements, meUserId])
   const me = users.find((u) => u.id === meUserId)
   const total = groups.reduce((n, g) => n + g.entries.length, 0)
 
@@ -110,6 +114,36 @@ export function MyWorkView() {
           Everything you own, assembled from every board. Click a card to read it here; the board
           button takes you to the cell it lives in when the work has to move.
         </p>
+
+        {mentions.length > 0 && (
+          <section data-my-work-mentions className="mb-3 overflow-hidden rounded-lg border border-indigo-200 bg-white shadow-sm">
+            <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50 px-3 py-1.5">
+              <AtSign size={13} className="shrink-0 text-indigo-700" />
+              <span className="text-meta font-semibold text-indigo-900">Mentions</span>
+              <span className="text-micro text-indigo-700">{mentions.length}</span>
+            </div>
+            <div className="space-y-1 p-1.5">
+              {mentions.slice(0, 12).map((mention, index) => (
+                <button
+                  key={`${mention.item.id}-${mention.entry.id}-${index}`}
+                  data-my-work-mention={mention.item.id}
+                  onClick={() => {
+                    if (mention.boardId && mention.boardId !== boardId) selectBoard(mention.boardId)
+                    openItem(mention.item.id)
+                  }}
+                  className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left transition hover:bg-indigo-50"
+                >
+                  <span className="min-w-0 truncate text-meta font-medium text-slate-800">{mention.item.title}</span>
+                  <span className="line-clamp-2 text-micro leading-snug text-slate-600">{mention.entry.note}</span>
+                  <span className="text-micro text-slate-500">
+                    {boards.find((b) => b.id === mention.boardId)?.name ?? 'Not on a board'} ·{' '}
+                    {new Date(mention.entry.at).toLocaleDateString([], { day: 'numeric', month: 'short' })}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {signedIn && !me ? (
           <div className="rounded-lg border border-slate-300 bg-white px-4 py-8 text-center">

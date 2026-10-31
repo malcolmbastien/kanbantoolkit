@@ -425,7 +425,7 @@ describe('writing the board design', () => {
     const db = database()
     const { cookie } = await signedIn(db)
     // The floor is the newest migration: a database behind it cannot be read honestly.
-    await db.run('DELETE FROM schema_migrations WHERE version = 33')
+    await db.run('DELETE FROM schema_migrations WHERE version = 34')
     const response = await instance(db)('/api/workspace/structure', {
       method: 'PUT',
       headers: { 'content-type': 'application/json', cookie },
@@ -507,6 +507,30 @@ describe('writing one item', () => {
 
     const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
     expect(body.items.map((entry) => entry.id)).toEqual(['i-card'])
+  })
+
+  it('stores the people a note mentions, once each, and reads them back', async () => {
+    const { request, patch, cookie } = await writer()
+    const response = await patch('i-card', {
+      baseRev: 0,
+      item: card({
+        log: [
+          {
+            id: 'l-note',
+            at: 1_700_000_000_001,
+            kind: 'noted',
+            note: '@Ada can you look at this?',
+            mentions: ['u-ada', 'u-ada'],
+          },
+        ],
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(((await response.json()) as { item: Item }).item.log?.[0]?.mentions).toEqual(['u-ada'])
+
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
+    expect(body.items[0].log?.[0]?.mentions).toEqual(['u-ada'])
+    expect(body.items[0].log?.[0]?.note).toBe('@Ada can you look at this?')
   })
 
   it('creates an item the server has never seen, whatever revision the browser based it on', async () => {

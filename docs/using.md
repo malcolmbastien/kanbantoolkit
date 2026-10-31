@@ -66,6 +66,11 @@ priority, type, people, tags and target dates; the creator is recorded and is no
 **Hierarchy** shows the parent and the work below. **Activity** is the card's own history — every
 move, edit, note and dependency, with who and when.
 
+A note is a comment on the card, and typing `@` offers a teammate to mention. Mentions are flat:
+there are no replies and no threads. The person is recorded on the note, named under it in
+**Activity**, and the note appears under **Mentions** in **My work** — the place that brings a
+mention back to the person it names.
+
 The checklist holds the card's sub-tasks. A card can wait on another: the waiting state is read from
 the two ends, so it clears when the blocker reaches Done — there is nothing to update by hand.
 **Mark blocked** records a reason when the work is stopped for something that is not another card.

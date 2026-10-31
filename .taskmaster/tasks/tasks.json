@@ -3738,9 +3738,9 @@
         "testStrategy": "Domain tests for mention parsing: case, names with spaces, punctuation, an email address that is not a mention, duplicates, unknown people, empty text. Store test: a mentioned note survives a rehydrate and a workspace export/import; old log entries still render. Server test: migration 0034 applies to a pre-184 database, PATCH writes ids, and a non-member cannot mention their way into a board. E2E: type @, pick a person, submit, see the mention in Activity and in that person My work. Assert there is no reply/thread control. Run npm test, npm run build and npm run scan.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:22:20.852Z"
       },
       {
         "id": "185",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:17:06.527Z",
+      "lastModified": "2026-10-31T03:22:20.853Z",
       "taskCount": 188,
-      "completedCount": 156,
+      "completedCount": 157,
       "tags": [
         "backlog"
       ]

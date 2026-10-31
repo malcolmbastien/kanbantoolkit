@@ -230,6 +230,8 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
         if (by !== undefined) line.by = by
         const note = maybeText(entry.note)
         if (note !== undefined) line.note = note
+        const mentions = parse<string[]>(entry.mentions)
+        if (mentions !== undefined) line.mentions = mentions
         const fromLaneId = maybeText(entry.from_lane_id)
         if (fromLaneId !== undefined) line.fromLaneId = fromLaneId
         const toLaneId = maybeText(entry.to_lane_id)

@@ -16,6 +16,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardInitiativeTypes, boardTags, cardTypes, initiativeTypeById, isInitiativeItem, isStrategicInitiative, placementOn, tagsOf } from '@/domain/board'
+import { insertMention, mentionQueryAt, mentionedIds } from '@/domain/mentions'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
 import { renderMarkdown } from '@/lib/markdown'
@@ -118,6 +119,12 @@ export function ItemPanel({ itemId }: Props) {
   const [showPreview, setShowPreview] = useState(false)
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
+  const [noteCaret, setNoteCaret] = useState(0)
+  const [mentionActive, setMentionActive] = useState(0)
+  // The token a person dismissed with Escape. It reopens when the text or caret moves to another
+  // `@`, so dismissing one suggestion list does not turn mentions off for the note.
+  const [mentionDismissed, setMentionDismissed] = useState<number | null>(null)
+  const noteRef = useRef<HTMLInputElement>(null)
   const [newSubtask, setNewSubtask] = useState('')
   // Free text is logged once, when the field is left: a title is typed a letter at a time, and
   // a history of every keystroke is not a history. See `logTextEdit`.
@@ -358,6 +365,34 @@ export function ItemPanel({ itemId }: Props) {
   // Every card type is offered; the item's current type is always among them.
   const typeOptions = cardTypes(issueTypes)
   const doneBelow = children.length > 0 ? `${roll.done} of ${roll.total} done` : undefined
+
+  // The mention being typed. `@` only counts at the start of a word, so an email address in a
+  // note stays an email address and never opens a list of people.
+  const mention = mentionQueryAt(note, noteCaret, users)
+  const mentionOpen = Boolean(mention && mention.matches.length > 0 && mention.start !== mentionDismissed)
+  const chooseMention = (user: (typeof users)[number]) => {
+    if (!mention) return
+    const next = insertMention(note, noteCaret, mention.start, user)
+    setNote(next.text)
+    setNoteCaret(next.caret)
+    setMentionActive(0)
+    setMentionDismissed(null)
+    // The input is the composer; putting the caret after the inserted name is the point of the
+    // picker. Focus is returned after React has drawn the new value.
+    requestAnimationFrame(() => {
+      noteRef.current?.focus()
+      noteRef.current?.setSelectionRange(next.caret, next.caret)
+    })
+  }
+  const sendNote = () => {
+    const text = note.trim()
+    if (!text) return
+    addLogNote(item.id, text, mentionedIds(text, users))
+    setNote('')
+    setNoteCaret(0)
+    setMentionActive(0)
+    setMentionDismissed(null)
+  }
 
   // The three faces of one item, in the order a reader wants them: what it is, where it sits in
   // the work, and what has happened to it. The tabs carry no counts: each view counts what it
@@ -1554,6 +1589,22 @@ export function ItemPanel({ itemId }: Props) {
                         ) : (
                           e.note ? ` — ${e.note}` : ''
                         )}
+                        {e.mentions?.length ? (
+                          <div data-mention-chips className="mt-1 flex flex-wrap items-center gap-1">
+                            <span className="text-micro font-semibold uppercase tracking-wide text-slate-500">
+                              Mentioned
+                            </span>
+                            {e.mentions.map((id) => (
+                              <span
+                                key={id}
+                                data-mention-chip={id}
+                                className="rounded-full bg-indigo-50 px-1.5 py-px text-micro font-medium text-indigo-700 ring-1 ring-indigo-200"
+                              >
+                                {nameOfUser(users, id)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                       <div className="text-micro text-slate-600">
                         {whenLabel(e.at)}
@@ -1575,33 +1626,94 @@ export function ItemPanel({ itemId }: Props) {
           Outside the fieldset on purpose: `item.comment` is a Viewer's, so the one control a
           read-only role keeps is the one it may actually use. */}
       <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-2.5">
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center gap-2">
+          {mentionOpen && mention && (
+            <div
+              id="mention-picker"
+              data-mention-picker
+              role="listbox"
+              aria-label="Mention a teammate"
+              className="absolute bottom-full left-0 z-10 mb-1 w-[min(20rem,100%)] overflow-hidden rounded-lg border border-slate-300 bg-white py-1 shadow-xl"
+            >
+              {mention.matches.map((user, index) => (
+                <button
+                  key={user.id}
+                  type="button"
+                  role="option"
+                  aria-selected={index === mentionActive}
+                  onMouseDown={(event) => {
+                    // Keep the composer focused; the press is choosing a name, not leaving the field.
+                    event.preventDefault()
+                    chooseMention(user)
+                  }}
+                  onMouseEnter={() => setMentionActive(index)}
+                  className={cn(
+                    'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta transition',
+                    index === mentionActive ? 'bg-indigo-50 text-indigo-800' : 'text-slate-700 hover:bg-slate-50',
+                  )}
+                >
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-700 text-micro font-bold text-white">
+                    {initialsOf(user.name)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{user.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <input
+            ref={noteRef}
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => {
+              setNote(e.target.value)
+              setNoteCaret(e.target.selectionStart ?? e.target.value.length)
+              setMentionActive(0)
+              setMentionDismissed(null)
+            }}
+            onSelect={(e) => setNoteCaret(e.currentTarget.selectionStart ?? 0)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && note.trim()) {
-                addLogNote(item.id, note.trim())
-                setNote('')
+              const picker = mentionOpen && mention
+              if (picker && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                e.preventDefault()
+                const step = e.key === 'ArrowDown' ? 1 : -1
+                setMentionActive((at) => (at + step + picker.matches.length) % picker.matches.length)
+                return
+              }
+              if (picker && (e.key === 'Enter' || e.key === 'Tab')) {
+                e.preventDefault()
+                const user = picker.matches[mentionActive] ?? picker.matches[0]
+                if (user) chooseMention(user)
+                return
+              }
+              if (picker && e.key === 'Escape') {
+                // The suggestion list is the topmost thing here: Escape closes it, not the drawer.
+                e.preventDefault()
+                e.stopPropagation()
+                setMentionDismissed(picker.start)
+                return
+              }
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                sendNote()
               }
             }}
             placeholder="Leave a note or mention @teammate…"
             aria-label="Leave a note"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={mentionOpen}
+            aria-controls={mentionOpen ? 'mention-picker' : undefined}
             className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
           />
           <button
             disabled={note.trim().length === 0}
-            onClick={() => {
-              addLogNote(item.id, note.trim())
-              setNote('')
-            }}
+            onClick={sendNote}
             className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-meta font-semibold text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
           >
             <Send size={13} /> Send
           </button>
         </div>
         <div className="mt-1.5 flex items-center justify-between px-0.5 text-micro text-slate-600">
-          <span>Press Enter to send</span>
+          <span>Press Enter to send · @ to mention</span>
           <span>Markdown supported</span>
         </div>
       </div>
