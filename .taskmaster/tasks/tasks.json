@@ -3750,9 +3750,9 @@
         "testStrategy": "Unit-test portfolioHeatmap: unserved objective; healthy work; one at-risk initiative; an overdue target; period grouping and order; a leaf shared by two initiatives counted once; no objectives gives an empty heatmap; an objective with no leaves has no percent. E2E on b-strategy: the heatmap and legend are visible, a risk cell names its severity, and clicking a row reaches the objective group. Run npm test, npm run build (budget check) and npm run scan.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:25:37.071Z"
       },
       {
         "id": "186",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:22:20.853Z",
+      "lastModified": "2026-10-31T03:25:37.071Z",
       "taskCount": 188,
-      "completedCount": 157,
+      "completedCount": 158,
       "tags": [
         "backlog"
       ]

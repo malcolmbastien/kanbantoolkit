@@ -1,7 +1,9 @@
 import { Fragment, useState } from 'react'
 import { Plus, Target, TriangleAlert } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
+import { PortfolioHeatmap } from './PortfolioHeatmap'
 import { initiativeTypeId } from '@/domain/board'
+import { portfolioHeatmap } from '@/domain/portfolio'
 import { decompositionParent, objectiveRollup, okrCoverage, type Graph } from '@/domain/derive'
 import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -64,6 +66,11 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     })
     .sort((a, b) => a.title.localeCompare(b.title))
 
+  // The portfolio's risk reading, from the same board initiatives the flows below draw. `mine`
+  // is the top-level set the map heads; the heatmap reads every strategic initiative on the board,
+  // because a nested one still serves its objective and still carries health.
+  const heatmap = portfolioHeatmap(objectives, graph, boardInits)
+
   const attribution = edges.filter((e) => e.kind === 'attribution')
   // The two coverage gaps, straight from the domain rule: an initiative no objective
   // carries, and an objective no initiative serves.
@@ -106,7 +113,12 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     const candidates = mine.filter((i) => !rows.some((r) => r.id === i.id))
     const roll = objectiveRollup(o.id, graph)
     return (
-      <div key={o.id} data-objective-group={o.title} className="flex flex-col rounded-md border border-slate-300 bg-white shadow-sm">
+      <div
+        key={o.id}
+        id={`objective-${o.id}`}
+        data-objective-group={o.title}
+        className="flex scroll-mt-2 flex-col rounded-md border border-slate-300 bg-white shadow-sm"
+      >
         <div className="flex items-center gap-2 rounded-t-md border-b border-slate-200 bg-slate-50 px-2.5 py-1.5">
           <Target size={12} className="shrink-0 text-violet-500" />
           <button
@@ -229,6 +241,8 @@ export function StrategyMap({ boardId }: { boardId: string }) {
           </button>
         </div>
       </div>
+
+      <PortfolioHeatmap heatmap={heatmap} />
 
       {objectives.length === 0 && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-meta text-slate-600">

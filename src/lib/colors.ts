@@ -1,3 +1,4 @@
+import type { PortfolioRisk } from '@/domain/portfolio'
 import type { BoardBand, Objective, Stage } from '@/domain/types'
 
 /*
@@ -46,6 +47,18 @@ export const DEP_STATE_STYLES: Record<string, { label: string; className: string
 export const OBJECTIVE_STATUS_STYLES: Record<Objective['status'], string> = {
   active: 'bg-indigo-100 text-indigo-700 ring-indigo-200',
   scored: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+}
+
+/**
+ * The portfolio heatmap's five readings. A cell is tinted and also says its word: the colour is
+ * the glance, the label is the answer, and neither depends on the other.
+ */
+export const PORTFOLIO_RISK_STYLES: Record<PortfolioRisk, { label: string; chip: string; row: string }> = {
+  unserved: { label: 'No coverage', chip: 'bg-amber-100 text-amber-800 ring-amber-300', row: 'bg-amber-50/50' },
+  atRisk: { label: 'At risk', chip: 'bg-rose-100 text-rose-800 ring-rose-300', row: 'bg-rose-50/50' },
+  overdue: { label: 'Overdue', chip: 'bg-orange-100 text-orange-800 ring-orange-300', row: 'bg-orange-50/40' },
+  watch: { label: 'Watch', chip: 'bg-yellow-100 text-yellow-800 ring-yellow-300', row: 'bg-yellow-50/40' },
+  onTrack: { label: 'On track', chip: 'bg-emerald-50 text-emerald-700 ring-emerald-200', row: 'bg-white' },
 }
 
 /** WCAG relative luminance. */

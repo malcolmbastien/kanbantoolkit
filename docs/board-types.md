@@ -115,6 +115,13 @@ and shows both coverage gaps: an objective that nothing serves, and an initiativ
 nothing. An objective's completeness is the union of the leaves below its initiatives — each leaf
 once — and an objective nothing serves has no percentage at all, because there is no work to read.
 
+**Read the risk.** Above the flows, **Portfolio at a glance** is one row per objective, grouped by
+period: how many initiatives serve it, its completeness, the health of those initiatives, the nearest
+target date and the open commitments already past it. The five readings — **No coverage**, **At
+risk**, **Overdue**, **Watch** and **On track** — are derived from the same rules the cards and the
+strategy map use, and every cell says its reading in words as well as colour. Choosing an objective
+takes you to its flow below; the heatmap is a way in, not a second report.
+
 ## Choosing a type
 
 Ask what the board is for, not who opens it:
