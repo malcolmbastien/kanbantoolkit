@@ -31,6 +31,10 @@ from an environment, which is what lets one set of routes run on both.
 | `WORKSPACE_NAME` | `Kanban Toolkit` | What the installation calls the team. Applied when the workspace is created, and re-applied only to the name the row was created with — never over a name a person chose. |
 | `PUBLIC_URL` | the request's own origin | The address the outside world uses. It is what a sign-in redirect URI is built from, and `https` in it is what decides the session cookie's `Secure` attribute. Behind a proxy, set it. |
 | `LIVE` | on | Set to `0` to switch the live channel off. The app then polls the same feed, which is what it does on any host without a socket server. |
+| `WEBHOOKS` | on | Set to `0` to stop the outbound delivery timer. Events are still recorded; nothing is sent. |
+| `BACKUP_DIR` | beside `DB_PATH` | Where Admin's file copies and the `backup` command write. |
+| `BACKUP_KEEP_DAYS` | `30` | How long a file copy is kept before the next copy prunes it. |
+| `RESTORE_CONFIRM` | unset | Set to `yes` on the next boot to apply a restore staged from Admin. Without it the pending file is left in place and the live database is untouched. |
 | `ERROR_SALT` | `kanbantoolkit` | Mixed into the hash of a reporter's address before it is stored. Set it to a secret in production: the salt is what stops an address being recovered from a hash. |
 | `PROJECT_URL` | unset | Where this project's own site is, if the instance should link its terms and privacy pages. Set, the sign-in surface links them; unset, it says whose policies apply with no link. Never this instance's own address. |
 | `API_RATE_LIMIT` | `120` | Requests a minute one token may make against `/api/v1`. Generous for a script and low enough that a runaway loop is a `429` rather than an outage. The window is per token and kept in memory, so a restart grants a fresh one — it is a guard, not an accounting system. |

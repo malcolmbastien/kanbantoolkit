@@ -287,6 +287,9 @@ The split is the two axes: the first is the deployment, the second is the team.
 | `POST /api/admin/webhooks/:id/test` | queue a test delivery |
 | `POST /api/admin/webhooks/deliveries/:id/retry` | try a failed delivery again |
 | `POST /api/admin/webhooks/dispatch` | send every delivery that is due now |
+| `GET`, `POST /api/admin/backups` | list the file copies, and take one; a Worker answers `provider` |
+| `GET /api/admin/backups/:name` | download a copy |
+| `POST /api/admin/backups/restore` | verify an upload and stage it for the next boot |
 | `GET /api/admin/health` | the schema version, the expected one, and whether the feed is moving |
 
 ## Invitations

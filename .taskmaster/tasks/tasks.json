@@ -3774,9 +3774,9 @@
         "testStrategy": "Integration tests with a temporary SQLite file: create, list, download and reject ../ traversal; an invalid upload is refused; a valid upload is staged and not applied; boot applies it once with matching counts; a failed apply keeps the live database. Permission tests for non-instance-admins, and a Worker-path test that reports provider backups. E2E in the Node lane: an admin creates a backup and sees it, uploads a valid copy and sees the restart notice; no destructive restore runs in the test. Run npm test, npm run build and npm run scan.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [],
-        "updatedAt": "2026-10-31T02:42:36.228Z"
+        "updatedAt": "2026-10-31T03:40:58.317Z"
       },
       {
         "id": "188",
@@ -3805,9 +3805,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:36:10.872Z",
+      "lastModified": "2026-10-31T03:40:58.317Z",
       "taskCount": 188,
-      "completedCount": 159,
+      "completedCount": 160,
       "tags": [
         "backlog"
       ]

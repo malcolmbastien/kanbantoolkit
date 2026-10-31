@@ -543,6 +543,7 @@ Admin
 ├── Invitations       pending / accepted / expired / revoked, copy link, revoke
 ├── Audit             export the trail as a file
 ├── Webhooks          endpoints, events, signing secrets and deliveries
+├── Backups           take, download, verify and stage a copy of the database
 ├── Tools & agents    agent tokens, directory provisioning
 ├── Snapshots         the browser's copies, and the demo reset
 ├── Workspace data    export, import, and what the browser keeps

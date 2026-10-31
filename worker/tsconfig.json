@@ -29,6 +29,7 @@
     "../server/index.node.ts",
     "../server/sqlite.ts",
     "../server/backup.ts",
+    "../server/file-backup.ts",
     "../server/backup.test.ts",
     "../server/mail-smtp.ts",
     "../server/mcp.ts",

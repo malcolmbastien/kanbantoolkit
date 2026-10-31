@@ -34,6 +34,16 @@ Daily, from cron:
 
 **Retention** is 30 days by default (`--keep-days=30`), pruned by the file's own timestamp.
 
+### From Admin
+
+**Admin → Backups** takes the same copy, in `BACKUP_DIR` (beside the database by default), and lists
+the files with their size and time. **Download** saves one; **Restore from a file** verifies an
+uploaded database and stages it — it does **not** replace the live file while connections are open.
+The screen says what was verified and what to do next.
+
+A Worker has no filesystem. Its Backups tab says the database provider owns backup and restore, and
+points at the provider's console; it does not pretend an in-app file copy exists.
+
 **A second copy, with another provider, is the part that is not optional.** A backup on the machine
 that fails is not a backup. Any of these, nightly, after the copy:
 
@@ -56,6 +66,11 @@ gone wrong and the second mistake of that day must not be the restore. After cop
 file moved.
 
 Then restart the server. The migrations run on boot (`server/migrate.ts`).
+
+A restore staged from **Admin → Backups** is applied by the Node entry on the next boot when
+`RESTORE_CONFIRM=yes` is set. The live database is first copied to `pre-restore-<stamp>.db` beside it,
+so the restore has its own undo. Without the variable the pending file stays where it is and the
+startup log says so.
 
 ## Hosted: Cloudflare D1
 

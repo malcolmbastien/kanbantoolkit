@@ -10,8 +10,8 @@
  * This is the entry `task 129` proves in CI. The packaged image is task 128's job.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { extname, join, normalize } from 'node:path'
+import { copyFileSync, existsSync, readFileSync, readdirSync, renameSync, statSync } from 'node:fs'
+import { basename, dirname, extname, join, normalize } from 'node:path'
 import { serve, upgradeWebSocket } from '@hono/node-server'
 import type { Handler } from 'hono'
 import { WebSocketServer } from 'ws'
@@ -25,10 +25,35 @@ import type { Migration } from './migrate'
 import { openSqlite } from './sqlite'
 import { workspaceName } from './config'
 import { dispatchDue } from './webhooks'
+import { fileBackups } from './file-backup'
+import { record } from './audit'
 
 const port = Number(process.env.PORT ?? 8787)
 const databasePath = process.env.DB_PATH ?? 'kanbantoolkit.db'
 const staticDir = process.env.STATIC_DIR ?? './dist'
+
+/**
+ * A restore staged from Admin applies here, before the database is opened.
+ *
+ * The upload was verified when it was staged; applying it under open connections is the part that
+ * is not safe. The old file is kept beside the new one, and the operator's explicit
+ * `RESTORE_CONFIRM=yes` is what turns "staged" into "this is the workspace now".
+ */
+const pendingRestore = join(dirname(databasePath), 'pending-restore.db')
+let appliedPreRestore: string | undefined
+if (databasePath !== ':memory:' && existsSync(pendingRestore)) {
+  if (process.env.RESTORE_CONFIRM === 'yes') {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const pre = join(dirname(databasePath), `pre-restore-${stamp}.db`)
+    if (existsSync(databasePath)) copyFileSync(databasePath, pre)
+    renameSync(pendingRestore, databasePath)
+    appliedPreRestore = pre
+    console.log(`restore applied; the previous database is at ${pre}`)
+  } else {
+    console.log(`a restore is staged at ${pendingRestore}; set RESTORE_CONFIRM=yes and restart to apply it`)
+  }
+}
+
 const db = openSqlite(databasePath)
 
 // Before the first request: a migration transforms what is there, and a failure stops the process
@@ -45,6 +70,14 @@ const migrations: Migration[] = readdirSync(migrationsDir)
 
 const schema = await migrate(db, migrations)
 console.log(`kanbantoolkit schema v${schema.version}${schema.applied.length ? ` (applied ${schema.applied.join(', ')})` : ''}`)
+if (appliedPreRestore) {
+  await record(db, {
+    action: 'backup.restore.apply',
+    targetType: 'backup',
+    targetId: basename(appliedPreRestore),
+    data: { previous: basename(appliedPreRestore) },
+  })
+}
 
 /**
  * The live channel is this process's own: one socket server, one map of listeners. It is switched
@@ -83,6 +116,7 @@ const mail = process.env.MAIL_CONSOLE === '1' ? consoleMailer() : smtpMailer(pro
  * containers on three machines can be told apart by curling them, rather than by remembering.
  */
 const version = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string }).version
+const backups = databasePath === ':memory:' ? undefined : fileBackups(databasePath)
 
 const app = createApp(
   {
@@ -93,6 +127,7 @@ const app = createApp(
     // The bell, from this runtime's side: one process, one map of listeners.
     ...(live && { live: { publish: (_env: unknown, workspaceId: string, revision: number) => publish(workspaceId, revision) } }),
     ...(mail && { mail }),
+    ...(backups && { backups }),
     ...(version && { version }),
   },
   {

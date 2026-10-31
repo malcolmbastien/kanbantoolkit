@@ -12,6 +12,8 @@ import { addCardTo, openInstanceBoard } from './support'
 const ORIGIN = 'http://localhost:4181'
 const BOARD = 'Webhook Atlas'
 
+test.describe.configure({ mode: 'serial' })
+
 test('an administrator creates an endpoint, and a card event is delivered and signed', async ({ page }) => {
   const received: Array<{ headers: Record<string, string | string[] | undefined>; body: string }> = []
   const receiver = createServer((request, response) => {
@@ -67,4 +69,16 @@ test('an administrator creates an endpoint, and a card event is delivered and si
   } finally {
     await new Promise<void>((resolve) => receiver.close(() => resolve()))
   }
+})
+
+test('an instance administrator takes a database copy from Admin', async ({ page }) => {
+  await openInstanceBoard(page, ORIGIN, BOARD, { email: 'hook-admin@example.com', name: 'Hook Admin' })
+  await page.goto(`${ORIGIN}/app?view=boards`)
+  await page.getByRole('button', { name: /^Admin/ }).click()
+  await page.getByRole('tab', { name: 'Backups' }).click()
+  const panel = page.locator('[data-backups-panel]')
+  await expect(panel).toContainText('files on this machine')
+  await panel.getByRole('button', { name: 'Take a copy' }).click()
+  await expect(panel).toContainText(/Copy taken: kanbantoolkit-/)
+  await expect(panel.getByRole('link', { name: /Download/ }).first()).toBeVisible()
 })

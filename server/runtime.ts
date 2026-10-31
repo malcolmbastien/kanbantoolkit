@@ -10,6 +10,28 @@
 import type { Database } from './db'
 import type { Mail } from './mail'
 
+/** A copy this runtime can take, list, download and stage for restore. */
+export interface BackupFile {
+  name: string
+  bytes: number
+  createdAt: number
+}
+
+/**
+ * File backups, when the runtime has a file to copy.
+ *
+ * A Worker has the provider's own backup facility and no filesystem, so it leaves this out. The
+ * route asks whether it is there rather than which runtime it is on — the same rule the live
+ * channel and mail follow.
+ */
+export interface BackupRuntime {
+  create(now?: Date): BackupFile | Promise<BackupFile>
+  list(): BackupFile[]
+  read(name: string): Uint8Array | undefined
+  /** Verify an uploaded database and put it aside for the next boot. It does not replace live. */
+  stageRestore(bytes: Uint8Array): { boards: number; items: number; name: string }
+}
+
 export interface Runtime {
   /** The database for this request, or undefined when the deployment has none configured. */
   database(env: unknown): Database | undefined
@@ -32,6 +54,8 @@ export interface Runtime {
    * A route asks whether it is there; it never asks which runtime it is on.
    */
   mail?: Mail
+  /** A filesystem copy of the database, on a runtime that has one. */
+  backups?: BackupRuntime
   /**
    * The version this build is, when the runtime can say.
    *

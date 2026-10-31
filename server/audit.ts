@@ -73,6 +73,12 @@ export type AuditAction =
   | 'webhook.update'
   | 'webhook.delete'
   | 'webhook.test'
+  // A copy of the instance, and a restore staged for the next boot. The restore's own application
+  // is written when the database it replaced is open again.
+  | 'backup.create'
+  | 'backup.download'
+  | 'backup.restore.stage'
+  | 'backup.restore.apply'
 
 export interface AccessEvent {
   /** Who did it. Absent for something the system did, or for a refusal before anyone is known. */
