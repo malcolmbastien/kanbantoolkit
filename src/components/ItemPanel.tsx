@@ -31,6 +31,7 @@ import { dropLease, takeLease } from '@/lib/lease'
 import { useAuth } from '@/lib/auth'
 import { useMay } from '@/lib/permissions'
 import { useSync } from '@/lib/sync'
+import { fetchItemLog, mergeLog, type LogPage } from '@/lib/history'
 import { useStore, isBoardSurface } from '@/store'
 import { TagInput } from './TagInput'
 import { PersonAvatar } from './PersonAvatar'
@@ -112,6 +113,12 @@ export function ItemPanel({ itemId }: Props) {
   const lensId = useStore((s) => s.lensId)
 
   const [tab, setTab] = useState<Tab>('overview')
+  // The card's history from the server: `undefined` while asking, `null` when this deployment has
+  // nobody to ask. A page of it is merged with what this browser already has, because the drawer
+  // may be opened on a card whose log arrived with the workspace (a static build) or never did.
+  const [historyPage, setHistoryPage] = useState<LogPage | null | undefined>(undefined)
+  const [historyBusy, setHistoryBusy] = useState(false)
+  const recordHistory = useStore((s) => s.recordHistory)
   const [moreOpen, setMoreOpen] = useState(false)
   const [priorityOpen, setPriorityOpen] = useState(false)
   const [blockOpen, setBlockOpen] = useState(false)
@@ -175,6 +182,38 @@ export function ItemPanel({ itemId }: Props) {
     if (locks[itemId]) return
     useSync.getState().forget(itemId)
   }, [refusal?.reason, locks, itemId])
+
+  // The Activity tab is the only reader of a card's whole history, so it is asked for when that
+  // tab is opened rather than when the drawer is. A deployment with no history answers `undefined`
+  // and the card's own log, when it has one, is what is shown.
+  useEffect(() => {
+    if (tab !== 'activity') return
+    let live = true
+    setHistoryPage(undefined)
+    void fetchItemLog(itemId).then((page) => {
+      if (!live) return
+      setHistoryPage(page ?? null)
+      if (page?.entries.length) recordHistory(itemId, page.entries)
+    })
+    return () => {
+      live = false
+    }
+  }, [itemId, tab, recordHistory])
+
+  const loadEarlier = async () => {
+    if (!historyPage?.nextCursor || historyBusy) return
+    setHistoryBusy(true)
+    const page = await fetchItemLog(itemId, historyPage.nextCursor)
+    setHistoryBusy(false)
+    if (!page) return
+    setHistoryPage((current) =>
+      current
+        ? { entries: mergeLog(current.entries, page.entries), nextCursor: page.nextCursor, total: page.total }
+        : current,
+    )
+    recordHistory(itemId, page.entries)
+  }
+
   if (!item) return null
 
   const type = issueTypes.find((t) => t.id === item.typeId) ?? { id: item.typeId, name: 'Item', color: '#64748b' }
@@ -188,7 +227,10 @@ export function ItemPanel({ itemId }: Props) {
   const attributed = attributedObjectives(item.id, edges, objectives)
   const roll = rollupOf(item.id, graph)
   const stage = roll.bucket
-  const log = item.log ?? []
+  // What this browser knew, plus the pages the drawer read. Ascending; the Activity tab reverses.
+  const log = mergeLog(item.log, historyPage?.entries)
+  const historyTotal = historyPage?.total ?? log.length
+  const historyLoading = historyPage === undefined && log.length === 0
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
 
   const initiativeTypeId = issueTypes.find((t) => t.name === 'Initiative')?.id
@@ -1568,8 +1610,12 @@ export function ItemPanel({ itemId }: Props) {
         )}
 
         {tab === 'activity' && (
-          <Section label="Activity" count={log.length} aside={<span className="text-micro text-slate-600">Newest first</span>}>
-            {log.length === 0 ? (
+          <Section label="Activity" count={historyTotal} aside={<span className="text-micro text-slate-600">Newest first</span>}>
+            {historyLoading ? (
+              <p className="text-meta text-slate-600" data-history-loading>
+                Loading history…
+              </p>
+            ) : log.length === 0 ? (
               <p className="text-meta text-slate-600">Nothing has happened to this yet.</p>
             ) : (
               <div className="space-y-1">
@@ -1611,6 +1657,17 @@ export function ItemPanel({ itemId }: Props) {
                     </div>
                   </div>
                 ))}
+                {historyPage?.nextCursor && (
+                  <button
+                    type="button"
+                    data-history-more
+                    onClick={() => void loadEarlier()}
+                    disabled={historyBusy}
+                    className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-meta text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {historyBusy ? 'Loading…' : `Load earlier activity (${Math.max(0, historyTotal - log.length)} more)`}
+                  </button>
+                )}
               </div>
             )}
           </Section>

@@ -20,6 +20,7 @@ import { workspaceVocabulary } from '@/domain/demo'
 import { quarantineUnreadable } from '@/lib/quarantine'
 import { announce } from '@/lib/announce'
 import { chooseRepository } from '@/lib/repository'
+import { mergeLog } from '@/lib/history'
 import { queue, newKey, type QueuedWrite } from '@/lib/queue'
 import type { CommitAnswer } from '@/lib/repository'
 import { useAuth } from '@/lib/auth'
@@ -510,6 +511,14 @@ export interface Actions {
    */
   addLogNote: (itemId: string, note: string, mentions?: string[]) => void
   /**
+   * Keep history a read answered with, without writing it to the server.
+   *
+   * The drawer asks for a card's pages and search asks for notes; both are reads, so neither is a
+   * change and neither takes a revision. Entries are keyed by id, so asking the same page twice
+   * adds nothing. In a static deployment this is never called: the card already carries its log.
+   */
+  recordHistory: (itemId: string, entries: ItemLogEntry[]) => void
+  /**
    * Record a free-text edit once the person has finished typing it. The panel calls this on
    * blur: a title is typed a letter at a time, and a history of every keystroke is not a
    * history. `before` is what the field held when it was focused.
@@ -761,7 +770,11 @@ function settle(answer: Settled, item: Item, sentRev: number): void {
   if (server && (server.rev ?? 0) !== sentRev) {
     useStore.setState((state) => ({
       items: state.items.map((local) =>
-        local.id === server.id && (local.rev ?? 0) === sentRev ? server : local,
+        local.id === server.id && (local.rev ?? 0) === sentRev
+          ? // The answer carries the card, not its history. What this browser already read stays,
+            // and the server's entries win where both have one.
+            { ...server, ...(local.log?.length ? { log: mergeLog(local.log, server.log) } : {}) }
+          : local,
       ),
     }))
   }
@@ -3118,6 +3131,19 @@ export const useStore = create<Store>()(
           ),
         }),
 
+      recordHistory: (itemId, entries) =>
+        set((state) => {
+          const index = state.items.findIndex((item) => item.id === itemId)
+          if (index < 0) return state
+          const item = state.items[index]
+          const log = mergeLog(item.log, entries)
+          // History is append-only, so an unchanged length is an unchanged log.
+          if (log.length === (item.log ?? []).length) return state
+          const items = [...state.items]
+          items[index] = { ...item, log }
+          return { items }
+        }),
+
       logTextEdit: (itemId, field, before) => {
         const state = get()
         const item = state.items.find((i) => i.id === itemId)
@@ -3273,7 +3299,10 @@ onLiveItem((item) => {
     if (index < 0 || (item.rev ?? 0) <= (state.items[index].rev ?? 0)) return state
 
     const items = [...state.items]
-    items[index] = item
+    const local = state.items[index]
+    // The feed carries the card, not its history: adopting it must not take away a log this
+    // browser has already read or written.
+    items[index] = { ...item, ...(local.log?.length ? { log: mergeLog(local.log, item.log) } : {}) }
     return { items }
   })
 })
