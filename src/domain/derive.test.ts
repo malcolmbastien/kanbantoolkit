@@ -196,6 +196,13 @@ describe('a dependency never runs along the decomposition', () => {
     expect(canDepend('st-email', 'st-signup-form', g)).toBe(true)
   })
 
+  it('refuses a link to or from an item that has been filed away', () => {
+    const filed = { ...g.items.find((i) => i.id === 'st-sso')!, archived: true }
+    const archivedGraph = { ...g, items: g.items.map((i) => (i.id === 'st-sso' ? filed : i)) }
+    expect(canDepend('st-email', 'st-sso', archivedGraph)).toBe(false)
+    expect(canDepend('st-sso', 'st-email', archivedGraph)).toBe(false)
+  })
+
   it('refuses a link that would close a loop through an existing one', () => {
     // The fixture already has `st-email` waiting on `init-gateway`. The other direction would
     // make each one wait for the other.

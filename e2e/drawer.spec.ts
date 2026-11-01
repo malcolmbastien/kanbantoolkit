@@ -106,6 +106,26 @@ test('a parent set in the drawer is the card’s lineage', async ({ page }) => {
   await expect(card(page, id)).toContainText('Trial experience')
 })
 
+test('the dependency picker leaves filed-away work out', async ({ page }) => {
+  await openBoard(page)
+
+  // Archive a Done card on this board first.
+  await page.locator('[data-card-id="st-signup-screens"]').click()
+  const panel = page.locator('[data-item-panel]')
+  await panel.getByRole('button', { name: /More — duplicate/ }).click()
+  await panel.getByRole('button', { name: 'Archive', exact: true }).click()
+  await page.keyboard.press('Escape')
+
+  // An active card's picker does not offer it, even by its own title.
+  await page.locator('[data-card-id="st-payment-retries"]').click()
+  const other = page.locator('[data-item-panel]')
+  await other.getByRole('button', { name: 'Hierarchy' }).click()
+  await other.getByRole('button', { name: 'Add a dependency' }).click()
+  const picker = page.locator('[data-item-picker]')
+  await picker.getByLabel('Search items').fill('signup')
+  await expect(picker.getByRole('option', { name: /Design the signup screens/ })).toHaveCount(0)
+})
+
 test('the dependency picker offers only links across the hierarchy', async ({ page }) => {
   await openBoard(page)
   // A card inside Billing migration: its own initiative is its parent, so it is not a place the

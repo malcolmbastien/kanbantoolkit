@@ -70,11 +70,13 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
 - **Overview** holds the fields: title, description (Markdown), status, priority, type, people, tags,
   target dates and checklist.
 - **Hierarchy** shows the parent, the work below, and dependencies. A dependency links two items and
-  says one waits for the other; it runs **across** the hierarchy, never along it. A card cannot wait
-  on its own parent or on anything below it, and a link that would close a loop is refused rather
-  than corrected — the picker opens a searchable list and offers only the items the link would be
-  accepted for. A dependency is a plan, not a block: it never stops a move, and it clears itself
-  when the item waited on reaches Done.
+  says one waits for the other. It runs **across** the hierarchy, never along it: a card cannot wait on
+  its own parent or on anything below it. A link that would close a loop is refused rather than
+  corrected. The picker is a searchable list that offers only the items the link would be accepted
+  for: active work. An archived or discarded item is not offered as a dependency, and an archived item
+  cannot be given one. The parent picker follows the same rule — only active initiatives are parents.
+  A dependency is a plan, not a block. It never stops a move, and it clears itself when the item it
+  waits on reaches Done.
 - **Activity** is the item's own history: every move, edit, note and link, with who and when.
 
 The drawer is where editing happens. If somebody else is editing the same card, their lease is shown

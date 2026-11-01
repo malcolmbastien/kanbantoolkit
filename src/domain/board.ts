@@ -567,7 +567,13 @@ export function isInitiativeItem(item: Item | undefined, types: IssueType[]): bo
  */
 export function canSetParent(childId: string, parentId: string, graph: Graph, issueTypes: IssueType[]): boolean {
   if (childId === parentId) return false
-  if (!isInitiativeItem(graph.items.find((i) => i.id === parentId), issueTypes)) return false
+  const child = graph.items.find((i) => i.id === childId)
+  const parent = graph.items.find((i) => i.id === parentId)
+  if (!child || !parent) return false
+  // A filed-away item is read-only and off the board; it is not a parent to roll work up to, and
+  // it cannot be given one either. Existing hierarchy stays — only a new link is refused.
+  if (child.archived || parent.archived) return false
+  if (!isInitiativeItem(parent, issueTypes)) return false
   if (graph.edges.some((edge) => edge.kind === 'attribution' && edge.to === childId)) return false
   return !descendants(childId, graph).includes(parentId)
 }

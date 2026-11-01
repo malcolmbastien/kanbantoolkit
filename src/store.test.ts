@@ -77,6 +77,16 @@ describe('store actions', () => {
     expect(decompositionParent('st-signup-form', s().edges)).toBe('init-signup')
   })
 
+  it('refuses a parent or a dependency that has been filed away', () => {
+    // Archiving an initiative takes its subtree with it; the store must not link new work to it.
+    s().archiveItem('init-billing')
+    s().setParent('st-email', 'init-billing')
+    expect(decompositionParent('st-email', s().edges)).toBe('init-signup')
+
+    expect(s().addDependency('st-email', 'st-usage-billing')).toBe(false)
+    expect(s().addDependency('st-usage-billing', 'st-email')).toBe(false)
+  })
+
   it('a parent is never the item itself nor one of its descendants — and a refusal changes nothing', () => {
     const parentOf = (id: string) => decompositionParent(id, s().edges)
 

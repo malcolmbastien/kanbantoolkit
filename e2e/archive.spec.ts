@@ -6,7 +6,7 @@ import { openBoard } from './support'
  *
  * A card whose work is done is *archived*; a card still in play is *discarded*, which drops it from
  * the board without claiming it was finished. Both leave the board the same way, both are in the
- * same archive, and both come back the same way — the difference is what the work *was*, and the
+ * board's archive, and both come back the same way — the difference is what the work *was*, and the
  * archive keeps exactly that and not the column it happened to sit in.
  */
 
@@ -70,6 +70,19 @@ test('a card in play is discarded, and the archive says so without keeping its c
 
   await page.keyboard.press('Escape')
   await expect(drawer).toHaveCount(0)
+})
+
+test('each board’s archive lists only the work filed from that board', async ({ page }) => {
+  // The demo has an archived delivery on each team board.
+  await page.goto('/app?board=b-atlas&view=archive')
+  await expect(page.getByText('Team Atlas archive')).toBeVisible()
+  await expect(page.locator('tr', { hasText: 'Rate limit messaging' })).toBeVisible()
+  await expect(page.locator('tr', { hasText: 'Export the register as CSV' })).toHaveCount(0)
+
+  await page.goto('/app?board=b-nova&view=archive')
+  await expect(page.getByText('Team Nova archive')).toBeVisible()
+  await expect(page.locator('tr', { hasText: 'Export the register as CSV' })).toBeVisible()
+  await expect(page.locator('tr', { hasText: 'Rate limit messaging' })).toHaveCount(0)
 })
 
 test('an archived initiative is read-only and raises no warnings', async ({ page }) => {

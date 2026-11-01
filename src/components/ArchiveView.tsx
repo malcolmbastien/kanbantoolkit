@@ -16,6 +16,7 @@ import { VocabularySaveError } from './VocabularySaveError'
  * the board can change long after it left — so the word is kept from the moment it was filed.
  */
 export function ArchiveView() {
+  const boardId = useStore((s) => s.boardId)
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
   const links = useStore((s) => s.links)
@@ -33,12 +34,16 @@ export function ArchiveView() {
   const graph: Graph = { items, edges, links, placements, lanes }
   const typeOf = (id: string): IssueType => issueTypes.find((t) => t.id === id) ?? { id, name: 'Item', color: '#64748b' }
 
+  const board = boards.find((b) => b.id === boardId)
+  // A board's archive is the work filed from *that* board: the placement is what says where an
+  // item was when it left play, and an item placed on two boards is in both archives.
+  const onBoard = new Set(placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
   const archived = items
-    .filter((i) => i.archived)
+    .filter((i) => i.archived && onBoard.has(i.id))
     .filter((i) => i.title.toLowerCase().includes(q.trim().toLowerCase()))
     .sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0))
 
-  const boardOf = (id: string) => boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
+  if (!board) return null
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
@@ -46,17 +51,21 @@ export function ArchiveView() {
         <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-2 rounded-lg border border-amber-300 bg-amber-50/70 px-4 py-3">
           <div>
             <div className="flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide text-amber-700">
-              <Archive size={12} /> Archive
+              <Archive size={12} /> {board.name} archive
             </div>
             <div className="text-heading font-semibold text-slate-800">
               {archived.length} filed item{archived.length === 1 ? '' : 's'}
             </div>
             <div className="text-meta text-slate-600">
-              Finished work is archived, unfinished work is discarded — either way it leaves the boards and stays restorable.
+              Finished work is archived, unfinished work is discarded — either way it leaves this board and stays restorable.
+              Only work filed from this board is listed.
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-meta text-slate-600">
+            <label
+              className="flex items-center gap-1.5 text-meta text-slate-600"
+              title="Auto-archive applies to every board in the workspace"
+            >
               Auto-archive Done after
               <input
                 type="number"
@@ -89,7 +98,6 @@ export function ArchiveView() {
             <thead>
               <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
                 <th className="px-4 py-2 font-semibold">Item</th>
-                <th className="px-4 py-2 font-semibold">Board</th>
                 <th className="px-4 py-2 font-semibold">Outcome</th>
                 <th className="px-4 py-2 font-semibold">Archived</th>
                 <th className="px-4 py-2"></th>
@@ -122,7 +130,6 @@ export function ArchiveView() {
                         {item.title}
                       </button>
                     </td>
-                    <td className="px-4 py-2.5 text-meta text-slate-600">{boardOf(item.id)?.name ?? '—'}</td>
                     <td className="px-4 py-2.5">
                       <span
                         title={
@@ -157,8 +164,8 @@ export function ArchiveView() {
               })}
               {archived.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-meta text-slate-600">
-                    Nothing archived{q ? ' matches your search' : ' yet'}.
+                  <td colSpan={4} className="px-4 py-8 text-center text-meta text-slate-600">
+                    Nothing archived on this board{q ? ' matches your search' : ' yet'}.
                   </td>
                 </tr>
               )}

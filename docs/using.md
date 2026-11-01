@@ -138,9 +138,10 @@ a programme's outcome is decomposed into a team's initiative.
   or all history) and a cards-flow filter are part of the link. A programme or portfolio board has no
   cards flow, so it offers no Flow view. The definitions and the reasoning are in
   [Lean metrics](metrics.md).
-- **Archive** — work that has left the boards. A card in a Done column is **archived**; anything
-  else is **discarded**, dropped without claiming it was finished. The archive keeps that one fact,
-  not the column the work sat in, and either item can be restored.
+- **Archive** — work that has left this board. Each board has its own archive, and it lists only
+  the work filed from that board. A card in a Done column is **archived**; anything else is
+  **discarded**, dropped without claiming it was finished. The archive keeps that one fact, not the
+  column the work sat in, and either item can be restored.
 
 None of these is a second copy: they read the same items, placements and edges.
 

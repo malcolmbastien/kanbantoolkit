@@ -145,7 +145,12 @@ export type DependencyState =
  */
 export function canDepend(dependentId: string, dependencyId: string, graph: Graph): boolean {
   if (dependentId === dependencyId) return false
-  if (!graph.items.some((i) => i.id === dependentId) || !graph.items.some((i) => i.id === dependencyId)) return false
+  const dependent = graph.items.find((i) => i.id === dependentId)
+  const dependency = graph.items.find((i) => i.id === dependencyId)
+  if (!dependent || !dependency) return false
+  // A filed-away item is not work in play: a new link to or from it would plan around something
+  // that has left the board. Existing links stay — they are still a fact about the history.
+  if (dependent.archived || dependency.archived) return false
   // An existing link is not a new one.
   if (graph.links.some((link) => link.from === dependencyId && link.to === dependentId)) return false
 
