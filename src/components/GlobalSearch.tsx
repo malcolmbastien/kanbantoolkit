@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
-import { searchHits, type SearchHit } from '@/domain/search'
+import { noteMatch, searchHits, type SearchHit } from '@/domain/search'
+import { fetchNoteHits, type NoteEntry } from '@/lib/history'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 
@@ -27,6 +28,10 @@ export function GlobalSearch() {
 
   const [open, setOpen] = useState(true)
   const [active, setActive] = useState(0)
+  // Notes the server holds that this browser's cards may not: the workspace document no longer
+  // carries history, so a note search asks for the matching notes instead of walking every card.
+  // A deployment with no server answers nothing and the local cards remain the whole search.
+  const [remoteNotes, setRemoteNotes] = useState<NoteEntry[]>([])
   const boxRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -46,9 +51,40 @@ export function GlobalSearch() {
   }, [])
 
 
+  useEffect(() => {
+    const q = search.trim()
+    if (q.length < 2) {
+      setRemoteNotes([])
+      return
+    }
+    let live = true
+    const timer = setTimeout(() => {
+      void fetchNoteHits(q).then((notes) => {
+        if (live) setRemoteNotes(notes ?? [])
+      })
+    }, 180)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [search])
+
   // Group matches by the board the item sits on (first placement).
   const groups = useMemo(() => {
-    const matches = searchHits(items, search)
+    const local = searchHits(items, search)
+    const matched = new Set(local.map((hit) => hit.item.id))
+    const byId = new Map(items.map((item) => [item.id, item]))
+    const fromNotes: SearchHit[] = []
+    for (const note of remoteNotes) {
+      if (matched.has(note.itemId)) continue
+      const item = byId.get(note.itemId)
+      const match = item ? noteMatch(note.entry, search) : undefined
+      if (item && match) {
+        fromNotes.push({ item, match })
+        matched.add(item.id)
+      }
+    }
+    const matches = [...local, ...fromNotes]
     const byBoard = new Map<string, { boardId: string; name: string; items: SearchHit[] }>()
     for (const hit of matches) {
       const boardId = placements.find((p) => p.itemId === hit.item.id)?.boardId ?? '__none__'
@@ -58,7 +94,7 @@ export function GlobalSearch() {
       byBoard.get(boardId)!.items.push(hit)
     }
     return [...byBoard.values()]
-  }, [search, items, placements, boards])
+  }, [search, items, placements, boards, remoteNotes])
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups])
 

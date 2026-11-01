@@ -1,13 +1,14 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AtSign, Ban, CalendarClock, Check, PanelRight, TriangleAlert, UserRound, X } from 'lucide-react'
 import { BandBadge } from './BandBadge'
 import { myWork, type MyWorkEntry } from '@/domain/mywork'
-import { mentionsFor } from '@/domain/mentions'
+import { mentionsFor, mentionsOfNotes, mergeMentions, type MentionNote } from '@/domain/mentions'
 import { initialsOf } from '@/domain/users'
 import { chipColors } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useStore } from '@/store'
+import { fetchMentions } from '@/lib/history'
 
 /**
  * My work — everything the workspace's person is assigned to, assembled from every board,
@@ -41,8 +42,27 @@ export function MyWorkView() {
     [items, placements, lanes, boards, flows, meUserId],
   )
   // Notes that name this person, across every board. A mention is not assigned work, so it is a
-  // reading of its own above the assignment groups rather than another row in them.
-  const mentions = useMemo(() => mentionsFor(items, placements, meUserId), [items, placements, meUserId])
+  // reading of its own above the assignment groups rather than another row in them. On an account
+  // the notes come from a read — the workspace document carries no history — and what the cards
+  // still hold is merged in, so a static deployment is unchanged.
+  const [remoteNotes, setRemoteNotes] = useState<MentionNote[]>([])
+  useEffect(() => {
+    if (!signedIn) {
+      setRemoteNotes([])
+      return
+    }
+    let live = true
+    void fetchMentions().then((notes) => {
+      if (live) setRemoteNotes(notes ?? [])
+    })
+    return () => {
+      live = false
+    }
+  }, [signedIn])
+  const mentions = useMemo(
+    () => mergeMentions(mentionsFor(items, placements, meUserId), mentionsOfNotes(remoteNotes, items, placements)),
+    [items, placements, meUserId, remoteNotes],
+  )
   const me = users.find((u) => u.id === meUserId)
   const total = groups.reduce((n, g) => n + g.entries.length, 0)
 

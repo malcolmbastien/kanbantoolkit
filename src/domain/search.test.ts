@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchOf, searchHits, searchItems } from './search'
+import { matchOf, noteMatch, searchHits, searchItems } from './search'
 import type { Item, ItemLogEntry } from './types'
 
 describe('search — a card is found by all the words on it', () => {
@@ -68,5 +68,13 @@ describe('search — a card is found by all the words on it', () => {
       log: [{ id: 'l', at: 1, kind: 'moved', note: 'Backlog → Done' }],
     })
     expect(matchOf(moved, 'Backlog')).toBeUndefined()
+  })
+
+  it('finds the line in a note that came without its card', () => {
+    const entry = { id: 'n1', at: 1, kind: 'noted' as const, note: 'The retries need a budget' }
+    expect(noteMatch(entry, 'RETRIES')).toMatchObject({ field: 'note', matched: 'retries' })
+    expect(noteMatch(entry, 'nothing')).toBeUndefined()
+    // Only a comment is searched: a move is not a note, even when the words match.
+    expect(noteMatch({ id: 'm1', at: 1, kind: 'moved', note: 'Backlog → Done' }, 'Backlog')).toBeUndefined()
   })
 })

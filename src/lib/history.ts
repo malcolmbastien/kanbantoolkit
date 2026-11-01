@@ -53,6 +53,28 @@ async function getJson<T>(path: string): Promise<T | undefined> {
   }
 }
 
+/**
+ * Append history to a card, without taking a revision.
+ *
+ * A move is arrangement: its log entry is a fact about the card, but bumping the card's version on
+ * every drag would make a card somebody is editing impossible to rearrange. Best-effort on purpose —
+ * the entry is already in this browser's log, and the next save of the card carries it anyway; this
+ * is the shortcut that lets another device's flow reading see the move before that happens.
+ */
+export async function appendHistory(itemId: string, entries: ItemLogEntry[]): Promise<boolean> {
+  if (!hosted() || !entries.length) return false
+  try {
+    const response = await fetch(`/api/workspace/items/${encodeURIComponent(itemId)}/log`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ entries }),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 /** One page of one card's history. */
 export async function fetchItemLog(itemId: string, cursor?: string | null): Promise<LogPage | undefined> {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''

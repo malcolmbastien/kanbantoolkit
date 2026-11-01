@@ -20,7 +20,7 @@ import { workspaceVocabulary } from '@/domain/demo'
 import { quarantineUnreadable } from '@/lib/quarantine'
 import { announce } from '@/lib/announce'
 import { chooseRepository } from '@/lib/repository'
-import { mergeLog } from '@/lib/history'
+import { appendHistory, mergeLog } from '@/lib/history'
 import { queue, newKey, type QueuedWrite } from '@/lib/queue'
 import type { CommitAnswer } from '@/lib/repository'
 import { useAuth } from '@/lib/auth'
@@ -662,6 +662,18 @@ function writeItems(state: Pick<Store, 'items'>, change: (item: Item) => Item): 
   // waits on a network. The answer arrives later, and it is the version that is kept.
   if (sent.length) enqueue(sent)
   return result
+}
+
+/**
+ * The entries an operation just added to one card's log.
+ *
+ * A move records itself locally and is sent on its own, without a revision (see `appendHistory`).
+ * Comparing the log lengths is enough because history is append-only: nothing before the old end
+ * can have moved.
+ */
+function addedLog(before: Pick<Store, 'items'>, after: Pick<Store, 'items'>, itemId: string): ItemLogEntry[] {
+  const was = before.items.find((item) => item.id === itemId)?.log?.length ?? 0
+  return (after.items.find((item) => item.id === itemId)?.log ?? []).slice(was)
 }
 
 /**
@@ -1316,6 +1328,20 @@ export function migrateState(persisted: unknown): Partial<Store> {
   } else if (!Array.isArray(p.periods)) {
     p.periods = []
   }
+  // v39: a card's history is now read in pages and merged by entry id, so the copy this browser
+  // keeps is canonical: one entry per id, in `(at, id)` order. Older state was written whole and
+  // could carry an order that a merge would not reproduce; normalising it here means a page read
+  // and a stored log agree. Nothing is dropped that has a distinct id, and an item with no log is
+  // left without one.
+  if (Array.isArray(p.items)) {
+    p.items = (p.items as Item[]).map((item) => {
+      const log = item.log
+      if (!log?.length) return item
+      const byId = new Map(log.map((entry) => [entry.id, entry]))
+      const canonical = [...byId.values()].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id))
+      return { ...item, log: canonical }
+    })
+  }
   return p as Partial<Store>
 }
 
@@ -1364,8 +1390,12 @@ const repository = chooseRepository()
  *
  * 38 is the objective's period: a period is a record with a window (`periods`), an objective names
  * one (`periodId`) instead of carrying a label, and the objective's `score` is gone.
+ *
+ * 39 is history read on demand: the same `Item.log`, now a cache of what this browser has read
+ * rather than the whole log, merged by id. The migration puts what is stored in `(at, id)` order
+ * with one copy per entry, which is the order a page read is merged into.
  */
-export const PERSIST_VERSION = 38
+export const PERSIST_VERSION = 39
 /**
  * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
  * guess is not what a person's workspace gets.
@@ -1683,6 +1713,9 @@ export const useStore = create<Store>()(
             return next
           }),
         })
+        // Each card in the group records its own move; send those entries, once each.
+        const after = get()
+        for (const id of ids) void appendHistory(id, addedLog(state, after, id))
         const count = itemIds.length
         announce(`${count} card${count === 1 ? '' : 's'} moved to ${lanePath(state.lanes, laneId).join(' / ') || 'another lane'}.`)
       },
@@ -2663,6 +2696,9 @@ export const useStore = create<Store>()(
         )
 
         set({ placements: outcome.placements, items: outcome.items })
+        // The entry the move left is a fact about the card, and the design sync does not carry it.
+        // It goes to the server without a revision: a drag is arrangement.
+        void appendHistory(itemId, addedLog(state, outcome, itemId))
         // Said after the write, so what is announced is what the board now shows.
         announce(`${moveSentence(state, itemId, laneId)}${raised}`)
         return true
@@ -2713,13 +2749,12 @@ export const useStore = create<Store>()(
         if (!moving) return
         // Dropping a card where it already is lands it at a *position*, not in a new cell, so
         // the history says nothing: a log of every drag would be noise, not a journey.
+        const entry =
+          moving.laneId === laneId ? undefined : moved(state.lanes, boardId, moving.laneId, laneId)
         const items =
-          moving.laneId === laneId
-            ? state.items
-            : state.items.map((i) =>
-                i.id === itemId ? { ...i, log: [...(i.log ?? []), moved(state.lanes, boardId, moving.laneId, laneId)] } : i,
-              )
+          entry ? state.items.map((i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), entry] } : i)) : state.items
         placeCard(set, { ...state, items }, moving, laneId, () => index)
+        if (entry) void appendHistory(itemId, [entry])
       },
 
       moveInitiative: (itemId, boardId, laneId) => {
@@ -2759,6 +2794,7 @@ export const useStore = create<Store>()(
         if (outcome.positionOnly) return
 
         set({ placements: outcome.placements, items: outcome.items })
+        void appendHistory(itemId, addedLog(state, outcome, itemId))
         announce(`${title} moved to ${lanePath(state.lanes, laneId).join(' / ') || 'another cell'}.`)
       },
 
@@ -2775,13 +2811,12 @@ export const useStore = create<Store>()(
         const moving = state.placements.find((p) => p.itemId === itemId && p.boardId === boardId)
         if (!moving) return
         // A rank within the same cell is an arrangement, not a move.
+        const entry =
+          moving.laneId === laneId ? undefined : moved(state.lanes, boardId, moving.laneId, laneId)
         const items =
-          moving.laneId === laneId
-            ? state.items
-            : state.items.map((i) =>
-                i.id === itemId ? { ...i, log: [...(i.log ?? []), moved(state.lanes, boardId, moving.laneId, laneId)] } : i,
-              )
+          entry ? state.items.map((i) => (i.id === itemId ? { ...i, log: [...(i.log ?? []), entry] } : i)) : state.items
         placeCard(set, { ...state, items }, moving, laneId, () => index, { stampDone: false })
+        if (entry) void appendHistory(itemId, [entry])
       },
 
       setItemFields: (id, patch) => {
@@ -2938,6 +2973,9 @@ export const useStore = create<Store>()(
               : i,
           ),
         })
+        // A retired cell's initiatives were moved beside it; those entries are facts about them.
+        const after = get()
+        for (const id of from.keys()) void appendHistory(id, addedLog(state, after, id))
         return true
       },
 

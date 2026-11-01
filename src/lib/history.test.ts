@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchItemLog, fetchMovements, fetchNoteHits, mergeLog, movesOf } from './history'
+import { appendHistory, fetchItemLog, fetchMovements, fetchNoteHits, mergeLog, movesOf } from './history'
 import { useAuth } from './auth'
 import type { ItemLogEntry } from '@/domain/types'
 
@@ -73,5 +73,26 @@ describe('reading a card’s history', () => {
       { id: 'z', at: 3, kind: 'moved' },
     ])
     expect(moves).toEqual([{ at: 2, to: 'done', from: 'inProgress' }])
+  })
+
+  it('appends a move without asking a static deployment to take it', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const entry = { id: 'l-1', at: 1, kind: 'moved' as const, toStage: 'done' as const }
+    expect(await appendHistory('i-1', [entry])).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    useAuth.setState({ providers: [], user: signedIn, dev: false, loaded: true })
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ appended: 1 }), { status: 200 }))
+    expect(await appendHistory('i-1', [entry])).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/workspace/items/i-1/log',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ entries: [entry] }) }),
+    )
+
+    // A server that cannot take it is not an error: the local log still has the entry.
+    fetchMock.mockRejectedValueOnce(new Error('offline'))
+    expect(await appendHistory('i-1', [entry])).toBe(false)
+    expect(await appendHistory('i-1', [])).toBe(false)
   })
 })

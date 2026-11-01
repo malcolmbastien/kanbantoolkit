@@ -105,6 +105,12 @@ export function mentionedIds(text: string, users: User[]): string[] {
   return ids
 }
 
+/** A note as a read answers it: the entry, and the card it was written on. */
+export interface MentionNote {
+  itemId: string
+  entry: ItemLogEntry
+}
+
 /** One note that mentions a person, in the order the My work view reads it. */
 export interface MentionEntry {
   item: Item
@@ -132,4 +138,34 @@ export function mentionsFor(items: Item[], placements: Placement[], userId: stri
     }
   }
   return found.sort((a, b) => b.entry.at - a.entry.at || a.item.id.localeCompare(b.item.id))
+}
+
+/**
+ * The mentions a note read answered with, matched to the cards and boards this browser holds.
+ *
+ * The read is the server's; the card and its board are this client's. A note for a card that is
+ * not here cannot be opened, so it is dropped rather than listed as a dead row.
+ */
+export function mentionsOfNotes(notes: readonly MentionNote[], items: Item[], placements: Placement[]): MentionEntry[] {
+  const itemOf = new Map(items.map((item) => [item.id, item]))
+  const boardOf = new Map(placements.map((placement) => [placement.itemId, placement.boardId]))
+  return notes.flatMap((note) => {
+    const item = itemOf.get(note.itemId)
+    if (!item) return []
+    const boardId = boardOf.get(note.itemId)
+    return [{ item, entry: note.entry, ...(boardId ? { boardId } : {}) }]
+  })
+}
+
+/**
+ * What this browser knew and what the server said, once per entry, newest first.
+ *
+ * The workspace document no longer carries history, so a signed-in person's mentions arrive from
+ * a read; a static deployment keeps them in the cards. Either source may know an entry the other
+ * does not, so the union is the answer.
+ */
+export function mergeMentions(...lists: MentionEntry[][]): MentionEntry[] {
+  const byEntry = new Map<string, MentionEntry>()
+  for (const entry of lists.flat()) byEntry.set(`${entry.item.id}:${entry.entry.id}`, entry)
+  return [...byEntry.values()].sort((a, b) => b.entry.at - a.entry.at || a.item.id.localeCompare(b.item.id))
 }

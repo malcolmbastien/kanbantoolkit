@@ -1,4 +1,4 @@
-import type { Item } from './types'
+import type { Item, ItemLogEntry } from './types'
 
 /**
  * Search: what a query finds on an item, and the line it found it on.
@@ -124,4 +124,16 @@ export function searchHits(items: Item[], query: string): SearchHit[] {
 /** The items a search finds, without the matching line. */
 export function searchItems(items: Item[], query: string): Item[] {
   return searchHits(items, query).map((hit) => hit.item)
+}
+
+/**
+ * The line in one note, if it carries the query.
+ *
+ * A note read answers with entries, not items: the note's own text is the only field to look in,
+ * so this is the same match as `matchOf` would find, without an item to walk.
+ */
+export function noteMatch(entry: ItemLogEntry, query: string): SearchMatch | undefined {
+  const q = query.trim().toLowerCase()
+  if (!q || entry.kind !== 'noted' || !entry.note?.trim()) return undefined
+  return matchIn(entry.note, q, 'note')
 }

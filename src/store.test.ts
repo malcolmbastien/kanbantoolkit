@@ -53,6 +53,23 @@ const laneByName = (boardId: string, name: string, kind: FlowKind = 'cards') =>
 describe('store actions', () => {
   beforeEach(() => resetToFixture())
 
+  it('keeps history a read answered with, without taking a revision', () => {
+    const before = s().items.find((item) => item.id === 'st-email')!
+    const entry = { id: 'l-read', at: Date.now(), kind: 'noted' as const, note: 'Read from the server' }
+    s().recordHistory('st-email', [entry])
+
+    const after = s().items.find((item) => item.id === 'st-email')!
+    expect(after.log?.filter((e) => e.id === 'l-read')).toEqual([entry])
+    expect(after.rev).toBe(before.rev)
+
+    // Asking for the same page again adds nothing, and an unknown card is not invented.
+    const log = after.log
+    s().recordHistory('st-email', [entry])
+    expect(s().items.find((item) => item.id === 'st-email')!.log).toBe(log)
+    s().recordHistory('nope', [entry])
+    expect(s().items.some((item) => item.id === 'nope')).toBe(false)
+  })
+
   it('one parent: setParent replaces any existing parent', () => {
     s().setParent('st-signup-form', 'init-welcome')
     expect(decompositionParent('st-signup-form', s().edges)).toBe('init-welcome')
@@ -3609,5 +3626,31 @@ describe('a change made elsewhere', () => {
     // Nothing changed, not even a new array: writing back what was just received is what makes two
     // tabs answer each other for ever.
     expect(s().items).toBe(snapshot)
+  })
+})
+
+describe('the history migration', () => {
+  it('keeps one copy of each entry, in the order a page read is merged into', () => {
+    const migrated = migrateState({
+      boards: [],
+      items: [
+        {
+          id: 'i-1',
+          title: 'One',
+          typeId: 't-card',
+          createdAt: 1,
+          log: [
+            { id: 'b', at: 2, kind: 'noted', note: 'twice' },
+            { id: 'a', at: 1, kind: 'created' },
+            { id: 'b', at: 2, kind: 'noted', note: 'written again' },
+          ],
+        },
+        { id: 'i-2', title: 'Two', typeId: 't-card', createdAt: 1 },
+      ],
+    }) as { items: Array<{ id: string; log?: Array<{ id: string; note?: string }> }> }
+
+    expect(migrated.items[0].log?.map((entry) => entry.id)).toEqual(['a', 'b'])
+    expect(migrated.items[0].log?.[1].note).toBe('written again')
+    expect(migrated.items[1].log).toBeUndefined()
   })
 })
