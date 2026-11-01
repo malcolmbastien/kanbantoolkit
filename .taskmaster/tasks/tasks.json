@@ -3922,7 +3922,7 @@
         "description": "Every card save deletes and rewrites the card whole history, and every workspace read loads the history of every card. Both grow with use and multiply under concurrent editing on a hosted instance.",
         "details": "item_log has primary key (item_id, id) and is append-only in nature. writeItemAndPlacements in server/workspace/write.ts deletes all log rows for the card and reinserts them on each PATCH, and readItems in server/workspace/read.ts loads every log row for every card on each readWorkspace, which also serves GET /api/workspace. Caution: flow metrics and the timeline derive movement history from every card (movedEntry and the metrics module), so removing history from the workspace read needs a replacement for those views before anything is removed. Plan: append only new entries; give metrics and timeline a bounded movement-history endpoint; give the drawer a paginated per-card history endpoint; then stop sending full history in the workspace read. The client change touches the persisted store shape, so bump the persist version and add a migrate step, as AGENTS.md requires. Test strategy: an edit with unchanged history writes zero log rows; GET /api/workspace size no longer grows with history; metrics, timeline and activity views unchanged (e2e metrics.spec.ts, drawer.spec.ts, timeline coverage).",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": [
@@ -3953,33 +3953,36 @@
             "title": "Movement history endpoint for metrics and timeline",
             "description": "The views that read every card movement, served without the rest of the history.",
             "details": "Add a read that returns only kind moved entries for a board within a time window, with the fields the metrics and timeline code uses today. Switch the metrics and timeline views to it, and check their output matches the current output on the stress board.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 192,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-11-01T04:07:22.786Z"
           },
           {
             "id": 4,
             "title": "Paginated per-card history endpoint for the drawer",
             "description": "One card history, loaded when its drawer opens.",
             "details": "Add GET /api/workspace/items/:id/log with a cursor over (at, id) and a page size bound. The drawer requests the first page on open and loads more on demand. Respect the existing item.comment and board.read scopes the other item reads use.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 192,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-11-01T04:07:22.803Z"
           },
           {
             "id": 5,
             "title": "Stop sending full history in the workspace read",
             "description": "Remove item.log from GET /api/workspace once the views above have their own reads.",
             "details": "Remove the log from readItems for the workspace read, and make the client store load history through the new endpoints. Bump the persist version in src/store.ts and add a migrate step so existing local state keeps working, and make the drawer defensive when history has not yet arrived. Verify the workspace response size stops growing with history.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 192,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-11-01T04:07:22.821Z"
           }
         ],
-        "updatedAt": "2026-10-31T22:10:36.516Z"
+        "updatedAt": "2026-11-01T04:07:22.821Z"
       },
       {
         "id": "193",
@@ -4390,9 +4393,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T22:30:01.431Z",
+      "lastModified": "2026-11-01T04:07:22.822Z",
       "taskCount": 198,
-      "completedCount": 170,
+      "completedCount": 171,
       "tags": [
         "backlog"
       ]
