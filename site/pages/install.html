@@ -1,6 +1,6 @@
 <!--
 title: Install — Kanban Toolkit
-description: Kanban Toolkit on your machine: one command with Docker, or three with Node. One process, one SQLite file, the same routes and rules as the Cloudflare build, and no service in between.
+description: Kanban Toolkit on your machine: one command after cloning, with Docker, or three with Node. One process, one SQLite file, the same routes and rules as the Cloudflare build, and no service in between.
 path: /install/
 -->
 <h1>Install it</h1>
@@ -10,7 +10,7 @@ path: /install/
   directory of static pages — no service in between, and nobody to ask.
 </p>
 
-<h2 id="container">One command, if you have Docker</h2>
+<h2 id="container">One command after cloning, if you have Docker</h2>
 <pre><code>git clone {{repo}} kanbantoolkit
 cd kanbantoolkit &amp;&amp; docker compose up -d</code></pre>
 <p>
@@ -71,7 +71,7 @@ PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server</code></pr
 <h2 id="limits">The honest limits</h2>
 <ul class="points">
   <li><strong>One instance, one team.</strong> A deployment is a workspace. There is no second workspace to switch to, because there is no service above this one.</li>
-  <li><strong>The file is the database.</strong> One SQLite file, in WAL mode. Do not run two processes against it: the failure is corruption, not slowness.</li>
+  <li><strong>The file is the database.</strong> One SQLite file, on local disk. Keep it off network shares, and run one server process against it.</li>
   <li><strong>No horizontal scale.</strong> Scaling out would mean Postgres behind the same interface — a port, not a setting. One instance serves a team comfortably.</li>
   <li><strong>The live channel is one process.</strong> A socket server in the Node process, or a Durable Object on Cloudflare. With neither, the app polls the same feed and nothing else changes.</li>
   <li><strong>No hosted backups, and no hosted support.</strong> The file is yours, the schedule is yours, and the person who answers when it breaks is you.</li>
