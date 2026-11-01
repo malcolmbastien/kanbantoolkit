@@ -99,9 +99,11 @@ jobs:
           done
           curl -sf http://127.0.0.1:8787/api/health
 
-      - name: It is not root, and it made its own database
+      - name: It is not root, it has the name the guide uses, and it made its own database
         run: |
           test "$(docker compose exec -T kanbantoolkit id -u)" = "10001"
+          # docs/docker.md runs `docker exec kanbantoolkit …`; the compose service must answer to it.
+          test "$(docker inspect --format '{{.Name}}' kanbantoolkit)" = "/kanbantoolkit"
           docker compose exec -T kanbantoolkit test -f /data/kanbantoolkit.db
 
       - name: The first sign-in is the workspace

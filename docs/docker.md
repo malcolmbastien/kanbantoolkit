@@ -18,7 +18,14 @@ website is not inside it. `/install/`, `/privacy/` and the rest answer the insta
 belong to this project's site, at this project's address.
 
 `compose.yaml` is deliberately short: a service, a port bound to loopback, a named volume, and the
-environment. Nothing else is needed to run it, and nothing else is hidden.
+environment. Nothing else is needed to run it, and nothing else is hidden. The container is named
+**`kanbantoolkit`**, so `docker exec kanbantoolkit …` and Docker Desktop show the same name; Compose's
+generated name would otherwise be `<project>-kanbantoolkit-1`. The project and its volume keep the
+name Compose gives them, so updating the file does not move your data.
+
+The fixed name means one of these per host. That is the shape of an instance — one container, one
+volume — and [the notes below](#the-volume-is-the-instance) explain why a second container is not a
+way to scale this app.
 
 ## The published image
 

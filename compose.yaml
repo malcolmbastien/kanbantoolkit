@@ -12,6 +12,12 @@
 
 services:
   kanbantoolkit:
+    # The name a person sees in `docker ps` and Docker Desktop. Compose would otherwise call it
+    # `<project>-kanbantoolkit-1` (for the clone directory the guide uses, that is
+    # `kanbantoolkit-kanbantoolkit-1`), and the `docker exec kanbantoolkit …` commands in
+    # docs/docker.md would not match what is running. A fixed name is one instance per host,
+    # which is what an instance is — this app does not scale out (docs/docker.md says why).
+    container_name: kanbantoolkit
     build: .
     image: kanbantoolkit:local
     restart: unless-stopped
