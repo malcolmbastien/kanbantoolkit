@@ -4389,12 +4389,85 @@
           }
         ],
         "updatedAt": "2026-10-31T22:30:01.431Z"
+      },
+      {
+        "id": "200",
+        "title": "The workspace home finds the board: favourites and recent boards",
+        "description": "The workspace home is one flat grid of every board, ordered by band and then name. On a workspace with many boards, the handful a person opens every day are found by scanning the grid or typing into the search box each time. Two personal shortcuts above the grid would put them first: a Favourites section a person curates, and a Recent boards section filled by the boards they actually opened.",
+        "details": "**Where it lives.** The home is `src/components/BoardWorkspace.tsx` (`Workspace Home`, the boards tab): a header with the band filter, board search, New board and Import, then one flat grid of every board built from `boardsByBand` in `src/domain/board.ts`. The two sections go above the band filter, in the boards tab only, so the daily boards are reachable before the full list. The grid itself stays every board: these are additive shortcuts, not a replacement for the list.\n\n**Two lists, one person.** Add `favouriteBoardIds: string[]` and `recentBoards: { boardId: string; at: number }[]` to `src/store.ts`, include both in `persistedSlice`, and keep them out of the structure and vocabulary syncs (those watch their own keys). This is the `savedFilters`/`collapsedLanes` side of the line the `persistedSlice` comment draws, and the comment should say why: a favourite is one person's shortcut, and writing it back would move somebody else's home. The key is not `meUserId` either — the demo lets one browser look at several people, and the shortcut belongs to the browser they are using.\n\n**Recording a visit.** `selectBoard` is the one door every path uses: the home card, the board picker, the command palette, a deep link (`src/lib/useUrl.ts` calls `selectBoard`), My work, and a card's board link. Record there: dedupe by board id, move it to the front, and cap the list at eight. Do not record a board because a server workspace was adopted (`reflectAccount`, import) or because the previous session left `boardId` set — a visit is the act of opening it. `recentItemIds` stays session-only by design; recent boards persist, because “where I was last week” is the whole point.\n\n**The star.** Each board card gets a star beside its name: a real button outside the card's open button (nested buttons are invalid), `aria-pressed`, with a label that names the board (“Add Team Atlas to favourites” / “Remove Team Atlas from favourites”). Toggling must not open the board. The kebab menu stays about administration; a shortcut that lives two clicks deep is not a shortcut. Favourites render alphabetically in this slice; a person's own order is a later decision, not scope creep here.\n\n**What each section shows.** Favourites: the starred boards. Recent boards: the last opened boards, newest first, **excluding the ones already in Favourites**, so no board appears twice on the home. Both sections hide when empty (no boxes saying “nothing here yet”), while the search box has text, and on the Templates tab. They ignore the band filter: a band chip is about the full list, not about a person's shortcuts. An archived board is hidden from both — the Archive is where filed work lives, and unarchiving brings the shortcut back — and a deleted board is pruned rather than rendered as a dead row.\n\n**Persistence.** Bump `PERSIST_VERSION` (39 today) with a migration: missing fields become empty lists, ids that are no longer boards are dropped, `recentBoards` is deduped, sorted newest first and capped. Multi-tab works for free through `tabSync`, which adopts the persisted slice: a star in one tab appears in the other.\n\n**Not in this slice.** Syncing favourites across devices would need a per-person record on the server (a migration, a route and a merge rule) and is deliberately left out; the first version is device-local, the same choice saved filters already make. Reordering favourites and a “starred” filter on the full grid are later.",
+        "testStrategy": "Store and domain: toggling a favourite adds once and removes; a visit dedupes and moves to the front; the cap holds; an unknown or deleted board is pruned; rendering excludes favourites from recent and hides archived boards; the migration from v39 fills empty lists and removes ids that are not boards. Persistence: a reload keeps both lists (static build, and the account instance); multi-tab adoption shows a star in the other tab. Browser: on the home, star two boards, see Favourites, reload and still see them; open a third board and return home to find Recent newest first with no board repeated from Favourites; unfavourite; hide while searching and on Templates; a star toggles from the keyboard without opening the board. a11y: axe on the home with both sections and the star buttons. Existing home specs (e2e/workspace.spec.ts, e2e/setup.spec.ts, e2e/dashboard.spec.ts, e2e/a11y.spec.ts) must still pass.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Store the two lists and record a visit",
+            "description": "The data and the one place a visit is noted.",
+            "details": "Add `favouriteBoardIds` and `recentBoards` to the store and `persistedSlice`, with `toggleFavouriteBoard(id)` and a visit recorded in `selectBoard` (dedupe, newest first, cap 8). Bump `PERSIST_VERSION` and migrate old state: empty lists, unknown ids dropped, recent sorted and capped. Add pure helpers (or store selectors) for the favourites and recent lists in render order, with favourites excluded from recent. Unit-test the actions, the cap, the exclusion and the migration.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 200,
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "The star and the Favourites section",
+            "description": "A person can keep a board on the home.",
+            "details": "Add the star to each board card as a sibling of the open button: `aria-pressed`, a label naming the board, keyboard reachable, and no navigation on click. Render a Favourites section above the band filter, alphabetical, with a heading and a `data-favourites` hook. Hide it when empty, while board search has text, and on the Templates tab. Keep the existing card layout and the kebab menu unchanged.",
+            "status": "pending",
+            "dependencies": [
+              1
+            ],
+            "parentTaskId": 200,
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Recent boards, newest first, without repeating a favourite",
+            "description": "The boards a person actually opened, in the order they opened them.",
+            "details": "Render a Recent boards section from the visit list, newest first, excluding ids already shown under Favourites. Hide it when empty, while searching, and on Templates. Ignore the band filter. Prune an archived board from the section (unarchiving restores it) and a deleted board entirely. Test the order, the exclusion and the pruning.",
+            "status": "pending",
+            "dependencies": [
+              1
+            ],
+            "parentTaskId": 200,
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "The home's other modes and the edge cases",
+            "description": "Shortcuts must not fight the home's filters, tabs or the demo's people.",
+            "details": "Check search, the Templates tab, the band filter, the archived toggle, a workspace with no boards, a board created from the home (it opens, so it is recent), an imported board (it opens, so it is recent), and a board deleted from the kebab menu (gone from both lists on the next render). Confirm a favourite survives a reload, a tab sync and a server-workspace adoption, and that the persisted slice is not sent by the structure or vocabulary syncs. Record the demo's “looking at” person as *not* the key: the lists belong to the browser.",
+            "status": "pending",
+            "dependencies": [
+              2,
+              3
+            ],
+            "parentTaskId": 200,
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Tests, accessibility and the guide",
+            "description": "Prove it in the browser, and say where the shortcuts live.",
+            "details": "Add the e2e flow from the test strategy (star, reload, recent order, exclusion, unfavourite, search/templates hidden, keyboard toggle without opening) and the axe check. Run the existing home and setup specs. Update the workspace-home paragraph in `docs/using.md` (and its listing if needed) so a reader knows favourites and recents are this browser's, not the workspace's.",
+            "status": "pending",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "parentTaskId": 200,
+            "parentId": "undefined"
+          }
+        ]
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-11-01T04:07:22.822Z",
-      "taskCount": 198,
+      "lastModified": "2026-11-01T13:09:44.049Z",
+      "taskCount": 199,
       "completedCount": 171,
       "tags": [
         "backlog"
