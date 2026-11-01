@@ -334,12 +334,10 @@ describe('the errors are SCIM’s', () => {
   })
 })
 
-describe('the documentation', () => {
-  it('is listed, and names the endpoints the routes mount', async () => {
-    const doc = readFileSync(new URL('../docs/identity.md', import.meta.url), 'utf8')
-    const index = readFileSync(new URL('../docs/README.md', import.meta.url), 'utf8')
-    expect(index).toContain('identity.md')
-
+describe('the SCIM routes', () => {
+  it('are mounted at the paths the identity page documents', async () => {
+    // The page's own check lives in scripts/check-docs.mjs (`npm run docs:check`), which reads the
+    // documentation; this test reads only the routes.
     const { app } = await world()
     const mounted = new Set(app.routes.filter((route) => route.path.startsWith('/scim/v2')).map((route) => route.path))
     for (const path of [
@@ -352,12 +350,6 @@ describe('the documentation', () => {
       '/scim/v2/Groups/:id',
     ]) {
       expect(mounted).toContain(path)
-    }
-    // The page states the base URL once and then the resources, which is how a person reads it — so
-    // what is compared here is the base and the operations, not a repeated prefix.
-    expect(doc).toContain('/scim/v2')
-    for (const named of ['ServiceProviderConfig', 'ResourceTypes', 'Schemas', '/Users', '/Groups', '/api/admin/scim/tokens']) {
-      expect(doc).toContain(named)
     }
   })
 })

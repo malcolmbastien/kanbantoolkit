@@ -115,6 +115,23 @@ for (const name of ['install.md', 'configure.md', 'tls.md', 'upgrade.md', 'backu
   }
 }
 
+// ---- the identity page names the SCIM endpoints the routes mount ----
+// server/scim.test.ts checks the routes; this holds the page to the same paths. The index listing is
+// checked above, so it is not repeated here.
+{
+  const file = join(DOCS, 'identity.md')
+  if (!existsSync(file)) {
+    fail('docs/identity.md is missing: the SCIM endpoints are documented there')
+  } else {
+    const doc = readFileSync(file, 'utf8')
+    // The page states the base once and then the resources, so the base and the operations are compared.
+    if (!doc.includes('/scim/v2')) fail('docs/identity.md does not name the SCIM base path /scim/v2')
+    for (const named of ['ServiceProviderConfig', 'ResourceTypes', 'Schemas', '/Users', '/Groups', '/api/admin/scim/tokens']) {
+      if (!doc.includes(named)) fail(`docs/identity.md does not name ${named}`)
+    }
+  }
+}
+
 // A directory of markdown that stops being read is a directory that rots: say if it is empty.
 if (!statSync(DOCS).isDirectory()) fail('docs/ is not a directory')
 

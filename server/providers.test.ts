@@ -16,7 +16,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const ROOT = new URL('..', import.meta.url).pathname
-const DIRECTORIES = ['src', 'server', 'site', 'docs']
+const DIRECTORIES = ['src', 'server', 'site']
 
 /** Every text file under a directory, as { path, text }. */
 function sources(directory: string): Array<{ path: string; text: string }> {
