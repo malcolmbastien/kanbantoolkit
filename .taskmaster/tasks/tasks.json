@@ -3801,13 +3801,598 @@
         "status": "done",
         "subtasks": [],
         "updatedAt": "2026-10-31T03:49:17.853Z"
+      },
+      {
+        "id": "190",
+        "title": "A card save reads the workspace once, not twice",
+        "description": "PATCH /api/workspace/items/:id reads the whole workspace twice per save, so on a hosted instance every concurrent editor multiplies database load by workspace size.",
+        "details": "server/workspace/routes.ts (PATCH /items/:id) calls readWorkspace for beforeState, and events.ts emitItemChange calls readWorkspace again for the after state. Measured on sqlite: readWorkspace takes 3.8 ms at 300 cards, 12.5 ms at 1,000 and 48 ms at 3,000, while the one-card write itself takes 0.1 to 0.2 ms. Plan: (1) stop emitItemChange re-reading the workspace and take the after graph from the caller, derived in memory, since an item write does not move placements, lanes or edges; (2) read only the graph (items, edges, links, placements, lanes, issue types) for beforeState instead of the whole workspace; (3) keep event recording unconditional, because docs say events are written even when no endpoint listens. Behaviour must not change: health and webhook events fire exactly as before. Test strategy: count database reads per PATCH with a wrapping Database in a test (no workspace-wide read, at most one graph read); existing tests in server/webhooks.test.ts and server/webhook-routes.test.ts stay green unchanged; record PATCH latency at 300 and 3,000 cards before and after.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Pass the after graph into emitItemChange",
+            "description": "Stop the second whole-workspace read on every card save.",
+            "details": "In events.ts, emitItemChange currently calls readWorkspace for the after state, and uses it only for the placement that gives the event its board id and for the health comparison. Derive the after graph in memory from beforeGraph and the stored item in routes.ts PATCH, since the item write restores existing placements unchanged. Keep the same function signature shape so the other callers (createItem, import paths) are unaffected or are moved onto the same contract deliberately.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 190,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:05:21.262Z"
+          },
+          {
+            "id": 2,
+            "title": "Read the graph, not the workspace, for the before state",
+            "description": "A graph-only read for the health comparison.",
+            "details": "Add readGraph in server/workspace/read.ts that reads items, edges, links, placements, lanes and issue types, and use it for beforeState in the PATCH route instead of readWorkspace. Check which fields health and derive actually read from graph items: movedEntry only needs the changed card history, but the item-log read for every card is the expensive part, so leave logs out of readGraph unless a health reading needs them.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 190,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:05:21.275Z"
+          },
+          {
+            "id": 3,
+            "title": "Prove the read count and unchanged behaviour",
+            "description": "A test that fails if a card save reads the workspace twice.",
+            "details": "Wrap the Database in a test that counts calls per PATCH, and assert no workspace-wide read and at most one graph read. Keep server/webhooks.test.ts and server/webhook-routes.test.ts unchanged and green, which proves events and health are the same. Record PATCH latency at 300 and 3,000 cards before and after, using the benchmark numbers from the review as the baseline (readWorkspace 48 ms at 3,000 cards).",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 190,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:05:21.290Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:05:21.290Z"
+      },
+      {
+        "id": "191",
+        "title": "The v1 API lists boards and items in the database, not in memory",
+        "description": "Every /api/v1 and MCP list call loads the whole workspace and then filters and pages in JavaScript, so concurrent API and MCP clients multiply the cost by workspace size on a hosted instance.",
+        "details": "server/operations.ts has about 17 readWorkspace calls. listBoards and listItems load every board, card, placement, lane and history row, then filter, sort and cut the cursor page in memory. Move the filters (boardId, laneId with its subtree, typeId, q, updatedSince, includeArchived), the ordering and the cursor and limit into SQL for items and boards, keeping the response shape and cursor encoding the same. Other operations stay as they are until they are measured. Test strategy: for a seeded workspace, every filter combination returns the same ids in the same order from the old in-memory path and the new SQL path (keep the old path for the duration of the test); cursor paging is checked across page boundaries; server/v1.test.ts and server/mcp.test.ts stay green. Migration numbers: task 192 and task 193 also need a migration, so take the next free number when each is implemented and bump REQUIRED_SCHEMA in server/workspace/schema.ts once per migration.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Write down the list semantics before changing them",
+            "description": "Record what each list operation promises today.",
+            "details": "For listItems and listBoards, record the exact meaning of each filter: the lane subtree expansion (in Done means the column, not one cell), what q matches, where updatedSince comes from (items have no updated_at column, so it is derived from history), how archived items are excluded, and how the cursor is encoded and ordered. Put the answers in the task before code changes, so the SQL version is checked against a written contract rather than against the old code alone.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 191,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:08:27.028Z"
+          },
+          {
+            "id": 2,
+            "title": "List boards in SQL, with cursor and limit",
+            "description": "The smaller of the two listings, to prove the pattern.",
+            "details": "Replace listBoards with a query on boards for the workspace, ordered by id, with the cursor and limit applied in SQL and the same boardView output. Bound the page size the same way boundedLimit does today. This is the template the item listing follows.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 191,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:08:27.041Z"
+          },
+          {
+            "id": 3,
+            "title": "List items in SQL, with filters and a new index",
+            "description": "The main cost: filters, lane subtree and cursor in the database.",
+            "details": "Replace listItems with one query on items joined to placements, filtering on board, lane (using a recursive query over lanes.parent_id for the subtree), type, archived and updatedSince, ordered and paged by the cursor. Add the index the query needs in a new migration (check the plan with EXPLAIN QUERY PLAN) and bump REQUIRED_SCHEMA. Keep the compactItem output unchanged.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 191,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:08:27.058Z"
+          },
+          {
+            "id": 4,
+            "title": "Parity tests, then remove the in-memory listing",
+            "description": "Show the SQL answers match the old ones before deleting the old path.",
+            "details": "For a seeded workspace (including the stress board from src/domain/stressBoard.ts at a few hundred cards), compare the ids and order from the old and new paths across every filter combination and cursor boundary. Once they match, delete the in-memory listing code for these two operations.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 191,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:08:27.073Z"
+          },
+          {
+            "id": 5,
+            "title": "Measure list latency before and after",
+            "description": "Record the numbers in the PR.",
+            "details": "Time a filtered items list and a boards list at 300 and 3,000 cards against a file database, before and after. The before number for the whole-workspace read is 48 ms at 3,000 cards, so the expected gain is the difference between that read and an indexed query.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 191,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:08:27.086Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:08:27.086Z"
+      },
+      {
+        "id": "192",
+        "title": "An item history is appended on save and loaded where it is read",
+        "description": "Every card save deletes and rewrites the card whole history, and every workspace read loads the history of every card. Both grow with use and multiply under concurrent editing on a hosted instance.",
+        "details": "item_log has primary key (item_id, id) and is append-only in nature. writeItemAndPlacements in server/workspace/write.ts deletes all log rows for the card and reinserts them on each PATCH, and readItems in server/workspace/read.ts loads every log row for every card on each readWorkspace, which also serves GET /api/workspace. Caution: flow metrics and the timeline derive movement history from every card (movedEntry and the metrics module), so removing history from the workspace read needs a replacement for those views before anything is removed. Plan: append only new entries; give metrics and timeline a bounded movement-history endpoint; give the drawer a paginated per-card history endpoint; then stop sending full history in the workspace read. The client change touches the persisted store shape, so bump the persist version and add a migrate step, as AGENTS.md requires. Test strategy: an edit with unchanged history writes zero log rows; GET /api/workspace size no longer grows with history; metrics, timeline and activity views unchanged (e2e metrics.spec.ts, drawer.spec.ts, timeline coverage).",
+        "testStrategy": "",
+        "status": "in-progress",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Append only the new history entries on save",
+            "description": "Stop deleting and reinserting every log row on each PATCH.",
+            "details": "In writeItemAndPlacements, insert only log entries whose id is not already stored for that item, relying on the (item_id, id) primary key with INSERT OR IGNORE or a diff against the stored rows. Keep the delete path that removes a whole item (the cascade). Test: a save that changes only the title writes zero log rows, and a save that adds one entry writes exactly one.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 192,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:10:36.503Z"
+          },
+          {
+            "id": 2,
+            "title": "Inventory every reader of item history",
+            "description": "Decide the endpoints before removing anything from the workspace read.",
+            "details": "List each consumer of item.log: the drawer activity list, movedEntry in server/events.ts, the metrics and timeline derivations, archive outcome, and any export. For each, record whether it needs the full history, only movement entries, or a bounded recent window. Write the list into this task before the endpoint work begins.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 192,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:10:36.516Z"
+          },
+          {
+            "id": 3,
+            "title": "Movement history endpoint for metrics and timeline",
+            "description": "The views that read every card movement, served without the rest of the history.",
+            "details": "Add a read that returns only kind moved entries for a board within a time window, with the fields the metrics and timeline code uses today. Switch the metrics and timeline views to it, and check their output matches the current output on the stress board.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 192,
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Paginated per-card history endpoint for the drawer",
+            "description": "One card history, loaded when its drawer opens.",
+            "details": "Add GET /api/workspace/items/:id/log with a cursor over (at, id) and a page size bound. The drawer requests the first page on open and loads more on demand. Respect the existing item.comment and board.read scopes the other item reads use.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 192,
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Stop sending full history in the workspace read",
+            "description": "Remove item.log from GET /api/workspace once the views above have their own reads.",
+            "details": "Remove the log from readItems for the workspace read, and make the client store load history through the new endpoints. Bump the persist version in src/store.ts and add a migrate step so existing local state keeps working, and make the drawer defensive when history has not yet arrived. Verify the workspace response size stops growing with history.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 192,
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:10:36.516Z"
+      },
+      {
+        "id": "193",
+        "title": "The change feed belongs to a workspace and stops growing forever",
+        "description": "The changes table has no workspace column and is never pruned, so on a shared hosted database it grows with every write from every tenant, and the feed query depends on a join through items.",
+        "details": "migrations/0005_changes.sql documents the table as append-only with no retention, and the /changes route in server/workspace/routes.ts filters it through an IN subquery on items. Plan: add workspace_id (backfilled from items) with an index on (workspace_id, id); write it on every change; set a retention window; and when a client cursor is older than the oldest retained row, answer that the cursor has expired so the client reloads the workspace instead of silently missing changes. The migration comment already warns that pruning without this check would hide changes. Migration numbers: task 191 also needs a migration, so take the next free number when implemented and bump REQUIRED_SCHEMA once per migration. Test strategy: a migration test that existing rows get the right workspace; an EXPLAIN QUERY PLAN check that the feed uses the index; a two-workspace test that one tenant cursor never returns another tenant change; retention and expired-cursor tests, with the client reload covered in src/lib/live.test.ts.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Add workspace_id to changes with a backfill and an index",
+            "description": "Migration for the scoping, bumping REQUIRED_SCHEMA.",
+            "details": "Add a new migration that adds workspace_id to changes, backfills it from items through item_id, and creates an index on (workspace_id, id). Existing rows must keep their ids so client cursors remain valid. Bump REQUIRED_SCHEMA in server/workspace/schema.ts.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 193,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:13:06.587Z"
+          },
+          {
+            "id": 2,
+            "title": "Write the workspace on every change insert",
+            "description": "Every writer of the feed records its workspace.",
+            "details": "Find every INSERT INTO changes (writeItem and writeWorkspace in server/workspace/write.ts at least) and write workspace_id alongside item_id and rev. Search the codebase for the table name so no writer is missed.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 193,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:13:06.600Z"
+          },
+          {
+            "id": 3,
+            "title": "Feed query on the workspace column",
+            "description": "Replace the join through items with a direct, indexed filter.",
+            "details": "Change the /changes query in server/workspace/routes.ts to filter on workspace_id and id together, and test that another workspace cursor never returns this workspace change ids.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 193,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:13:06.615Z"
+          },
+          {
+            "id": 4,
+            "title": "Retention window for the feed",
+            "description": "Prune old change rows on a schedule, with the window configurable.",
+            "details": "Delete changes older than a configured retention period (an environment variable with a documented default, in the same style as API_RATE_LIMIT), run on the same timing as the applied_writes pruning or the webhook dispatch timer. Retention must be longer than any reasonable client absence, and the default should say so.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 193,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:13:06.634Z"
+          },
+          {
+            "id": 5,
+            "title": "Expired-cursor answer, and a client reload on it",
+            "description": "A stale cursor is reported as expired rather than silently missing changes.",
+            "details": "When since is older than the oldest retained change for the workspace, /changes answers with an explicit expired signal instead of an empty page. The client poll in src/lib/live.ts treats that signal as a reason to reload the workspace, which keeps the same single code path for changes. Cover both the server answer and the client reaction in tests.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 193,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:13:06.647Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:13:06.647Z"
+      },
+      {
+        "id": "194",
+        "title": "Keep UI-only packages out of the runtime image",
+        "description": "The Docker runtime installs every production dependency, including React, Zustand, Lucide and clsx, which the server never imports. About 50 MB of the 441 MB image is UI code the container cannot use.",
+        "details": "Measured on this checkout: the production node_modules is 68 MB, of which lucide-react is 43 MB and react-dom 7.8 MB. Nothing in server/, worker/ or src/domain/ imports react, react-dom, zustand, lucide-react, clsx or tailwind-merge. They sit in dependencies only because the image runs npm ci --omit=dev. Move them to devDependencies. The build stage already installs everything it needs, so the client build is unaffected. Verify with a docker build, the existing smoke:node check, and a container that answers /api/health.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Prove no runtime code imports the UI packages",
+            "description": "Check the server import graph before moving anything.",
+            "details": "Search server/, worker/ and src/domain/ (and any src/ module the server imports) for react, react-dom, zustand, lucide-react, clsx and tailwind-merge, including type-only and indirect imports. Record the result in the task. A single hit changes the plan.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 194,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:14:00.022Z"
+          },
+          {
+            "id": 2,
+            "title": "Move the UI packages to devDependencies",
+            "description": "package.json and the lockfile, with the versions unchanged.",
+            "details": "Move react, react-dom, zustand, lucide-react, clsx and tailwind-merge from dependencies to devDependencies using npm, so the lockfile is rewritten consistently. Keep hono, ws, @hono/node-server and tsx in dependencies for now. Run npm ci and npm run build to confirm the client still builds.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 194,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:14:00.035Z"
+          },
+          {
+            "id": 3,
+            "title": "Measure the image before and after",
+            "description": "Record the size change from the 441 MB baseline.",
+            "details": "Build the image with docker build, record the size and the production node_modules size, and confirm a container starts, answers /api/health and serves the app. Record the numbers in the task.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 194,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:14:00.045Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:14:00.045Z"
+      },
+      {
+        "id": "195",
+        "title": "Run the server as compiled JavaScript, not TypeScript through tsx",
+        "description": "The runtime image runs TypeScript source through tsx, which adds about 0.3 s to startup and keeps esbuild and tsx in the production image. Bundle the server with the build tool the project already uses, so the runtime needs only node, the bundle and three small packages.",
+        "details": "npm run server and the Dockerfile CMD both run tsx server/index.node.ts. The runtime stage copies server/, migrations/ and src/domain/ as source. Bundle server/index.node.ts to a JavaScript file in dist/, leaving node:sqlite and the runtime packages (hono, ws, @hono/node-server) external. Options: the Vite/Rolldown toolchain already in the repo, or esbuild, which tsx already ships. The Dockerfile comment explaining why tsx sits in dependencies must change with this. Scripts that legitimately run TypeScript in development (backup, mcp) can keep using tsx from devDependencies.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [
+          "194"
+        ],
+        "priority": "medium",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Bundle the server with the existing toolchain",
+            "description": "One JavaScript file for the Node entry.",
+            "details": "Add a build script that bundles server/index.node.ts into dist/server. Keep node:sqlite and node built-ins external, and keep hono, ws and @hono/node-server as runtime dependencies (external, or bundled if that is simpler). Check that the bundle loads with plain node, without tsx on the path.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 195,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:15:11.013Z"
+          },
+          {
+            "id": 2,
+            "title": "Fix path assumptions that break after bundling",
+            "description": "Places that resolve files relative to the source tree.",
+            "details": "server/index.node.ts reads migrations with new URL(../migrations/, import.meta.url) and package.json for the version. After bundling the relative location changes, so resolve these from the bundle location or from an environment variable set by the image. Check STATIC_DIR, the restore path and the file backups the same way. Add a test or a smoke check that runs from the bundled location.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 195,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:15:11.029Z"
+          },
+          {
+            "id": 3,
+            "title": "Switch npm run server and the Dockerfile to the bundle",
+            "description": "One entry for a self-hoster and the image.",
+            "details": "Make npm run server run node on the bundle, move tsx to devDependencies, and change the runtime stage to copy only the bundle, the migrations and the built client, with CMD running node. Update the Dockerfile comments that describe tsx. Confirm the unprivileged user and the /data volume ownership still work.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 195,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:15:11.043Z"
+          },
+          {
+            "id": 4,
+            "title": "Verify the bundled image end to end",
+            "description": "The CI image job, plus startup and size numbers.",
+            "details": "Run smoke:node, then the CI image job steps: health check, development sign-in, workspace name, and data surviving a container replacement. Record image size and startup time against the tsx baseline (about 0.3 s of extra startup).",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 195,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:15:11.060Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:15:11.060Z"
+      },
+      {
+        "id": "196",
+        "title": "Use a minimal base image for the runtime container",
+        "description": "The runtime stage uses node:26-alpine, which is 250 MB before the application is added. A minimal Node base without a shell would shrink the image and reduce what an attacker can use inside it, but only after the server no longer needs tsx or a shell.",
+        "details": "The current HEALTHCHECK uses wget and the CMD uses npm, both of which need a shell or extra tools. Depends on task 195, which removes tsx and npm from the runtime. Check which minimal Node 26 images exist and whether they work with node:sqlite, before changing anything. Keep the unprivileged user and the /data volume, and check the CI assertion that the process runs as uid 10001.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [
+          "195"
+        ],
+        "priority": "low",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Survey minimal Node 26 base images",
+            "description": "Which candidates exist and what they cost.",
+            "details": "Look up the minimal Node base images available for the pinned major version (for example a distroless Node image). For each, record size, whether it runs node:sqlite, whether it has a shell, and who maintains it. Pick one or reject all and keep alpine.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 196,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:16:35.953Z"
+          },
+          {
+            "id": 2,
+            "title": "Replace the shell-based health check",
+            "description": "A probe that runs without wget or a shell.",
+            "details": "Replace the wget HEALTHCHECK in the Dockerfile and the test line in compose.yaml with a node command that calls /api/health and exits non-zero on failure, keeping the same interval, timeout and retries.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 196,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:16:35.966Z"
+          },
+          {
+            "id": 3,
+            "title": "Exec-form entry point and file ownership",
+            "description": "Start the bundle directly, as the unprivileged user.",
+            "details": "Change CMD to run node on the bundle directly, with no npm. Confirm the container still runs as uid 10001, that /data is writable by it, and that the CI assertion on the user id still passes.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 196,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:16:35.981Z"
+          },
+          {
+            "id": 4,
+            "title": "Document debugging without a shell",
+            "description": "What an operator does when there is no shell in the container.",
+            "details": "Write down how an operator inspects a running container without a shell: docker logs, docker cp for the database, and the admin health screen. Add the note to the operator docs in docs/ or the Dockerfile comment, as the project already does for other operator steps. Note that docs/ is currently deleted in the working tree, so the note may need to wait for it to be restored.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 196,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:16:36.000Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:16:36.000Z"
+      },
+      {
+        "id": "197",
+        "title": "Build the board model once per data change, not once per card per render",
+        "description": "Boards with many cards recompute every card derived value inside the render, with linear scans per card, so a click or a drag costs time that grows with the square of the card count. Measured on the production build: selection costs 61 ms per click at 300 cards, 272 ms at 1,000 and 851 ms at 3,000.",
+        "details": "src/components/BoardCanvas.tsx builds the graph object on every render (line 704) and contains no useMemo. Per card, it calls items.find for the parent, externalWaits (src/domain/boundary.ts:133) which filters every placement on the board, openDescendants and blockedBelowItems (src/domain/derive.ts:253 and :274) which call items.find for every descendant, ageOf, statusOf and stageOf which call placements.find, and rollupOf twice (once for the rollup and once through isComplete). Plan: build indexes in one pass over the workspace arrays (items by id, placements by item, parent and children maps, lanes by id, status, stage and rollup per item bottom-up, waits and blocked-below per item) and wrap the result in useMemo keyed on items, edges, links, placements, lanes, boards, issueTypes and the filter state, never on drag or selection state. Each card then costs a lookup. Also changes what the first render costs: measured 325 ms, 801 ms and 1,706 ms at 300, 1,000 and 3,000 cards.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Index the workspace in one pass",
+            "description": "The lookups every card needs, built once.",
+            "details": "Add a pure function in src/domain (with unit tests, following the existing *.test.ts pattern) that takes the graph arrays and returns: items by id, placement by item id, decomposition parent and children, lane by id, stage and status per item, rollup per item (computed bottom-up so each subtree is visited once), waits and blocked-below per item. Keep it free of React so it can be tested without rendering, as AGENTS.md requires for src/domain.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 197,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:20:42.379Z"
+          },
+          {
+            "id": 2,
+            "title": "Memoise the model and use it in the canvas",
+            "description": "One graph object per data change, and the per-card loop reads from the model.",
+            "details": "In src/components/BoardCanvas.tsx and src/components/BoardSummary.tsx, replace the per-render graph object and the per-card scans with useMemo over the model. Replace externalWaits, openDescendants, blockedBelowItems, ageOf and the rollup calls inside the card loop with lookups, and remove the duplicate rollupOf call. The Card props must keep their values, so cardPropsEqual still works.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 197,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:20:42.393Z"
+          },
+          {
+            "id": 3,
+            "title": "Equivalence tests against the old functions",
+            "description": "Prove the model gives the same answers as the code it replaces.",
+            "details": "For the stress board at several sizes and for the demo fixture, check that every value the model returns for each item equals what the existing functions (rollupOf, statusOf, stageOf, externalWaits, openDescendants, blockedBelowItems, ageOf) return. Keep the old functions for the duration of the test, then remove them once the model is the only path.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 197,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:20:42.408Z"
+          },
+          {
+            "id": 4,
+            "title": "Re-measure with the board-perf script",
+            "description": "Record selection, drag and first-render numbers against the baseline.",
+            "details": "Run the measurement against the production build at 300, 1,000 and 3,000 cards. Baseline: first render 325, 801 and 1,706 ms; selection per click 61, 272 and 851 ms; drag per move 14 and 70 ms at 300 and 1,000 cards. The script is at /tmp/opencode/board-perf.mjs and needs the production build served by scripts/serve-dist.mjs. Record the new numbers in the task.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 197,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:20:42.430Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:20:42.430Z"
+      },
+      {
+        "id": "198",
+        "title": "Drag and selection stop re-rendering the whole board",
+        "description": "Every pointer move during a drag and every card click re-renders the whole board, and the drag preview is written into the persisted store, so each move also re-serialises the workspace to localStorage. Measured at 1,000 cards: 70 ms per drag move, against a 16 ms frame budget.",
+        "details": "src/components/BoardCanvas.tsx subscribes to dragPreview (line 701) and calls setDragPreview on every move (line 798), so every card recomputes its props on each move. dragPreview lives in the persisted store, so the persist middleware serialises the workspace on each set (src/store.ts persist config near line 3240, which zustand 5 runs after every set). selectedItemId is read by the same canvas, so a click also re-renders all cards. Plan: move the drag preview to a small store that only the drop column and the lifted card read; make setDragPreview and setDropTarget skip no-op updates; keep transient UI state (drag, selection, hover) out of the persisted slice; and make selection re-render only the cards whose selected prop changed, which cardPropsEqual already supports once the model in task 197 exists. Depends on task 197 for the per-card cost; the drag change can start first because it removes the re-render storm regardless.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Split the drag preview out of the workspace store",
+            "description": "A drag does not change the workspace.",
+            "details": "Create a small store for the drag preview and drop target (or a ref with a subscription), read by DropColumn, DragLayer and the lifted card only. Update the call sites in src/components/BoardCanvas.tsx and BoardSummary.tsx. Clear it on pointer cancel as the existing effect does.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 198,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:17:30.476Z"
+          },
+          {
+            "id": 2,
+            "title": "Skip no-op updates and keep transient state out of persistence",
+            "description": "Stop writing to localStorage on every pointer move.",
+            "details": "Guard setDragPreview with an equality check the way setDropTarget already does. Exclude transient UI state (drag, hover, selection) from the persisted slice, or move it out of the persisted store entirely, so a move does not reach the persist middleware. Add a test that a drag of many moves performs no persisted writes.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 198,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:17:30.488Z"
+          },
+          {
+            "id": 3,
+            "title": "Selection re-renders only the cards that changed",
+            "description": "A click touches two cards, not the whole board.",
+            "details": "Pass selected and multi as the only changing props for a card, and check with a render count that a single click re-renders at most the previously selected and newly selected cards. Depends on the model from task 197 so the canvas does not recompute every card on a click.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 198,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:21:01.059Z"
+          },
+          {
+            "id": 4,
+            "title": "Measure drag and selection against the baseline",
+            "description": "Record the numbers in the task.",
+            "details": "Run /tmp/opencode/board-perf.mjs against the production build at 300, 1,000 and 3,000 cards. Baseline: drag 14 ms and 70 ms per move at 300 and 1,000 cards; selection 61, 272 and 851 ms per click. Note that the 3,000-card drag did not lift in the baseline run, so fix the script if it repeats.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 198,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:21:01.075Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:21:01.075Z"
+      },
+      {
+        "id": "199",
+        "title": "Render only the cards in view on large columns and boards",
+        "description": "With the model and the drag fixes in place, the remaining cost on a large board is the browser laying out and painting every card. At 3,000 cards the stress board puts 1,958 cards in the DOM, and about 23% of script time was browser work. Windowing the cards within each column would keep the DOM small.",
+        "details": "Task 35, Virtualize large columns and boards, is recorded as done, but no windowing exists in src/ (searched for virtual, windowed and IntersectionObserver). Task 35 stays as recorded. This task is a newer version of the same goal: the windowing that task 35 described, built on the board model and the drag fixes. This task depends on tasks 197 and 198 because windowing is only worth doing once the per-card and per-move costs are gone, and it changes the drop-gap geometry, which reads cards from the DOM (see gapUnder in src/components/BoardCanvas.tsx) and so must keep working for cards outside the window. Measure first: if layout is no longer the bottleneck after 197 and 198, close this task rather than adding the complexity.",
+        "testStrategy": "",
+        "status": "cancelled",
+        "dependencies": [
+          "197",
+          "198"
+        ],
+        "priority": "medium",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Measure what layout and paint cost after tasks 197 and 198",
+            "description": "Decide whether windowing is worth its complexity.",
+            "details": "With the production build, record layout, style and paint time at 1,000 and 3,000 cards from the Chrome performance trace (Performance.getMetrics LayoutDuration and RecalcStyleDuration, and the trace categories), after tasks 197 and 198 are done. If they are small compared with script time, stop here and close this task with the numbers.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 199,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:21:01.093Z"
+          },
+          {
+            "id": 2,
+            "title": "Window the cards within each column",
+            "description": "Render the visible cards and a margin, with a spacer for the rest.",
+            "details": "Render only the cards inside the column viewport plus a margin, with spacer elements keeping the column height correct. Keep the card order, the rank and the DOM attributes the drop logic and the tests read (data-card-id, data-lane-id, data-card-initiative). Keep the scroll position stable when cards are added or moved.",
+            "status": "cancelled",
+            "dependencies": [],
+            "parentTaskId": 199,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:21:01.120Z"
+          },
+          {
+            "id": 3,
+            "title": "Keep drag and drop correct for cards outside the window",
+            "description": "Drop gaps and parent targets must work for cards that are not rendered.",
+            "details": "gapUnder and parentTargetUnder read card rectangles from the DOM, so a card that is outside the window must still have a position. Either compute the gap index from the model (the ordered card list in each lane) and the column scroll offset, or scroll the target into the window before resolving. Test a drop onto a card above and below the visible range.",
+            "status": "cancelled",
+            "dependencies": [],
+            "parentTaskId": 199,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:21:01.134Z"
+          },
+          {
+            "id": 4,
+            "title": "Tests and the existing e2e drag suite",
+            "description": "The drag, keyboard and accessibility tests must still pass.",
+            "details": "Run the existing e2e drag, keyboard, a11y and scroll specs (e2e/drag.spec.ts, e2e/keyboard.spec.ts, e2e/a11y.spec.ts, e2e/scroll.spec.ts) against the windowed board. Add one test for a card that is out of view. Record the before and after numbers from the measurement subtask.",
+            "status": "cancelled",
+            "dependencies": [],
+            "parentTaskId": 199,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-31T22:21:01.144Z"
+          }
+        ],
+        "updatedAt": "2026-10-31T22:30:01.431Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-31T03:49:17.853Z",
-      "taskCount": 188,
-      "completedCount": 162,
+      "lastModified": "2026-10-31T22:30:01.431Z",
+      "taskCount": 198,
+      "completedCount": 170,
       "tags": [
         "backlog"
       ]
