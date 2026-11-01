@@ -47,7 +47,7 @@ Every release, but two kinds especially:
   means an old binary will refuse the new database — rolling the code back without restoring will
   leave you with a server that will not start.
 
-**The vocabulary revision (schema 33).** A database from before it gains
+**An example from the history: schema 33, the vocabulary revision.** A database from before it gains
 `workspace.vocabulary_rev` — the revision that the workspace's card types, templates, objectives and
 key results are written against, so a stale save is refused instead of overwriting somebody else's.
 `REQUIRED_SCHEMA` moved to 33 with the column, so an old binary refuses the new database. Nothing is
@@ -84,12 +84,13 @@ counts after copying — so it says *what* it restored, not just that a file mov
 
 ## Downtime
 
-The restart is the only downtime, and it is a second or two: the process stops taking requests, the
-migrations run, and it starts serving. A migration over a very large database takes longer — the row
-counts are in the boot line, so watch the first upgrade on a real instance and know your number.
+The restart is the only downtime. The process stops taking requests, the migrations run, and it starts
+serving again. How long that takes depends on the size of the database and the migrations in the
+release, so time the first upgrade on a real instance and note the number for next time.
 
-If a read arrives while the schema is behind (a second instance still running the old code against a
-newer file), the API answers `503` with the expected and actual version rather than guessing.
+If the workspace is read while the schema is behind (for example, a second server still running the old
+code against a newer file), the API answers `503` with "this instance has not finished migrating" rather
+than serving data it may misread.
 
 ---
 

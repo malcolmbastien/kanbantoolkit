@@ -8,15 +8,20 @@ tracking or ads tag; Google Cloud (`gcloud`) and Vertex; Gemini and `gemini-cli`
 stays out too — the app sets its type with its own stack, so a third-party font host buys it
 nothing.
 
-**Allowed, because it serves the end user and nothing else leans on it:** **Google Sign-In**, as
-*one* way in and never the only one. Someone without a Google account must be able to use the app,
-so a second provider — Microsoft — stands beside it, and no account is required to be a Google one.
-Both OAuth clients are optional in development too: the app must run with them unset.
+**Sign-in belongs to the operator, not the vendor.** The app ships no identity provider and no vendor
+endpoints. An instance signs people in with a password, with a magic link when a mail relay is
+configured, or with the OIDC issuer the operator already runs (Google Workspace, Entra, Keycloak,
+authentik and so on). `server/providers.test.ts` fails if a vendor's endpoints or credentials reappear
+in the code. Every provider is optional: the app must run with none configured.
 
-Federating with a *customer's* identity provider (even a Google Workspace one) is a deliberate
-enterprise decision, and not something this rule forbids by itself.
+Federating with a *customer's* identity provider is the operator's deliberate choice, and this rule does
+not forbid it.
 
-The app is a static Vite + React SPA: `dist/` runs on any host with no backend at all (all state lives in `localStorage`), and the same build is served by a Cloudflare Worker (configured by `wrangler.jsonc`) or by a self-hosted Node entry once accounts and sharing arrive.
+The client is a static Vite + React SPA. `dist/` runs on any static host with no backend, and the demo
+keeps its whole workspace in the browser's `localStorage`. On an instance the server is the source of
+truth: the browser keeps a cache, and the server's answer to an accepted change is the version the app
+keeps (`src/lib/repository.ts`). The same build is served by a Cloudflare Worker (`wrangler.jsonc`) or by
+the self-hosted Node entry.
 
 ## One application, two places to run it
 
@@ -44,8 +49,8 @@ npm run scan      # scripts/scan-deps.sh — the same command CI runs
 
 It must pass. A bare `google` is no longer a violation, which is why the scan names the forbidden
 things instead. (`README.md`, `AGENTS.md`, the script itself and the task backlog quote the rule by
-name; `docs/` may name the allowed services — a user-facing "Sign in with Google" is legitimate —
-but the app itself never names a forbidden one.)
+name; `docs/` may name the identity providers an operator can connect, such as Google Workspace or
+Entra, but the app itself never names a forbidden service.)
 
 ## Taskmaster
 
@@ -144,7 +149,7 @@ task-master list            # terminal 2
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
   placed by rollup (card children are drill-in). **Only a board that renders cards flows makes
-  cards** — a coordination board (programme or portfolio) shows bands or objective-grouped flows
+  cards** — a coordination board (program or portfolio) shows bands or objective-grouped flows
   and has no cards flow, so neither the toolbar's *Card* nor the palette's *New card* is offered
   there. *Initiative* is, because an initiative is what such a board is read for. A board has a
   **flight-level band**
@@ -161,7 +166,7 @@ task-master list            # terminal 2
   portfolio's remit serving nothing gets a flow of its own. The map is therefore the portfolio's
   flow *and* the OKR-coverage section, grouped by what the work is for, and it carries **no bands**:
   a portfolio is read for what the work is *for*, and the rollups of the boards beneath it belong to
-  the programme boards. The links stay in the model — a programme under a portfolio still rolls up —
+  the program boards. The links stay in the model — a program under a portfolio still rolls up —
   so this is one surface's choice, not a rule about the data.
   `linkTeamInitiative` creates a team initiative as a decomposition child of a management
   initiative so it rolls up.
@@ -207,25 +212,34 @@ task-master list            # terminal 2
   message, a stack, the path, the view, the build and the browser — not a place's query, which is
   where board and item ids live. Reporting is silent in development, capped per page, and the
   endpoint answers `503` rather than failing when its database is not configured.
-- Before finishing any task, run `npm run scan` and `npm test`.
+- Before finishing any task, run the checks CI runs for code: `npm run typecheck`, `npm run lint`,
+  `npm test`, `npm run scan` and `npm run portable`. Changes to the build, the site, the docs or the
+  Node entry also need `npm run build`, `npm run site:check`, `npm run docs:check` and
+  `npm run smoke:node`.
 
 ## Persisted state (localStorage)
 
-The app persists to `kanbantoolkit-state-v3` via `zustand/persist`. When you add a
+The browser cache persists under the key `kanbantoolkit-state-v3` via `zustand/persist`. The key does
+not change. The `version` in the persist config (`PERSIST_VERSION` in `src/store.ts`) does. When you add a
 **required field** to a persisted entity (Board/Lane/Item/Placement):
 
 1. bump `version` in the persist config, and
 2. add a `migrate(persisted)` that backfills the field for old data.
 
-Also make display components defensive for fields that may be missing on rehydrate
-(e.g. `LevelBadge` falls back to `LEVEL_STYLES.team`). A hard-refresh with stale
+Also make display components defensive for fields that may be missing on rehydrate. `BandBadge` is the
+pattern: a board saved before bands existed falls back to `team`. A hard refresh with stale
 `localStorage` should never throw.
 
 ## Commands
 
 ```bash
-npm run dev      # dev server
-npm run build    # typecheck + production build
-npm test         # vitest
-npm run lint     # oxlint
+npm run dev          # Vite dev server for the app
+npm run build        # typecheck, the client, the site and the Node server bundle
+npm run server       # the self-hosted server, from dist/server.js (run the build first)
+npm run typecheck    # tsc, no emit
+npm run lint         # oxlint
+npm test             # vitest: the unit and server tests
+npm run scan         # the forbidden-services rule (scripts/scan-deps.sh)
+npm run portable     # the portable core imports no Cloudflare binding
+npm run test:e2e     # Playwright, against the built app
 ```

@@ -1,136 +1,73 @@
-# The road to a server
+# Roadmap
 
-The backlog holds the detail and the requirements; this holds the order, and the reason for it.
-Every phase below ends with something true and testable, not with a percentage.
+This page gives the order of the work and the reason for it. The backlog holds the detail and the
+requirements. Each phase below ends with something a person can check, not with a percentage. The
+task numbers are the backlog's.
 
 ## Where the project is
 
-The static tier is complete and shipped. A board, a card, its history, its rollups, its archive,
-its templates, its filters and its timeline all work offline in the browser, and `dist/` runs on any
-host with no backend at all. Snapshots, storage honesty, tab sync and refusing migrations are done
-(111–116), as is the deploy (106), error reporting (107), titles (109), code splitting (110) and the
-end-to-end suite (124).
+Most of the plan is built. An instance is a Node process (or a Cloudflare Worker) with one SQLite file or
+a D1 database, and a browser holds a cache of the workspace. The pieces that make that work are:
 
-Boards now carry **several cards flows** as well as the initiatives flow — each with its own name,
-columns, limits and place — and templates describe them (177). Nothing below takes that away. A
-person who never signs in keeps a working board.
+- **The board.** Boards with several cards flows, the initiatives flow, rollups, the archive, templates,
+  filters, the timeline, flow metrics and the strategy map (177 and earlier).
+- **The server.** One Hono app shared by both runtimes, with a `Database` interface over D1 and a SQLite
+  file (129, 118).
+- **Sign-in.** An operator's OIDC issuer, a password, or a magic link, with invitations and roles (154).
+- **Collaboration.** The workspace has members and roles (122). A card's editing lease and the revision
+  check are in place (120, 121, 115).
+- **Operations.** Backups, with a restore that has been run (119). Docker, Compose and the published image
+  (128). The site, the privacy and security pages, and the support address (150, 151, 157, 159, 160).
+- **Quality.** The end-to-end suite (124), the accessibility work (125), and the deploy and error reporting
+  (106, 107).
 
-## The critical path
+## What was cancelled
 
-```
-129 ──► 117 ──► 118.1 ─► 118.2 ─► 118.3 ─► 118.4 ─► 118.5 ─► 118.6 ─► 118.7 ─► 120 ─► 121
-                                                        │
-                                                        ├─► 122 ─► 123
-                                                        │        └─► 126
-                                                        ├─► 119
-                                                        └─► 128
-```
+These were planned and then dropped. Each is kept here so the decision is not lost.
 
-`125` (accessibility) has no dependencies and can be done anywhere.
+- **Paid plans, billing and the merchant of record** (153, 155, 156, 161). The project is free software that
+  you run yourself. There is no plan to buy.
+- **Read-only board sharing** (123). Cancelled before it was built.
+- **Board-level history** (127). A card can sit on several boards, so its history belongs to the card. The
+  card's Activity tab is that record.
+- **The home-page rewrite and the help pages** (152, 158). The current site covers the same ground.
 
-## Phase 0 — The server has a shape (129)
+## Deferred
 
-**Why first:** 117's OAuth callback is the first route this app will ever have. If it is written
-before the seam exists, it is written in the one file a self-hoster cannot run, and 118 inherits
-that shape.
+- **One permanent origin** (104). Deferred. Testers still use a temporary address, and the move to a
+  permanent one waits for the real domain.
+- **Usage analytics** (108). Not built. The project does not track people, and self-hosted instances must
+  never report anything.
 
-- A Hono app in `server/`: one `fetch` handler, no bindings.
-- A `Database` interface with two implementations — D1, and a SQLite file.
-- `worker/index.ts` as the Cloudflare entry, `server/index.node.ts` as the Node entry.
-- `/api/health` answering on both.
-- A CI job that boots the Node entry and replays the API paths the e2e suite uses.
+## What is left
 
-**Ends with:** the same commit serving the app from Cloudflare and from a laptop, and a check that
-fails if the second entry stops working. No feature changes hands.
+The open work is in the backlog. The main items are:
 
-## Phase 1 — Identity (117)
+- **Taking the placeholder out of the Compose file** (201): the `ERROR_SALT` default.
+- **The sign-in task title** (117 names Google and Microsoft, but the built form is the operator's own OIDC
+  issuer, with a password and a magic link).
+- **Field-level presence and takeover notices**, from the collaboration design (`docs/collaboration.md`).
 
-Two providers, a session, an invitation, and a development identity switch — because the card lease
-in 120 cannot be tested by one person, and a self-hoster needs to sign in before any provider exists.
+## The order that was followed
 
-**Ends with:** someone signing in with Google or Microsoft and staying signed in across a reload.
-The workspace is still in the browser at this point, which is why this phase is not a public
-release: accounts without a server-held workspace would be a confusing thing to hand anyone.
+The original plan was a critical path from a server shape (129), through identity (117), the workspace
+move (118), collaboration (120, 121, 122), and operations (119, 128). Each phase ended with something a
+person could test:
 
-## Phase 2 — The workspace moves (118)
+1. **A server with one shape.** A Hono app with no bindings, a `Database` interface, a Worker entry and a
+   Node entry, and a health check on both. A CI job boots the Node entry.
+2. **Identity.** A session, an invitation, and a development identity for local trials.
+3. **The workspace on the server.** The browser keeps a cache. Changes go to the server with the revision
+   they were based on, queue offline and go in order, and reach other devices through the live channel
+   or a poll.
+4. **Collaboration.** One person holds a card's content at a time. A refused write keeps the words and says
+   what happened. Members have roles.
+5. **Operations.** A backup that has been restored, and a container that runs with one volume.
 
-Seven steps, in order, each one shippable:
+The reason for the order: the first route the app ever had had to be written where a self-hoster could run
+it, so the seam came first. Collaboration needs real identity, so identity came before the lease.
 
-1. The schema and the read — every persisted entity has a table, one request returns the workspace.
-2. One boundary — the store reads and writes through an adapter; the local build is unchanged.
-3. The write path — a change goes to the server with the revision it was based on.
-4. The offline queue — accepted changes wait, go once, and go in order.
-5. Live — a change on one device reaches another, through a Durable Object, a Node WebSocket, or a
-   poll of the revision.
-6. First sign-in — a local workspace becomes the account's workspace, with its logs intact.
-7. The server's schema migrates with the same discipline as the browser's.
+## The decision that was made early
 
-**Ends with:** a board on one device appearing on another, and an edit made offline arriving once.
-This is the first release that is honestly a hosted product — and the first that is honestly
-self-hostable, because the same server runs in both places.
-
-## Phase 3 — Collaboration (120, 121, 122, 123, 126)
-
-- **120** — one person holds a card's pen at a time (the design is in `docs/collaboration.md`).
-- **121** — a refused write keeps the words and says what happened.
-- **122** — a workspace has members, and a role decides what they may do.
-- **123** — a board can be shared as a read-only link, revocably.
-- **126** — the product says what it does with your data, and can delete it.
-
-**Ends with:** two people editing the same board without clobbering each other, and a link that can
-be taken back.
-
-## Phase 4 — Operations (119, 128)
-
-- **119** — a backup exists, and someone has restored from it.
-- **128** — a Docker image, a compose file, a first run that makes the first account the owner, and
-  a README that states the single-instance limit of a file-backed database.
-
-**Ends with:** `docker compose up` and a working instance someone else can run.
-
-## Phase 5 — The public site (151–161)
-
-The app is the product and, until now, the whole site: `/` boots a board, and nothing exists that a
-person could read before opening it. This phase is the pages around the application — the front door,
-the price, the way in, the trust set, help, status and the emails — and the commercial spine that
-makes "paid" more than a word. `docs/public-site.md` holds the inventory, the content of each page,
-and the decisions that must be taken before the page that depends on them.
-
-- **151** — the site is static, the app moves to `/app`, and a link that exists today still lands.
-- **152, 153** — what this is, and what it costs, with the limits generated from code the server reads.
-- **154, 155, 156** — the door, the money, and the account's own plan and invoices.
-- **150, 157** — what we do with your data, and the pages a buyer's lawyer asks for.
-- **158, 159, 160, 161** — help, status and support, self-hosting, and the emails.
-
-**Ends with:** a stranger who has never heard of Kanban Toolkit reading the home page, opening the demo
-without an account, making a free account and a team board, paying for the portfolio when they need
-it, and cancelling back to free without writing to anybody.
-
-## What ships when
-
-| After | A person can | Tier |
-| --- | --- | --- |
-| today | keep a board offline, in the browser | static |
-| 129 | the same, from Cloudflare or a laptop | static, both hosts |
-| 118 | open their boards from a second device; edits made offline arrive | hosted + self-host |
-| 120, 121 | edit beside a colleague without clobbering them | both |
-| 122, 123 | invite members; share a board read-only and revoke it | both |
-| 119 | restore the workspace from a backup | both |
-| 128 | run the whole thing themselves | self-host |
-| 151, 152, 153 | read what this is and what it costs, and open the demo without an account | public site |
-| 154, 155, 156 | make a free account, pay for the portfolio, and fall back to free without asking anybody | paid |
-
-## Not planned, and why
-
-- **127** (board-level history) — cancelled: a card can sit on several boards, so its history is the
-  card's. The card's Activity tab is that screen.
-- **104** (one permanent origin) — deferred: the testers' `workers.dev` origin will lose its data
-  before the real domain, which is the point of testing there.
-- **108** (usage analytics) — deferred: no tracking until the product has something to learn from,
-  and self-hosters must never be counted.
-
-## The one thing that can invalidate this plan
-
-A decision that is cheaper now than later: **the licence**. Contributors' code cannot easily be
-relicensed afterwards, so it should be chosen before the repository is open. AGPL if hosting
-competitors should share back; Apache-2.0 if adoption matters more.
+The licence is **AGPL-3.0-or-later**, chosen before the repository was opened. Anyone who runs a modified
+version for other people over a network must offer them its source. It is recorded in the README.

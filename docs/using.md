@@ -1,13 +1,12 @@
 # Using Kanban Toolkit
 
-This page is the application from the outside — the workspace, a board, a card, an initiative, and
-the views that read the same work at another altitude. [Installing it](install.md) is the other half;
-nothing here needs a server.
+This page covers the application from the outside: the workspace, a board, a card, an initiative, and the
+views that read the same work at another altitude. [Installing it](install.md) is the other half.
 
 ## The workspace
 
 The **Kanban Toolkit** button at the top left returns to **Workspace Home**: every board in the organisation,
-grouped by flight level (team, programme, portfolio), with a band filter and a search. **New board**
+grouped by flight level (team, program, portfolio), with a band filter and a search. **New board**
 makes one. **Import board…** brings a Trello export or a Jira CSV in as one new board, with a
 mapping step for lists, people and types — [Importing a board](import.md) explains the files and
 what is created.
@@ -17,8 +16,8 @@ and the boards you opened most recently sit under **Recent boards**, newest firs
 a favourite. Both are this browser's — they survive a reload and follow no one to another device —
 and both step aside while you search the full list or read the templates.
 
-On a browser-only build the browser is the whole workspace — nothing is sent anywhere. On an instance
-the boards are shared, and signing in makes the account one of the workspace's people.
+On a browser-only build, the browser holds the whole workspace and nothing is sent anywhere. On an
+instance, the boards are shared, and signing in adds your account to the workspace's people.
 
 The **command palette** (<kbd>Ctrl</kbd>+<kbd>K</kbd>, or <kbd>⌘</kbd>+<kbd>K</kbd>) reaches every
 board, card and view, and the verbs that make them. The search field beside it searches every board
@@ -26,14 +25,14 @@ by title, description and note, and shows the line that matched.
 
 ## A board
 
-Every board is a **team**, **programme** or **portfolio** board; [Board types](board-types.md) explains
+Every board is a **team**, **program** or **portfolio** board; [Board types](board-types.md) explains
 what each level is for and when to choose it. The level is fixed when the board is made: **Settings**
 shows it but does not offer to change it, because a different type would hide the work the board
 already holds.
 
 **Board settings** is a tabbed dialog. **General** holds the board’s name, description and type;
 **Cards** its card types and the type and cell new cards start in; **Labels** its initiative kinds
-and tags; **Workflow** its WIP enforcement and template; and **Boards** the boards a programme or
+and tags; **Workflow** its WIP enforcement and template; and **Boards** the boards a program or
 portfolio reads beneath it. Only the tabs a board can act on are shown, and changes are
 saved as you edit.
 
@@ -49,18 +48,18 @@ holds cards is left as it is rather than folded over them.
 *The Team Atlas demo board. The initiatives flow sits above the team's Cards flow; both read the same
 four stages, and the cards' progress rolls into the initiatives above them.*
 
-A **portfolio** board has no **Edit board**: its shape is its objectives, made in the strategy map,
-and the sections beneath them are the organisation's standard reading rather than a team's to rework.
+A **portfolio** board has no **Edit board**. Its shape comes from its objectives, which are made in the
+strategy map, and its sections are the organisation's standard reading, not something a team reworks.
 
 A board carries **flows**, each a set of those four columns. It has exactly one **initiatives** flow —
 where the same work is read as outcomes — and **one or more cards flows**: the team's own. Each cards
 flow is a band of its own, stacked the way the initiatives flow is, with its own name, its own
-columns and its own count. Two Backlogs are then two different answers, so every band says which
-flow it is, and a card belongs to exactly one of them.
+columns and its own count. Two columns named Backlog can mean different things on different flows, so each
+band names its flow, and a card belongs to exactly one of them.
 
 In **Edit board** a cards flow can be added (**Add a cards flow**), renamed, moved up or down, and
 removed — but only while it is empty and another cards flow remains, so a board never drops to none
-and work is never thrown away with a column set. A programme or portfolio board aggregates other
+and work is never thrown away with a column set. A program or portfolio board aggregates other
 boards and has no cards flow of its own.
 
 A workflow's chevron folds its whole band away to the header, keeping the name and count in view;
@@ -127,15 +126,17 @@ done. Add a card and the number moves, because the work moved.
 Its **section** — Backlog, Not Started, In Progress, Done — is derived from that rollup; the **cell**
 inside the section is where a person arranged it. Dragging an initiative moves it within its section.
 Its parent is set from **Change parent** in the panel or **Set parent…** in the card menu, which is how
-a programme's outcome is decomposed into a team's initiative.
+a program's outcome is decomposed into a team's initiative.
 
 ## The views
 
 - **Dashboard** — the board's initiatives at a glance.
 - **Timeline** — the same initiatives over their target dates.
-- **Flow** — on a team board, lead time, cycle time and throughput, their distributions, aging, a
-  service level expectation and a probabilistic forecast for the open work. A window (4 to 26 weeks,
-  or all history) and a cards-flow filter are part of the link. A programme or portfolio board has no
+- **Flow** — on a team board, lead time (how long a card takes from start to finish) and cycle time
+  (how long it takes to finish once work has started), throughput, their distributions, aging, a
+  service level expectation (how long most work takes) and a forecast of when the open work could
+  finish. The time window (4 to 26 weeks, or all history) and the cards-flow filter are kept in the
+  page's address. A program or portfolio board has no
   cards flow, so it offers no Flow view. The definitions and the reasoning are in
   [Lean metrics](metrics.md).
 - **Archive** — work that has left this board. Each board has its own archive, and it lists only
@@ -169,8 +170,7 @@ the same workspace, and [backup](backup.md) is the operator's copy of it.
 
 ## What the server keeps, and what it does not
 
-On an instance the workspace is the account's, not one browser's. Two documents are saved to the
-server: the **design** — boards, flows, lanes and where every card sits — and the workspace's
+On an instance the workspace lives on the server, not in one browser. Two documents are saved there: the **design** — boards, flows, lanes and where every card sits — and the workspace's
 **words**: card types, board templates, objectives and key results, with the auto-archive rule. A
 type renamed on one machine is renamed on every machine; a template made on one is there at the next
 reload, and so is an objective made on a portfolio board.

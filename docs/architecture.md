@@ -60,8 +60,7 @@ than cached in the session — a demotion is visible on the next request, with n
    database is, how to read the client's address, and whether there is a live channel. Nothing else
    differs between the two.
 3. **`access.ts`** reads the session cookie, resolves the caller and their workspace, and refuses
-   with `401` (I do not know you), `403` (I know you and you may not), or `404` (there is nothing here
-   for you).
+   with `401` (not signed in), `403` (signed in, but not allowed), or `404` (nothing here for you).
 4. **The route** does one thing, through the domain's rules, in one transaction.
 5. **The change feed.** A write bumps the item's revision and appends a row to `changes`. The live
    channel is then rung with a **nudge** — `{"revision": n}` — and never with the change itself: a
@@ -75,16 +74,16 @@ way back it sends them in order, each with the revision it was based on:
 - the revision is **still** the stored one → the write lands, revision + 1;
 - the revision has **moved past** → `409` with the item as it is now; the client keeps the server's
   answer and never merges by hand;
-- the card is **held** by somebody else's lease → `423`, with who holds it;
+- the card is **held** by someone else's editing lease → `423`, with who holds it;
 - a retry after a lost response carries the change's key, and the server answers with what is stored
   rather than applying it twice — which is what makes a queue safe to flush twice.
 
 ## The live channel
 
-A socket that says "the feed moved", not a payload feed. On Cloudflare it is a Durable Object per
-workspace, holding hibernatable sockets; on Node it is the process's own `ws` server; with neither,
-clients poll `/api/workspace/changes?since=<cursor>` and content themselves. `LIVE=0` forces the
-poll, which is how CI exercises the fallback.
+The socket says only that the feed has moved. It never carries the change itself. On Cloudflare it is a
+Durable Object per workspace, holding hibernatable sockets. On Node it is the process's own `ws` server.
+With neither, clients poll `/api/workspace/changes?since=<cursor>` and read the changes themselves.
+`LIVE=0` forces the poll, which is how CI exercises the fallback.
 
 The point is that the fallback is not a degraded mode: the same client code reads the same feed, and
 the socket is only a way to be told when to read it.

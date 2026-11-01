@@ -4,10 +4,11 @@
 > is scoped, arbitrated, and made safe when a lease lapses — and what the app must already be able
 > to do before any of it is built.
 
-**Status:** design only. Nothing here is implemented, and none of it is needed by the local-first
-build. It is the spec for **Stage 2** of the production plan (accounts and a server-authoritative
-store); the groundwork it depends on is listed at the end so it can be done early, cheaply, and
-without rework.
+**Status:** partly built. The lease, its heartbeat and the revision check are in the code
+(`server/workspace/locks.ts`, `src/lib/lease.ts`, and the `/items/:id/lock` routes), and an instance uses
+them. This page is still the design record for the rest, including the takeover notices and field-level
+presence in Stage 3. The groundwork list at the end was written before the lease, and the code is the
+authority on what it covers.
 
 ## The requirement
 
@@ -40,8 +41,8 @@ short life, renewed while someone is actually there.
 
 | Fact | Value | Why |
 | --- | --- | --- |
-| TTL | 45–60 s | Long enough to survive a slow heartbeat, short enough that a vanished holder costs nothing |
-| Heartbeat | every ~15 s | Renewed while the drawer is open and the tab is visible |
+| TTL | 60 s (`LEASE_MS`) | Long enough to survive a slow heartbeat, short enough that a vanished holder costs nothing |
+| Heartbeat | every 15 s (`HEARTBEAT_MS`) | Renewed while the drawer is open and the tab is visible |
 | Acquired on | the first **edit intent** | Focus into a field, not opening the card: reading stays free and two people can look at the same card |
 | Released on | drawer close, blur, `pagehide` | Best effort; the TTL covers what those miss |
 | Taken over on | expiry | Automatic, for whoever touches it next. No manual "steal" button in v1 — a steal button is optimistic concurrency with extra steps |

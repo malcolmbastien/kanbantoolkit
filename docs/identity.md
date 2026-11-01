@@ -13,16 +13,16 @@ One provider, configured by environment — `docs/configure.md` has every value:
 
 | | |
 | --- | --- |
-| `AUTH_OIDC_ISSUER` | the issuer's URL; its discovery document supplies the endpoints when they are not set |
-| `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | the client registered with that issuer |
-| `AUTH_OIDC_LABEL` | what the sign-in button says |
+| `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET` | the client registered with the issuer |
+| `AUTH_OIDC_AUTHORIZE_ENDPOINT`, `AUTH_OIDC_TOKEN_ENDPOINT`, `AUTH_OIDC_USERINFO_ENDPOINT` | the issuer's three endpoints, used exactly as given. The server does not look them up. |
+| `AUTH_OIDC_LABEL` | the text on the sign-in button |
 
 The redirect URI to register is `https://<your instance>/api/auth/callback`. Kanban Toolkit asks for
 `openid email profile` and nothing more, and it refuses an identity whose address the provider has not
 verified.
 
-A password door and a magic-link door sit beside it (task 154), so a deployment with no IdP — or a
-person whose provider is down — is not locked out. Neither is required.
+A password and a magic link sit beside the provider. A deployment with no provider, and a person whose
+provider is down, are not locked out. Neither method is required.
 
 ## Provisioning (SCIM 2.0)
 
@@ -112,8 +112,8 @@ That is normal and intended, and it is worth saying to the team:
 - if the deployment uses an OIDC provider, they simply sign in through it — SCIM put the account
   there and OIDC is how they reach it.
 
-Their account screen is the ordinary one: name, picture, language, sessions. It says the account was
-provisioned by the directory rather than offering a password field it cannot fill.
+Their account screen is the ordinary one: name, picture and sessions. It says the account was provisioned
+by the directory, rather than offering a password field it cannot fill.
 
 ### Errors
 

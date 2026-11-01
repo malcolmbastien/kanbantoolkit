@@ -8,8 +8,8 @@ Two rules hold everywhere:
 
 - **A variable that is unset is absent, not empty.** `AUTH_OIDC_CLIENT_ID=""` and no variable at all
   are the same thing, and neither draws a button that cannot work.
-- **Secrets live in the environment**, not in this file, not in the database, and not in `dist/`
-  (which is build output and can be rebuilt by anybody with the repository).
+- **Secrets live in the environment.** They are never in this file, the database, or the built files
+  in `dist/`, which hold no secrets and can be rebuilt from the repository.
 
 ## Where the values come from
 
@@ -18,8 +18,8 @@ Two rules hold everywhere:
 | **Node** (self-hosted) | `process.env` — a systemd unit, a `.env` your process manager loads, or the shell |
 | **Cloudflare** | Worker bindings and `vars` in `wrangler.jsonc`; secrets with `wrangler secret put` |
 
-The application never reads either directly. `server/config.ts` is the only file that knows a binding
-from an environment, which is what lets one set of routes run on both.
+The application code never reads either one directly. `server/config.ts` is the only file that maps a
+binding or an environment variable to a setting, which is what lets one set of routes run on both.
 
 ## The core
 
@@ -28,14 +28,14 @@ from an environment, which is what lets one set of routes run on both.
 | `PORT` | `8787` | The port the Node entry listens on. Unset is the default; a proxy forwards to it. |
 | `DB_PATH` | `./kanbantoolkit.db` | The SQLite file. Unset puts it beside the working directory. The file **is** the instance. |
 | `STATIC_DIR` | `./dist` | Where the built site and app are. Unset assumes `dist/` under the working directory. |
-| `WORKSPACE_NAME` | `Kanban Toolkit` | What the installation calls the team. Applied when the workspace is created, and re-applied only to the name the row was created with — never over a name a person chose. |
-| `PUBLIC_URL` | the request's own origin | The address the outside world uses. It is what a sign-in redirect URI is built from, and `https` in it is what decides the session cookie's `Secure` attribute. Behind a proxy, set it. |
+| `WORKSPACE_NAME` | `Kanban Toolkit` | What the installation calls the team. It is used when the workspace is created. It changes later only while the name is still the default that was set then, so a name someone chose is never overwritten. |
+| `PUBLIC_URL` | the request's own origin | The address people use to reach the instance. Sign-in redirects are built from it, and an `https` address makes the session cookie `Secure`. Behind a proxy, set it. |
 | `LIVE` | on | Set to `0` to switch the live channel off. The app then polls the same feed, which is what it does on any host without a socket server. |
 | `WEBHOOKS` | on | Set to `0` to stop the outbound delivery timer. Events are still recorded; nothing is sent. |
-| `BACKUP_DIR` | beside `DB_PATH` | Where Admin's file copies and the `backup` command write. |
+| `BACKUP_DIR` | a `backups` folder beside `DB_PATH` | Where Admin's file copies and the `backup` command write. |
 | `BACKUP_KEEP_DAYS` | `30` | How long a file copy is kept before the next copy prunes it. |
 | `RESTORE_CONFIRM` | unset | Set to `yes` on the next boot to apply a restore staged from Admin. Without it the pending file is left in place and the live database is untouched. |
-| `ERROR_SALT` | `kanbantoolkit` | Mixed into the hash of a reporter's address before it is stored. Set it to a secret in production: the salt is what stops an address being recovered from a hash. |
+| `ERROR_SALT` | `kanbantoolkit` (`change-me` in `compose.yaml`) | Mixed into the hash of a reporter's address before it is stored. The salt is what stops an address being recovered from its hash, so set a secret value in production. The Compose file ships `change-me` as a placeholder, not a secret. |
 | `PROJECT_URL` | unset | Where this project's own site is, if the instance should link its terms and privacy pages. Set, the sign-in surface links them; unset, it says whose policies apply with no link. Never this instance's own address. |
 | `API_RATE_LIMIT` | `120` | Requests a minute one token may make against `/api/v1`. Generous for a script and low enough that a runaway loop is a `429` rather than an outage. The window is per token and kept in memory, so a restart grants a fresh one — it is a guard, not an accounting system. |
 
@@ -69,9 +69,9 @@ and one revoked without the other.
 
 ## Mail
 
-Mail is a **capability of the runtime**, like the live channel: the Node entry can speak SMTP to a
-relay, and a deployment without one still runs — it simply does not offer a magic link (task 154.7),
-and an administrator hands over a reset link instead.
+Mail is a capability of the runtime, like the live channel. The Node entry can speak SMTP to a relay. A
+deployment without one still runs. It does not offer a magic link, and an administrator hands over a
+reset link instead.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -111,11 +111,11 @@ A Worker reads bindings rather than variables it can invent. `wrangler.jsonc` de
 | `WORKSPACE_CHANNEL` | the Durable Object that holds the live sockets, one per workspace |
 
 Without `DB` the API answers `503` and says the database is not configured, and no sign-in surface is
-drawn: that is the state the project's own deployment is in, where the Worker serves the site and the
-demo and nothing else. Uncommenting it makes the deployment an instance — read
+drawn. That is how the project's own hosted site runs: the Worker serves the site and the demo, and
+nothing else. Uncommenting the `DB` block turns the deployment into an instance. Read
 [Passwords on Workers](server-runtime.md#passwords-on-workers-cost-more-cpu-than-the-free-plan-gives)
-first, because the free plan's CPU budget cannot cover a password check. Without `WORKSPACE_CHANNEL`,
-clients poll — nothing else changes.
+first, because the free plan's CPU budget cannot cover a password check. Without the
+`WORKSPACE_CHANNEL` binding, clients poll for changes, and nothing else changes.
 
 ## Checking what an instance actually offers
 

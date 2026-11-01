@@ -1,7 +1,8 @@
 # Product review
 
 A reading of the product as it stands, and candidates for what could come next. Nothing here is a
-commitment; it is a list to choose from.
+commitment; it is a list to choose from. Where a candidate has since been built, its row says so. Those
+statements were checked against the code when this page was revised.
 
 ## The product in one paragraph
 
@@ -23,7 +24,7 @@ that deepen that idea will fit the product better than generic project-managemen
 - **The model is opinionated in useful ways.** Status is the column's stage; an initiative has no
   estimate or status field; a key result is a statement, not a number; mapping is attribution, not
   WIP. These remove whole classes of disagreement.
-- **The team's work and the management view share one vocabulary.** Team, programme and portfolio
+- **The team's work and the management view share one vocabulary.** Team, program and portfolio
   boards, links that aggregate upward, and multi-flow boards make a real organisational shape
   possible without a second system.
 - **Self-hosting is first class.** One Node process, one SQLite file, a Docker image, a Worker entry,
@@ -37,8 +38,9 @@ that deepen that idea will fit the product better than generic project-managemen
 
 The board itself is mature. The gaps are mostly at its **edges**:
 
-1. **Bringing work in.** A team with existing work must build its board by hand. The product exports
-   JSON and CSV but imports only a whole workspace file.
+1. **Bringing work in.** A team with existing work can import a Trello export or a Jira CSV as one board
+   ([Importing a board](import.md)). A plain spreadsheet of cards has no import yet (C5), so that team
+   builds its board by hand.
 2. **Bringing people back.** Live updates only reach a browser that is open. There are no
    notifications, mentions or digests for an assignment, a block, a due date or a health change.
 3. **Letting people read without an account.** Read-only share links were cancelled (task 123);
@@ -51,9 +53,8 @@ The board itself is mature. The gaps are mostly at its **edges**:
    kept when the next one begins.
 6. **Using it on a phone.** The static build is not installable and has no offline shell; the board
    is usable but not designed for a phone first.
-7. **Technical headroom.** The first download is at 166.9 KB of a 167 KB budget, and any new
-   first-download surface needs deliberate splitting. There is no outbound event/webhook layer, and
-   the public API can read objectives but cannot write the workspace vocabulary.
+7. **Technical headroom.** The first download is checked against a size budget in CI (`npm run size`), so
+   a new first-download surface needs splitting or a deliberate, recorded increase to the budget.
 
 ## Candidate enhancements
 
@@ -61,13 +62,13 @@ The board itself is mature. The gaps are mostly at its **edges**:
 
 | ID | Idea | Why it is worth doing | Effort |
 | --- | --- | --- | --- |
-| **Q1** | **Bulk edit priority, tags and target dates.** Add them to the existing multi-select bar. | Triage is repetitive; the bulk bar already does the harder moves. Small, contained, visible. | S |
-| **Q2** | **Search descriptions and notes, not only titles.** Show the matching line in the result. | Real cards carry their detail in the body; a title-only search looks broken when the word is in a note. | S–M |
+| **Q1** | **Bulk edit priority, tags and target dates.** Add them to the existing multi-select bar. Not built: the bulk bar has move, type, assignee, parent and archive. | Triage is repetitive; the bulk bar already does the harder moves. Small, contained, visible. | S |
+| **Q2** | **Search descriptions and notes, not only titles.** Show the matching line in the result. *Built.* | Real cards carry their detail in the body; a title-only search looks broken when the word is in a note. | S–M |
 | **Q3** | **Undo a delete.** A short undo window, or a soft-delete that the admin can purge. | Delete is the only irreversible act. Archive has restore; delete has a confirmation and nothing else. | S–M |
-| **Q4** | **A keyboard shortcut sheet.** One overlay, opened from the palette and `?`. | The keyboard is a first-class path but only discoverable by reading the guide. | S |
-| **Q5** | **A board-type change guard.** Warn or refuse a band change when the board carries cards or linked boards, and explain what would be hidden. | Changing team → programme/portfolio can hide a cards flow and leave work invisible. The model allows it; the UI should not do it silently. | S |
+| **Q4** | **A keyboard shortcut sheet.** One overlay, opened from the palette and `?`. *Built.* | The keyboard is a first-class path but only discoverable by reading the guide. | S |
+| **Q5** | **A board-type change guard.** Warn or refuse a band change when the board carries cards or linked boards, and explain what would be hidden. | Changing team → program/portfolio can hide a cards flow and leave work invisible. The model allows it; the UI should not do it silently. | S |
 | **Q6** | **Demo data with more delivery history.** A handful of completed cards over several weeks. | The demo has three deliveries, so the forecast refuses on first visit. The Flow view should show its real answer to a new reader. | S |
-| **Q7** | **Installable PWA shell.** A manifest and a service worker caching the app shell and fonts it already has. | The static tier claims to work anywhere; an installable shell is what makes that usable on a phone. | S–M |
+| **Q7** | **Installable PWA shell.** A manifest and a service worker caching the app shell. Not built: there is no manifest or service worker yet. | The static tier claims to work anywhere; an installable shell is what makes that usable on a phone. | S–M |
 
 ### One cycle — one to three weeks
 
@@ -77,10 +78,10 @@ The board itself is mature. The gaps are mostly at its **edges**:
 | **C2** | **Comment threads and @mentions** on an item, with the person mentioned in the activity. | Notes are flat and easy to miss. This is the collaboration gap between a board and the chat tool a team already uses. | M |
 | **C3** | **Portfolio risk and coverage heatmap.** Objectives by period, the period's window, coverage and the health of the initiatives serving them, in one reading. | The strategy map shows what serves what; a leadership review also needs to see where the risk is concentrated. All derived. | M |
 | **C4** | **A period review for OKRs.** Freeze a period's notes and the state of its work, so the next period can be read against the last. | A period has a window but no review record yet. Do not reintroduce a typed percentage or a grade: completeness comes from the work below. | M |
-| **C5** | **CSV import with a mapping step.** Board, column, title, type, assignees, dates. | The first day of a real team is a spreadsheet. JSON import is for a whole workspace, not a team arriving with a backlog. | M |
-| **C6** | **Outbound webhooks.** Signed events for item created/moved/blocked, initiative health changed, objective mapped. | One event layer enables Slack/Teams/CI integrations without building chat. It also gives self-hosters a supported automation seam. | M |
-| **C7** | **Backup and restore from Admin**, for an instance administrator. | The CLI works, but a self-hoster should not have to read a backup guide to take a copy. Keep restore guarded and explicit. | M |
-| **C8** | **The vocabulary on `/api/v1`.** Types, templates, objectives and key results, with the same revision and per-list permissions as the app's own route. | Agents and scripts can read the workspace but cannot configure it. The internal document already exists; exposing it is mostly a contract and scope decision. | M |
+| **C5** | **CSV import with a mapping step.** Board, column, title, type, assignees, dates. A Jira CSV import with a mapping step is built; a generic card spreadsheet is not. | The first day of a real team is a spreadsheet. JSON import is for a whole workspace, not a team arriving with a backlog. | M |
+| **C6** | **Outbound webhooks.** Signed events for item created/moved/blocked, initiative health changed, objective mapped. *Built.* | One event layer enables Slack/Teams/CI integrations without building chat. It also gives self-hosters a supported automation seam. | M |
+| **C7** | **Backup and restore from Admin**, for an instance administrator. *Built.* | The CLI works, but a self-hoster should not have to read a backup guide to take a copy. Keep restore guarded and explicit. | M |
+| **C8** | **The vocabulary on `/api/v1`.** Types, templates, objectives and key results, with the same revision and per-list permissions as the app's own route. *Built.* | Agents and scripts can read the workspace but cannot configure it. The internal document already exists; exposing it is mostly a contract and scope decision. | M |
 | **C9** | **Operator observability.** A health answer with schema, queue and live-channel detail, structured request logs, and a way to see recent client errors. | Self-hosters need to tell "the server is down" from "the database is behind" without reading source. | S–M |
 
 ### Larger bets — one to two months
@@ -89,7 +90,7 @@ The board itself is mature. The gaps are mostly at its **edges**:
 | --- | --- | --- | --- |
 | **L1** | **Read-only share links, reconsidered.** A scoped, expiring, revocable link to a board or a portfolio reading, with no account. | This is the original promise — "one clear view for everyone else" — without adding every stakeholder as a member. Task 123 was cancelled; this is a narrower design decision, not a reversal by accident. | M–L |
 | **L2** | **An email digest and notifications.** A daily or weekly summary of assigned work, mentions, blocks, due dates and health changes, with per-person preferences. | Work leaves the board and nothing brings the person back. This depends on the event layer from C6 and is the retention feature the product is missing. | L |
-| **L3** | **Import from Trello or Jira.** A guided mapping of boards, lists/statuses and cards. | The biggest acquisition friction is a team's existing board. CSV (C5) is the first step; a named importer is the second. | L |
+| **L3** | **Import from Trello or Jira.** A guided mapping of boards, lists/statuses and cards. *Built.* | The biggest acquisition friction is a team's existing board. CSV (C5) is the first step; a named importer is the second. | L |
 | **L4** | **Attachments.** First links with a title, then object storage for a self-hosted instance. | Specification, screenshots and contracts live beside the card. It is also a backup and storage decision, not only a UI one. | L |
 
 ## If I were choosing three
@@ -97,14 +98,14 @@ The board itself is mature. The gaps are mostly at its **edges**:
 1. **C1 — dependencies, end to end.** It is the clearest extension of the product's own promise, it
    needs no new data model, and it turns several existing signals (waiting, boundary, blocked) into
    one readable view.
-2. **L2 — the digest, built on C6.** The product is good at showing the truth while it is open. A
-   digest is what makes it part of the week when it is closed. It is larger, but it is the most
+2. **L2 — the digest, built on the webhook layer (C6, now built).** The product is good at showing the
+   truth while it is open. A digest is what makes it part of the week when it is closed. It is larger, but it is the most
    direct answer to "why did the team stop using it?".
-3. **L3 — import.** It removes the first-day tax for the team that already has a board somewhere
-   else. C5 is the cheap first half; a Trello/Jira importer is the memorable one.
+3. **C5 — a card spreadsheet import.** Trello and Jira imports are built (L3). A generic spreadsheet
+   import would remove the first-day cost for a team that keeps its work in a sheet.
 
-For immediate value without a project: **Q1, Q2, Q3 and Q6** — four small changes that make the
-existing product feel more finished.
+For immediate value without a project: **Q1, Q3 and Q6**. Three small changes that make the existing
+product feel more finished.
 
 ## Deliberately not suggested
 
@@ -120,8 +121,8 @@ existing product feel more finished.
 
 ## A technical note
 
-The event/outbox layer behind **C6** and **L2** is the highest-leverage technical investment: it
-would also give notifications, a digest, webhook retries and a consistent audit trail one source.
-The second is the **bundle budget**: at 166.9 KB of 167 KB, the next first-download feature has no
-room. Either keep splitting screens (the templates editor and the Flow screen are the precedent) or
+The event layer behind **C6** now exists: items, health and objectives emit events into one outbox, and
+webhook delivery retries from it. Notifications and a digest (**L2**) would read from the same outbox, so
+they are the natural next step. The second is the **bundle budget**. The first download is checked against
+169 KB in CI, so the next first-download feature has little room. Either keep splitting screens (the templates editor and the Flow screen are the precedent) or
 raise the budget deliberately with a recorded reason, but do not let it grow by drift.

@@ -4,7 +4,7 @@
 
 **One board for the team. One clear view for everyone else.**
 
-Kanban Toolkit is a Kanban system for a team's own work, and a simple way to show that work to the people
+Kanban Toolkit is a Kanban board for a team's own work, and a simple way to show that work to the people
 outside the team. The team keeps its board; other groups read the same work as **initiatives** —
 progress, risk and what depends on what — without asking for a status update or keeping a second set
 of tickets.
@@ -36,10 +36,10 @@ none of it is entered twice — it is read from the cards that are already there
    that helps. The stage stays underneath, so reporting does not change when the board does. A board
    can carry more than one cards flow — a delivery flow and a support queue, say — each with its own
    columns, its own name and its own limit, stacked as separate bands.
-3. **Cards roll up into initiatives.** A card dragged onto an initiative becomes its child: the
-   initiative's progress, age and delivery risk are computed from the work below it, so the wider
-   view cannot drift from the board.
-4. **Everyone else reads the same work.** Leaders, a programme or another team read the initiatives
+3. **Cards roll up into initiatives.** A card dragged onto an initiative becomes its child. The
+   initiative's progress and delivery risk are computed from the work below it, so the wider view
+   cannot drift from the board.
+4. **Other groups read the same work.** A program, a portfolio or another team reads the initiatives
    flow — what is planned, what is moving and what depends on what — from the same cards, with no
    second set of tickets to keep in step.
 
@@ -55,7 +55,7 @@ none of it is entered twice — it is read from the cards that are already there
   card moves between them like it moves between any two cells. The board belongs to the team, not to
   a template.
 - **Initiatives for the wider view.** Day-to-day cards roll up into initiatives, so other groups can
-  see progress, age and delivery risk without interrupting the team. The team's board and the wider
+  see progress and delivery risk without interrupting the team. The team's board and the wider
   view are two readings of the same work.
 - **One card, one truth.** A card keeps its identity, history and owner wherever it is read, so it
   never has to be copied into another system.
@@ -155,7 +155,8 @@ docker compose up -d
 ```
 
 The image builds, the database is created on a volume, and the first visit sets up the account that
-runs the instance. There is nothing else to configure.
+runs the instance. Before the machine has a public address, set `PUBLIC_URL` and `ERROR_SALT`.
+[configure.md](docs/configure.md) says what each one does.
 
 <details>
 <summary>Run it without Docker</summary>
@@ -199,6 +200,7 @@ see [`docs/install.md`](docs/install.md) and [`docs/docker.md`](docs/docker.md).
 ## Licence
 
 Kanban Toolkit is free software under the GNU Affero General Public License, version 3 or later. Run it,
-change it, and share your changes when you offer it to other people.
+change it, and share your changes. If you run a modified version for other people over a network,
+you must offer them its source.
 
 Copyright © 2026 Malcolm Bastien.

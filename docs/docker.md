@@ -1,7 +1,7 @@
 # In a container
 
-One instance, one container, one volume. The image is built from this repository and needs nothing
-else: no registry account, no base image with the app baked somewhere you cannot see.
+One instance, one container, one volume. The image is built from this repository, so the only things you
+need are Docker and a clone. A published image also exists, described below, but it is not required.
 
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
@@ -75,19 +75,18 @@ docker exec kanbantoolkit npm run backup -- backup /data/kanbantoolkit.db /data/
 ```
 
 `docker exec kanbantoolkit npm run backup -- restore <file> /data/kanbantoolkit.db --force` is the other half,
-and [backup.md](backup.md) is the drill that proves both. A copy of the volume taken with the
-container stopped is the same thing, provided you stop the container first — a running database is
-being written to.
+and [backup.md](backup.md) is the drill that proves both. Copying the volume also works, but only with the
+container stopped. A running database is being written to.
 
 ## What the image does and does not do
 
 - **Runs as an unprivileged user** (`kanbantoolkit`, uid 10001) with only its own data directory writable.
 - **Ships no credentials and no debug port.** The only port is 8787, and the only way in is a
   provider you configured or an invitation.
-- **Says whether it can serve.** `GET /api/health` is the container's own healthcheck, with a
-  `start_period` long enough for a first-run migration.
-- **Builds the client and the site from source** in the first stage, and carries only `dist/`, the
-  server, the migrations and the domain rules into the second.
+- **Reports whether it can serve.** `GET /api/health` is the container's own healthcheck. The
+  `start_period` is long enough for a first-run migration.
+- **Builds the application from source** in the first stage. The second stage carries only the bundled
+  server, the built client, the migrations and `package.json`. The project's website is not in the image.
 
 Configuration is the environment, exactly as it is on a bare machine. `compose.yaml` lists the
 values worth setting and reads the rest from `.env`; [configure.md](configure.md) is every variable,
@@ -128,13 +127,12 @@ The database is a file. That is the whole design, and it has two consequences an
 before choosing it:
 
 - **One file serves one instance.** Do not run two containers against the same file on a shared
-  volume. SQLite's locking is not a network protocol; the failure is corruption, not slowness.
+  volume. SQLite's file locking does not work reliably across a network filesystem, so the volume must be on local disk.
 - **Scaling out means Postgres**, not a second container. There is no multi-instance mode today: this
   application is built for one deployment per team, and [architecture.md](architecture.md) says why
   that is a design decision rather than a gap.
 
-A single instance serves a team comfortably — the queries are small and the work is one board's
-worth. If you outgrow it, the answer is a different database behind the same interface
+One instance is built for one team's work. If you outgrow it, the answer is a different database behind the same interface
 (`server/db.ts`), which is a port, not a rewrite.
 
 ## Checking it

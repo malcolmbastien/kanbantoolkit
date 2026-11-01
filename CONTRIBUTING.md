@@ -52,7 +52,8 @@ docs:shots` writes them to `docs/img/guide/` from the demo workspace.
   performs gets an e2e in `e2e/`.
 - **A migration** (`migrations/NNNN_name.sql`) if the schema changes. D1 and a SQLite file run the
   same file, so one that only works on one of them is a bug.
-- **The reason in the commit**, in the shape `git log` already uses.
+- **A commit message that says why**, in the style of the existing history: `area: what changed`, then
+  a body that gives the reason.
 
 ## Releases
 

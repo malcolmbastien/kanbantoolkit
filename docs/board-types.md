@@ -1,10 +1,10 @@
 # Board types
 
-Every board has a **flight level** — **Team**, **Programme** or **Portfolio**. The level is not a
+Every board has a **flight level** — **Team**, **Program** or **Portfolio**. The level is not a
 label on the board: it decides what the board renders, what work can be entered on it, and where its
 initiatives roll up. Choose it when the board is made.
 
-| | Team | Programme | Portfolio |
+| | Team | Program | Portfolio |
 | --- | --- | --- | --- |
 | **What it holds** | Its team's cards, and the initiatives they roll up into | Its own initiatives, plus a band for each linked board | Objectives and the initiatives mapped to them, wherever those live |
 | **What it shows** | Cards flows, the initiatives flow, dashboard, timeline, flow metrics, archive | The initiatives flow and bands of linked boards; dashboard and timeline | A strategy map: objectives, key results, coverage gaps |
@@ -12,8 +12,8 @@ initiatives roll up. Choose it when the board is made.
 | **Flow metrics** | Yes | Not offered | Not offered |
 | **Used for** | Doing the work | Coordinating teams and rolling work up | Deciding and communicating what the work is for |
 
-The three levels link upward. A programme can aggregate team boards, or other programme boards; a
-portfolio can link programmes. The aggregation graph may be any depth and mix the levels, so long as
+The three levels link upward. A program can aggregate team boards, or other program boards; a
+portfolio can link programs. The aggregation graph may be any depth and mix the levels, so long as
 it stays **acyclic** — a board cannot end up beneath itself.
 
 ## Team boards
@@ -23,43 +23,44 @@ columns — and the **initiatives flow** the cards roll up into. Cards are made 
 limited here; the board's WIP policy, card types, tags, default drop cell and flow metrics all belong
 to this level.
 
-This is where a card's real life happens. An initiative on the same board is the outcome the work
-belongs to, and its progress is computed from the cards below it.
+This is where the work happens. An initiative on the same board is the outcome the work belongs to, and
+its progress is computed from the cards below it.
 
 **Use it for**
 
 - A product squad delivering features, with work moving Backlog → Not Started → In Progress → Done.
 - A support team whose incoming requests are a second cards flow beside its delivery work, so the
   queue has its own columns and WIP limit without mixing with planned work.
-- A platform team whose cards roll up into an initiative that a programme reads, without anyone
-  keeping a second tracker for the programme.
+- A platform team whose cards roll up into an initiative that a program reads, without anyone
+  keeping a second tracker for the program.
 
-**Not for:** portfolio reporting, or a list of other teams' work. Put a programme above it instead.
+**Not for:** portfolio reporting, or a list of other teams' work. Put a program above it instead.
 
-## Programme boards
+## Program boards
 
-A coordination board. (The app labels this level **Program**.) It has its own initiatives flow — the outcomes the programme owns — and a
-**band for each linked board**, showing the initiatives from the teams or programmes beneath it. It
-does not carry a cards flow: nobody makes a card on a programme board, because the work belongs to
+A coordination board. The app's label for this level is **Program**. A program board has its own
+initiatives flow, which holds the outcomes the program owns, and a **band for each linked board**. Each
+band shows the initiatives from the teams or programs beneath it. It
+does not carry a cards flow: nobody makes a card on a program board, because the work belongs to
 the team that does it.
 
-The programme is for the questions a single team cannot answer: which initiatives are moving, which
+The program is for the questions a single team cannot answer: which initiatives are moving, which
 are blocked or waiting, which teams depend on each other, and what the combined picture looks like.
 Its dashboard and timeline read the same initiatives, not a copy of them.
 
 Each linked band is **read-only**: it is a rollup of that board's initiatives, and the band says so
-at its header. To move an initiative, change its flow or edit its board design, use **Open board** —
-the work stays on the board that owns it.
+at its header. To move an initiative or change its details, use **Open board**. The work stays on the
+board that owns it.
 
 **Use it for**
 
 - A value stream over three squads: one band per squad, read for progress, risk and dependencies.
-- A programme bridging two delivery teams that ship together, where each team keeps its own board
-  and the programme shows what the combined delivery is doing.
-- A line of business that aggregates several programmes, each of which aggregates its own teams.
+- A program bridging two delivery teams that ship together, where each team keeps its own board
+  and the program shows what the combined delivery is doing.
+- A line of business that aggregates several programs, each of which aggregates its own teams.
 
 **Not for:** a second set of tickets, or day-to-day task management. If a card needs to move, it
-belongs on a team board beneath the programme.
+belongs on a team board beneath the program.
 
 ## Portfolio boards
 
@@ -68,7 +69,7 @@ The strategy board. It leads with the **strategy map**: the board's own initiati
 and an initiative serving nothing. Objectives and key results are authored here; an initiative serves
 one objective, and is moved between them deliberately.
 
-A portfolio has no cards flow and no bands. Its links to programmes still exist for the rollup, but
+A portfolio has no cards flow and no bands. Its links to programs still exist for the rollup, but
 the portfolio surface chooses to read the work by objective rather than by team. That is the point of
 the level: a reader should see whether the strategy is covered, not which squad is busiest.
 
@@ -85,7 +86,7 @@ it in the board's own four-stage flow.*
   initiative behind it.
 - A leadership board that connects outcomes to delivery without turning into a delivery board.
 
-**Not for:** tracking cards or team flow. Use the programme and team boards beneath it for that.
+**Not for:** tracking cards or team flow. Use the program and team boards beneath it for that.
 
 **Its settings.** A portfolio board's settings are its title, its description, the fixed flight level
 and the boards it reads. It has none of the work-shaped settings a team board has — no card types, no
@@ -117,7 +118,7 @@ initiatives that serve it, so there is no hand-entered percentage that can disag
 
 **Connect an initiative.** Any initiative that is a **top-level outcome** — one that is not part
 of another initiative — can be mapped to an objective, wherever its board sits: a team's own
-initiative, a programme's, or one placed on the portfolio. At the bottom of an objective card,
+initiative, a program's, or one placed on the portfolio. At the bottom of an objective card,
 **Map an initiative** opens a searchable list: type a title or a board to narrow it, and choose the
 outcome. The board it lives on is named beside each one. An initiative serves one objective, so
 choosing one that already serves another moves it; the row says “moves from …” before you commit.
@@ -154,12 +155,12 @@ coverage, progress and health all derived from the work below.*
 Ask what the board is for, not who opens it:
 
 - **Does work move through columns?** A team board.
-- **Do you need to see several teams or a value stream together?** A programme board.
+- **Do you need to see several teams or a value stream together?** A program board.
 - **Are you deciding or communicating what the work is for, with objectives and coverage?** A
   portfolio board.
 
-The type is fixed when the board is created. It is not a skin: it decides which surfaces exist and
-where the initiatives roll up. A board made as a team board and later changed to a programme would
+The type is fixed when the board is created. It is not a theme: it decides which surfaces exist and
+where the initiatives roll up. A board made as a team board and later changed to a program would
 not gain the bands of work that was never linked to it — it would lose the cards flow that holds its
 work instead. So the application refuses the change in the settings panel, in the store and on the
 server, rather than warning and proceeding. To change the level, create a new board of the other type
@@ -168,13 +169,13 @@ and move or link the work there. Start at the level the work belongs to.
 ## A worked example
 
 A company runs one portfolio, **Company Strategy**, with objectives such as “Recurring revenue
-engine”. The outcome itself lives on the programme board that owns it — **Digital line of business** —
+engine”. The outcome itself lives on the program board that owns it — **Digital line of business** —
 and the portfolio links it to the objective; the portfolio holds no initiatives of its own.
 **Product Delivery** links the team boards **Team Atlas** and **Team Nova**. Atlas and Nova each work
 their own cards; their initiatives appear as bands on Product Delivery; the initiatives that serve an
-objective appear on the portfolio's strategy map, whether they live on a programme or a team board.
+objective appear on the portfolio's strategy map, whether they live on a program or a team board.
 
-The same card is read three ways without being copied: the team moves it, the programme rolls it up,
+The same card is read three ways without being copied: the team moves it, the program rolls it up,
 and the portfolio asks which objective it serves. No level keeps its own version of the work.
 
 ## Related

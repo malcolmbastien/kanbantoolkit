@@ -75,16 +75,17 @@ sign-up page: an instance *is* a workspace.
 
 ## What it writes, and what that means
 
-- **`kanbantoolkit.db`** — the SQLite database, in WAL mode. This file **is** the instance: accounts,
-  boards, cards, history and the audit trail. Back it up; see [backup.md](backup.md).
-- **`kanbantoolkit.db-wal`** and **`kanbantoolkit.db-shm`** — SQLite's write-ahead log, beside it. They are part
-  of the database: `npm run backup` copies them correctly, and a plain `cp` of the `.db` alone can
-  miss the newest writes.
+- **`kanbantoolkit.db`** — the SQLite database. This file **is** the instance: accounts, boards, cards,
+  history and the audit trail. Back it up; see [backup.md](backup.md).
+- **`kanbantoolkit.db-journal`** — SQLite's rollback journal. It exists only while a change is being
+  written and belongs to the database. Stop the server before you copy the file by hand, or use
+  `npm run backup`, which takes a consistent copy while the server keeps running.
 - **`dist/`** — build output. It can be deleted and rebuilt from the repository at any time.
 
-**One file serves one instance.** SQLite's locking is not a network protocol: two processes writing the
-same file corrupt it. Scaling out means Postgres behind the same interface (`server/db.ts`), not a
-second instance on the same volume. That is a design decision — one deployment per team — not a
+**One file serves one instance.** Run one server against one database file, on local disk. SQLite's
+file locking does not work reliably across a network filesystem, so a shared network volume is the
+wrong place for it. Scaling out would mean Postgres behind the same interface (`server/db.ts`), not a
+second server on the same file. That is a design decision, one deployment per team, and not a
 limitation to work around.
 
 ## Checking it is up
@@ -128,7 +129,8 @@ WantedBy=multi-user.target
 sudo systemctl enable --now kanbantoolkit
 ```
 
-The server handles `SIGTERM` by finishing the request it is on; `Restart=on-failure` covers a crash,
+The server does not drain requests on `SIGTERM`. A write is one transaction, so a stop lands before it or
+after it. `Restart=on-failure` restarts the process after a crash,
 and a migration that fails stops the process rather than serving a database it does not understand.
 
 ## Updating

@@ -139,7 +139,7 @@ These are real lean metrics, but each costs something the plan above avoids.
   a tag convention, which is data entry we are not adding yet.
 - **Breakdowns.** Cycle time by card type, assignee or tag; aging by owner. Useful once the base
   panels are trusted. Keep it to a grouping selector on the scatter, not a pivot builder.
-- **Portfolio rollups.** The programme and portfolio boards already roll up initiatives. A flow
+- **Portfolio rollups.** The program and portfolio boards already roll up initiatives. A flow
   reading across linked boards is a different question (different teams, different throughput) and
   belongs with the portfolio surfaces, not here.
 

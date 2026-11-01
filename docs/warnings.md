@@ -20,7 +20,7 @@ finding.
 | What you see | What it means | What clears it |
 | --- | --- | --- |
 | **Blocked**, a full-width red band with the reason | A person marked the card stopped for something that is not another card. It is the loudest fact on the card. | **Unblock** in the card's panel, which records the change in its history. |
-| **N blocked**, a red pill on an initiative card | N cards below are explicitly blocked and still open. On a programme or portfolio board the same count is amber and says **N blocked below**, so a blockage several levels down does not shout at a reader who cannot act on it. | The cards below are unblocked or finished. |
+| **N blocked**, a red pill on an initiative card | N cards below are explicitly blocked and still open. On a program or portfolio board the same count is amber and says **N blocked below**, so a blockage several levels down does not shout at a reader who cannot act on it. | The cards below are unblocked or finished. |
 | **N depend on it**, an amber shield | N unresolved items depend on this one; if it slips, they are blocked. It is not shown once this item is done — the dependency is satisfied. | The dependents finish, or the links are removed. |
 | **Waiting on**, one or more named chips | The card is waiting on work **outside this board** — the boundary workflow. Each chip names it and takes you to the other end. | The external work reaches Done, or the boundary link is removed. |
 | **Nd in lane**, a grey clock | The card has been in its current committed lane (Not Started or In Progress) for at least 7 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. It is not the same as **Stale** (see below), which only counts committed work. | The card moves to another lane. |
@@ -51,7 +51,7 @@ The flags themselves:
 | --- | --- | --- | --- |
 | **N blocked** | risk | N cards below are explicitly blocked and still open. | They are unblocked or finished. |
 | **N waiting** | risk | N cards below wait on work that is not done. | The work they wait on is done, or the links are removed. |
-| **still Nd** | watch | The initiative is committed (Not Started or In Progress) and nothing below it has moved for at least 7 days. It is only raised when the work carries an arrival stamp; an unknown last movement is not called movement. | Something below moves. |
+| **still Nd** | watch | The initiative is committed (Not Started or In Progress) and nothing below it has moved for at least 7 days. The rule needs to know when the work last moved. Where that is unknown, the flag is not raised. | Something below moves. |
 | **N unowned** | watch | N committed cards below have no assignee. | Each gets an owner, or leaves the committed stages. |
 | **N backlog** | watch | The initiative is committed, but N of its leaves are still in Backlog. The work below is not all committed with it. | Those cards leave Backlog, or the initiative returns to Backlog. |
 | **N due later** | watch | N cards below have a target end date after the initiative's own target end date. | The dates are brought into line, or the cards finish. |
@@ -59,12 +59,13 @@ The flags themselves:
 **N depend on it** also appears on an initiative — the same dependents warning a card gets — but it
 is not a health rule: it is a fact about the item rather than about the work below it.
 
-In the item panel, an initiative's warnings are collected under a single **N warnings** heading. A chip opens the cards its rule found, where it found particular ones, so a warning leads to the work rather than only describing it.
+In the item panel, an initiative's warnings are gathered under one **N warnings** heading. Where a rule
+found particular cards, its chip opens them, so a warning leads to the work rather than only describing it.
 
 ## On the dashboard
 
 The **Needs attention** band reads the population the board actually renders: cards on a team board,
-initiatives on a programme or a portfolio. Its tiles are counts, and its table lists the items
+initiatives on a program or a portfolio. Its tiles are counts, and its table lists the items
 behind them:
 
 | Signal | Tone | What it means | What clears it |
@@ -72,7 +73,7 @@ behind them:
 | **Unfinished** | — | Every unfinished item on the board. This is the population the other counts are taken from, not a warning. | The item is done or archived. |
 | **Overdue** | risk | Its target end date has passed and it is not done. | It is done, or the date is moved. |
 | **Stale** | watch | On a card: it has sat in Not Started or In Progress for at least 7 days. On an initiative: the health rule **still Nd** above. A card in Backlog can show an age badge but is not called stale. | It moves. |
-| **Unassigned** | watch | On a card: nobody is assigned. On an initiative: the health rule **N unowned** — committed cards below have no owner — spoken of as unassigned rows. | Assign somebody, or the work leaves the committed stages. |
+| **Unassigned** | watch | On a card: nobody is assigned. On an initiative: the health rule **N unowned**, which counts committed cards below that have no owner. | Assign somebody, or the work leaves the committed stages. |
 | **No priority** | watch | The item has no priority set. | A priority is chosen. |
 
 The dashboard's initiatives table also shows the **Health** column with each flag, and an overdue
@@ -113,4 +114,4 @@ load a column carries.
 ## Related
 
 - [Reading a board](reading-a-board.md) — the columns, pips, rollups, multiple flows and the boundary.
-- [Board types](board-types.md) — team, programme and portfolio boards.
+- [Board types](board-types.md) — team, program and portfolio boards.

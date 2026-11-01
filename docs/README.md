@@ -1,7 +1,7 @@
 # Kanban Toolkit documentation
 
-Kanban Toolkit is a board for a team's flow and for the read management makes of it, on a machine you own:
-one Node process, one SQLite file, and no service in between. This directory is the documentation —
+Kanban Toolkit is a Kanban board for a team's work, and a view of that work for the people who manage it.
+It runs on a machine you own: one Node process, one SQLite file, and no service in between. This directory is the documentation —
 it lives with the code, so the version you are reading is the version you cloned.
 
 ## What is in this repository
@@ -30,7 +30,7 @@ that is.
 | | |
 | --- | --- |
 | **[Using the application](using.md)** | the board, a card, an initiative, the views, and keeping a copy |
-| **[Board types](board-types.md)** | team, programme and portfolio boards, and which level fits the work |
+| **[Board types](board-types.md)** | team, program and portfolio boards, and which level fits the work |
 | **[Reading a board](reading-a-board.md)** | the drawer, the columns, pips, rollups, multiple cards flows and the boundary |
 | **[Importing a board](import.md)** | Trello and Jira files, the mapping step, and what is created |
 | **[Warnings and signals](warnings.md)** | every badge and warning on a card, an initiative or an objective, and what it means |
@@ -51,8 +51,7 @@ Follow these in order. Each one is short, and each ends where the next begins.
 Prefer a container to a systemd unit? **[In a container](docker.md)** is the same path with
 `docker compose up -d` as the whole install.
 
-A fresh machine can go from nothing to a running instance in about ten minutes, and most of that is
-the build.
+Most of a first install is the build. After it, the steps are short.
 
 ## If you are reading the code
 

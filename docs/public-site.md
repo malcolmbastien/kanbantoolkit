@@ -6,9 +6,9 @@ to sell, no plan to compare and no shared sign-in page, because a person signs i
 instance, on their own domain. What the site owes a visitor is what this is, how to run it, where the
 documentation is, and what the licence lets them do.
 
-The backlog holds the work: tasks **163–167**, over the shipped 151 and the cancelled commercial set
-(153, 155, 156, 161, 162). This holds the shape, the page inventory, the content outline and the
-decisions, in the order the site needs them.
+The site was built in tasks **151** and **163–167**, which are done. The commercial pages were cancelled
+(153, 155, 156, 161, 162), and so was the help section (158). The backlog holds the task history. This page
+holds the shape, the page inventory, the content outline and the decisions, in the order the site needs them.
 
 ## What this is, and what it is not
 
@@ -19,7 +19,7 @@ the documentation, which lives with the code rather than on this site.
 **It is not** a shop. No pricing table, no plans, no trials, no invoices, no refund policy, and no
 account created from a form on this domain.
 
-**It is not** a content-marketing programme either. There is no blog, no customer stories and no
+**It is not** a content-marketing program either. There is no blog, no customer stories and no
 careers page in this plan, for the reasons at the end. A stale blog and a testimonial nobody gave are
 both worse than an empty slot.
 
@@ -55,7 +55,8 @@ scripts/build-site.ts    renders the pages into dist/, writes sitemap.xml and ro
 app/index.html           Vite's entry: the app, emitted to dist/app/
 ```
 
-`npm run build` is `tsc -b && vite build && node scripts/build-site.ts`. Node 26 strips types, so the
+`npm run build` is `tsc -b && vite build && node scripts/build-site.ts && npm run build:server`; the last step
+bundles the Node entry into `dist/server.js`. Node 26 strips types, so the
 build script is TypeScript and may import the existing markdown renderer (`src/lib/markdown.ts`)
 without a loader.
 
@@ -110,7 +111,7 @@ One screen must answer three questions: what is this, why is it different, and w
 5. **The three ideas** — the graph, derived facts, and one truth for two audiences. Three paragraphs,
    each ending in the consequence for the reader.
 6. **How it starts** — open the demo, shape a board, install it when it needs to be yours.
-7. **Who it is for** — three situations, plainly: the programme whose board no longer matches the
+7. **Who it is for** — three situations, plainly: the program whose board no longer matches the
    work; the team whose column names are its own; the person who reads for a living and is tired of
    asking. No invented logos, no invented quotes.
 8. **The promises that are unusual** — no trackers; your export always works; it runs on your own

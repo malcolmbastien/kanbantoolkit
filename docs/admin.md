@@ -132,10 +132,9 @@ permission cache immediately, so a revoked person does not keep a cached "yes".
 
 ## 2. What Kanban Toolkit has today
 
-Kanban Toolkit starts from a better place in one respect: **there is no password to manage**. Sign-in is
-OAuth/OIDC only, with Google, Microsoft and one self-hosted provider, plus `AUTH_DEV=1`. That
-removes password reset, password policy, TOTP and breach-checking from the whole product. It must
-stay that way.
+This section is the audit as it stood when it was written. It is kept as the record of why the design is
+what it is, and where a finding has since been closed, it says so. Sign-in now comes from the operator's
+own OIDC issuer, a password, or a magic link, with `AUTH_DEV=1` for local trials.
 
 What exists:
 
@@ -143,7 +142,7 @@ What exists:
 | --- | --- | --- |
 | `users` | `migrations/0002_auth.sql` | `id`, `name`, `email`, `created_at` |
 | `identities` | same | provider + subject → user, with the verified email |
-| `sessions` | same | SHA-256 of the cookie token, user, expiry (fixed 30 days) |
+| `sessions` | same | SHA-256 of the cookie token, user, expiry (12 hours, or 30 days when the person asks to be remembered) |
 | `members` | same | instance membership **and** a role string (`owner`/`member`/invite role) |
 | `invites` | same | an email plus a role, consumed on first sign-in |
 | `auth_attempts` | same | per-IP attempt counts, for rate limiting |
@@ -156,12 +155,12 @@ Four findings worth stating plainly:
 
 1. **The instance is open.** In `identify()`, a verified address with no invite and no membership
    becomes a `member` as long as one person already owns the instance. Once a provider is
-   configured, anyone with a Google/Microsoft account who completes the flow is in. Today that is
+   configured, anyone who completes that provider's sign-in is in. Today that is
    the only behaviour available, and it is not a safe default for a team instance.
-2. **The role is decorative.** `AuthUser.role` is returned by `/api/auth/session` and printed in the
+2. **The role is decorative.** *Closed since this audit: every write checks the role on each request.* `AuthUser.role` is returned by `/api/auth/session` and printed in the
    account menu, but no route checks it. There is no `requireRole`, no permission function, and no
    server-side action a role could govern yet.
-3. **An invitation is only an email row.** No token, no expiry, no list, no revoke, no link to copy,
+3. **An invitation is only an email row.** *Closed since this audit: invitations have links, expiry and revoke.* No token, no expiry, no list, no revoke, no link to copy,
    and no record of who invited whom. It is spent the first time that address signs in, whichever
    provider it uses.
 4. **There is no lifecycle.** No `is_active`, no last activity, no session list, no self-protection,

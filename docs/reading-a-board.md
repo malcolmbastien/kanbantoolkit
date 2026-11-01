@@ -34,8 +34,8 @@ stage. The top-level columns themselves are not added, removed or reordered.
 A board has exactly **one initiatives flow** and **one or more cards flows**.
 
 - Each cards flow is its own set of the four columns, with its own name, its own WIP limits and its
-  own place in the stack. The flows are drawn as bands, one below another, not as tabs — so two
-  Backlogs are visibly two different answers.
+  own place in the stack. The flows are drawn as bands, one below another, not as tabs. Two columns
+  named Backlog can then be seen to mean different things.
 - A card belongs to exactly one cards flow. Dragging it into another flow is a move: the target
   flow's columns and WIP limits apply, and the card keeps its identity and history.
 - **Edit board** is where a cards flow is added, renamed, reordered or removed. A flow can only be
@@ -44,13 +44,12 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
   card moved from elsewhere lands consistently wherever it came from. The Flow view can be narrowed
   to one cards flow.
 - A **template** captures a set of cards flows — their names, columns and limits — and a new board
-  made from it gets all of them. A programme or portfolio board has no cards flow of its own.
+  made from it gets all of them. A program or portfolio board has no cards flow of its own.
 
 Each flow's header stays at the top of the board while its columns scroll, so a reader moving through
 a long lane never loses which flow — and which set of columns — is in front of them. The initiatives
-and boundary bands behave the same way. A cards flow uses the board's own margin rather than adding a
-second inset inside it: a wide flow has the width it needs, and its columns line up with the bands
-above and below.
+and boundary bands behave the same way. A cards flow lines up with the bands above and below it, and a
+wide flow takes the width its columns need.
 
 A workflow's chevron folds that whole band away to its header: the name, the count and the controls
 stay, and the columns give their room to the workflow below. Opening it brings the header to the top
@@ -79,16 +78,17 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
   waits on reaches Done.
 - **Activity** is the item's own history: every move, edit, note and link, with who and when.
 
-The drawer is where editing happens. If somebody else is editing the same card, their lease is shown
-and the fields are closed for you until they finish; a Viewer, and an archived or discarded item, are
-read-only. A Viewer can still leave a note; an archived item accepts no edits or notes. The eye
-button on an initiative starts **Focus**, which highlights its lineage on the board; opening an
-archived item does not start it. A **portfolio** offers no focus: its outcomes live on the programme
-and team boards beneath it, and the strategy map is already grouped by what the work is for, so
-there is no board of its own to dim. People are chosen from the workspace's own directory — with
-their photo, or their initials when there is none — and typing a name searches it; it never creates
-a person, because an account arrives by invitation.
-<kbd>Escape</kbd> closes the drawer.
+The drawer is where editing happens. If somebody else is editing the same card, the drawer shows who has
+it, and the fields stay closed to you until they finish. A Viewer, and an archived or discarded item,
+are read-only. A Viewer can still leave a note, but an archived item accepts no edits or notes.
+
+The eye button on an initiative starts **Focus**, which highlights its lineage on the board. Opening an
+archived item does not start it. A **portfolio** has no focus mode: its outcomes live on the program
+and team boards beneath it, and the strategy map is already grouped by what the work is for.
+
+People are chosen from the workspace's own directory, shown with their photo or their initials. Typing
+a name searches that directory. The picker never creates a person, because an account arrives by
+invitation. <kbd>Escape</kbd> closes the drawer.
 
 <img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form, with Overview, Hierarchy and Activity tabs" width="420">
 
@@ -184,13 +184,12 @@ no longer open; the workflow keeps the history. The header counts what is **open
 
 ## Putting it together
 
-A card moves through its cards flow → its stage, and the rollup of the initiative above it, change
-with it → the initiative's pips, percentage and section follow automatically → if it waits on work
-from another board, the boundary entry and the card's **Waiting on** chip show that edge. Every part
-is a reading of the same item, not a copy of it.
+When a card moves, its stage changes. The initiative above it then updates its pips, percentage and
+section on its own. If the card waits on work from another board, the boundary entry and the card's
+**Waiting on** chip show that edge. Every part is a reading of the same item, not a copy of it.
 
 ## Related
 
-- [Board types](board-types.md) — team, programme and portfolio boards, and what each is for.
+- [Board types](board-types.md) — team, program and portfolio boards, and what each is for.
 - [Warnings and signals](warnings.md) — every badge and warning, and what it means.
 - [Using the application](using.md) — the board, a card, an initiative and the views.

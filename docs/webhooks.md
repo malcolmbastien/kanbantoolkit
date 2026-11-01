@@ -84,9 +84,10 @@ so the same delivery id can arrive more than once; make the handler idempotent o
 
 ## Retries
 
-A `2xx` is delivered. Anything else is retried after one minute, five minutes, thirty minutes, two
-hours and six hours — five attempts in all. A `410 Gone` is the receiver saying the endpoint is
-finished: the endpoint is disabled rather than retried. Every attempt is kept in the delivery log
+A `2xx` response counts as delivered. Any other response is retried after one minute, five minutes,
+thirty minutes and two hours. That is five attempts in all. After the fifth, the delivery is marked
+failed. A `410 Gone` means the receiver has finished with the endpoint, so the endpoint is disabled
+and not retried. Every attempt is kept in the delivery log
 with its status, try count, answer and error, and a failed one can be retried by hand.
 
 The dispatcher is not in the request path. A self-hosted instance runs it every fifteen seconds

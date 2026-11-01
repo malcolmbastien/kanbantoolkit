@@ -13,8 +13,8 @@ Within `v1`:
 - **A new field is always optional.** A response may grow; it will not grow a field you must send.
 - **A new *required* field in a request is a breaking change**, so it does not happen inside `v1`.
 - **`code` in an error body is stable.** Branch on it; never on `message`, which is for a person.
-- **A breaking change is `v2`**, served beside `v1`, which keeps answering with a `Sunset` header and
-  at least one minor release of overlap.
+- **A breaking change becomes `v2`.** `v1` keeps running beside it, answering with a `Sunset` header, for
+  at least one minor release.
 
 The document at `GET /api/v1/openapi.json` is generated from the table that mounts the routes, and a
 test fails when the two disagree. Generate a client from it rather than from this page.
@@ -61,7 +61,7 @@ tightens every token its holder has, with nothing to revoke.
 | `boards:write` | creating and reshaping boards, within the role |
 | `items:write` | creating, changing and moving cards and initiatives |
 | `objectives:write` | periods, objectives and key results |
-| `workspace:admin` | settings, people, import and export |
+| `workspace:admin` | settings, people, and restoring a workspace file (`POST /workspace`) |
 
 A route that needs a scope your token does not have answers `403 scope_required` with the scope in
 `details.scope`. A route whose *action* your role does not allow answers `403 role_forbidden` — the
@@ -78,7 +78,7 @@ difference is worth reading: the first is the token you chose, the second is the
 | `POST /items` | `items:write` | create a card or an initiative and place it |
 | `PATCH /items/{itemId}` | `items:write` | change its fields; `baseRev` is required |
 | `POST /boards/{boardId}/items/{itemId}/move` | `items:write` | move it into a cell, at a position |
-| `GET /objectives` | `objectives:write` | objectives with their period window, completeness and key results |
+| `GET /objectives` | `boards:read` | objectives with their completeness and key results |
 | `POST /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | map a top-level initiative to an objective; one objective per initiative, so this moves it |
 | `DELETE /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | unmap it |
 | `GET /vocabulary` | `boards:read` | issue types, board templates, objectives, key results and the auto-archive policy, with `rev` |
@@ -88,30 +88,31 @@ difference is worth reading: the first is the token you chose, the second is the
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
 | `POST /workspace` | `workspace:admin` | restore a file into an empty instance |
 
-A note is an item-log entry of kind `noted`. It may carry `mentions`, an additive list of user ids:
-a mention is part of the note, never a thread, and the typed `@Name` stays in `note`.
+A note is an item-log entry of kind `noted`. It may carry `mentions`, a list of user ids that sits beside
+the note text. A mention is part of the note, not a thread, and the typed `@Name` stays in `note`.
 
-One write travels as a whole document and is deliberately **not** on this surface:
-`PUT /api/workspace/structure` (the board design — boards, flows, lanes and placements). It is the
-shipped client's own protocol — its debounce, its revision and its re-adoption are one application
-talking to one server — so it changes with the app, like every route on the internal page. A board's
-shape is read here through `GET /boards/{boardId}`; its design is written by people using the board.
-The workspace's words *are* here: `GET`/`PUT /vocabulary` use the same document, revision and
-per-list rules as the app's own route.
+The board design is written as one document through `PUT /api/workspace/structure`. That route belongs to
+the app, not to this API, and it changes with the app, so it is not part of v1. A board's shape is read
+here through `GET /boards/{boardId}`. The workspace's words are here too: `GET` and `PUT /vocabulary` use
+the same document, revision and per-list rules as the app.
 
-A board's lane trees are **flows**, and it carries one **initiatives** flow and one or more **cards**
-flows. `GET /boards/{boardId}` answers both views: `workflows.cards` is the board's **first** cards
-flow (the shape v1 always had) and `workflows.initiatives` the initiatives flow, while `flows` names
-every flow — `id`, `name`, `kind`, `order` and its own `lanes` — so a board with Delivery and Support
-is visible rather than half-visible. An item is a card or an initiative; the `typeId` is what makes it
-one, not a different resource.
-There is no `size` field: the board counts issues, not points, and progress is the number of them
-finished over the number below. `createdById` is the person who made the item: the server records it
-from the session, answers it on every item, and refuses a body that tries to send or change one — it
-records an act that has already happened. A request that sends one is answered `422 invalid` and names the
-field, rather than dropping a number the client believes it set. An initiative is placed in the
-initiatives flow and a card in a cards cell — in any of the board's cards flows, where moving between
-them is a move — and a route that tries to cross the two kinds answers `422 wrong_workflow`.
+A board's lane trees are **flows**. A board has one **initiatives** flow and one or more **cards** flows.
+`GET /boards/{boardId}` returns both views. `workflows.cards` is the board's **first** cards flow, which is
+the shape v1 always had, and `workflows.initiatives` is the initiatives flow. `flows` lists every flow with
+its `id`, `name`, `kind`, `order` and `lanes`, so a board with Delivery and Support shows both. An item is a
+card or an initiative. Its `typeId` is what makes it one, not a different resource.
+
+There is no `size` field. The board counts issues, not points, and progress is the number finished over
+the number below.
+
+`createdById` is the person who made the item. The server records it from the session, returns it on every
+item, and refuses a body that tries to send or change it, because it records an act that has already
+happened. A request that sends one gets `422 invalid` and the field name, rather than a silently dropped
+value.
+
+An initiative is placed in the initiatives flow, and a card in a cards cell, in any of the board's cards
+flows. Moving between cards flows is a move. A route that tries to cross the two kinds answers
+`422 wrong_workflow`.
 
 ## Conventions
 
@@ -163,8 +164,8 @@ else: a token belongs to one account, and its scopes are that account's to give.
 
 ## A worked script
 
-Move everything in Backlog to Not Started, one card at a time, and say so for each — the shell loop
-that files work from a CI job:
+Move every card on one board into the board's first Not Started cell, one card at a time, and print what
+happened to each. This shell version works in a CI job:
 
 ```bash
 TOKEN=$(npm run --silent kanbantoolkit -- token)
@@ -188,8 +189,8 @@ curl -s -H "Authorization: Bearer $TOKEN" "$API/items?boardId=$BOARD_ID&includeA
   done
 ```
 
-And the same thing as a Node script, which is what most people will write — it files a card per line
-of an input file, and reports a refused move rather than dying on it:
+The same kind of work in Node. This script files one card per line of an input file, and it reports a
+refused request rather than stopping:
 
 ```js
 const api = 'https://board.example.com/api/v1'

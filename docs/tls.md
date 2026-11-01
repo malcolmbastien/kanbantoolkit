@@ -36,7 +36,8 @@ kanbantoolkit.example {
     }
 
     header {
-        # The same policy public/_headers carries for the static host.
+        # The same policy public/_headers carries for the static host. If this origin also serves the
+        # public site, scope the X-Robots-Tag line to /app (see below).
         Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
         X-Content-Type-Options "nosniff"
         Referrer-Policy "strict-origin-when-cross-origin"
@@ -44,8 +45,6 @@ kanbantoolkit.example {
         -Server
     }
 
-    # The app is private work, and the site is not: the header above belongs to /app alone when the
-    # site is public. See the note below.
 }
 ```
 
@@ -89,12 +88,12 @@ the server the browser is on https, which is what makes the session cookie `Secu
 the cookie is issued for whatever the request's origin was — usually `http` behind a proxy, and then
 it is not `Secure`.
 
-**Do not put a second TLS hop in front of a provider callback.** `https://kanbantoolkit.example/api/auth/callback`
-is the URI to register, exactly, with no trailing slash and no port.
+**The callback address must match exactly.** Register `https://kanbantoolkit.example/api/auth/callback`
+as written, with no trailing slash and no port. The provider compares it character for character.
 
-**The `noindex` header belongs to the app, not to the site.** `public/_headers` scopes it to `/app/*`
-and the site is meant to be indexed. The snippet above applies it everywhere because it is the app,
-not the project's site, that a self-hoster runs: if you serve both from one origin, narrow it:
+**The `noindex` header is for the app, not the site.** `public/_headers` applies it only to `/app/*`,
+because the project's site is meant to be indexed. The snippets above apply it to the whole origin,
+which is right for a self-hoster who runs only the app. If you serve both from one origin, narrow it:
 
 ```caddy
 @app path /app /app/*
@@ -110,7 +109,7 @@ static directory can reach it, and nothing should be added that would.
 ## Checking it
 
 ```bash
-curl -sI https://kanbantoolkit.example/app | grep -iE 'strict-transport|content-security|nosniff'
+curl -sI https://kanbantoolkit.example/app | grep -iE 'content-security|nosniff'
 curl -s  https://kanbantoolkit.example/api/health
 # {"ok":true,"database":"ok"}
 ```

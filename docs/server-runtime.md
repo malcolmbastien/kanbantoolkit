@@ -74,9 +74,9 @@ routes run on both:
 - **Node** — `serve(app.fetch)` from `@hono/node-server`.
 
 Framework choice is therefore an implementation detail, and a reversible one. The contract is the
-decision; Hono is how it is met today (see the note at the end). Task 129 builds this seam before
-the first route exists, so that 117's callback and 118's tables are written once rather than in the
-Worker and moved later.
+decision; Hono is how it is met today (see the note at the end). Task 129 built this seam before the
+first route existed, so 117's callback and 118's tables were written once rather than in the Worker and
+moved later.
 
 ## The boundary
 
@@ -209,6 +209,7 @@ shape ever chafes; because the contract is web standards, either swap is a weeke
 | --- | --- |
 | 2026-10-21 | One codebase, two runtimes; the API is a `fetch` handler. |
 | 2026-10-21 | Providers are configuration; Google and Microsoft are the hosted defaults. |
+| Later (task 154) | *Superseded.* No vendor provider is built in. An instance signs people in with the operator's own OIDC issuer, a password, or a magic link. |
 | 2026-10-21 | SQLite-first schema behind a `Database` interface, so D1 and a file share it. |
 | 2026-10-21 | The seam is built before the first route (task 129), not retrofitted after it. |
 | 2026-10-21 | No ORM yet: plain SQLite behind the interface, with Drizzle as a later swap. |

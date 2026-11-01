@@ -1,44 +1,81 @@
-# The MCP server
+# Connecting an agent (MCP)
 
-Kanban Toolkit speaks [Model Context Protocol](https://modelcontextprotocol.io) so an agent can read and
-write the board. It is not a second product: the tools are named after the acts a person has, they
-call the same operations as [`/api/v1`](rest-api.md), and they are decided by the same domain rules.
-A move an agent makes is a move — it can be refused by a WIP limit, it lands in the trail, and it
-says whose token did it.
+Kanban Toolkit speaks [Model Context Protocol](https://modelcontextprotocol.io), so an agent can read and
+write your board on your behalf. It is not a second product. The tools are named after things a person
+does on the board, they call the same operations as [`/api/v1`](rest-api.md), and the same domain rules
+decide them. A move an agent makes is a move: a WIP limit can refuse it, it is recorded in the item's
+history, and the history says whose token made it.
 
-## Two transports, one tool table
+This page is for someone who runs an instance, or uses one, and wants an agent to work on it. The
+project's own contributor rules are in [`AGENTS.md`](../AGENTS.md); they are not for you.
 
-| Transport | Who it is for | How |
+## Before you start
+
+- A running instance you can reach, for example `https://board.example.com` or `http://localhost:8787`.
+- An account that is a member of that instance. An agent acts with its owner's role and can never go
+  past it.
+- An MCP-capable agent, configured with one of the two transports below.
+
+## Choose a transport
+
+| Transport | Use it when | Needs |
 | --- | --- | --- |
-| **Streamable HTTP** | an agent that cannot spawn a process, or a remote one | `POST <instance>/mcp` with `Authorization: Bearer <token>` |
-| **stdio** | an agent running on your machine | `npm run mcp` — a bridge that forwards to `/mcp` |
+| **Streamable HTTP** | the agent can make HTTP requests, or runs somewhere other than your machine | the instance URL and a token |
+| **stdio** | the agent runs on your machine and starts local processes | a checkout of this repository, with `npm ci` run once, and a token |
 
-Both serve the same list, because the list is one table (`server/mcp/tools.ts`). The stdio process
-decides nothing: it reads JSON-RPC on stdin, forwards each message to the instance with the token,
-and writes the answer. A local agent and a remote one are the same caller with the same limits, and a
-revocation is felt on the next message.
+Both serve the same tool list and enforce the same rules. A revoked token stops working on its next
+request under either transport.
 
-There is **no unauthenticated mode on either transport**. A local agent still says who it is, or the
-trail cannot say who filed the card.
+**Docker installs use Streamable HTTP.** The container runs the server only. The stdio bridge is not
+in the image, so it needs a checkout.
 
-## Connecting
+## Get a token
 
-### The token
+A token is a secret that identifies you to the instance. Create one in either of two ways.
 
-Either the CLI, in a terminal:
+**From the app.** Sign in, open **Admin → Connect an agent**, choose a name, and choose whether the
+agent may write. The app shows the configuration with the secret in it. The secret is shown once, so
+copy it then.
+
+- Read-only mints `boards:read`, `items:read`, `people:read` and `items:comment`.
+- Read and write adds `items:write` and `objectives:write`.
+
+**From a terminal**, using the CLI in a checkout of this repository:
 
 ```bash
 npm run kanbantoolkit -- login --url https://board.example.com
 ```
 
-…which prints a code, waits for you to approve it in the browser, and writes the secret to
-`~/.config/kanbantoolkit/token`; or **Admin → Connect an agent** in the app, which mints a scoped token and
-shows both configurations below with the secret in them, once.
+The command prints a short code and waits. Approve the code in the browser you are signed in to, and
+the CLI stores the secret in `~/.config/kanbantoolkit/token` with permissions `600`.
 
-A token is a person's: it acts as its owner, it can never reach past their role, and every write it
-makes is audited under their name. Mint it read-only unless the agent needs to write.
+By default the CLI asks for `boards:read` and `items:read` only, and the token lasts the instance's
+default (90 days). Add what the agent needs:
 
-### An agent that calls over HTTP
+```bash
+npm run kanbantoolkit -- login --url https://board.example.com \
+  --scopes boards:read,items:read,items:write --days 30
+```
+
+| Scope | What it allows |
+| --- | --- |
+| `boards:read` | list boards, read a board, read objectives and the workspace summary |
+| `items:read` | search and read items |
+| `items:write` | create, update and move items, and set parents |
+| `people:read` | list people, so an assignee is a real person |
+| `items:comment` | add a note to an item. No MCP tool uses it yet |
+
+Mint the token read-only unless the agent needs to change the board. Grant `boards:write` only if you
+have a reason: no MCP tool uses it.
+
+A token is a secret. Anyone holding it can act as you, within its scopes. Revoke it from the app if it
+leaks.
+
+## Configure the agent
+
+### Over HTTP
+
+Use this for Docker installs, and for any instance the agent reaches over the network.
 
 ```json
 {
@@ -52,17 +89,28 @@ makes is audited under their name. Mint it read-only unless the agent needs to w
 }
 ```
 
-The endpoint is stateless: no session id to remember, no server-to-client stream to hold open, and a
-restart costs the agent nothing. `GET /mcp` answers `405` and says so.
+Replace `ktk_…` with your token and the URL with your instance's address. The connection is stateless,
+so the agent can restart, or the server can, without losing anything. A plain `GET /mcp` returns `405`
+and says that this server does not stream to the client. That is expected.
 
-### An agent on your machine (stdio)
+### On your machine (stdio)
+
+Use this when the agent should start the bridge itself. You need a checkout of this repository, with
+dependencies installed once:
+
+```bash
+git clone <repository-url> kanbantoolkit
+cd kanbantoolkit && npm ci
+```
+
+Then point the agent at the checkout:
 
 ```json
 {
   "mcpServers": {
     "kanbantoolkit": {
-      "command": "npx",
-      "args": ["tsx", "server/mcp.ts"],
+      "command": "npm",
+      "args": ["--prefix", "/home/you/kanbantoolkit", "run", "--silent", "mcp"],
       "env": {
         "KANBANTOOLKIT_URL": "https://board.example.com",
         "KANBANTOOLKIT_TOKEN_FILE": "/home/you/.config/kanbantoolkit/token"
@@ -72,10 +120,26 @@ restart costs the agent nothing. `GET /mcp` answers `405` and says so.
 }
 ```
 
-`KANBANTOOLKIT_TOKEN` works instead of the file if you must; the file is better, because that is where the
-CLI keeps it and a config that travels does not carry a secret. The bridge needs the repository (or
-the image, run with `docker exec -i kanbantoolkit tsx server/mcp.ts`); everything else runs on the
-instance.
+- Replace `/home/you/kanbantoolkit` with the path to your checkout.
+- `--silent` keeps npm's own messages off the protocol channel.
+- `KANBANTOOLKIT_TOKEN` can replace the token file, but the file is better. A config you share does not
+  then carry a secret.
+- If `KANBANTOOLKIT_URL` is unset, the bridge uses `http://localhost:8787`.
+
+The bridge is a relay. It forwards each message to your instance, so the tools, the rules and the history
+are the instance's own.
+
+## Your first session
+
+A reasonable order for an agent, and what each step is for:
+
+1. `list_boards`: which boards exist, and whether each one is archived or read-only.
+2. `workspace_summary`: counts and the columns of your team board, without paging through every card.
+3. `get_board`: one board, its columns and cells, and the items on it. The `laneId` values you need to
+   move a card come from here.
+4. `search_items`: find an item by part of its title. It returns ids.
+5. `get_item`: one item, with its `rev`. A write has to say which revision it was based on.
+6. `update_item` or `move_item`: make the change, passing the `rev` from step 5 as `baseRev`.
 
 ## The tools
 
@@ -84,37 +148,35 @@ Reads:
 | Tool | Scope | What it returns |
 | --- | --- | --- |
 | `list_boards` | `boards:read` | every board: id, name, band, archived, WIP enforcement |
-| `get_board` | `boards:read` | one board with its lane trees — one initiatives flow and one or more cards flows, named — its placements, the items on it; this is where `laneId` comes from |
-| `search_items` | `items:read` | the app's own search: a substring of the title, never a query language |
-| `get_item` | `items:read` | one item: fields, parent, placements, revision, rollup, history |
-| `list_objectives` | `boards:read` | objectives with the completeness their work gives them (`null` when nothing serves one) and their key results |
-| `list_people` | `people:read` | ids and names, so an assignee is a person and not a guess |
-| `workspace_summary` | `boards:read` | counts and the board list, and the cards flows of the first team board with their names, columns and how many items each holds |
+| `get_board` | `boards:read` | one board with its lane trees (one initiatives flow and one or more cards flows, each named), its placements, and the items on it |
+| `search_items` | `items:read` | items whose title contains your text. It is a plain substring search, not a query language |
+| `get_item` | `items:read` | one item: fields, parent, placements, revision, rollup and history |
+| `list_objectives` | `boards:read` | objectives, with the completeness their work gives them (`null` when no work serves one), and their key results |
+| `list_people` | `people:read` | ids and names, so an assignee is a person, not a guess |
+| `workspace_summary` | `boards:read` | counts, the board list, and the columns of the first team board with how many items each holds |
 
 Writes:
 
 | Tool | Scope | What it refuses |
 | --- | --- | --- |
-| `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the other kind of flow; a `size` (the board counts issues, not points); a `createdById` — the server records the caller as the creator |
-| `update_item` | `items:write` | a stale `baseRev` (with the current item); a retype into or out of Initiative; a `size`; a `createdById`; a parent that is not an initiative or would make a cycle |
-| `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell or the reverse (any of the board's cards flows accepts a card); an initiative across its section |
-| `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or its own descendant |
+| `create_item` | `items:write` | a board, lane, type, parent, tag or assignee that does not exist; a lane of the wrong kind of flow; a `size`, because boards count issues, not points; a `createdById`, because the server records the creator |
+| `update_item` | `items:write` | a missing or stale `baseRev`, returning the current item; a change of type into or out of Initiative or Sub-task (`invalid`); a `size`; a `createdById`; a parent that is not an initiative, or would make a cycle |
+| `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell, or an initiative into a cards cell; an initiative across its section |
+| `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or one of its own descendants |
 
-Reads are bounded: a page is 50 by default and never more than 200, and `workspace_summary` exists so
-an agent does not have to page through 400 cards to answer "what is in Done".
+Reads are paged. A page holds 50 items by default and never more than 200. A list answer includes a
+`nextCursor` when there is another page. Pass it back to continue.
 
-**There is no generative tool, and that is a decision.** No tool fills a board with plausible cards,
-rewrites it from a summary, or fabricates history — the product's rule is that the app writes what
-somebody wrote, and a model's guess is nobody's words. `create_item` is somebody writing; a tool that
-invented the words would not be.
+**There is no tool that generates work.** No tool fills a board with plausible cards, rewrites it from a
+summary, or invents history. The app records what people wrote. `create_item` records what the agent was
+asked to file, and the words are the agent's to choose, within that request.
 
-There is also no bulk write, no `force` argument, no SQL or filter-expression language, and no
-unauthenticated mode. A batch of twenty cards is twenty calls, each refused or recorded on its own.
+There is no bulk write, no `force` argument, no SQL or filter expression, and no unauthenticated mode.
+A batch of twenty cards is twenty calls, and each is accepted or refused on its own.
 
-## What a refusal looks like
+## When a tool refuses
 
-A tool that refuses is a tool that worked. The answer is a **result** with `isError: true` and the
-operation's own sentence — not a thrown error, not a 500:
+A refusal is a normal answer, not a crash. The result has `isError: true` and a sentence a person can read:
 
 ```json
 {
@@ -128,23 +190,44 @@ operation's own sentence — not a thrown error, not a 500:
 }
 ```
 
-The `structuredContent.error` is stable, and it is the same vocabulary `/api/v1` uses:
-`wip_blocked`, `reason_required`, `section_fixed`, `parent_invalid`, `stale`, `role_forbidden`,
-`invalid`, `not_found`. An agent can tell a person what happened and try the right thing next, rather
-than retrying a bare failure.
+`structuredContent.error` is a stable code, the same one `/api/v1` uses:
 
-A read-only token's `tools/list` contains **no write tool at all** — not one that refuses, which would
-invite an agent to argue with it.
+| Code | Meaning | What to do |
+| --- | --- | --- |
+| `wip_blocked` | the lane is full, and its board does not let work over the limit | move elsewhere, or ask someone to free space |
+| `reason_required` | the lane needs a reason to accept the card | repeat the move with the reason |
+| `section_fixed` | an initiative cannot leave its section | move it within the section |
+| `parent_invalid` | the parent is not an initiative, or would create a cycle | choose a different parent |
+| `stale` | the item changed since you read it; the answer includes the current item | read the new revision and decide again |
+| `role_forbidden` | your role does not allow this change | ask an administrator, or use a different account |
+| `invalid` | a field is missing or not allowed | correct the field named in `details` |
+| `not_found` | the id is not on this instance, or not in this workspace | search again |
+| `conflict` | an item with that id already exists | use a new id, or leave it out for the server to choose |
+
+A token that cannot write has no write tools at all. Its `tools/list` does not include them, so an agent
+never sees a tool it cannot use.
+
+## Troubleshooting
+
+- **The agent sees no tools.** The MCP connection failed, or the configuration is wrong. Check the URL or
+  the `npm --prefix` path first.
+- **`401` with `invalid_token`.** The token was revoked, has expired, or belongs to an account that is no
+  longer a member. Create a new token.
+- **The agent can read but not write.** The token is read-only. Create a token with `items:write`.
+- **The bridge says it is unreachable.** Check `KANBANTOOLKIT_URL`, and whether the instance is running.
+- **The bridge says there is no credential.** Set `KANBANTOOLKIT_TOKEN_FILE`, or run `login` again.
+- **A write answers `stale`.** Someone changed the item after you read it. The answer includes the current
+  item, so use its `rev` and decide again.
 
 ## The rule
 
-An agent writes what a person asked for. It may choose the words of a card it was asked to file; it
-may not invent work, and nothing in this server will do it for the model.
+An agent writes what a person asked for. It may choose the words of a card it was asked to file. It may
+not invent work, and nothing on this server will do that for the model.
 
 ## Out of scope, on purpose
 
-- **Prompts and sampling.** This is a server that lets an agent read and write the board, not a chat
-  product inside Kanban Toolkit.
-- **Server-initiated streams.** No `GET /mcp` event stream: the tools are request/response, and a
-  stream nobody uses is a connection somebody has to keep alive.
-- **An unauthenticated local mode.** The trail has to be able to say who acted.
+- **Prompts and sampling.** This is a server that lets an agent read and write the board. It is not a chat
+  feature inside Kanban Toolkit.
+- **Server-initiated streams.** There is no `GET /mcp` event stream. The tools are request and response, and
+  an open stream that nobody needs is a connection someone has to keep alive.
+- **An unauthenticated mode.** The history has to be able to say who acted.

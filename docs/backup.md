@@ -49,8 +49,8 @@ route for putting one back.*
 A Worker has no filesystem. Its Backups tab says the database provider owns backup and restore, and
 points at the provider's console; it does not pretend an in-app file copy exists.
 
-**A second copy, with another provider, is the part that is not optional.** A backup on the machine
-that fails is not a backup. Any of these, nightly, after the copy:
+**A second copy, on a different machine or with a different provider, is the part that is not
+optional.** A backup on the machine that fails is not a backup. Any of these, nightly, after the copy:
 
 ```bash
 rclone sync ./backups remote:kanbantoolkit-backups
@@ -89,25 +89,25 @@ D1 keeps its own history, and it is the provider's to keep:
 The export is the second copy: keep it somewhere that is not the same account. It is a `.sql` file
 and restoring it is `wrangler d1 execute kanbantoolkit --remote --file=…`.
 
-Neither of these is a daily task anyone performs — the schedule is the provider's, and R1 asks that
-it is visible and non-zero. Check it once a quarter, and check that the export job still runs.
+Neither of these is a daily task anyone performs. Cloudflare runs the schedule. Check once a quarter that
+Time Travel is still available, and that the export job still runs.
 
 ## The drill
 
 Do this at least once a quarter, and after any change to the schema or the deployment:
 
-1. **Take an export from the app.** Settings → export the workspace, as the person who owns it
-   (R5). This is the known-good answer, in the app's own vocabulary.
+1. **Take an export from the app.** Sign in as the workspace's administrator and choose **Admin → Workspace
+   data → Export**. This is the known-good answer, in the app's own vocabulary.
 2. **Restore yesterday's backup into a scratch environment** — a second database file, or a second
    branch of D1. Never over the live one.
 3. **Compare.** The restored workspace's export should equal the one from step 1, apart from what
    changed in between. Counts are the quick check: boards, items, placements, edges, and the log
    entries are in the restored copy.
-4. **Write the date here.** The line at the top of this file is the record.
+4. **Record the date.** Update the "Last drill" line at the top of this file.
 
 The automated part of the drill — seed a workspace, back it up, restore it into a scratch file, and
-compare the whole workspace object — runs in `server/backup.test.ts` on every push. It cannot reach
-the provider's backups, which is why the manual steps above exist rather than instead.
+compare the whole workspace object — runs in `server/backup.test.ts` on every push. It cannot reach the
+provider's backups, so the manual steps above are still needed.
 
 ## What this does not cover
 
