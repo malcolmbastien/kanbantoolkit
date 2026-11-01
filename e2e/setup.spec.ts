@@ -246,13 +246,18 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
   }
 
   // The note is in the card's history on the server, signed by Grace — not merely on her screen.
+  // The workspace document no longer carries history, so the note is found where it is read.
   const cookie = await cookieFor('grace@example.com', 'another good passphrase')
-  const detail = await (await request.get(`${ORIGIN}/api/workspace`, { headers: { cookie } })).json()
-  type Entry = { kind: string; note?: string }
-  const card = detail.items.find((i: { log?: Entry[] }) =>
-    (i.log ?? []).some((e) => e.kind === 'noted' && e.note === note),
-  ) as { id: string; rev?: number; title: string } | undefined
-  expect(card, 'the note the Viewer left is in the item’s log').toBeTruthy()
+  const detail = (await (await request.get(`${ORIGIN}/api/workspace`, { headers: { cookie } })).json()) as {
+    items: Array<{ id: string; rev?: number; title: string; log?: unknown }>
+  }
+  expect(detail.items.every((item) => item.log === undefined), 'the document carries no history').toBe(true)
+  const noted = (await (
+    await request.get(`${ORIGIN}/api/workspace/notes?q=${encodeURIComponent(note)}`, { headers: { cookie } })
+  ).json()) as { notes: Array<{ itemId: string; entry: { kind: string; note?: string } }> }
+  expect(noted.notes[0]?.entry.note, 'the note the Viewer left is in the item’s log').toBe(note)
+  const card = detail.items.find((item) => item.id === noted.notes[0]?.itemId)
+  expect(card).toBeTruthy()
 
   // And the interface and the server agree: a direct write is refused, in the matrix's own words.
   // The comment composer above is the exception the matrix makes, not a hole in it.

@@ -177,6 +177,19 @@ export function parseItem(input: unknown): Item | null {
 }
 
 /**
+ * The entries a history append carries.
+ *
+ * An append says what happened and nothing else, so every entry must be one this server can store:
+ * unlike an import, a malformed entry is refused rather than dropped, because the caller would
+ * otherwise believe it landed. The ceiling is the same one an item's log has.
+ */
+export function parseHistory(value: unknown): ItemLogEntry[] | undefined {
+  if (!Array.isArray(value) || value.length === 0 || value.length > LIMITS.log) return undefined
+  const entries = log(value)
+  return entries?.length === value.length ? entries : undefined
+}
+
+/**
  * A whole workspace, as the browser hands it over.
  *
  * The rules are the ones the item parser already keeps, applied at the top: every list is a list,

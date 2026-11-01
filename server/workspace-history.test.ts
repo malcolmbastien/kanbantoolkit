@@ -297,3 +297,65 @@ describe('the notes search and mentions read', () => {
     expect(await readNotes(db, 'workspace', { q: 'secret' })).toEqual([])
   })
 })
+
+describe('appending history without a revision', () => {
+  const entry = (id: string, at: number, over: Record<string, unknown> = {}) => ({
+    id,
+    at,
+    kind: 'moved',
+    toStage: 'done',
+    ...over,
+  })
+
+  const append = (db: Database, cookie: string, id: string, entries: unknown[]) =>
+    instance(db)(`/api/workspace/items/${id}/log`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ entries }),
+    })
+
+  it('writes the entry once, and leaves the card’s revision where it was', async () => {
+    const db = database()
+    await writeWorkspace(db, seeded(), 'workspace')
+    const { cookie } = await signedIn(db)
+    const before = (await db.get<{ rev: number }>('SELECT rev FROM items WHERE id = ?1', ['i-1']))!.rev
+
+    // A drag is arrangement: the entry is a fact, the revision is not its business.
+    expect((await append(db, cookie, 'i-1', [entry('e-new', 1_700_000_005_000)])).status).toBe(200)
+    // A retry of the same entry appends nothing twice.
+    expect((await append(db, cookie, 'i-1', [entry('e-new', 1_700_000_005_000)])).status).toBe(200)
+
+    const page = await readItemLog(db, 'i-1', 'workspace')
+    expect(page?.entries.filter((e) => e.id === 'e-new')).toHaveLength(1)
+    expect(page?.entries[0].id).toBe('e-new')
+    expect((await db.get<{ rev: number }>('SELECT rev FROM items WHERE id = ?1', ['i-1']))!.rev).toBe(before)
+  })
+
+  it('refuses a malformed entry rather than storing half of one', async () => {
+    const db = database()
+    await writeWorkspace(db, seeded(), 'workspace')
+    const { cookie } = await signedIn(db)
+
+    expect((await append(db, cookie, 'i-1', [])).status).toBe(400)
+    expect((await append(db, cookie, 'i-1', [{ id: 'e-x' }])).status).toBe(400)
+    expect((await append(db, cookie, 'i-1', [entry('e-ok', 1), { id: 'e-bad' }])).status).toBe(400)
+    // A refused body wrote none of the entries it carried.
+    expect((await readItemLog(db, 'i-1', 'workspace'))?.entries.some((e) => e.id === 'e-ok')).toBe(false)
+  })
+
+  it('is an item write, and only for a card in this workspace', async () => {
+    const db = database()
+    await db.run("INSERT INTO workspaces (id, name) VALUES ('other', 'Other')")
+    await writeWorkspace(db, seeded(), 'workspace')
+    const { cookie } = await signedIn(db)
+    await db.run('UPDATE workspace_members SET role = ?1 WHERE user_id = ?2', ['viewer', 'u-ada'])
+    expect((await append(db, cookie, 'i-1', [entry('e-viewer', 1)])).status).toBe(403)
+
+    await db.run('UPDATE workspace_members SET role = ?1 WHERE user_id = ?2', ['admin', 'u-ada'])
+    await db.run(
+      "INSERT INTO items (id, title, type_id, created_at, rev, workspace_id) VALUES ('i-theirs', 'Theirs', 't-card', 1, 1, 'other')",
+    )
+    expect((await append(db, cookie, 'i-theirs', [entry('e-theirs', 1)])).status).toBe(404)
+    expect((await append(db, cookie, 'nope', [entry('e-nope', 1)])).status).toBe(404)
+  })
+})

@@ -140,8 +140,12 @@ which is what lets a sign-in page draw exactly the buttons that work.
 
 | Route | Authority | What it does |
 | --- | --- | --- |
-| `GET /api/workspace` | `board.read` | the whole workspace, plus `schema`, `meUserId`, `structureRev` and `vocabularyRev` |
+| `GET /api/workspace` | `board.read` | the whole workspace — cards without their history — plus `schema`, `meUserId`, `structureRev` and `vocabularyRev` |
 | `PATCH /api/workspace/items/:id` | `item.write` | one item, based on a revision — see below |
+| `GET /api/workspace/items/:id/log` | `board.read` | one card's history, one page at a time, newest first |
+| `POST /api/workspace/items/:id/log` | `item.write` | append history entries without taking a revision — a move is arrangement |
+| `GET /api/workspace/movements?boardId=<id>` | `board.read` | one board's moves — the stages and timestamps its flow reading charts |
+| `GET /api/workspace/notes?q=<text>` | `board.read` | notes matching a query, or with `mention=me`, the notes that name the caller |
 | `GET /api/workspace/changes?since=<id>` | `board.read` | the change feed after a cursor, and the leases held |
 | `POST /api/workspace/items/:id/lock` | `item.write` | take the editing lease |
 | `POST /api/workspace/items/:id/heartbeat` | `item.write` | renew it |
@@ -214,6 +218,79 @@ Content-Type: application/json
 
 Creation is the same route: an item the server has never seen is created whatever `baseRev` says,
 which is what lets a workspace that lived only in a browser arrive one card at a time.
+
+`log` is append-only. The client may send the entries it knows rather than the whole history — it is
+not carrying one any more — and the server inserts only ids it does not already hold. An entry the
+server has is never rewritten; a Viewer may append only notes, and a `moved` entry is a change to the
+work rather than a comment.
+
+### Reading history
+
+The workspace document carries cards, not what happened to them. Opening a board does not load every
+move and note ever written, so a workspace with years of history costs the same to open as a new one.
+Three reads answer the views that need it.
+
+One card's history, newest first:
+
+```http
+GET /api/workspace/items/i-atlas-01/log?limit=50
+```
+
+```json
+{ "entries": [{ "id": "l-8", "at": 1760000000000, "kind": "noted", "note": "Second pair of eyes", "by": "u-ada" }],
+  "nextCursor": "MTc2MDAwMDAwMDAwMDpsLTM", "total": 213 }
+```
+
+`nextCursor` asks for the page before this one and is `null` at the beginning; `total` is the whole
+count, so a drawer can say how much there is before every page has arrived. A page is `50` entries
+unless `limit` says otherwise, and never more than `200`. An id from another workspace is `404`, not
+an empty log.
+
+One board's moves, for the flow reading:
+
+```http
+GET /api/workspace/movements?boardId=b-atlas&since=1751328000000
+```
+
+```json
+{ "moves": [{ "id": "l-8", "itemId": "i-atlas-01", "at": 1760000000000, "fromStage": "inProgress", "toStage": "done" }],
+  "truncated": false }
+```
+
+Only `moved` entries, and only the stages they landed in: flow metrics rebuild each card's stages
+from stages, never from lane names, so a renamed column does not rewrite the past. `since` is an
+instant in milliseconds. The cap is 50,000 moves, and when it bites the *oldest* go and `truncated`
+says so, because a chart is read from the present backwards.
+
+The notes search and mentions read:
+
+```http
+GET /api/workspace/notes?q=retry
+GET /api/workspace/notes?mention=me
+```
+
+```json
+{ "notes": [{ "itemId": "i-atlas-01", "entry": { "id": "l-8", "at": 1760000000000, "kind": "noted",
+  "note": "The retries need a budget", "mentions": ["u-grace"] } }] }
+```
+
+`q` is a case-insensitive substring of the note's words; `mention=me` is the caller's own notes and
+nobody else's, which is why it takes no user id. Newest first, `100` by default and `200` at most.
+
+A move appends its entry without changing the card's revision:
+
+```http
+POST /api/workspace/items/i-atlas-01/log
+Content-Type: application/json
+
+{ "entries": [{ "id": "l-9", "at": 1760000000000, "kind": "moved", "toStage": "done", "boardId": "b-atlas" }] }
+```
+
+A drag is arrangement: it changes the placement and the card's log, but a revision that changed on
+every drag would make a card somebody is editing impossible to rearrange. The entries are written as
+they are, ids making a retry a no-op, and `{"appended": 1}` says how many were offered. A malformed
+entry refuses the whole body rather than storing half of one. Placement changes travel with the
+board's design, not here.
 
 ### The change feed
 

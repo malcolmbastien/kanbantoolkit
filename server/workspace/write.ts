@@ -9,7 +9,7 @@
  * Everything goes through one transaction, because a half-written workspace is worse than none.
  */
 
-import type { Item, Placement } from '../../src/domain/types'
+import type { Item, Placement, ItemLogEntry } from '../../src/domain/types'
 import type { Database, Statement } from '../db'
 import type { Workspace } from './types'
 import type { Vocabulary } from './types'
@@ -152,35 +152,60 @@ function addChecklist(statements: Statement[], item: Item, workspaceId: string):
   }
 }
 
+/** One history row, as it is stored. Shared by the workspace write, a save and an append. */
+function historyRow(itemId: string, entry: ItemLogEntry, workspaceId: string): Row {
+  return {
+    item_id: itemId,
+    id: entry.id,
+    at: entry.at,
+    kind: entry.kind,
+    by_user: value(entry.by),
+    note: value(entry.note),
+    mentions: json(entry.mentions),
+    from_lane_id: value(entry.fromLaneId),
+    to_lane_id: value(entry.toLaneId),
+    from_stage: value(entry.fromStage),
+    to_stage: value(entry.toStage),
+    board_id: value(entry.boardId),
+    workspace_id: workspaceId,
+  }
+}
+
+/** An append: the entry is added only if its id is not stored yet. */
+function historyStatement(itemId: string, entry: ItemLogEntry, workspaceId: string): Statement {
+  const scoped = historyRow(itemId, entry, workspaceId)
+  const columns = Object.keys(scoped)
+  return {
+    // scoped by its item: the log belongs to the card, which belongs to the workspace.
+    sql: `INSERT OR IGNORE INTO item_log (${columns.join(', ')}) VALUES (${columns.map((_, index) => `?${index + 1}`).join(', ')})`,
+    params: Object.values(scoped),
+  }
+}
+
 /** The card's history: whole on a workspace write, only the unseen entries on a save. */
 function addItemHistory(statements: Statement[], item: Item, workspaceId: string, append = false): void {
   for (const entry of item.log ?? []) {
-    const row = {
-      item_id: item.id,
-      id: entry.id,
-      at: entry.at,
-      kind: entry.kind,
-      by_user: value(entry.by),
-      note: value(entry.note),
-      mentions: json(entry.mentions),
-      from_lane_id: value(entry.fromLaneId),
-      to_lane_id: value(entry.toLaneId),
-      from_stage: value(entry.fromStage),
-      to_stage: value(entry.toStage),
-      board_id: value(entry.boardId),
-    }
-    if (append) {
-      const scoped = { ...row, workspace_id: workspaceId }
-      const columns = Object.keys(scoped)
-      statements.push({
-        // scoped by its item: the log belongs to the card, which belongs to the workspace.
-        sql: `INSERT OR IGNORE INTO item_log (${columns.join(', ')}) VALUES (${columns.map((_, index) => `?${index + 1}`).join(', ')})`,
-        params: Object.values(scoped),
-      })
-    } else {
-      add(statements, 'item_log', row, workspaceId)
-    }
+    if (append) statements.push(historyStatement(item.id, entry, workspaceId))
+    else add(statements, 'item_log', historyRow(item.id, entry, workspaceId), workspaceId)
   }
+}
+
+/**
+ * Append entries to one card's history, without taking a revision.
+ *
+ * A move is arrangement: it changes where the card sits and what its log says, but not the card's
+ * content version — a revision that changed on every drag would make a card somebody is editing
+ * impossible to rearrange. The entry is still a fact, so it is written here rather than lost with
+ * the browser that made it. Ids make the call idempotent: a retry appends nothing twice.
+ */
+export async function appendHistory(
+  db: Database,
+  itemId: string,
+  entries: ItemLogEntry[],
+  workspaceId: string,
+): Promise<void> {
+  if (!entries.length) return
+  await db.batch(entries.map((entry) => historyStatement(itemId, entry, workspaceId)))
 }
 
 /** Update the item row in place, so its history and placements are not taken by a delete. */

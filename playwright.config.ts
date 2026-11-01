@@ -126,6 +126,18 @@ export default defineConfig({
     },
     {
       /**
+       * An instance of its own for history read on demand (task 192): a board, a card, a note and a
+       * move, then a second browser with no local history asking where they went. Two browsers over
+       * one database is the point — one of them never held the history at all.
+       */
+      command:
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-history.db && AUTH_DEV=1 WORKSPACE_NAME="Team Atlas" PORT=4182 DB_PATH=node_modules/.tmp/e2e-history.db STATIC_DIR=dist npm run --silent server',
+      url: 'http://localhost:4182/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      /**
        * A deployment with a mail relay — the console one, writing to a file the test can read
        * (task 154.7). The magic-link door only exists where mail does, so proving it in a browser
        * needs an instance that has one; and a test that parsed a real mailbox would not be a test.

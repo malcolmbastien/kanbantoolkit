@@ -9,14 +9,14 @@
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { refusalFor, requireWorkspace } from '../access'
-import type { Item } from '../../src/domain/types'
+import type { Item, ItemLogEntry } from '../../src/domain/types'
 import { WORKSPACE_ID } from '../auth/session'
 import { itemBelongsElsewhere, readGraph, readItem, readItemsByIds, readVocabularyRev, readWorkspace } from './read'
 import { REQUIRED_SCHEMA, WORKSPACE_SCHEMA } from './schema'
 import { schemaVersion } from '../migrate'
 import { acquire, heldByOther, heldLocks, lockOf, release, renew } from './locks'
-import { parseItem, parseWorkspace } from './validate'
-import { alreadyApplied, writeItem, writeWorkspace } from './write'
+import { parseHistory, parseItem, parseWorkspace } from './validate'
+import { alreadyApplied, appendHistory, writeItem, writeWorkspace } from './write'
 import { statement } from '../audit'
 import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
 import { findBandChange, readBoardBands, readDesign, readStructureRev, writeDesign } from './structure'
@@ -42,7 +42,9 @@ export function workspaceRoutes(runtime: Runtime) {
       return c.json({ error: 'this instance has not finished migrating' }, 503)
     }
 
-    const workspace = await readWorkspace(allowed.db, allowed.workspaceId)
+    // The document carries cards, not what happened to them: the drawer and the flow view ask for
+    // history where they read it, so opening a board does not cost every move ever recorded.
+    const workspace = await readWorkspace(allowed.db, allowed.workspaceId, { history: false })
     // Whose workspace this is, answered by the session rather than by a pointer the browser keeps;
     // and which shape it is, so a client that cannot read it can say so instead of half-rendering.
     // The design's revision travels with it: the next write has to say which design it began from.
@@ -293,6 +295,31 @@ export function workspaceRoutes(runtime: Runtime) {
   })
 
   /**
+   * Append to one card's history, without taking a revision.
+   *
+   * The log entry a move leaves is a fact about the card, but the move itself is arrangement: it
+   * changes the placement, not the card's version. A revision that changed on every drag would make
+   * a card somebody is editing impossible to rearrange. This is the door for exactly that — the
+   * entries are written as they are, ids making a retry a no-op, and the revision stays where it is.
+   */
+  routes.post('/items/:id/log', async (c) => {
+    const allowed = await requireWorkspace(c, runtime, 'item.write')
+    if (allowed instanceof Response) return allowed
+
+    const id = c.req.param('id')
+    // "No such item here" and "such an item, in another workspace" are different answers.
+    if (!(await readItem(allowed.db, id, allowed.workspaceId))) {
+      return c.json({ error: 'no such item' }, 404)
+    }
+    const body = (await c.req.json().catch(() => null)) as { entries?: unknown } | null
+    const entries = parseHistory(body?.entries)
+    if (!entries) return c.json({ error: '`entries` must be history entries' }, 400)
+
+    await appendHistory(allowed.db, id, entries, allowed.workspaceId)
+    return c.json({ appended: entries.length })
+  })
+
+  /**
    * The moves of one board's cards, for the flow reading.
    *
    * Only `moved` entries, only the stages they landed in: the chart is rebuilt from stages, and
@@ -380,8 +407,12 @@ export function workspaceRoutes(runtime: Runtime) {
     for (const row of rows) latest.set(row.item_id, row)
     const picked = [...latest.values()].sort((left, right) => left.id - right.id)
 
+    // A change names the card that moved, not its whole history; the client keeps what it has
+    // read and asks for the rest where it is shown.
     const items = new Map(
-      (await readItemsByIds(allowed.db, picked.map((row) => row.item_id), allowed.workspaceId)).map((item) => [item.id, item]),
+      (await readItemsByIds(allowed.db, picked.map((row) => row.item_id), allowed.workspaceId, { history: false })).map(
+        (item) => [item.id, item],
+      ),
     )
 
     return c.json({
@@ -493,11 +524,21 @@ function commentOnly(stored: Item | undefined, incoming: Item, byId: string): bo
     if (!same(stored[field], incoming[field])) return false
   }
 
-  const before = stored.log ?? []
-  const after = incoming.log ?? []
-  if (after.length <= before.length) return false
-  if (!before.every((entry, index) => same(entry, after[index]))) return false
-  return after.slice(before.length).every((entry) => entry.kind === 'noted' && (!entry.by || entry.by === byId))
+  // A client no longer holds the whole history, so the incoming log is not a prefix of the stored
+  // one: it is whatever this browser knows. An entry the server already has must be unchanged — a
+  // write may append, never rewrite — and every entry that is new must be a note by this person.
+  const known = new Map((stored.log ?? []).map((entry) => [entry.id, entry]))
+  const added: ItemLogEntry[] = []
+  for (const entry of incoming.log ?? []) {
+    const existing = known.get(entry.id)
+    if (existing) {
+      if (!same(existing, entry)) return false
+      continue
+    }
+    added.push(entry)
+  }
+  if (!added.length) return false
+  return added.every((entry) => entry.kind === 'noted' && (!entry.by || entry.by === byId))
 }
 
 /** Deep equality, ignoring key order: an array by position, an object by its own keys. */

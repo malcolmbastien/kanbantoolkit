@@ -294,8 +294,11 @@ describe('the workspace', () => {
 
     // The session answers "whose workspace", so the browser keeps no pointer of its own.
     const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id)
+    // The document carries cards, not what happened to them: history is asked for where it is read.
+    const withoutHistory = workspace.items.map(({ log: _log, ...item }) => item)
     expect({ ...body, lanes: [...body.lanes].sort(byId) }).toEqual({
       ...workspace,
+      items: withoutHistory,
       schema: 1,
       meUserId: 'u-ada',
       // The write that put this workspace here was an import, so its design is the first one: a
@@ -305,6 +308,14 @@ describe('the workspace', () => {
       vocabularyRev: 0,
       lanes: [...workspace.lanes].sort(byId),
     })
+    expect(body.items.every((item) => item.log === undefined)).toBe(true)
+
+    // The history it left out is one request away, newest first.
+    const page = (await (
+      await request('/api/workspace/items/i-signin/log', { headers: { cookie } })
+    ).json()) as { entries: Array<{ id: string }>; total: number }
+    expect(page.entries.map((entry) => entry.id)).toEqual(['e-2', 'e-1'])
+    expect(page.total).toBe(2)
   })
 
   it('answers nobody who is not signed in', async () => {
@@ -572,9 +583,14 @@ describe('writing one item', () => {
     expect(response.status).toBe(200)
     expect(((await response.json()) as { item: Item }).item.log?.[0]?.mentions).toEqual(['u-ada'])
 
+    // The workspace document carries no history; the card's page does.
     const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
-    expect(body.items[0].log?.[0]?.mentions).toEqual(['u-ada'])
-    expect(body.items[0].log?.[0]?.note).toBe('@Ada can you look at this?')
+    expect(body.items[0].log).toBeUndefined()
+    const page = (await (
+      await request('/api/workspace/items/i-card/log', { headers: { cookie } })
+    ).json()) as { entries: Array<{ mentions?: string[]; note?: string }> }
+    expect(page.entries[0]?.mentions).toEqual(['u-ada'])
+    expect(page.entries[0]?.note).toBe('@Ada can you look at this?')
   })
 
   it('reads the graph once on a card save, not the whole workspace twice', async () => {
@@ -1019,6 +1035,62 @@ describe('what a role may do, at the door', () => {
 
     const body = (await (await request('/api/workspace', { headers: { cookie: admin.cookie } })).json()) as Workspace
     expect(body.items[0].title).toBe('A card')
+  })
+
+  it('takes a viewer’s note when the log they send is only what they know', async () => {
+    const db = database()
+    const request = instance(db)
+    const admin = await caller(db, 'u-admin', 'admin')
+    const viewer = await caller(db, 'u-view', 'viewer')
+    await write(request, admin.cookie, 'A card', 0)
+
+    // The client no longer holds the server's history: it sends the entry it wrote, not a prefix.
+    const note = { id: 'l-viewer-note', at: 1_700_000_000_002, kind: 'noted' as const, note: 'From the viewer', by: viewer.id }
+    const comment = await request('/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: viewer.cookie },
+      body: JSON.stringify({ baseRev: 1, item: card({ log: [note] }) }),
+    })
+    expect(comment.status).toBe(200)
+
+    const page = (await (
+      await request('/api/workspace/items/i-card/log', { headers: { cookie: admin.cookie } })
+    ).json()) as { entries: Array<{ id: string; note?: string }>; total: number }
+    expect(page.entries.map((entry) => entry.id)).toEqual(['l-viewer-note'])
+    expect(page.entries[0].note).toBe('From the viewer')
+    expect(page.total).toBe(1)
+  })
+
+  it('refuses a viewer a log entry that is not a note, or one that rewrites history', async () => {
+    const db = database()
+    const request = instance(db)
+    const admin = await caller(db, 'u-admin', 'admin')
+    const viewer = await caller(db, 'u-view', 'viewer')
+    const noted = { id: 'l-admin-note', at: 1_700_000_000_001, kind: 'noted' as const, note: 'As written', by: admin.id }
+    await request('/api/workspace/items/i-card', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: admin.cookie },
+      body: JSON.stringify({ baseRev: 0, item: card({ log: [noted] }) }),
+    })
+
+    const patch = (log: unknown[]) =>
+      request('/api/workspace/items/i-card', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: viewer.cookie },
+        body: JSON.stringify({ baseRev: 1, item: card({ log: log as never }) }),
+      })
+
+    // A moved entry is a change to the work, not a comment.
+    expect((await patch([{ id: 'l-fake', at: 1_700_000_000_002, kind: 'moved', toStage: 'done' }])).status).toBe(403)
+    // An entry the server already holds is not the viewer's to rewrite.
+    expect((await patch([{ ...noted, note: 'Rewritten' }])).status).toBe(403)
+    // And a viewer who sends no log has not left a comment.
+    expect((await patch([])).status).toBe(403)
+
+    const page = (await (
+      await request('/api/workspace/items/i-card/log', { headers: { cookie: admin.cookie } })
+    ).json()) as { entries: Array<{ id: string; note?: string }> }
+    expect(page.entries.map((entry) => [entry.id, entry.note])).toEqual([['l-admin-note', 'As written']])
   })
 
   it('lets an editor change the work and refuses them the workspace', async () => {
