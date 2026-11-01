@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { TrendingUp } from 'lucide-react'
 import {
   aging,
@@ -8,6 +8,7 @@ import {
   deliveredSince,
   firstRecordedMove,
   flowRecord,
+  flowRecordFromMoves,
   flowSummary,
   forecastBy,
   forecastWhen,
@@ -25,6 +26,7 @@ import {
   windowStart,
   type FlowRecord,
   type ScatterPoint,
+  type StageMove,
 } from '@/domain/metrics'
 import { isInitiativeItem } from '@/domain/board'
 import { effectiveStage, STAGE_LABELS, STAGES } from '@/domain/lanes'
@@ -34,6 +36,7 @@ import { useStore } from '@/store'
 import type { Item } from '@/domain/types'
 import { cardsFlows, kindOf } from '@/domain/flows'
 import { FLOW_WINDOWS, type FlowWindow } from '@/domain/flowWindow'
+import { fetchMovements, type BoardMove } from '@/lib/history'
 
 const DAY_MS = 86_400_000
 
@@ -75,6 +78,25 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const setFlowWindow = useStore((s) => s.setFlowWindow)
   const setMetricsFlow = useStore((s) => s.setMetricsFlow)
 
+  /**
+   * The board's moves, fetched once when the view opens.
+   *
+   * `undefined` means "still asking", `null` means "this deployment has no history to ask for" —
+   * a static build, or a server that could not answer. Both read the local copy; a server answer
+   * replaces it. A move made in this tab after the fetch is merged in, so the chart is not stale.
+   */
+  const [remoteMoves, setRemoteMoves] = useState<{ moves: BoardMove[]; truncated: boolean } | null | undefined>(undefined)
+  useEffect(() => {
+    let live = true
+    setRemoteMoves(undefined)
+    void fetchMovements(boardId).then((answer) => {
+      if (live) setRemoteMoves(answer ?? null)
+    })
+    return () => {
+      live = false
+    }
+  }, [boardId])
+
   const board = boards.find((b) => b.id === boardId)
   const boardFlows = cardsFlows(flows, boardId)
   // A flow the board no longer has — a link from when it did, or a flow removed in another tab —
@@ -98,7 +120,32 @@ export function MetricsView({ boardId }: { boardId: string }) {
     .filter((i): i is Item => Boolean(i) && !isInitiativeItem(i, issueTypes))
 
   const now = Date.now()
-  const records: FlowRecord[] = cards.map((c) => flowRecord(c, effectiveStage(lanes, laneOf.get(c.id)!)))
+  /** One card's moves: the board's read, and anything this tab recorded after it. */
+  const movesOfCard = (card: Item): StageMove[] => {
+    const merged = new Map<string, StageMove>()
+    for (const move of remoteMoves?.moves ?? []) {
+      if (move.itemId !== card.id) continue
+      merged.set(move.id, {
+        at: move.at,
+        to: move.toStage,
+        ...(move.fromStage ? { from: move.fromStage } : {}),
+      })
+    }
+    for (const entry of card.log ?? []) {
+      if (entry.kind !== 'moved' || !entry.toStage) continue
+      merged.set(entry.id, {
+        at: entry.at,
+        to: entry.toStage,
+        ...(entry.fromStage ? { from: entry.fromStage } : {}),
+      })
+    }
+    return [...merged.entries()].sort((a, b) => a[1].at - b[1].at || a[0].localeCompare(b[0])).map(([, move]) => move)
+  }
+  const records: FlowRecord[] = cards.map((c) =>
+    remoteMoves
+      ? flowRecordFromMoves(c, effectiveStage(lanes, laneOf.get(c.id)!), movesOfCard(c))
+      : flowRecord(c, effectiveStage(lanes, laneOf.get(c.id)!)),
+  )
   const since = windowStart(flowWindow, now)
   const buckets = bucketsFor(flowWindow, records, now)
   const summary = flowSummary(records, now, since)

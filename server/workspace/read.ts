@@ -174,11 +174,15 @@ function laneFrom(row: Row): Lane {
  * A movement history read serves metrics; a paginated per-card read serves the drawer. Search,
  * mentions and the local-first store need their own plan before the workspace stops carrying logs.
  */
-async function readItems(db: Database, workspaceId: string): Promise<Item[]> {
+async function readItems(db: Database, workspaceId: string, history: boolean): Promise<Item[]> {
   const [items, checklists, logs] = await Promise.all([
     db.all<Row>('SELECT * FROM items WHERE workspace_id = ?1 ORDER BY created_at, id', [workspaceId]),
     db.all<Row>('SELECT * FROM item_checklist ORDER BY item_id, position'),
-    db.all<Row>('SELECT * FROM item_log WHERE workspace_id = ?1 ORDER BY item_id, at, id', [workspaceId]),
+    // The client reads history on demand, so the workspace document does not carry it. Server
+    // callers that derive from a card (the v1 operations) still read it.
+    history
+      ? db.all<Row>('SELECT * FROM item_log WHERE workspace_id = ?1 ORDER BY item_id, at, id', [workspaceId])
+      : Promise.resolve([] as Row[]),
   ])
 
   const checklistByItem = group(checklists, (row) => text(row.item_id))
@@ -244,34 +248,35 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
       }))
     }
 
-    if (log.length) {
-      item.log = log.map((entry) => {
-        const line: ItemLogEntry = {
-          id: text(entry.id),
-          at: count(entry.at),
-          kind: text(entry.kind) as ItemLogKind,
-        }
-        const by = maybeText(entry.by_user)
-        if (by !== undefined) line.by = by
-        const note = maybeText(entry.note)
-        if (note !== undefined) line.note = note
-        const mentions = parse<string[]>(entry.mentions)
-        if (mentions !== undefined) line.mentions = mentions
-        const fromLaneId = maybeText(entry.from_lane_id)
-        if (fromLaneId !== undefined) line.fromLaneId = fromLaneId
-        const toLaneId = maybeText(entry.to_lane_id)
-        if (toLaneId !== undefined) line.toLaneId = toLaneId
-        const fromStage = maybeText(entry.from_stage)
-        if (fromStage !== undefined) line.fromStage = fromStage as Stage
-        const toStage = maybeText(entry.to_stage)
-        if (toStage !== undefined) line.toStage = toStage as Stage
-        const boardId = maybeText(entry.board_id)
-        if (boardId !== undefined) line.boardId = boardId
-        return line
-      })
-    }
+    if (log.length) item.log = log.map(logEntryFrom)
 
   return item
+}
+
+/** One history row as the app reads it. Shared by the workspace read and the history reads. */
+export function logEntryFrom(entry: Row): ItemLogEntry {
+  const line: ItemLogEntry = {
+    id: text(entry.id),
+    at: count(entry.at),
+    kind: text(entry.kind) as ItemLogKind,
+  }
+  const by = maybeText(entry.by_user)
+  if (by !== undefined) line.by = by
+  const note = maybeText(entry.note)
+  if (note !== undefined) line.note = note
+  const mentions = parse<string[]>(entry.mentions)
+  if (mentions !== undefined) line.mentions = mentions
+  const fromLaneId = maybeText(entry.from_lane_id)
+  if (fromLaneId !== undefined) line.fromLaneId = fromLaneId
+  const toLaneId = maybeText(entry.to_lane_id)
+  if (toLaneId !== undefined) line.toLaneId = toLaneId
+  const fromStage = maybeText(entry.from_stage)
+  if (fromStage !== undefined) line.fromStage = fromStage as Stage
+  const toStage = maybeText(entry.to_stage)
+  if (toStage !== undefined) line.toStage = toStage as Stage
+  const boardId = maybeText(entry.board_id)
+  if (boardId !== undefined) line.boardId = boardId
+  return line
 }
 
 /** One item's own fields, without its checklist or history — what a listing needs. */
@@ -285,7 +290,12 @@ export function itemFromRow(row: Record<string, unknown>): Item {
  * The ids are bounded by the caller (a poll asks for a page, not for everything), because both D1
  * and the file driver have a limit on how many values one statement may carry.
  */
-export async function readItemsByIds(db: Database, ids: string[], workspaceId: string = WORKSPACE_ROW): Promise<Item[]> {
+export async function readItemsByIds(
+  db: Database,
+  ids: string[],
+  workspaceId: string = WORKSPACE_ROW,
+  options: ReadOptions = {},
+): Promise<Item[]> {
   if (!ids.length) return []
   // `?1` is the workspace, so the ids start at two — and the same marks serve the two child
   // queries, which are reached through an item the scope already admitted.
@@ -295,7 +305,9 @@ export async function readItemsByIds(db: Database, ids: string[], workspaceId: s
     db.all<Row>(`SELECT * FROM items WHERE workspace_id = ?1 AND id IN (${marks})`, [workspaceId, ...ids]),
     db.all<Row>(`SELECT * FROM item_checklist WHERE item_id IN (${plain}) ORDER BY position`, ids),
     // scoped by its item
-    db.all<Row>(`SELECT * FROM item_log WHERE item_id IN (${plain}) ORDER BY at, id`, ids),
+    options.history === false
+      ? Promise.resolve([] as Row[])
+      : db.all<Row>(`SELECT * FROM item_log WHERE item_id IN (${plain}) ORDER BY at, id`, ids), // scoped by its item
   ])
 
   const checklistByItem = group(checklists, (row) => text(row.item_id))
@@ -467,14 +479,31 @@ async function readSettings(db: Database, workspaceId: string): Promise<{ boardI
   }
 }
 
-export async function readWorkspace(db: Database, workspaceId: string = WORKSPACE_ROW): Promise<Workspace> {
+/**
+ * How much of a card's history a read carries.
+ *
+ * The document a browser loads no longer carries history: a card's activity and the board's flow
+ * metrics ask for it when they are read (`readItemLog`, `readMovements`). Server-side callers that
+ * derive from history — the v1 operations, a webhook's before state — still read it whole, because
+ * their answer is about one card, not a whole workspace.
+ */
+export interface ReadOptions {
+  /** Default true: history is part of the workspace unless the caller says otherwise. */
+  history?: boolean
+}
+
+export async function readWorkspace(
+  db: Database,
+  workspaceId: string = WORKSPACE_ROW,
+  options: ReadOptions = {},
+): Promise<Workspace> {
   const [settings, boards, lanes, flows, items, placements, edges, links, periods, objectives, keyResults, boardTemplates, users, issueTypes] =
     await Promise.all([
       readSettings(db, workspaceId),
       readBoards(db, workspaceId),
       readLanes(db, workspaceId),
       readFlows(db, workspaceId),
-      readItems(db, workspaceId),
+      readItems(db, workspaceId, options.history !== false),
       db.all<Row>('SELECT * FROM placements WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM edges WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM links WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),

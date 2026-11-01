@@ -8,6 +8,7 @@ import {
   cycleTimes,
   deliveredSince,
   flowRecord,
+  flowRecordFromMoves,
   firstRecordedMove,
   flowSummary,
   forecastBy,
@@ -69,6 +70,22 @@ describe('flow metrics', () => {
     ])
     expect(r.startedIn).toBe('backlog')
     expect(r.resolvedAt).toBe(T - 5 * DAY)
+  })
+
+  it('reads the same record from moves that arrived without the card', () => {
+    const item: Item = { id: 'c1', title: 'Card', typeId: 't-story', createdAt: T - 30 * DAY, resolvedAt: T - 5 * DAY }
+    const moves: StageMove[] = [move(T - 5 * DAY, 'done', 'inProgress'), move(T - 20 * DAY, 'inProgress', 'backlog')]
+    const fromMoves = flowRecordFromMoves(item, 'done', moves)
+    expect(fromMoves).toEqual(flowRecord({ ...item, log: [
+      { id: 'a', at: T - 20 * DAY, kind: 'moved', toStage: 'inProgress', fromStage: 'backlog' },
+      { id: 'b', at: T - 5 * DAY, kind: 'moved', toStage: 'done', fromStage: 'inProgress' },
+    ] }, 'done'))
+    // Input order is not the reading's order: the first move names where the card started.
+    expect(fromMoves.moves.map((m) => m.to)).toEqual(['inProgress', 'done'])
+    expect(fromMoves.startedIn).toBe('backlog')
+
+    // A card with no moves still starts where it sits.
+    expect(flowRecordFromMoves(item, 'notStarted', []).startedIn).toBe('notStarted')
   })
 
   it('a card that has never moved started where it sits; one that has knows from its first entry', () => {

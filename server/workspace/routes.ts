@@ -20,6 +20,7 @@ import { alreadyApplied, writeItem, writeWorkspace } from './write'
 import { statement } from '../audit'
 import { deleteWorkspace, lastAdministratorRefusal, workspaceNameOf } from './account'
 import { findBandChange, readBoardBands, readDesign, readStructureRev, writeDesign } from './structure'
+import { readItemLog, readMovements, readNotes } from './history'
 import { writeVocabularyDocument } from './vocabulary'
 import { emitItemChange, graphWithItem } from '../events'
 
@@ -269,6 +270,69 @@ export function workspaceRoutes(runtime: Runtime) {
 
     await release(allowed.db, c.req.param('id'), tabOf(c))
     return c.body(null, 204)
+  })
+
+  /**
+   * One card's history, a page at a time.
+   *
+   * The workspace document carries cards, not what happened to them. The drawer asks for the first
+   * page when it opens the Activity tab and follows `nextCursor` for the rest; `total` lets it say
+   * how much there is before every page has arrived. A card from another workspace is a 404, not an
+   * empty log.
+   */
+  routes.get('/items/:id/log', async (c) => {
+    const allowed = await requireWorkspace(c, runtime, 'board.read')
+    if (allowed instanceof Response) return allowed
+
+    const page = await readItemLog(allowed.db, c.req.param('id'), allowed.workspaceId, {
+      cursor: c.req.query('cursor'),
+      limit: c.req.query('limit'),
+    })
+    if (!page) return c.json({ error: 'no such item' }, 404)
+    return c.json(page)
+  })
+
+  /**
+   * The moves of one board's cards, for the flow reading.
+   *
+   * Only `moved` entries, only the stages they landed in: the chart is rebuilt from stages, and
+   * the time window it draws is the view's own choice. An unknown board is a 404 rather than an
+   * empty chart, because "no moves recorded" and "no such board" are different readings.
+   */
+  routes.get('/movements', async (c) => {
+    const allowed = await requireWorkspace(c, runtime, 'board.read')
+    if (allowed instanceof Response) return allowed
+
+    const boardId = c.req.query('boardId') ?? ''
+    const board = await allowed.db.get<{ id: string }>(
+      'SELECT id FROM boards WHERE id = ?1 AND workspace_id = ?2',
+      [boardId, allowed.workspaceId],
+    )
+    if (!board) return c.json({ error: 'no such board' }, 404)
+
+    const answer = await readMovements(allowed.db, boardId, allowed.workspaceId, {
+      since: c.req.query('since'),
+      limit: c.req.query('limit'),
+    })
+    return c.json(answer)
+  })
+
+  /**
+   * The notes a search or a mention reading needs, without the history around them.
+   *
+   * `q` is a case-insensitive substring of the note; `mention=me` asks for the notes that name the
+   * caller. Both are bounded, newest first, and both are scoped by the workspace.
+   */
+  routes.get('/notes', async (c) => {
+    const allowed = await requireWorkspace(c, runtime, 'board.read')
+    if (allowed instanceof Response) return allowed
+
+    const notes = await readNotes(allowed.db, allowed.workspaceId, {
+      q: c.req.query('q'),
+      mentionOf: c.req.query('mention') === 'me' ? allowed.user.id : undefined,
+      limit: c.req.query('limit'),
+    })
+    return c.json({ notes })
   })
 
   /**

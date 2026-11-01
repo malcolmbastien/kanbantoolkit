@@ -50,14 +50,26 @@ export function flowRecord(item: Item, currentStage: Stage | undefined): FlowRec
     .filter((e) => e.kind === 'moved' && e.toStage)
     .sort((a, b) => a.at - b.at)
     .map((e) => ({ at: e.at, to: e.toStage as Stage, ...(e.fromStage ? { from: e.fromStage } : {}) }))
+  return flowRecordFromMoves(item, currentStage, moves)
+}
+
+/**
+ * The same record, from moves read elsewhere.
+ *
+ * The board's moves arrive from the server now, so the card no longer carries its history. The
+ * reading is the same — first stage, then every stage it landed in — and a card with no moves
+ * still starts where it sits, which is what makes a card created into Done read as delivered.
+ */
+export function flowRecordFromMoves(item: Item, currentStage: Stage | undefined, moves: StageMove[]): FlowRecord {
+  const ordered = [...moves].sort((a, b) => a.at - b.at)
   return {
     id: item.id,
     title: item.title,
     createdAt: item.createdAt,
     ...(item.resolvedAt ? { resolvedAt: item.resolvedAt } : {}),
     ...(item.archivedAt ? { archivedAt: item.archivedAt } : {}),
-    startedIn: moves[0]?.from ?? currentStage ?? 'backlog',
-    moves,
+    startedIn: ordered[0]?.from ?? currentStage ?? 'backlog',
+    moves: ordered,
   }
 }
 
