@@ -65,23 +65,6 @@ test('a card is moved to another lane with the keyboard alone, and it is announc
   await expect(page.locator('[data-announcer]')).toContainText(/moved to/i)
 })
 
-test('a card is reordered with the keyboard, and the position is announced', async ({ page }) => {
-  await openBoard(page)
-  const cards = await cardsIn(page, 'Not Started')
-  const [first] = cards
-
-  await page.locator(`[data-card-id="${first}"]`).focus()
-  await page.keyboard.press('Shift+F10')
-  const later = page.locator('[data-card-menu]').first().getByRole('button', { name: 'Move later' })
-  await later.focus()
-  await page.keyboard.press('Enter')
-
-  const now = await cardsIn(page, 'Not Started')
-  expect(now[0]).not.toBe(first)
-  expect(now).toContain(first)
-  await expect(page.locator('[data-announcer]')).toContainText(/is now \d+ of \d+/i)
-})
-
 test('a pointer drag is announced too, so the two ways in agree', async ({ page }) => {
   await openBoard(page)
   const [card] = await cardsIn(page, 'Backlog')

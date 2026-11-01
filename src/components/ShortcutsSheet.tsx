@@ -7,8 +7,9 @@ import { useDialogFocus } from '@/lib/useDialogFocus'
  * The keyboard's own page: every gesture the app listens for, grouped by where it is used.
  *
  * It is a dialog rather than a panel because it is a reference a person opens, reads and closes —
- * the board behind it is not part of the reading. `?` opens it anywhere a person is not typing, and
- * the command palette offers it by name for anyone who does not know the key.
+ * the board behind it is not part of the reading. `?` opens it anywhere a person is not typing, the
+ * command palette offers it by name, and the toolbar carries a keyboard icon for anyone who would
+ * rather click.
  */
 export function ShortcutsSheet({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLDivElement>(null)

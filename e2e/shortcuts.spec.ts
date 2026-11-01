@@ -28,6 +28,16 @@ test('? opens the sheet, traps the keyboard and gives it back', async ({ page })
   await expect(card).toBeFocused()
 })
 
+test('the toolbar opens the sheet without the keyboard', async ({ page }) => {
+  await openBoard(page)
+  await page.getByRole('button', { name: 'Keyboard shortcuts', exact: true }).click()
+  const sheet = page.locator('[data-shortcuts-sheet]')
+  await expect(sheet).toBeVisible()
+  await expect(sheet).toContainText('Keyboard shortcuts')
+  await page.getByRole('button', { name: 'Close keyboard shortcuts' }).click()
+  await expect(sheet).toHaveCount(0)
+})
+
 test('? in a field is a question mark, not a request for the sheet', async ({ page }) => {
   await openBoard(page)
   const search = page.getByPlaceholder('Search all boards…')
@@ -44,7 +54,9 @@ test('the palette opens the sheet by name', async ({ page }) => {
   const query = page.getByLabel('Command palette query')
   await expect(query).toBeVisible()
   await query.fill('keyboard shortcuts')
-  await expect(page.getByRole('button', { name: /Keyboard shortcuts/ })).toBeVisible()
+  await expect(
+    page.getByRole('dialog', { name: 'Command palette' }).getByRole('button', { name: /Keyboard shortcuts/ }),
+  ).toBeVisible()
   await page.keyboard.press('Enter')
   await expect(page.locator('[data-shortcuts-sheet]')).toBeVisible()
   await expect(page.getByLabel('Command palette query')).toHaveCount(0)

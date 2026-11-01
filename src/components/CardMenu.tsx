@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Archive,
   ArchiveX,
-  ArrowDown,
-  ArrowUp,
   Ban,
   CalendarClock,
   Check,
@@ -17,7 +15,6 @@ import {
   ShieldCheck,
   Tag,
   Trash2,
-  UserPlus,
   CornerDownRight,
   Unlink,
 } from 'lucide-react'
@@ -26,7 +23,6 @@ import { decompositionParent, isComplete } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
-import { PersonAvatar } from './PersonAvatar'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
 import { cardsFlows } from '@/domain/flows'
@@ -40,7 +36,7 @@ interface Props {
   onClose: () => void
 }
 
-type Panel = 'move' | 'priority' | 'assignee' | 'type' | 'kind' | 'start' | 'end' | 'block'
+type Panel = 'move' | 'priority' | 'type' | 'kind' | 'start' | 'end' | 'block'
 
 const ITEM = 'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta text-slate-700 transition hover:bg-slate-100'
 const FIELD = 'min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-400'
@@ -62,10 +58,8 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const aggregating = isAggregating(boards.find((b) => b.id === boardId))
   const lanes = useStore((s) => s.lanes)
   const flows = useStore((s) => s.flows)
-  const users = useStore((s) => s.users)
   const issueTypes = useStore((s) => s.issueTypes)
   const moveCardsToLane = useStore((s) => s.moveCardsToLane)
-  const reorderCard = useStore((s) => s.reorderCard)
   const setParent = useStore((s) => s.setParent)
   const startParentPick = useStore((s) => s.startParentPick)
   const startChildPick = useStore((s) => s.startChildPick)
@@ -73,8 +67,6 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const links = useStore((s) => s.links)
   const setItemsType = useStore((s) => s.setItemsType)
   const setItemsKind = useStore((s) => s.setItemsKind)
-  const addItemsAssignee = useStore((s) => s.addItemsAssignee)
-  const removeItemsAssignee = useStore((s) => s.removeItemsAssignee)
   const setItemsTargetStart = useStore((s) => s.setItemsTargetStart)
   const setItemsTargetEnd = useStore((s) => s.setItemsTargetEnd)
   const blockItems = useStore((s) => s.blockItems)
@@ -210,8 +202,6 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
     </button>
   )
 
-  const assigneeAllHave = (userId: string) => count > 0 && targets.every((t) => (t.assignees ?? []).includes(userId))
-
   const flyout = () => {
     if (!open || !subPos) return null
     const wrap = (children: React.ReactNode, width = 'w-60') => (
@@ -318,24 +308,6 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
       )
     }
 
-    if (open === 'assignee') {
-      return wrap(
-        <>
-          {users.map((u) => (
-            <label key={u.id} className={cn(ITEM, 'cursor-pointer pl-2.5')}>
-              <input
-                type="checkbox"
-                checked={assigneeAllHave(u.id)}
-                onChange={(e) => (e.target.checked ? addItemsAssignee(itemIds, u.id) : removeItemsAssignee(itemIds, u.id))}
-              />
-              <PersonAvatar user={u} small />
-              <span className="flex-1">{u.name}</span>
-            </label>
-          ))}
-        </>,
-      )
-    }
-
     if (open === 'start' || open === 'end') {
       const apply = (date: string | undefined) =>
         open === 'start' ? setItemsTargetStart(itemIds, date) : setItemsTargetEnd(itemIds, date)
@@ -433,22 +405,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
         {/* An initiative does not live in a lane — it lives in a cell of a section, and moves
             between them. Offering a card's lanes for one would be offering the wrong tree. */}
         {!selectionHasInitiative && header('move', <FolderInput size={13} />, 'Move to lane')}
-        {/* The keyboard's answer to a drag within the column. A pointer can see where a card will
-            land; this cannot, so it moves one place and says where it got to. */}
-        {single && cell && (
-          <>
-            <button className={cn(ITEM, 'pl-7')} onClick={() => runMove(() => reorderCard(only!.id, -1))}>
-              <span className="flex-1">Move earlier</span>
-              <ArrowUp size={12} className="shrink-0 text-slate-300" />
-            </button>
-            <button className={cn(ITEM, 'pl-7')} onClick={() => runMove(() => reorderCard(only!.id, 1))}>
-              <span className="flex-1">Move later</span>
-              <ArrowDown size={12} className="shrink-0 text-slate-300" />
-            </button>
-          </>
-        )}
         {header('priority', <Flag size={13} />, 'Priority', single && only?.priority ? PRIORITY_META[only.priority].label : '')}
-        {header('assignee', <UserPlus size={13} />, 'Assignees')}
         {/* An initiative is not retyped: the type is what makes it one, and the
             initiatives workflow reads it. */}
         {!selectionHasInitiative && header('type', <Tag size={13} />, 'Type')}

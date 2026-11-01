@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { AccountMenu } from './AccountMenu'
 import { SyncNotice } from './SyncNotice'
@@ -6,6 +6,7 @@ import { ImportNotice } from './ImportNotice'
 import { BoardPicker } from './BoardPicker'
 import { cn } from '@/lib/utils'
 import { useMay } from '@/lib/permissions'
+import { openShortcuts } from '@/lib/shortcutDialog'
 import { canAddInitiative, canDesignBoard, isAggregating, isPortfolio } from '@/domain/board'
 import { isBoardSurface } from '@/store'
 import type { Board } from '@/domain/types'
@@ -199,6 +200,20 @@ export function TopBar(props: Props) {
         )}
 
         <GlobalSearch />
+
+        {/* The keyboard's page, for anyone who would rather click than learn a key. It sits with
+            the search because that is where a person looks for "how do I…" in this app. */}
+        <button
+          type="button"
+          onClick={openShortcuts}
+          data-shortcuts-trigger
+          aria-label="Keyboard shortcuts"
+          aria-keyshortcuts="?"
+          title="Keyboard shortcuts (?)"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+        >
+          <Keyboard size={14} />
+        </button>
 
         {boardActive && !editMode && maySettings && (
           <button
