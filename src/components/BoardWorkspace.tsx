@@ -343,30 +343,6 @@ export function BoardWorkspace() {
                       >
                         {b.name}
                       </button>
-                      <button
-                        type="button"
-                        data-board-star={b.id}
-                        aria-pressed={favouriteSet.has(b.id)}
-                        aria-label={
-                          favouriteSet.has(b.id)
-                            ? `Remove ${b.name} from favourites`
-                            : `Add ${b.name} to favourites`
-                        }
-                        title={
-                          favouriteSet.has(b.id)
-                            ? `Remove ${b.name} from favourites`
-                            : `Add ${b.name} to favourites`
-                        }
-                        onClick={() => toggleFavouriteBoard(b.id)}
-                        className={cn(
-                          'grid h-6 w-6 shrink-0 place-items-center rounded transition',
-                          favouriteSet.has(b.id)
-                            ? 'text-amber-500 hover:bg-amber-50'
-                            : 'text-slate-400 hover:bg-slate-100 hover:text-amber-500',
-                        )}
-                      >
-                        <Star size={13} className={favouriteSet.has(b.id) ? 'fill-current' : undefined} />
-                      </button>
                       {b.archived && (
                         <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">
                           archived
@@ -383,6 +359,30 @@ export function BoardWorkspace() {
                       </button>
 
                       <span className="ml-auto flex shrink-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          data-board-star={b.id}
+                          aria-pressed={favouriteSet.has(b.id)}
+                          aria-label={
+                            favouriteSet.has(b.id)
+                              ? `Remove ${b.name} from favourites`
+                              : `Add ${b.name} to favourites`
+                          }
+                          title={
+                            favouriteSet.has(b.id)
+                              ? `Remove ${b.name} from favourites`
+                              : `Add ${b.name} to favourites`
+                          }
+                          onClick={() => toggleFavouriteBoard(b.id)}
+                          className={cn(
+                            'grid h-6 w-6 shrink-0 place-items-center rounded transition',
+                            favouriteSet.has(b.id)
+                              ? 'text-amber-500 hover:bg-amber-50'
+                              : 'text-slate-400 hover:bg-slate-100 hover:text-amber-500',
+                          )}
+                        >
+                          <Star size={13} className={favouriteSet.has(b.id) ? 'fill-current' : undefined} />
+                        </button>
                         {/* A real link — the URL carries the board and the view, so it can be
                             copied or opened in a new tab; the click itself stays in-app. */}
                         <a
