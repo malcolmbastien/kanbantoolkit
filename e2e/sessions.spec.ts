@@ -11,7 +11,7 @@ import { expect, test, type Page } from '@playwright/test'
  * failing somebody else's test.
  */
 
-const SELF_HOSTED = 'http://localhost:4174'
+const SELF_HOSTED = 'http://localhost:4183'
 const PERSON = 'session-tester@example.com'
 
 test.describe.configure({ mode: 'serial' })

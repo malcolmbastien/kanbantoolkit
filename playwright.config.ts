@@ -138,6 +138,19 @@ export default defineConfig({
     },
     {
       /**
+       * An instance of its own for sessions (task 144). The spec opens the instance's door for a
+       * domain in `beforeAll`, and the account spec changes the same setting on the shared
+       * instance — two files racing over one allowed-domain list made sign-in fail at random.
+       * One instance per file keeps the door each test opens its own.
+       */
+      command:
+        'mkdir -p node_modules/.tmp && rm -f node_modules/.tmp/e2e-sessions.db && AUTH_DEV=1 WORKSPACE_NAME="Team Atlas" PORT=4183 DB_PATH=node_modules/.tmp/e2e-sessions.db STATIC_DIR=dist npm run --silent server',
+      url: 'http://localhost:4183/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      /**
        * A deployment with a mail relay — the console one, writing to a file the test can read
        * (task 154.7). The magic-link door only exists where mail does, so proving it in a browser
        * needs an instance that has one; and a test that parsed a real mailbox would not be a test.
