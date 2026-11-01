@@ -48,6 +48,14 @@ test('the board has no barrier a machine can find', async ({ page }) => {
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
+test('board settings has no barrier a machine can find', async ({ page }) => {
+  await page.goto('/app?board=b-atlas')
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await expect(page.locator('[data-board-settings]')).toBeVisible()
+  // The board sits behind the dialog, so its tree keeps the exception it has in every other scan.
+  expect(await barriers(page, { nestedInteractive: true })).toEqual([])
+})
+
 test('the Flow view has no barrier a machine can find', async ({ page }) => {
   await page.goto('/app?board=b-atlas&view=flow')
   await expect(page.locator('[data-flow-view]')).toBeVisible()

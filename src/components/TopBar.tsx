@@ -219,7 +219,7 @@ export function TopBar(props: Props) {
           <button
             onClick={onOpenBoardSettings}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
-            title={isPortfolio(board) ? 'Board settings — title, flight level, linked boards' : 'Board settings — title, flight level, card types, WIP'}
+            title={isPortfolio(board) ? 'Board settings — title, flight level, linked boards' : 'Board settings — title, card types, labels and workflow'}
           >
             <Settings size={13} /> Settings
           </button>

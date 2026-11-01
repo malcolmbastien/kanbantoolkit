@@ -76,6 +76,9 @@ test('a portfolio board offers no card-shaped settings', async ({ page }) => {
   const dialog = page.locator('[data-board-settings]')
   await expect(dialog).toBeVisible()
 
+  // Only the tabs a portfolio can act on: its identity, and the boards it reads beneath it.
+  await expect(dialog.getByRole('tab')).toHaveText(['General', 'Boards'])
+
   // A portfolio reads work rather than holding it: it has no columns of its own, makes no
   // initiatives, and carries no card vocabulary — so none of that is offered here.
   for (const section of ['Card types', 'Initiative kinds', 'Tags', 'WIP limit enforcement', 'Template']) {
@@ -86,5 +89,6 @@ test('a portfolio board offers no card-shaped settings', async ({ page }) => {
 
   // What it keeps: the board's own identity, and the boards it reads beneath it.
   await expect(dialog.getByLabel('Title')).toHaveValue('Company Strategy')
+  await dialog.getByRole('tab', { name: 'Boards', exact: true }).click()
   await expect(dialog.getByText('Linked boards', { exact: true })).toBeVisible()
 })

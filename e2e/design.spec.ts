@@ -95,6 +95,31 @@ test('the design controls are not on the working board', async ({ page }) => {
   await expect(split).toHaveCount(0)
 })
 
+test('board settings is a tabbed modal, and its tabs work from the keyboard', async ({ page }) => {
+  await openBoard(page)
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const dialog = page.locator('[data-board-settings]')
+  await expect(dialog).toBeVisible()
+
+  // A team board has the identity, its card vocabulary, its labels and its workflow.
+  await expect(dialog.getByRole('tab')).toHaveText(['General', 'Cards', 'Labels', 'Workflow'])
+  await expect(dialog.getByLabel('Title')).toBeVisible()
+
+  // Arrow keys move between tabs, and the panel behind the selected tab is the one on screen.
+  await dialog.getByRole('tab', { name: 'General' }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(dialog.getByRole('tab', { name: 'Cards' })).toHaveAttribute('aria-selected', 'true')
+  await expect(dialog.getByPlaceholder('Define a new card type…')).toBeVisible()
+
+  // End goes to the last section, whose controls are the workflow's.
+  await page.keyboard.press('End')
+  await expect(dialog.getByRole('tab', { name: 'Workflow' })).toHaveAttribute('aria-selected', 'true')
+  await expect(dialog.getByText('WIP limit enforcement', { exact: true })).toBeVisible()
+
+  await dialog.getByRole('button', { name: 'Done' }).click()
+  await expect(dialog).toHaveCount(0)
+})
+
 test('a board type is shown but cannot be changed in settings', async ({ page }) => {
   await openBoard(page)
   await page.getByRole('button', { name: 'Settings', exact: true }).click()

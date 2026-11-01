@@ -9,9 +9,12 @@ import { cardsIn, dropAbove, openBoard } from './support'
 /** Make the board ask for a reason before a move that would exceed a lane's limit. */
 async function askForReasons(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Settings' }).click()
+  const settings = page.locator('[data-board-settings]')
+  // Board settings opens on General; the WIP policy lives on the Workflow tab.
+  await settings.getByRole('tab', { name: 'Workflow', exact: true }).click()
   await page.locator('#board-wip').selectOption('justify')
   await page.keyboard.press('Escape')
-  await expect(page.locator('#board-wip')).toHaveCount(0)
+  await expect(settings).toHaveCount(0)
 }
 
 const reasonDialog = (page: Page) => page.locator('[data-reason-dialog]')

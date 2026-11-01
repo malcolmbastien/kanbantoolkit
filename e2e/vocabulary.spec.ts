@@ -45,6 +45,8 @@ test('a type, a template and an objective outlive the browser', async ({ page })
   let landing = saved(page)
   await page.getByRole('button', { name: 'Settings' }).click()
   const settings = page.locator('[data-board-settings]')
+  // Board settings opens on General; the workspace's words live on the Cards tab.
+  await settings.getByRole('tab', { name: 'Cards', exact: true }).click()
   await settings.getByPlaceholder('Define a new card type…').fill('Probe Type')
   await settings.getByRole('button', { name: 'Add type' }).click()
   await expect(settings.getByText('Probe Type').first()).toBeVisible()
@@ -96,7 +98,9 @@ test('a type, a template and an objective outlive the browser', async ({ page })
   await page.goto(`${ORIGIN}/app?view=boards`)
   await page.getByRole('button', { name: BOARD, exact: true }).first().click()
   await page.getByRole('button', { name: 'Settings' }).click()
-  await expect(page.locator('[data-board-settings]').getByText('Probe Type').first()).toBeVisible()
+  const reopened = page.locator('[data-board-settings]')
+  await reopened.getByRole('tab', { name: 'Cards', exact: true }).click()
+  await expect(reopened.getByText('Probe Type').first()).toBeVisible()
   await page.keyboard.press('Escape')
 
   await home(page, 'Templates')
@@ -118,7 +122,9 @@ test('a second device sees the type the first one made', async ({ page, browser 
     await openInstanceBoard(second, ORIGIN, BOARD, MAYA)
 
     await second.getByRole('button', { name: 'Settings' }).click()
-    await expect(second.locator('[data-board-settings]').getByText('Probe Type').first()).toBeVisible()
+    const settings = second.locator('[data-board-settings]')
+    await settings.getByRole('tab', { name: 'Cards', exact: true }).click()
+    await expect(settings.getByText('Probe Type').first()).toBeVisible()
   } finally {
     await other.close()
   }

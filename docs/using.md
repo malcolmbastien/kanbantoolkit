@@ -31,6 +31,12 @@ what each level is for and when to choose it. The level is fixed when the board 
 shows it but does not offer to change it, because a different type would hide the work the board
 already holds.
 
+**Board settings** is a tabbed dialog. **General** holds the board’s name, description and type;
+**Cards** its card types and the type and cell new cards start in; **Labels** its initiative kinds
+and tags; **Workflow** its WIP enforcement and template; and **Boards** the boards a programme or
+portfolio reads beneath it. Only the tabs a board can act on are shown, and changes are
+saved as you edit.
+
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a
 stage is the team's. **Edit board** splits a column into cells, renames them, adds a lane, or removes

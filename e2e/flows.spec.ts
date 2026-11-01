@@ -178,6 +178,8 @@ test('a board-wide default is where a new card lands, whichever flow names it', 
 
   // The board says new cards land in Escalations' Not Started — one cell, naming a flow.
   await page.getByRole('button', { name: 'Settings' }).click()
+  const settings = page.locator('[data-board-settings]')
+  await settings.getByRole('tab', { name: 'Cards', exact: true }).click()
   const value = await page.locator('#board-default-drop optgroup[label="Escalations"] option').nth(1).getAttribute('value')
   await page.locator('#board-default-drop').selectOption(value!)
   await page.keyboard.press('Escape')

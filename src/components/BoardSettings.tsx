@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { LayoutTemplate, Minus, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { cardTypes, defaultCardTypeId, isAggregating, isPortfolio, linkableBoards, NONE_TYPE_ID } from '@/domain/board'
@@ -9,6 +9,8 @@ import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 import { cardsFlows } from '@/domain/flows'
 import { VocabularySaveError } from './VocabularySaveError'
+
+type SettingsTab = 'general' | 'cards' | 'labels' | 'workflow' | 'boards'
 
 /**
  * Board settings: title, the flight-level band (shown, fixed at creation), and — for a team or
@@ -59,6 +61,7 @@ export function BoardSettings() {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('#8b5cf6')
+  const [tab, setTab] = useState<SettingsTab>('general')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -115,6 +118,34 @@ export function BoardSettings() {
   const label = 'mb-1 block text-micro font-bold uppercase tracking-wide text-slate-600'
   const row = 'flex items-center gap-2 rounded border border-slate-200 px-2 py-1.5'
 
+  // A conventional settings modal: the identity first, then one tab per kind of setting. A
+  // portfolio has no card-shaped settings and hides those tabs rather than showing empty ones.
+  const tabs: Array<{ id: SettingsTab; label: string }> = [{ id: 'general', label: 'General' }]
+  if (!portfolio) {
+    tabs.push(
+      { id: 'cards', label: 'Cards' },
+      { id: 'labels', label: 'Labels' },
+      { id: 'workflow', label: 'Workflow' },
+    )
+  }
+  if (isAggregatingBoard) tabs.push({ id: 'boards', label: 'Boards' })
+  const activeTab = tabs.some((entry) => entry.id === tab) ? tab : 'general'
+
+  /** Arrow keys move between tabs, as a tablist is expected to; focus follows the selection. */
+  const moveTab = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    const index = tabs.findIndex((entry) => entry.id === activeTab)
+    let next = index
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % tabs.length
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + tabs.length) % tabs.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = tabs.length - 1
+    else return
+    event.preventDefault()
+    const target = tabs[next]
+    setTab(target.id)
+    requestAnimationFrame(() => document.getElementById(`board-settings-tab-${target.id}`)?.focus())
+  }
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" onClick={close}>
       <div
@@ -124,17 +155,64 @@ export function BoardSettings() {
         aria-modal="true"
         aria-label="Board settings"
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
       >
-        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
-          <Settings size={16} className="text-indigo-600" />
-          <span className="text-title font-semibold text-slate-800">Board settings</span>
-          <button onClick={close} className="ml-auto text-slate-600 hover:text-slate-600" title="Close">
+        <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+            <Settings size={16} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-title font-semibold text-slate-900">Board settings</h2>
+            <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-micro text-slate-600">
+              <span className="min-w-0 truncate">{board.name}</span>
+              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-px font-semibold text-slate-600">
+                {BAND_STYLES[board.band]?.label ?? board.band}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Close board settings"
+            title="Close"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+          >
             <X size={16} />
           </button>
         </div>
 
-        <div className="space-y-4 px-4 py-3 text-meta">
+        <div role="tablist" aria-label="Board settings sections" aria-orientation="horizontal" className="flex shrink-0 gap-1 border-b border-slate-200 px-3">
+          {tabs.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              id={`board-settings-tab-${entry.id}`}
+              role="tab"
+              aria-selected={activeTab === entry.id}
+              aria-controls={`board-settings-panel-${entry.id}`}
+              tabIndex={activeTab === entry.id ? 0 : -1}
+              onClick={() => setTab(entry.id)}
+              onKeyDown={moveTab}
+              className={cn(
+                '-mb-px border-b-2 px-3 py-2 text-meta font-medium transition',
+                activeTab === entry.id
+                  ? 'border-indigo-600 text-indigo-700'
+                  : 'border-transparent text-slate-600 hover:text-slate-900',
+              )}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-meta">
+          <div
+            role="tabpanel"
+            id="board-settings-panel-general"
+            aria-labelledby="board-settings-tab-general"
+            hidden={activeTab !== 'general'}
+            className="space-y-4"
+          >
           {/* Title */}
           <div>
             <label className={label} htmlFor="board-title">
@@ -184,12 +262,19 @@ export function BoardSettings() {
               a new board of the other type and move or link the work there.
             </p>
           </div>
+          </div>
 
           {/* Card types — the workspace's vocabulary, not this board's: every board offers all
               of them and picks only a default (v27). The label said "on this board", which the
               per-board subsets used to make true. */}
           {!portfolio && (
-          <div>
+          <div
+            role="tabpanel"
+            id="board-settings-panel-cards"
+            aria-labelledby="board-settings-tab-cards"
+            hidden={activeTab !== 'cards'}
+            className="space-y-4"
+          >
             <div className={label}>Card types</div>
             <p className="mb-1.5 text-micro text-slate-600">
               A card type belongs to the workspace — every board offers all of them. This board only
@@ -384,6 +469,13 @@ export function BoardSettings() {
               None is not an entry here: it is the *absence* of a kind, so there is nothing to
               remove and nothing to protect from removal. */}
           {!portfolio && (
+          <div
+            role="tabpanel"
+            id="board-settings-panel-labels"
+            aria-labelledby="board-settings-tab-labels"
+            hidden={activeTab !== 'labels'}
+            className="space-y-4"
+          >
           <div>
             <div className={label}>Initiative kinds</div>
             <p className="mb-1.5 text-micro text-slate-600">
@@ -467,11 +559,9 @@ export function BoardSettings() {
               </button>
             </div>
           </div>
-          )}
 
           {/* Tags — this board's own labels, like its kinds. A set rather than a choice, so
               there is no None to protect: an item with no tags simply has none. */}
-          {!portfolio && (
           <div>
             <div className={label}>Tags</div>
             <p className="mb-1.5 text-micro text-slate-600">
@@ -548,10 +638,18 @@ export function BoardSettings() {
               </button>
             </div>
           </div>
+          </div>
           )}
 
           {/* WIP enforcement */}
           {!portfolio && (
+          <div
+            role="tabpanel"
+            id="board-settings-panel-workflow"
+            aria-labelledby="board-settings-tab-workflow"
+            hidden={activeTab !== 'workflow'}
+            className="space-y-4"
+          >
           <div>
             <label className={label} htmlFor="board-wip">
               WIP limit enforcement
@@ -570,11 +668,9 @@ export function BoardSettings() {
               <p className="mt-1 text-micro text-slate-600">The policy is the board’s, and applies to every cards flow.</p>
             )}
           </div>
-          )}
 
           {/* Template — a board design, reusable when creating boards. A portfolio has no columns
               of its own to keep, so there is nothing to save. */}
-          {!portfolio && (
           <div>
             <div className={label}>Template</div>
             <div className="flex flex-wrap items-center gap-2">
@@ -597,11 +693,18 @@ export function BoardSettings() {
               </p>
             )}
           </div>
+          </div>
           )}
 
           {/* Linked boards (coordination/strategic) */}
           {isAggregatingBoard && (
-            <div>
+            <div
+              role="tabpanel"
+              id="board-settings-panel-boards"
+              aria-labelledby="board-settings-tab-boards"
+              hidden={activeTab !== 'boards'}
+              className="space-y-4"
+            >
               <div className={label}>Linked boards</div>
               <div className="space-y-1">
                 {linked.map((id) => {
@@ -645,6 +748,17 @@ export function BoardSettings() {
               )}
             </div>
           )}
+        </div>
+
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
+          <span className="text-micro text-slate-500">Changes are saved as you edit.</span>
+          <button
+            type="button"
+            onClick={close}
+            className="rounded-md bg-indigo-600 px-3 py-1.5 text-meta font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>
