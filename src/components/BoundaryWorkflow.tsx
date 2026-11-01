@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Link2, Rows3 } from 'lucide-react'
 import { boundaryInStage, boundaryEntries, type BoundaryEntry } from '@/domain/boundary'
 import { STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { chipColors, DEP_STATE_STYLES, STAGE_ACCENT, STAGE_DOT, STAGE_SURFACE } from '@/lib/colors'
 import { announce } from '@/lib/announce'
+import { stillScrolling } from '@/lib/useStillScroll'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { WorkflowToggle } from './WorkflowToggle'
@@ -52,6 +53,16 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
   const [collapsed, setCollapsed] = useState(false)
+  const sectionRef = useRef<HTMLElement>(null)
+  const toggleWorkflow = () => {
+    if (collapsed) {
+      // Opening puts the body under the header; the keeper is stood down so it does not hold the
+      // content below still, and the header is brought to the top of the board.
+      stillScrolling()
+      sectionRef.current?.scrollIntoView({ block: 'start', inline: 'nearest' })
+    }
+    setCollapsed((value) => !value)
+  }
 
   const graph = { items, edges, links, placements, lanes }
   const entries = boundaryEntries(graph, boardId)
@@ -79,6 +90,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
 
   return (
     <section
+      ref={sectionRef}
       data-workflow="boundary"
       aria-labelledby="boundary-workflow-title"
       className="space-y-2.5"
@@ -90,7 +102,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
     >
       <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2 shadow-sm">
         <div className="flex min-w-0 items-center gap-2">
-          <WorkflowToggle name="Boundary — waiting on" collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
+          <WorkflowToggle name="Boundary — waiting on" collapsed={collapsed} onToggle={toggleWorkflow} />
           <span className="h-2 w-2 shrink-0 rounded-full bg-amber-600" />
           <h2 id="boundary-workflow-title" className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">
             Boundary — waiting on

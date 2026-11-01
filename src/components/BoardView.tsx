@@ -14,7 +14,7 @@ import { canRemoveFlow, cardsFlows, flowLaneIds } from '@/domain/flows'
 import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
 import { downloadText } from '@/lib/download'
-import { useStillScroll } from '@/lib/useStillScroll'
+import { stillScrolling, useStillScroll } from '@/lib/useStillScroll'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -70,8 +70,18 @@ export function BoardView({ requestMove }: Props) {
   // initiatives and the boundary in view while one cards flow takes the room; a board switch starts
   // fresh because the initiatives key carries the board and a flow id belongs to one board.
   const [collapsedWorkflows, setCollapsedWorkflows] = useState<Record<string, boolean>>({})
-  const toggleWorkflow = (key: string) =>
+  const toggleWorkflow = (key: string, from?: HTMLButtonElement) => {
+    const expanding = collapsedWorkflows[key] === true
+    if (expanding) {
+      // An expanding band puts its body back under its header. The scroll keeper is told the view
+      // is moving on purpose — otherwise it holds the first card below the band still and pushes
+      // the new body above the fold — then the band's header is brought to the top of the board,
+      // so the body opens where a reader looks for it.
+      stillScrolling()
+      from?.closest('section')?.scrollIntoView({ block: 'start', inline: 'nearest' })
+    }
     setCollapsedWorkflows((current) => ({ ...current, [key]: !current[key] }))
+  }
 
   // Coordination/strategic boards aggregate; operational boards render the flow.
   if (isAggregating(board)) return <ManagementBoard boardId={boardId} />
@@ -199,7 +209,7 @@ export function BoardView({ requestMove }: Props) {
               <WorkflowToggle
                 name="Initiatives workflow"
                 collapsed={initiativesCollapsed}
-                onToggle={() => toggleWorkflow(initiativesKey)}
+                onToggle={(button) => toggleWorkflow(initiativesKey, button)}
               />
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
               <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
@@ -234,7 +244,7 @@ export function BoardView({ requestMove }: Props) {
             >
               <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 shadow-sm">
                 <div className="flex min-w-0 items-center gap-2">
-                  <WorkflowToggle name={name} collapsed={collapsed} onToggle={() => toggleWorkflow(flow.id)} />
+                  <WorkflowToggle name={name} collapsed={collapsed} onToggle={(button) => toggleWorkflow(flow.id, button)} />
                   <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
                   <h2 className="flex shrink-0 items-center text-body font-bold uppercase tracking-wide text-slate-900">
                     {editMode && editable ? (

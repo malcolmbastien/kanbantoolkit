@@ -53,8 +53,9 @@ second inset inside it: a wide flow has the width it needs, and its columns line
 above and below.
 
 A workflow's chevron folds that whole band away to its header: the name, the count and the controls
-stay, and the columns give their room to the workflow below. The initiatives, cards and boundary
-bands each fold on their own, and the state is a view choice rather than an edit.
+stay, and the columns give their room to the workflow below. Opening it brings the header to the top
+and the columns back underneath, so the band opens where you are looking. The initiatives, cards and
+boundary bands each fold on their own, and the state is a view choice rather than an edit.
 
 ## The side drawer
 

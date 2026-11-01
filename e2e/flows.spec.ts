@@ -300,6 +300,36 @@ test('a cards flow keeps the board margin without a second inset', async ({ page
   expect(await canvas.evaluate((element) => getComputedStyle(element).paddingRight)).toBe('0px')
 })
 
+test('an expanding workflow opens its body under its header, not above the fold', async ({ page }) => {
+  await openBoard(page)
+  const cards = flowBand(page, 'Cards')
+  await page.getByRole('button', { name: 'Collapse Cards' }).click()
+
+  // The folded header is brought to the top, with the next workflow below it — the shape where the
+  // scroll keeper used to hold that next card still and push the newly opened body above the fold.
+  await cards.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+  await page.waitForTimeout(150)
+  await page.getByRole('button', { name: 'Expand Cards' }).click()
+  await page.waitForTimeout(150)
+
+  const geometry = await page.evaluate(() => {
+    const scroller = document.querySelector('[data-board-scroll]')!
+    const band = document.querySelector('[data-flow-band][data-flow-name="Cards"]')!
+    const body = band.querySelector('[data-workflow="cards"]')!
+    const viewport = scroller.getBoundingClientRect()
+    return {
+      scrollerTop: viewport.top,
+      scrollerBottom: viewport.bottom,
+      bandTop: band.getBoundingClientRect().top,
+      bodyTop: body.getBoundingClientRect().top,
+    }
+  })
+  // The header is at the top of the board, and the body starts below it inside the viewport.
+  expect(geometry.bandTop).toBeGreaterThanOrEqual(geometry.scrollerTop - 2)
+  expect(geometry.bodyTop).toBeGreaterThan(geometry.bandTop)
+  expect(geometry.bodyTop).toBeLessThan(geometry.scrollerBottom)
+})
+
 test('a workflow folds away and keeps its name and count in view', async ({ page }) => {
   await openBoard(page)
   const cards = flowBand(page, 'Cards')

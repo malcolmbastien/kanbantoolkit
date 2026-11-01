@@ -17,14 +17,14 @@ export function WorkflowToggle({
   /** The workflow's own name — "Cards", "Initiatives workflow", "Boundary — waiting on". */
   name: string
   collapsed: boolean
-  onToggle: () => void
+  onToggle: (button: HTMLButtonElement) => void
   className?: string
 }) {
   const verb = collapsed ? 'Expand' : 'Collapse'
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={(event) => onToggle(event.currentTarget)}
       aria-expanded={!collapsed}
       aria-label={`${verb} ${name}`}
       title={`${verb} ${name}`}
