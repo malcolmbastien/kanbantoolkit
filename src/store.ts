@@ -31,6 +31,7 @@ import { uid as makeUid } from '@/lib/utils'
 import type { ImportPlan } from '@/domain/import'
 import type { ViewName } from '@/lib/url'
 import { DEFAULT_FLOW_WINDOW, type FlowWindow } from '@/domain/flowWindow'
+import { noteVisit, pruneFavourites, pruneVisits, toggleFavourite, type BoardVisit } from '@/domain/boardShortcuts'
 import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Period, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
 
 export interface Draft {
@@ -124,6 +125,14 @@ export interface ViewState {
    * deliberately not persisted: it is about this session, not about the work.
    */
   recentItemIds: string[]
+  /**
+   * The boards this browser keeps on the home, and the ones it opened lately. Persisted and
+   * device-local: a favourite is one person's shortcut, not a fact about the board, so it never
+   * travels in the design or vocabulary syncs. A workspace file carries them like saved filters;
+   * adopting a server workspace does not, so this browser keeps its own.
+   */
+  favouriteBoardIds: string[]
+  recentBoards: BoardVisit[]
   /** Collapsed top-level columns, keyed by lane id. Persisted. */
   collapsedLanes: Record<string, boolean>
   /** Card filters panel open (a right-side panel, like the item panel). */
@@ -165,6 +174,8 @@ export interface ViewState {
 }
 export interface Actions {
   selectBoard: (id: string) => void
+  /** Keep a board on the home, or take it off. This browser's shortcut, not the workspace's. */
+  toggleFavouriteBoard: (id: string) => void
   /**
    * Open an item's drawer. `focus: false` reads it without entering the initiative focus lens —
    * the Archive, where the board's lineage is not the thing being read.
@@ -994,6 +1005,8 @@ const initialView: ViewState = {
   flowWindow: DEFAULT_FLOW_WINDOW,
   metricsFlowId: null,
   recentItemIds: [],
+  favouriteBoardIds: [],
+  recentBoards: [],
   collapsedLanes: {},
   showFilters: false,
   filters: NO_FILTERS,
@@ -1342,6 +1355,25 @@ export function migrateState(persisted: unknown): Partial<Store> {
       return { ...item, log: canonical }
     })
   }
+  // v40: the home's two shortcuts are this browser's. State written before them simply has none;
+  // an id that is not a board here (deleted, or a board from a workspace this browser no longer
+  // holds) is dropped rather than kept for a render to filter. Idempotent, like the rest of this
+  // chain, so it also runs over an imported or adopted workspace.
+  const boardIds = new Set(
+    Array.isArray(p.boards)
+      ? (p.boards as { id?: unknown }[])
+          .map((board) => board?.id)
+          .filter((id): id is string => typeof id === 'string')
+      : [],
+  )
+  p.favouriteBoardIds = pruneFavourites(
+    Array.isArray(p.favouriteBoardIds) ? (p.favouriteBoardIds as string[]) : [],
+    boardIds,
+  )
+  p.recentBoards = pruneVisits(
+    Array.isArray(p.recentBoards) ? (p.recentBoards as BoardVisit[]) : [],
+    boardIds,
+  )
   return p as Partial<Store>
 }
 
@@ -1394,8 +1426,11 @@ const repository = chooseRepository()
  * 39 is history read on demand: the same `Item.log`, now a cache of what this browser has read
  * rather than the whole log, merged by id. The migration puts what is stored in `(at, id)` order
  * with one copy per entry, which is the order a page read is merged into.
+ *
+ * 40 is the home's two shortcuts: the boards this browser keeps (`favouriteBoardIds`) and the ones
+ * it opened lately (`recentBoards`). Old state has neither, and ids that are not boards are pruned.
  */
-export const PERSIST_VERSION = 39
+export const PERSIST_VERSION = 40
 /**
  * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
  * guess is not what a person's workspace gets.
@@ -1412,10 +1447,12 @@ export const MIN_MIGRATABLE_VERSION = 9
  *   - the **words** — issue types, board templates, objectives, key results — and `autoArchiveDays`
  *     are `PUT /api/workspace/vocabulary`, because a type belongs to the workspace and the
  *     auto-archive policy changes what every person's Done column does;
- *   - `savedFilters` and `collapsedLanes` are **this device's** and go nowhere: a saved filter is
- *     one person's way of narrowing a board and a collapsed column is where they left their screen,
- *     so neither is a fact about the workspace, and writing them back would move somebody else's
- *     view. `meUserId` is this browser's reading of the session, not a field at all.
+ *   - `savedFilters`, `collapsedLanes`, `favouriteBoardIds` and `recentBoards` are **this
+ *     browser's** and go nowhere in the syncs: a saved filter is one person's way of narrowing a
+ *     board, a collapsed column is where they left their screen, and a favourite or a recent board
+ *     is where they were — none is a fact about the workspace, and writing them back would move
+ *     somebody else's view. They ride in a workspace file like the rest of the persisted slice.
+ *     `meUserId` is this browser's reading of the session, not a field at all.
  *
  * A new field belongs on one side of that line deliberately; the syncs watch exactly their own
  * lists, so adding a device-local field leaks nothing.
@@ -1439,6 +1476,9 @@ export function persistedSlice(s: Store): Partial<Store> {
     savedFilters: s.savedFilters,
     // Collapsed columns are remembered across reloads.
     collapsedLanes: s.collapsedLanes,
+    // The home's shortcuts: this browser's, and only this browser's.
+    favouriteBoardIds: s.favouriteBoardIds,
+    recentBoards: s.recentBoards,
     boardId: design.boardId,
     boards: design.boards,
     flows: design.flows,
@@ -1466,6 +1506,8 @@ export const WORKSPACE_KEYS = [
   'autoArchiveDays',
   'savedFilters',
   'collapsedLanes',
+  'favouriteBoardIds',
+  'recentBoards',
   'boardId',
   'boards',
   'flows',
@@ -1492,10 +1534,11 @@ export const useStore = create<Store>()(
       ...initialView,
 
       selectBoard: (boardId) => {
+        const state = get()
         // Objectives are a portfolio board's own surface, so opening another board leaves it. A
         // portfolio also ends any focus: its outcomes live on the boards beneath it, and there is
         // no board of its own to dim (see `canFocusBoard`).
-        const portfolio = !canFocusBoard(get().boards.find((b) => b.id === boardId))
+        const portfolio = !canFocusBoard(state.boards.find((b) => b.id === boardId))
         set({
           boardId,
           selectedItemId: null,
@@ -1511,7 +1554,19 @@ export const useStore = create<Store>()(
           multiSelect: [],
           cardMenu: null,
                   ...(portfolio ? { lensId: null } : {}),
+          // Opening a board is what the recent list means. Only a board that is here is a visit:
+          // a URL naming a deleted board is not a place the person went.
+          ...(state.boards.some((b) => b.id === boardId)
+            ? { recentBoards: noteVisit(state.recentBoards, boardId, Date.now()) }
+            : {}),
         })
+      },
+      toggleFavouriteBoard: (boardId) => {
+        const state = get()
+        // A board that is not here is not a shortcut: both sections only show boards this browser
+        // can open.
+        if (!state.boards.some((board) => board.id === boardId)) return
+        set({ favouriteBoardIds: toggleFavourite(state.favouriteBoardIds, boardId) })
       },
       openItem: (selectedItemId, options) => {
         const s = get()
@@ -2005,6 +2060,10 @@ export const useStore = create<Store>()(
         // Validation happened at the file picker; here the migrated shape is whitelisted —
         // only what the app persists comes across, so an unknown key cannot leak in — and
         // every entity the file does not mention starts empty.
+        // Read the shortcuts before the migration runs: it backfills them on the very object it
+        // is given, and "did the file carry this?" has to be asked of the file.
+        const carriesShortcuts = 'favouriteBoardIds' in state
+        const carriesRecent = 'recentBoards' in state
         const migrated = migratePersisted(state, version) as Record<string, unknown>
         const blank: Record<string, unknown> = {
           users: [],
@@ -2019,6 +2078,8 @@ export const useStore = create<Store>()(
           autoArchiveDays: undefined,
           savedFilters: [],
           collapsedLanes: {},
+          favouriteBoardIds: [],
+          recentBoards: [],
           meUserId: undefined,
           boardId: undefined,
           boards: [],
@@ -2028,6 +2089,11 @@ export const useStore = create<Store>()(
         }
         const data: Record<string, unknown> = {}
         for (const k of WORKSPACE_KEYS) data[k] = k in migrated ? migrated[k] : blank[k]
+        // The home's shortcuts are this browser's. A file that carries them replaces them; a server
+        // workspace (or an older export) does not, so the ones already here stay — pruned below to
+        // the boards the incoming workspace actually has.
+        data.favouriteBoardIds = carriesShortcuts ? migrated.favouriteBoardIds : get().favouriteBoardIds
+        data.recentBoards = carriesRecent ? migrated.recentBoards : get().recentBoards
         // A workspace without a vocabulary cannot hold a card — a board made in it has no type to
         // make one with. So the app's own types are merged in wherever they are missing: the issue
         // types and the board templates belong to the application rather than to anyone's data.
@@ -2050,6 +2116,10 @@ export const useStore = create<Store>()(
         const boards = data.boards as { id: string }[]
         if (boards.length === 0 && !options?.allowEmpty) return
         const ids = new Set(boards.map((b) => b.id))
+        // A shortcut for a board this workspace does not have is dropped rather than kept for a
+        // render to filter; a person's favourites for boards that still exist survive an adoption.
+        data.favouriteBoardIds = pruneFavourites((data.favouriteBoardIds as string[] | undefined) ?? [], ids)
+        data.recentBoards = pruneVisits((data.recentBoards as BoardVisit[] | undefined) ?? [], ids)
         // Land on the workspace's own board when it exists, else the first one written. A workspace
         // with no boards is a real answer — a fresh instance is one — and it lands on the board
         // list, which is where a board is made rather than a board with nothing in it.
@@ -2227,6 +2297,10 @@ export const useStore = create<Store>()(
           lanes: state.lanes.filter((l) => l.boardId !== id),
           placements: state.placements.filter((p) => p.boardId !== id && !laneIds.has(p.laneId)),
           boardId: state.boardId === id ? boards[0].id : state.boardId,
+          // A deleted board is not a shortcut any more. Taken out here rather than left for a
+          // render to filter, so a re-created id is never resurrected by an old entry.
+          favouriteBoardIds: state.favouriteBoardIds.filter((favourite) => favourite !== id),
+          recentBoards: state.recentBoards.filter((visit) => visit.boardId !== id),
         })
       },
 

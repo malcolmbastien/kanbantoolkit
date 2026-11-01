@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, CopyPlus, Database, LayoutDashboard, LayoutTemplate, MoreVertical, Plus, Ruler, Search, Trash2, Users } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRight, ChartNoAxesGantt, CopyPlus, Database, History, LayoutDashboard, LayoutTemplate, MoreVertical, Plus, Ruler, Search, Star, Trash2, Users } from 'lucide-react'
 import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { NewBoardDialog } from './NewBoardDialog'
 import { TemplateEditor } from './TemplateEditor'
 import { ImportBoardButton } from './ImportBoardButton'
 import { boardsByBand } from '@/domain/board'
+import { favouriteBoardList, recentBoardList } from '@/domain/boardShortcuts'
 import { useMay } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
@@ -23,6 +24,9 @@ import type { Board, BoardBand } from '@/domain/types'
 export function BoardWorkspace() {
   const boards = useStore((s) => s.boards)
   const selectBoard = useStore((s) => s.selectBoard)
+  const favouriteBoardIds = useStore((s) => s.favouriteBoardIds)
+  const recentBoards = useStore((s) => s.recentBoards)
+  const toggleFavouriteBoard = useStore((s) => s.toggleFavouriteBoard)
   const removeBoard = useStore((s) => s.removeBoard)
   const addBoard = useStore((s) => s.addBoard)
   const archiveBoard = useStore((s) => s.archiveBoard)
@@ -56,6 +60,15 @@ export function BoardWorkspace() {
   // many boards should not bury its templates under the list.
   const [homeTab, setHomeTab] = useState<'boards' | 'templates'>('boards')
   const activeTab = homeTab === 'templates' && canTemplates ? 'templates' : 'boards'
+
+  // This browser's two shortcuts. They are the first row of the boards tab, above the band filter,
+  // so the boards a person actually uses are reachable before the full list.
+  const favourites = favouriteBoardList(boards, favouriteBoardIds)
+  const recents = recentBoardList(boards, recentBoards, favouriteBoardIds)
+  const favouriteSet = new Set(favouriteBoardIds)
+  // A search is a question about the whole list, not about a person's history: the shortcuts make
+  // way for it. The Templates tab is a different list entirely, so they are not there either.
+  const showShortcuts = activeTab === 'boards' && q.trim() === '' && (favourites.length > 0 || recents.length > 0)
 
   const allGroups = boardsByBand(boards, q, showArchived)
   const groups = bandFilter === 'all' ? allGroups : allGroups.filter((g) => g.band === bandFilter)
@@ -112,29 +125,6 @@ export function BoardWorkspace() {
           <div>
             <h1 className="text-heading font-semibold text-slate-800">Workspace Home</h1>
             <p className="mt-0.5 text-meta text-slate-600">Every board in the organisation, and the designs behind them.</p>
-            {activeTab === 'boards' && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1">
-              {(['all', ...BOARD_BANDS] as (BoardBand | 'all')[]).map((b) => {
-                const on = bandFilter === b
-                const count = b === 'all' ? shown : bandCount(b)
-                const style = b === 'all' ? undefined : BAND_STYLES[b] ?? BAND_STYLES.team
-                return (
-                  <button
-                    key={b}
-                    onClick={() => setBandFilter(b)}
-                    className={cn(
-                      'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-meta font-medium transition',
-                      on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
-                    )}
-                  >
-                    {style && <span className={cn('h-2 w-2 rounded-full', style.chip.split(' ')[0])} />}
-                    {b === 'all' ? 'All' : style?.label}
-                    <span className={cn('tabular-nums', on ? 'text-indigo-500' : 'text-slate-600')}>{count}</span>
-                  </button>
-                )
-              })}
-            </div>
-            )}
           </div>
           <div className="ml-auto flex items-center gap-2">
             {activeTab === 'boards' && canCreate && (
@@ -216,6 +206,73 @@ export function BoardWorkspace() {
 
         {activeTab === 'boards' && (
           <div id="home-panel-boards" role="tabpanel" aria-labelledby="home-tab-boards">
+        {boards.length > 0 && (
+          <>
+            {showShortcuts && (
+              <div className="mb-2 rounded-xl border border-slate-300 bg-white p-3">
+                {favourites.length > 0 && (
+                  <section
+                    data-favourites
+                    aria-labelledby="home-favourites"
+                    className={cn(recents.length > 0 && 'mb-2 border-b border-slate-100 pb-2')}
+                  >
+                    <h2 id="home-favourites" className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide text-slate-600">
+                      <Star size={11} className="fill-current text-amber-500" />
+                      Favourites
+                      <span className="tabular-nums text-slate-500">{favourites.length}</span>
+                    </h2>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {favourites.map((board) => (
+                        <BoardShortcutChip
+                          key={board.id}
+                          board={board}
+                          onOpen={() => selectBoard(board.id)}
+                          onRemove={() => toggleFavouriteBoard(board.id)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {recents.length > 0 && (
+                  <section data-recent-boards aria-labelledby="home-recent">
+                    <h2 id="home-recent" className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide text-slate-600">
+                      <History size={11} className="text-slate-500" />
+                      Recent boards
+                      <span className="tabular-nums text-slate-500">{recents.length}</span>
+                    </h2>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {recents.map((board) => (
+                        <BoardShortcutChip key={board.id} board={board} onOpen={() => selectBoard(board.id)} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
+            <div className="mb-2 flex flex-wrap items-center gap-1" role="group" aria-label="Filter boards by type">
+              {(['all', ...BOARD_BANDS] as (BoardBand | 'all')[]).map((b) => {
+                const on = bandFilter === b
+                const count = b === 'all' ? shown : bandCount(b)
+                const style = b === 'all' ? undefined : BAND_STYLES[b] ?? BAND_STYLES.team
+                return (
+                  <button
+                    key={b}
+                    aria-pressed={on}
+                    onClick={() => setBandFilter(b)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-meta font-medium transition',
+                      on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
+                    )}
+                  >
+                    {style && <span className={cn('h-2 w-2 rounded-full', style.chip.split(' ')[0])} />}
+                    {b === 'all' ? 'All' : style?.label}
+                    <span className={cn('tabular-nums', on ? 'text-indigo-500' : 'text-slate-600')}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
         {boards.length === 0 ? (
           <div className="rounded-xl border border-slate-300 bg-white px-6 py-10 text-center">
             <p className="text-title font-semibold text-slate-900">This workspace is empty</p>
@@ -285,6 +342,30 @@ export function BoardWorkspace() {
                         title={`Open ${b.name}`}
                       >
                         {b.name}
+                      </button>
+                      <button
+                        type="button"
+                        data-board-star={b.id}
+                        aria-pressed={favouriteSet.has(b.id)}
+                        aria-label={
+                          favouriteSet.has(b.id)
+                            ? `Remove ${b.name} from favourites`
+                            : `Add ${b.name} to favourites`
+                        }
+                        title={
+                          favouriteSet.has(b.id)
+                            ? `Remove ${b.name} from favourites`
+                            : `Add ${b.name} to favourites`
+                        }
+                        onClick={() => toggleFavouriteBoard(b.id)}
+                        className={cn(
+                          'grid h-6 w-6 shrink-0 place-items-center rounded transition',
+                          favouriteSet.has(b.id)
+                            ? 'text-amber-500 hover:bg-amber-50'
+                            : 'text-slate-400 hover:bg-slate-100 hover:text-amber-500',
+                        )}
+                      >
+                        <Star size={13} className={favouriteSet.has(b.id) ? 'fill-current' : undefined} />
                       </button>
                       {b.archived && (
                         <span className="shrink-0 rounded bg-slate-200 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">
@@ -503,5 +584,53 @@ function MenuRow({
       <span className={cn('shrink-0', danger ? 'text-rose-500' : 'text-slate-600')}>{icon}</span>
       <span className="flex-1">{label}</span>
     </button>
+  )
+}
+
+/**
+ * A board in one of the home's shortcut rows.
+ *
+ * The open button and the star are siblings, never nested: a button inside a button is invalid and
+ * makes a screen reader announce one control where there are two. A favourite carries a star that
+ * takes it off the list; a recent board is just a way back to where the person was.
+ */
+function BoardShortcutChip({
+  board,
+  onOpen,
+  onRemove,
+}: {
+  board: Board
+  onOpen: () => void
+  onRemove?: () => void
+}) {
+  const style = BAND_STYLES[board.band] ?? BAND_STYLES.team
+  return (
+    <span
+      data-board-shortcut={board.id}
+      className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 transition hover:border-indigo-300 hover:bg-indigo-50"
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open ${board.name}`}
+        title={`Open ${board.name}`}
+        className="flex items-center gap-1.5 rounded-l-lg px-2 py-1 text-meta font-medium text-slate-700 transition hover:text-indigo-700"
+      >
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', style.chip.split(' ')[0])} />
+        {board.name}
+      </button>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-pressed="true"
+          aria-label={`Remove ${board.name} from favourites`}
+          title={`Remove ${board.name} from favourites`}
+          className="mr-0.5 grid h-6 w-6 place-items-center rounded-md text-amber-500 transition hover:bg-amber-100"
+        >
+          <Star size={12} className="fill-current" />
+        </button>
+      )}
+    </span>
   )
 }

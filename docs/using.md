@@ -12,6 +12,11 @@ makes one. **Import board…** brings a Trello export or a Jira CSV in as one ne
 mapping step for lists, people and types — [Importing a board](import.md) explains the files and
 what is created.
 
+The rows above the band filter are **yours**: a star on a board card keeps it under **Favourites**,
+and the boards you opened most recently sit under **Recent boards**, newest first, without repeating
+a favourite. Both are this browser's — they survive a reload and follow no one to another device —
+and both step aside while you search the full list or read the templates.
+
 On a browser-only build the browser is the whole workspace — nothing is sent anywhere. On an instance
 the boards are shared, and signing in makes the account one of the workspace's people.
 

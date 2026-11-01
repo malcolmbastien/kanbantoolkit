@@ -3654,3 +3654,102 @@ describe('the history migration', () => {
     expect(migrated.items[1].log).toBeUndefined()
   })
 })
+
+describe('the home’s shortcuts', () => {
+  beforeEach(() => {
+    resetToFixture()
+    useStore.setState({ favouriteBoardIds: [], recentBoards: [] })
+  })
+
+  it('keeps a board on the home, once, and takes it off again', () => {
+    s().toggleFavouriteBoard('b-atlas')
+    expect(s().favouriteBoardIds).toEqual(['b-atlas'])
+    // Pressing again is the way off; it never adds a second copy.
+    s().toggleFavouriteBoard('b-nova')
+    s().toggleFavouriteBoard('b-atlas')
+    expect(s().favouriteBoardIds).toEqual(['b-nova'])
+
+    // A board that is not here is not a shortcut.
+    s().toggleFavouriteBoard('b-gone')
+    expect(s().favouriteBoardIds).toEqual(['b-nova'])
+  })
+
+  it('records a board when it opens, once, newest first', () => {
+    s().selectBoard('b-nova')
+    s().selectBoard('b-atlas')
+    s().selectBoard('b-nova')
+    expect(s().recentBoards.map((visit) => visit.boardId)).toEqual(['b-nova', 'b-atlas'])
+  })
+
+  it('does not record a visit for an id that is not a board', () => {
+    s().selectBoard('b-gone')
+    expect(s().recentBoards).toEqual([])
+  })
+
+  it('forgets a board that is deleted, without waiting for a reload', () => {
+    s().toggleFavouriteBoard('b-nova')
+    s().selectBoard('b-nova')
+    s().removeBoard('b-nova')
+    expect(s().favouriteBoardIds).toEqual([])
+    expect(s().recentBoards).toEqual([])
+  })
+
+  it('migrates old state to empty lists and drops ids that are not boards', () => {
+    const migrated = migrateState({
+      boards: [
+        { id: 'b-1', name: 'One', band: 'team', description: '' },
+        { id: 'b-2', name: 'Two', band: 'team', description: '' },
+      ],
+      favouriteBoardIds: ['b-1', 'gone', 'b-1'],
+      recentBoards: [
+        { boardId: 'b-1', at: 1 },
+        { boardId: 'gone', at: 5 },
+        { boardId: 'b-1', at: 3 },
+        { boardId: 'b-2', at: 2 },
+      ],
+    }) as { favouriteBoardIds: string[]; recentBoards: Array<{ boardId: string; at: number }> }
+    expect(migrated.favouriteBoardIds).toEqual(['b-1'])
+    // The latest visit to one board is the one that counts.
+    expect(migrated.recentBoards).toEqual([
+      { boardId: 'b-1', at: 3 },
+      { boardId: 'b-2', at: 2 },
+    ])
+
+    const fresh = migrateState({ boards: [] }) as { favouriteBoardIds: string[]; recentBoards: unknown[] }
+    expect(fresh.favouriteBoardIds).toEqual([])
+    expect(fresh.recentBoards).toEqual([])
+  })
+
+  it('keeps this browser’s shortcuts through a server workspace, pruned to its boards', () => {
+    s().toggleFavouriteBoard('b-atlas')
+    s().toggleFavouriteBoard('b-nova')
+    s().selectBoard('b-nova')
+
+    // A server workspace names only the boards it has, and carries no shortcuts of its own.
+    s().importWorkspace(
+      {
+        boards: [{ id: 'b-atlas', name: 'Team Atlas', band: 'team', description: '' }],
+        lanes: [],
+        items: [],
+        placements: [],
+        issueTypes: [],
+      },
+      PERSIST_VERSION,
+    )
+    expect(s().favouriteBoardIds).toEqual(['b-atlas'])
+    // The recent board is not in the adopted workspace, so it is not a door to nothing.
+    expect(s().recentBoards).toEqual([])
+  })
+
+  it('restores the shortcuts a file carries, which is the one time they are replaced', () => {
+    s().toggleFavouriteBoard('b-nova')
+    const file = {
+      ...persistedSlice(s()),
+      favouriteBoardIds: ['b-atlas'],
+      recentBoards: [{ boardId: 'b-atlas', at: 1 }],
+    }
+    s().importWorkspace(file as Record<string, unknown>, PERSIST_VERSION)
+    expect(s().favouriteBoardIds).toEqual(['b-atlas'])
+    expect(s().recentBoards).toEqual([{ boardId: 'b-atlas', at: 1 }])
+  })
+})
