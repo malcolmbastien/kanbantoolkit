@@ -206,6 +206,11 @@ export interface BoardFlow {
   kind: FlowKind
   /** What the board calls it: "Delivery", "Support", "Cards". */
   name: string
+  /**
+   * What this workflow is for, in the board's own words — optional. It is the line under the
+   * workflow's name; a workflow with no line shows only its name and count.
+   */
+  description?: string
   /** Position among the board's flows of the same kind; 0 for the first. */
   order: number
 }

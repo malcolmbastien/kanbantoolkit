@@ -105,7 +105,7 @@ const workspace: Workspace = {
     },
   ],
   flows: [
-    { id: 'f-atlas-cards', boardId: 'b-atlas', kind: 'cards', name: 'Cards', order: 0 },
+    { id: 'f-atlas-cards', boardId: 'b-atlas', kind: 'cards', name: 'Cards', description: 'The team’s delivery flow.', order: 0 },
     { id: 'f-atlas-init', boardId: 'b-atlas', kind: 'initiatives', name: 'Initiatives', order: 0 },
     { id: 'f-port-init', boardId: 'b-port', kind: 'initiatives', name: 'Initiatives', order: 0 },
   ],
@@ -396,7 +396,7 @@ describe('writing the board design', () => {
 
     const response = await put({
       rev,
-      design: { boards: [board()], flows: [flow()], lanes: [lane(), lane({ id: 'l-done', order: 1, name: 'Done', stage: 'done' })], placements: [{ id: 'p-1', boardId: 'b-new', itemId: 'i-card', laneId: 'l-backlog', rank: 0 }] },
+      design: { boards: [board()], flows: [flow({ description: 'The cards flow.' })], lanes: [lane(), lane({ id: 'l-done', order: 1, name: 'Done', stage: 'done' })], placements: [{ id: 'p-1', boardId: 'b-new', itemId: 'i-card', laneId: 'l-backlog', rank: 0 }] },
     })
     expect(response.status).toBe(200)
     expect(((await response.json()) as { rev: number }).rev).toBe(rev + 1)
@@ -406,6 +406,8 @@ describe('writing the board design', () => {
     expect(body.boards.map((b) => b.id)).toEqual(['b-new'])
     expect(body.lanes.map((l) => l.name)).toEqual(['Backlog', 'Done'])
     expect(body.placements.map((p) => p.itemId)).toEqual(['i-card'])
+    // A workflow's optional line is part of the design, not a detail of a lane.
+    expect(body.flows.find((f) => f.id === 'f-cards')?.description).toBe('The cards flow.')
     expect(body.structureRev).toBe(rev + 1)
   })
 

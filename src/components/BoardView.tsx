@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { InlineEdit } from './InlineEdit'
@@ -10,7 +10,7 @@ import { WorkflowToggle } from './WorkflowToggle'
 import { isAggregating, isInitiativeItem } from '@/domain/board'
 import { boardCsv, csvFilename } from '@/domain/csv'
 import { activeFilterCount } from '@/domain/filters'
-import { canRemoveFlow, cardsFlows, flowLaneIds } from '@/domain/flows'
+import { canRemoveFlow, cardsFlows, FLOW_DESCRIPTION_LIMIT, flowLaneIds, initiativesFlow } from '@/domain/flows'
 import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
 import { downloadText } from '@/lib/download'
@@ -20,7 +20,7 @@ import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
 import { useMay } from '@/lib/permissions'
 import { useAuth } from '@/lib/auth'
-import type { Item } from '@/domain/types'
+import type { BoardFlow, Item } from '@/domain/types'
 
 interface Props {
   /**
@@ -107,6 +107,7 @@ export function BoardView({ requestMove }: Props) {
   // flows are. A band's count is the load *its* lanes carry: archived cards are off the board, and
   // an initiative is not a card, so neither inflates it.
   const flowsOnBoard = cardsFlows(flows, boardId)
+  const initiativesBand = initiativesFlow(flows, boardId)
   const laneOf = new Map(placements.filter((p) => p.boardId === boardId).map((p) => [p.itemId, p.laneId] as const))
   const counts = Object.fromEntries(
     flowsOnBoard.map((flow) => {
@@ -205,7 +206,7 @@ export function BoardView({ requestMove }: Props) {
             before reading a single column. */}
         <section className="space-y-2.5">
           <div className={cn('sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 shadow-sm', accent.section, 'bg-white/95 backdrop-blur-sm')}>
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <WorkflowToggle
                 name="Initiatives workflow"
                 collapsed={initiativesCollapsed}
@@ -213,7 +214,7 @@ export function BoardView({ requestMove }: Props) {
               />
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
               <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
-              <span className="truncate text-meta text-slate-600">this team’s initiatives — status rolls up from the cards below</span>
+              {initiativesBand && <FlowDescription flow={initiativesBand} editable={editMode && editable} />}
             </div>
             <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-emerald-200 sm:inline">
               {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
@@ -243,7 +244,7 @@ export function BoardView({ requestMove }: Props) {
               aria-label={`${name} — cards flow`}
             >
               <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 shadow-sm">
-                <div className="flex min-w-0 items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                   <WorkflowToggle name={name} collapsed={collapsed} onToggle={(button) => toggleWorkflow(flow.id, button)} />
                   <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
                   <h2 className="flex shrink-0 items-center text-body font-bold uppercase tracking-wide text-slate-900">
@@ -260,9 +261,7 @@ export function BoardView({ requestMove }: Props) {
                       <span className="px-1 py-0.5">{name}</span>
                     )}
                   </h2>
-                  <span className="truncate text-meta text-slate-600">
-                    {board?.band === 'team' ? 'the team’s flow — drag cards between lanes' : 'the flow — drag cards between lanes'}
-                  </span>
+                  <FlowDescription flow={flow} editable={editMode && editable} />
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   {editMode && editable && (
@@ -350,5 +349,74 @@ export function BoardView({ requestMove }: Props) {
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * A workflow's optional sub-header: what this workflow is for, in the board's own words.
+ *
+ * It is part of the board's design, so it is written in Edit board, in place beside the name. A
+ * workflow with no line shows only its name and count; an empty line is a legitimate choice, not a
+ * missing one. Enter or a click away saves, Escape reverts, and a clear button removes it.
+ */
+function FlowDescription({ flow, editable }: { flow: BoardFlow; editable: boolean }) {
+  const setFlowDescription = useStore((state) => state.setFlowDescription)
+  const saved = flow.description ?? ''
+  const [draft, setDraft] = useState(saved)
+  const cancelled = useRef(false)
+
+  // A design adopted from another device is the new saved line; a draft that was being typed is
+  // not worth keeping over it.
+  useEffect(() => setDraft(saved), [saved])
+
+  if (!editable) {
+    return saved ? <span className="min-w-0 truncate text-meta text-slate-600">{saved}</span> : null
+  }
+
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-1">
+      <input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (cancelled.current) {
+            cancelled.current = false
+            return
+          }
+          setFlowDescription(flow.id, draft)
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            event.currentTarget.blur()
+          } else if (event.key === 'Escape') {
+            event.preventDefault()
+            cancelled.current = true
+            setDraft(saved)
+            event.currentTarget.blur()
+          }
+        }}
+        placeholder="Describe this workflow (optional)"
+        aria-label={`${flow.name} description`}
+        maxLength={FLOW_DESCRIPTION_LIMIT}
+        className="min-w-0 flex-1 rounded border border-slate-200 bg-white/70 px-1 py-0.5 text-meta text-slate-600 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-300 focus:bg-white"
+      />
+      {draft.trim() && (
+        <button
+          type="button"
+          // Keep the input's focus: a blur here would commit the line the button is about to clear.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setDraft('')
+            setFlowDescription(flow.id, '')
+          }}
+          aria-label={`Clear ${flow.name} description`}
+          title="Clear this description"
+          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+        >
+          <X size={11} />
+        </button>
+      )}
+    </span>
   )
 }

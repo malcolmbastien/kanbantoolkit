@@ -15,6 +15,7 @@
  * their own path, and a position is late rather than lost — the next write carries it.
  */
 
+import { FLOW_DESCRIPTION_LIMIT } from '../../src/domain/flows'
 import type { Board, BoardBand, BoardFlow, Lane, Placement } from '../../src/domain/types'
 import type { Database } from '../db'
 
@@ -197,10 +198,12 @@ export async function writeDesign(
   // be listed before its parent, and a foreign key does not wait for the rest of the array. The
   // second pass is what makes the tree.
   for (const flow of design.flows) {
+    const description =
+      typeof flow.description === 'string' ? flow.description.trim().slice(0, FLOW_DESCRIPTION_LIMIT) : ''
     statements.push({
-      sql: `INSERT OR REPLACE INTO board_flows (id, workspace_id, board_id, kind, name, position)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
-      params: [flow.id, workspaceId, flow.boardId, flow.kind, flow.name ?? '', flow.order ?? 0],
+      sql: `INSERT OR REPLACE INTO board_flows (id, workspace_id, board_id, kind, name, description, position)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+      params: [flow.id, workspaceId, flow.boardId, flow.kind, flow.name ?? '', description || null, flow.order ?? 0],
     })
   }
   for (const lane of design.lanes) {

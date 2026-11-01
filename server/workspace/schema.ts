@@ -81,5 +81,9 @@ export const WORKSPACE_SCHEMA = 1
  * 38 gives a change its workspace. A shared instance's feed was scoped by a join through items;
  * the change now names the workspace itself, so the feed filter is indexed and one tenant's cursor
  * cannot see another tenant's row. Existing ids are kept, because they are client cursors.
+ *
+ * 39 adds `board_flows.description`: the optional line under a workflow's name. A database without
+ * it cannot store what the board says its workflow is for; the column is nullable, and a row with
+ * no line is a workflow with no line. Refused at the door like every shape before it.
  */
-export const REQUIRED_SCHEMA = 38
+export const REQUIRED_SCHEMA = 39

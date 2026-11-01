@@ -9,6 +9,7 @@ import {
   canRenameFlow,
   canReorderFlow,
   cardsFlows,
+  FLOW_DESCRIPTION_LIMIT,
   initiativesFlow,
   kindOf,
   nextFlowName,
@@ -369,6 +370,11 @@ export interface Actions {
   addCardsFlow: (name?: string) => string | undefined
   /** Name a cards flow. Empty is refused; the initiatives flow is not the team's to name. */
   renameFlow: (flowId: string, name: string) => boolean
+  /**
+   * What this workflow is for, in the board's own words — or empty for no line at all. A
+   * description is design, but it is not naming: the initiatives flow may carry one too.
+   */
+  setFlowDescription: (flowId: string, description: string) => void
   /** Move a cards flow within the strip (delta -1 = left, +1 = right). */
   moveFlow: (flowId: string, delta: number) => boolean
   /**
@@ -2467,6 +2473,23 @@ export const useStore = create<Store>()(
         if (!label || !canRenameFlow(state.flows, flowId)) return false
         set({ flows: state.flows.map((f) => (f.id === flowId ? { ...f, name: label } : f)) })
         return true
+      },
+
+      setFlowDescription: (flowId, description) => {
+        const state = get()
+        const flow = state.flows.find((f) => f.id === flowId)
+        if (!flow) return
+        const text = description.trim().slice(0, FLOW_DESCRIPTION_LIMIT)
+        // An unchanged line is not a design change, and saying so twice would make the structure
+        // sync send the same document again.
+        if ((flow.description ?? '') === text) return
+        set({
+          flows: state.flows.map((f) => {
+            if (f.id !== flowId) return f
+            const { description: _old, ...rest } = f
+            return text ? { ...rest, description: text } : rest
+          }),
+        })
       },
 
       moveFlow: (flowId, delta) => {

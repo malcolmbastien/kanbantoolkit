@@ -68,6 +68,9 @@ the initiatives and boundary workflows fold the same way. Opening a folded band 
 the top and puts the columns back underneath it, rather than above the fold. Folding is a view
 choice, not an edit, so it is offered without **Edit board**.
 
+Each workflow can carry an optional line under its name — what it is for. In **Edit board** the field
+sits beside the name; leave it empty and the workflow shows only its name and count.
+
 The drawer, card pips, initiative rollups and the boundary are explained in [Reading a board](reading-a-board.md).
 
 A card is made in a lane's footer (**Add card to …**) or from **Card** in the toolbar. Drag it to

@@ -120,6 +120,33 @@ test('board settings is a tabbed modal, and its tabs work from the keyboard', as
   await expect(dialog).toHaveCount(0)
 })
 
+test('a workflow can carry an optional sub-header, written in edit mode', async ({ page }) => {
+  await openBoard(page)
+  await editBoard(page)
+
+  const initiatives = page.getByRole('textbox', { name: 'Initiatives description' })
+  const cards = page.getByRole('textbox', { name: 'Cards description' })
+  await expect(initiatives).toHaveAttribute('placeholder', 'Describe this workflow (optional)')
+  await initiatives.fill('Where the bets live.')
+  await cards.fill('Delivery, from idea to done.')
+  await saveBoard(page)
+
+  // Read mode shows the board's own line, and nothing when it has none.
+  await expect(page.getByText('Where the bets live.')).toBeVisible()
+  await expect(page.getByText('Delivery, from idea to done.')).toBeVisible()
+
+  // It is design, not view state: a reload still has it.
+  await page.reload()
+  await expect(page.getByText('Where the bets live.')).toBeVisible()
+
+  // Clearing one line leaves the other, and leaves no empty line behind.
+  await editBoard(page)
+  await page.getByRole('button', { name: 'Clear Initiatives description' }).click()
+  await saveBoard(page)
+  await expect(page.getByText('Where the bets live.')).toHaveCount(0)
+  await expect(page.getByText('Delivery, from idea to done.')).toBeVisible()
+})
+
 test('a board type is shown but cannot be changed in settings', async ({ page }) => {
   await openBoard(page)
   await page.getByRole('button', { name: 'Settings', exact: true }).click()

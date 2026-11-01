@@ -119,13 +119,18 @@ async function readFlows(db: Database, workspaceId: string): Promise<BoardFlow[]
     'SELECT * FROM board_flows WHERE workspace_id = ?1 ORDER BY board_id, position, id',
     [workspaceId],
   )
-  return rows.map((row) => ({
-    id: text(row.id),
-    boardId: text(row.board_id),
-    kind: text(row.kind) as BoardFlow['kind'],
-    name: text(row.name),
-    order: count(row.position),
-  }))
+  return rows.map((row) => {
+    const flow: BoardFlow = {
+      id: text(row.id),
+      boardId: text(row.board_id),
+      kind: text(row.kind) as BoardFlow['kind'],
+      name: text(row.name),
+      order: count(row.position),
+    }
+    const description = maybeText(row.description)
+    if (description !== undefined) flow.description = description
+    return flow
+  })
 }
 
 async function readLanes(db: Database, workspaceId: string): Promise<Lane[]> {

@@ -9,6 +9,7 @@
  * Everything goes through one transaction, because a half-written workspace is worse than none.
  */
 
+import { FLOW_DESCRIPTION_LIMIT } from '../../src/domain/flows'
 import type { Item, Placement, ItemLogEntry } from '../../src/domain/types'
 import type { Database, Statement } from '../db'
 import type { Workspace } from './types'
@@ -472,6 +473,7 @@ export async function writeWorkspace(
       board_id: flow.boardId,
       kind: flow.kind,
       name: flow.name,
+      description: value(flow.description?.trim().slice(0, FLOW_DESCRIPTION_LIMIT)),
       position: flow.order,
     }, workspaceId)
   }

@@ -14,6 +14,9 @@
 
 import type { BoardFlow, FlowKind, Lane, Placement } from './types'
 
+/** How long a workflow's optional sub-header may be: a line, not an essay. */
+export const FLOW_DESCRIPTION_LIMIT = 200
+
 /** A board's flows of one kind, in the order the board shows them. */
 export function flowsOf(flows: BoardFlow[], boardId: string, kind: FlowKind): BoardFlow[] {
   return flows.filter((f) => f.boardId === boardId && f.kind === kind).sort((a, b) => a.order - b.order)

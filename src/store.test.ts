@@ -2942,6 +2942,24 @@ describe('the flows of a board', () => {
     expect(cardsFlows(s().flows, 'b-portfolio')).toHaveLength(1)
   })
 
+  it('writes and clears a workflow’s optional description', () => {
+    const id = s().flows.find((f) => f.boardId === 'b-atlas' && f.kind === 'cards')!.id
+    s().setFlowDescription(id, '  From idea to done.  ')
+    expect(s().flows.find((f) => f.id === id)?.description).toBe('From idea to done.')
+
+    // The initiatives flow may carry a line too: a description is not a name.
+    const initiatives = s().flows.find((f) => f.boardId === 'b-atlas' && f.kind === 'initiatives')!.id
+    s().setFlowDescription(initiatives, 'Where the bets live.')
+    expect(s().flows.find((f) => f.id === initiatives)?.description).toBe('Where the bets live.')
+
+    // Clearing removes the field rather than storing an empty line.
+    s().setFlowDescription(id, '   ')
+    expect(s().flows.find((f) => f.id === id)).not.toHaveProperty('description')
+
+    // A flow that is not here changes nothing.
+    s().setFlowDescription('nope', 'x')
+  })
+
   it('names a cards flow, trims it, refuses an empty name — and never renames the initiatives flow', () => {
     const id = s().addCardsFlow()!
     expect(s().renameFlow(id, '  Support  ')).toBe(true)
