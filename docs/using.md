@@ -74,9 +74,9 @@ The drawer, card pips, initiative rollups and the boundary are explained in [Rea
 
 A card is made in a lane's footer (**Add card to …**) or from **Card** in the toolbar. Drag it to
 another cell to move it — including into another cards flow, where the target flow's WIP limit
-applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — tint the column
-(**visualize**), hold the move until a reason is given (**justify**), or refuse it (**block**) — and
-that policy covers every cards flow on the board.
+applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — mark the column with
+hazard tape and the words (**visualize**), hold the move until a reason is given (**justify**), or
+refuse it (**block**) — and that policy covers every cards flow on the board.
 
 The keyboard is a full way in, not a fallback: focus a card and press
 <kbd>Shift</kbd>+<kbd>F10</kbd> for its menu — **Move to lane**, **Move earlier**, **Move later**,

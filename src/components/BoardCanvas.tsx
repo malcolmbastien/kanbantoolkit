@@ -252,8 +252,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             </span>
           )}
           <span className="flex items-center justify-end gap-1">
-            {over && <AlertTriangle size={12} className="shrink-0 text-rose-600" aria-label="Over its WIP limit" />}
-            {at && <AlertTriangle size={12} className="shrink-0 text-amber-600" aria-label="At its WIP limit" />}
+            {over && <AlertTriangle size={12} className="shrink-0 text-white" aria-label="Over its WIP limit" />}
+            {at && <AlertTriangle size={12} className="shrink-0 text-amber-950" aria-label="At its WIP limit" />}
             <span
               className={cn(
                 'shrink-0 font-mono text-micro tabular-nums',
@@ -273,6 +273,20 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             {lane.description && <LanePolicy policy={lane.description} />}
           </span>
         </div>
+
+        {/* The sentence. The pill says how many; this says what it means, on the shelf a reader
+            is already looking at — no glyph to decode and no colour to interpret. */}
+        {wip && (
+          <div
+            data-wip-label={wip}
+            className={cn(
+              'mt-1 border-t pt-1 text-center text-micro font-bold uppercase tracking-wide',
+              WIP_SURFACE[wip].rule,
+            )}
+          >
+            {WIP_SURFACE[wip].label}
+          </div>
+        )}
 
         {editMode && !isRoot && (
           <div className="mt-1 flex w-0 min-w-full flex-wrap items-center gap-1.5" style={{ contain: 'inline-size' }}>
@@ -379,18 +393,28 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         aria-level={level}
         aria-expanded={!collapsed}
         className={cn(
-          'flex h-full min-h-0 w-full flex-1 flex-col',
+          'relative flex h-full min-h-0 w-full flex-1 flex-col',
           // No outer box: each top-level column is its own card, with a gap between them.
           // The stage tints the whole column, so it reads at a glance without a label — unless
-          // the column is at or over its WIP limit, which takes the ground, the edge and the
-          // accent line: a full column is the thing a reader needs to see first.
+          // the column is at or over its WIP limit, which takes the ground, the edge, the tape
+          // and the words: a full column is the thing a reader needs to see first.
           top && 'overflow-hidden rounded-xl border',
           top && (wip ? WIP_SURFACE[wip].lane : 'border-slate-300/80'),
           !top && wip ? WIP_SURFACE[wip].cell : '',
           top && stage && !wip && STAGE_SURFACE[stage],
         )}
-        style={top && stage ? { borderTop: `4px solid ${wip ? WIP_SURFACE[wip].accent : STAGE_ACCENT[stage]}` } : undefined}
+        style={top && stage && !wip ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
       >
+        {/* Hazard tape: the one striped edge on the board, so a breach is not read as another
+            column colour. It replaces the stage accent line while the alarm stands. */}
+        {wip && (
+          <span
+            aria-hidden
+            data-wip-stripe={wip}
+            className="absolute inset-x-0 top-0 z-10 h-1.5"
+            style={{ backgroundImage: WIP_SURFACE[wip].hazard }}
+          />
+        )}
         {/* The root of the cards workflow is the board's whole flow, not a lane: its name is
             already the section's, and its count is the section's too. A header here would be a
             second title over the columns. */}
@@ -454,7 +478,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       data-lane-cell
       aria-level={level}
       className={cn(
-        'flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col',
+        'relative flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col',
         // A top-level column is the object: one edge, one tint, one accent. A nested cell
         // sits on its section's tint and needs none of the three — the air beside it is
         // enough, and a second frame is what made a cell look like a box inside a box. A lane
@@ -463,8 +487,16 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         top && (wip ? WIP_SURFACE[wip].lane : 'border-slate-300/80'),
         top ? (wip ? '' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100') : wip ? WIP_SURFACE[wip].cell : '',
       )}
-      style={top && stage ? { borderTop: `4px solid ${wip ? WIP_SURFACE[wip].accent : STAGE_ACCENT[stage]}` } : undefined}
+      style={top && stage && !wip ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
     >
+      {wip && (
+        <span
+          aria-hidden
+          data-wip-stripe={wip}
+          className="absolute inset-x-0 top-0 z-10 h-1.5"
+          style={{ backgroundImage: WIP_SURFACE[wip].hazard }}
+        />
+      )}
       {!hideHeader && header(true)}
       <DropColumn
         laneId={lane.id}

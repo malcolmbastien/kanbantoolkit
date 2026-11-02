@@ -282,27 +282,38 @@ export function statusDot(status: { resolved: boolean; started: boolean }): stri
  * header. Left, not blocked: colour changes nothing about what a move may do.
  */
 export const WIP_PILL = {
-  over: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
-  at: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+  over: 'bg-white text-rose-700 ring-1 ring-rose-200',
+  at: 'bg-white text-amber-900 ring-1 ring-amber-300',
 } as const
 
 /**
- * The column's own share of the breach, by state. `lane` is the top-level column (ground and
- * edge), `cell` the body of a nested cell, and `header` the shelf its name sits on; `accent` is
- * the stage line's stand-in on a full column.
+ * The column's own share of the breach, by state.
+ *
+ * A tinted wash was not enough: the board already uses colour to say which stage a column is, and
+ * a soft amber or rose read as another pleasant column colour rather than as a problem. So a
+ * breach is drawn in things this board uses nowhere else — a hazard-striped edge, a solid header
+ * and the words. `lane` is the top-level column (ground and edge), `cell` the body of a nested
+ * cell, `header` the name shelf (the words sit under the name on it), `rule` the hairline between
+ * the two, `hazard` the tape's gradient, and `label` the sentence.
  */
 export const WIP_SURFACE = {
   over: {
-    lane: 'border-rose-300 bg-rose-100/70',
-    cell: 'bg-rose-100/60',
-    header: 'bg-rose-50/90 text-rose-900',
-    accent: '#e11d48',
+    lane: 'border-2 border-rose-500 bg-rose-100/60',
+    cell: 'border-2 border-rose-500 bg-rose-100/50',
+    header: 'bg-rose-600 text-white',
+    stripe: 'bg-rose-600 text-white',
+    hazard: 'repeating-linear-gradient(45deg, #e11d48 0 5px, #4c0519 5px 10px)',
+    rule: 'border-white/30',
+    label: 'Over WIP limit',
   },
   at: {
-    lane: 'border-amber-300 bg-amber-100/70',
-    cell: 'bg-amber-100/60',
-    header: 'bg-amber-50/90 text-amber-900',
-    accent: '#d97706',
+    lane: 'border-2 border-amber-500 bg-amber-100/50',
+    cell: 'border-2 border-amber-500 bg-amber-100/40',
+    header: 'bg-amber-500 text-amber-950',
+    stripe: 'bg-amber-500 text-amber-950',
+    hazard: 'repeating-linear-gradient(45deg, #f59e0b 0 5px, #78350f 5px 10px)',
+    rule: 'border-amber-900/30',
+    label: 'At WIP limit',
   },
 } as const
 

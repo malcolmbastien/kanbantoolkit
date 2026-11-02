@@ -103,9 +103,9 @@ objective it serves; it does not move a card or raise a limit.
 
 | What you see | What it means | What clears it |
 | --- | --- | --- |
-| **N/limit** in amber, with an alert icon, and the column in an amber wash | The lane is **at** its WIP limit. The header, edge and accent line take the same colour, so the lane reads full from across the board. | Cards leave the lane. |
-| **N/limit** in red, with an alert icon, and the column in a rose wash | The lane is **over** its WIP limit. The colour is on the column, not only in the count, because the column is what the eye is drawn to. | Cards leave the lane. |
-| A move that does not happen, or asks for a reason | The board's **WIP enforcement** is doing its job: **justify** holds the move until a reason is given (the reason is recorded on the card), and **block** refuses it. **Visualize** only tints the lane and lets the move through. | The move is completed with a reason, or the card is placed elsewhere. |
+| **N/limit** in amber, an alert icon, amber hazard tape across the column, a solid amber header and the words **At WIP limit** | The lane is **at** its WIP limit. Tape and words, not only a tint, so a full lane is not mistaken for another stage colour. | Cards leave the lane. |
+| **N/limit** in red, an alert icon, rose hazard tape across the column, a solid rose header and the words **Over WIP limit** | The lane is **over** its WIP limit. The breach is on the column, in a pattern the board uses nowhere else. | Cards leave the lane. |
+| A move that does not happen, or asks for a reason | The board's **WIP enforcement** is doing its job: **justify** holds the move until a reason is given (the reason is recorded on the card), and **block** refuses it. **Visualize** only marks the lane and lets the move through. | The move is completed with a reason, or the card is placed elsewhere. |
 
 The count is the column's own, not the filtered view's: narrowing what you see never changes the
 load a column carries.
