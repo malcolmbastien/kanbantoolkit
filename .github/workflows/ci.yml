@@ -195,7 +195,7 @@ jobs:
           docker pull "$PUBLISHED"
           docker volume create kanbantoolkit-published
           docker run -d --name kanbantoolkit-published -p 127.0.0.1:8787:8787 -v kanbantoolkit-published:/data \
-            -e AUTH_DEV=1 -e WORKSPACE_NAME="Team Atlas" "$PUBLISHED"
+            -e AUTH_DEV=1 -e WORKSPACE_NAME="Team Atlas" -e ERROR_SALT=ci "$PUBLISHED"
           for i in $(seq 1 40); do
             if curl -sf http://127.0.0.1:8787/api/health >/dev/null; then break; fi
             sleep 1
