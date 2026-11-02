@@ -4,6 +4,7 @@ import {
   aging,
   bucketsFor,
   cumulativeFlow,
+  deliveredSince,
   firstRecordedMove,
   flowRecord,
   flowRecordFromMoves,
@@ -21,6 +22,7 @@ import {
   scatterPoints,
   serviceLevel,
   throughput,
+  WEEK_MS,
   windowStart,
   type FlowRecord,
   type ScatterPoint,
@@ -33,6 +35,7 @@ import { csvFilename, flowCsv, type FlowCsvRow } from '@/domain/csv'
 import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import type { IssueType } from '@/domain/types'
 import type { Item } from '@/domain/types'
 import { cardsFlows, kindOf } from '@/domain/flows'
 import { FLOW_WINDOWS, type FlowWindow } from '@/domain/flowWindow'
@@ -102,10 +105,11 @@ export function MetricsView({ boardId }: { boardId: string }) {
   // A flow the board no longer has — a link from when it did, or a flow removed in another tab —
   // is not a reading: the screen shows every flow and the URL is normalised on the next write.
   const selectedFlow = boardFlows.find((f) => f.id === metricsFlowId) ?? null
-  const typeNameOf = (id: string) => {
+  const typeFor = (id: string): IssueType => {
     const item = items.find((candidate) => candidate.id === id)
-    return issueTypes.find((type) => type.id === item?.typeId)?.name ?? 'No type'
+    return issueTypes.find((type) => type.id === item?.typeId) ?? { id: 'no-type', name: 'No type', color: '#64748b' }
   }
+  const typeNameOf = (id: string) => typeFor(id).name
 
   // The cards this board carries in its cards workflow — archived ones included, because filing
   // a delivered card away must not erase it from the board's throughput.
@@ -158,6 +162,31 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const firstMove = firstRecordedMove(records)
   const coverage = moveCoverage(records)
   const deliveredTotal = delivered.reduce((sum, n) => sum + n, 0)
+
+  // Throughput read by type: the same weekly buckets as the bars, split by the card's type. The
+  // order is the board's own type order, so each board keeps its own vocabulary.
+  const deliveredRecords = deliveredSince(records, since)
+  const typeOrder = new Map(issueTypes.map((type, index) => [type.id, index]))
+  const throughputTypes = (() => {
+    const seen = new Map<string, IssueType>()
+    for (const record of deliveredRecords) {
+      const type = typeFor(record.id)
+      if (!seen.has(type.id)) seen.set(type.id, type)
+    }
+    return [...seen.values()].sort(
+      (a, b) => (typeOrder.get(a.id) ?? 999) - (typeOrder.get(b.id) ?? 999) || a.name.localeCompare(b.name),
+    )
+  })()
+  const weekTypeCounts = buckets.map((bucket) => {
+    const counts = new Map<string, number>()
+    for (const record of deliveredRecords) {
+      if (record.resolvedAt !== undefined && record.resolvedAt > bucket - WEEK_MS && record.resolvedAt <= bucket) {
+        const id = typeFor(record.id).id
+        counts.set(id, (counts.get(id) ?? 0) + 1)
+      }
+    }
+    return counts
+  })
 
   const sle = serviceLevel(records, since, serviceShare)
   const openCommitted = openScope(records, now, false)
@@ -323,7 +352,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
               since={since}
               openItem={openItem}
               selectedItemId={selectedItemId}
-              typeNameOf={typeNameOf}
+              typeFor={typeFor}
+              typeOrder={typeOrder}
             />
 
             <CycleHistogram cycles={cycles} p50={summary.cycle.p50} p85={summary.cycle.p85} />
@@ -399,16 +429,34 @@ export function MetricsView({ boardId }: { boardId: string }) {
                     <div className="text-center text-micro font-bold tabular-nums text-slate-600">{n}</div>
                     <div className="flex h-20 flex-col justify-end">
                       <div
-                        className={cn('rounded-sm', n === 0 ? 'bg-slate-200' : 'bg-emerald-500')}
+                        className="flex w-full flex-col-reverse overflow-hidden rounded-sm"
                         style={{ height: `${Math.max(3, (n / busiest) * 100)}%` }}
                         title={`${n} delivered in the week ending ${shortDate(buckets[i])}`}
-                      />
+                      >
+                        {n === 0 ? (
+                          <div className="h-full w-full bg-slate-200" />
+                        ) : (
+                          throughputTypes.map((type) => {
+                            const count = weekTypeCounts[i].get(type.id) ?? 0
+                            if (count === 0) return null
+                            return (
+                              <div
+                                key={type.id}
+                                data-throughput-type={type.id}
+                                style={{ height: `${(count / n) * 100}%`, backgroundColor: type.color }}
+                                title={`${count} ${type.name}${count === 1 ? '' : 's'} in the week ending ${shortDate(buckets[i])}`}
+                              />
+                            )
+                          })
+                        )}
+                      </div>
                     </div>
                     <div className="truncate text-center text-micro text-slate-600">{shortDate(buckets[i])}</div>
                   </div>
                 ))}
               </div>
               )}
+              <TypeLegend types={throughputTypes} />
             </Panel>
 
             {/* One planning row, not three stacked sections: the past reading (service level) sits
@@ -857,13 +905,15 @@ function CycleScatter({
   since,
   openItem,
   selectedItemId,
-  typeNameOf,
+  typeFor,
+  typeOrder,
 }: {
   records: FlowRecord[]
   since: number | undefined
   openItem: (id: string | null) => void
   selectedItemId: string | null
-  typeNameOf: (id: string) => string
+  typeFor: (id: string) => IssueType
+  typeOrder: Map<string, number>
 }) {
   const wrap = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<{ point: ScatterPoint; left: number; top: number; below: boolean } | null>(null)
@@ -879,6 +929,16 @@ function CycleScatter({
   }
 
   const stats = sampleStats(points.map((point) => point.cycle))
+  const types = [
+    ...new Map(
+      points.map((point) => {
+        const type = typeFor(point.id)
+        return [type.id, type] as const
+      }),
+    ).values(),
+  ].sort(
+    (a, b) => (typeOrder.get(a.id) ?? 999) - (typeOrder.get(b.id) ?? 999) || a.name.localeCompare(b.name),
+  )
   const cap = Math.max(1, Math.ceil(percentile(points.map((point) => point.cycle), 98) ?? 1))
   const shown = points.length > MAX_SCATTER_POINTS ? points.slice(-MAX_SCATTER_POINTS) : points
   const above = points.filter((point) => point.cycle > cap).length
@@ -971,10 +1031,12 @@ function CycleScatter({
             r={3.5}
             tabIndex={0}
             role="button"
-            aria-label={`${point.title}: ${days(point.cycle)} cycle time, delivered ${shortDate(point.resolvedAt)}`}
+            aria-label={`${point.title} (${typeFor(point.id).name}): ${days(point.cycle)} cycle time, delivered ${shortDate(point.resolvedAt)}`}
+            style={{ fill: typeFor(point.id).color }}
             className={cn(
-              'cursor-pointer focus:outline-none focus-visible:stroke-2 focus-visible:stroke-slate-900',
-              point.cycle > cap ? 'fill-rose-500 hover:fill-rose-700' : 'fill-indigo-500 hover:fill-indigo-700',
+              'cursor-pointer transition-opacity hover:opacity-75 focus:outline-none focus-visible:stroke-2 focus-visible:stroke-slate-900',
+              // The tail keeps a rose ring rather than a rose fill: the type is the colour now.
+              point.cycle > cap && 'stroke-rose-500 stroke-2',
               selectedItemId === point.id && 'stroke-2 stroke-slate-900',
             )}
             onClick={() => openItem(point.id)}
@@ -1010,7 +1072,7 @@ function CycleScatter({
         >
           <div className="truncate text-meta font-semibold text-slate-900">{hover.point.title}</div>
           <div className="mt-0.5 truncate text-micro text-slate-500">
-            {typeNameOf(hover.point.id)} · delivered {shortDate(hover.point.resolvedAt)}
+            {typeFor(hover.point.id).name} · delivered {shortDate(hover.point.resolvedAt)}
           </div>
           <div className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-micro text-slate-600">
             <span>Cycle</span>
@@ -1028,8 +1090,27 @@ function CycleScatter({
         </div>
       )}
       </div>
-
+      <TypeLegend types={types} />
     </Panel>
+  )
+}
+
+/**
+ * Who a colour belongs to. Both charts colour by card type, and a type's colour is the board's
+ * own vocabulary — so the legend names every type the reading contains rather than assuming a
+ * fixed palette. Text, not colour alone: the name is what a reader can rely on.
+ */
+function TypeLegend({ types }: { types: IssueType[] }) {
+  if (types.length === 0) return null
+  return (
+    <div data-flow-type-legend className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600">
+      {types.map((type) => (
+        <span key={type.id} className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: type.color }} />
+          {type.name}
+        </span>
+      ))}
+    </div>
   )
 }
 

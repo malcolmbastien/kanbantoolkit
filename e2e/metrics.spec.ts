@@ -116,7 +116,7 @@ test('a dot in the scatter is the card it stands for', async ({ page }) => {
   const dot = view.locator('[data-flow-scatter-point]').first()
   await expect(dot).toBeVisible()
   const label = (await dot.getAttribute('aria-label')) ?? ''
-  const title = label.split(':')[0]
+  const title = label.split(' (')[0]
   expect(title.length).toBeGreaterThan(0)
 
   // Hovering is a rich read, not the browser's title: the card, its type, dates and both times.
@@ -164,6 +164,31 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   // repeats a "The numbers" heading over itself.
   await expect(view.locator('[data-cycle-histogram-table]')).toBeVisible()
   await expect(view.getByText('The numbers')).toHaveCount(0)
+})
+
+test('both charts colour by card type, and name the colours', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  // Scatter: the dots carry the card type's own colour, and the legend names every type present.
+  const dots = view.locator('[data-flow-scatter-point]')
+  await expect(dots.first()).toBeVisible()
+  const fills = await dots.evaluateAll((dots) =>
+    [...new Set(dots.map((dot) => (dot as SVGElement).style.fill))],
+  )
+  expect(fills.length, 'more than one type among the dots').toBeGreaterThan(1)
+  const legends = view.locator('[data-flow-type-legend]')
+  await expect(legends).toHaveCount(2)
+  await expect(legends.first()).toContainText(/Bug|Task|User Story/)
+
+  // Throughput: each week's bar is split into type segments, in the same colours and legend order.
+  const segments = view.locator('[data-throughput-type]')
+  expect(await segments.count()).toBeGreaterThan(1)
+  const segmentColours = await segments.evaluateAll((els) => [...new Set(els.map((el) => (el as HTMLElement).style.backgroundColor))])
+  expect(segmentColours.length).toBeGreaterThan(1)
+  await expect(legends.nth(1)).toContainText(/Bug|Task|User Story/)
+  // The two legends agree about who owns which colour and in what order.
+  expect(await legends.nth(0).innerText()).toBe(await legends.nth(1).innerText())
 })
 
 test('the delivered cards export as CSV, and the screen keeps only the reading', async ({ page }) => {

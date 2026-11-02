@@ -13,6 +13,10 @@ the cumulative flow diagram, throughput, and one **Planning** panel with three r
 level expectation, when the open work will be done, and how many by a date. The controls row also
 exports the window's delivered cards — the rows the scatter used to list — as CSV.
 
+The cycle-time dots and the throughput bars are coloured by the card's **type**, using the board's
+own type colours. Each chart carries a legend naming the types in its window, so the colours are
+read with words rather than guessed at; the tooltip names the type again, and so does the CSV.
+
 <img src="img/guide/flow-view.webp" alt="The Flow view for Team Atlas: the header reading, cycle-time scatter and distribution, aging work, cumulative flow, throughput and the planning panel" width="1100">
 
 *The Flow view: the window and cards flow at the top, with the delivery history beneath them.*
@@ -69,7 +73,8 @@ work without a new lane setting.
 7. **Accessible and dependency-free.** Inline SVG and the existing bar primitives, no chart library.
    Each chart has a sentence summary, and the distributions keep a table of their numbers for a
    screen reader. The scatter's per-card rows are the CSV export's job now, so the chart is the
-   reading and the file is the data.
+   reading and the file is the data. Type colour is never the only channel: every chart that uses
+   it names the type in a legend, a tooltip and its accessible label.
 8. **The first download does not grow.** `metrics.ts` is imported by the lazy Flow screen only, so
    additions belong there and must stay there.
 9. **Balanced, not one number.** Every phase pairs a speed reading with a waiting one — cycle time
