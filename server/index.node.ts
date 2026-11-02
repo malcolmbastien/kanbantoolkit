@@ -23,7 +23,7 @@ import { WORKSPACE_ID } from './auth/session'
 import { migrate } from './migrate'
 import type { Migration } from './migrate'
 import { openSqlite } from './sqlite'
-import { workspaceName } from './config'
+import { isProduction, saltProblem, workspaceName } from './config'
 import { dispatchDue } from './webhooks'
 import { changeRetentionDays, pruneChanges } from './workspace/changes'
 import { fileBackups } from './file-backup'
@@ -32,6 +32,24 @@ import { record } from './audit'
 const port = Number(process.env.PORT ?? 8787)
 const databasePath = process.env.DB_PATH ?? 'kanbantoolkit.db'
 const staticDir = process.env.STATIC_DIR ?? './dist'
+
+/**
+ * Before the database is opened, and before anything is written: an instance that cannot keep its
+ * address hashes honest does not start. A published default is a weak secret precisely because it
+ * ships without anyone noticing, so the answer is one line naming the variable rather than a board
+ * that collects reports whose key is in the repository.
+ *
+ * A development run is told and carries on — `salt()` in config.ts generates one for the process,
+ * so even there no published value becomes the salt.
+ */
+const saltIssue = saltProblem(process.env)
+if (saltIssue) {
+  if (isProduction(process.env)) {
+    console.error(`kanbantoolkit cannot start: ${saltIssue}`)
+    process.exit(1)
+  }
+  console.warn(`kanbantoolkit: ${saltIssue}. This run generates one for the process instead.`)
+}
 
 /**
  * A restore staged from Admin applies here, before the database is opened.

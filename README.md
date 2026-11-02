@@ -150,13 +150,16 @@ none of it is entered twice — it is read from the cards that are already there
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
 cd kanbantoolkit
+printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
 docker compose up -d
 # open http://localhost:8787/app
 ```
 
 The image builds, the database is created on a volume, and the first visit sets up the account that
-runs the instance. Before the machine has a public address, set `PUBLIC_URL` and `ERROR_SALT`.
-[configure.md](docs/configure.md) says what each one does.
+runs the instance. `ERROR_SALT`, in the `.env` file above, is the one value the image will not guess:
+it is mixed into the hash of a reporter's address, so it has to be a secret rather than a default,
+and the image **refuses to start without it**. `PUBLIC_URL` is the other one worth setting, when the
+machine has a public address. [configure.md](docs/configure.md) says what each one does.
 
 <details>
 <summary>Run it without Docker</summary>
@@ -167,11 +170,14 @@ Node 26 and a directory you own:
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
 cd kanbantoolkit
 npm ci && npm run build
-PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
+NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
+  PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
 ```
 
 The build writes the site and the application into `dist/`; the server applies every pending
-migration on start and prints the schema version it reached.
+migration on start and prints the schema version it reached. A run without `ERROR_SALT` is a
+development run: it starts, with a salt generated for the process, so a real instance should take the
+value from its unit file and keep it (docs/install.md).
 
 </details>
 

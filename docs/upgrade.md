@@ -56,6 +56,26 @@ rewritten in the rows already there: the lists are as they were, and the revisio
 A release that changes only the client or the site can be rolled back by checking out the previous
 tag and rebuilding.
 
+## A release that needs a value before it will start
+
+One upgrade was not a schema change: the salt became required (task 201). An instance used to start
+with a published default — `change-me` from `compose.yaml`, `kanbantoolkit` from the code — and an
+address hash keyed with either is a hash whose key is in this repository. A Node instance with
+`NODE_ENV=production` now **refuses to start** until `ERROR_SALT` holds a real secret, and says so:
+
+```
+kanbantoolkit cannot start: ERROR_SALT is not set. Set it to a secret (docs/configure.md)
+```
+
+The step is one line in the file the process already reads — `.env` on a Compose install,
+`Environment=ERROR_SALT=…` in a systemd unit — with the value from `openssl rand -hex 32`. Nothing in
+the database is rewritten, but the addresses it hashed under the old value no longer match, so the
+sign-in attempt count and the per-hour error-report limit start fresh once. That is the whole cost,
+and it is why the value is worth setting before an instance collects anything.
+
+A run without `NODE_ENV=production` is a development run and still starts: it generates a salt for the
+process, which is convenient on a laptop and not something a served instance should rely on.
+
 ## When a migration stops
 
 The schema is applied in one transaction per file, and a failure leaves the version where it was, so

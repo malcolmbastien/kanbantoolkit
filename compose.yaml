@@ -34,8 +34,11 @@ services:
       # The address the outside world uses: what a sign-in redirect URI is built from, and what
       # makes the session cookie Secure. Set it to your https address.
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
-      # Mixed into the hash of a reporter's address before it is stored. Set a secret.
-      ERROR_SALT: ${ERROR_SALT:-change-me}
+      # Mixed into the hash of a reporter's address before it is stored. **Required, and there is no
+      # default**: a salt published in a file anyone can read is not a secret, so the image refuses
+      # to start until this is set to one. Generate it once — `openssl rand -hex 32` — and put it in
+      # the `.env` file this file already reads.
+      ERROR_SALT: ${ERROR_SALT:-}
       # The development identity: sign in with an address, no provider, no password. Empty means
       # the switch does not exist. **Never set it to 1 on an instance anybody can reach** — it is a
       # door with no lock, and it is here so a local trial needs no OAuth client.

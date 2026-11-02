@@ -21,7 +21,9 @@ export { WorkspaceChannel } from './channel'
 export interface Env {
   /** The error log. Absent until the database is created — see the README. */
   DB?: D1Database
-  /** Mixed into the address hash, so the table holds a hash rather than a person's address. */
+  /** Mixed into the address hash, so the table holds a hash rather than a person's address.
+   *  `wrangler secret put ERROR_SALT`; without it each isolate generates its own, and the
+   *  per-hour report limit only counts within one. */
   ERROR_SALT?: string
   /** The live channel: one Durable Object per workspace. See `channel.ts`. */
   WORKSPACE_CHANNEL?: DurableObjectNamespace

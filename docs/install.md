@@ -4,19 +4,27 @@ Kanban Toolkit is one Node process, one SQLite file and a directory of static fi
 machine with nothing on it to a running instance; [configure.md](configure.md) is what to set once it
 runs, and [tls.md](tls.md) is what to put in front of it.
 
-You do not edit any configuration to start. The one command uses its defaults, creates the database
-itself, and asks you for nothing until it is running.
+You do not edit any configuration to start, with one exception: a salt, which the commands below
+generate and which the instance will not run without. Everything else uses its defaults, creates the
+database itself, and asks you for nothing until it is running.
 
-## One command, with Docker
+## With Docker, after cloning
 
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
-cd kanbantoolkit && docker compose up -d
+cd kanbantoolkit
+printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" > .env
+docker compose up -d
 ```
 
 That builds the image from this checkout, creates the database on a named volume, applies the
 migrations and answers on <http://localhost:8787/app>. The port is bound to `127.0.0.1`: a reverse
 proxy is the way in, and [tls.md](tls.md) is that part.
+
+The `.env` line is the only value the image will not guess. `ERROR_SALT` is mixed into the hash of an
+address before it is stored, so it has to be a secret — and a salt published in a Compose file is not
+one. Without it the container exits at start and says why; with it, keep the value, because it is what
+lets the rate-limit counts of one hour match the next.
 
 **An instance serves the application and nothing else.** `/` sends you to `/app`; `/assets`, the icon
 and `/api` answer; anything else is the instance's own 404, naming the workspace. This project's
@@ -28,8 +36,8 @@ A published image exists too — `ghcr.io/malcolmbastien/kanbantoolkit`, built b
 and tagged by commit, by version and `latest`; [docker.md](docker.md) has the command and what the
 tags mean. Building from the checkout above always works and needs no registry.
 
-Two values are worth setting before the machine has a public address, and neither is required to try
-it:
+Two more values are worth setting before the machine has a public address. Neither is required to try
+it; the salt above is the one thing that is:
 
 | | |
 | --- | --- |
@@ -47,7 +55,8 @@ Node 26, a directory you own, and a reverse proxy for TLS:
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
 cd kanbantoolkit && npm ci && npm run build
-PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
+NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
+  PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
 ```
 
 The build writes the site and the app into `dist/`. The server applies every pending migration on
@@ -56,6 +65,10 @@ start and prints the schema version it reached:
 ```
 kanbantoolkit schema vN
 ```
+
+`NODE_ENV=production` is what makes this a served instance rather than a development run — it is the
+switch that makes the salt required. The generated value above is for a first look; a server you keep
+takes it from the unit file below, so that a restart does not forget the addresses it hashed.
 
 ## What the first run does
 
@@ -112,11 +125,13 @@ After=network.target
 Type=simple
 User=kanbantoolkit
 WorkingDirectory=/srv/kanbantoolkit
+Environment=NODE_ENV=production
 Environment=PORT=8787
 Environment=DB_PATH=/srv/kanbantoolkit/kanbantoolkit.db
 Environment=STATIC_DIR=/srv/kanbantoolkit/dist
 Environment=WORKSPACE_NAME=Team Atlas
 Environment=PUBLIC_URL=https://kanbantoolkit.example
+# ERROR_SALT — a secret, generated once with `openssl rand -hex 32`. It has no default.
 ExecStart=/usr/bin/npm run server
 Restart=on-failure
 RestartSec=3
@@ -124,6 +139,13 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 ```
+
+`ERROR_SALT` is the one variable with no default, and `NODE_ENV=production` is what makes the server
+say so: without a salt the unit does not come up, and `journalctl -u kanbantoolkit` prints the line
+that names it. Add it beside the others as `Environment=ERROR_SALT=…`, with the value from
+`openssl rand -hex 32`. A run without `NODE_ENV=production` is a development run — it starts with a
+salt generated for the process, which is convenient for a trial and not what a team's instance wants,
+because the addresses it hashes stop matching across restarts.
 
 ```bash
 sudo systemctl enable --now kanbantoolkit
@@ -152,6 +174,6 @@ take a backup — the way back is a restore, not a rollback.
 
 ---
 
-**Last verified:** 0.1.0 — `docker compose up -d` on a clean checkout with no configuration at all,
-then the same instance by hand with the three commands: first run, password sign-in, `curl
+**Last verified:** 0.1.0 — `docker compose up -d` on a clean checkout with nothing but a `.env`
+holding `ERROR_SALT`, then the same instance by hand: first run, password sign-in, `curl
 /api/health`, and a backup taken from inside the container.

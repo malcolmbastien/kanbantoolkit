@@ -116,7 +116,7 @@ jobs:
       - name: The work outlives the container
         run: |
           docker compose down
-          AUTH_DEV=1 docker compose up -d
+          AUTH_DEV=1 ERROR_SALT=ci docker compose up -d
           for i in $(seq 1 40); do
             if curl -sf http://127.0.0.1:8787/api/health >/dev/null; then break; fi
             sleep 1

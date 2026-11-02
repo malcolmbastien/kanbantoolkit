@@ -37,9 +37,73 @@ function value(env: unknown, key: string): string | undefined {
   return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined
 }
 
-/** Mixed into the stored address hash, so the table holds a hash rather than a person's address. */
+/**
+ * Whether this process is a served instance rather than a development run.
+ *
+ * The image sets `NODE_ENV=production` (the Dockerfile, and therefore Compose), and a self-hosted
+ * unit sets it too — docs/install.md shows the line. It is deliberately the only signal: treating
+ * anything that is not `development` as production would make `npm run server` refuse on a laptop.
+ */
+export function isProduction(env: unknown): boolean {
+  return (value(env, 'NODE_ENV') ?? '').toLowerCase() === 'production'
+}
+
+/**
+ * Values this project publishes: the default Compose used to ship, the fallback this file used to
+ * carry, and the string the install guide once asked an operator to paste. None of them is a secret,
+ * and an address hash keyed with one has its key in the repository — the table remembers a hash and
+ * anyone can compute the same hash for an address they suspect.
+ */
+const PUBLISHED_SALTS = new Set(['change-me', 'kanbantoolkit', 'replace-with-a-secret'])
+
+/** A configured salt worth using, or nothing. A published placeholder is not a secret. */
+function usableSalt(env: unknown): string | undefined {
+  const configured = value(env, 'ERROR_SALT')
+  if (!configured) return undefined
+  return PUBLISHED_SALTS.has(configured.toLowerCase()) ? undefined : configured
+}
+
+/**
+ * What is wrong with the salt, or nothing.
+ *
+ * `server/index.node.ts` asks before it opens the database, so a misconfigured instance stops with
+ * one clear line rather than collecting reports it cannot keep anonymous. A development run is told
+ * too, and starts anyway (see `salt`).
+ */
+export function saltProblem(env: unknown): string | undefined {
+  if (usableSalt(env)) return undefined
+  const configured = value(env, 'ERROR_SALT')
+  return configured
+    ? `ERROR_SALT is "${configured}", a value this project publishes as a placeholder. Set it to a secret`
+    : 'ERROR_SALT is not set. Set it to a secret (docs/configure.md)'
+}
+
+/** The salt this process made for itself, when the operator did not give it one. */
+let generatedSalt: string | undefined
+
+/**
+ * Mixed into the stored address hash, so the table holds a hash rather than a person's address.
+ *
+ * A configured secret is used as given. Anything else — unset, blank, or one of the placeholders this
+ * project publishes — is refused by an instance, so no published value can become a deployment's key
+ * unnoticed. A development run still starts: it gets a random salt for the process, which means the
+ * worst case is that a restart detaches yesterday's rate-limit counts from today's.
+ */
 export function salt(env: unknown): string {
-  return value(env, 'ERROR_SALT') ?? 'kanbantoolkit'
+  const configured = usableSalt(env)
+  if (configured) return configured
+  if (isProduction(env)) {
+    const problem = saltProblem(env)
+    if (problem) throw new Error(problem)
+  }
+  generatedSalt ??= randomSalt()
+  return generatedSalt
+}
+
+/** Thirty-two random bytes, in hex: unguessable, and short enough to sit in an environment line. */
+function randomSalt(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 /**

@@ -274,7 +274,7 @@ Not a task, because it is a moment rather than work: every line must be true on 
 - [ ] The domain resolves, HTTPS is on, and `SITE_URL` is the canonical origin everywhere.
 - [ ] `REPO_URL` points at the real repository; the Docs, Source, Contribute and Licence links resolve.
 - [ ] The licence is decided, in `LICENSE`, and named in `package.json`, the README, the footer and `/install/`.
-- [ ] A fresh machine follows `/install/` and the docs from nothing to a running instance in under ten minutes.
+- [ ] A fresh machine follows `/install/` and the docs from nothing to a running instance, without help.
 - [ ] A real mailbox answers support and security; `security.txt` has an expiry in the future.
 - [ ] `/pricing/`, `/signin/` and `/signup/` are gone, and nothing links to them.
 - [ ] The Access gate is off, `/app` is `noindex`, every public page is in `sitemap.xml`.

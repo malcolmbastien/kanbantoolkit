@@ -1,8 +1,9 @@
 # Configure
 
-Everything Kanban Toolkit reads is an environment variable, and every one of them has a default that
-works. Set nothing and you get a running board with no way in — which is a valid instance, and the
-static tier is exactly that.
+Everything Kanban Toolkit reads is an environment variable, and almost every one of them has a
+default that works. Set nothing and you get a running board with no way in — which is a valid
+instance, and the static tier is exactly that. The exception is `ERROR_SALT`, which an instance
+refuses to start without (it is the one value that must not have a published default).
 
 Two rules hold everywhere:
 
@@ -35,9 +36,16 @@ binding or an environment variable to a setting, which is what lets one set of r
 | `BACKUP_DIR` | a `backups` folder beside `DB_PATH` | Where Admin's file copies and the `backup` command write. |
 | `BACKUP_KEEP_DAYS` | `30` | How long a file copy is kept before the next copy prunes it. |
 | `RESTORE_CONFIRM` | unset | Set to `yes` on the next boot to apply a restore staged from Admin. Without it the pending file is left in place and the live database is untouched. |
-| `ERROR_SALT` | `kanbantoolkit` (`change-me` in `compose.yaml`) | Mixed into the hash of a reporter's address before it is stored. The salt is what stops an address being recovered from its hash, so set a secret value in production. The Compose file ships `change-me` as a placeholder, not a secret. |
+| `ERROR_SALT` | — **(required)** | Mixed into the hash of an address before it is stored — in an error report, a sign-in attempt, a session, the audit trail. The salt is what stops an address being recovered from its hash, so **there is no default**: `change-me`, `replace-with-a-secret` and `kanbantoolkit` are values this project publishes, and an instance that hashes with one has published the key to the hash. A Node instance running with `NODE_ENV=production` — which the image sets, and which [install.md](install.md) puts in the unit file — **refuses to start** when this is unset or is a published placeholder, and the log line names the variable. A development run still starts; it gets a random salt for the process, so nothing published is ever used. Changing the value later does not corrupt anything: it makes the hashes already recorded unmatchable, which is a loss of rate-limit continuity and not of a record. |
 | `PROJECT_URL` | unset | Where this project's own site is, if the instance should link its terms and privacy pages. Set, the sign-in surface links them; unset, it says whose policies apply with no link. Never this instance's own address. |
 | `API_RATE_LIMIT` | `120` | Requests a minute one token may make against `/api/v1`. Generous for a script and low enough that a runaway loop is a `429` rather than an outage. The window is per token and kept in memory, so a restart grants a fresh one — it is a guard, not an accounting system. |
+
+**Making the salt.** `openssl rand -hex 32` prints one. Put it where the process reads its other
+secrets — the `.env` a Compose install loads, the unit file a bare machine runs, `wrangler secret put`
+on Cloudflare — and not in a file that is committed. It is generated once, by you, on the machine that
+will keep it. A Worker has no start to refuse, so on Cloudflare an isolate with no salt generates its
+own, and the per-hour report limit then only counts within that isolate; the secret is what makes one
+number hold across them.
 
 ## The doors
 

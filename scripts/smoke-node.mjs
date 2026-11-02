@@ -59,6 +59,32 @@ function check(name, condition, detail = '') {
   if (!condition) console.error(`  not ok — ${name}${detail ? `: ${detail}` : ''}`)
 }
 
+/**
+ * A production instance with no salt is refused, not served (task 201).
+ *
+ * `ERROR_SALT` is the one value with no default: it is the key to the hash of a reporter's address,
+ * so a value shipped in the repository would be a secret in the open. The refusal happens before the
+ * database is opened, which is why this can run against the same path the next check populates.
+ */
+async function refusesWithoutSalt() {
+  const child = spawn(process.execPath, ['dist/server.js'], {
+    cwd: root,
+    env: { ...process.env, NODE_ENV: 'production', PORT: '0', DB_PATH: databasePath, STATIC_DIR: dist, ERROR_SALT: '' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let output = ''
+  child.stdout.on('data', (chunk) => (output += chunk))
+  child.stderr.on('data', (chunk) => (output += chunk))
+  const code = await new Promise((resolve) => child.on('exit', resolve))
+  check(
+    'a production instance refuses to start without a salt',
+    code !== 0 && output.includes('ERROR_SALT'),
+    `exit ${code}: ${output.trim()}`,
+  )
+}
+
+await refusesWithoutSalt()
+
 
 const child = spawn(process.execPath, ['dist/server.js'], {
   cwd: root,

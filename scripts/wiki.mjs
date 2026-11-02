@@ -81,7 +81,7 @@ export const WIKI_PAGES = [
   {
     file: 'docker.md',
     page: 'Container',
-    note: 'The same path with `docker compose up -d` as the whole install.',
+    note: 'The same path with `docker compose up -d` as the whole install, once `.env` holds the salt.',
     section: 'run',
   },
 ]

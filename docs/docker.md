@@ -89,20 +89,28 @@ container stopped. A running database is being written to.
   server, the built client, the migrations and `package.json`. The project's website is not in the image.
 
 Configuration is the environment, exactly as it is on a bare machine. `compose.yaml` lists the
-values worth setting and reads the rest from `.env`; [configure.md](configure.md) is every variable,
+values worth setting and reads them from `.env`; [configure.md](configure.md) is every variable,
 its default, and what an unset one does.
 
 ```bash
-cat > .env <<'EOF'
+# `<<EOF` is deliberately unquoted: $(openssl …) runs while the file is written.
+cat > .env <<EOF
 WORKSPACE_NAME=Team Atlas
 PUBLIC_URL=https://kanbantoolkit.example
-ERROR_SALT=replace-with-a-secret
+ERROR_SALT=$(openssl rand -hex 32)
 EOF
 docker compose up -d
 ```
 
 `.env` is gitignored, which is the point: it holds the salt and, if you use them, the provider
 secrets.
+
+`ERROR_SALT` has no default in `compose.yaml`, and the image **will not start without it** — a salt
+published in a file anyone can read is not a secret, so it is not shipped as one. Start the container
+without it and `docker compose logs kanbantoolkit` prints the line that names the variable, and the
+container exits. Generate it once and keep it: the value is what lets today's rate-limit counts match
+yesterday's, and changing it does not corrupt anything, it only makes the addresses already hashed
+unmatchable.
 
 **Set `PUBLIC_URL` to the https address** when a proxy is in front — see [tls.md](tls.md). Without
 it, the session cookie is issued for whatever the request's origin was, which behind a proxy is

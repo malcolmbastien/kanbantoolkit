@@ -43,7 +43,6 @@ These were planned and then dropped. Each is kept here so the decision is not lo
 
 The open work is in the backlog. The main items are:
 
-- **Taking the placeholder out of the Compose file** (201): the `ERROR_SALT` default.
 - **The sign-in task title** (117 names Google and Microsoft, but the built form is the operator's own OIDC
   issuer, with a password and a magic link).
 - **Field-level presence and takeover notices**, from the collaboration design (`docs/collaboration.md`).
