@@ -1458,31 +1458,39 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === card)!.rev).toBe(rev)
   })
 
-  it('focus follows the selection: an initiative enters it, another card or nothing ends it', () => {
-    // Opening an initiative — from its card, a card's parent chip, the drawer's hierarchy or
-    // search — is selecting it, and selecting it is focusing its lineage.
+  it('focus is off by default; the drawer button starts it, and another selection ends it', () => {
+    // Opening an initiative reads it without dimming the board.
     s().openItem('init-signup')
+    expect(s().selectedItemId).toBe('init-signup')
+    expect(s().lensId).toBe(null)
+
+    // The drawer's focus button is the way in, and the same button turns it off.
+    s().toggleLens('init-signup')
+    expect(s().lensId).toBe('init-signup')
+    s().toggleLens('init-signup')
+    expect(s().lensId).toBe(null)
+
+    // A surface whose whole subject is the lineage can ask for it as part of the selection.
+    s().openItem('init-signup', { focus: true })
     expect(s().lensId).toBe('init-signup')
 
-    // Clicking a card in the initiative's lineage selects that card and ends the initiative's
-    // focus — the lineage highlight belongs to the initiative, not to the card just opened.
+    // Selecting a card is another subject: the line's focus ends.
     s().openItem('st-email')
     expect(s().selectedItemId).toBe('st-email')
     expect(s().lensId).toBe(null)
 
-    // Clicking empty space closes the drawer, and the focus goes with it.
+    // Closing the drawer leaves nothing focused.
     s().setLens('init-signup')
     s().openItem(null)
     expect(s().selectedItemId).toBe(null)
     expect(s().lensId).toBe(null)
 
     // Starting a shift+click group is another selection, so it ends the focus too.
-    s().openItem('init-signup')
+    s().setLens('init-signup')
     s().toggleMultiSelect('st-email')
     expect(s().lensId).toBe(null)
 
-    // The Archive reads an initiative without entering focus: there is no board lineage to
-    // highlight, and the archive is not the place to start dimming work.
+    // The Archive reads an initiative without entering focus, explicitly.
     s().setLens('init-signup')
     s().openItem('init-signup', { focus: false })
     expect(s().selectedItemId).toBe('init-signup')
@@ -1504,7 +1512,7 @@ describe('store actions', () => {
 
     // A focus opened on a team board ends when a portfolio is opened.
     s().selectBoard('b-atlas')
-    s().openItem('init-signup')
+    s().openItem('init-signup', { focus: true })
     expect(s().lensId).toBe('init-signup')
     s().selectBoard('b-strategy')
     expect(s().lensId).toBe(null)

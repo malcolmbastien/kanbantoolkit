@@ -220,3 +220,28 @@ test('the dependency picker offers only links across the hierarchy', async ({ pa
   await expect(picker).toHaveCount(0)
   await expect(panel.getByText('Migrate invoice numbering')).toBeVisible()
 })
+
+test('an initiative opens without focusing the board; the drawer button starts it', async ({ page }) => {
+  await openBoard(page)
+
+  // A card on the same board that does not roll up to the initiative we open.
+  const outsider = page.locator('[data-card-id="st-payment-retries"]')
+  await expect(outsider).toHaveCount(1)
+  const opacity = async () => Number(await outsider.evaluate((el) => getComputedStyle(el).opacity))
+  const before = await opacity()
+
+  await page.locator('[data-card-id="init-signup-redesign"]').click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+
+  // Reading the initiative leaves the board whole: focus is a mode, not a side effect.
+  expect(await opacity()).toBe(before)
+  const start = panel.getByTitle('Focus this line on the board')
+  await expect(start).toBeVisible()
+
+  // The drawer's own button is the way in…
+  await start.click()
+  await expect(panel.getByTitle('Stop focusing this line')).toBeVisible()
+  // …and then the work outside the line recedes, which is what the lens is for.
+  await expect.poll(opacity).toBeLessThan(before)
+})

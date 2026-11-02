@@ -85,8 +85,9 @@ The drawer is where editing happens. If somebody else is editing the same card, 
 it, and the fields stay closed to you until they finish. A Viewer, and an archived or discarded item,
 are read-only. A Viewer can still leave a note, but an archived item accepts no edits or notes.
 
-The eye button on an initiative starts **Focus**, which highlights its lineage on the board. Opening an
-archived item does not start it. A **portfolio** has no focus mode: its outcomes live on the program
+The eye button on an initiative starts **Focus**, which highlights its lineage on the board. Opening
+an initiative does not start it — the button is the only way in — and opening an archived item does
+not start it either. A **portfolio** has no focus mode: its outcomes live on the program
 and team boards beneath it, and the strategy map is already grouped by what the work is for.
 
 People are chosen from the workspace's own directory, shown with their photo or their initials. Typing

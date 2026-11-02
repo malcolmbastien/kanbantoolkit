@@ -178,8 +178,9 @@ export interface Actions {
   /** Keep a board on the home, or take it off. This browser's shortcut, not the workspace's. */
   toggleFavouriteBoard: (id: string) => void
   /**
-   * Open an item's drawer. `focus: false` reads it without entering the initiative focus lens —
-   * the Archive, where the board's lineage is not the thing being read.
+   * Open an item's drawer. Reading an item does not enter the initiative focus lens: the lens is
+   * a reading mode a person asks for with the drawer's focus button. `focus: true` is the one way
+   * to enter it as part of the selection, for a surface that is about the lineage itself.
    */
   openItem: (id: string | null, options?: { focus?: boolean }) => void
   setSearch: (q: string) => void
@@ -1586,26 +1587,16 @@ export const useStore = create<Store>()(
       },
       openItem: (selectedItemId, options) => {
         const s = get()
-        const focus = options?.focus ?? true
-        // The selection is what sets focus — except on a portfolio, whose outcomes live on the
-        // boards beneath it: there is no board of its own to dim, so selecting one reads it without
-        // entering the lens (`canFocusBoard`).
+        // Focus is a mode a person turns on, not a side effect of reading: opening an initiative
+        // shows it in the drawer and leaves the board whole. The drawer's focus button is the way
+        // in (`toggleLens`), and `focus: true` is for a surface whose whole subject is the lineage.
+        const focus = options?.focus ?? false
+        // Except on a portfolio, whose outcomes live on the boards beneath it: there is no board
+        // of its own to dim, so even an explicit focus is not offered there (`canFocusBoard`).
         const focusHere = focus && canFocusBoard(s.boards.find((b) => b.id === s.boardId))
         const opened = selectedItemId ? s.items.find((i) => i.id === selectedItemId) : undefined
-        // An initiative is read for its lineage — what it rolls up to and what it is made of — so
-        // opening one enters focus, wherever the click came from: the initiative card itself, a
-        // card's parent chip, the drawer's hierarchy, search. Opening an ordinary card ends it, and
-        // so does closing the selection.
-        //
-        // Re-opening the item that is already focused keeps it, so the selection that set the
-        // focus does not blink it off and on again.
-        const lensId = !focusHere
-          ? null
-          : opened && isInitiativeItem(opened, s.issueTypes)
-            ? opened.id
-            : selectedItemId === s.lensId
-              ? s.lensId
-              : null
+        // An ordinary card is not a lineage, and closing the selection leaves nothing to focus.
+        const lensId = focusHere && opened && isInitiativeItem(opened, s.issueTypes) ? opened.id : null
         set({
           selectedItemId,
           multiSelect: [],
