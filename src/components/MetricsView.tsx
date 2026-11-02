@@ -35,7 +35,7 @@ import { csvFilename, flowCsv, type FlowCsvRow } from '@/domain/csv'
 import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import type { IssueType } from '@/domain/types'
+import type { IssueType, Stage } from '@/domain/types'
 import type { Item } from '@/domain/types'
 import { cardsFlows, kindOf } from '@/domain/flows'
 import { FLOW_WINDOWS, type FlowWindow } from '@/domain/flowWindow'
@@ -670,7 +670,10 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
       }`}
     >
       <div data-cycle-histogram className="relative">
-        <div className="flex h-24 items-end gap-px">
+        {/* The markers belong to the plot, not the axis: a 2px line through the labels would be
+            a second chart. */}
+        <div className="relative h-24">
+        <div className="flex h-full items-end gap-px">
           {buckets.map((bucket) => (
             <div
               key={bucket.from}
@@ -687,28 +690,31 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
         </div>
         {p50Index !== undefined && (
           <span
-            className="pointer-events-none absolute inset-y-0 w-px bg-slate-500"
+            data-cycle-marker="p50"
+            className="pointer-events-none absolute inset-y-0 w-0.5 bg-slate-600 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]"
             style={{ left: `${((p50Index + 0.5) / buckets.length) * 100}%` }}
             title={`p50: ${days(p50)}`}
           />
         )}
         {p85Index !== undefined && (
           <span
-            className="pointer-events-none absolute inset-y-0 w-px bg-rose-500"
+            data-cycle-marker="p85"
+            className="pointer-events-none absolute inset-y-0 w-0.5 bg-rose-600 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]"
             style={{ left: `${((p85Index + 0.5) / buckets.length) * 100}%` }}
             title={`p85: ${days(p85)}`}
           />
         )}
+        </div>
         <div className="mt-1 flex justify-between text-micro text-slate-600">
           <span>0d</span>
           <span>{buckets.length > 1 ? `${buckets[buckets.length - 1].tail ? `${buckets[buckets.length - 1].from}+` : `${buckets[buckets.length - 1].to - 1}`}d` : '1d'}</span>
         </div>
         <div className="mt-0.5 flex gap-3 text-micro text-slate-600">
           <span className="flex items-center gap-1">
-            <span className="h-2 w-px bg-slate-500" /> p50
+            <span className="h-2 w-0.5 bg-slate-600" /> p50
           </span>
           <span className="flex items-center gap-1">
-            <span className="h-2 w-px bg-rose-500" /> p85
+            <span className="h-2 w-0.5 bg-rose-600" /> p85
           </span>
         </div>
       </div>
@@ -773,7 +779,18 @@ function AgingWork({
       .filter((placement) => placement.boardId === boardId && placement.laneEnteredAt !== undefined)
       .map((placement) => [placement.itemId, placement.laneEnteredAt as number]),
   )
-  const aged = aging(records, now, (record) => entered.get(record.id))
+  const allAged = aging(records, now, (record) => entered.get(record.id))
+  // Backlog is inventory, not work in flight, so it is off until asked for. The other two are the
+  // committed stages, and Done is never here: delivering is what leaves the aging list.
+  const [stages, setStages] = useState<ReadonlySet<Stage>>(() => new Set<Stage>(['notStarted', 'inProgress']))
+  const toggleStage = (stage: Stage) =>
+    setStages((current) => {
+      const next = new Set(current)
+      if (next.has(stage)) next.delete(stage)
+      else next.add(stage)
+      return next
+    })
+  const aged = allAged.filter((entry) => stages.has(entry.stage))
   const shown = aged.slice(0, MAX_AGING_ROWS)
   const itemById = new Map(items.map((item) => [item.id, item]))
   const typeById = new Map(issueTypes.map((type) => [type.id, type]))
@@ -785,8 +802,24 @@ function AgingWork({
       title="Aging work"
       note="Open cards, oldest commitment first. A card past the p85 line has been in flight longer than 85% of the work delivered in this window."
     >
-      {aged.length === 0 ? (
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600">
+        <span className="font-semibold uppercase tracking-wide">Columns</span>
+        {(['backlog', 'notStarted', 'inProgress'] as const).map((stage) => (
+          <label key={stage} className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={stages.has(stage)}
+              onChange={() => toggleStage(stage)}
+              className="accent-indigo-600"
+            />
+            {STAGE_LABELS[stage]}
+          </label>
+        ))}
+      </div>
+      {allAged.length === 0 ? (
         <div className="text-meta text-slate-600">No work in flight.</div>
+      ) : aged.length === 0 ? (
+        <div className="text-meta text-slate-600">No cards in the selected columns.</div>
       ) : (
         <>
           <div
@@ -861,7 +894,8 @@ function AgingWork({
                             />
                             {p85 !== undefined && (
                               <span
-                                className="absolute inset-y-[-2px] w-px bg-rose-500"
+                                data-aging-p85
+                                className="absolute inset-y-[-2px] w-0.5 bg-rose-600 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]"
                                 style={{ left: `${Math.min(100, (p85 / tallest) * 100)}%` }}
                                 title={`Cycle p85: ${days(p85)}`}
                               />

@@ -146,11 +146,39 @@ test('aging work lists what is old, and a row opens the card', async ({ page }) 
   expect(title.length).toBeGreaterThan(0)
   // A type pill and a status pill, so the row reads without a separate column.
   expect(await rows.first().textContent()).toMatch(/Backlog|Not Started|In Progress|Done/)
+  // The cycle-time reference line is a real line, not a hairline.
+  expect(await view.locator('[data-aging-p85]').first().evaluate((el) => getComputedStyle(el).width)).toBe('2px')
 
   await rows.first().click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
   expect(await panel.getAttribute('aria-label')).toContain(title)
+})
+
+test('aging work chooses its columns, with Backlog off by default', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+  const rows = view.locator('[data-flow-aging-row]')
+
+  const backlog = view.getByRole('checkbox', { name: 'Backlog', exact: true })
+  const notStarted = view.getByRole('checkbox', { name: 'Not Started', exact: true })
+  const inProgress = view.getByRole('checkbox', { name: 'In Progress', exact: true })
+
+  // Inventory is not work in flight: Backlog starts off, the committed columns start on.
+  await expect(rows.first()).toBeVisible()
+  await expect(backlog).not.toBeChecked()
+  await expect(notStarted).toBeChecked()
+  await expect(inProgress).toBeChecked()
+  const without = await rows.count()
+
+  await backlog.check()
+  await expect.poll(() => rows.count()).toBeGreaterThan(without)
+
+  // No columns chosen is a state with a sentence, not an empty table.
+  await backlog.uncheck()
+  await notStarted.uncheck()
+  await inProgress.uncheck()
+  await expect(view.getByText('No cards in the selected columns.')).toBeVisible()
 })
 
 test('the cycle time distribution is drawn, with the shape said in words', async ({ page }) => {
@@ -164,6 +192,14 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   // repeats a "The numbers" heading over itself.
   await expect(view.locator('[data-cycle-histogram-table]')).toBeVisible()
   await expect(view.getByText('The numbers')).toHaveCount(0)
+
+  // The indicator lines are strong enough to read over a bar, and belong to the plot: they stop
+  // at the axis rather than running through the labels below it.
+  for (const marker of ['p50', 'p85']) {
+    const line = view.locator(`[data-cycle-marker="${marker}"]`)
+    await expect(line).toBeVisible()
+    expect(await line.evaluate((el) => getComputedStyle(el).width)).toBe('2px')
+  }
 })
 
 test('both charts colour by card type, and name the colours', async ({ page }) => {
