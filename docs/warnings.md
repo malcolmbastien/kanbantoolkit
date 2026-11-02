@@ -2,18 +2,20 @@
 
 The application flags work worth looking at without storing a warning anywhere. Every signal is
 derived from state the board already keeps — a card's blocked flag, its placement and arrival stamp,
-the dependency links, the people and priorities, the rollup and the target dates — so a badge cannot
-disagree with the work it describes, and nothing has to be cleared by hand.
+the dependency links, the people and priorities, the rollup, the target window and the day a piece of
+work is due — so a badge cannot disagree with the work it describes, and nothing has to be cleared by
+hand.
 
 Two tones carry the difference:
 
-- **Risk** — red. A hard stop somebody else can see: blocked work, or work that waits on something
-  not done.
-- **Watch** — amber. Something to look at: nothing moving, nobody owning it, a date that has passed.
+- **Risk** — red. A hard stop somebody else can see: blocked work, work that waits on something not
+  done, or a due date that has passed.
+- **Watch** — amber. Something to look at: nothing moving, nobody owning it, a due date inside the
+  week.
 
-Two thresholds recur: **7 days** for age and staleness (`STALE_AFTER_DAYS`), and a lane's own **WIP
-limit**. An initiative with nothing below it raises nothing: having no work yet is a state, not a
-finding.
+Three thresholds recur: **7 days** for age and staleness (`STALE_AFTER_DAYS`), the same **7 days** for
+"due soon" (`DUE_SOON_DAYS`, the window the filter names), and a lane's own **WIP limit**. An
+initiative with nothing below it raises nothing: having no work yet is a state, not a finding.
 
 ## On a card
 
@@ -23,6 +25,9 @@ finding.
 | **N blocked**, a red pill on an initiative card | N cards below are explicitly blocked and still open. On a program or portfolio board the same count is amber and says **N blocked below**, so a blockage several levels down does not shout at a reader who cannot act on it. | The cards below are unblocked or finished. |
 | **N depend on it**, an amber shield | N unresolved items depend on this one; if it slips, they are blocked. It is not shown once this item is done — the dependency is satisfied. | The dependents finish, or the links are removed. |
 | **Waiting on**, one or more named chips | The card is waiting on work **outside this board** — the boundary workflow. Each chip names it and takes you to the other end. | The external work reaches Done, or the boundary link is removed. |
+| **Due 12 Mar**, a slate chip | The day this card is promised for. It is a date, not a state: the target start/end pair beside it in the drawer is the plan a management surface reads, and this is the promise a reader is held to. | The due date is moved in the drawer, or cleared. |
+| **Due in 2d**, an amber chip | The due date is inside the week the board's own **Due soon** filter names. It is a chip, never a block: the card can still move, and it clears when the work is done or the day moves. | The card is finished, or the date is moved out. |
+| **3d overdue**, a rose chip | The due date has passed and the card is not done. The same reading the **Overdue** filter and the dashboard's Overdue count speak about — one derivation, so they cannot disagree. | The card reaches Done, or the date is moved. |
 | **Nd in lane**, a grey clock | The card has been in its current committed lane (Not Started or In Progress) for at least 7 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. It is not the same as **Stale** (see below), which only counts committed work. | The card moves to another lane. |
 
 A Done card keeps its history but not its warnings: a finished item has no action left, so the age cue, a blocked band, a dependents shield and a boundary chip are not drawn on its face. The same applies to a completed initiative's health flags and warnings.
@@ -54,7 +59,7 @@ The flags themselves:
 | **still Nd** | watch | The initiative is committed (Not Started or In Progress) and nothing below it has moved for at least 7 days. The rule needs to know when the work last moved. Where that is unknown, the flag is not raised. | Something below moves. |
 | **N unowned** | watch | N committed cards below have no assignee. | Each gets an owner, or leaves the committed stages. |
 | **N backlog** | watch | The initiative is committed, but N of its leaves are still in Backlog. The work below is not all committed with it. | Those cards leave Backlog, or the initiative returns to Backlog. |
-| **N due later** | watch | N cards below have a target end date after the initiative's own target end date. | The dates are brought into line, or the cards finish. |
+| **N ending later** | watch | N cards below are planned to end after the initiative's own target end date. It is about the plan's window, not the due date: two promises falling on different days is not an inconsistency. | The target dates are brought into line, or the cards finish. |
 
 **N depend on it** also appears on an initiative — the same dependents warning a card gets — but it
 is not a health rule: it is a fact about the item rather than about the work below it.
@@ -71,13 +76,14 @@ behind them:
 | Signal | Tone | What it means | What clears it |
 | --- | --- | --- | --- |
 | **Unfinished** | — | Every unfinished item on the board. This is the population the other counts are taken from, not a warning. | The item is done or archived. |
-| **Overdue** | risk | Its target end date has passed and it is not done. | It is done, or the date is moved. |
+| **Overdue** | risk | Its due date has passed and it is not done. | It is done, or the date is moved. |
 | **Stale** | watch | On a card: it has sat in Not Started or In Progress for at least 7 days. On an initiative: the health rule **still Nd** above. A card in Backlog can show an age badge but is not called stale. | It moves. |
 | **Unassigned** | watch | On a card: nobody is assigned. On an initiative: the health rule **N unowned**, which counts committed cards below that have no owner. | Assign somebody, or the work leaves the committed stages. |
 | **No priority** | watch | The item has no priority set. | A priority is chosen. |
 
-The dashboard's initiatives table also shows the **Health** column with each flag, and an overdue
-target date is written in red with the word **overdue** underneath it.
+The dashboard's initiatives table also shows the **Health** column with each flag. Its **Dates**
+column reads the target window, with the initiative's due date — and its own overdue chip — under it,
+so the promise is in front of a reader as well as on the card.
 
 ## On a portfolio board
 
@@ -107,7 +113,7 @@ load a column carries.
 ## What is not a warning
 
 - The **Blocked** and **Due soon** options in the filter panel are ways to narrow the board, not
-  badges of their own.
+  badges of their own — though **Due soon** and **Overdue** read the same due date the chips do.
 - A finished item's **archived** or **discarded** outcome is a fact about where it went, not a
   warning.
 

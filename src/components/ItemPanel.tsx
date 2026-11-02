@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, ArchiveX, ArrowRight, Ban, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Archive, ArchiveX, ArrowRight, Ban, CalendarClock, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
   archiveOutcome,
   attributedObjectives,
@@ -22,6 +22,7 @@ import { initiativeHealth } from '@/domain/health'
 import { insertMention, mentionQueryAt, mentionedIds } from '@/domain/mentions'
 import { renderMarkdown } from '@/lib/markdown'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
+import { DueChip } from './DueChip'
 import { FORMER_MEMBER, initialsOf, nameOfUser } from '@/domain/users'
 import { chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_DOT, stageChip, TAG_PALETTE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -82,6 +83,7 @@ export function ItemPanel({ itemId }: Props) {
   // it closes the caret goes back to the card that opened it.
   useReturnFocus()
   const setItemFields = useStore((s) => s.setItemFields)
+  const setDueDate = useStore((s) => s.setDueDate)
   const setParent = useStore((s) => s.setParent)
   const addChecklistEntry = useStore((s) => s.addChecklistEntry)
   const toggleChecklistEntry = useStore((s) => s.toggleChecklistEntry)
@@ -1150,6 +1152,39 @@ export function ItemPanel({ itemId }: Props) {
                       aria-label="Target end"
                       className="min-w-0 flex-1 bg-transparent text-meta text-slate-700 outline-none"
                     />
+                  </div>
+                </Field>
+
+                {/* The promise, beside the plan. A day and not a span: the one date a reader is
+                    held to, and the one "overdue" speaks about. Offered to a card and to an
+                    initiative alike, because a deadline is not a size. */}
+                <Field
+                  label="Due"
+                  className="col-span-2"
+                  hint={item.dueDate ? undefined : 'The day this is promised for — separate from the target window.'}
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className={cn(WELL, 'flex-1')}>
+                      <CalendarClock size={13} className="shrink-0 text-slate-400" />
+                      <input
+                        type="date"
+                        value={item.dueDate ?? ''}
+                        onChange={(e) => setDueDate(item.id, e.target.value || undefined)}
+                        aria-label="Due date"
+                        className="min-w-0 flex-1 bg-transparent text-meta text-slate-700 outline-none"
+                      />
+                      {item.dueDate && (
+                        <button
+                          onClick={() => setDueDate(item.id, undefined)}
+                          title="Clear the due date"
+                          aria-label="Clear the due date"
+                          className="shrink-0 text-slate-500 transition hover:text-rose-600"
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                    <DueChip item={item} complete={complete} />
                   </div>
                 </Field>
                 {/* Who made it: the record the server keeps, read where the item's other facts are

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import { noteMatch, searchHits, type SearchHit } from '@/domain/search'
+import { effectiveStage } from '@/domain/lanes'
 import { fetchNoteHits, type NoteEntry } from '@/lib/history'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { DueChip } from './DueChip'
 
 /** What the second line is telling the reader: where the word was found. */
 const SEARCH_FIELD_LABEL: Record<SearchHit['match']['field'], string> = {
@@ -21,6 +23,7 @@ export function GlobalSearch() {
   const items = useStore((s) => s.items)
   const boards = useStore((s) => s.boards)
   const placements = useStore((s) => s.placements)
+  const lanes = useStore((s) => s.lanes)
   const search = useStore((s) => s.search)
   const setSearch = useStore((s) => s.setSearch)
   const selectBoard = useStore((s) => s.selectBoard)
@@ -156,6 +159,10 @@ export function GlobalSearch() {
               </div>
               {g.items.map((hit) => {
                 const idx = flat.indexOf(hit)
+                // The same reading a card gets: a hit that is already in Done keeps its date and
+                // stops speaking in rose, so a search cannot call finished work late.
+                const placement = placements.find((p) => p.itemId === hit.item.id)
+                const complete = placement ? effectiveStage(lanes, placement.laneId) === 'done' : false
                 return (
                   <button
                     key={hit.item.id}
@@ -166,7 +173,10 @@ export function GlobalSearch() {
                       idx === active ? 'bg-indigo-50' : 'hover:bg-slate-50',
                     )}
                   >
-                    <span className="min-w-0 max-w-full truncate text-meta text-slate-800">{hit.item.title}</span>
+                    <span className="flex w-full min-w-0 items-center gap-1.5">
+                      <span className="min-w-0 flex-1 truncate text-meta text-slate-800">{hit.item.title}</span>
+                      <DueChip item={hit.item} complete={complete} />
+                    </span>
                     {hit.match.field !== 'title' && (
                       <span data-search-match className="line-clamp-2 text-micro leading-snug text-slate-600">
                         <span className="font-semibold uppercase tracking-wide text-slate-500">

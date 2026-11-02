@@ -75,11 +75,11 @@ describe('my work — everything assigned to one person, wherever it sits', () =
   })
 
   it('overdue leads, then due soon, then the undated; resolved work has no urgency', () => {
-    const overdue = item('o', ['u-me'], { title: 'Overdue', targetEndDate: '2026-10-01' })
-    const soon = item('s', ['u-me'], { title: 'Due soon', targetEndDate: '2026-10-18' })
-    const future = item('f', ['u-me'], { title: 'Future', targetEndDate: '2027-01-01' })
+    const overdue = item('o', ['u-me'], { title: 'Overdue', dueDate: '2026-10-01' })
+    const soon = item('s', ['u-me'], { title: 'Due soon', dueDate: '2026-10-18' })
+    const future = item('f', ['u-me'], { title: 'Future', dueDate: '2027-01-01' })
     const undated = item('u', ['u-me'], { title: 'Undated' })
-    const settled = item('r', ['u-me'], { title: 'Done but dated', targetEndDate: '2020-01-01' })
+    const settled = item('r', ['u-me'], { title: 'Done but dated', dueDate: '2020-01-01' })
     const items = [settled, future, undated, soon, overdue]
     const placements = [
       placed('u', 'b-t', 'l-b'),

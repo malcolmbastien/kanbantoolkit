@@ -146,6 +146,14 @@ task-master list            # terminal 2
   the field is refused for one the way a kind is refused for a card — a card keeps its estimate.
   The health rules that read an initiative's own numbers therefore lose their input: the size
   warning is gone, the date warning (`outlasted`) stays.
+- **A due date is one day and a promise; the target dates are the plan.** `Item.dueDate` is the
+  single day a reader holds the work to, and the one "overdue" speaks about (the filters, the
+  card chip, My work, the dashboard). `targetStartDate`/`targetEndDate` stay the window a management
+  surface reads — never aliased to the due date, and the health rule `outlasted` still compares the
+  windows. Both are optional and **both are allowed on an initiative**: the no-estimate rule is
+  about size, not deadlines. A due date affects nothing derived — not status, rollup, WIP or a
+  dependency — so it is stored, and the overdue/soon reading is derived on every render
+  (`src/domain/due.ts`, `DUE_SOON_DAYS`) and never written down.
 - **Placement is explicit**: a card's board + cell is a `Placement` record (one per board).
 - **Boards show initiatives**: a board's flow renders items of the **Initiative** issue type,
   placed by rollup (card children are drill-in). **Only a board that renders cards flows makes

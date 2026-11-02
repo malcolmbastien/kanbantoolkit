@@ -159,7 +159,7 @@ function cardSignals(item: Item, stage: Stage, age: number | undefined, now: num
     signals.push({
       key: 'overdue',
       label: 'Overdue',
-      why: `Its target date (${item.targetEndDate}) has passed`,
+      why: `Its due date (${item.dueDate}) has passed`,
       tone: 'risk',
     })
   }
@@ -229,7 +229,7 @@ function initiativeRows(
       signals.push({
         key: 'overdue',
         label: 'Overdue',
-        why: `Its target date (${item.targetEndDate}) has passed`,
+        why: `Its due date (${item.dueDate}) has passed`,
         tone: 'risk',
       })
     }

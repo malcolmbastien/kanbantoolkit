@@ -10,24 +10,35 @@ path: /install/
   directory of static pages — no service in between, and nobody to ask.
 </p>
 
-<h2 id="container">One command after cloning, if you have Docker</h2>
+<h2 id="container">After cloning, if you have Docker</h2>
 <pre><code>git clone {{repo}} kanbantoolkit
-cd kanbantoolkit &amp;&amp; docker compose up -d</code></pre>
+cd kanbantoolkit
+printf 'ERROR_SALT=%s\n' "$(openssl rand -hex 32)" &gt; .env
+docker compose up -d</code></pre>
 <p>
   That builds the image, creates the database on a volume, applies the migrations and answers on
   <code>http://localhost:8787/app</code>. The port is bound to loopback: a reverse proxy is the way
   in, which is the next section of this page. <code>docker compose down</code> stops it and keeps the
   work; <code>down -v</code> does not.
 </p>
+<p>
+  The <code>.env</code> line is the one value the image will not guess. <code>ERROR_SALT</code> keys
+  the hash of a reporter's address, so it has to be a secret rather than a default — and a default
+  published in a Compose file is not one. Generate it once and keep it; without it a production
+  instance refuses to start and says which variable is missing.
+</p>
 
-<h2 id="commands">Or three commands, if you would rather see the parts</h2>
+<h2 id="commands">Or by hand, if you would rather see the parts</h2>
 <pre><code>git clone {{repo}} kanbantoolkit
 cd kanbantoolkit &amp;&amp; npm ci &amp;&amp; npm run build
-PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server</code></pre>
+NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
+  PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server</code></pre>
 <p>
   This is what the image does, in the open: a clone, a build, a process. The build writes the site
   and the app into <code>dist/</code>; the first start applies the schema migrations and leaves you a
-  database file. There is no account to create first and no key to paste.
+  database file. There is no account to create first. The salt above is generated for this run to
+  show the shape of it — a server you keep takes the value from its unit file, so restarts keep
+  matching the addresses it hashed yesterday.
 </p>
 
 <h2 id="first-run">What happens on the first run</h2>
@@ -51,7 +62,8 @@ PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server</code></pr
 
 <h2>What it reads</h2>
 <p>
-  Everything is configuration, and everything has a default that works:
+  Everything is configuration, and almost everything has a default that works. The exception is the
+  salt, which is a secret and so has none:
 </p>
 <ul class="points">
   <li><code>PORT</code> — the port to listen on. Defaults to <code>8787</code>.</li>
@@ -60,7 +72,7 @@ PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server</code></pr
   <li><code>WORKSPACE_NAME</code> — what the team is called. Set it before the first sign-in.</li>
   <li><code>PUBLIC_URL</code> — the address the outside world uses. Behind a proxy, the https one.</li>
   <li><code>LIVE</code> — set it to <code>0</code> to switch the live channel off; the app then polls the same feed.</li>
-  <li><code>ERROR_SALT</code> — mixed into the hash of a reporter's address before it is stored. Set a secret.</li>
+  <li><code>ERROR_SALT</code> — mixed into the hash of a reporter's address before it is stored. <strong>Required:</strong> a production instance refuses to start without it, and a development run generates one for the process.</li>
 </ul>
 <p>
   The sign-in providers are optional, and an instance with none still runs: the board works, and the

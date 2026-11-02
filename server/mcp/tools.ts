@@ -133,6 +133,7 @@ export const TOOLS: ToolSpec[] = [
         tagIds: { type: 'array', items: { type: 'string' }, description: 'Tags defined on the board.' },
         targetStartDate: { type: 'string', description: 'YYYY-MM-DD.' },
         targetEndDate: { type: 'string', description: 'YYYY-MM-DD.' },
+        dueDate: { type: 'string', description: 'YYYY-MM-DD — the day the work is promised for.' },
       },
       ['boardId', 'title'],
     ),
@@ -141,7 +142,7 @@ export const TOOLS: ToolSpec[] = [
   {
     name: 'update_item',
     description:
-      'Change the fields a person writes: title, description, type, priority, assignees, tags, target dates, parent. `baseRev` is required and is the revision from get_item — a revision that has moved is refused with the current item, so read it and decide rather than forcing. An initiative is never retyped; a parent must be an initiative and nothing can be its own ancestor.',
+      'Change the fields a person writes: title, description, type, priority, assignees, tags, target dates, due date, parent. `baseRev` is required and is the revision from get_item — a revision that has moved is refused with the current item, so read it and decide rather than forcing. An initiative is never retyped; a parent must be an initiative and nothing can be its own ancestor.',
     scope: 'items:write',
     action: 'item.write',
     inputSchema: object(
@@ -156,6 +157,7 @@ export const TOOLS: ToolSpec[] = [
         tagIds: { type: 'array', items: { type: 'string' } },
         targetStartDate: { type: ['string', 'null'], description: 'YYYY-MM-DD or null.' },
         targetEndDate: { type: ['string', 'null'], description: 'YYYY-MM-DD or null.' },
+        dueDate: { type: ['string', 'null'], description: 'YYYY-MM-DD or null — the day the work is promised for.' },
         parentId: { type: ['string', 'null'], description: 'An initiative’s id, or null to detach.' },
       },
       ['itemId', 'baseRev'],

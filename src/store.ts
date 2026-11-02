@@ -244,6 +244,15 @@ export interface Actions {
   removeItemsAssignee: (itemIds: string[], userId: string) => void
   setItemsTargetStart: (itemIds: string[], date: string | undefined) => void
   setItemsTargetEnd: (itemIds: string[], date: string | undefined) => void
+  /**
+   * When this one piece of work is due — one day, and a promise; empty clears it.
+   *
+   * Refused for an id the workspace does not hold and for a filed-away item, because the archive is
+   * read-only: restoring is the way back to editing it. The edit is written to the item's log like
+   * every other field worth keeping in a history, and it changes nothing about status, rollup, WIP
+   * or a dependency — a deadline is a date, not a state.
+   */
+  setDueDate: (itemId: string, date: string | undefined) => void
   /** Block every listed item (an optional reason, recorded in each item's log). */
   blockItems: (itemIds: string[], reason?: string) => void
   unblockItems: (itemIds: string[], note?: string) => void
@@ -913,6 +922,7 @@ const FIELD_LOG: { key: keyof Item; label: string }[] = [
   { key: 'priority', label: 'priority' },
   { key: 'targetStartDate', label: 'target start' },
   { key: 'targetEndDate', label: 'target end' },
+  { key: 'dueDate', label: 'due date' },
   { key: 'assignees', label: 'assignees' },
 ]
 
@@ -1836,6 +1846,17 @@ export const useStore = create<Store>()(
         const ids = new Set(itemIds)
         set({ items: writeItems(get(), (i) => (ids.has(i.id) ? { ...i, targetEndDate } : i)) })
       },
+      setDueDate: (itemId, date) => {
+        const state = get()
+        const item = state.items.find((i) => i.id === itemId)
+        // A missing item is a stale surface, and a filed-away one is read-only; neither is a write.
+        if (!item || item.archived) return
+        const dueDate = date?.trim() || undefined
+        // A door, not only a control: a date input offers days, so anything else is a caller that
+        // is guessing, and a stored non-day would be a promise nobody can read.
+        if (dueDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return
+        get().setItemFields(itemId, { dueDate })
+      },
       blockItems: (itemIds, reason) => {
         const note = reason?.trim() || undefined
         const ids = new Set(itemIds)
@@ -2388,7 +2409,9 @@ export const useStore = create<Store>()(
             ...(card.assigneeIds.length ? { assignees: card.assigneeIds } : {}),
             ...(tagIds.length ? { tagIds } : {}),
             ...(card.resolvedAt === undefined ? {} : { resolvedAt: card.resolvedAt }),
-            ...(card.dueDate ? { targetEndDate: card.dueDate } : {}),
+            // A source's "due date" is a promise, not the plan span the dashboard reads — so it
+            // arrives as the due date, which is the field that means the same thing here.
+            ...(card.dueDate ? { dueDate: card.dueDate } : {}),
             ...(card.checklist.length
               ? { checklist: card.checklist.map((entry) => ({ id: uid(), text: entry.text, done: entry.done })) }
               : {}),

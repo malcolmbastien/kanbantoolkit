@@ -70,6 +70,7 @@ export const compactItem = (item: Item, placement?: Placement) => ({
   ...(item.tagIds?.length ? { tagIds: item.tagIds } : {}),
   ...(item.targetStartDate ? { targetStartDate: item.targetStartDate } : {}),
   ...(item.targetEndDate ? { targetEndDate: item.targetEndDate } : {}),
+  ...(item.dueDate ? { dueDate: item.dueDate } : {}),
   ...(placement ? { boardId: placement.boardId, laneId: placement.laneId, rank: placement.rank ?? 0 } : {}),
   rev: item.rev ?? 0,
   createdAt: item.createdAt,
@@ -503,6 +504,7 @@ export interface NewItemInput {
   tagIds?: unknown
   targetStartDate?: unknown
   targetEndDate?: unknown
+  dueDate?: unknown
 }
 
 export async function createItem(caller: OpCaller, body: NewItemInput, key?: string) {
@@ -577,6 +579,7 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
     ...(Array.isArray(body.tagIds) ? { tagIds: body.tagIds.filter((t): t is string => typeof t === 'string') } : {}),
     ...(typeof body.targetStartDate === 'string' ? { targetStartDate: body.targetStartDate } : {}),
     ...(typeof body.targetEndDate === 'string' ? { targetEndDate: body.targetEndDate } : {}),
+    ...(typeof body.dueDate === 'string' ? { dueDate: body.dueDate } : {}),
     rev: 1,
     log: [{ id: newId(), at: now, kind: 'created', by: caller.user.id }],
   }
@@ -643,6 +646,7 @@ export interface ItemPatch {
   tagIds?: unknown
   targetStartDate?: unknown
   targetEndDate?: unknown
+  dueDate?: unknown
   parentId?: unknown
 }
 
@@ -730,7 +734,7 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
     next.tagIds = body.tagIds.length ? (body.tagIds as string[]) : undefined
     changes.push('tags')
   }
-  const date = (name: 'targetStartDate' | 'targetEndDate', label: string, value: unknown): Op<string | undefined> => {
+  const date = (name: 'targetStartDate' | 'targetEndDate' | 'dueDate', label: string, value: unknown): Op<string | undefined> => {
     if (value !== null && !(typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value))) {
       return no(422, 'invalid', `\`${name}\` must be YYYY-MM-DD or null`, { field: name })
     }
@@ -746,6 +750,11 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
     const parsed = date('targetEndDate', 'target end', body.targetEndDate)
     if (!parsed.ok) return parsed
     next.targetEndDate = parsed.value
+  }
+  if (body.dueDate !== undefined) {
+    const parsed = date('dueDate', 'due date', body.dueDate)
+    if (!parsed.ok) return parsed
+    next.dueDate = parsed.value
   }
   if (body.parentId !== undefined) {
     const parentId = body.parentId === null ? undefined : String(body.parentId)

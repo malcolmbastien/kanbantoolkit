@@ -129,8 +129,10 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
     })
   }
 
-  // The work below, against what the initiative itself says: the work is due after the
-  // initiative is. A watch, never a block, and an initiative with nothing below it raises nothing.
+  // The work below, against the plan the initiative itself carries: a card's target *end* after the
+  // initiative's own. It is deliberately the window and not the due date — a promise is a day, and
+  // two promises falling on different days is not an inconsistency; a plan that runs past the plan
+  // above it is. A watch, never a block; an initiative with nothing below it raises nothing.
   const ownEnd = parseDay(item?.targetEndDate)?.getTime()
   if (ownEnd !== undefined) {
     const later = open.filter((i) => {
@@ -140,8 +142,8 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
     if (later.length > 0) {
       flags.push({
         flag: 'outlasted',
-        label: `${later.length} due later`,
-        why: `${later.length} card${plural(later.length)} below ${later.length === 1 ? 'is' : 'are'} due after this initiative`,
+        label: `${later.length} ending later`,
+        why: `${later.length} card${plural(later.length)} below ${later.length === 1 ? 'is' : 'are'} planned to end after this initiative`,
         tone: 'watch',
         items: later.map((i) => i.id),
       })

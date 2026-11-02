@@ -32,6 +32,8 @@ import type { Vocabulary, Workspace } from './types'
 const LIMITS = { id: 100, title: 300, description: 20_000, text: 2_000, list: 200, log: 2_000 } as const
 
 const PRIORITIES = new Set(['urgent', 'high', 'medium', 'low'])
+/** An ISO day, and nothing else: the shape a due date is stored and compared in. */
+const DAY = /^\d{4}-\d{2}-\d{2}$/
 const STAGES = new Set<Stage>(['backlog', 'notStarted', 'inProgress', 'done'])
 const KINDS = new Set<ItemLogKind>([
   'created',
@@ -152,6 +154,11 @@ export function parseItem(input: unknown): Item | null {
   if (targetStartDate !== undefined) item.targetStartDate = targetStartDate
   const targetEndDate = text(raw.targetEndDate, 10)
   if (targetEndDate !== undefined) item.targetEndDate = targetEndDate
+  // A day, or nothing: an imported promise that is not a date is dropped rather than stored as
+  // something no reader can compare (the target dates keep their looser rule, so an old file is
+  // not rejected for them).
+  const dueDate = text(raw.dueDate, 10)
+  if (dueDate !== undefined && DAY.test(dueDate)) item.dueDate = dueDate
   const rev = number(raw.rev)
   if (rev !== undefined) item.rev = rev
   if (raw.resolvedAt === null) item.resolvedAt = null

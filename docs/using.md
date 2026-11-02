@@ -91,7 +91,8 @@ palette — for the full sheet, grouped by where each key works.
 ## A card
 
 Choose a card to open its panel. **Overview** holds the title, the description (Markdown), status,
-priority, type, people, tags and target dates; the creator is recorded and is not editable.
+priority, type, people, tags, target dates and the day the work is due; the creator is recorded and
+is not editable.
 **Hierarchy** shows the parent and the work below. **Activity** is the card's own history — every
 move, edit, note and dependency, with who and when.
 

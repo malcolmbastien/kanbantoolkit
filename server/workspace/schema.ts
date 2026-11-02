@@ -85,5 +85,9 @@ export const WORKSPACE_SCHEMA = 1
  * 39 adds `board_flows.description`: the optional line under a workflow's name. A database without
  * it cannot store what the board says its workflow is for; the column is nullable, and a row with
  * no line is a workflow with no line. Refused at the door like every shape before it.
+ *
+ * 40 adds `items.due_date`: the single day a piece of work is promised for, beside the target
+ * window that is its plan. A database without it cannot store the promise, and "overdue" would
+ * have nothing of its own to read — the same reason every number before it moved.
  */
-export const REQUIRED_SCHEMA = 39
+export const REQUIRED_SCHEMA = 40

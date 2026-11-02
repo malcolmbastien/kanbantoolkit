@@ -169,14 +169,14 @@ describe('initiative health', () => {
     expect(initiativeHealth('init', { ...healthy(), edges: [], placements: [] }, NOW).flags).toEqual([])
   })
 
-  it('says when the work below is due after the initiative is due', () => {
+  it('says when the work below is planned to end after the initiative does', () => {
     const graph = healthy()
     // The work below, against the initiative's own date: the one arithmetic warning there is.
     graph.items[0] = { ...graph.items[0], targetEndDate: '2026-10-30' }
     graph.items[1] = { ...graph.items[1], targetEndDate: '2026-11-15' }
     const late = initiativeHealth('init', graph, NOW)
     expect(late.flags.map((f) => f.flag)).toEqual(['outlasted'])
-    expect(late.flags[0].why).toBe('1 card below is due after this initiative')
+    expect(late.flags[0].why).toBe('1 card below is planned to end after this initiative')
 
     // Push the initiative's own deadline past it and that clears too.
     graph.items[0] = { ...graph.items[0], targetEndDate: '2026-12-31' }

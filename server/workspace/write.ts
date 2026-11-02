@@ -115,6 +115,7 @@ function itemRow(item: Item): Row {
     priority: value(item.priority),
     target_start_date: value(item.targetStartDate),
     target_end_date: value(item.targetEndDate),
+    due_date: value(item.dueDate),
     created_at: item.createdAt,
     rev: value(item.rev),
     resolved_at: item.resolvedAt === undefined ? null : item.resolvedAt,

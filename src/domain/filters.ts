@@ -12,9 +12,9 @@ export interface CardFilters {
   typeIds: string[]
   /** Only explicitly blocked cards. */
   blocked: boolean
-  /** Only cards past their target date that aren't done. */
+  /** Only cards past their due date that aren't done. */
   overdue: boolean
-  /** Only cards whose target date is within the next week and that aren't done. */
+  /** Only cards whose due date is within the next week and that aren't done. */
   dueSoon: boolean
   /** Only cards with no assignees — the pseudo-entry in the assignee filter. */
   unassigned: boolean
@@ -71,10 +71,16 @@ export function initiativeScope(f: CardFilters, graph: Graph): ReadonlySet<strin
   return new Set([f.initiativeId, ...descendants(f.initiativeId, graph)])
 }
 
-/** A card is overdue when its target end date is in the past and it isn't resolved. */
+/**
+ * A card is overdue when the day it is due is in the past and it isn't resolved.
+ *
+ * The due date, not the target window: the window is the plan a management surface reads, and the
+ * due date is the promise a reader is held to. A card with no promise has not broken one, however
+ * long its target window has been over.
+ */
 export function isOverdue(item: Item, resolved: boolean, now = Date.now()): boolean {
   if (resolved) return false
-  const t = parseDay(item.targetEndDate)
+  const t = parseDay(item.dueDate)
   return Boolean(t && t.getTime() < now)
 }
 
@@ -112,15 +118,15 @@ export function medianOf(ages: number[]): number | undefined {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-/** A card is due soon when its target end date falls within the next week and isn't resolved. */
+/** A card is due soon when the day it is due falls within the next week and it isn't resolved. */
 export function isDueSoon(item: Item, resolved: boolean, now = Date.now()): boolean {
   if (resolved) return false
-  const t = parseDay(item.targetEndDate)
+  const t = parseDay(item.dueDate)
   if (!t) return false
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
   const start = today.getTime()
-  // Counting today itself: an end date today+DUE_SOON_DAYS-1 is in, and even today+
+  // Counting today itself: a due date today+DUE_SOON_DAYS-1 is in, and even today+
   // DUE_SOON_DAYS is not — the window is the next seven days, not one past them.
   return t.getTime() >= start && t.getTime() < start + DUE_SOON_DAYS * 86_400_000
 }

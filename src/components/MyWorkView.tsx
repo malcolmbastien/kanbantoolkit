@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AtSign, Ban, CalendarClock, Check, PanelRight, TriangleAlert, UserRound, X } from 'lucide-react'
+import { AtSign, Ban, Check, PanelRight, TriangleAlert, UserRound, X } from 'lucide-react'
 import { BandBadge } from './BandBadge'
+import { DueChip } from './DueChip'
 import { myWork, type MyWorkEntry } from '@/domain/mywork'
 import { mentionsFor, mentionsOfNotes, mergeMentions, type MentionNote } from '@/domain/mentions'
 import { initialsOf } from '@/domain/users'
@@ -261,16 +262,10 @@ export function MyWorkView() {
                                 <Ban size={10} /> Blocked
                               </span>
                             )}
-                            {e.isOverdue && (
-                              <span className="flex shrink-0 items-center gap-0.5 rounded bg-rose-100 px-1.5 py-px text-micro font-bold uppercase tracking-wide text-rose-700">
-                                <TriangleAlert size={10} /> Overdue
-                              </span>
-                            )}
-                            {e.isDueSoon && (
-                              <span className="flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1.5 py-px text-micro font-bold uppercase tracking-wide text-amber-800">
-                                <CalendarClock size={10} /> Due soon
-                              </span>
-                            )}
+                            {/* The date itself, in the board's own words: "3d overdue" says
+                                more than "Overdue" and cannot disagree with the filter that
+                                narrowed the board. */}
+                            <DueChip item={e.item} complete={e.isResolved} />
                             {e.isResolved && (
                               <span className="flex shrink-0 items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-px text-micro font-bold uppercase tracking-wide text-emerald-800">
                                 <Check size={10} /> Done

@@ -81,7 +81,7 @@ none of it is entered twice — it is read from the cards that are already there
   - Create a card from a column's footer or from the toolbar.
   - Move and reorder cards by dragging.
   - Card panel with Overview, Hierarchy and Activity.
-  - Title, Markdown description, type, priority, assignees, tags, target start and end dates.
+  - Title, Markdown description, type, priority, assignees, tags, target start and end dates, and a due date.
   - The creator is recorded and cannot be changed afterwards.
   - A checklist for sub-tasks.
   - Notes in the activity log, with who and when.

@@ -363,6 +363,16 @@ export interface Item {
   /** Target start / end dates, ISO 'YYYY-MM-DD'. Shown on the management dashboard. */
   targetStartDate?: string
   targetEndDate?: string
+  /**
+   * When this piece of work is due: one ISO day, and a promise rather than a plan.
+   *
+   * The target window beside it is the span a management surface reads; this is the single date a
+   * reader is held to, and the one "overdue" speaks about. They are deliberately separate fields —
+   * a card can be planned across a quarter and promised for one day, and aliasing one for the other
+   * would make both lie. Optional, and allowed on an initiative as on a card: the no-estimate rule
+   * is about size, not deadlines. It never affects status, rollup, WIP or a dependency.
+   */
+  dueDate?: string
   createdAt: number
   /**
    * The item's revision: incremented once per accepted change to its own **content**. Optional,

@@ -465,6 +465,7 @@ const itemSchema = {
     tagIds: { type: 'array', items: { type: 'string' } },
     targetStartDate: { type: 'string', format: 'date' },
     targetEndDate: { type: 'string', format: 'date' },
+    dueDate: { type: 'string', format: 'date', description: 'The day the work is promised for — one date, not the target window.' },
     boardId: { type: 'string' },
     laneId: { type: 'string' },
     rank: { type: 'number' },
@@ -528,6 +529,7 @@ const schemas = {
       tagIds: { type: 'array', items: { type: 'string' } },
       targetStartDate: { type: 'string', format: 'date' },
       targetEndDate: { type: 'string', format: 'date' },
+      dueDate: { type: 'string', format: 'date', description: 'The day the work is promised for.' },
     },
   },
   ItemPatch: {
@@ -543,6 +545,7 @@ const schemas = {
       tagIds: { type: 'array', items: { type: 'string' } },
       targetStartDate: { type: ['string', 'null'], format: 'date' },
       targetEndDate: { type: ['string', 'null'], format: 'date' },
+      dueDate: { type: ['string', 'null'], format: 'date', description: 'The day the work is promised for, or null to clear it.' },
       parentId: { type: ['string', 'null'] },
     },
   },

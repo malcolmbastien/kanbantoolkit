@@ -39,6 +39,20 @@ test('a tag added in the drawer is on the card', async ({ page }) => {
   await expect(card(page, id)).toContainText('security')
 })
 
+test('a due date set in the drawer is on the card, and says how late it is', async ({ page }) => {
+  await openBoard(page)
+  const id = await openFirstBacklogCard(page)
+
+  // A day that has passed: the drawer records the promise, and the card is where it is read.
+  // `exact` because the field also offers "Clear the due date" once it holds one.
+  await page.getByLabel('Due date', { exact: true }).fill('2020-01-02')
+  await closeDrawer(page)
+
+  const chip = card(page, id).locator('[data-due="overdue"]')
+  await expect(chip).toContainText('overdue')
+  await expect(chip).toHaveAttribute('data-due-date', '2020-01-02')
+})
+
 test('a person added in the drawer is on the card', async ({ page }) => {
   await openBoard(page)
   const id = await openFirstBacklogCard(page)

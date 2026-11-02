@@ -69,6 +69,8 @@ export const BOARD_CSV_HEADER = [
   'Blocked reason',
   'Target start',
   'Target end',
+  // The promise, beside the plan: a reader of the file has the same two dates the drawer shows.
+  'Due',
   'Parent',
   'Tags',
 ]
@@ -107,6 +109,7 @@ export function boardCsv(
         item.blocked ? item.blockedReason ?? '' : '',
         item.targetStartDate ?? '',
         item.targetEndDate ?? '',
+        item.dueDate ?? '',
         parentId ? graph.items.find((i) => i.id === parentId)?.title ?? '' : '',
         // Semicolons, like assignees: a comma in a tag name must not break the column.
         tagsOf(boards, item).map((t) => t.name).join('; '),
@@ -138,6 +141,7 @@ export const DASHBOARD_CSV_HEADER = [
   'In progress',
   'Target start',
   'Target end',
+  'Due',
   'Status',
   'Overdue',
   'Blocked below',
@@ -161,6 +165,7 @@ export function dashboardCsv(rows: DashboardCsvRow[], types: IssueType[]): strin
       roll.inProgress,
       item.targetStartDate ?? '',
       item.targetEndDate ?? '',
+      item.dueDate ?? '',
       STAGE_LABELS[roll.bucket],
       overdue ? 'yes' : 'no',
       blocked,

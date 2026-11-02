@@ -495,6 +495,29 @@ describe('writing', () => {
     expect(await db.get('SELECT created_by_id FROM items WHERE id = ?1', [made.id])).toEqual({ created_by_id: me.id })
   })
 
+  it('carries the day a card is due, and clears it with null', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const writer = await token(person, ['items:write', 'boards:read'], 'writer')
+
+    const created = await writer.call('/items', {
+      method: 'POST',
+      body: body({ boardId: 'b-1', title: 'Promised', typeId: 't-card', dueDate: '2026-12-01' }),
+    })
+    expect(created.status).toBe(201)
+    const { item } = (await created.json()) as { item: { id: string; dueDate?: string; rev: number } }
+    expect(item.dueDate).toBe('2026-12-01')
+
+    // One date, cleared the way an optional date is: `null`, not an empty string.
+    const cleared = await writer.call(`/items/${item.id}`, { method: 'PATCH', body: body({ baseRev: item.rev, dueDate: null }) })
+    expect(cleared.status).toBe(200)
+    expect(((await cleared.json()) as { item: { dueDate?: string } }).item.dueDate).toBeUndefined()
+
+    // And a value that is not a day is refused rather than stored.
+    const junk = await writer.call(`/items/${item.id}`, { method: 'PATCH', body: body({ baseRev: item.rev + 1, dueDate: 'someday' }) })
+    expect(junk.status).toBe(422)
+  })
+
   it('answers a repeated idempotency key from what it already wrote', async () => {
     const { signIn, token, db } = await world()
     const person = await signIn('editor@example.com', 'editor')

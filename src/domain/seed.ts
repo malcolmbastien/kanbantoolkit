@@ -180,7 +180,13 @@ export function createSeed(): FlowState {
    * that reaches across to Team Nova.
    * ---------------------------------------------------------------- */
 
-  item('init-signup-redesign', 'Signup redesign', 't-initiative', { assignees: ['u-mb', 'u-rk'], targetEndDate: '2026-12-31' })
+  // An initiative carries a deadline as readily as a card does: the promise is one day, and the
+  // target window beside it is the plan.
+  item('init-signup-redesign', 'Signup redesign', 't-initiative', {
+    assignees: ['u-mb', 'u-rk'],
+    targetEndDate: '2026-12-31',
+    dueDate: day(20),
+  })
   item('init-trial', 'Trial experience', 't-initiative', { assignees: ['u-lm'], targetEndDate: '2027-01-31' })
   item('init-billing', 'Billing migration', 't-initiative', { assignees: ['u-ds'], targetEndDate: '2027-02-28' })
   item('init-slo', 'SLOs & error budgets', 't-initiative', { assignees: ['u-rk'] })
@@ -209,6 +215,7 @@ export function createSeed(): FlowState {
     priority: 'high',
     targetStartDate: day(-6),
     targetEndDate: day(-1),
+    dueDate: day(-2),
   })
   card('st-enterprise-sso', 'Add SSO for enterprise tenants', 't-story', 'b-atlas', a.dev, 'inProgress', 21, 5, {
     assignees: ['u-jt'],
@@ -226,6 +233,7 @@ export function createSeed(): FlowState {
     priority: 'urgent',
     targetStartDate: day(-10),
     targetEndDate: day(4),
+    dueDate: day(4),
     checklist: [
       { id: 'cl-retry-1', text: 'Retry on a soft decline only', done: true },
       { id: 'cl-retry-2', text: 'Back off between attempts', done: false },
@@ -235,6 +243,7 @@ export function createSeed(): FlowState {
     // Nobody on it, and overdue: committed work with no owner is exactly what health is for.
     targetStartDate: day(-8),
     targetEndDate: day(-3),
+    dueDate: day(-3),
   })
   card('st-coupon-retire', 'Retire the legacy coupon service', 't-task', 'b-atlas', a.ns, 'notStarted', 26, 11, {
     assignees: ['u-ds'],
@@ -246,6 +255,8 @@ export function createSeed(): FlowState {
     assignees: ['u-ds'],
     priority: 'high',
     targetEndDate: day(45),
+    // Uncommitted work can still be promised for a day — a Backlog card is planned, not forgotten.
+    dueDate: day(30),
   })
   card('st-pricing-experiment', 'Split the pricing experiment framework', 't-spike', 'b-atlas', a.backlog, 'backlog', 9, 9, {
   })

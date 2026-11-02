@@ -651,6 +651,17 @@ describe('store actions', () => {
     expect(migrated.boards[2].archivedAt).toBe(5)
   })
 
+  it('an older save has no due date, and reads as work with no promise rather than failing', () => {
+    // The field is optional, so there is no version bump and no backfill: a card written before it
+    // existed simply carries none, and everything that reads a due date says nothing about it.
+    const migrated = migrateState({
+      boards: [],
+      items: [{ id: 'old', title: 'Before due dates', typeId: 't-story', createdAt: 1 }],
+    }) as { items: Item[] }
+    expect(migrated.items).toHaveLength(1)
+    expect(migrated.items[0].dueDate).toBeUndefined()
+  })
+
   it('blocking is an explicit status recorded in the item log', () => {    expect(s().items.find((i) => i.id === 'st-email')?.blocked ?? false).toBe(false)
     s().blockItem('st-email', 'Waiting on gateway')
     const b = s().items.find((i) => i.id === 'st-email')!
@@ -1288,7 +1299,7 @@ describe('store actions', () => {
     expect(copy.description).toBe('Prompt: who is exposed, and to what?')
 
     // None of the original's commitments come with it.
-    const absent: (keyof Item)[] = ['assignees', 'priority', 'blocked', 'blockedReason', 'targetStartDate', 'targetEndDate', 'resolvedAt', 'lastMoveReason', 'archived', 'archivedAt']
+    const absent: (keyof Item)[] = ['assignees', 'priority', 'blocked', 'blockedReason', 'targetStartDate', 'targetEndDate', 'dueDate', 'resolvedAt', 'lastMoveReason', 'archived', 'archivedAt']
     for (const key of absent) expect(copy[key]).toBeUndefined()
 
     // A copied checklist is a fresh set of steps, never a set already ticked.
@@ -2695,6 +2706,71 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === 'st-email')?.assignees).toEqual([uid])
     s().removeItemsAssignee(['st-email'], uid)
     expect(s().items.find((i) => i.id === 'st-email')?.assignees).toBeUndefined()
+  })
+
+  it('a due date is one day, written to the log, and the same on an initiative', () => {
+    const rollBefore = rollupOf('init-signup', graph())
+    const statusBefore = statusOf('init-signup', graph())
+    s().setDueDate('st-email', '2026-12-01')
+    const dated = s().items.find((i) => i.id === 'st-email')!
+    expect(dated.dueDate).toBe('2026-12-01')
+    // The edit is part of the record, in the same words as the other field edits.
+    expect(dated.log?.some((e) => e.kind === 'edited' && e.note === 'due date: none → 2026-12-01')).toBe(true)
+
+    // Empty clears it, and clearing is a change worth recording too.
+    s().setDueDate('st-email', '')
+    expect(s().items.find((i) => i.id === 'st-email')?.dueDate).toBeUndefined()
+    expect(s().items.find((i) => i.id === 'st-email')?.log?.some((e) => e.note === 'due date: 2026-12-01 → none')).toBe(true)
+
+    // A deadline is not a size: an initiative keeps one, and nothing about it moves.
+    s().setDueDate('init-signup', '2026-12-24')
+    expect(s().items.find((i) => i.id === 'init-signup')?.dueDate).toBe('2026-12-24')
+    expect(rollupOf('init-signup', graph())).toEqual(rollBefore)
+    expect(statusOf('init-signup', graph())).toEqual(statusBefore)
+
+    // Something that is not a day is refused rather than stored: a date input cannot produce it,
+    // and a promise nobody can read is worse than none.
+    s().setDueDate('st-email', '2026-12-01')
+    s().setDueDate('st-email', 'tomorrow')
+    expect(s().items.find((i) => i.id === 'st-email')?.dueDate).toBe('2026-12-01')
+
+    // A stale id, and filed-away work: the archive is read-only until it is restored.
+    s().setDueDate('no-such-item', '2026-12-01')
+    s().archiveItems(['st-sso'])
+    s().setDueDate('st-sso', '2026-12-01')
+    expect(s().items.find((i) => i.id === 'st-sso')?.dueDate).toBeUndefined()
+  })
+
+  it('an imported board brings a source’s due date as a due date, not as a target window', () => {
+    const cardType = s().issueTypes.find((t) => t.name === 'User Story') ?? s().issueTypes[0]
+    const boardId = s().importBoard({
+      source: 'trello',
+      boardName: 'Imported',
+      defaultTypeId: cardType.id,
+      lanes: [{ key: 'list-todo', parentKey: null, name: 'To do', stage: 'notStarted', order: 0 }],
+      cards: [
+        {
+          key: 'card-1',
+          title: 'Promised work',
+          typeId: cardType.id,
+          laneKey: 'list-todo',
+          assigneeIds: [],
+          tagKeys: [],
+          checklist: [],
+          createdAt: Date.now(),
+          dueDate: '2026-10-10',
+          sourceKey: 'card-1',
+        },
+      ],
+      tags: [],
+      warnings: [],
+    })
+    const placed = s().placements.find((p) => p.boardId === boardId)!
+    const imported = s().items.find((i) => i.id === placed.itemId)!
+    // One date in the source means one promise here — not a plan span invented around it.
+    expect(imported.dueDate).toBe('2026-10-10')
+    expect(imported.targetEndDate).toBeUndefined()
+    expect(imported.targetStartDate).toBeUndefined()
   })
 
   it('migrateState turns the old board level into a band', () => {

@@ -9,6 +9,7 @@ import { STALE_AFTER_DAYS } from '@/domain/filters'
 import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
 import { PriorityBadge } from './PriorityBadge'
+import { DueChip } from './DueChip'
 import { heldByOther, usePresence } from '@/lib/presence'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
 
@@ -522,6 +523,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               </span>
             ) : null}
             <span className="ml-auto flex items-center gap-1.5">
+              <DueChip item={item} complete={complete} />
               {summary.done && <DoneStamp />}
               {pct !== undefined && (
                 <span
@@ -715,9 +717,10 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         </div>
 
         {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
-        {(hasChecklist || aged || summary.done || assignees.length > 0) && (
+        {(hasChecklist || aged || summary.done || assignees.length > 0 || Boolean(item.dueDate)) && (
           <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <DueChip item={item} complete={complete} />
               {hasChecklist && (
                 <span
                   className="flex shrink-0 items-center gap-1 rounded bg-white px-1.5 py-0.5 text-micro text-slate-600 ring-1 ring-slate-200"

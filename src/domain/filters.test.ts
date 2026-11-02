@@ -37,8 +37,8 @@ describe('card filters', () => {
     expect(matchesFilters(card(), with_({ unassigned: true }), false)).toBe(true)
     expect(matchesFilters(card({ assignees: ['MB'] }), with_({ unassigned: true }), false)).toBe(false)
 
-    const past = card({ targetEndDate: '2000-01-01' })
-    const future = card({ targetEndDate: '2999-01-01' })
+    const past = card({ dueDate: '2000-01-01' })
+    const future = card({ dueDate: '2999-01-01' })
     expect(matchesFilters(past, with_({ overdue: true }), false)).toBe(true)
     expect(matchesFilters(future, with_({ overdue: true }), false)).toBe(false)
     // A resolved card is never overdue.
@@ -128,28 +128,32 @@ describe('card filters', () => {
     expect(activeFilterCount(with_({ assigneeIds: ['u-1'], priorities: ['high'], minAgeDays: 7 }))).toBe(3)
   })
 
-  it('isOverdue needs a past target date and an open card', () => {
-    expect(isOverdue(card({ targetEndDate: '2000-01-01' }), false)).toBe(true)
-    expect(isOverdue(card({ targetEndDate: '2000-01-01' }), true)).toBe(false)
+  it('isOverdue needs a past due date and an open card', () => {
+    expect(isOverdue(card({ dueDate: '2000-01-01' }), false)).toBe(true)
+    expect(isOverdue(card({ dueDate: '2000-01-01' }), true)).toBe(false)
     expect(isOverdue(card(), false)).toBe(false)
-    expect(isOverdue(card({ targetEndDate: '2999-01-01' }), false)).toBe(false)
+    expect(isOverdue(card({ dueDate: '2999-01-01' }), false)).toBe(false)
+    // The target window is the plan, not the promise: a window that has passed is not "overdue".
+    expect(isOverdue(card({ targetEndDate: '2000-01-01' }), false)).toBe(false)
   })
 
-  it('isDueSoon is target date within the next seven days, boundary included', () => {
+  it('isDueSoon is a due date within the next seven days, boundary included', () => {
     // Seven days counting today: the sixth day ahead is in, and neither the seventh nor
     // the eighth makes it — the window does not stretch past the week it names.
-    expect(isDueSoon(card({ targetEndDate: day(0, NOON) }), false, NOON)).toBe(true)
-    expect(isDueSoon(card({ targetEndDate: day(6, NOON) }), false, NOON)).toBe(true)
-    expect(isDueSoon(card({ targetEndDate: day(7, NOON) }), false, NOON)).toBe(false)
-    expect(isDueSoon(card({ targetEndDate: day(8, NOON) }), false, NOON)).toBe(false)
+    expect(isDueSoon(card({ dueDate: day(0, NOON) }), false, NOON)).toBe(true)
+    expect(isDueSoon(card({ dueDate: day(6, NOON) }), false, NOON)).toBe(true)
+    expect(isDueSoon(card({ dueDate: day(7, NOON) }), false, NOON)).toBe(false)
+    expect(isDueSoon(card({ dueDate: day(8, NOON) }), false, NOON)).toBe(false)
     // A date already past belongs to overdue, not due soon — and the two never double-count.
-    expect(isDueSoon(card({ targetEndDate: day(-1, NOON) }), false, NOON)).toBe(false)
-    // A done card has no due date, and neither does a card with no target date at all.
-    expect(isDueSoon(card({ targetEndDate: day(2, NOON) }), true, NOON)).toBe(false)
+    expect(isDueSoon(card({ dueDate: day(-1, NOON) }), false, NOON)).toBe(false)
+    // A done card has no due date, and neither does a card with no due date at all.
+    expect(isDueSoon(card({ dueDate: day(2, NOON) }), true, NOON)).toBe(false)
     expect(isDueSoon(card(), false, NOON)).toBe(false)
+    // The target window is not a promise and never makes a card due.
+    expect(isDueSoon(card({ targetEndDate: day(2, NOON) }), false, NOON)).toBe(false)
     // In the matcher itself, so the panel's toggle and the ?filters= token share one truth.
-    expect(matchesFilters(card({ targetEndDate: day(3, NOON) }), with_({ dueSoon: true }), false, NOON)).toBe(true)
-    expect(matchesFilters(card({ targetEndDate: day(10, NOON) }), with_({ dueSoon: true }), false, NOON)).toBe(false)
+    expect(matchesFilters(card({ dueDate: day(3, NOON) }), with_({ dueSoon: true }), false, NOON)).toBe(true)
+    expect(matchesFilters(card({ dueDate: day(10, NOON) }), with_({ dueSoon: true }), false, NOON)).toBe(false)
   })
 
   it('narrows by text over the title and the description, case-insensitively', () => {

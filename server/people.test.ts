@@ -52,8 +52,8 @@ describe('the migration from one role column to two axes', () => {
     const db = oldDatabase()
     const result = await migrate(db, all)
 
-    expect(result.applied).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39])
-    expect(result.version).toBe(39)
+    expect(result.applied).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    expect(result.version).toBe(40)
 
     // The owner administers the instance and the workspace; the member remains a member here and
     // keeps the editing they could already do.
@@ -94,8 +94,11 @@ describe('the migration from one role column to two axes', () => {
     // ...and whether a filed-away item's work was done, which arrived with the archive's two words.
     const withoutDisposition = (rows: Array<Record<string, unknown>>) =>
       rows.map(({ discarded: _discarded, ...rest }) => rest)
+    // ...and the day the work is promised for, which is a date on the card rather than about it.
+    const withoutDue = (rows: Array<Record<string, unknown>>) =>
+      rows.map(({ due_date: _due, ...rest }) => rest)
 
-    expect(withoutDisposition(withoutCreator(unscoped(await db.all('SELECT * FROM items'))))).toEqual(withoutEstimate(before))
+    expect(withoutDue(withoutDisposition(withoutCreator(unscoped(await db.all('SELECT * FROM items')))))).toEqual(withoutEstimate(before))
     expect(unscoped(await db.all('SELECT * FROM boards'))).toEqual(boardsBefore)
     expect(unscoped(await db.all('SELECT * FROM placements'))).toEqual(placementsBefore)
     expect(before[0]).toMatchObject({ title: 'A card', rev: 3 })

@@ -301,13 +301,13 @@ export function FilterPanel() {
             />
             <ToggleRow
               label="Overdue"
-              hint="past target date, not done"
+              hint="past due date, not done"
               checked={filters.overdue}
               onChange={(v) => setFilters({ overdue: v })}
             />
             <ToggleRow
               label="Due soon"
-              hint="target date within a week, not done"
+              hint="due date within a week, not done"
               checked={filters.dueSoon}
               onChange={(v) => setFilters({ dueSoon: v })}
             />

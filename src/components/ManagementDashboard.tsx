@@ -26,6 +26,8 @@ import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Stage } from '@/domain/types'
 import { cardsFlows } from '@/domain/flows'
+import { dueState } from '@/domain/due'
+import { DueChip } from './DueChip'
 
 const barColor = (pct: number) => (pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
@@ -48,7 +50,7 @@ const ATTENTION_ACCENT: Record<AttentionKey, string> = {
 
 const ATTENTION_HINT: Record<AttentionKey, string> = {
   unfinished: 'Every unfinished item on this board — the population each count below is taken from',
-  overdue: 'Past its target date and not done',
+  overdue: 'Past its due date and not done',
   stale: `Committed work past ${STALE_AFTER_DAYS} days in its lane with nothing moving`,
   unassigned: 'Nobody is assigned to it',
   noPriority: 'No priority is set',
@@ -132,7 +134,10 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
     const roll = rollupOf(item.id, graph)
     const blocked = blockedBelow(item.id, graph)
     const target = parseDate(item.targetEndDate)
-    const overdue = Boolean(target && roll.bucket !== 'done' && target.getTime() < Date.now())
+    // Overdue is about the promise, not the plan: the target window is what this column reads,
+    // and the due date is what the word means everywhere else in the app.
+    const due = dueState(item.dueDate, roll.bucket === 'done')
+    const overdue = due?.tone === 'overdue'
     const childInits = decompositionChildren(item.id, edges).filter(
       (id) => items.find((i) => i.id === id)?.typeId === initiativeTypeId,
     ).length
@@ -298,13 +303,13 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
               <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
                 <th className="px-4 py-2 font-semibold">Initiative</th>
                 <th className="px-4 py-2 font-semibold">Work progress</th>
-                <th className="px-4 py-2 font-semibold">Target date</th>
+                <th className="px-4 py-2 font-semibold">Dates</th>
                 <th className="px-4 py-2 font-semibold">Status</th>
                 <th className="px-4 py-2 font-semibold">Health</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ item, roll, overdue, childInits, health }) => {
+              {rows.map(({ item, roll, childInits, health }) => {
                 const type = typeOf(item.typeId)
                 const bucket = roll.bucket as Stage
                 return (
@@ -348,12 +353,18 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <div className={cn('flex items-center gap-1 text-meta', overdue ? 'font-semibold text-rose-600' : 'text-slate-600')}>
-                        <CalendarClock size={12} className={overdue ? 'text-rose-500' : 'text-slate-400'} />
+                      <div className="flex items-center gap-1 text-meta text-slate-600">
+                        <CalendarClock size={12} className="text-slate-400" />
                         {item.targetStartDate ? `${formatDate(item.targetStartDate)} → ` : ''}
                         {formatDate(item.targetEndDate)}
                       </div>
-                      {overdue && <div className="text-micro font-semibold text-rose-500">overdue</div>}
+                      {/* The promise, under the plan: one date, and the same chip the card and the
+                          drawer use, so "overdue" means one thing in all three places. */}
+                      {item.dueDate && (
+                        <div className="mt-0.5">
+                          <DueChip item={item} complete={roll.bucket === 'done'} />
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-4 py-2.5">

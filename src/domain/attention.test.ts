@@ -72,11 +72,11 @@ describe('board attention on a cards board', () => {
   it('reads every signal from the work itself, and counts the population once', () => {
     const items = [
       // Everything at once: late, stuck, and with no owner or priority.
-      card('a', { targetEndDate: '2026-10-10' }),
+      card('a', { dueDate: '2026-10-10' }),
       // Nothing to say about this one.
-      card('b', { assignees: ['u-1'], priority: 'high', targetEndDate: '2026-12-01' }),
+      card('b', { assignees: ['u-1'], priority: 'high', dueDate: '2026-12-01' }),
       // Finished work is not attention.
-      card('c', { targetEndDate: '2026-10-01' }),
+      card('c', { dueDate: '2026-10-01' }),
       // Filed away, so off the board.
       card('d', { archived: true, archivedAt: NOW - DAY }),
       // Backlog: uncommitted, so never stale — but still unowned and without a priority.
@@ -132,9 +132,9 @@ describe('board attention on a cards board', () => {
     expect(stale[0].ageDays).toBe(STALE_AFTER_DAYS)
   })
 
-  it('judges overdue by the target date, and by nothing else', () => {
+  it('judges overdue by the due date, and by nothing else', () => {
     const graph = cardsBoard(
-      [card('late', { targetEndDate: '2026-10-16' }), card('soon', { targetEndDate: '2026-10-18' }), card('undated')],
+      [card('late', { dueDate: '2026-10-16' }), card('soon', { dueDate: '2026-10-18' }), card('undated')],
       [at('late', 'ip'), at('soon', 'ip'), at('undated', 'ip')],
     )
     const rows = boardAttention(graph, 'b', [], flows(), { now: NOW }).rows
@@ -147,7 +147,7 @@ describe('board attention on a cards board', () => {
   it('is one array: every count is the rows carrying that signal, and none exceeds Unfinished', () => {
     const graph = cardsBoard(
       [
-        card('a', { targetEndDate: '2026-10-01' }),
+        card('a', { dueDate: '2026-10-01' }),
         card('b', { assignees: ['u'], priority: 'low' }),
         card('c', { assignees: [], priority: 'medium' }),
         card('d', { assignees: ['u'], priority: 'urgent' }),
@@ -167,11 +167,11 @@ describe('board attention on a cards board', () => {
   it('orders by the number of signals, then the oldest known age, then the title', () => {
     const graph = cardsBoard(
       [
-        card('A', { title: 'Alpha', targetEndDate: '2026-10-01' }),
-        card('B', { title: 'Bravo', targetEndDate: '2026-10-01' }),
+        card('A', { title: 'Alpha', dueDate: '2026-10-01' }),
+        card('B', { title: 'Bravo', dueDate: '2026-10-01' }),
         card('C', { title: 'Charlie' }),
         card('D', { title: 'Delta', assignees: ['u'] }),
-        card('E', { title: 'Echo', assignees: ['u'], priority: 'low', targetEndDate: '2026-12-01' }),
+        card('E', { title: 'Echo', assignees: ['u'], priority: 'low', dueDate: '2026-12-01' }),
       ],
       [
         at('A', 'ip', NOW - 2 * DAY),
@@ -222,7 +222,7 @@ describe('board attention on a coordination board', () => {
 
   it('reads the board\'s own initiatives through the health rules', () => {
     const items = [
-      card('init', { typeId: 't-initiative', targetEndDate: '2026-10-01' }),
+      card('init', { typeId: 't-initiative', dueDate: '2026-10-01' }),
       card('k1', { assignees: [] }),
       card('k2', { assignees: [] }),
     ]

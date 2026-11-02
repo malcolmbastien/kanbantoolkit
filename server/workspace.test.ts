@@ -566,6 +566,29 @@ describe('writing one item', () => {
     expect(body.items.map((entry) => entry.id)).toEqual(['i-card'])
   })
 
+  it('stores the day a card is due, and never a value that is not a day', async () => {
+    const { request, patch, cookie } = await writer()
+
+    const created = await patch('i-card', { baseRev: 0, item: card({ dueDate: '2026-12-01' }) })
+    expect(created.status).toBe(200)
+    expect(((await created.json()) as { item: Item }).item.dueDate).toBe('2026-12-01')
+
+    // It is a column, not a note in the log: the workspace document answers it.
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
+    expect(body.items.find((item) => item.id === 'i-card')?.dueDate).toBe('2026-12-01')
+
+    // The parser is the door, and a promise nobody can read is dropped rather than stored.
+    const junk = await patch('i-card', { baseRev: 1, item: card({ dueDate: 'next friday' }) })
+    expect(junk.status).toBe(200)
+    expect(((await junk.json()) as { item: Item }).item.dueDate).toBeUndefined()
+
+    // Setting one again, then leaving it off, clears it like any other optional field.
+    await patch('i-card', { baseRev: 2, item: card({ dueDate: '2026-12-02' }) })
+    const cleared = await patch('i-card', { baseRev: 3, item: card() })
+    expect(cleared.status).toBe(200)
+    expect(((await cleared.json()) as { item: Item }).item.dueDate).toBeUndefined()
+  })
+
   it('stores the people a note mentions, once each, and reads them back', async () => {
     const { request, patch, cookie } = await writer()
     const response = await patch('i-card', {

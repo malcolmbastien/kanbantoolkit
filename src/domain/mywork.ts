@@ -77,7 +77,7 @@ export function myWork(
     // work the person still owns sinks below everything that waits on them.
     const rank = (e: MyWorkEntry): number => (e.isOverdue ? 0 : e.isDueSoon ? 1 : e.isResolved ? 3 : 2)
     const dueOf = (e: MyWorkEntry): number => {
-      const t = e.item.targetEndDate
+      const t = e.item.dueDate
       return t ? new Date(t).getTime() : Number.POSITIVE_INFINITY
     }
     entries.sort((a, c) => {

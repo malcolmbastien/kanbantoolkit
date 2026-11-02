@@ -229,6 +229,8 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
     if (start !== undefined) item.targetStartDate = start
     const end = maybeText(row.target_end_date)
     if (end !== undefined) item.targetEndDate = end
+    const due = maybeText(row.due_date)
+    if (due !== undefined) item.dueDate = due
     const rev = maybeCount(row.rev)
     if (rev !== undefined) item.rev = rev
     if (row.resolved_at !== null) item.resolvedAt = maybeCount(row.resolved_at) ?? null
