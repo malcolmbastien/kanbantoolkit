@@ -203,7 +203,13 @@ export function MetricsView({ boardId }: { boardId: string }) {
               </div>
             </div>
 
-            <div className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg bg-slate-50/80 px-4 py-2 ring-1 ring-slate-200/70">
+            {/* Four readings in four equal columns. The strip used to size itself to its
+                contents, so a number gaining a digit or a sample note gaining "thin sample"
+                moved the block — and a narrow card broke it into an uneven wrap, with the last
+                reading alone on a second row. Equal tracks mean the figures change inside
+                their cells and the card's shape does not: two columns when the card is narrow,
+                four when there is room, notes wrapping within their own cell. */}
+            <div className="ml-auto grid w-full min-w-0 shrink grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-slate-50/80 px-4 py-2 ring-1 ring-slate-200/70 sm:w-auto sm:basis-[34rem] sm:grid-cols-4">
               <Stat label="In flight" value={summary.inFlight} />
               <Stat label="Delivered" value={summary.delivered} tone="emerald" />
               <Stat
@@ -1052,12 +1058,14 @@ function Stat({
   hint?: string
 }) {
   return (
-    <div data-flow-stat={label} title={hint}>
+    <div data-flow-stat={label} title={hint} className="min-w-0">
       <div className="text-micro uppercase tracking-wide text-slate-600">{label}</div>
       <div data-flow-stat-value className={cn('text-title font-semibold tabular-nums', tone === 'emerald' ? 'text-emerald-700' : 'text-slate-800')}>
         {value}
       </div>
-      {note && <div className="text-micro text-slate-600">{note}</div>}
+      {/* The note wraps inside its own column: a longer sample line makes the strip taller,
+          never wider. */}
+      {note && <div className="text-micro leading-tight text-slate-600">{note}</div>}
     </div>
   )
 }

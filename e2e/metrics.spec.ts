@@ -73,6 +73,41 @@ test('a window and a flow are part of the link', async ({ page }) => {
   await expect(page).not.toHaveURL(/flow=/)
 })
 
+test('the summary figures keep their columns when a number grows', async ({ page }) => {
+  await page.goto(FLOW)
+  const strip = page.locator('[data-flow-stat="In flight"]').locator('..')
+  const stats = strip.locator('[data-flow-stat]')
+  await expect(stats).toHaveCount(4)
+
+  const cells = async () =>
+    stats.evaluateAll((els) =>
+      els.map((el) => {
+        const box = el.getBoundingClientRect()
+        return { left: Math.round(box.left), right: Math.round(box.right), top: Math.round(box.top), width: Math.round(box.width) }
+      }),
+    )
+
+  // Four readings, four equal columns on one row — the shape is the card's, not the data's.
+  const before = await cells()
+  expect(before).toHaveLength(4)
+  expect(new Set(before.map((c) => c.top)).size, 'the four readings sit on one row').toBe(1)
+  for (const cell of before) expect(Math.abs(cell.width - before[0].width)).toBeLessThanOrEqual(1)
+
+  // A value and a note that both grow by two digits must change nothing about the columns.
+  await stats.evaluateAll((els) => {
+    const values = ['1,234', '12,345', '1,234d', '1,234d']
+    els.forEach((el, i) => {
+      const value = el.querySelector('[data-flow-stat-value]')
+      if (value) value.textContent = values[i]
+      const note = el.lastElementChild
+      if (note && note !== value) note.textContent = 'p85 1,234d · p95 1,234d · 12,345 cards · thin sample'
+    })
+  })
+  const after = await cells()
+  expect(after.map((c) => c.left)).toEqual(before.map((c) => c.left))
+  expect(after.map((c) => c.width)).toEqual(before.map((c) => c.width))
+})
+
 test('a dot in the scatter is the card it stands for', async ({ page }) => {
   await page.goto(FLOW)
   const view = page.locator('[data-flow-view]')
