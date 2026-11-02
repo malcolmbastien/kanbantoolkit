@@ -224,6 +224,11 @@ export const STAGE_ACCENT: Record<Stage, string> = STAGE_COLOR
  * The card is what a person reads, so it is the only pure white on the board. A tint
  * that drifts back towards white takes that away: the columns stop being objects and
  * the cards stop standing out, which is what the board looked like before.
+ *
+ * Supporting chrome sits on its column rather than becoming a fourth plane: a column
+ * header, a count and the Add card footer are labels on the tint, with no white bar of
+ * their own. A header repeated per column must not wear the card's treatment — the work
+ * is what the eye should catch, and everything that merely names or offers it recedes.
  */
 export const STAGE_SURFACE: Record<Stage, string> = {
   backlog: 'bg-slate-200/80',

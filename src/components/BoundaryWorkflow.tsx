@@ -100,11 +100,11 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
         if (boundaryId && !(event.target as HTMLElement).closest?.('[data-boundary-card]')) toggleBoundary(boundaryId)
       }}
     >
-      <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2 shadow-sm">
+      <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/80 px-3 py-1.5 backdrop-blur-sm">
         <div className="flex min-w-0 items-center gap-2">
           <WorkflowToggle name="Boundary — waiting on" collapsed={collapsed} onToggle={toggleWorkflow} />
           <span className="h-2 w-2 shrink-0 rounded-full bg-amber-600" />
-          <h2 id="boundary-workflow-title" className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">
+          <h2 id="boundary-workflow-title" className="shrink-0 text-body font-semibold uppercase tracking-wide text-slate-700">
             Boundary — waiting on
           </h2>
           <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-amber-200 sm:inline">
@@ -138,13 +138,13 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
               )}
               style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}` }}
             >
-              <div className="mx-1 mt-1 mb-0.5 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 shadow-sm">
+              <div className="mx-1 mt-1 mb-0.5 rounded-lg px-2.5 py-1.5">
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1">
                   <span className={cn('h-1.5 w-1.5 rounded-full', STAGE_DOT[stage])} />
-                  <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-800">
+                  <span className="text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-600">
                     {STAGE_LABELS[stage]}
                   </span>
-                  <span className="rounded-full bg-white px-1.5 py-0.5 text-micro font-bold tabular-nums text-slate-600 ring-1 ring-slate-300/70">
+                  <span className="px-1 text-micro font-semibold tabular-nums text-slate-600">
                     {inStage.length}
                   </span>
                 </div>

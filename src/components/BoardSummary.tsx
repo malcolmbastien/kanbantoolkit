@@ -17,7 +17,7 @@ import { buildBoardModel } from '@/domain/boardModel'
 import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
 import { boardInitiatives, initiativeCellOf, initiativeRanks, initiativeTypeById, isInitiativeItem, tagsOf } from '@/domain/board'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
-import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { stillScrolling } from '@/lib/useStillScroll'
 import {
@@ -434,7 +434,7 @@ export function BoardSummary({
                 : { flexGrow: split && !rows ? cells.length : 1, flexBasis: 0, flexShrink: 1 }),
             }}
             className={cn(
-              'flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/90 shadow-sm',
+              'flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/90',
               STAGE_SURFACE[stage],
             )}
           >
@@ -532,9 +532,10 @@ function Cell({
   const at = siblings.findIndex((l) => l.id === lane.id)
   const orientation = lane.orientation ?? 'columns'
 
-  // One header at every depth, the same white bar the cards workflow uses: a cell of a split
-  // section is a column of the section above it, not a quieter kind of label.
-  const head = cn(HEAD_ROW, 'mx-1 mt-1 mb-0.5 gap-1.5 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-slate-800 shadow-sm')
+  // One header at every depth, the same bare bar the cards workflow uses: a cell of a split
+  // section is a column of the section above it, not a quieter kind of label — and both are
+  // signposts over the work rather than cards competing with it.
+  const head = cn(HEAD_ROW, 'mx-1 mt-1 mb-0.5 gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-600')
   // A cell with nothing in it still needs to read as a place work can go. The drag gap counts
   // as content: while an initiative is in the air over an empty cell, the shadow is what the
   // cell shows.
@@ -571,14 +572,14 @@ function Cell({
           <ChevronsRight size={13} />
         </button>
         <span
-          className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-white/80 px-1 text-micro font-bold tabular-nums text-slate-700 ring-1 ring-slate-300/70"
+          className="px-1 text-micro font-semibold tabular-nums text-slate-600"
           title={`${count} initiative${count === 1 ? '' : 's'}`}
         >
           {count}
         </span>
         <button onClick={() => toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand">
           <span
-            className="rotate-180 whitespace-nowrap text-meta font-bold uppercase tracking-wide text-slate-700 [writing-mode:vertical-rl]"
+            className="rotate-180 whitespace-nowrap text-meta font-semibold uppercase tracking-wide text-slate-600 [writing-mode:vertical-rl]"
           >
             {lane.name}
           </span>
@@ -625,20 +626,17 @@ function Cell({
             title="Rename this lane"
             // Bigger than its row, like the board's headers: the negative margin cancels the
             // padding, so the field is easier to hit and its text has not moved.
-            className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
-            inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+            className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-600 transition hover:bg-slate-900/5"
+            inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
           />
         ) : (
-          <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
+          <span className="text-center text-meta font-semibold uppercase leading-tight tracking-wide">
             {lane.name}
           </span>
         )}
         <span className="flex items-center justify-end gap-1">
           <span
-            className={cn(
-              'shrink-0 rounded-full px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums',
-              stage ? STAGE_PILL[stage] : 'bg-slate-200/80 text-slate-700 ring-1 ring-slate-300/70',
-            )}
+            className="shrink-0 px-1 font-mono text-micro font-semibold tabular-nums text-slate-600"
             title={`${count} initiative${count === 1 ? '' : 's'}`}
           >
             {count}

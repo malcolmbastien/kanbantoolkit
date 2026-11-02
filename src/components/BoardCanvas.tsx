@@ -24,7 +24,7 @@ import { boardCardTypeId, tagsOf } from '@/domain/board'
 import { externalWaits } from '@/domain/boundary'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
-import { STAGE_ACCENT, STAGE_PILL, STAGE_SURFACE, tintOn, WIP_PILL } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_SURFACE, tintOn, WIP_PILL } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -189,26 +189,24 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
-    // One header, at every depth: a white bar with its own margin and a soft edge. A nested
-    // cell is a column of the column above it, and it should read as the same kind of thing —
-    // the depth is carried by where it sits, not by a lighter header.
+    // One header, at every depth — and it is a label, not a card. The bar used to be a white
+    // plate with an edge and a shadow, so every column repeated the card's own treatment and
+    // competed with the work it named. It is now the lane's name and count on the column's own
+    // surface: what a reader reads first is the work, and the header is a signpost above it.
     const over = wip === 'over'
     const at = wip === 'at'
     const count = countInLane(lane.id)
-    const pill = over ? WIP_PILL.over : at ? WIP_PILL.at : stage ? STAGE_PILL[stage] : 'bg-slate-200/80 text-slate-700 ring-1 ring-slate-300/70'
+    // A limit is an alarm, so at/over keeps its tinted pill; a plain count is only a label.
+    const pill = over ? WIP_PILL.over : at ? WIP_PILL.at : undefined
     return (
       <div
         className={cn(
-          'mx-1 mt-1 mb-0.5 rounded-lg border px-2.5 py-1.5 shadow-sm',
+          'mx-1 mt-1 mb-0.5 rounded-lg px-2.5 py-1.5',
           collapsed
             ? // A collapsed row says so in its own right: a dashed edge and a muted ground, so
               // it reads as folded away rather than as a row that happens to be short.
-              'border-dashed border-slate-300 bg-slate-100/80 text-slate-500 shadow-none'
-            : over
-              ? 'border-rose-200 bg-white text-slate-800'
-              : at
-                ? 'border-amber-200 bg-white text-slate-800'
-                : 'border-slate-200/90 bg-white text-slate-800',
+              'border border-dashed border-slate-300 bg-slate-100/80 text-slate-500'
+            : 'text-slate-600',
         )}
       >
         {/* Name truly centred, count and policy pinned right. The side columns are equal
@@ -240,11 +238,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               // exactly, so the field is big to point at and its text has not moved a pixel.
               // A ring, not a border, for the same reason — the header bar and everything
               // under it must not shift the moment a name is clicked.
-              className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
-              inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
+              className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-600 transition hover:bg-slate-900/5"
+              inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
             />
           ) : (
-            <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
+            <span className="text-center text-meta font-semibold uppercase leading-tight tracking-wide">
               {lane.name || 'Board'}
             </span>
           )}
@@ -252,7 +250,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             {over && <AlertTriangle size={12} className="shrink-0 text-rose-600" aria-label="Over its WIP limit" />}
             {at && <AlertTriangle size={12} className="shrink-0 text-amber-600" aria-label="At its WIP limit" />}
             <span
-              className={cn('shrink-0 rounded-full px-1.5 py-0.5 font-mono text-micro font-bold tabular-nums', pill)}
+              className={cn(
+                'shrink-0 font-mono text-micro tabular-nums',
+                pill ? cn('rounded-full px-1.5 py-0.5 font-bold', pill) : 'px-1 font-semibold text-slate-600',
+              )}
               title={
                 over
                   ? `Over its WIP limit — ${count} card${count === 1 ? '' : 's'}, limit ${lane.wipLimit}`
@@ -347,7 +348,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           {count}
         </span>
         <button onClick={() => ctx.toggleCollapse(lane.id)} className="flex min-h-0 flex-1 items-center justify-center" title="Expand">
-          <span className="rotate-180 whitespace-nowrap text-meta font-bold uppercase tracking-wide text-slate-700 [writing-mode:vertical-rl]">
+          <span className="rotate-180 whitespace-nowrap text-meta font-semibold uppercase tracking-wide text-slate-600 [writing-mode:vertical-rl]">
             {lane.name}
           </span>
         </button>
@@ -376,7 +377,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           'flex h-full min-h-0 w-full flex-1 flex-col',
           // No outer box: each top-level column is its own card, with a gap between them.
           // The stage tints the whole column, so it reads at a glance without a label.
-          top && 'overflow-hidden rounded-xl border border-slate-300/80 shadow-sm',
+          top && 'overflow-hidden rounded-xl border border-slate-300/80',
           top && stage && STAGE_SURFACE[stage],
         )}
         style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
@@ -449,7 +450,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         // A top-level column is the object: one edge, one tint, one accent. A nested cell
         // sits on its section's tint and needs none of the three — the partition line is
         // enough, and a second frame is what made a cell look like a box inside a box.
-        top && 'overflow-hidden rounded-xl border border-slate-300/80 shadow-sm',
+        top && 'overflow-hidden rounded-xl border border-slate-300/80',
         top ? (stage ? STAGE_SURFACE[stage] : 'bg-slate-100') : '',
       )}
       style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}

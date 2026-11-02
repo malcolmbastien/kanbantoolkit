@@ -205,7 +205,7 @@ export function BoardView({ requestMove }: Props) {
             a tinted band of its own, so a reader knows which workflow they are looking at
             before reading a single column. */}
         <section className="space-y-2.5">
-          <div className={cn('sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 shadow-sm', accent.section, 'bg-white/95 backdrop-blur-sm')}>
+          <div className={cn('sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border px-3 py-1.5', accent.section, 'border-slate-200/70 bg-white/80 backdrop-blur-sm')}>
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <WorkflowToggle
                 name="Initiatives workflow"
@@ -213,10 +213,10 @@ export function BoardView({ requestMove }: Props) {
                 onToggle={(button) => toggleWorkflow(initiativesKey, button)}
               />
               <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
-              <h2 className="shrink-0 text-body font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</h2>
+              <h2 className="shrink-0 text-body font-semibold uppercase tracking-wide text-slate-700">Initiatives workflow</h2>
               {initiativesBand && <FlowDescription flow={initiativesBand} editable={editMode && editable} />}
             </div>
-            <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-emerald-200 sm:inline">
+            <span className="hidden shrink-0 text-micro font-semibold text-slate-600 sm:inline">
               {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
             </span>
           </div>
@@ -243,11 +243,11 @@ export function BoardView({ requestMove }: Props) {
               data-flow-name={name}
               aria-label={`${name} — cards flow`}
             >
-              <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 shadow-sm">
+              <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/80 px-3 py-1.5 backdrop-blur-sm">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <WorkflowToggle name={name} collapsed={collapsed} onToggle={(button) => toggleWorkflow(flow.id, button)} />
                   <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-                  <h2 className="flex shrink-0 items-center text-body font-bold uppercase tracking-wide text-slate-900">
+                  <h2 className="flex shrink-0 items-center text-body font-semibold uppercase tracking-wide text-slate-700">
                     {editMode && editable ? (
                       <InlineEdit
                         value={name}
@@ -312,7 +312,7 @@ export function BoardView({ requestMove }: Props) {
                       </button>
                     </>
                   )}
-                  <span className="rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-indigo-200">
+                  <span className="text-micro font-semibold text-slate-600">
                     {count} {count === 1 ? 'card' : 'cards'}
                   </span>
                 </div>
