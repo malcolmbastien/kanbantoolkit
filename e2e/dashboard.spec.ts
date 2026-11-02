@@ -50,3 +50,18 @@ test('the attention tiles fill every row, and All issues is the way back', async
   await expect(all).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('[data-attention-summary]')).toContainText('need a look')
 })
+
+test('the initiatives table has a section header of its own', async ({ page }) => {
+  await page.goto('/app?board=b-lob&view=dashboard')
+
+  // The page reads as three answers — Time in column, Initiatives, Needs attention — rather than
+  // a board header followed by an unexplained table.
+  const heading = page.getByRole('heading', { name: 'Initiatives', exact: true })
+  await expect(heading).toBeVisible()
+  await expect(page.getByText('Rolled up from the work below')).toBeVisible()
+
+  const status = page.getByRole('columnheader', { name: 'Status' }).first()
+  const head = (await heading.boundingBox())!
+  const column = (await status.boundingBox())!
+  expect(column.y, 'the table sits under its header').toBeGreaterThan(head.y)
+})

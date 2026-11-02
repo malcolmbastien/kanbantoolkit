@@ -300,8 +300,22 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           </p>
         </section>
 
-        {/* Table */}
-        <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
+        {/* Initiatives — the table the dashboard exists for: what this board reads, how far the
+            work below each one has got, the plan and the promise, and what its health says. It
+            takes the same header shape as the two sections above and below it, so the page reads
+            as three answers rather than a board header followed by two unexplained tables. */}
+        <section className="mb-4">
+          <div className="mb-2 flex flex-wrap items-end gap-x-4 gap-y-1">
+            <div>
+              <h2 className="text-heading font-semibold text-slate-800">Initiatives</h2>
+              <p className="text-meta text-slate-600">
+                Every initiative this board reads, with the work rolled up below it, its plan and
+                promise, and its health.
+              </p>
+            </div>
+            <span className="ml-auto text-meta text-slate-500">Rolled up from the work below</span>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-100 text-micro uppercase tracking-wide text-slate-600">
@@ -415,7 +429,8 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+        </section>
 
         {/* Needs attention — the board's own first question, and the filter for the list below.
             Tiles and table share one card, so a number reads as a way into the items it counts
