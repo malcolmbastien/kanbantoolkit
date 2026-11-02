@@ -176,6 +176,51 @@ export function dashboardCsv(rows: DashboardCsvRow[], types: IssueType[]): strin
   ])
 }
 
+/**
+ * One delivered card in the Flow report's window: the same facts the scatter's tooltip reads.
+ * Dates are the local days the screen shows, so a file opened elsewhere names the same day.
+ */
+export interface FlowCsvRow {
+  title: string
+  type: string
+  createdAt: number
+  committedAt: number
+  resolvedAt: number
+  leadDays: number
+  cycleDays: number
+}
+
+export const FLOW_CSV_HEADER = ['Card', 'Type', 'Created', 'Committed', 'Done', 'Lead (days)', 'Cycle (days)']
+
+/** The local calendar day, as `YYYY-MM-DD` — the day a reader saw, not a UTC shift of it. */
+const localDay = (ms: number): string => {
+  const day = new Date(ms)
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+}
+
+/** A duration with at most one decimal, so a file and the screen round the same way. */
+const oneDecimal = (value: number): number => Math.round(value * 10) / 10
+
+/**
+ * The Flow report's delivered cards as CSV text — every card in the window, not the most recent
+ * screenful. This is the data behind the cycle-time reading, and the file keeps it available now
+ * that the on-screen table is gone.
+ */
+export function flowCsv(rows: FlowCsvRow[]): string {
+  return toCsv([
+    FLOW_CSV_HEADER,
+    ...rows.map((row) => [
+      row.title,
+      row.type,
+      localDay(row.createdAt),
+      localDay(row.committedAt),
+      localDay(row.resolvedAt),
+      oneDecimal(row.leadDays),
+      oneDecimal(row.cycleDays),
+    ]),
+  ])
+}
+
 /** A filename that survives a filesystem: lower-case, dashes, no punctuation a shell minds. */
 export function csvFilename(name: string, kind: string): string {
   const slug = name

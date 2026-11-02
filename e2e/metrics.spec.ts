@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 
 /**
  * The Flow view's reading: a window and a cards flow, both part of the place.
@@ -119,8 +120,8 @@ test('a dot in the scatter is the card it stands for', async ({ page }) => {
   expect(title.length).toBeGreaterThan(0)
 
   // Hovering is a rich read, not the browser's title: the card, its type, dates and both times.
-  // The rows behind the chart are part of the panel, not folded away.
-  await expect(view.locator('[data-flow-scatter-table]')).toBeVisible()
+  // The chart is the reading; the per-card rows live in the CSV export, not under the plot.
+  await expect(view.locator('[data-flow-scatter-table]')).toHaveCount(0)
 
   await dot.hover()
   const tip = view.locator('[data-flow-scatter-tip]')
@@ -163,6 +164,26 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   // repeats a "The numbers" heading over itself.
   await expect(view.locator('[data-cycle-histogram-table]')).toBeVisible()
   await expect(view.getByText('The numbers')).toHaveCount(0)
+})
+
+test('the delivered cards export as CSV, and the screen keeps only the reading', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+  await expect(view.locator('[data-flow-scatter]')).toBeVisible()
+
+  // Every card delivered in the window, not the most recent screenful: the scatter draws the
+  // shape, and the file carries the rows the removed table used to hold.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    view.getByRole('button', { name: 'Export CSV' }).click(),
+  ])
+  expect(download.suggestedFilename()).toMatch(/-flow\.csv$/)
+  const file = await readFile((await download.path())!, 'utf8')
+  const lines = file.split('\r\n').filter(Boolean)
+  expect(lines[0]).toBe('Card,Type,Created,Committed,Done,Lead (days),Cycle (days)')
+  expect(lines.length, 'a header and at least one delivered card').toBeGreaterThan(1)
+  // The demo's delivered history reaches the file, with the type a reader would recognise.
+  expect(file).toContain('User Story')
 })
 
 test('the demo forecast answers with a range and the assumptions behind it', async ({ page }) => {

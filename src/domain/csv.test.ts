@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardCsv, BOARD_CSV_HEADER, csvField, csvFilename, dashboardCsv, toCsv } from './csv'
+import { boardCsv, BOARD_CSV_HEADER, csvField, csvFilename, dashboardCsv, flowCsv, FLOW_CSV_HEADER, toCsv } from './csv'
 import { blockedBelow, rollupOf, type Graph } from './derive'
 import { boardInitiatives, initiativeTypeById, tagsOf } from './board'
 import { initiativeHealth } from './health'
@@ -170,6 +170,29 @@ describe('csv', () => {
     const health = initiativeHealth('init-signup', graph)
     expect(at(signup, 'Health')).toBe(HEALTH_META[health.level].label)
     expect(at(signup, 'Flags')).toBe(health.flags.map((f) => f.label).join('; '))
+  })
+
+  it('exports the delivered cards the flow report reads, dates and durations alike', () => {
+    const created = new Date(2026, 8, 1, 12).getTime()
+    const committed = new Date(2026, 8, 5, 12).getTime()
+    const done = new Date(2026, 8, 13, 12).getTime()
+    const csv = flowCsv([
+      { title: 'A card, with a comma', type: 'User Story', createdAt: created, committedAt: committed, resolvedAt: done, leadDays: 12, cycleDays: 8 },
+      { title: 'A fractional one', type: 'Bug', createdAt: created, committedAt: committed, resolvedAt: done, leadDays: 17.25, cycleDays: 12.4 },
+    ])
+    const parsed = parseCsv(csv)
+    expect(parsed[0]).toEqual(FLOW_CSV_HEADER)
+    const at = (row: string[], column: string) => row[parsed[0].indexOf(column)]
+    expect(at(parsed[1], 'Card')).toBe('A card, with a comma')
+    expect(at(parsed[1], 'Type')).toBe('User Story')
+    expect(at(parsed[1], 'Created')).toBe('2026-09-01')
+    expect(at(parsed[1], 'Committed')).toBe('2026-09-05')
+    expect(at(parsed[1], 'Done')).toBe('2026-09-13')
+    expect(at(parsed[1], 'Lead (days)')).toBe('12')
+    expect(at(parsed[1], 'Cycle (days)')).toBe('8')
+    // One decimal at most, so the file rounds the way the screen does.
+    expect(at(parsed[2], 'Lead (days)')).toBe('17.3')
+    expect(at(parsed[2], 'Cycle (days)')).toBe('12.4')
   })
 
   it('names the file after the board, without punctuation a filesystem minds', () => {

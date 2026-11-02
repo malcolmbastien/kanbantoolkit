@@ -10,14 +10,16 @@ averages, make old work visible, and forecast with a range instead of a date.
 
 The screen is the header reading, the cycle-time scatter, the cycle-time distribution, aging work,
 the cumulative flow diagram, throughput, and one **Planning** panel with three readings: the service
-level expectation, when the open work will be done, and how many by a date.
+level expectation, when the open work will be done, and how many by a date. The controls row also
+exports the window's delivered cards — the rows the scatter used to list — as CSV.
 
 <img src="img/guide/flow-view.webp" alt="The Flow view for Team Atlas: the header reading, cycle-time scatter and distribution, aging work, cumulative flow, throughput and the planning panel" width="1100">
 
 *The Flow view: the window and cards flow at the top, with the delivery history beneath them.*
 
-Four things were built and then removed when the screen was narrowed: **blocked work**, **Little's
-Law**, the **CSV export**, and the **data-quality section**. None was wrong; together they made the
+Three things were built and then removed when the screen was narrowed: **blocked work**, **Little's
+Law**, and the **data-quality section**. (The **CSV export** was removed with them, and came back
+once the per-card table under the scatter went: the file is where those rows live now.) None was wrong; together they made the
 screen longer than the reading it is for. The phase tables below are the record of how it got here —
 a row marked *removed* is history, not scope. WIP by column, the per-card forecast and flow
 efficiency remain unbuilt and are in Phase 3.
@@ -65,7 +67,9 @@ work without a new lane setting.
 6. **One screen.** No report builder, no saved report definitions, no per-person metrics. The
    controls are the window, the flow filter, and the inputs the planning readings need.
 7. **Accessible and dependency-free.** Inline SVG and the existing bar primitives, no chart library.
-   Each chart has a sentence summary and a table of its numbers for a screen reader.
+   Each chart has a sentence summary, and the distributions keep a table of their numbers for a
+   screen reader. The scatter's per-card rows are the CSV export's job now, so the chart is the
+   reading and the file is the data.
 8. **The first download does not grow.** `metrics.ts` is imported by the lazy Flow screen only, so
    additions belong there and must stay there.
 9. **Balanced, not one number.** Every phase pairs a speed reading with a waiting one — cycle time

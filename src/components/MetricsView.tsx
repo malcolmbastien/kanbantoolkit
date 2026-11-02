@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { TrendingUp } from 'lucide-react'
+import { Download, TrendingUp } from 'lucide-react'
 import {
   aging,
   bucketsFor,
-  committedAt,
   cumulativeFlow,
-  deliveredSince,
   firstRecordedMove,
   flowRecord,
   flowRecordFromMoves,
@@ -31,6 +29,8 @@ import {
 import { isInitiativeItem } from '@/domain/board'
 import { effectiveStage, STAGE_LABELS, STAGES } from '@/domain/lanes'
 import { chipColors, STAGE_ACCENT, STAGE_PILL } from '@/lib/colors'
+import { csvFilename, flowCsv, type FlowCsvRow } from '@/domain/csv'
+import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item } from '@/domain/types'
@@ -151,7 +151,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const summary = flowSummary(records, now, since)
   const flow = cumulativeFlow(records, buckets)
   const delivered = throughput(records, buckets)
-  const cycles = scatterPoints(records, since).map((point) => point.cycle)
+  // The delivered cards in the window: drawn as dots, and the rows of the CSV export. Computed
+  // once so the screen and the file cannot disagree about what was delivered.
+  const flowPoints = scatterPoints(records, since)
+  const cycles = flowPoints.map((point) => point.cycle)
   const firstMove = firstRecordedMove(records)
   const coverage = moveCoverage(records)
   const deliveredTotal = delivered.reduce((sum, n) => sum + n, 0)
@@ -171,7 +174,22 @@ export function MetricsView({ boardId }: { boardId: string }) {
   // a week's end, a throughput bar as tall as the busiest week in the window.
   const tallest = Math.max(1, ...flow.map((counts) => STAGES.reduce((sum, s) => sum + counts[s], 0)))
   const busiest = Math.max(1, ...delivered)
-  const slowest = deliveredSince(records, since).sort((a, b) => lead(b) - lead(a)).slice(0, 8)
+
+  const exportFlow = () => {
+    const rows: FlowCsvRow[] = flowPoints.map((point) => ({
+      title: point.title,
+      type: typeNameOf(point.id),
+      createdAt: point.createdAt,
+      committedAt: point.committedAt,
+      resolvedAt: point.resolvedAt,
+      leadDays: point.lead,
+      cycleDays: point.cycle,
+    }))
+    downloadText(
+      csvFilename(`${board?.name ?? 'board'}${selectedFlow ? ` ${selectedFlow.name}` : ''}`, 'flow'),
+      flowCsv(rows),
+    )
+  }
 
   return (
     <div data-flow-view className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
@@ -274,7 +292,22 @@ export function MetricsView({ boardId }: { boardId: string }) {
                 </select>
               </label>
             )}
-            <span className="ml-auto text-micro text-slate-500">In flight and delivered are now.</span>
+            <div className="ml-auto flex items-center gap-3">
+              <span className="text-micro text-slate-500">In flight and delivered are now.</span>
+              <button
+                type="button"
+                onClick={exportFlow}
+                disabled={flowPoints.length === 0}
+                title={
+                  flowPoints.length === 0
+                    ? 'Nothing has been delivered in this window to export'
+                    : 'Download every card delivered in this window — dates, lead and cycle'
+                }
+                className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-micro font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Download size={11} /> Export CSV
+              </button>
+            </div>
           </div>
         </div>
 
@@ -544,47 +577,6 @@ export function MetricsView({ boardId }: { boardId: string }) {
               </div>
             </Panel>
 
-            {slowest.length > 0 && (
-              <Panel
-                title="Delivered, slowest first"
-                note="Every number above traces back to a card: lead is created to done, cycle is committed to done."
-              >
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-micro uppercase tracking-wide text-slate-600">
-                      <th className="py-1.5 pr-3 font-semibold">Card</th>
-                      <th className="px-3 py-1.5 font-semibold">Lead</th>
-                      <th className="px-3 py-1.5 font-semibold">Cycle</th>
-                      <th className="px-3 py-1.5 font-semibold">Done</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {slowest.map((r) => {
-                      const committed = committedAt(r) ?? r.createdAt
-                      return (
-                        <tr
-                          key={r.id}
-                          onClick={() => openItem(r.id)}
-                          className={cn(
-                            'cursor-pointer border-b border-slate-100 transition last:border-0 hover:bg-slate-50',
-                            selectedItemId === r.id && 'bg-indigo-50',
-                          )}
-                        >
-                          <td className="max-w-[320px] py-2 pr-3">
-                            <span className="text-body font-medium text-slate-800">{r.title}</span>
-                          </td>
-                          <td className="px-3 py-2 text-meta tabular-nums text-slate-600">{days(lead(r))}</td>
-                          <td className="px-3 py-2 text-meta tabular-nums text-slate-600">
-                            {days((r.resolvedAt! - committed) / DAY_MS)}
-                          </td>
-                          <td className="px-3 py-2 text-meta text-slate-600">{shortDate(r.resolvedAt!)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </Panel>
-            )}
           </>
         )}
       </div>
@@ -857,8 +849,8 @@ const MAX_SCATTER_POINTS = 400
  * One dot per card, so the shape and the outliers are visible rather than collapsed into a median.
  * The y axis stops at the 98th percentile: a handful of very long cards would otherwise squash the
  * bulk into a thin band. Cards above the cap are still drawn — at the top, in the tail colour — and
- * their real value is in the tooltip and the table. The percentile lines are calculated from every
- * card in the window, not from what the axis happens to show.
+ * their real value is in the tooltip; the CSV export carries every card. The percentile lines are
+ * calculated from every card in the window, not from what the axis happens to show.
  */
 function CycleScatter({
   records,
@@ -1037,38 +1029,9 @@ function CycleScatter({
       )}
       </div>
 
-      <div className="mt-2 border-t border-slate-100 pt-2 text-micro text-slate-600">
-        <table data-flow-scatter-table className="w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-slate-200 uppercase tracking-wide text-slate-600">
-              <th className="py-1 pr-2 font-semibold">Card</th>
-              <th className="px-2 py-1 font-semibold">Created</th>
-              <th className="px-2 py-1 font-semibold">Committed</th>
-              <th className="px-2 py-1 font-semibold">Done</th>
-              <th className="px-2 py-1 text-right font-semibold">Lead</th>
-              <th className="px-2 py-1 text-right font-semibold">Cycle</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((point) => (
-              <tr key={point.id} className="border-b border-slate-100 last:border-0">
-                <td className="max-w-[260px] truncate py-1 pr-2">{point.title}</td>
-                <td className="px-2 py-1">{shortDate(point.createdAt)}</td>
-                <td className="px-2 py-1">{shortDate(point.committedAt)}</td>
-                <td className="px-2 py-1">{shortDate(point.resolvedAt)}</td>
-                <td className="px-2 py-1 text-right tabular-nums">{days(point.lead)}</td>
-                <td className="px-2 py-1 text-right tabular-nums">{days(point.cycle)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </Panel>
   )
 }
-
-/** A delivered card's lead time in days: created to resolved. */
-const lead = (r: FlowRecord) => (r.resolvedAt! - r.createdAt) / DAY_MS
 
 const countAtMost = (value: number | undefined) => (value === undefined ? '—' : String(Math.round(value)))
 
