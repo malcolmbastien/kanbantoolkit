@@ -228,3 +228,35 @@ test('a reading this build does not know falls back to the default, not to a bla
   await expect(page).not.toHaveURL(/range=7/)
   await expect(page).not.toHaveURL(/flow=/)
 })
+
+test('the forecast scope is one control above both questions', async ({ page }) => {
+  await page.goto(FLOW)
+
+  // The checkbox belongs to the Planning panel, not to either forecast card: it changes the
+  // open count both answers are read from.
+  const scope = page.locator('[data-forecast-scope]')
+  const backlog = scope.getByRole('checkbox', { name: 'Include Backlog' })
+  await expect(backlog).toBeVisible()
+  await expect(page.locator('[data-forecast] input[type="checkbox"]')).toHaveCount(0)
+  await expect(page.locator('[data-forecast-by] input[type="checkbox"]')).toHaveCount(0)
+
+  // It sits above both cards it decides, and to the side of the one it does not.
+  const box = async (locator: ReturnType<typeof page.locator>) => (await locator.boundingBox())!
+  const scopeBox = await box(scope)
+  for (const card of ['[data-forecast]', '[data-forecast-by]']) {
+    const cardBox = await box(page.locator(card))
+    expect(cardBox.y, `${card} is below the shared scope`).toBeGreaterThanOrEqual(scopeBox.y + scopeBox.height - 1)
+  }
+  expect((await box(page.locator('[data-sle]'))).y, 'service level is beside the scope, not under it').toBeLessThan(scopeBox.y + 2)
+
+  // Both questions read it: the open count and the "at least" ceiling move together, and the
+  // service level — which does not count Backlog — does not.
+  const openLine = page.locator('[data-forecast]').getByText(/open card/)
+  const before = await openLine.innerText()
+  const maxBefore = await page.getByLabel('At least cards').getAttribute('max')
+  const sleBefore = await page.locator('[data-sle]').innerText()
+  await backlog.check()
+  await expect(openLine).not.toHaveText(before)
+  expect(await page.getByLabel('At least cards').getAttribute('max')).not.toBe(maxBefore)
+  expect(await page.locator('[data-sle]').innerText()).toBe(sleBefore)
+})

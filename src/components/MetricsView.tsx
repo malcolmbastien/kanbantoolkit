@@ -378,7 +378,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
                 beside the two questions about the future, and they share a window and a model. */}
             <Panel title="Planning" note="The same window and throughput, read three ways.">
               <div className="grid gap-3 lg:grid-cols-3">
-                <section data-sle className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                <section data-sle className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 lg:row-span-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
                       Service level
@@ -411,20 +411,40 @@ export function MetricsView({ boardId }: { boardId: string }) {
                   )}
                 </section>
 
+                {/* The scope of both forecast questions, above the two cards it decides. It used
+                    to sit inside the first one, which made it look like that card's own setting —
+                    but it changes the open count both answers are read from. Service level does
+                    not read it, so it is not part of this bar. */}
+                <div
+                  data-forecast-scope
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 lg:col-span-2"
+                >
+                  <div className="min-w-0">
+                    <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
+                      Forecast scope
+                    </div>
+                    <p className="text-micro text-slate-600">
+                      Both questions below — when the scope finishes, and how many fit by a date — count
+                      Backlog cards when this is on. Service level is unaffected.
+                    </p>
+                  </div>
+                  <label className="flex shrink-0 items-center gap-1.5 text-meta text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={includeBacklog}
+                      onChange={(event) => setIncludeBacklog(event.target.checked)}
+                      title="Count uncommitted Backlog cards in both forecast questions below"
+                      className="accent-indigo-600"
+                    />
+                    Include Backlog
+                  </label>
+                </div>
+
                 <section data-forecast className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
                       When will this be done?
                     </div>
-                    <label className="flex items-center gap-1 text-micro text-slate-500">
-                      <input
-                        type="checkbox"
-                        checked={includeBacklog}
-                        onChange={(event) => setIncludeBacklog(event.target.checked)}
-                        className="accent-indigo-600"
-                      />
-                      Backlog
-                    </label>
                   </div>
                   <div className="mt-0.5 text-micro text-slate-500">
                     {remaining} open card{remaining === 1 ? '' : 's'} · {flowWindow === 'all' ? 'all' : `${flowWindow}w`} window

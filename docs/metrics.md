@@ -99,7 +99,7 @@ Still no schema change.
 | # | What | Why | Size |
 | --- | --- | --- | --- |
 | 2.1 | **Service level expectation.** "85% of delivered cards took N days or less", with a 50/85/95 selector, from the same cycle-time sample. | The simplest useful planning number, and it is already a percentile. | S |
-| 2.2 | **When will this scope be done.** Monte Carlo over weekly throughput: draw weeks with replacement until the remaining cards are consumed, 5,000 trials, answer p50/p85/p95 dates. Scope is the selected flow, or all committed open cards (Backlog optional). | The question people actually ask, answered as a range rather than a date. | M–L |
+| 2.2 | **When will this scope be done.** Monte Carlo over weekly throughput: draw weeks with replacement until the remaining cards are consumed, 5,000 trials, answer p50/p85/p95 dates. Scope is the selected flow, or all committed open cards; the **Forecast scope** control above both forecast questions adds Backlog to them, and the service level never reads it. | The question people actually ask, answered as a range rather than a date. | M–L |
 | 2.3 | **How many by a date.** The same trials, read the other way: probability that N or more cards finish by a chosen date. | The fixed-date counterpart for a release or a quarter. | S (shares the simulation) |
 | 2.4 | **The assumptions, on screen.** Scope stays fixed; the future resembles the sampled weeks; weekly grain; dependencies and batch size are not modelled. Re-forecast when scope changes. | A range without its assumptions is a promise the data cannot keep. | S |
 | 2.5 | **The rows behind the charts** *removed*. A CSV of delivered cards with created, committed, done, lead, cycle and blocked days for the window. | A team that wants a spreadsheet should not have to scrape the screen, and it fits the existing board CSV. | S |
@@ -112,7 +112,9 @@ truth beside the board.
 <img src="img/guide/flow-planning.webp" alt="The Planning panel: service level, when the open work will be done, and how many by a date" width="1100">
 
 *The Planning panel reads the same window and throughput three ways: the service level of the past,
-the forecast range for the open scope, and the chance of a number by a date.*
+the forecast range for the open scope, and the chance of a number by a date. The two forecasts share
+one **Forecast scope** control above them — **Include Backlog** counts uncommitted work in both — and
+the service level sits beside it, unaffected.*
 
 **Ends with:** "at this pace, this scope is done between these two dates, with this confidence" — and
 the evidence to argue with it on the same screen.
