@@ -84,6 +84,10 @@ behind them:
 | **Stale** | watch | On a card: it has sat in Not Started or In Progress for at least 7 days. On an initiative: the health rule **still Nd** above. A card in Backlog can show an age badge but is not called stale. | It moves. |
 | **Unassigned** | watch | On a card: nobody is assigned. On an initiative: the health rule **N unowned**, which counts committed cards below that have no owner. | Assign somebody, or the work leaves the committed stages. |
 
+The band opens with **All issues**, the default view: every item carrying at least one signal.
+It is the way back from a filter rather than a signal of its own, so it is the one tile with no
+tone — and it is where the card starts.
+
 The dashboard's initiatives table also shows the **Health** column with each flag. Its **Dates**
 column reads the target window, with the initiative's due date — and its own overdue chip — under it,
 so the promise is in front of a reader as well as on the card.

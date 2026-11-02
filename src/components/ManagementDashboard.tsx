@@ -7,6 +7,7 @@ import {
   CircleAlert,
   Download,
   Hourglass,
+  Inbox,
   Layers,
   SquareArrowOutUpRight,
   Target,
@@ -434,10 +435,30 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
-              {/* Seven readings: one row when the card is wide enough, four and three in the
-                  middle, pairs below that. The odd tile always takes the rest of its row, so the
-                  gap ground is never left showing as an empty grey cell. */}
-              <div className="grid grid-cols-2 gap-px bg-slate-200 md:grid-cols-4 xl:grid-cols-7">
+              {/* Seven signals, plus the default view they are read from. Eight tiles divide by
+                  two, four and eight, so every width is a full row and the gap ground is never
+                  left showing as an empty cell. */}
+              <div className="grid grid-cols-2 gap-px bg-slate-200 md:grid-cols-4 xl:grid-cols-8">
+                {/* Not a signal: the way back from a filter, and the state the card opens in. */}
+                <button
+                  type="button"
+                  data-attention-tile="all"
+                  aria-pressed={attentionFilter === null}
+                  title="Every item carrying a signal — the default view"
+                  onClick={() => setAttentionFilter(null)}
+                  className={cn(
+                    'flex flex-col items-start gap-0.5 bg-white px-4 py-2.5 text-left transition hover:bg-slate-50',
+                    attentionFilter === null && 'bg-slate-100 ring-2 ring-inset ring-slate-400',
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-meta text-slate-600">
+                    <Inbox size={13} className="text-slate-500" />
+                    All issues
+                  </span>
+                  <span className="text-heading font-bold leading-none tabular-nums text-slate-800">
+                    {signalRows.length}
+                  </span>
+                </button>
                 {attentionTiles.map((tile) => {
                   const Icon = ATTENTION_ICON[tile.key]
                   const active = attentionFilter === tile.key
@@ -452,9 +473,6 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                       onClick={() => setAttentionFilter(active ? null : tile.key)}
                       className={cn(
                         'flex flex-col items-start gap-0.5 bg-white px-4 py-2.5 text-left transition hover:bg-slate-50',
-                        // Seven tiles: the last one fills the rest of its row below xl (2, 4,
-                        // then 2 again), and sits in its own column when all seven fit.
-                        'last:col-span-2 xl:last:col-span-1',
                         active && 'bg-slate-100 ring-2 ring-inset ring-slate-400',
                       )}
                     >
