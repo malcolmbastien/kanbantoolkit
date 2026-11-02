@@ -431,12 +431,12 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
-              <div
-                className={cn(
-                  'grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-3',
-                  attentionTiles.length === 6 ? 'xl:grid-cols-6' : 'xl:grid-cols-5',
-                )}
-              >
+              {/* Five readings, and they fit on one row as soon as there is room for five
+                  narrow cells. A middle three-column stage was the worst of both: five tiles
+                  made a row of three and a row of two, and the sixth cell showed the gap ground
+                  as an empty grey box beside the last tile. Below that width they pair up, and
+                  the odd fifth takes the whole row rather than leaving a hole. */}
+              <div className="grid grid-cols-2 gap-px bg-slate-200 md:grid-cols-5">
                 {attentionTiles.map((tile) => {
                   const Icon = ATTENTION_ICON[tile.key]
                   const active = attentionFilter === tile.key
@@ -445,11 +445,14 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                     <button
                       key={tile.key}
                       type="button"
+                      data-attention-tile={tile.key}
                       aria-pressed={active}
                       title={ATTENTION_HINT[tile.key]}
                       onClick={() => setAttentionFilter(active ? null : tile.key)}
                       className={cn(
                         'flex flex-col items-start gap-0.5 bg-white px-4 py-2.5 text-left transition hover:bg-slate-50',
+                        // An odd count pairs up and gives its last tile the full row.
+                        attentionTiles.length % 2 === 1 && 'last:col-span-2 md:last:col-span-1',
                         active && 'bg-slate-100 ring-2 ring-inset ring-slate-400',
                       )}
                     >
