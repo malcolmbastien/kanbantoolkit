@@ -157,7 +157,11 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const deliveredTotal = delivered.reduce((sum, n) => sum + n, 0)
 
   const sle = serviceLevel(records, since, serviceShare)
+  const openCommitted = openScope(records, now, false)
+  // What the shared scope control would add: the cards still in play *because* they are in Backlog.
+  const backlogCards = Math.max(0, openScope(records, now, true) - openCommitted)
   const remaining = openScope(records, now, includeBacklog)
+  const scopeName = selectedFlow ? `the ${selectedFlow.name} flow` : 'all flows'
   const forecast = forecastWhen(remaining, delivered, now)
   const atLeastCount = atLeast.trim() === '' ? remaining : Math.max(0, Math.min(remaining, Number(atLeast) || 0))
   const byDateAt = new Date(`${byDate}T12:00:00`).getTime()
@@ -399,10 +403,14 @@ export function MetricsView({ boardId }: { boardId: string }) {
                   <div className="mt-2 text-heading font-semibold tabular-nums text-slate-900">
                     {sle.days === undefined ? '—' : days(sle.days)}
                   </div>
-                  <div data-sle-line className="text-micro text-slate-600">
+                  <div
+                    data-sle-line
+                    className="text-micro text-slate-600"
+                    title="Cycle time — first committed (leaving Backlog) to done — for the cards finished inside this window"
+                  >
                     {sle.days === undefined
-                      ? 'No delivered cards in this window.'
-                      : `${sle.share}% finished within this time · ${sle.n} card${sle.n === 1 ? '' : 's'}`}
+                      ? 'No cards finished in this window.'
+                      : `${sle.share}% of the ${sle.n} card${sle.n === 1 ? '' : 's'} finished in this window were done within this time of leaving Backlog.`}
                   </div>
                   {sle.n > 0 && sle.n < MIN_SAMPLE && (
                     <div className="mt-1 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-micro font-medium text-amber-800">
@@ -424,30 +432,39 @@ export function MetricsView({ boardId }: { boardId: string }) {
                       Forecast scope
                     </div>
                     <p className="text-micro text-slate-600">
-                      Both questions below — when the scope finishes, and how many fit by a date — count
-                      Backlog cards when this is on. Service level is unaffected.
+                      The open count both questions below use is every card still in play in{' '}
+                      {scopeName}, excluding Backlog. Adding Backlog moves both answers; the service
+                      level is unaffected.
                     </p>
                   </div>
                   <label className="flex shrink-0 items-center gap-1.5 text-meta text-slate-700">
                     <input
                       type="checkbox"
                       checked={includeBacklog}
+                      disabled={backlogCards === 0}
                       onChange={(event) => setIncludeBacklog(event.target.checked)}
-                      title="Count uncommitted Backlog cards in both forecast questions below"
-                      className="accent-indigo-600"
+                      title={
+                        backlogCards === 0
+                          ? 'Nothing is in Backlog, so there is nothing to add to the forecasts'
+                          : `Count the ${backlogCards} uncommitted card${backlogCards === 1 ? '' : 's'} in Backlog as part of both questions below`
+                      }
+                      className="accent-indigo-600 disabled:opacity-40"
                     />
-                    Include Backlog
+                    {backlogCards === 0
+                      ? 'No cards in Backlog'
+                      : `Include ${backlogCards} card${backlogCards === 1 ? '' : 's'} in Backlog`}
                   </label>
                 </div>
 
                 <section data-forecast className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
-                      When will this be done?
+                      When all open cards are done
                     </div>
                   </div>
-                  <div className="mt-0.5 text-micro text-slate-500">
-                    {remaining} open card{remaining === 1 ? '' : 's'} · {flowWindow === 'all' ? 'all' : `${flowWindow}w`} window
+                  <div data-forecast-scope-line className="mt-0.5 text-micro text-slate-500">
+                    {remaining} open card{remaining === 1 ? '' : 's'} in {scopeName} ·{' '}
+                    {flowWindow === 'all' ? 'all recorded history' : `${flowWindow} weeks of history`}
                   </div>
                   <div
                     data-forecast-date={forecast.ok ? 'p85' : undefined}
@@ -479,7 +496,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
 
                 <section data-forecast-by className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
                   <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
-                    How many by a date?
+                    Chance all open cards are done by a date
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-slate-600">
                     <input
@@ -507,7 +524,9 @@ export function MetricsView({ boardId }: { boardId: string }) {
                   {by.ok ? (
                     <>
                       <div className="text-micro text-slate-500">
-                        chance of at least {by.atLeast} card{by.atLeast === 1 ? '' : 's'} by then
+                        {by.atLeast === remaining
+                          ? `chance all ${remaining} open card${remaining === 1 ? '' : 's'} are done by then`
+                          : `chance of at least ${by.atLeast} of ${remaining} open card${remaining === 1 ? '' : 's'} by then`}
                       </div>
                       <div className="mt-1 text-micro text-slate-500">
                         50% {countAtMost(by.counts.p50)} · 85% {countAtMost(by.counts.p85)} · 95%{' '}

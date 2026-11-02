@@ -181,10 +181,12 @@ test('the demo forecast answers with a range and the assumptions behind it', asy
   await expect(view.getByText(/5,000 trials over \d+ weeks/)).toBeVisible()
   await expect(view.getByText(/throughput arrives weekly/)).toBeVisible()
 
-  // The other reading of the same trials: how much lands by a date, and for how many.
-  await expect(view.locator('[data-forecast-by]')).toContainText('chance of at least')
+  // The other reading of the same trials: how much lands by a date, and for how many. With no
+  // number asked for, the question is the whole open scope; a smaller N names its share of it.
+  await expect(view.locator('[data-forecast-by]')).toContainText('chance all')
   await view.getByLabel('At least cards').fill('1')
-  await expect(view.locator('[data-forecast-by]')).toContainText('at least 1 card')
+  await expect(view.locator('[data-forecast-by]')).toContainText('at least 1 of')
+  await expect(view.locator('[data-forecast-by]')).toContainText('open cards by then')
 })
 
 test('the service level expectation follows the share chosen', async ({ page }) => {
@@ -192,11 +194,11 @@ test('the service level expectation follows the share chosen', async ({ page }) 
   const view = page.locator('[data-flow-view]')
 
   const line = view.locator('[data-sle-line]')
-  await expect(line).toContainText('85% finished within')
+  await expect(line).toContainText('85% of the')
   await view.getByLabel('Service level share').selectOption('50')
-  await expect(line).toContainText('50% finished within')
+  await expect(line).toContainText('50% of the')
   await view.getByLabel('Service level share').selectOption('95')
-  await expect(line).toContainText('95% finished within')
+  await expect(line).toContainText('95% of the')
 })
 
 test('says how much history there is, and calls a thin sample thin', async ({ page }) => {
@@ -229,13 +231,32 @@ test('a reading this build does not know falls back to the default, not to a bla
   await expect(page).not.toHaveURL(/flow=/)
 })
 
+test('the planning cards say what they answer and what they count', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  // The service level names its sample and what the time is measured from.
+  await expect(view.locator('[data-sle-line]')).toContainText('finished in this window')
+  await expect(view.locator('[data-sle-line]')).toContainText('of leaving Backlog')
+
+  // Each question is stated as the thing it answers, and the open count says where it comes from.
+  await expect(view.getByText('When all open cards are done', { exact: true })).toBeVisible()
+  await expect(view.getByText('Chance all open cards are done by a date', { exact: true })).toBeVisible()
+  const openLine = view.locator('[data-forecast]').getByText(/open cards? in /)
+  await expect(openLine).toContainText('weeks of history')
+
+  // The scope control names the cards it would add.
+  await expect(view.locator('[data-forecast-scope]').getByRole('checkbox')).toBeVisible()
+  await expect(view.locator('[data-forecast-scope]')).toContainText(/Include \d+ cards? in Backlog|No cards in Backlog/)
+})
+
 test('the forecast scope is one control above both questions', async ({ page }) => {
   await page.goto(FLOW)
 
   // The checkbox belongs to the Planning panel, not to either forecast card: it changes the
   // open count both answers are read from.
   const scope = page.locator('[data-forecast-scope]')
-  const backlog = scope.getByRole('checkbox', { name: 'Include Backlog' })
+  const backlog = scope.getByRole('checkbox')
   await expect(backlog).toBeVisible()
   await expect(page.locator('[data-forecast] input[type="checkbox"]')).toHaveCount(0)
   await expect(page.locator('[data-forecast-by] input[type="checkbox"]')).toHaveCount(0)
@@ -251,7 +272,7 @@ test('the forecast scope is one control above both questions', async ({ page }) 
 
   // Both questions read it: the open count and the "at least" ceiling move together, and the
   // service level — which does not count Backlog — does not.
-  const openLine = page.locator('[data-forecast]').getByText(/open card/)
+  const openLine = page.locator('[data-forecast-scope-line]')
   const before = await openLine.innerText()
   const maxBefore = await page.getByLabel('At least cards').getAttribute('max')
   const sleBefore = await page.locator('[data-sle]').innerText()
