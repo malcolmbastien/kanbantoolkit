@@ -189,10 +189,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   }
 
   const header = (isLeafCell: boolean) => {
-    // One header, at every depth — and it is a label, not a card. The bar used to be a white
-    // plate with an edge and a shadow, so every column repeated the card's own treatment and
-    // competed with the work it named. It is now the lane's name and count on the column's own
-    // surface: what a reader reads first is the work, and the header is a signpost above it.
+    // One header, at every depth — a shelf, not a card. A white plate with an edge and a shadow
+    // made every column repeat the card's own treatment and compete with the work it named; bare
+    // text on the tint then made the columns too easy to skip. A translucent wash is the middle:
+    // lighter than the lane's own tint and with no shadow, so a card is still the brightest
+    // plane, but the name and count sit on a surface a reader's eye catches before the cards.
     const over = wip === 'over'
     const at = wip === 'at'
     const count = countInLane(lane.id)
@@ -201,12 +202,15 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     return (
       <div
         className={cn(
-          'mx-1 mt-1 mb-0.5 rounded-lg px-2.5 py-1.5',
+          'mx-1 mt-1 mb-1 rounded-md px-2.5 py-1.5',
           collapsed
             ? // A collapsed row says so in its own right: a dashed edge and a muted ground, so
               // it reads as folded away rather than as a row that happens to be short.
               'border border-dashed border-slate-300 bg-slate-100/80 text-slate-500'
-            : 'text-slate-600',
+            : // Nested cells are split by a hairline and share one tint, so their headers take a
+              // touch more ground than the column's own — enough to see which name owns which
+              // side of the split.
+              cn('bg-white/60 text-slate-700', top ? '' : 'bg-white/75'),
         )}
       >
         {/* Name truly centred, count and policy pinned right. The side columns are equal
@@ -238,11 +242,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               // exactly, so the field is big to point at and its text has not moved a pixel.
               // A ring, not a border, for the same reason — the header bar and everything
               // under it must not shift the moment a name is clicked.
-              className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-600 transition hover:bg-slate-900/5"
+              className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-700 transition hover:bg-slate-900/5"
               inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
             />
           ) : (
-            <span className="text-center text-meta font-semibold uppercase leading-tight tracking-wide">
+            <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
               {lane.name || 'Board'}
             </span>
           )}
@@ -252,7 +256,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             <span
               className={cn(
                 'shrink-0 font-mono text-micro tabular-nums',
-                pill ? cn('rounded-full px-1.5 py-0.5 font-bold', pill) : 'px-1 font-semibold text-slate-600',
+                pill ? cn('rounded-full px-1.5 py-0.5 font-bold', pill) : 'rounded-full bg-white/70 px-1.5 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-300/60',
               )}
               title={
                 over
@@ -391,11 +395,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             role="group"
             className={cn(
               'flex w-full flex-1 min-h-0',
-              // Stacked rows get a gap; a nested columns split is divided by one hairline.
-              // The split used to be a heavier rule, with a white header box inside each
-              // cell — two frames for one partition, which is what made a cell look like a
-              // board of its own.
-              stacked ? 'flex-col gap-2' : cn('grid', isRoot ? 'gap-3' : 'divide-x divide-slate-300/70'),
+              // Stacked rows get a gap, and so do nested cells: a split is air between two
+              // columns of the one column, not a rule drawn through it. A gap plus each cell's
+              // own header shelf is what says where one cell ends and the next begins.
+              stacked ? 'flex-col gap-2' : cn('grid', isRoot ? 'gap-3' : 'gap-2'),
             )}
             style={
               orientation === 'columns'

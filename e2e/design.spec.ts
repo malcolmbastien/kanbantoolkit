@@ -17,6 +17,46 @@ const splitIntoColumns = (page: Page, name: string) =>
 const addColumn = (page: Page) =>
   page.getByRole('button', { name: 'Add a column to this split' }).first().click()
 
+test('a column header is a shelf over its lane, and a split’s cells stand apart', async ({ page }) => {
+  await openBoard(page)
+
+  // The header is not a card: translucent ground, no shadow. A repeated bar that wore the card's
+  // treatment competed with the work; one with no ground at all vanished into the lane's tint.
+  const header = page.getByText('Dev', { exact: true }).first()
+  const look = await header.evaluate((name) => {
+    let node: HTMLElement | null = name as HTMLElement
+    while (node && getComputedStyle(node).backgroundColor === 'rgba(0, 0, 0, 0)') node = node.parentElement
+    if (!node) return null
+    const style = getComputedStyle(node)
+    return { background: style.backgroundColor, shadow: style.boxShadow }
+  })
+  expect(look, 'the header has a ground of its own').not.toBeNull()
+  // Browsers report the computed colour in their own space; what matters is that it is a wash
+  // (some ground, some transparency) rather than a plate or nothing at all.
+  const alpha = Number(look!.background.match(/\/\s*([\d.]+)\)$/)?.[1] ?? '1')
+  expect(look!.background, 'the header has a ground').not.toBe('rgba(0, 0, 0, 0)')
+  expect(alpha, 'a wash, not an opaque plate').toBeGreaterThan(0)
+  expect(alpha).toBeLessThan(1)
+  expect(look!.shadow, 'no shadow: cards are the only plane that lifts').toBe('none')
+
+  // Two cells of one split are separated by air, not drawn through by a rule, and each header
+  // carries its own name so a reader can tell which side of the split a card belongs to.
+  const cells = await page.evaluate(() => {
+    const cellFor = (label: string) => {
+      const name = [...document.querySelectorAll('span')].find((s) => s.textContent?.trim() === label)
+      return name?.closest('[data-lane-cell]') as HTMLElement | null
+    }
+    const dev = cellFor('Dev')
+    const test = cellFor('Test')
+    if (!dev || !test) return null
+    const a = dev.getBoundingClientRect()
+    const b = test.getBoundingClientRect()
+    return { devRight: Math.round(a.right), testLeft: Math.round(b.left) }
+  })
+  expect(cells, 'both cells of the split are on the board').not.toBeNull()
+  expect(cells!.testLeft, 'the cells are apart, so neither reads as part of the other').toBeGreaterThan(cells!.devRight)
+})
+
 test('splitting a cell gives it the columns it promised, and the cards move into the first', async ({ page }) => {
   await openBoard(page)
   const cards = await cardsIn(page, 'Backlog')

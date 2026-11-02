@@ -138,13 +138,13 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
               )}
               style={{ borderTop: `4px solid ${STAGE_ACCENT[stage]}` }}
             >
-              <div className="mx-1 mt-1 mb-0.5 rounded-lg px-2.5 py-1.5">
+              <div className="mx-1 mt-1 mb-1 rounded-md bg-white/60 px-2.5 py-1.5">
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1">
                   <span className={cn('h-1.5 w-1.5 rounded-full', STAGE_DOT[stage])} />
-                  <span className="text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-600">
+                  <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-700">
                     {STAGE_LABELS[stage]}
                   </span>
-                  <span className="px-1 text-micro font-semibold tabular-nums text-slate-600">
+                  <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-micro font-semibold tabular-nums text-slate-600 ring-1 ring-slate-300/60">
                     {inStage.length}
                   </span>
                 </div>

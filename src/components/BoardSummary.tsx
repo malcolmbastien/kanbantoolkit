@@ -532,10 +532,14 @@ function Cell({
   const at = siblings.findIndex((l) => l.id === lane.id)
   const orientation = lane.orientation ?? 'columns'
 
-  // One header at every depth, the same bare bar the cards workflow uses: a cell of a split
-  // section is a column of the section above it, not a quieter kind of label — and both are
-  // signposts over the work rather than cards competing with it.
-  const head = cn(HEAD_ROW, 'mx-1 mt-1 mb-0.5 gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-600')
+  // One header at every depth, the same shelf the cards workflow uses: a cell of a split section
+  // is a column of the section above it, not a quieter kind of label. A translucent wash gives
+  // the name its own ground without becoming a card: the work below stays the brightest plane.
+  const head = cn(
+    HEAD_ROW,
+    'mx-1 mt-1 mb-1 gap-1.5 rounded-md px-2.5 py-1.5 text-slate-700',
+    isSection ? 'bg-white/60' : 'bg-white/75',
+  )
   // A cell with nothing in it still needs to read as a place work can go. The drag gap counts
   // as content: while an initiative is in the air over an empty cell, the shadow is what the
   // cell shows.
@@ -626,17 +630,17 @@ function Cell({
             title="Rename this lane"
             // Bigger than its row, like the board's headers: the negative margin cancels the
             // padding, so the field is easier to hit and its text has not moved.
-            className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-600 transition hover:bg-slate-900/5"
+            className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-700 transition hover:bg-slate-900/5"
             inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
           />
         ) : (
-          <span className="text-center text-meta font-semibold uppercase leading-tight tracking-wide">
+          <span className="text-center text-meta font-bold uppercase leading-tight tracking-wide">
             {lane.name}
           </span>
         )}
         <span className="flex items-center justify-end gap-1">
           <span
-            className="shrink-0 px-1 font-mono text-micro font-semibold tabular-nums text-slate-600"
+            className="shrink-0 rounded-full bg-white/70 px-1.5 py-0.5 font-mono text-micro font-semibold tabular-nums text-slate-600 ring-1 ring-slate-300/60"
             title={`${count} initiative${count === 1 ? '' : 's'}`}
           >
             {count}
