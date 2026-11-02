@@ -39,6 +39,47 @@ test('a tag added in the drawer is on the card', async ({ page }) => {
   await expect(card(page, id)).toContainText('security')
 })
 
+test('a field is as wide as what it holds, and its chips stay inside it', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-payment-retries"]').click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel.getByLabel('Title')).toBeVisible()
+
+  // Type is a word, not a box: the select is no wider than its own options rather than the row.
+  const type = panel.locator('label', { hasText: 'Type' }).locator('select')
+  const typeBox = (await type.boundingBox())!
+  expect(typeBox.width).toBeLessThan(240)
+
+  // A day is a day: the due control is a narrow field, so its picker does not open at one edge of
+  // the panel while the calendar button sits at the other.
+  const due = panel.getByLabel('Due date', { exact: true })
+  const dueBox = (await due.boundingBox())!
+  expect(dueBox.width).toBeLessThan(240)
+
+  // People and tags are fields: the chips live inside the well, and adding several wraps them
+  // within it instead of shrinking the way to add another.
+  const people = panel.locator('label', { hasText: 'People' }).locator('div').first()
+  const picker = panel.getByRole('combobox', { name: 'Add a person' })
+  for (let i = 0; i < 4; i++) {
+    await picker.click()
+    const options = panel.getByRole('listbox').getByRole('option')
+    if (!(await options.count())) break
+    await options.first().click()
+    await page.waitForTimeout(60)
+  }
+  await page.keyboard.press('Escape')
+  const well = (await people.boundingBox())!
+  const chips = panel.locator('label', { hasText: 'People' }).locator('span[title]')
+  expect(await chips.count()).toBeGreaterThan(1)
+  for (const chip of await chips.all()) {
+    const box = (await chip.boundingBox())!
+    expect(box.y).toBeGreaterThanOrEqual(well.y - 1)
+    expect(box.y + box.height).toBeLessThanOrEqual(well.y + well.height + 1)
+  }
+  // The picker keeps a workable width inside the field, whatever the chips do.
+  expect((await picker.boundingBox())!.width).toBeGreaterThanOrEqual(100)
+})
+
 test('a due date set in the drawer is on the card, and says how late it is', async ({ page }) => {
   await openBoard(page)
   const id = await openFirstBacklogCard(page)

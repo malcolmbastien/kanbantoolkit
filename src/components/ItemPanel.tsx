@@ -1016,14 +1016,15 @@ export function ItemPanel({ itemId }: Props) {
                 {/* Type and Kind — the labels a card or an initiative wears. A card's type is the
                     one you choose; an initiative's type is what makes it one, so it is fixed (the
                     ⋯ menu says so) and only its kind is a choice. */}
-                {/* Full width: a card shows Type, an initiative shows Kind, and never both — so
-                    half a row would leave a hole where a field used to be. */}
+                {/* Type and Kind are words, not data with a shape: the control is as wide as its
+                    own options, so a full-width box does not sit around "User Story" pretending
+                    to hold more. A card shows Type, an initiative shows Kind, never both. */}
                 {!typeIsFixed && (
                   <Field label="Type" className="col-span-2">
                     <select
                       value={item.typeId}
                       onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
-                      className={cn(WELL, 'w-full font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
+                      className={cn(WELL, 'w-fit max-w-full font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
                     >
                       {typeOptions.map((t) => (
                         <option key={t.id} value={t.id}>{t.name}</option>
@@ -1037,7 +1038,7 @@ export function ItemPanel({ itemId }: Props) {
                     <select
                       value={item.initiativeTypeId ?? ''}
                       onChange={(e) => setInitiativeKind(item.id, e.target.value || undefined)}
-                      className={cn(WELL, 'w-full font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
+                      className={cn(WELL, 'w-fit max-w-full font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
                     >
                       <option value="">None</option>
                       {kinds.map((k) => (
@@ -1051,17 +1052,13 @@ export function ItemPanel({ itemId }: Props) {
                 )}
 
                 <Field label="People" className="col-span-2">
-                  {/* Typing searches the workspace's own people: there is no way here to invent
-                      one, because a person is an account and an invitation is the way in. */}
-                  <div className="flex flex-wrap items-center gap-1">
-                    <PersonPicker
-                      users={users}
-                      exclude={item.assignees ?? []}
-                      onPick={(user) => addAssignee(item.id, user.id)}
-                      label="Add a person"
-                      emptyLabel="Everyone in this workspace is already on the card."
-                      className="flex-1"
-                    />
+                  {/* One field holds the people and the way to add one: the chips wrap inside the
+                      well, and the search keeps a workable width on the last line. Before, the
+                      picker and the chips shared a bare row, so each person added squeezed the
+                      input until the chips spilled onto a line of their own with no field around
+                      them. Typing searches the workspace's own people: there is no way here to
+                      invent one, because a person is an account and an invitation is the way in. */}
+                  <div className={cn(WELL, 'min-h-[34px] flex-wrap gap-1')}>
                     {(item.assignees ?? []).map((id) => {
                       const u = userById(id)
                       const name = nameOfUser(users, id) ?? FORMER_MEMBER
@@ -1086,6 +1083,15 @@ export function ItemPanel({ itemId }: Props) {
                         </span>
                       )
                     })}
+                    <PersonPicker
+                      users={users}
+                      exclude={item.assignees ?? []}
+                      onPick={(user) => addAssignee(item.id, user.id)}
+                      label="Add a person"
+                      emptyLabel="Everyone in this workspace is already on the card."
+                      className="min-w-[7rem] flex-1"
+                      bare
+                    />
                   </div>
                 </Field>
 
@@ -1097,20 +1103,10 @@ export function ItemPanel({ itemId }: Props) {
                   className="col-span-2"
                   hint={boardTagList.length === 0 ? 'This board has no tags yet — type one to make it.' : undefined}
                 >
-                  {/* The way in comes first, the tags after it — the shape People wears, for the
-                      same reason. Type to find one: the board's vocabulary, filtered as you go —
-                      or to make a new one, which the board settings then owns like any other. */}
-                  <div className="flex flex-wrap items-center gap-1">
-                    <TagInput
-                      tags={boardTagList}
-                      carried={item.tagIds ?? []}
-                      onAdd={(id) => toggleItemTag(boardId, item.id, id)}
-                      onCreate={(name) => {
-                        const id = addTag(boardId, name, TAG_PALETTE[boardTagList.length % TAG_PALETTE.length])
-                        if (id) toggleItemTag(boardId, item.id, id)
-                      }}
-                      className="min-w-[7rem] flex-1"
-                    />
+                  {/* The shape People wears: one well, its chips inside, and the way to add one
+                      on the last line. Type to find a tag the board defines — or to make a new
+                      one, which the board settings then owns like any other. */}
+                  <div className={cn(WELL, 'min-h-[34px] flex-wrap gap-1')}>
                     {itemTags.map((t) => {
                       const chip = chipColors(t.color)
                       return (
@@ -1131,6 +1127,17 @@ export function ItemPanel({ itemId }: Props) {
                         </span>
                       )
                     })}
+                    <TagInput
+                      tags={boardTagList}
+                      carried={item.tagIds ?? []}
+                      onAdd={(id) => toggleItemTag(boardId, item.id, id)}
+                      onCreate={(name) => {
+                        const id = addTag(boardId, name, TAG_PALETTE[boardTagList.length % TAG_PALETTE.length])
+                        if (id) toggleItemTag(boardId, item.id, id)
+                      }}
+                      className="min-w-[7rem] flex-1"
+                      bare
+                    />
                   </div>
                 </Field>
 
@@ -1164,7 +1171,7 @@ export function ItemPanel({ itemId }: Props) {
                   hint={item.dueDate ? undefined : 'The day this is promised for — separate from the target window.'}
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <div className={cn(WELL, 'flex-1')}>
+                    <div className={cn(WELL, 'w-[11.5rem] max-w-full')}>
                       <CalendarClock size={13} className="shrink-0 text-slate-400" />
                       <input
                         type="date"

@@ -22,6 +22,7 @@ export function TagInput({
   onAdd,
   onCreate,
   className,
+  bare = false,
 }: {
   /** The tags the board offers, in the order it lists them. */
   tags: Tag[]
@@ -31,6 +32,11 @@ export function TagInput({
   /** A name the board does not define yet, to be defined and applied in one gesture. */
   onCreate: (name: string) => void
   className?: string
+  /**
+   * Draw the input without its border or ground because it sits inside a well that already has
+   * them: the tags and the way to add another are one field, not a field beside a field.
+   */
+  bare?: boolean
 }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -128,7 +134,12 @@ export function TagInput({
         title="Type to find a tag this board defines — or to create one it does not"
         autoComplete="off"
         spellCheck={false}
-        className="w-full min-w-[7rem] rounded border border-slate-200 bg-white px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
+        className={cn(
+          'w-full min-w-[7rem] text-meta outline-none',
+          bare
+            ? 'bg-transparent px-0.5 py-0.5 focus:ring-0'
+            : 'rounded border border-slate-200 bg-white px-1.5 py-1 focus:ring-2 focus:ring-indigo-300',
+        )}
       />
       {open && (
         <div

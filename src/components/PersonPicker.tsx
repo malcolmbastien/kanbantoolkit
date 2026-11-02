@@ -15,6 +15,11 @@ interface Props {
   emptyLabel?: string
   /** The search field's wrapper: `flex-1` beside chips, or the field's own width. */
   className?: string
+  /**
+   * Draw the input without a border or ground because it sits *inside* a well that already has
+   * them. A person is added into a field, not into a control of its own that competes with it.
+   */
+  bare?: boolean
 }
 
 /**
@@ -25,7 +30,7 @@ interface Props {
  * confirmed — and every row carries the person's face, photo or initials, because a name is a label
  * and a face is recognition.
  */
-export function PersonPicker({ users, exclude = [], onPick, label, placeholder = 'Add a person…', emptyLabel, className }: Props) {
+export function PersonPicker({ users, exclude = [], onPick, label, placeholder = 'Add a person…', emptyLabel, className, bare = false }: Props) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const [open, setOpen] = useState(false)
@@ -94,7 +99,12 @@ export function PersonPicker({ users, exclude = [], onPick, label, placeholder =
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         aria-activedescendant={open && current >= 0 ? `${listId}-${matches[current].id}` : undefined}
-        className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta outline-none transition focus:ring-2 focus:ring-indigo-400"
+        className={cn(
+          'w-full text-meta outline-none transition',
+          bare
+            ? 'bg-transparent px-0.5 py-0.5 focus:ring-0'
+            : 'rounded-lg border border-slate-200 bg-white px-2 py-1 focus:ring-2 focus:ring-indigo-400',
+        )}
       />
 
       {open && (
