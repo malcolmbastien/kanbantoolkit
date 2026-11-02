@@ -76,6 +76,28 @@ test('pressing the roll-up opens the card it sits on, not the card it names', as
   )
 })
 
+test('priority keeps the top-right corner when the card has no type', async ({ page }) => {
+  await openBoard(page)
+
+  // The seeded card in Backlog, given a type of None and a priority: the card is a card without
+  // its leading chip, and the weight a reader scans for must not move to where the chip was.
+  await page.locator('[data-card-id="st-usage-billing"]').click()
+  const panel = page.locator('[data-item-panel]')
+  await panel.locator('label', { hasText: 'Type' }).locator('select').selectOption({ label: 'None' })
+  await panel.locator('label', { hasText: 'Priority' }).locator('button').first().click()
+  await panel.getByRole('button', { name: 'High', exact: true }).click()
+  await page.getByRole('button', { name: 'Close' }).click()
+
+  const mark = page.locator('[data-card-id="st-usage-billing"] [role="img"][aria-label^="Priority"]')
+  await expect(mark).toBeVisible()
+  const gap = await page.locator('[data-card-id="st-usage-billing"]').evaluate((card) => {
+    const badge = card.querySelector('[role="img"][aria-label^="Priority"]')!
+    return Math.round(card.getBoundingClientRect().right - badge.getBoundingClientRect().right)
+  })
+  // The card's own padding and rail, not a mark sitting at the leading edge.
+  expect(gap, 'the priority mark is in the top-right corner').toBeLessThan(24)
+})
+
 test('a Done card keeps no lane-age warning', async ({ page }) => {
   await openBoard(page)
   // The seeded Done card has an arrival stamp old enough to age in any other column. Done is

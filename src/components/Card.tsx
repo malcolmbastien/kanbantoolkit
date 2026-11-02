@@ -677,7 +677,10 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               {type.name}
             </span>
           )}
-          <span className="flex shrink-0 items-center gap-1.5">
+          {/* `ml-auto` and not only the row's `justify-between`: a card of type None has no
+              leading chip, and with one child the row would start the marks at the left edge.
+              The weight a reader scans for stays in the top-right corner whatever the type. */}
+          <span className="ml-auto flex shrink-0 items-center gap-1.5">
             <PriorityBadge priority={item.priority} />
           </span>
         </div>
