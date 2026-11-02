@@ -5,7 +5,6 @@ import {
   CalendarClock,
   CalendarX2,
   CircleAlert,
-  Download,
   Hourglass,
   Inbox,
   Layers,
@@ -19,11 +18,9 @@ import { blockedBelow, decompositionChildren, rollupOf, type Graph } from '@/dom
 import { boardInitiatives, initiativeTypeById, isPortfolio, portfolioInitiatives, tagsOf } from '@/domain/board'
 import { ATTENTION_TILES, boardAttention, type AttentionKey } from '@/domain/attention'
 import { HEALTH_META, initiativeHealth } from '@/domain/health'
-import { csvFilename, dashboardCsv } from '@/domain/csv'
 import { STAGE_LABELS, subtreeIds, topLevelLanes } from '@/domain/lanes'
 import { laneAges, medianOf, STALE_AFTER_DAYS } from '@/domain/filters'
 import { BAND_ACCENT, FLAG_BADGE, FLAG_BADGE_SHAPE, STAGE_COLOR, stageChip } from '@/lib/colors'
-import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Stage } from '@/domain/types'
@@ -207,14 +204,6 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             <Stat label="Initiatives" value={rows.length} />
             <Stat label="Done" value={doneInitiatives} tone="emerald" />
             <Stat label="At risk" value={atRisk} tone={atRisk > 0 ? 'rose' : undefined} />
-            {/* One explicit action, one file — the rows above, as a spreadsheet. */}
-            <button
-              onClick={() => downloadText(csvFilename(board?.name ?? 'board', 'initiatives'), dashboardCsv(rows, issueTypes))}
-              className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-              title="Export these initiative rows as a CSV file — progress, target dates, status and blocked work"
-            >
-              <Download size={11} /> Export CSV
-            </button>
           </div>
         </div>
 
@@ -294,10 +283,6 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             ))
           )}
 
-          <p className="mt-2 text-micro text-slate-600">
-            Read from each placement's lane stamp — never stored on the item and never acting: nothing is auto-moved or
-            flagged. The clock starts when a card enters its lane, so splitting a column re-stamps the cards it reshapes.
-          </p>
         </section>
 
         {/* Initiatives — the table the dashboard exists for: what this board reads, how far the
@@ -623,12 +608,6 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           )}
         </section>
 
-        <p className="mt-3 text-meta text-slate-600">
-          Work progress and status are computed from the leaf work beneath each initiative. Health is derived the same
-          way — blocked work, open dependencies, a clock that has stopped, work nobody owns, an initiative with nothing
-          under it, and committed work over Backlog. Nothing is set by hand and nothing goes stale: each rule reads what
-          the board already knows.
-        </p>
       </div>
     </div>
   )
