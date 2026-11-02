@@ -24,7 +24,7 @@ import { boardCardTypeId, tagsOf } from '@/domain/board'
 import { externalWaits } from '@/domain/boundary'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
-import { STAGE_ACCENT, STAGE_SURFACE, tintOn, WIP_PILL } from '@/lib/colors'
+import { STAGE_ACCENT, STAGE_SURFACE, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -207,10 +207,11 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             ? // A collapsed row says so in its own right: a dashed edge and a muted ground, so
               // it reads as folded away rather than as a row that happens to be short.
               'border border-dashed border-slate-300 bg-slate-100/80 text-slate-500'
-            : // Nested cells are split by a hairline and share one tint, so their headers take a
-              // touch more ground than the column's own — enough to see which name owns which
-              // side of the split.
-              cn('bg-white/60 text-slate-700', top ? '' : 'bg-white/75'),
+            : // A full column's shelf is its warning surface; otherwise nested cells take a
+              // touch more ground than the column's own, so each name owns its side of the split.
+              wip
+              ? WIP_SURFACE[wip].header
+              : cn('bg-white/60 text-slate-700', top ? '' : 'bg-white/75'),
         )}
       >
         {/* Name truly centred, count and policy pinned right. The side columns are equal
@@ -242,7 +243,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               // exactly, so the field is big to point at and its text has not moved a pixel.
               // A ring, not a border, for the same reason — the header bar and everything
               // under it must not shift the moment a name is clicked.
-              className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide text-slate-700 transition hover:bg-slate-900/5"
+              className="w-full self-stretch -my-0.5 rounded py-0.5 text-center text-meta font-bold uppercase leading-tight tracking-wide transition hover:bg-slate-900/5"
               inputClassName="w-full self-stretch -my-0.5 rounded bg-white px-1 py-0.5 text-center text-meta font-semibold uppercase leading-tight tracking-wide text-slate-900 outline-none ring-1 ring-inset ring-indigo-300"
             />
           ) : (
@@ -380,11 +381,15 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         className={cn(
           'flex h-full min-h-0 w-full flex-1 flex-col',
           // No outer box: each top-level column is its own card, with a gap between them.
-          // The stage tints the whole column, so it reads at a glance without a label.
-          top && 'overflow-hidden rounded-xl border border-slate-300/80',
-          top && stage && STAGE_SURFACE[stage],
+          // The stage tints the whole column, so it reads at a glance without a label — unless
+          // the column is at or over its WIP limit, which takes the ground, the edge and the
+          // accent line: a full column is the thing a reader needs to see first.
+          top && 'overflow-hidden rounded-xl border',
+          top && (wip ? WIP_SURFACE[wip].lane : 'border-slate-300/80'),
+          !top && wip ? WIP_SURFACE[wip].cell : '',
+          top && stage && !wip && STAGE_SURFACE[stage],
         )}
-        style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
+        style={top && stage ? { borderTop: `4px solid ${wip ? WIP_SURFACE[wip].accent : STAGE_ACCENT[stage]}` } : undefined}
       >
         {/* The root of the cards workflow is the board's whole flow, not a lane: its name is
             already the section's, and its count is the section's too. A header here would be a
@@ -451,12 +456,14 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       className={cn(
         'flex h-full min-h-0 w-full min-w-[196px] flex-1 flex-col',
         // A top-level column is the object: one edge, one tint, one accent. A nested cell
-        // sits on its section's tint and needs none of the three — the partition line is
-        // enough, and a second frame is what made a cell look like a box inside a box.
-        top && 'overflow-hidden rounded-xl border border-slate-300/80',
-        top ? (stage ? STAGE_SURFACE[stage] : 'bg-slate-100') : '',
+        // sits on its section's tint and needs none of the three — the air beside it is
+        // enough, and a second frame is what made a cell look like a box inside a box. A lane
+        // at or over its limit is the exception at both depths: the alarm owns the colour.
+        top && 'overflow-hidden rounded-xl border',
+        top && (wip ? WIP_SURFACE[wip].lane : 'border-slate-300/80'),
+        top ? (wip ? '' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100') : wip ? WIP_SURFACE[wip].cell : '',
       )}
-      style={top && stage ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
+      style={top && stage ? { borderTop: `4px solid ${wip ? WIP_SURFACE[wip].accent : STAGE_ACCENT[stage]}` } : undefined}
     >
       {!hideHeader && header(true)}
       <DropColumn

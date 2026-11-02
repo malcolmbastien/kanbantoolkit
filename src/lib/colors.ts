@@ -270,16 +270,40 @@ export function statusDot(status: { resolved: boolean; started: boolean }): stri
 }
 
 /**
- * A WIP breach, stated rather than shouted.
+ * A WIP breach, stated on the column and in the count.
  *
- * The column is still the stage colour it was: flooding the whole lane red made a busy column look
- * broken and threw away the one colour that tells it apart from the columns beside it. What is over
- * the limit is the *count*, so the count is what says so — a clean crimson pill beside a warning
- * glyph. Left, not blocked: the board keeps its colour and the reader keeps their bearings.
+ * The pill alone was not enough: a reader scanning the board saw a small badge and a tinted
+ * header, and the column — the thing the eye is drawn to — still wore its stage colour. A lane
+ * at or over its limit now wears a wash of the alarm colour too, on the tint, the edge, the accent
+ * line and the header, so a full column is legible from across the board.
+ *
+ * It is a wash, not a flood: the ground is a 100-level tint and the cards stay white, so a busy
+ * column still reads as a column rather than as a fault, and the stage is still named in the
+ * header. Left, not blocked: colour changes nothing about what a move may do.
  */
 export const WIP_PILL = {
   over: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
   at: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+} as const
+
+/**
+ * The column's own share of the breach, by state. `lane` is the top-level column (ground and
+ * edge), `cell` the body of a nested cell, and `header` the shelf its name sits on; `accent` is
+ * the stage line's stand-in on a full column.
+ */
+export const WIP_SURFACE = {
+  over: {
+    lane: 'border-rose-300 bg-rose-100/70',
+    cell: 'bg-rose-100/60',
+    header: 'bg-rose-50/90 text-rose-900',
+    accent: '#e11d48',
+  },
+  at: {
+    lane: 'border-amber-300 bg-amber-100/70',
+    cell: 'bg-amber-100/60',
+    header: 'bg-amber-50/90 text-amber-900',
+    accent: '#d97706',
+  },
 } as const
 
 /**

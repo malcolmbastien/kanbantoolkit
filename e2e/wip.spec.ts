@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { cardsIn, dropAbove, openBoard } from './support'
+import { cardsIn, dropAbove, laneRegion, openBoard } from './support'
 
 /**
  * The justify policy, and the case that once broke while every unit test passed: the drop wrote
@@ -18,6 +18,37 @@ async function askForReasons(page: Page): Promise<void> {
 }
 
 const reasonDialog = (page: Page) => page.locator('[data-reason-dialog]')
+
+test('a full column wears the alarm colour, not only a badge', async ({ page }) => {
+  await openBoard(page)
+  const cards = page.locator('[data-workflow="cards"]')
+  const cell = (name: string) =>
+    cards.locator('[data-lane-cell]').filter({ has: page.getByText(name, { exact: true }) }).first()
+
+  // Not Started holds two cards against a limit of one: the column is rose, down to its accent
+  // line, so a reader sees the breach before reading a single card. The cards stay white, which
+  // is what keeps a busy column looking like a column rather than a fault.
+  const over = cell('Not Started')
+  await expect(over).toHaveClass(/bg-rose-100\/70/)
+  expect(await over.evaluate((el) => getComputedStyle(el).borderTopColor)).toBe('rgb(225, 29, 72)')
+
+  // A column with no limit keeps its stage colour.
+  await expect(cell('In Progress')).not.toHaveClass(/bg-(rose|amber)-100/)
+
+  // Bring Backlog to its own count, and it reads amber: at a limit is a watch, not a risk.
+  await page.getByRole('button', { name: 'Edit board' }).click()
+  await laneRegion(page, 'Backlog')
+    .getByRole('button', { name: 'Lane settings — name, WIP limit, policy' })
+    .click()
+  await page.locator('#lane-wip').fill('3')
+  await page.locator('#lane-wip').press('Enter')
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Save' }).click()
+
+  const at = cell('Backlog')
+  await expect(at).toHaveClass(/bg-amber-100\/70/)
+  expect(await at.evaluate((el) => getComputedStyle(el).borderTopColor)).toBe('rgb(217, 119, 6)')
+})
 
 test('cancelling the reason leaves the card exactly where it was', async ({ page }) => {
   await openBoard(page)
