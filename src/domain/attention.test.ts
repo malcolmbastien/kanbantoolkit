@@ -69,9 +69,9 @@ function cardsBoard(items: Item[], placements: Placement[], lanes: Lane[] = []):
 }
 
 describe('board attention on a cards board', () => {
-  it('reads every signal from the work itself, and counts the population once', () => {
+  it('reads every signal from the work itself, and counts each one once', () => {
     const items = [
-      // Everything at once: late, stuck, and with no owner or priority.
+      // Everything at once: late, stuck, and with no owner.
       card('a', { dueDate: '2026-10-10' }),
       // Nothing to say about this one.
       card('b', { assignees: ['u-1'], priority: 'high', dueDate: '2026-12-01' }),
@@ -79,8 +79,13 @@ describe('board attention on a cards board', () => {
       card('c', { dueDate: '2026-10-01' }),
       // Filed away, so off the board.
       card('d', { archived: true, archivedAt: NOW - DAY }),
-      // Backlog: uncommitted, so never stale — but still unowned and without a priority.
+      // Backlog: uncommitted, so never stale — but still unowned.
       card('e'),
+      // A hard stop somebody set, and its reason.
+      card('blocked', { assignees: ['u-1'], blocked: true, blockedReason: 'Waiting on legal' }),
+      // Waiting on another item that is not done.
+      card('waits', { assignees: ['u-1'] }),
+      card('dep', { assignees: ['u-1'] }),
     ]
     const graph = cardsBoard(
       items,
@@ -90,27 +95,41 @@ describe('board attention on a cards board', () => {
         at('c', 'done', NOW - 30 * DAY),
         at('d', 'ip', NOW - 30 * DAY),
         at('e', 'backlog', NOW - 30 * DAY),
+        at('blocked', 'ip', NOW - DAY),
+        at('waits', 'ip', NOW - DAY),
+        at('dep', 'ns', NOW - DAY),
       ],
     )
+    // `from` is the item depended upon, `to` the one that waits.
+    graph.links = [{ id: 'l1', from: 'dep', to: 'waits' }]
 
     const attention = boardAttention(graph, 'b', [], flows(), { now: NOW })
     expect(attention.population).toBe('cards')
-    expect(attention.rows.map((r) => r.item.id)).toEqual(['a', 'e', 'b'])
+    expect(attention.rows.map((r) => r.item.id)).toEqual(['a', 'e', 'blocked', 'waits', 'b', 'dep'])
     expect(attention.counts).toEqual({
-      unfinished: 3,
+      blocked: 1,
+      waiting: 1,
       overdue: 1,
       stale: 1,
       unassigned: 2,
-      noPriority: 2,
     })
 
     const a = attention.rows.find((r) => r.item.id === 'a')!
-    expect(a.signals.map((s) => s.key)).toEqual(['overdue', 'stale', 'unassigned', 'noPriority'])
+    expect(a.signals.map((s) => s.key)).toEqual(['overdue', 'stale', 'unassigned'])
     expect(a.status).toBe('inProgress lane')
     expect(a.ageDays).toBe(10)
     expect(a.signals.find((s) => s.key === 'overdue')?.tone).toBe('risk')
     expect(a.signals.find((s) => s.key === 'stale')?.tone).toBe('watch')
     expect(a.signals.find((s) => s.key === 'stale')?.why).toContain(`${STALE_AFTER_DAYS}-day`)
+
+    // A blocked card says why, and waiting is read from the link — never stored on the item.
+    const blocked = attention.rows.find((r) => r.item.id === 'blocked')!
+    expect(blocked.signals.map((s) => s.key)).toEqual(['blocked'])
+    expect(blocked.signals[0].why).toContain('Waiting on legal')
+    expect(blocked.signals[0].tone).toBe('risk')
+    const waits = attention.rows.find((r) => r.item.id === 'waits')!
+    expect(waits.signals.map((s) => s.key)).toEqual(['waiting'])
+    expect(waits.signals[0].why).toContain('not done')
 
     // The clean row is still in the array — it is the population — but carries no chips.
     expect(attention.rows.find((r) => r.item.id === 'b')?.signals).toEqual([])
@@ -156,12 +175,10 @@ describe('board attention on a cards board', () => {
       [at('a', 'ip', NOW - 20 * DAY), at('b', 'ip'), at('c', 'ns', NOW - 10 * DAY), at('d', 'backlog'), at('e', 'ip', NOW - 2 * DAY)],
     )
     const { rows, counts } = boardAttention(graph, 'b', [], flows(), { now: NOW })
-    expect(counts.unfinished).toBe(rows.length)
     for (const tile of ATTENTION_TILES) {
-      if (tile.key === 'unfinished') continue
-      expect(counts[tile.key]).toBe(rows.filter((r) => r.signals.some((s) => s.key === tile.key)).length)
+      expect(counts[tile.key], tile.key).toBe(rows.filter((r) => r.signals.some((s) => s.key === tile.key)).length)
+      expect(counts[tile.key], tile.key).toBeLessThanOrEqual(rows.length)
     }
-    for (const key of Object.keys(counts) as (keyof typeof counts)[]) expect(counts[key]).toBeLessThanOrEqual(counts.unfinished)
   })
 
   it('orders by the number of signals, then the oldest known age, then the title', () => {
@@ -181,23 +198,24 @@ describe('board attention on a cards board', () => {
         at('E', 'ip', NOW - DAY),
       ],
     )
-    // Both carry three signals; Bravo is older. Charlie carries two, Delta one with no stamp.
+    // Alpha and Bravo are overdue, Charlie unassigned; Bravo is the oldest of those. Delta and
+    // Echo carry nothing, and only Echo has a stamp to order by.
     const attention = boardAttention(graph, 'b', [], flows(), { now: NOW })
-    expect(attention.rows.map((r) => r.item.id)).toEqual(['B', 'A', 'C', 'D', 'E'])
-    expect(attention.rows.find((r) => r.item.id === 'C')?.signals).toHaveLength(2)
+    expect(attention.rows.map((r) => r.item.id)).toEqual(['B', 'A', 'C', 'E', 'D'])
+    expect(attention.rows.find((r) => r.item.id === 'C')?.signals).toHaveLength(1)
     expect(attention.rows.find((r) => r.item.id === 'D')?.ageDays).toBeUndefined()
     expect(attention.rows.find((r) => r.item.id === 'E')?.signals).toEqual([])
   })
 
   it('does not count a card placed on another board', () => {
     const graph = cardsBoard([card('a')], [at('a', 'ip', NOW - DAY, 'other')])
-    expect(boardAttention(graph, 'b', [], flows(), { now: NOW }).counts.unfinished).toBe(0)
+    expect(boardAttention(graph, 'b', [], flows(), { now: NOW }).rows).toEqual([])
   })
 
   it('says nothing at all for a board with no work on it', () => {
     const attention = boardAttention(cardsBoard([], []), 'b', [], flows(), { now: NOW })
     expect(attention.rows).toEqual([])
-    expect(attention.counts).toEqual({ unfinished: 0, overdue: 0, stale: 0, unassigned: 0, noPriority: 0 })
+    expect(attention.counts).toEqual({ blocked: 0, waiting: 0, overdue: 0, stale: 0, unassigned: 0 })
   })
 })
 
@@ -223,7 +241,7 @@ describe('board attention on a coordination board', () => {
   it('reads the board\'s own initiatives through the health rules', () => {
     const items = [
       card('init', { typeId: 't-initiative', dueDate: '2026-10-01' }),
-      card('k1', { assignees: [] }),
+      card('k1', { assignees: [], blocked: true }),
       card('k2', { assignees: [] }),
     ]
     const edges: Edge[] = [
@@ -233,7 +251,8 @@ describe('board attention on a coordination board', () => {
     const graph: Graph = {
       items,
       edges,
-      links: [],
+      // k1 waits on k2: the initiative's work below has an open dependency.
+      links: [{ id: 'l1', from: 'k2', to: 'k1' }],
       placements: [
         at('init', 'init-ip', NOW - 30 * DAY, 'p'),
         // The work below lives on a team board; only its stage and stamp are read here.
@@ -257,15 +276,17 @@ describe('board attention on a coordination board', () => {
     expect(row.status).toBe('In Progress')
     expect(row.stage).toBe('inProgress')
     expect(row.ageDays).toBe(30)
-    expect(row.signals.map((s) => s.key)).toEqual(['overdue', 'stale', 'unassigned', 'noPriority'])
+    expect(row.signals.map((s) => s.key)).toEqual(['blocked', 'waiting', 'overdue', 'stale', 'unassigned'])
+    expect(row.signals.find((s) => s.key === 'blocked')?.why).toContain('blocked')
+    expect(row.signals.find((s) => s.key === 'waiting')?.why).toContain('waits')
     expect(row.signals.find((s) => s.key === 'unassigned')?.why).toContain('no owner')
 
     expect(attention.counts).toEqual({
-      unfinished: 1,
+      blocked: 1,
+      waiting: 1,
       overdue: 1,
       stale: 1,
       unassigned: 1,
-      noPriority: 1,
     })
   })
 
@@ -277,7 +298,7 @@ describe('board attention on a coordination board', () => {
       placements: [at('done-init', 'init-done', NOW - DAY, 'p')],
       lanes: [root('p', INIT), lane('init-done', 'done', 'p', 'initiatives')],
     }
-    expect(boardAttention(graph, 'p', [initiativeType], flows('p'), { boards: [program], now: NOW }).counts.unfinished).toBe(0)
+    expect(boardAttention(graph, 'p', [initiativeType], flows('p'), { boards: [program], now: NOW }).rows).toEqual([])
   })
 })
 

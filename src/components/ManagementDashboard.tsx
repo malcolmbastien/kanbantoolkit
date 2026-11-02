@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
   AlarmClock,
+  Ban,
   CalendarClock,
   CircleAlert,
-  CircleDashed,
   Download,
-  Flag,
+  Hourglass,
   Layers,
   SquareArrowOutUpRight,
   Target,
@@ -31,29 +31,29 @@ import { DueChip } from './DueChip'
 
 const barColor = (pct: number) => (pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
 
-/** Each tile's mark, and the accent it reads in. Only overdue and stale raise their voice. */
+/** Each tile's mark, and the accent it reads in. The hard stops are the loud ones. */
 const ATTENTION_ICON: Record<AttentionKey, LucideIcon> = {
-  unfinished: CircleDashed,
+  blocked: Ban,
+  waiting: Hourglass,
   overdue: CircleAlert,
   stale: AlarmClock,
   unassigned: UserRound,
-  noPriority: Flag,
 }
 
 const ATTENTION_ACCENT: Record<AttentionKey, string> = {
-  unfinished: 'text-slate-500',
+  blocked: 'text-rose-600',
+  waiting: 'text-rose-600',
   overdue: 'text-rose-600',
   stale: 'text-amber-600',
   unassigned: 'text-slate-500',
-  noPriority: 'text-slate-500',
 }
 
 const ATTENTION_HINT: Record<AttentionKey, string> = {
-  unfinished: 'Every unfinished item on this board — the population each count below is taken from',
+  blocked: 'Explicitly blocked — somebody set a hard stop on it',
+  waiting: 'Waits on another item that is not done',
   overdue: 'Past its due date and not done',
   stale: `Committed work past ${STALE_AFTER_DAYS} days in its lane with nothing moving`,
   unassigned: 'Nobody is assigned to it',
-  noPriority: 'No priority is set',
 }
 
 /** Days in a column, quiet: a whole number of days, or one decimal for an in-between median. */
@@ -167,18 +167,14 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   const visibleRows =
     attentionFilter === null
       ? signalRows
-      : attentionFilter === 'unfinished'
-        ? attention.rows
-        : attention.rows.filter((r) => r.signals.some((s) => s.key === attentionFilter))
+      : attention.rows.filter((r) => r.signals.some((s) => s.key === attentionFilter))
   // The summary is what ties the tiles to the table: it says, in words, what the selection is
   // currently doing — and it is announced when the selection changes.
   const activeTileLabel = ATTENTION_TILES.find((tile) => tile.key === attentionFilter)?.label ?? 'Signal'
   const attentionSummary =
     attentionFilter === null
       ? `${signalRows.length} item${signalRows.length === 1 ? '' : 's'} ${signalRows.length === 1 ? 'needs' : 'need'} a look`
-      : attentionFilter === 'unfinished'
-        ? `Unfinished · ${attention.rows.length} item${attention.rows.length === 1 ? '' : 's'}`
-        : `${activeTileLabel} · ${visibleRows.length} of ${signalRows.length} item${signalRows.length === 1 ? '' : 's'}`
+      : `${activeTileLabel} · ${visibleRows.length} of ${signalRows.length} item${signalRows.length === 1 ? '' : 's'}`
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">

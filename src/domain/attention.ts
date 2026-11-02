@@ -1,4 +1,4 @@
-import { rollupOf, type Graph } from './derive'
+import { openDependenciesOf, rollupOf, type Graph } from './derive'
 import { boardInitiatives, isAggregating, isPortfolio, portfolioInitiatives } from './board'
 import { ageDays, isOverdue, STALE_AFTER_DAYS } from './filters'
 import { initiativeHealth } from './health'
@@ -11,10 +11,10 @@ import type { Board, BoardFlow, IssueType, Item, Placement, Stage } from './type
  * every count.
  *
  * This is a reading surface and nothing else. Every signal is derived from state the model
- * already keeps — the placement's lane and stamp, the assignees, the priority and the target
- * date — so nothing is stored, nothing is flagged, and no rule can disagree with the card it
- * describes. The band and the list read one array (`rows`), which is why a tile's number and the
- * rows carrying its signal are the same fact.
+ * already keeps — the blocked flag, the dependency links, the placement's lane and stamp, the
+ * assignees and the due date — so nothing is stored, nothing is flagged, and no rule can
+ * disagree with the card it describes. The band and the list read one array (`rows`), which is
+ * why a tile's number and the rows carrying its signal are the same fact.
  *
  * The population is what the board actually renders. A board with a cards flow reads its cards —
  * every cards flow it has, because the dashboard reads the board and not one of its tabs; a
@@ -22,10 +22,15 @@ import type { Board, BoardFlow, IssueType, Item, Placement, Stage } from './type
  * because an initiative answers for the same facts a card does.
  */
 
-export type AttentionSignalKey = 'overdue' | 'stale' | 'unassigned' | 'noPriority'
+export type AttentionSignalKey = 'blocked' | 'waiting' | 'overdue' | 'stale' | 'unassigned'
 
-/** Every tile in the band, in reading order — Unfinished first, because it is the population. */
-export type AttentionKey = 'unfinished' | AttentionSignalKey
+/**
+ * Every tile in the band. There is no "Unfinished" tile: every row here is unfinished already,
+ * and a count of the population was a fact about the surface rather than a way into the work.
+ * Blocked work and work waiting on another item come first, because those are the states a
+ * reader can act on now.
+ */
+export type AttentionKey = AttentionSignalKey
 
 export interface AttentionSignal {
   key: AttentionSignalKey
@@ -49,11 +54,11 @@ export interface AttentionRow {
 }
 
 export interface AttentionCounts {
-  unfinished: number
+  blocked: number
+  waiting: number
   overdue: number
   stale: number
   unassigned: number
-  noPriority: number
 }
 
 export interface Attention {
@@ -66,11 +71,11 @@ export interface Attention {
 
 /** The band's tiles, in the order they read. The label is the tile; the key is the count. */
 export const ATTENTION_TILES: { key: AttentionKey; label: string }[] = [
-  { key: 'unfinished', label: 'Unfinished' },
+  { key: 'blocked', label: 'Blocked' },
+  { key: 'waiting', label: 'Waiting on' },
   { key: 'overdue', label: 'Overdue' },
   { key: 'stale', label: 'Stale' },
   { key: 'unassigned', label: 'Unassigned' },
-  { key: 'noPriority', label: 'No priority' },
 ]
 
 const COMMITTED = new Set<Stage>(['notStarted', 'inProgress'])
@@ -92,13 +97,7 @@ export function boardAttention(
 ): Attention {
   const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
   const rows = makesCards ? cardRows(graph, boardId, flows, now) : initiativeRows(graph, boardId, issueTypes, now, boards)
-  const counts: AttentionCounts = {
-    unfinished: rows.length,
-    overdue: 0,
-    stale: 0,
-    unassigned: 0,
-    noPriority: 0,
-  }
+  const counts: AttentionCounts = { blocked: 0, waiting: 0, overdue: 0, stale: 0, unassigned: 0 }
   for (const row of rows) for (const signal of row.signals) counts[signal.key] += 1
   return { population: makesCards ? 'cards' : 'initiatives', rows: orderRows(rows), counts }
 }
@@ -139,7 +138,7 @@ function cardRows(graph: Graph, boardId: string, flows: BoardFlow[], now: number
       status: cardStatus(graph, placement, stage, nameOfFlow?.(placement.laneId)),
       stage,
       ...(age !== undefined ? { ageDays: age } : {}),
-      signals: cardSignals(item, stage, age, now),
+      signals: cardSignals(item, stage, age, now, graph),
     })
   }
   return rows
@@ -152,8 +151,36 @@ function cardStatus(graph: Graph, placement: Placement, stage: Stage, flowName?:
   return flowName ? `${flowName} · ${where}` : where
 }
 
-function cardSignals(item: Item, stage: Stage, age: number | undefined, now: number): AttentionSignal[] {
+function cardSignals(
+  item: Item,
+  stage: Stage,
+  age: number | undefined,
+  now: number,
+  graph: Graph,
+): AttentionSignal[] {
   const signals: AttentionSignal[] = []
+
+  // Blocked is a state a person set, not a reading of the work: it needs no reasoning to find.
+  if (item.blocked) {
+    signals.push({
+      key: 'blocked',
+      label: 'Blocked',
+      why: item.blockedReason ? `Blocked — ${item.blockedReason}` : 'It is explicitly blocked',
+      tone: 'risk',
+    })
+  }
+
+  // Waiting is the other half of a hard stop: the work cannot proceed until the item it depends
+  // on is done. The same open-link reading the card's own chips use, so the two cannot disagree.
+  const waiting = openDependenciesOf(item.id, graph)
+  if (waiting.length > 0) {
+    signals.push({
+      key: 'waiting',
+      label: 'Waiting on',
+      why: `Waits on ${waiting.length} item${waiting.length === 1 ? '' : 's'} that ${waiting.length === 1 ? 'is' : 'are'} not done`,
+      tone: 'risk',
+    })
+  }
 
   if (isOverdue(item, false, now)) {
     signals.push({
@@ -182,15 +209,6 @@ function cardSignals(item: Item, stage: Stage, age: number | undefined, now: num
       key: 'unassigned',
       label: 'Unassigned',
       why: 'Nobody is assigned',
-      tone: 'watch',
-    })
-  }
-
-  if (item.priority === undefined) {
-    signals.push({
-      key: 'noPriority',
-      label: 'No priority',
-      why: 'No priority is set',
       tone: 'watch',
     })
   }
@@ -225,6 +243,33 @@ function initiativeRows(
     const unowned = health.flags.find((f) => f.flag === 'unowned')
 
     const signals: AttentionSignal[] = []
+    const blockedFlag = health.flags.find((f) => f.flag === 'blocked')
+    if (item.blocked) {
+      signals.push({
+        key: 'blocked',
+        label: 'Blocked',
+        why: item.blockedReason ? `Blocked — ${item.blockedReason}` : 'It is explicitly blocked',
+        tone: 'risk',
+      })
+    } else if (blockedFlag) {
+      signals.push({ key: 'blocked', label: 'Blocked', why: blockedFlag.why, tone: 'risk' })
+    }
+
+    // The initiative's own dependency links first, then the work below: both mean it cannot
+    // proceed, and the health flag already says the second in the same words as the health column.
+    const ownWaits = openDependenciesOf(item.id, graph)
+    const waitingFlag = health.flags.find((f) => f.flag === 'waiting')
+    if (ownWaits.length > 0) {
+      signals.push({
+        key: 'waiting',
+        label: 'Waiting on',
+        why: `Waits on ${ownWaits.length} item${ownWaits.length === 1 ? '' : 's'} that ${ownWaits.length === 1 ? 'is' : 'are'} not done`,
+        tone: 'risk',
+      })
+    } else if (waitingFlag) {
+      signals.push({ key: 'waiting', label: 'Waiting on', why: waitingFlag.why, tone: 'risk' })
+    }
+
     if (isOverdue(item, false, now)) {
       signals.push({
         key: 'overdue',
@@ -237,15 +282,6 @@ function initiativeRows(
     // initiative's health column speak about the same work in the same words.
     if (stale) signals.push({ key: 'stale', label: 'Stale', why: stale.why, tone: 'watch' })
     if (unowned) signals.push({ key: 'unassigned', label: 'Unassigned', why: unowned.why, tone: 'watch' })
-    if (item.priority === undefined) {
-      signals.push({
-        key: 'noPriority',
-        label: 'No priority',
-        why: 'No priority is set',
-        tone: 'watch',
-      })
-    }
-
     rows.push({
       item,
       status: STAGE_LABELS[bucket],

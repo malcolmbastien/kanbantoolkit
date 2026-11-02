@@ -36,8 +36,9 @@ A card's own dependency on another card is a derived state, not a badge on its f
 the card's **Dependencies** section and it clears when the card it waits on reaches Done. An
 initiative above it does report that wait — as **N waiting**.
 
-**Unassigned** and **No priority** are not drawn on the card itself; they are dashboard signals,
-below.
+**Unassigned** is not drawn on the card itself; it is a dashboard signal, below. **Blocked** and
+**Waiting on** are drawn on the card as well — a blocked band and dependency chips — so the
+dashboard's count and the card cannot disagree.
 
 ## On an initiative
 
@@ -75,11 +76,11 @@ behind them:
 
 | Signal | Tone | What it means | What clears it |
 | --- | --- | --- | --- |
-| **Unfinished** | — | Every unfinished item on the board. This is the population the other counts are taken from, not a warning. | The item is done or archived. |
+| **Blocked** | risk | On a card: it is explicitly blocked, with the reason it carries. On an initiative: the health rule **N blocked** — cards below are blocked and still open — or the initiative's own blocked flag. | It is unblocked, or the cards below are. |
+| **Waiting on** | risk | On a card: it waits on another item that is not done, read from the dependency links. On an initiative: its own open dependency, or the health rule **N waiting**, which counts cards below waiting on work that is not done. | The item waited on is done, or the link is removed. |
 | **Overdue** | risk | Its due date has passed and it is not done. | It is done, or the date is moved. |
 | **Stale** | watch | On a card: it has sat in Not Started or In Progress for at least 7 days. On an initiative: the health rule **still Nd** above. A card in Backlog can show an age badge but is not called stale. | It moves. |
 | **Unassigned** | watch | On a card: nobody is assigned. On an initiative: the health rule **N unowned**, which counts committed cards below that have no owner. | Assign somebody, or the work leaves the committed stages. |
-| **No priority** | watch | The item has no priority set. | A priority is chosen. |
 
 The dashboard's initiatives table also shows the **Health** column with each flag. Its **Dates**
 column reads the target window, with the initiative's due date — and its own overdue chip — under it,
