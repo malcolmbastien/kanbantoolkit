@@ -15,6 +15,8 @@ const card = (id: string, patch: Partial<Item> = {}): Item => ({
   ...patch,
 })
 
+const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+
 const CARDS = 'f-cards'
 const INIT = 'f-initiatives'
 /** A board's two flows, in the shape the model now names a tree with. */
@@ -86,6 +88,12 @@ describe('board attention on a cards board', () => {
       // Waiting on another item that is not done.
       card('waits', { assignees: ['u-1'] }),
       card('dep', { assignees: ['u-1'] }),
+      // Due inside the week, but not yet late.
+      card('soon', { assignees: ['u-1'], dueDate: iso(NOW + 3 * DAY) }),
+      // A planned start that passed before the work began, in Backlog.
+      card('late', { assignees: ['u-1'], targetStartDate: iso(NOW - 5 * DAY) }),
+      // A planned start that passed after the work began: late, but no longer "has not started".
+      card('lateStarted', { assignees: ['u-1'], targetStartDate: iso(NOW - 5 * DAY) }),
     ]
     const graph = cardsBoard(
       items,
@@ -98,6 +106,9 @@ describe('board attention on a cards board', () => {
         at('blocked', 'ip', NOW - DAY),
         at('waits', 'ip', NOW - DAY),
         at('dep', 'ns', NOW - DAY),
+        at('soon', 'ip', NOW - DAY),
+        at('late', 'backlog', NOW - 2 * DAY),
+        at('lateStarted', 'ip', NOW - DAY),
       ],
     )
     // `from` is the item depended upon, `to` the one that waits.
@@ -105,11 +116,23 @@ describe('board attention on a cards board', () => {
 
     const attention = boardAttention(graph, 'b', [], flows(), { now: NOW })
     expect(attention.population).toBe('cards')
-    expect(attention.rows.map((r) => r.item.id)).toEqual(['a', 'e', 'blocked', 'waits', 'b', 'dep'])
+    expect(attention.rows.map((r) => r.item.id)).toEqual([
+      'a',
+      'e',
+      'late',
+      'blocked',
+      'soon',
+      'waits',
+      'b',
+      'dep',
+      'lateStarted',
+    ])
     expect(attention.counts).toEqual({
       blocked: 1,
       waiting: 1,
       overdue: 1,
+      dueSoon: 1,
+      lateStart: 1,
       stale: 1,
       unassigned: 2,
     })
@@ -130,6 +153,21 @@ describe('board attention on a cards board', () => {
     const waits = attention.rows.find((r) => r.item.id === 'waits')!
     expect(waits.signals.map((s) => s.key)).toEqual(['waiting'])
     expect(waits.signals[0].why).toContain('not done')
+
+    // Due soon is the forward-looking half of the promise, and an overdue card never carries it.
+    const soon = attention.rows.find((r) => r.item.id === 'soon')!
+    expect(soon.signals.map((s) => s.key)).toEqual(['dueSoon'])
+    expect(soon.signals[0].why).toContain('in 3 days')
+    expect(attention.rows.find((r) => r.item.id === 'a')!.signals.map((s) => s.key)).not.toContain('dueSoon')
+
+    // A slipped start only speaks while the board says the work has not begun.
+    const late = attention.rows.find((r) => r.item.id === 'late')!
+    expect(late.signals.map((s) => s.key)).toEqual(['lateStart'])
+    expect(late.signals[0].why).toContain('passed')
+    expect(attention.rows.find((r) => r.item.id === 'lateStarted')!.signals).toEqual([])
+
+    // An item with no planned start says nothing about its start.
+    expect(attention.rows.find((r) => r.item.id === 'dep')!.signals).toEqual([])
 
     // The clean row is still in the array — it is the population — but carries no chips.
     expect(attention.rows.find((r) => r.item.id === 'b')?.signals).toEqual([])
@@ -215,7 +253,15 @@ describe('board attention on a cards board', () => {
   it('says nothing at all for a board with no work on it', () => {
     const attention = boardAttention(cardsBoard([], []), 'b', [], flows(), { now: NOW })
     expect(attention.rows).toEqual([])
-    expect(attention.counts).toEqual({ blocked: 0, waiting: 0, overdue: 0, stale: 0, unassigned: 0 })
+    expect(attention.counts).toEqual({
+      blocked: 0,
+      waiting: 0,
+      overdue: 0,
+      dueSoon: 0,
+      lateStart: 0,
+      stale: 0,
+      unassigned: 0,
+    })
   })
 })
 
@@ -241,6 +287,7 @@ describe('board attention on a coordination board', () => {
   it('reads the board\'s own initiatives through the health rules', () => {
     const items = [
       card('init', { typeId: 't-initiative', dueDate: '2026-10-01' }),
+      card('init2', { typeId: 't-initiative', assignees: ['u-1'], dueDate: iso(NOW + 3 * DAY), targetStartDate: iso(NOW - 5 * DAY) }),
       card('k1', { assignees: [], blocked: true }),
       card('k2', { assignees: [] }),
     ]
@@ -255,6 +302,7 @@ describe('board attention on a coordination board', () => {
       links: [{ id: 'l1', from: 'k2', to: 'k1' }],
       placements: [
         at('init', 'init-ip', NOW - 30 * DAY, 'p'),
+        at('init2', 'init-backlog', NOW - 2 * DAY, 'p'),
         // The work below lives on a team board; only its stage and stamp are read here.
         at('k1', 'team-ip', NOW - 30 * DAY, 't'),
         at('k2', 'team-ip', NOW - 30 * DAY, 't'),
@@ -262,6 +310,7 @@ describe('board attention on a coordination board', () => {
       lanes: [
         root('p', INIT),
         lane('init-ip', 'inProgress', 'p', INIT),
+        lane('init-backlog', 'backlog', 'p', INIT),
         root('t'),
         lane('team-ip', 'inProgress', 't'),
       ],
@@ -269,7 +318,7 @@ describe('board attention on a coordination board', () => {
 
     const attention = boardAttention(graph, 'p', [initiativeType], flows('p'), { boards: [program], now: NOW })
     expect(attention.population).toBe('initiatives')
-    expect(attention.rows).toHaveLength(1)
+    expect(attention.rows).toHaveLength(2)
     const row = attention.rows[0]
     expect(row.item.id).toBe('init')
     // Its section is derived from the work below, so it reads in the same words as the column.
@@ -281,10 +330,17 @@ describe('board attention on a coordination board', () => {
     expect(row.signals.find((s) => s.key === 'waiting')?.why).toContain('waits')
     expect(row.signals.find((s) => s.key === 'unassigned')?.why).toContain('no owner')
 
+    // The second initiative has not begun: its planned start passed and it is due inside the week.
+    const soonToStart = attention.rows[1]
+    expect(soonToStart.item.id).toBe('init2')
+    expect(soonToStart.signals.map((s) => s.key)).toEqual(['dueSoon', 'lateStart'])
+
     expect(attention.counts).toEqual({
       blocked: 1,
       waiting: 1,
       overdue: 1,
+      dueSoon: 1,
+      lateStart: 1,
       stale: 1,
       unassigned: 1,
     })

@@ -13,29 +13,34 @@ test('an In Progress status pill stays on one line', async ({ page }) => {
   expect(box!.height).toBeLessThan(24)
 })
 
-test('the attention tiles fit one row, and a narrow card leaves no empty cell', async ({ page }) => {
-  await page.setViewportSize({ width: 1000, height: 900 })
-  await page.goto('/app?board=b-atlas&view=dashboard')
-
+test('the attention tiles never leave an empty cell', async ({ page }) => {
   const tiles = page.locator('[data-attention-tile]')
-  await expect(tiles).toHaveCount(5)
-  const tops = await tiles.evaluateAll((els) =>
-    els.map((el) => Math.round(el.getBoundingClientRect().top)),
-  )
-  // Where the card can hold five narrow cells, five signals are one row: no 3 + 2 wrap with a
-  // grey gap standing where a sixth cell would be.
-  expect(new Set(tops).size, 'the five readings sit on one row').toBe(1)
+  const boxes = () =>
+    tiles.evaluateAll((els) =>
+      els.map((el) => {
+        const box = el.getBoundingClientRect()
+        return { top: Math.round(box.top), width: Math.round(box.width) }
+      }),
+    )
 
-  // Narrower than that they pair up, and the odd fifth takes the whole row rather than leaving
-  // the grid's gap ground showing as an empty cell.
+  // Seven signals on one row where the card can hold seven narrow cells.
+  await page.setViewportSize({ width: 1300, height: 900 })
+  await page.goto('/app?board=b-atlas&view=dashboard')
+  await expect(tiles).toHaveCount(7)
+  expect(new Set((await boxes()).map((box) => box.top)).size, 'all seven on one row').toBe(1)
+
+  // A middle width gives four and three, and the odd tile takes the rest of its row rather than
+  // leaving the grid's gap ground showing as an empty grey cell.
+  await page.setViewportSize({ width: 1000, height: 900 })
+  await page.waitForTimeout(200)
+  const middle = await boxes()
+  expect(new Set(middle.map((box) => box.top)).size, 'four and three').toBe(2)
+  expect(middle[6].width, 'the last tile takes the rest of the row').toBeGreaterThan(middle[0].width * 1.8)
+
+  // Narrow, they pair up and the odd tile still fills its row.
   await page.setViewportSize({ width: 700, height: 900 })
   await page.waitForTimeout(200)
-  const boxes = await tiles.evaluateAll((els) =>
-    els.map((el) => {
-      const box = el.getBoundingClientRect()
-      return { top: Math.round(box.top), width: Math.round(box.width) }
-    }),
-  )
-  expect(new Set(boxes.map((box) => box.top)).size, 'two pairs and a full row').toBe(3)
-  expect(boxes[4].width, 'the last tile fills the row').toBeGreaterThan(boxes[0].width * 1.8)
+  const narrow = await boxes()
+  expect(new Set(narrow.map((box) => box.top)).size, 'pairs and a full row').toBe(4)
+  expect(narrow[6].width, 'the last tile fills the row').toBeGreaterThan(narrow[0].width * 1.8)
 })

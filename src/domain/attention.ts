@@ -1,6 +1,7 @@
 import { openDependenciesOf, rollupOf, type Graph } from './derive'
 import { boardInitiatives, isAggregating, isPortfolio, portfolioInitiatives } from './board'
-import { ageDays, isOverdue, STALE_AFTER_DAYS } from './filters'
+import { ageDays, isOverdue, parseDay, STALE_AFTER_DAYS } from './filters'
+import { dueDay, dueState } from './due'
 import { initiativeHealth } from './health'
 import { cardsFlows } from './flows'
 import { effectiveStage, lanePath, STAGE_LABELS, workflowLanes } from './lanes'
@@ -22,7 +23,14 @@ import type { Board, BoardFlow, IssueType, Item, Placement, Stage } from './type
  * because an initiative answers for the same facts a card does.
  */
 
-export type AttentionSignalKey = 'blocked' | 'waiting' | 'overdue' | 'stale' | 'unassigned'
+export type AttentionSignalKey =
+  | 'blocked'
+  | 'waiting'
+  | 'overdue'
+  | 'dueSoon'
+  | 'lateStart'
+  | 'stale'
+  | 'unassigned'
 
 /**
  * Every tile in the band. There is no "Unfinished" tile: every row here is unfinished already,
@@ -57,6 +65,8 @@ export interface AttentionCounts {
   blocked: number
   waiting: number
   overdue: number
+  dueSoon: number
+  lateStart: number
   stale: number
   unassigned: number
 }
@@ -74,6 +84,8 @@ export const ATTENTION_TILES: { key: AttentionKey; label: string }[] = [
   { key: 'blocked', label: 'Blocked' },
   { key: 'waiting', label: 'Waiting on' },
   { key: 'overdue', label: 'Overdue' },
+  { key: 'dueSoon', label: 'Due soon' },
+  { key: 'lateStart', label: 'Late start' },
   { key: 'stale', label: 'Stale' },
   { key: 'unassigned', label: 'Unassigned' },
 ]
@@ -97,7 +109,15 @@ export function boardAttention(
 ): Attention {
   const makesCards = !isAggregating(boards.find((b) => b.id === boardId))
   const rows = makesCards ? cardRows(graph, boardId, flows, now) : initiativeRows(graph, boardId, issueTypes, now, boards)
-  const counts: AttentionCounts = { blocked: 0, waiting: 0, overdue: 0, stale: 0, unassigned: 0 }
+  const counts: AttentionCounts = {
+    blocked: 0,
+    waiting: 0,
+    overdue: 0,
+    dueSoon: 0,
+    lateStart: 0,
+    stale: 0,
+    unassigned: 0,
+  }
   for (const row of rows) for (const signal of row.signals) counts[signal.key] += 1
   return { population: makesCards ? 'cards' : 'initiatives', rows: orderRows(rows), counts }
 }
@@ -151,6 +171,24 @@ function cardStatus(graph: Graph, placement: Placement, stage: Stage, flowName?:
   return flowName ? `${flowName} · ${where}` : where
 }
 
+/** The stages in which the board's own word is "this has not begun". */
+const NOT_STARTED = new Set<Stage>(['backlog', 'notStarted'])
+
+/**
+ * The day a planned start slipped, or nothing. The board's stage is the record of whether work
+ * began, the same reading WIP, rollup and staleness use; the plan is only a date. A day still to
+ * come, a stage that has begun, or no planned start at all all say nothing.
+ */
+function lateStartDay(item: Item, stage: Stage | undefined, now: number): string | undefined {
+  if (!stage || !NOT_STARTED.has(stage)) return undefined
+  const start = parseDay(item.targetStartDate)
+  if (!start) return undefined
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  if (start.getTime() >= today.getTime()) return undefined
+  return dueDay(item.targetStartDate!)
+}
+
 function cardSignals(
   item: Item,
   stage: Stage,
@@ -188,6 +226,33 @@ function cardSignals(
       label: 'Overdue',
       why: `Its due date (${item.dueDate}) has passed`,
       tone: 'risk',
+    })
+  }
+
+  // The forward-looking half of the same promise. `dueState` names the window, and it calls a
+  // passed day overdue rather than soon, so a row never carries both chips.
+  const due = dueState(item.dueDate, false, now)
+  if (due?.tone === 'soon') {
+    signals.push({
+      key: 'dueSoon',
+      label: 'Due soon',
+      why:
+        due.days === 0
+          ? `Due today — ${dueDay(due.date)}`
+          : `Due ${dueDay(due.date)} — in ${due.days} day${due.days === 1 ? '' : 's'}`,
+      tone: 'watch',
+    })
+  }
+
+  // A plan that has slipped before the work began: the target start passed and the board still
+  // says the item has not started. Never inferred — an item with no planned start says nothing.
+  const lateStart = lateStartDay(item, stage, now)
+  if (lateStart) {
+    signals.push({
+      key: 'lateStart',
+      label: 'Late start',
+      why: `Its planned start (${lateStart}) passed and it has not started`,
+      tone: 'watch',
     })
   }
 
@@ -276,6 +341,27 @@ function initiativeRows(
         label: 'Overdue',
         why: `Its due date (${item.dueDate}) has passed`,
         tone: 'risk',
+      })
+    }
+    const due = dueState(item.dueDate, false, now)
+    if (due?.tone === 'soon') {
+      signals.push({
+        key: 'dueSoon',
+        label: 'Due soon',
+        why:
+          due.days === 0
+            ? `Due today — ${dueDay(due.date)}`
+            : `Due ${dueDay(due.date)} — in ${due.days} day${due.days === 1 ? '' : 's'}`,
+        tone: 'watch',
+      })
+    }
+    const lateStart = lateStartDay(item, bucket, now)
+    if (lateStart) {
+      signals.push({
+        key: 'lateStart',
+        label: 'Late start',
+        why: `Its planned start (${lateStart}) passed and it has not started`,
+        tone: 'watch',
       })
     }
     // Staleness and ownership below are the health rules' own readings, so the dashboard and the

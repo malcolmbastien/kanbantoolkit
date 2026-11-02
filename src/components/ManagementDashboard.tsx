@@ -3,6 +3,7 @@ import {
   AlarmClock,
   Ban,
   CalendarClock,
+  CalendarX2,
   CircleAlert,
   Download,
   Hourglass,
@@ -36,6 +37,8 @@ const ATTENTION_ICON: Record<AttentionKey, LucideIcon> = {
   blocked: Ban,
   waiting: Hourglass,
   overdue: CircleAlert,
+  dueSoon: CalendarClock,
+  lateStart: CalendarX2,
   stale: AlarmClock,
   unassigned: UserRound,
 }
@@ -44,6 +47,8 @@ const ATTENTION_ACCENT: Record<AttentionKey, string> = {
   blocked: 'text-rose-600',
   waiting: 'text-rose-600',
   overdue: 'text-rose-600',
+  dueSoon: 'text-amber-600',
+  lateStart: 'text-amber-600',
   stale: 'text-amber-600',
   unassigned: 'text-slate-500',
 }
@@ -52,6 +57,8 @@ const ATTENTION_HINT: Record<AttentionKey, string> = {
   blocked: 'Explicitly blocked — somebody set a hard stop on it',
   waiting: 'Waits on another item that is not done',
   overdue: 'Past its due date and not done',
+  dueSoon: 'Due within the next week and not done',
+  lateStart: 'Its planned start has passed and it has not started',
   stale: `Committed work past ${STALE_AFTER_DAYS} days in its lane with nothing moving`,
   unassigned: 'Nobody is assigned to it',
 }
@@ -427,12 +434,10 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
-              {/* Five readings, and they fit on one row as soon as there is room for five
-                  narrow cells. A middle three-column stage was the worst of both: five tiles
-                  made a row of three and a row of two, and the sixth cell showed the gap ground
-                  as an empty grey box beside the last tile. Below that width they pair up, and
-                  the odd fifth takes the whole row rather than leaving a hole. */}
-              <div className="grid grid-cols-2 gap-px bg-slate-200 md:grid-cols-5">
+              {/* Seven readings: one row when the card is wide enough, four and three in the
+                  middle, pairs below that. The odd tile always takes the rest of its row, so the
+                  gap ground is never left showing as an empty grey cell. */}
+              <div className="grid grid-cols-2 gap-px bg-slate-200 md:grid-cols-4 xl:grid-cols-7">
                 {attentionTiles.map((tile) => {
                   const Icon = ATTENTION_ICON[tile.key]
                   const active = attentionFilter === tile.key
@@ -447,8 +452,9 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                       onClick={() => setAttentionFilter(active ? null : tile.key)}
                       className={cn(
                         'flex flex-col items-start gap-0.5 bg-white px-4 py-2.5 text-left transition hover:bg-slate-50',
-                        // An odd count pairs up and gives its last tile the full row.
-                        attentionTiles.length % 2 === 1 && 'last:col-span-2 md:last:col-span-1',
+                        // Seven tiles: the last one fills the rest of its row below xl (2, 4,
+                        // then 2 again), and sits in its own column when all seven fit.
+                        'last:col-span-2 xl:last:col-span-1',
                         active && 'bg-slate-100 ring-2 ring-inset ring-slate-400',
                       )}
                     >
