@@ -732,7 +732,6 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const parentPickId = useStore((s) => s.parentPickId)
   const setParent = useStore((s) => s.setParent)
   const cancelParentPick = useStore((s) => s.cancelParentPick)
-  const childPickId = useStore((s) => s.childPickId)
   const cancelChildPick = useStore((s) => s.cancelChildPick)
   const dropTargetId = useDrag((s) => s.dropTargetId)
   const setDropTarget = useDrag((s) => s.setDropTarget)
@@ -882,23 +881,26 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     },
     openCard: (itemId) => {
       if (justDragged.current) return
+      // Read at click time: a memoized card can hold the callback it was first given, and the
+      // pick mode may have started since. The store's current answer decides, not the render's.
+      const { parentPickId: parentPick, childPickId: childPick } = useStore.getState()
       // While a card is waiting for a parent, a click names one. Anything that is not an
       // initiative is not a choice, so the mode stays open rather than closing on a misclick —
       // and the store would refuse it anyway, which is the rule doing its job.
       // Naming a card for an initiative: the choices here are the cards, so anything that is
       // an initiative is not one.
-      if (childPickId) {
+      if (childPick) {
         const picked = items.find((i) => i.id === itemId)
         if (picked && !isInitiative(picked.typeId)) {
-          setParent(itemId, childPickId)
+          setParent(itemId, childPick)
           cancelChildPick()
         }
         return
       }
-      if (parentPickId) {
+      if (parentPick) {
         const picked = items.find((i) => i.id === itemId)
         if (picked && isInitiative(picked.typeId)) {
-          setParent(parentPickId, itemId)
+          setParent(parentPick, itemId)
           cancelParentPick()
         }
         return

@@ -342,17 +342,22 @@ export function BoardSummary({
         }
         onOpen={(id) => {
           if (justDragged.current) return
+          // The pick state is read when the click happens, not captured: a memoized card keeps
+          // the callback it was first given, and the valid target of a parent pick is exactly a
+          // card whose props do not change when the pick starts (it is not dimmed). Capturing the
+          // value opened the drawer instead of forming the link.
+          const { parentPickId: parentPick, childPickId: childPick } = useStore.getState()
           // Naming a card for an initiative: an initiative is not a card, so it is not a choice.
-          if (childPickId) return
+          if (childPick) return
           // While a card is waiting for a parent, an initiative click is the answer rather than
           // an open. Every card on this surface is an initiative, which is why the pick is
           // answered here and not on the cards workflow.
-          if (parentPickId) {
+          if (parentPick) {
             // Only the initiatives on the board being viewed are choices. On a Program board
             // that is what keeps a band from parenting another band: the act is a team
             // initiative rolling up to a management one, and this is what makes it that.
             if (!onViewedBoard(id)) return
-            setParent(parentPickId, id)
+            setParent(parentPick, id)
             cancelParentPick()
             return
           }

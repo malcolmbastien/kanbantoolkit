@@ -270,3 +270,20 @@ test('a card opened from a link is brought into view on the board', async ({ pag
     )
   }, { timeout: 5000 }).toBe(true)
 })
+
+test('Set parent from the card menu links on a click, and does not open the drawer', async ({ page }) => {
+  await openBoard(page)
+
+  // A card whose parent is one initiative, being re-parented to another.
+  await page.locator('[data-card-id="st-signup-rebuild"]').click({ button: 'right' })
+  await page.locator('[data-card-menu][role="menu"]').first().getByText('Set parent…').click()
+  await expect(page.locator('[data-parent-pick]')).toBeVisible()
+
+  await page.locator('[data-card-id="init-billing"]').click()
+
+  // The click is the answer, not a request to read the initiative: no drawer, and the pick is over.
+  await expect(page.locator('[data-item-panel]')).toHaveCount(0)
+  await expect(page.locator('[data-parent-pick]')).toHaveCount(0)
+  // …and the card now rolls up to it.
+  await expect(page.locator('[data-card-id="st-signup-rebuild"]')).toContainText('Billing migration')
+})
