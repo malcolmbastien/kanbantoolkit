@@ -142,12 +142,8 @@ interface Props {
   dropTarget?: boolean
   /** Dimmed because another card is part of the active multi-select group. */
   dimmed?: boolean
-  /**
-   * Open an item. `reveal` asks the surface to bring the item's card into view as well — the
-   * pip on an initiative is a way to a child that may be in the other workflow, or below the
-   * fold, so selecting it is not enough if the reader cannot see where it landed.
-   */
-  onOpen: (id: string, opts?: { reveal?: boolean }) => void
+  /** Open an item. The surface brings the card into view as part of opening it. */
+  onOpen: (id: string) => void
   /** Shift+click — start/extend the multi-select group. */
   onMultiSelect?: (id: string) => void
   /** Right-click (or the ⋯ button) — open the card context menu at (x, y). */
@@ -197,7 +193,7 @@ const barColor = (pct?: number) => (pct === undefined ? '#cbd5e1' : pct >= 100 ?
 const cardKeyboard = (
   item: Item,
   locked: boolean | undefined,
-  onOpen: (id: string, opts?: { reveal?: boolean }) => void,
+  onOpen: (id: string) => void,
   onContextMenu: ((id: string, x: number, y: number) => void) | undefined,
 ) => ({
   role: 'group' as const,
@@ -504,11 +500,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                     title={`${p.title} — ${STAGE_LABELS[p.bucket]}`}
                     onClick={(e) => {
                       // The pip is not the card: opening the child must not also open the
-                      // initiative whose face the pip sits on. It is, though, the way to a
-                      // child that may be in the other workflow or below the fold, so the
-                      // surface is asked to reveal it.
+                      // initiative whose face the pip sits on.
                       e.stopPropagation()
-                      onOpen(p.id, { reveal: true })
+                      onOpen(p.id)
                     }}
                     className={cn(
                       'h-4 w-4 shrink-0 rounded transition hover:brightness-90',

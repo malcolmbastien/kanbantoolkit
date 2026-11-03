@@ -81,6 +81,10 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
   waits on reaches Done.
 - **Activity** is the item's own history: every move, edit, note and link, with who and when.
 
+Opening a card also brings it into view: the board scrolls the card into the middle of what is left
+beside the drawer, so its column and neighbours are in front of the reader. A card already in view is
+left where it is — the board does not move under a click that was made on it.
+
 The drawer is where editing happens. If somebody else is editing the same card, the drawer shows who has
 it, and the fields stay closed to you until they finish. A Viewer, and an archived or discarded item,
 are read-only. A Viewer can still leave a note, but an archived item accepts no edits or notes.

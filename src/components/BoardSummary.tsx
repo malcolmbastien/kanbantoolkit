@@ -19,7 +19,6 @@ import { boardInitiatives, initiativeCellOf, initiativeRanks, initiativeTypeById
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
-import { stillScrolling } from '@/lib/useStillScroll'
 import {
   ArrowLeftRight,
   BetweenHorizontalStart,
@@ -286,27 +285,6 @@ export function BoardSummary({
   /** The hovered position in a cell, if the cell in flight would land there. */
   const gapAt = (cellId: string) => (previewCell && previewCell.cellId === cellId ? previewCell.index : null)
 
-  /**
-   * Bring the card a pip opened into view.
-   *
-   * A pip names a direct child, and a child can be in the cards workflow below the fold or in
-   * another section of this flow — selecting it is not enough if the reader cannot see it. The
-   * scroll waits one frame, because the drawer opening and the selection ring are a React commit
-   * and the element's final place is only known after it. `scrollIntoView` walks every scrollable
-   * ancestor, which is exactly the two axes a card can be out of sight on: the board's vertical
-   * surface and its workflow's horizontal one.
-   */
-  const revealCard = (id: string) => {
-    // The view is being moved on purpose, through a smooth scroll: tell the board's scroll keeper to
-    // stand down until it has landed, or a resize in the middle of it would undo the journey.
-    stillScrolling()
-    requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLElement>(`[data-card-id="${CSS.escape(id)}"]`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-    })
-  }
-
   const initiativeCard = (c: Item) => {
     const pid = model.parentOf.get(c.id)
     const p = pid ? model.itemsById.get(pid) : undefined
@@ -362,7 +340,7 @@ export function BoardSummary({
           // Program board the bands' initiatives dim and the board's own stay lit.
           (parentPickId !== null && !onViewedBoard(c.id))
         }
-        onOpen={(id, opts) => {
+        onOpen={(id) => {
           if (justDragged.current) return
           // Naming a card for an initiative: an initiative is not a card, so it is not a choice.
           if (childPickId) return
@@ -379,9 +357,6 @@ export function BoardSummary({
             return
           }
           openItem(id)
-          // A pip is the one way in that names a card somewhere other than where the click was
-          // made, so it asks the board to go there too.
-          if (opts?.reveal) revealCard(id)
         }}
         summary={{
           childCount: model.childrenOf.get(c.id)?.length ?? 0,

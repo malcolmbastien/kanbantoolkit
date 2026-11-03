@@ -107,10 +107,22 @@ export function ItemPicker({
       if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return
       close()
     }
-    // A fixed panel would otherwise point at where the trigger used to be.
+    // A fixed panel would otherwise point at where the trigger used to be. Only a scroll that can
+    // move the trigger makes that true: the document, or a scrollable ancestor of the trigger. The
+    // board scrolling beside the drawer does not move a control inside the drawer, and closing on
+    // it made an unrelated smooth scroll dismiss a picker the reader had just opened.
     const onScroll = (event: Event) => {
       if (panelRef.current?.contains(event.target as Node)) return
-      close()
+      const target = event.target
+      if (!(target instanceof Node)) return
+      let node: Node | null = triggerRef.current
+      while (node) {
+        if (node === target) {
+          close()
+          return
+        }
+        node = node.parentNode
+      }
     }
     const onResize = () => close()
     document.addEventListener('mousedown', onDown)

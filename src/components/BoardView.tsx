@@ -15,6 +15,7 @@ import { effectiveStage } from '@/domain/lanes'
 import { BAND_ACCENT } from '@/lib/colors'
 import { downloadText } from '@/lib/download'
 import { stillScrolling, useStillScroll } from '@/lib/useStillScroll'
+import { useRevealSelection } from '@/lib/useRevealSelection'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
@@ -66,6 +67,8 @@ export function BoardView({ requestMove }: Props) {
   // for an aggregating board and a team board.
   const contentRef = useRef<HTMLDivElement>(null)
   useStillScroll(pan.ref, contentRef, undefined, boardId)
+  // Selecting a card brings it into view: the drawer takes width and the card may be off-screen.
+  useRevealSelection(pan.ref)
   // Which workflow bands are folded away. A band is folded on its own, so a reader can keep the
   // initiatives and the boundary in view while one cards flow takes the room; a board switch starts
   // fresh because the initiatives key carries the board and a flow id belongs to one board.

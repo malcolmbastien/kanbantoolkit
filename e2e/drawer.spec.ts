@@ -245,3 +245,28 @@ test('an initiative opens without focusing the board; the drawer button starts i
   // …and then the work outside the line recedes, which is what the lens is for.
   await expect.poll(opacity).toBeLessThan(before)
 })
+
+test('a card opened from a link is brought into view on the board', async ({ page }) => {
+  // A short viewport: the Support band (where this card lives) starts below the fold.
+  await page.setViewportSize({ width: 1200, height: 620 })
+  await page.goto('/app?board=b-atlas&item=st-reproduce-report')
+
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toHaveAttribute('aria-label', 'Card details: Reproduce the customer report')
+
+  // The drawer is open, and the board has moved to the card rather than leaving the reader to
+  // hunt for it in a band they cannot see.
+  const card = page.locator('[data-workflow="cards"] [data-card-id="st-reproduce-report"]').first()
+  await expect(card).toHaveCount(1)
+  await expect.poll(async () => {
+    const board = await page.locator('[data-board-scroll]').boundingBox()
+    const box = await card.boundingBox()
+    if (!board || !box) return false
+    return (
+      box.y >= board.y + 8 &&
+      box.y + box.height <= board.y + board.height - 8 &&
+      box.x >= board.x + 8 &&
+      box.x + box.width <= board.x + board.width - 8
+    )
+  }, { timeout: 5000 }).toBe(true)
+})

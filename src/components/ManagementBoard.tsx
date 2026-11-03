@@ -9,6 +9,7 @@ import { linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
+import { useRevealSelection } from '@/lib/useRevealSelection'
 
 /**
  * An aggregating board (coordination or strategic), Kanbanize-style:
@@ -43,6 +44,8 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const accent = BAND_ACCENT[board.band]
   // Drag empty workflow space to move the board. See usePanScroll.
   const pan = usePanScroll<HTMLDivElement>()
+  // A card opened from a band is brought into view in this board's own scroller.
+  useRevealSelection(pan.ref)
   /**
    * A section is the same slim bar a team board uses — a dot in the band's colour, a title,
    * a subtitle and a rule — so a program or portfolio reads like a team board. Only the
