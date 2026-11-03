@@ -363,3 +363,24 @@ test('the forecast scope is one control above both questions', async ({ page }) 
   expect(await page.getByLabel('At least cards').getAttribute('max')).not.toBe(maxBefore)
   expect(await page.locator('[data-sle]').innerText()).toBe(sleBefore)
 })
+
+test('the glossary defines the clocks the charts use', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+  const glossary = view.locator('[data-flow-glossary]')
+  await expect(glossary).toBeVisible()
+
+  for (const term of ['Created', 'Committed', 'Lead time', 'Cycle time']) {
+    await expect(glossary.getByText(term, { exact: true })).toBeVisible()
+  }
+  // The two distinctions a reader most often gets wrong: commitment leaves Backlog, and lead
+  // includes the wait there while cycle does not.
+  await expect(glossary).toContainText('first time it leaves Backlog')
+  await expect(glossary).toContainText('including any time it waited in Backlog')
+  await expect(glossary).toContainText('the work after the card was taken on')
+
+  // It comes before the chart that uses the terms.
+  const box = (await glossary.boundingBox())!
+  const scatter = (await view.locator('[data-flow-scatter]').boundingBox())!
+  expect(scatter.y).toBeGreaterThan(box.y)
+})

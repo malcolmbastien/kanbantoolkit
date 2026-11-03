@@ -340,6 +340,30 @@ export function MetricsView({ boardId }: { boardId: string }) {
           </div>
         </div>
 
+        {/* The definitions the charts depend on, before the charts that use them. A reader who
+            only knows "lead" and "cycle" by name cannot tell which clock a number is on; four
+            lines fix that without sending them to the docs. */}
+        <Panel title="How times are measured" note="Calendar time between the moments the board records. Done means the card reached Done.">
+          <dl data-flow-glossary className="grid gap-x-6 gap-y-2 text-meta text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="font-semibold text-slate-800">Created</dt>
+              <dd>When the card was made.</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-800">Committed</dt>
+              <dd>The first time it leaves Backlog. A card made into a committed column counts from its creation.</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-800">Lead time</dt>
+              <dd>Created → Done, including any time it waited in Backlog.</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-800">Cycle time</dt>
+              <dd>Committed → Done: the work after the card was taken on.</dd>
+            </div>
+          </dl>
+        </Panel>
+
         {records.length === 0 ? (
           <div className="rounded-lg border border-slate-300 bg-white px-4 py-6 text-meta text-slate-600 shadow-sm">
             This board has no cards yet. Flow is read from the moves, so there is nothing to show.

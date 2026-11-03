@@ -12,6 +12,12 @@ the cumulative flow diagram, throughput, and one **Planning** panel with three r
 level expectation, when the open work will be done, and how many by a date. The controls row also
 exports the window's delivered cards — the rows the scatter used to list — as CSV.
 
+Under the header a short **How times are measured** glossary defines the four moments the numbers
+are built from: **Created** (when the card was made), **Committed** (the first time it leaves
+Backlog; a card made into a committed column counts from creation), **Lead time** (Created → Done,
+including the wait in Backlog) and **Cycle time** (Committed → Done). It sits before the charts so
+the terms are defined where they are first read.
+
 The cycle-time dots and the throughput bars are coloured by the card's **type**, using the board's
 own type colours. Each chart carries a legend naming the types in its window; the tooltip names the
 type again, and so does the CSV.
