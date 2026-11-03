@@ -8,9 +8,8 @@ path: /
     <div class="hero-copy">
       <h1>An open-source <br class="hero-break" /><span>Kanban board for teams</span></h1>
       <p class="lede">
-        Manage day-to-day work and see how it contributes to larger initiatives. Where the work waits —
-        and why — is on the card. The same cards also read as initiatives, so progress shows without a
-        separate status report.
+        Manage the day-to-day work and see how it adds up to larger initiatives. Where the work waits —
+        and why — is on the card, so progress and risk need no separate status report.
       </p>
       <p class="cta">
         <a class="button" href="/app">Open the demo (no account needed)</a>
@@ -55,7 +54,7 @@ path: /
           <img src="/img/home-lanes.webp" width="1000" height="523" alt="A split column: its cells side by side, each with the name the team gave it, its card count, and the cards inside." />
           <figcaption>
             <span class="dot" aria-hidden="true"></span>
-            Shape the board around the way your team actually works, with limits that keep work moving.
+            Shape the board around the way your team works, with a WIP limit where it helps.
           </figcaption>
         </figure>
         <figure class="slide slide-2">
@@ -90,8 +89,8 @@ path: /
       <p class="kicker">For the whole team</p>
       <h2>The cards hold the detail. The initiatives show how it adds up.</h2>
       <p>
-        The board is the team's own workspace. The initiatives view reads the same cards at a higher level, so nothing
-        has to be written twice.
+        The board is the team's own workspace. The initiatives view reads the same cards at a higher
+        level, so nothing is written twice.
       </p>
     </div>
 
@@ -103,13 +102,13 @@ path: /
         </p>
         <h3>Work the way your team does</h3>
         <p>
-          Split a column into the steps your team actually uses, and set a sensible limit on how much
-          work is in flight. The initiatives view still reads correctly.
+          Split a column into the steps your team actually uses, and cap how much work is in flight.
+          The initiatives above keep reading the same cards.
         </p>
         <ul class="checked">
-          <li>Find and open anything in a few keystrokes</li>
-          <li>Clear signals when work is blocked or waiting</li>
-          <li>Limits that keep work moving instead of piling up</li>
+          <li>Find and open a card without the mouse</li>
+          <li>Blocked and waiting said on the card</li>
+          <li>A WIP limit per column, at or over the line</li>
         </ul>
       </article>
 
@@ -123,17 +122,17 @@ path: /
           Progress, time in each stage and risk come from the work itself.
         </p>
         <ul class="checked">
-          <li>A clear read on what is on track and what needs attention</li>
-          <li>See which teams are waiting on work from others</li>
-          <li>See how long work takes without asking people to log hours</li>
+          <li>What is on track, and what needs attention</li>
+          <li>Which teams are waiting on other teams</li>
+          <li>How long work takes, with nobody logging hours</li>
         </ul>
       </article>
     </div>
 
     <div class="signals-block">
       <p class="signals-head">
-        <strong>Friction, made visible.</strong> Four things a card can tell you about why it is not
-        moving — read from the card, not from a dashboard somebody has to keep up to date.
+        <strong>Friction, made visible.</strong> Four things a card says about why it is not moving,
+        read from the card rather than a dashboard somebody keeps up to date.
       </p>
       <ul class="signals">
         <li><span class="signal watch">still 17d</span>How long it has sat in this column, counted from its own moves.</li>
@@ -150,7 +149,7 @@ path: /
     <div class="section-head">
       <p class="kicker">Private by default</p>
       <h2>Your board stays on your own server</h2>
-      <p>Run it on your own machine or server. Nothing leaves it unless you turn on webhooks or mail.</p>
+      <p>Nothing leaves the machine unless you turn on webhooks or mail.</p>
     </div>
 
     <div class="privacy-points">
@@ -160,8 +159,8 @@ path: /
         </p>
         <h3>Your work stays yours</h3>
         <p>
-          Changes save as you make them, or as soon as the connection returns, and reach the board in the
-          order they were made, so everybody reads the same copy. You can export everything whenever you want.
+          Changes save as you make them, or as soon as the connection returns, and land in the order
+          they were made, so everybody reads the same copy.
         </p>
       </article>
 
@@ -203,12 +202,11 @@ path: /
     <div class="section-head">
       <p class="kicker">The details</p>
       <h2 id="promises">What makes Kanban Toolkit different</h2>
-      <p>Three things that set Kanban Toolkit apart, each with the page that backs it up.</p>
     </div>
     <ul class="promises">
-      <li><strong>Progress you can trust.</strong> The initiatives view shows the same cards the board does, as it happens. <a href="/product/">How it works</a>.</li>
-      <li><strong>No lock-in.</strong> Export everything at any time, in a format you can open elsewhere. <a href="{{repo}}/blob/main/docs/backup.md">How to export</a>.</li>
-      <li><strong>Open source.</strong> Read it, change it, and run it on your own terms. <a href="{{repo}}/blob/main/LICENSE">Read the licence</a>.</li>
+      <li><strong>Progress you can check.</strong> The initiatives view shows the cards the board shows, with nothing entered between them. <a href="/product/">How it works</a>.</li>
+      <li><strong>No lock-in.</strong> Export the whole workspace as JSON whenever you want, and open it elsewhere. <a href="{{repo}}/blob/main/docs/backup.md">How to export</a>.</li>
+      <li><strong>Open source.</strong> AGPL-3.0-or-later: read it, change it, run it. <a href="{{repo}}/blob/main/LICENSE">Read the licence</a>.</li>
     </ul>
   </div>
 </section>
@@ -226,7 +224,7 @@ path: /
       </div>
       <div class="faq-item">
         <h3>What if two of us edit the same card?</h3>
-        <p>The person editing holds the card while they work, so the other sees it is held. A change made from a copy that has moved on is not applied over the newer one — you are shown the newer one.</p>
+        <p>The person editing holds the card while they work, so the other sees it is held. A change based on an older copy is refused, and you are shown the newer one.</p>
       </div>
       <div class="faq-item">
         <h3>Do you train AI on our work?</h3>
@@ -234,7 +232,7 @@ path: /
       </div>
       <div class="faq-item">
         <h3>How do we run it ourselves and keep it safe?</h3>
-        <p>It comes with simple instructions for running it on your own machine or server. Everything is kept in one file you can copy or download whenever you like. <a href="/install/">See how to run it</a>.</p>
+        <p>One command with Docker, or three with Node. Everything is kept in one SQLite file you can copy or download whenever you like. <a href="/install/">See how to run it</a>.</p>
       </div>
     </div>
   </div>
@@ -244,7 +242,7 @@ path: /
   <div class="wrap cta-row">
     <div>
       <h2>Set up your team's board in minutes.</h2>
-      <p>One place for your work. No ads or analytics. Free and open source.</p>
+      <p>One command, one file, no ads or analytics.</p>
     </div>
     <p class="cta-actions">
       <a class="button-light" href="/app">Open the demo</a>

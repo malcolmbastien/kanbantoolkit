@@ -7,7 +7,7 @@ path: /install/
 <p class="lede">
   Kanban Toolkit is free software, and it is the same application however you run it: the same routes, the
   same SQLite schema and the same server as the Cloudflare build. One Node process, one file, a
-  directory of static pages — no service in between, and nobody to ask.
+  directory of static pages — no service in between.
 </p>
 
 <h2 id="container">After cloning, if you have Docker</h2>
@@ -37,7 +37,7 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
   This is what the image does, in the open: a clone, a build, a process. The build writes the site
   and the app into <code>dist/</code>; the first start applies the schema migrations and leaves you a
   database file. There is no account to create first. The salt above is generated for this run to
-  show the shape of it — a server you keep takes the value from its unit file, so restarts keep
+  show the shape of it; a server you keep takes the value from its unit file, so restarts keep
   matching the addresses it hashed yesterday.
 </p>
 
@@ -50,14 +50,13 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
 
 <h2>What you take on</h2>
 <p>
-  This is what self-hosting means rather than a caveat: the machine, and the four jobs that come with
-  it.
+  Self-hosting means the machine and the four jobs that come with it.
 </p>
 <ul class="points">
   <li><strong>TLS.</strong> Kanban Toolkit does not terminate it. A proxy does, with a certificate, and <code>PUBLIC_URL</code> tells the server what that address is — which is also what makes the session cookie secure.</li>
   <li><strong>Updates.</strong> You pull, build and restart. A release that adds a migration applies it at boot, and the server refuses to start rather than serve a database it does not understand.</li>
   <li><strong>Backups.</strong> One file, copied somewhere else, on a schedule — and a restore you have actually run once. The copy is <code>npm run backup</code>; it takes a consistent snapshot while the server keeps running.</li>
-  <li><strong>Support.</strong> There is nobody on a rota. The help page and the documentation are the ones written for this software, and they are the ones this instance is running.</li>
+  <li><strong>Support.</strong> There is nobody on a rota. The documentation was written for this software and ships with the version you are running.</li>
 </ul>
 
 <h2>What it reads</h2>
@@ -89,8 +88,8 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
   <li><strong>No hosted backups, and no hosted support.</strong> The file is yours, the schedule is yours, and the person who answers when it breaks is you.</li>
 </ul>
 <p>
-  There is no reduced edition and nothing to unlock: no plan, no seat count, no objective the free
-  version withholds. Everyone runs the whole application, because there is nothing to sell.
+  There is no reduced edition: no plan, no seat count, nothing held back. Everyone runs the whole
+  application, because there is nothing to sell.
 </p>
 
 <h2 id="upkeep">Keeping it up</h2>
@@ -113,8 +112,8 @@ npm run backup -- restore ./backups/kanbantoolkit-2026-10-24T02-00-00.db ./kanba
 <p>
   Kanban Toolkit is free software under the <a href="{{repo}}/blob/main/LICENSE">GNU Affero General Public
   License, version 3 or later</a>. Read it, change it, run your changes — for yourself, or for a
-  team, for nothing. The one thing it asks is the point of the licence: a modified version, run for
-  other people over a network, offers them its source.
+  team, for nothing. The one thing it asks is a modified version, run for other people over a
+  network, offering them its source.
 </p>
 
 <h2>Where to go next</h2>
