@@ -201,3 +201,22 @@ test('a board type is shown but cannot be changed in settings', async ({ page })
   await expect(dialog.getByRole('button', { name: 'Portfolio', exact: true })).toHaveCount(0)
   await expect(dialog).toContainText('To change it, make a board of the other type')
 })
+
+test('the fold and policy controls have usable hit targets', async ({ page }) => {
+  await openBoard(page)
+  const size = async (locator: ReturnType<typeof page.locator>) => {
+    const box = await locator.first().boundingBox()
+    expect(box, 'the control is on the board').not.toBeNull()
+    return Math.min(box!.width, box!.height)
+  }
+
+  // A 16px chevron is a decoration, not a target: a column's fold, a workflow's fold and the
+  // lane-policy info all clear a 24px square.
+  expect(await size(page.getByTitle('Collapse column'))).toBeGreaterThanOrEqual(24)
+  expect(await size(page.getByRole('button', { name: /^Collapse Cards/ }))).toBeGreaterThanOrEqual(24)
+  expect(await size(page.getByRole('button', { name: 'Lane policy' }))).toBeGreaterThanOrEqual(24)
+
+  // The folded rail's expand control is the only way back, so it is a real target too.
+  await page.getByTitle('Collapse column').first().click()
+  expect(await size(page.getByTitle('Expand'))).toBeGreaterThanOrEqual(24)
+})

@@ -29,7 +29,7 @@ export function WorkflowToggle({
       aria-label={`${verb} ${name}`}
       title={`${verb} ${name}`}
       className={cn(
-        'grid h-5 w-5 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-white/70 hover:text-slate-900',
+        'grid h-7 w-7 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-white/70 hover:text-slate-900 pointer-coarse:h-9 pointer-coarse:w-9',
         className,
       )}
     >

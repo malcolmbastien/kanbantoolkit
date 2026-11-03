@@ -222,7 +222,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             {canCollapse ? (
               <button
                 onClick={(e) => { e.stopPropagation(); ctx.toggleCollapse(lane.id) }}
-                className="grid h-4 w-4 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                className="grid h-6 w-6 shrink-0 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-800 pointer-coarse:h-9 pointer-coarse:w-9"
                 title={collapsed ? 'Expand' : `Collapse ${parentOrientation === 'columns' ? 'column' : 'row'}`}
               >
                 {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
@@ -352,7 +352,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       >
         <button
           onClick={() => ctx.toggleCollapse(lane.id)}
-          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-700 transition hover:bg-white/70"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-700 transition hover:bg-white/70"
           title="Expand"
         >
           <ChevronsRight size={13} />
