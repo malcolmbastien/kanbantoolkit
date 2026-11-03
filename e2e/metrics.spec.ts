@@ -261,7 +261,7 @@ test('the demo forecast answers with a range and the assumptions behind it', asy
 
   // The assumptions are on screen, with the size of the sample behind them.
   await expect(view.getByText(/5,000 trials over \d+ weeks/)).toBeVisible()
-  await expect(view.getByText(/throughput arrives weekly/)).toBeVisible()
+  await expect(view.getByText(/Throughput is assumed weekly/)).toBeVisible()
 
   // The other reading of the same trials: how much lands by a date, and for how many. With no
   // number asked for, the question is the whole open scope; a smaller N names its share of it.
@@ -318,8 +318,8 @@ test('the planning cards say what they answer and what they count', async ({ pag
   const view = page.locator('[data-flow-view]')
 
   // The service level names its sample and what the time is measured from.
-  await expect(view.locator('[data-sle-line]')).toContainText('finished in this window')
-  await expect(view.locator('[data-sle-line]')).toContainText('of leaving Backlog')
+  await expect(view.locator('[data-sle-line]')).toContainText('finished here')
+  await expect(view.locator('[data-sle-line]')).toContainText('from leaving Backlog')
 
   // Each question is stated as the thing it answers, and the open count says where it comes from.
   await expect(view.getByText('When all open cards are done', { exact: true })).toBeVisible()

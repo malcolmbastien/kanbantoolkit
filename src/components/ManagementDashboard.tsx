@@ -52,13 +52,13 @@ const ATTENTION_ACCENT: Record<AttentionKey, string> = {
 }
 
 const ATTENTION_HINT: Record<AttentionKey, string> = {
-  blocked: 'Explicitly blocked — somebody set a hard stop on it',
+  blocked: 'Someone set a hard stop on it',
   waiting: 'Waits on another item that is not done',
   overdue: 'Past its due date and not done',
   dueSoon: 'Due within the next week and not done',
-  lateStart: 'Its planned start has passed and it has not started',
-  stale: `Committed work past ${STALE_AFTER_DAYS} days in its lane with nothing moving`,
-  unassigned: 'Nobody is assigned to it',
+  lateStart: 'Meant to have started, and has not',
+  stale: `In its lane more than ${STALE_AFTER_DAYS} days with nothing moving`,
+  unassigned: 'No one is assigned',
 }
 
 /** Days in a column, quiet: a whole number of days, or one decimal for an in-between median. */
@@ -215,14 +215,14 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           <div className="mb-2 flex flex-wrap items-end gap-x-4 gap-y-1">
             <div>
               <h2 className="text-heading font-semibold text-slate-800">Time in column</h2>
-              <p className="text-meta text-slate-600">How many cards sit in each column, and how long they have been there.</p>
+              <p className="text-meta text-slate-600">Cards per column, and how long they have sat there.</p>
             </div>
             <span className="ml-auto text-meta text-slate-500">Stale after {STALE_AFTER_DAYS}+ days</span>
           </div>
 
           {flowColumns.length === 0 ? (
             <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-meta text-slate-600 shadow-sm">
-              This board has no cards flow to read.
+              This board has no cards flow.
             </div>
           ) : (
             flowColumns.map(({ flow, columns }) => (
@@ -264,7 +264,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                                 className={cn(stale && 'font-semibold text-amber-700')}
                                 title={
                                   stale
-                                    ? 'A card has sat still past the staleness threshold — the same moment a card starts showing its age'
+                                    ? 'A card has been in this column past the stale threshold'
                                     : undefined
                                 }
                               >
@@ -294,8 +294,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             <div>
               <h2 className="text-heading font-semibold text-slate-800">Initiatives</h2>
               <p className="text-meta text-slate-600">
-                Every initiative this board reads, with the work rolled up below it, its plan and
-                promise, and its health.
+                Every initiative this board reads, with its work rolled up, its dates and its health.
               </p>
             </div>
             <span className="ml-auto text-meta text-slate-500">Rolled up from the work below</span>
@@ -424,14 +423,14 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
           <div className="mb-2 flex flex-wrap items-end gap-x-4 gap-y-1">
             <div>
               <h2 className="text-heading font-semibold text-slate-800">Needs attention</h2>
-              <p className="text-meta text-slate-600">Unfinished work on this board. Select a signal to filter the items below.</p>
+              <p className="text-meta text-slate-600">Unfinished work on this board. Pick a signal to narrow the list.</p>
             </div>
             <span className="ml-auto text-meta text-slate-500">Stale after {STALE_AFTER_DAYS}+ days</span>
           </div>
 
           {signalRows.length === 0 ? (
             <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-meta text-slate-600 shadow-sm">
-              Nothing needs attention here — no unfinished item carries a signal.
+              Nothing needs attention. No unfinished item carries a signal.
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
@@ -444,7 +443,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                   type="button"
                   data-attention-tile="all"
                   aria-pressed={attentionFilter === null}
-                  title="Every item carrying a signal — the default view"
+                  title="Every item with a signal"
                   onClick={() => setAttentionFilter(null)}
                   className={cn(
                     'flex flex-col items-start gap-0.5 bg-white px-4 py-2.5 text-left transition hover:bg-slate-50',
@@ -554,7 +553,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                           className="px-4 py-2 text-meta tabular-nums text-slate-600"
                           title={
                             age === undefined
-                              ? 'This placement predates the lane stamp, so its age is unknown'
+                              ? 'Placed before the lane stamp, so the age is unknown'
                               : `${age} days in its current lane`
                           }
                         >

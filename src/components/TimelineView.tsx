@@ -155,7 +155,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
                         >
                           {bar.title}
                         </button>
-                        <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600" title="Rollup — share of leaf work done">
+                        <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600" title="Share of the work below that is done">
                           {rollupOf(bar.id, graph).percent}%
                         </span>
                       </div>

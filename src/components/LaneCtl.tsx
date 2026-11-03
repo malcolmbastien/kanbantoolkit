@@ -166,7 +166,7 @@ export function LaneEditControls({
         </>
       )}
       <CtlDivider />
-      <LaneCtl btnRef={settingsBtnRef} active={settingsActive} title="Lane settings — name, WIP limit, policy" onClick={onSettings}>
+      <LaneCtl btnRef={settingsBtnRef} active={settingsActive} title="Name, WIP limit and policy" onClick={onSettings}>
         <Settings size={12} />
       </LaneCtl>
     </CtlGroup>

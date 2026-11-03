@@ -249,8 +249,8 @@ export function ItemPanel({ itemId }: Props) {
   const duplicateCell = placementOn(placements, item.id, boardId)
   const canDuplicate = boardSurface && Boolean(duplicateCell)
   const duplicateReason = boardSurface
-    ? 'A copy lands in the original’s cell, and this card is not in one here.'
-    : 'A copy lands in the original’s cell — open this card from its board.'
+    ? 'This card is not in a cell on this board.'
+    : 'Open this card from its board to copy it.'
   // The kinds this board offers, and the one this initiative carries — which may come from
   // another board, since an initiative can be placed on more than one.
   const kinds = boardInitiativeTypes(boards.find((b) => b.id === boardId))
@@ -491,7 +491,7 @@ export function ItemPanel({ itemId }: Props) {
           <button
             onClick={opts.onRemove}
             className="shrink-0 text-slate-500 transition hover:text-rose-600"
-            title="Remove this link — the other item is untouched"
+            title="Remove this link"
             aria-label={`Remove the link to ${c.title}`}
           >
             <X size={12} />
@@ -537,7 +537,7 @@ export function ItemPanel({ itemId }: Props) {
         {opts.onRemove && (
           <button
             onClick={opts.onRemove}
-            title="Remove this link — the other item is untouched"
+            title="Remove this link"
             aria-label={`Remove the link to ${c.title}`}
             className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded p-1 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
           >
@@ -605,7 +605,7 @@ export function ItemPanel({ itemId }: Props) {
             )}
             {canWrite && !archived && (
               <IconButton
-                title="More — duplicate, archive, delete"
+                title="More"
                 active={moreOpen}
                 onClick={() => setMoreOpen((o) => !o)}
               >
@@ -615,7 +615,7 @@ export function ItemPanel({ itemId }: Props) {
             {archived && (
               <button
                 onClick={() => unarchiveItem(item.id)}
-                title="Restore this item to its board"
+                title="Restore this item"
                 className="flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-micro font-semibold text-amber-800 transition hover:bg-amber-100"
               >
                 <RotateCcw size={12} /> Restore
@@ -637,7 +637,7 @@ export function ItemPanel({ itemId }: Props) {
                 <button
                   onClick={() => duplicateCard(item.id)}
                   disabled={!canDuplicate}
-                  title={canDuplicate ? 'Copy this card into the same cell, just below it' : undefined}
+                  title={canDuplicate ? 'Copy into the same cell, below this one' : undefined}
                   className={cn(
                     'flex items-center gap-1 rounded-lg border bg-white px-2 py-1 text-meta font-medium transition',
                     canDuplicate
@@ -658,7 +658,7 @@ export function ItemPanel({ itemId }: Props) {
               ) : complete ? (
                 <button
                   onClick={() => archiveItem(item.id)}
-                  title="File this item and everything below it away, as completed work"
+                  title="Archive this item and everything under it"
                   className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                   <Archive size={12} /> Archive
@@ -666,7 +666,7 @@ export function ItemPanel({ itemId }: Props) {
               ) : (
                 <button
                   onClick={() => archiveItem(item.id)}
-                  title="Drop this item and everything below it from the board without finishing it — it goes to the archive as discarded"
+                  title="Archive this item and everything under it as discarded, unfinished"
                   className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                   <ArchiveX size={12} /> Discard
@@ -676,7 +676,7 @@ export function ItemPanel({ itemId }: Props) {
                 onClick={() =>
                   askConfirm({
                     title: `Delete "${item.title}"?`,
-                    body: "This can't be undone. Its parent, links and attribution are removed, and its children lose their parent.",
+                    body: "Nothing is kept. Its children lose their parent, and its links and attribution go with it.",
                     confirmLabel: 'Delete card',
                     danger: true,
                     onConfirm: () => deleteItem(item.id),
@@ -694,8 +694,8 @@ export function ItemPanel({ itemId }: Props) {
             {typeIsFixed && (
               <p className="text-micro text-slate-600">
                 {isInitiative
-                  ? 'An initiative is always an initiative — that type is what the initiatives workflow reads.'
-                  : 'A sub-task is a line on the checklist, not an item, so its type is not yours to change.'}
+                  ? 'An initiative’s type is fixed — the initiatives workflow reads it.'
+                  : 'A sub-task is a checklist line, not an item, so it has no type to change.'}
               </p>
             )}
           </div>
@@ -715,7 +715,7 @@ export function ItemPanel({ itemId }: Props) {
           {itemBoard && itemBoard.id !== boardId && (
             <span
               className="rounded-full bg-slate-100 px-2 py-0.5 text-micro font-medium text-slate-600"
-              title={`This card sits on ${itemBoard.name}, not on the board behind this panel`}
+              title={`This card is on ${itemBoard.name}.`}
             >
               On {itemBoard.name}
             </span>
@@ -812,7 +812,7 @@ export function ItemPanel({ itemId }: Props) {
             {refusal.reason === 'held'
               ? `${refusal.holderName ?? 'Someone else'} is editing this card, so this change was not saved.`
               : refusal.reason === 'changed'
-                ? 'This card was changed elsewhere while you were editing, so this change was not saved. Your words are still here.'
+                ? 'The card changed while you were editing, so this was not saved. Your words are still here.'
                 : 'This change could not be saved.'}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -848,20 +848,20 @@ export function ItemPanel({ itemId }: Props) {
           {held.userId === account?.id
             ? 'This card is open in another tab.'
             : `${held.holderName} is editing this card.`}{' '}
-          You can read it, and you can move it; the writing is theirs until they are done.
+          You can read and move it. The writing is theirs until they finish.
         </div>
       )}
 
       {archived && (
         <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-2 text-meta text-slate-700">
-          This item is <span className="font-semibold">archived</span>, so it is read-only. Restore it to edit it.
+          Archived: read-only until you restore it.
         </div>
       )}
 
       {!canWrite && !archived && (
         <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-2 text-meta text-slate-700">
-          You are a <span className="font-semibold">Viewer</span> here, so this card is read-only. A note
-          at the bottom is yours to leave.
+          You are a <span className="font-semibold">Viewer</span> here, so this card is read-only. You can still
+          leave a note at the bottom.
         </div>
       )}
 
@@ -960,7 +960,7 @@ export function ItemPanel({ itemId }: Props) {
                       The dot and the word say it; the reason sits on the title. */}
                   <div
                     className="flex min-h-[30px] items-center gap-1.5"
-                    title="Derived from its column and the work below — never typed in"
+                    title="Set by its column and by the work below."
                   >
                     <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_DOT[stage])} />
                     <span className="truncate text-meta font-medium text-slate-700">{STAGE_LABELS[stage]}</span>
@@ -1063,7 +1063,7 @@ export function ItemPanel({ itemId }: Props) {
                       const u = userById(id)
                       const name = nameOfUser(users, id) ?? FORMER_MEMBER
                       return (
-                        <span key={id} className={CHIP} title={u ? name : `${name} — their account has been removed`}>
+                        <span key={id} className={CHIP} title={u ? name : `${name}: their account was removed`}>
                           {u ? (
                             <PersonAvatar user={u} small />
                           ) : (
@@ -1088,7 +1088,7 @@ export function ItemPanel({ itemId }: Props) {
                       exclude={item.assignees ?? []}
                       onPick={(user) => addAssignee(item.id, user.id)}
                       label="Add a person"
-                      emptyLabel="Everyone in this workspace is already on the card."
+                      emptyLabel="Everyone is already on the card."
                       className="min-w-[7rem] flex-1"
                       bare
                     />
@@ -1101,7 +1101,7 @@ export function ItemPanel({ itemId }: Props) {
                 <Field
                   label="Tags"
                   className="col-span-2"
-                  hint={boardTagList.length === 0 ? 'This board has no tags yet — type one to make it.' : undefined}
+                  hint={boardTagList.length === 0 ? 'No tags on this board yet. Type one to make it.' : undefined}
                 >
                   {/* The shape People wears: one well, its chips inside, and the way to add one
                       on the last line. Type to find a tag the board defines — or to make a new
@@ -1168,7 +1168,7 @@ export function ItemPanel({ itemId }: Props) {
                 <Field
                   label="Due"
                   className="col-span-2"
-                  hint={item.dueDate ? undefined : 'The day this is promised for — separate from the target window.'}
+                  hint={item.dueDate ? undefined : 'The day it is promised for, apart from the target window.'}
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
                     <div className={cn(WELL, 'w-[11.5rem] max-w-full')}>
@@ -1213,7 +1213,7 @@ export function ItemPanel({ itemId }: Props) {
                     ) : (
                       <>
                         <span className="text-slate-500">Not recorded</span>
-                        <span className="text-micro text-slate-500">— this card is older than the record</span>
+                        <span className="text-micro text-slate-500">— from before the record</span>
                       </>
                     )}
                   </div>
@@ -1267,7 +1267,7 @@ export function ItemPanel({ itemId }: Props) {
                       </button>
                     )}
                   </div>
-                  <p className="text-micro text-slate-600">A parent is always an initiative. Everything below it rolls up to it.</p>
+                  <p className="text-micro text-slate-600">Only an initiative can be a parent. Everything under it rolls up to it.</p>
                 </div>
               ) : parent ? (
                 <button
@@ -1286,7 +1286,7 @@ export function ItemPanel({ itemId }: Props) {
                 </button>
               ) : (
                 <p className="rounded-xl bg-slate-50 p-3 text-meta text-slate-600 ring-1 ring-slate-200">
-                  No parent — this sits on its own.
+                  No parent.
                 </p>
               )}
             </Section>
@@ -1310,7 +1310,7 @@ export function ItemPanel({ itemId }: Props) {
                           if (next) setAttribution(item.id, next, true)
                           else if (attributed[0]) setAttribution(item.id, attributed[0].id, false)
                         }}
-                        title="The objective this initiative serves — at most one, so choosing another moves it"
+                        title="One objective. Choosing another moves the initiative."
                         className="w-full rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-meta font-medium text-slate-700 outline-none transition focus:ring-2 focus:ring-indigo-400"
                       >
                         <option value="">No objective</option>
@@ -1329,7 +1329,7 @@ export function ItemPanel({ itemId }: Props) {
                         {/* What the objective means, and how far along the work that serves it is.
                             The key results are the words; the number comes from the work. */}
                         {keyResults.filter((k) => k.objectiveId === attributed[0].id).length === 0 ? (
-                          <p className="text-meta text-slate-600">This objective has no key results yet.</p>
+                          <p className="text-meta text-slate-600">No key results yet.</p>
                         ) : (
                           <ul className="space-y-0.5">
                             {keyResults
@@ -1348,8 +1348,8 @@ export function ItemPanel({ itemId }: Props) {
                 </div>
                 ) : (
                   <p className="rounded-xl bg-slate-50 p-3 text-meta text-slate-600 ring-1 ring-slate-200">
-                    {parent?.title ?? 'Another initiative'} carries this initiative, so its work serves that
-                    outcome&rsquo;s objective. Only a top-level initiative is mapped to an objective.
+                    {parent?.title ?? 'Another initiative'} carries this initiative, so it inherits that objective.
+                    Only a top-level initiative is mapped.
                   </p>
                 )}
               </Section>
@@ -1390,7 +1390,7 @@ export function ItemPanel({ itemId }: Props) {
                   onBlur={() => endTextEdit('description')}
                   onChange={(e) => setItemFields(item.id, { description: e.target.value })}
                   rows={5}
-                  placeholder="Add a description. Markdown is supported — **bold**, lists, `code`, links."
+                  placeholder="Add a description. Markdown works: **bold**, lists, `code`, links."
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-meta leading-relaxed outline-none transition focus:ring-2 focus:ring-indigo-400"
                 />
               )}
@@ -1410,7 +1410,7 @@ export function ItemPanel({ itemId }: Props) {
                 }
               >
                 <div className="space-y-0.5">
-                  {checklist.length === 0 && <p className="text-meta text-slate-600">Nothing here yet. Add the first sub-task below.</p>}
+                  {checklist.length === 0 && <p className="text-meta text-slate-600">No sub-tasks yet.</p>}
                   {checklist.map((entry) => (
                     <div key={entry.id} className="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition hover:bg-slate-50">
                       <button onClick={() => toggleChecklistEntry(item.id, entry.id)} title={entry.done ? 'Untick' : 'Tick'} className="shrink-0">
@@ -1442,7 +1442,7 @@ export function ItemPanel({ itemId }: Props) {
                       ) : (
                         <button
                           onClick={() => startEditingEntry(entry.id, entry.text)}
-                          title="Click to edit — clearing it removes the line"
+                          title="Click to edit. Clearing it removes the line."
                           className={cn(
                             'min-w-0 flex-1 cursor-text truncate text-left text-meta',
                             entry.done ? 'text-slate-600 line-through' : 'text-slate-700',
@@ -1511,7 +1511,7 @@ export function ItemPanel({ itemId }: Props) {
                       title={
                         onPortfolioBoard
                           ? 'Open Objectives & Key Results'
-                          : 'Objectives are created and managed on a portfolio board'
+                          : 'Objectives live on a portfolio board'
                       }
                       className={cn(
                         'flex w-full items-center gap-2 bg-indigo-50/60 px-2.5 py-2 text-left transition',
@@ -1556,7 +1556,7 @@ export function ItemPanel({ itemId }: Props) {
             <Section label="Breaks down into" count={children.length} aside={doneBelow && <span className="text-micro text-slate-600">{doneBelow}</span>}>
               {children.length === 0 ? (
                 <p className="text-meta text-slate-600">
-                  Nothing below this yet. An initiative below it is made with <span className="font-medium">+ Initiative</span> on the board.
+                  Nothing under this yet. Add one with <span className="font-medium">+ Initiative</span> on the board.
                 </p>
               ) : (
                 /* Grouped by stage, in the order a board reads them: the list and the board can be
@@ -1588,7 +1588,7 @@ export function ItemPanel({ itemId }: Props) {
               {dependencyGroup(
                 'Depends on',
                 'Work this card waits for',
-                'Nothing — this card is not waiting on anything.',
+                'Nothing.',
                 dependencies.map((dep) =>
                   linkRow(dep.dependency, {
                     onRemove: () => removeDependency(dep.dependency.id, dep.dependent.id),
@@ -1601,7 +1601,7 @@ export function ItemPanel({ itemId }: Props) {
               {dependencyGroup(
                 'Waiting on this',
                 'Work that waits for this card to be done',
-                'Nothing waits on this card yet. The link is added from the card that waits.',
+                'Nothing yet. The link is made from the card that waits.',
                 dependents.map((dep) => linkRow(dep.dependent)),
               )}
               <ItemPicker
@@ -1614,7 +1614,7 @@ export function ItemPanel({ itemId }: Props) {
                 noMatchLabel="No item matches."
                 triggerClassName="w-full"
               />
-              <p className="text-micro text-slate-600">A link says one item depends on another. It never blocks anything by itself.</p>
+              <p className="text-micro text-slate-600">A link is a dependency and nothing more. It does not block the card on its own.</p>
             </Section>
 
             {/* Placements — the boards this item is on, and the cell in each. */}
@@ -1633,7 +1633,7 @@ export function ItemPanel({ itemId }: Props) {
                           selectBoard(p.boardId)
                           close(item.id)
                         }}
-                        title={here ? 'This is the board in front of you' : `Go to ${b?.name ?? 'board'}`}
+                        title={here ? 'This board' : `Go to ${b?.name ?? 'board'}`}
                         className={cn(
                           'flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition',
                           here ? 'border-slate-200 bg-slate-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50',
@@ -1658,7 +1658,7 @@ export function ItemPanel({ itemId }: Props) {
                 Loading history…
               </p>
             ) : log.length === 0 ? (
-              <p className="text-meta text-slate-600">Nothing has happened to this yet.</p>
+              <p className="text-meta text-slate-600">No activity yet.</p>
             ) : (
               <div className="space-y-1">
                 {[...log].reverse().map((e) => (
@@ -1808,8 +1808,8 @@ export function ItemPanel({ itemId }: Props) {
           </button>
         </div>
         <div className="mt-1.5 flex items-center justify-between px-0.5 text-micro text-slate-600">
-          <span>Press Enter to send · @ to mention</span>
-          <span>Markdown supported</span>
+          <span>Enter to send · @ to mention</span>
+          <span>Markdown</span>
         </div>
       </div>
     </aside>

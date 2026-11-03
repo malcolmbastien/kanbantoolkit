@@ -142,7 +142,7 @@ export function StrategyMap({ boardId }: { boardId: string }) {
           {roll && (
             <span
               className="shrink-0 text-title font-bold tabular-nums text-violet-700"
-              title="The work below the initiatives that serve this objective — the same rollup an initiative uses"
+              title="The work below this objective's initiatives"
             >
               {roll.percent}%
             </span>

@@ -440,7 +440,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
           ) : (
             // A copy lands in the original's cell, and this card is not in one here. Shown
             // rather than hidden, so the missing affordance explains itself.
-            <span title="A copy lands in the original's cell — this card is not in a cell on this board">
+            <span title="This card is not in a cell on this board">
               <button disabled className={cn(ITEM, 'cursor-not-allowed opacity-50')}>
                 <span className="shrink-0 text-slate-400">
                   <Copy size={13} />
@@ -457,8 +457,8 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
           onClick={() => run(() => archiveItems(itemIds))}
           title={
             allComplete
-              ? 'File this away: the work is done, so it joins the archive as completed'
-              : 'File this away without finishing it: the cards that are done are archived, the rest are discarded'
+              ? 'Archive it as completed work'
+              : 'Archive the finished cards, discard the rest'
           }
         >
           <span className="shrink-0 text-slate-600">

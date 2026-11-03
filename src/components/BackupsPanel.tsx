@@ -147,7 +147,7 @@ export function BackupsPanel() {
             </div>
 
             {backups.length === 0 ? (
-              <p className="mt-3 text-meta text-slate-600">No copies yet. Take one now; the schedule is the operator's cron.</p>
+              <p className="mt-3 text-meta text-slate-600">No copies yet. Take one now; the schedule is a cron on the operator's machine.</p>
             ) : (
               <div className="mt-3 divide-y divide-slate-100">
                 {backups.map((backup) => (

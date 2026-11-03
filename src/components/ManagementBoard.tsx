@@ -105,7 +105,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
               <button
                 onClick={() => setObjectives(true)}
                 className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-micro font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                title="Open the Objectives view — period, key results, mapped initiatives"
+                title="Open the Objectives view"
               >
                 <ExternalLink size={10} /> Objectives
               </button>,
@@ -167,7 +167,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
                     <span className="min-w-0 truncate text-meta font-semibold text-slate-800">{t.name}</span>
                     <span
                       className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200"
-                      title={`Read-only here — this band is read from ${t.name}. Open its board to move work or change its flow.`}
+                      title={`Read-only: this band is read from ${t.name}. Open that board to change it.`}
                     >
                       <Lock size={9} aria-hidden /> Read-only
                     </span>

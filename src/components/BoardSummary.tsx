@@ -673,7 +673,7 @@ function Cell({
               <LaneCtl
                 btnRef={btnRef}
                 active={settingsOpen}
-                title="Lane settings — name, WIP limit, policy"
+                title="Name, WIP limit and policy"
                 onClick={() => setSettingsOpen((o) => !o)}
               >
                 <Settings size={12} />

@@ -15,7 +15,7 @@ async function openMore(page: import('@playwright/test').Page, cardId: string) {
   await page.locator(`[data-card-id="${cardId}"]`).click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
-  await panel.getByRole('button', { name: /More — duplicate/ }).click()
+  await panel.getByRole('button', { name: 'More', exact: true }).click()
   return panel
 }
 
@@ -53,7 +53,7 @@ test('a card in play is discarded, and the archive says so without keeping its c
 
   // The drawer is read-only in the archive.
   await expect(drawer.getByLabel('Title')).toBeDisabled()
-  await expect(drawer.getByText(/archived, so it is read-only/)).toBeVisible()
+  await expect(drawer.getByText(/read-only until you restore it/)).toBeVisible()
   await expect(drawer.getByRole('button', { name: 'Mark blocked' })).toHaveCount(0)
   // Read-only fields, but the one action that brings it back is still there.
   await expect(drawer.getByRole('button', { name: 'Restore' })).toBeVisible()
@@ -92,11 +92,11 @@ test('an archived initiative is read-only and raises no warnings', async ({ page
   await expect(panel.getByText(/^\d+ warnings?$/)).toBeVisible()
 
   // Discard it: it leaves play, and its warnings leave with it.
-  await panel.getByRole('button', { name: /More — duplicate/ }).click()
+  await panel.getByRole('button', { name: 'More', exact: true }).click()
   await panel.getByRole('button', { name: 'Discard', exact: true }).click()
   await expect(panel.getByText(/^\d+ warnings?$/)).toHaveCount(0)
   await expect(panel.getByLabel('Title')).toBeDisabled()
-  await expect(panel.getByText(/archived, so it is read-only/)).toBeVisible()
+  await expect(panel.getByText(/read-only until you restore it/)).toBeVisible()
 
   await page.keyboard.press('Escape')
   await page.goto('/app?board=b-atlas&view=archive')

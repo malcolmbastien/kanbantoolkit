@@ -103,7 +103,7 @@ test('a cell that holds cards cannot be removed, and an empty one moves nothing'
   // The occupied cell is refused, and says why: deletion never moves work.
   await editBoard(page)
   await laneRegion(page, 'Column 3')
-    .getByRole('button', { name: /Lane settings/ })
+    .getByRole('button', { name: /Name, WIP limit and policy/ })
     .click()
   await expect(page.getByRole('button', { name: 'Remove lane' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Remove lane' })).toHaveAttribute('title', /holds cards/)
@@ -112,7 +112,7 @@ test('a cell that holds cards cannot be removed, and an empty one moves nothing'
   // The empty cell may go — and because Column 1 still holds cards, the split is not folded over
   // them: the cards stay exactly where they were.
   await laneRegion(page, 'Column 2')
-    .getByRole('button', { name: /Lane settings/ })
+    .getByRole('button', { name: /Name, WIP limit and policy/ })
     .click()
   await page.getByRole('button', { name: 'Remove lane' }).click()
   await page.locator('[role="dialog"]').getByRole('button', { name: 'Remove lane' }).click()
@@ -199,5 +199,5 @@ test('a board type is shown but cannot be changed in settings', async ({ page })
   // No band chooser, and no warning-and-proceed path either.
   await expect(dialog.getByRole('button', { name: 'Program', exact: true })).toHaveCount(0)
   await expect(dialog.getByRole('button', { name: 'Portfolio', exact: true })).toHaveCount(0)
-  await expect(dialog).toContainText('A board’s type is fixed when it is created')
+  await expect(dialog).toContainText('To change it, make a board of the other type')
 })

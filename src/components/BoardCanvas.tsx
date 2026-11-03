@@ -324,7 +324,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               removeWithConfirm()
             }}
             canRemove={canRemove}
-            removeReason="This lane holds cards — move them out first"
+            removeReason="This lane holds cards. Move them out first"
           />
         )}
       </div>
@@ -362,7 +362,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             'grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1 text-micro font-bold tabular-nums',
             wip === 'over' ? WIP_PILL.over : wip === 'at' ? WIP_PILL.at : 'bg-white/80 text-slate-700 ring-1 ring-slate-300/70',
           )}
-          title={`${count} card${count === 1 ? '' : 's'}${wip === 'over' ? ' — over its limit' : wip === 'at' ? ' — at its limit' : ''}`}
+          title={`${count} card${count === 1 ? '' : 's'}${wip === 'over' ? ', over its limit' : wip === 'at' ? ', at its limit' : ''}`}
         >
           {count}
         </span>

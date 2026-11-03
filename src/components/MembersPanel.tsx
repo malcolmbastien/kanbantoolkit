@@ -105,7 +105,7 @@ export function MembersPanel() {
   function remove(member: Member) {
     askConfirm({
       title: `Remove ${member.name} from this workspace?`,
-      body: 'This deletes their account — they cannot sign in again until somebody invites them, which creates a new one. Their cards, comments and history stay, and every place that names them says “Former member”.',
+      body: 'Their account is deleted. The work and comments stay, and every place that names them reads “Former member”. Coming back takes a new invitation.',
       confirmLabel: 'Remove them',
       danger: true,
       onConfirm: () => {
@@ -188,10 +188,6 @@ export function MembersPanel() {
         <h2 className="text-body font-semibold text-slate-900">People</h2>
         <span className="text-meta text-slate-500">{members.length} in this workspace</span>
       </div>
-      <p className="mt-0.5 text-meta text-slate-600">
-        Invite somebody in, change what they may do, or close their door. Removing an account leaves
-        the work they did and the work that names them.
-      </p>
 
       {message && (
         <p className={cn('mt-3 rounded-md px-2 py-1 text-meta', message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800')}>
@@ -244,7 +240,7 @@ export function MembersPanel() {
                       </button>
                       <button
                         onClick={() => void reset(member)}
-                        title="A one-time link that lets them set a password — no mail needed"
+                        title="A one-time link to set a password, no mail needed"
                         className={cn(BUTTON, 'px-1.5 text-micro')}
                       >
                         Reset
@@ -277,10 +273,9 @@ export function MembersPanel() {
         </button>
         {me?.role === 'admin' && (
           <p className="mt-1 basis-full text-micro text-slate-600">
-            <strong>Invite</strong> brings somebody in. <strong>Deactivate</strong> closes their door and keeps
-            the account, so their name stays on the work. <strong>Remove</strong> deletes the account: the work
-            stays, and every reference to them reads “Former member”. Coming back is a fresh invitation and a
-            new account.
+            <strong>Invite</strong> brings somebody in. <strong>Deactivate</strong> keeps the account and their
+            name on the work, but stops them signing in. <strong>Remove</strong> deletes the account; what they
+            wrote stays, signed “Former member”.
           </p>
         )}
       </div>

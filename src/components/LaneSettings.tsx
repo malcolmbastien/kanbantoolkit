@@ -197,7 +197,7 @@ export function LaneSettings({ lane, top, anchorRef, onClose, rename, setWip, se
             setPolicy(v.trim() ? v : undefined)
           }}
           rows={3}
-          placeholder="Rules of play — entry / exit criteria…"
+          placeholder="Rules of play: entry and exit criteria…"
           className={`${field} resize-y leading-relaxed`}
         />
         <p className={hint}>Shown to the board via the lane's info icon.</p>

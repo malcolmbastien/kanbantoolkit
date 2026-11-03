@@ -218,7 +218,7 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
     await expect(panel).toBeVisible()
     await expect(panel.getByText('You are a Viewer here')).toBeVisible()
     await expect(panel.getByLabel('Title')).toBeDisabled()
-    await expect(panel.getByRole('button', { name: /More — duplicate/ })).toHaveCount(0)
+    await expect(panel.getByRole('button', { name: 'More', exact: true })).toHaveCount(0)
     await expect(panel.getByRole('button', { name: 'Mark blocked' })).toHaveCount(0)
 
     // The one control that is a Viewer's. It reaches the server, which is the half a screenshot
@@ -236,7 +236,7 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
     await expect(palette.getByRole('button', { name: /All boards/ })).toBeVisible()
     // The *action*, not the card: the palette also lists the work, and this workspace has a card
     // called "New card" — so the row is found by the sentence under it.
-    await expect(palette.getByRole('button', { name: /New card Add a card to this board/ })).toHaveCount(0)
+    await expect(palette.getByRole('button', { name: /New card In this board's default cell/ })).toHaveCount(0)
     await expect(palette.getByRole('button', { name: /New initiative/ })).toHaveCount(0)
     await expect(palette.getByRole('button', { name: /Edit board design/ })).toHaveCount(0)
     await expect(palette.getByRole('button', { name: /Board settings/ })).toHaveCount(0)

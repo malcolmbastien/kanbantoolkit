@@ -536,7 +536,7 @@ export function PeoplePanel() {
               <button
                 onClick={() => void passwordLink()}
                 disabled={busy === 'reset'}
-                title="A one-time link that lets them set a password — no mail needed"
+                title="A one-time link to set a password, no mail needed"
                 className={cn(BUTTON, 'mt-1.5')}
               >
                 Make a password link

@@ -43,7 +43,7 @@ test('a full column wears the alarm colour, not only a badge', async ({ page }) 
   // Bring Backlog to its own count, and it reads amber: at a limit is a watch, not a risk.
   await page.getByRole('button', { name: 'Edit board' }).click()
   await laneRegion(page, 'Backlog')
-    .getByRole('button', { name: 'Lane settings — name, WIP limit, policy' })
+    .getByRole('button', { name: 'Name, WIP limit and policy' })
     .click()
   await page.locator('#lane-wip').fill('3')
   await page.locator('#lane-wip').press('Enter')

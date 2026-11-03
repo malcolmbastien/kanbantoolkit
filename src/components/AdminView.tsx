@@ -166,7 +166,7 @@ function SnapshotsPanel() {
     setSnapshotError(null)
     askConfirm({
       title: `Restore the workspace from ${new Date(snap.at).toLocaleString()}?`,
-      body: 'This replaces the current workspace with that copy. A snapshot of the current state is kept first, so the restore can itself be undone.',
+      body: 'This replaces the workspace with that copy. A snapshot of the current state is taken first, so the restore can be undone.',
       confirmLabel: 'Restore',
       danger: true,
       onConfirm: () => {
@@ -229,7 +229,7 @@ function SnapshotsPanel() {
             onClick={() =>
               askConfirm({
                 title: 'Start the demo over?',
-                body: 'Every board, lane and card in this browser is replaced by the demo workspace. A snapshot of what is here is kept first, so this can be undone.',
+                body: 'The demo workspace replaces every board, lane and card here. A snapshot of what is here is taken first.',
                 confirmLabel: 'Reset the demo',
                 danger: true,
                 onConfirm: () => {

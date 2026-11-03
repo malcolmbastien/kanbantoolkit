@@ -95,7 +95,7 @@ test('a flow that holds nothing can be removed, and the last one cannot', async 
   await expect(band(page, 'Cards').getByRole('button', { name: 'Remove Cards' })).toBeDisabled()
   await expect(band(page, 'Cards').getByRole('button', { name: 'Remove Cards' })).toHaveAttribute(
     'title',
-    /still holds cards/,
+    /another flow first/,
   )
   await band(page, 'Spike').getByRole('button', { name: 'Remove Spike' }).click()
   await page.getByRole('button', { name: 'Remove flow' }).click()
@@ -106,7 +106,7 @@ test('a flow that holds nothing can be removed, and the last one cannot', async 
   await expect(band(page, 'Support').getByRole('button', { name: 'Remove Support' })).toBeDisabled()
   await expect(band(page, 'Support').getByRole('button', { name: 'Remove Support' })).toHaveAttribute(
     'title',
-    /still holds cards/,
+    /another flow first/,
   )
 
   // A board with one cards flow says the other reason: the floor, not the work.
@@ -223,7 +223,7 @@ test('a card finished in a second flow is archived as completed', async ({ page 
   // Filed away from the card's own panel: it is Done, so the word is Archive.
   await page.locator(`[data-card-id="${card}"]`).click()
   const panel = page.locator('[data-item-panel]')
-  await panel.getByRole('button', { name: /More — duplicate/ }).click()
+  await panel.getByRole('button', { name: 'More', exact: true }).click()
   await panel.getByRole('button', { name: 'Archive', exact: true }).click()
 
   // The archive keeps one fact about it: the work was finished, in whichever flow it finished.

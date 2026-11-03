@@ -48,7 +48,7 @@ export function WorkspaceDataPanel() {
     const items = (read.state.items as unknown[]).length
     askConfirm({
       title: `Import “${file.name}”?`,
-      body: `It replaces this workspace: ${boards.length} board${boards.length === 1 ? '' : 's'}, ${items} work item${items === 1 ? '' : 's'}. The current workspace is overwritten — export first if you want to keep it.`,
+      body: `It replaces this workspace: ${boards.length} board${boards.length === 1 ? '' : 's'}, ${items} work item${items === 1 ? '' : 's'}. The current workspace is overwritten. Export first if you want to keep it.`,
       confirmLabel: 'Import',
       danger: true,
       onConfirm: () => importWorkspace(read.state!, read.version!),
@@ -103,7 +103,7 @@ export function WorkspaceDataPanel() {
               <button
                 onClick={() => fileRef.current?.click()}
                 className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                title="Import a workspace file — replaces everything here"
+                title="Import a workspace file. It replaces everything here."
               >
                 <Upload size={13} /> Import…
               </button>

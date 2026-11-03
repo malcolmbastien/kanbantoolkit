@@ -166,7 +166,7 @@ function DoneStamp() {
   return (
     <span
       className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-micro font-bold text-emerald-800 ring-1 ring-emerald-200"
-      title="Done — every leaf below this is finished"
+      title="Every leaf below this is finished"
     >
       <Check size={11} strokeWidth={3} /> Done
     </span>
@@ -239,7 +239,7 @@ function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (depend
             onBoundary?.(wait.id, wait.title)
           }}
           onKeyDown={(event) => event.stopPropagation()}
-          title={`Waiting on “${wait.title}” — outside this board. Select it in the boundary workflow below.`}
+          title={`Waiting on “${wait.title}”, outside this board. Select it in the boundary workflow below.`}
           className="flex min-w-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-900 ring-1 ring-amber-300 transition hover:bg-amber-100"
         >
           <Link2 size={11} className="shrink-0" />
@@ -320,7 +320,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   const blockedAlert = item.blocked && !complete ? (
     <span
       className="flex w-full items-start gap-1.5 rounded-md bg-rose-50 px-2 py-1.5 text-rose-700 ring-1 ring-rose-200"
-      title={item.blockedReason ? `Blocked — ${item.blockedReason}` : 'Blocked'}
+      title={item.blockedReason ? `Blocked: ${item.blockedReason}` : 'Blocked'}
     >
       <Lock size={12} className="mt-0.5 shrink-0" />
       <span className="min-w-0 text-micro font-medium leading-snug">
@@ -404,7 +404,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             {
               key: 'boundary',
               label: 'waiting on',
-              why: 'Waiting on an external dependency — see the boundary workflow below the cards',
+              why: 'Waiting on something outside this board — see the boundary workflow below',
               tone: 'watch' as const,
             },
           ]
@@ -465,7 +465,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             <span className="flex shrink-0 items-center gap-1.5 pt-1">
               {held && (
                 <span
-                  title={`${held.holderName} is editing this card — you can read it and move it`}
+                  title={`${held.holderName} is editing this card. You can read it and move it.`}
                   aria-label={`${held.holderName} is editing this card`}
                   className="text-amber-600"
                 >
@@ -497,7 +497,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                     // the card's own panel, which already lists them.
                     tabIndex={-1}
                     aria-label={`${p.title} — ${STAGE_LABELS[p.bucket]}`}
-                    title={`${p.title} — ${STAGE_LABELS[p.bucket]}`}
+                    title={`${p.title} · ${STAGE_LABELS[p.bucket]}`}
                     onClick={(e) => {
                       // The pip is not the card: opening the child must not also open the
                       // initiative whose face the pip sits on.
@@ -523,7 +523,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                 <span
                   className="text-body font-bold tabular-nums"
                   style={{ color: pct >= 100 ? '#047857' : pct > 0 ? '#4338ca' : '#475569' }}
-                  title="Rollup — the share of the issues below that are done"
+                  title="Share of the work below that is done"
                 >
                   {pct}%
                 </span>
@@ -549,7 +549,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             <div className="flex items-center gap-2">
               <span
                 className="flex shrink-0 items-center gap-1 text-meta font-semibold text-slate-700"
-                title={`Checklist — ${summary.checklist.done} of ${summary.checklist.total} sub-tasks done`}
+                title={`Checklist: ${summary.checklist.done} of ${summary.checklist.total} sub-tasks done`}
               >
                 <ListChecks size={13} className="shrink-0 text-slate-600" />
                 {summary.checklist.done} / {summary.checklist.total} sub-tasks
@@ -721,7 +721,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               {hasChecklist && (
                 <span
                   className="flex shrink-0 items-center gap-1 rounded bg-white px-1.5 py-0.5 text-micro text-slate-600 ring-1 ring-slate-200"
-                  title={`Checklist — ${checklistDone} of ${checklistTotal} sub-tasks done`}
+                  title={`Checklist: ${checklistDone} of ${checklistTotal} sub-tasks done`}
                 >
                   <ListChecks size={12} className="shrink-0 text-indigo-600" />
                   <span className="font-semibold tabular-nums text-slate-700">
@@ -774,7 +774,7 @@ function Avatar({ user }: { user: { id: string; name: string; avatarUrl?: string
     return (
       <span
         className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-200 text-micro font-bold text-slate-600 ring-2 ring-white"
-        title={`${user.name} — their account has been removed`}
+        title={`${user.name}: their account was removed`}
         aria-label={user.name}
       >
         ?
@@ -930,7 +930,7 @@ function KindBand({
           'flex w-full items-center gap-1.5 px-2.5 py-1 text-left text-micro font-bold uppercase tracking-wide transition hover:brightness-95',
           !canSet && 'cursor-default',
         )}
-        title={`Kind: ${kind.name}${canSet ? ' — click to change it' : ''}`}
+        title={`Kind: ${kind.name}${canSet ? '. Click to change it.' : ''}`}
         aria-label={`Kind: ${kind.name}`}
         aria-haspopup="listbox"
         aria-expanded={open}

@@ -132,7 +132,7 @@ export function BoardView({ requestMove }: Props) {
         {signedIn && !editable && (
           <span
             className="rounded bg-slate-100 px-1.5 py-px font-semibold text-slate-600 ring-1 ring-slate-300"
-            title="Your role is Viewer: you can read this board and comment on it"
+            title="Your role is Viewer: you can read this board and comment"
           >
             read-only · viewer
           </span>
@@ -148,13 +148,13 @@ export function BoardView({ requestMove }: Props) {
               onClick={() =>
                 askConfirm({
                   title: `Archive ${doneCount} done item${doneCount === 1 ? '' : 's'}?`,
-                  body: 'They leave this board but stay searchable in the Archive.',
+                  body: 'They leave the board and stay in the Archive.',
                   confirmLabel: 'Archive',
                   onConfirm: () => archiveDoneOnBoard(boardId),
                 })
               }
               className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-meta font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
-              title="Archive all Done cards on this board so they stop cluttering it"
+              title="Archive every Done card on this board"
             >
               <Archive size={11} /> Archive done ({doneCount})
             </button>
@@ -169,7 +169,7 @@ export function BoardView({ requestMove }: Props) {
             }
             disabled={editMode}
             className="flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-meta font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
-            title="Export this board's cards as a CSV file — ref, title, type, column, stage, people, dates and parent"
+            title="This board's cards as CSV: title, type, column, people, dates, parent"
           >
             <Download size={11} /> Export CSV
           </button>
@@ -180,7 +180,7 @@ export function BoardView({ requestMove }: Props) {
               'flex items-center gap-1 rounded-md border px-2 py-1 font-medium transition disabled:pointer-events-none disabled:opacity-40',
               showFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
-            title="Filters — narrow the cards shown on this board"
+            title="Narrow the cards on this board"
           >
             <SlidersHorizontal size={12} /> Filters
             {activeFilterCount(filters) > 0 && (
@@ -291,7 +291,7 @@ export function BoardView({ requestMove }: Props) {
                         onClick={() =>
                           askConfirm({
                             title: `Remove the “${name}” flow?`,
-                            body: 'Its columns go with it. It holds no cards — a flow with work in it cannot be removed.',
+                            body: 'Its columns go with it. A flow holding cards cannot be removed.',
                             confirmLabel: 'Remove flow',
                             danger: true,
                             onConfirm: () => removeFlow(flow.id),
@@ -305,8 +305,8 @@ export function BoardView({ requestMove }: Props) {
                           removable
                             ? 'Remove this flow and its columns'
                             : flowsOnBoard.length <= 1
-                              ? 'A board keeps at least one cards flow'
-                              : 'This flow still holds cards — move them to another flow first'
+                              ? 'A board needs at least one cards flow'
+                              : 'Move its cards to another flow first'
                         }
                         aria-label={`Remove ${name}`}
                         className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:pointer-events-none disabled:opacity-30"
@@ -329,7 +329,7 @@ export function BoardView({ requestMove }: Props) {
 
         {flowsOnBoard.length === 0 && (
           <p className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-meta text-slate-600">
-            This board has no cards flow: a coordination board aggregates work rather than holding it.
+            This board has no cards flow. It aggregates other boards' work.
           </p>
         )}
 
@@ -338,7 +338,7 @@ export function BoardView({ requestMove }: Props) {
         {editMode && editable && (
           <button
             onClick={() => addCardsFlow()}
-            title="Add a cards flow — another set of columns on this board"
+            title="Another set of columns on this board"
             aria-label="Add a cards flow"
             className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-indigo-300 px-3 py-2 text-meta font-medium text-indigo-700 transition hover:bg-indigo-50"
           >

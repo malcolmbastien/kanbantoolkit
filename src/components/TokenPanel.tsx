@@ -244,7 +244,7 @@ export function TokenPanel({
                 <button
                   onClick={() => void revoke(token)}
                   disabled={busy === token.id}
-                  title="Revoke — the next request with it is refused"
+                  title="Revoke. The next request with it is refused."
                   className={cn(BUTTON, 'shrink-0 text-rose-700 hover:bg-rose-50')}
                 >
                   {busy === token.id ? 'revoking…' : 'revoke'}
@@ -254,7 +254,7 @@ export function TokenPanel({
           )
         })}
         {tokens.length === 0 && !creating && (
-          <li className="text-meta text-slate-600">No tokens. A script or an agent needs one of these.</li>
+          <li className="text-meta text-slate-600">No tokens yet. A script or an agent needs one.</li>
         )}
       </ul>
     </div>

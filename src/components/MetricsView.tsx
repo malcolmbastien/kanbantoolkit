@@ -235,7 +235,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
               </div>
               <div data-flow-history className="mt-1 flex flex-wrap items-center gap-x-1.5 text-micro text-slate-500">
                 {firstMove === undefined ? (
-                  'No moves recorded yet — the stage history starts when work moves.'
+                  'No moves recorded yet. The history starts with the first move.'
                 ) : (
                   <>
                     <span>Moves recorded since {shortDate(firstMove)}</span>
@@ -243,7 +243,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
                     <span
                       title={
                         coverage.total > coverage.withMoves
-                          ? 'The rest have no move history and start where they sit.'
+                          ? 'The rest have no history and start where they sit.'
                           : undefined
                       }
                     >
@@ -269,7 +269,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
                 note={`p85 ${days(summary.lead.p85)} · p95 ${days(summary.lead.p95)} · ${summary.lead.n} cards${
                   summary.lead.n > 0 && summary.lead.n < MIN_SAMPLE ? ' · thin sample' : ''
                 }`}
-                hint="Created to done. p85 and p95 are the tail: that share of cards took this long or less."
+                hint="Created to done. p85 and p95 are the tail: that share finished within this long."
               />
               <Stat
                 label="Cycle time"
@@ -277,7 +277,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
                 note={`p85 ${days(summary.cycle.p85)} · p95 ${days(summary.cycle.p95)} · ${summary.cycle.n} cards${
                   summary.cycle.n > 0 && summary.cycle.n < MIN_SAMPLE ? ' · thin sample' : ''
                 }`}
-                hint="First committed (leaving Backlog) to done. p85 and p95 are the tail."
+                hint="Leaving Backlog to done. p85 and p95 are the tail."
               />
             </div>
           </div>
@@ -322,15 +322,15 @@ export function MetricsView({ boardId }: { boardId: string }) {
               </label>
             )}
             <div className="ml-auto flex items-center gap-3">
-              <span className="text-micro text-slate-500">In flight and delivered are now.</span>
+              <span className="text-micro text-slate-500">In flight and delivered are as of now.</span>
               <button
                 type="button"
                 onClick={exportFlow}
                 disabled={flowPoints.length === 0}
                 title={
                   flowPoints.length === 0
-                    ? 'Nothing has been delivered in this window to export'
-                    : 'Download every card delivered in this window — dates, lead and cycle'
+                    ? 'Nothing delivered in this window.'
+                    : 'Every card delivered in this window: dates, lead and cycle'
                 }
                 className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-micro font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
               >
@@ -342,8 +342,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
 
         {records.length === 0 ? (
           <div className="rounded-lg border border-slate-300 bg-white px-4 py-6 text-meta text-slate-600 shadow-sm">
-            This board carries no cards yet. Flow is read from cards' moves, so there is nothing to read — add
-            cards and move them between columns.
+            This board has no cards yet. Flow is read from the moves, so there is nothing to show.
           </div>
         ) : (
           <>
@@ -373,7 +372,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
 
             <Panel
               title="Cumulative flow"
-              note="Where the work was at the end of each week. A card that was rejected shows as work moving back."
+              note="Where the work stood at the end of each week. A rejected card shows as work moving back."
             >
               <div className="flex gap-1.5">
                 {flow.map((counts, i) => {
@@ -418,7 +417,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
 
             <Panel
               title="Throughput"
-              note={`Cards that reached Done in each week — delivery, not activity. ${deliveredTotal} in ${delivered.length} week${delivered.length === 1 ? '' : 's'}; the busiest week had ${Math.max(...delivered)}.`}
+              note={`Cards that reached Done in each week: delivery, not activity. ${deliveredTotal} in ${delivered.length} week${delivered.length === 1 ? '' : 's'}; the busiest week had ${Math.max(...delivered)}.`}
             >
               {deliveredTotal === 0 ? (
                 <div className="text-meta text-slate-600">No cards reached Done in this window.</div>
@@ -487,11 +486,11 @@ export function MetricsView({ boardId }: { boardId: string }) {
                   <div
                     data-sle-line
                     className="text-micro text-slate-600"
-                    title="Cycle time — first committed (leaving Backlog) to done — for the cards finished inside this window"
+                    title="Leaving Backlog to done, for the cards finished in this window"
                   >
                     {sle.days === undefined
                       ? 'No cards finished in this window.'
-                      : `${sle.share}% of the ${sle.n} card${sle.n === 1 ? '' : 's'} finished in this window were done within this time of leaving Backlog.`}
+                      : `${sle.share}% of the ${sle.n} card${sle.n === 1 ? '' : 's'} finished here took this long or less from leaving Backlog.`}
                   </div>
                   {sle.n > 0 && sle.n < MIN_SAMPLE && (
                     <div className="mt-1 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-micro font-medium text-amber-800">
@@ -513,9 +512,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
                       Forecast scope
                     </div>
                     <p className="text-micro text-slate-600">
-                      The open count both questions below use is every card still in play in{' '}
-                      {scopeName}, excluding Backlog. Adding Backlog moves both answers; the service
-                      level is unaffected.
+                      Both questions count the cards still in play in {scopeName}, excluding Backlog. Ticking
+                      Backlog moves both answers and leaves the service level alone.
                     </p>
                   </div>
                   <label className="flex shrink-0 items-center gap-1.5 text-meta text-slate-700">
@@ -526,8 +524,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
                       onChange={(event) => setIncludeBacklog(event.target.checked)}
                       title={
                         backlogCards === 0
-                          ? 'Nothing is in Backlog, so there is nothing to add to the forecasts'
-                          : `Count the ${backlogCards} uncommitted card${backlogCards === 1 ? '' : 's'} in Backlog as part of both questions below`
+                          ? 'Nothing is in Backlog to add.'
+                          : `Count the ${backlogCards} uncommitted card${backlogCards === 1 ? '' : 's'} in Backlog in both questions`
                       }
                       className="accent-indigo-600 disabled:opacity-40"
                     />
@@ -565,7 +563,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
                       </div>
                       <div className="mt-1 text-micro text-slate-500">
                         {forecast.trials.toLocaleString()} trials over {forecast.sampledWeeks} weeks.
-                        Assumes throughput arrives weekly; dependencies are not modelled.
+                        Throughput is assumed weekly; dependencies are not modelled.
                       </div>
                     </>
                   ) : (
@@ -800,7 +798,7 @@ function AgingWork({
   return (
     <Panel
       title="Aging work"
-      note="Open cards, oldest commitment first. A card past the p85 line has been in flight longer than 85% of the work delivered in this window."
+      note="Open cards, oldest commitment first. Past the p85 line, a card has been in flight longer than 85% of what this window delivered."
     >
       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600">
         <span className="font-semibold uppercase tracking-wide">Columns</span>
@@ -956,7 +954,7 @@ function CycleScatter({
     return (
       <Panel title="Cycle time by delivery" note="One dot per delivered card in the window.">
         <div className="text-meta text-slate-600">
-          Nothing finished in this window yet. Widen the window, or move a card to Done.
+          Nothing finished in this window. Widen it, or move a card to Done.
         </div>
       </Panel>
     )
@@ -1011,9 +1009,9 @@ function CycleScatter({
     <Panel
       title="Cycle time by delivery"
       note={`One dot per delivered card. The axis stops at p98 (${days(cap)})${
-        above > 0 ? `, and ${above} card${above === 1 ? '' : 's'} above it drawn at the top` : ''
-      }; the percentile lines still use every card.${
-        points.length < MIN_SAMPLE ? ` Only ${points.length} delivered card${points.length === 1 ? '' : 's'} — treat the lines as a hint.` : ''
+        above > 0 ? `, so ${above} card${above === 1 ? '' : 's'} sit on the top line` : ''
+      }. The percentile lines use every card.${
+        points.length < MIN_SAMPLE ? ` Only ${points.length} delivered card${points.length === 1 ? '' : 's'} — read the lines as a hint.` : ''
       }`}
     >
       {points.length > shown.length && (

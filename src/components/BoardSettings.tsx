@@ -236,10 +236,10 @@ export function BoardSettings() {
               value={board.description}
               onChange={(e) => setBoardDescription(board.id, e.target.value)}
               rows={3}
-              placeholder="What this board is for — a newcomer reads this first"
+              placeholder="What this board is for. A newcomer reads this first."
               className="w-full resize-y rounded border border-slate-200 px-2 py-1.5 text-body text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400"
             />
-            <p className="mt-1 text-micro text-slate-600">A short description of this board; the command palette searches it too.</p>
+            <p className="mt-1 text-micro text-slate-600">The command palette searches it too.</p>
           </div>
 
           {/* Flight-level band — the board's type, fixed when it was made. It decides which
@@ -258,8 +258,8 @@ export function BoardSettings() {
               <span className="text-micro text-slate-600">Fixed when the board was made</span>
             </div>
             <p className="mt-1 text-micro text-slate-600">
-              {BAND_STYLES[board.band]?.hint} A board&rsquo;s type is fixed when it is created: to change it, create
-              a new board of the other type and move or link the work there.
+              {BAND_STYLES[board.band]?.hint} To change it, make a board of the other type and move or link the
+              work there.
             </p>
           </div>
           </div>
@@ -277,8 +277,7 @@ export function BoardSettings() {
           >
             <div className={label}>Card types</div>
             <p className="mb-1.5 text-micro text-slate-600">
-              A card type belongs to the workspace — every board offers all of them. This board only
-              picks the one new cards start as.
+              Every board offers every type. This one picks what its new cards start as.
             </p>
             <div className="space-y-1">
               {types.map((t) =>
@@ -343,7 +342,7 @@ export function BoardSettings() {
                         <button
                           onClick={() => { setEditingTypeId(t.id); setEditName(t.name); setEditColor(t.color) }}
                           className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-100 hover:text-slate-700"
-                          title={`Edit ${t.name} — renames it everywhere it is used`}
+                          title={`Edit ${t.name}`}
                         >
                           <Pencil size={12} />
                         </button>
@@ -351,7 +350,7 @@ export function BoardSettings() {
                           onClick={() =>
                             askConfirm({
                               title: `Delete the "${t.name}" type?`,
-                              body: 'Types are labels for the whole workspace, not per board — every card using it is affected, and the type is removed from every board that offers it.',
+                              body: 'Every card using it is affected, on every board that offers it.',
                               confirmLabel: 'Delete type',
                               danger: true,
                               onConfirm: () => removeIssueType(t.id),
@@ -422,7 +421,7 @@ export function BoardSettings() {
                 id="board-default-drop"
                 value={board.defaultDropLaneId ?? ''}
                 onChange={(e) => setBoardDefaultDropLane(board.id, e.target.value || undefined)}
-                title="Where a new card is created, and where a card moved onto this board will land"
+                title="Where a new card starts, and where a card moved here lands"
                 className="rounded border border-slate-200 px-1.5 py-1 text-meta"
               >
                 <option value="">the first cell</option>
@@ -448,19 +447,18 @@ export function BoardSettings() {
                     silently reading as "the first cell". */}
                 {board.defaultDropLaneId &&
                   !cardsFlows(flows, board.id).some((flow) => leafLanes(lanes, flow.id).some((l) => l.id === board.defaultDropLaneId)) && (
-                    <option value={board.defaultDropLaneId}>the cell it named is gone</option>
+                    <option value={board.defaultDropLaneId}>the cell is gone</option>
                   )}
               </select>
             </div>
             {cardsFlows(flows, board.id).length > 1 && (
               <p className="mt-1 text-micro text-slate-600">
-                A card made from a flow’s tab lands in that flow, so the default is the answer for the
-                flow above; a card moved onto this board lands in the default wherever it is.
+                A card made in a flow’s tab lands in that flow. Only a card moved here lands in the default.
               </p>
             )}
             <p className="mt-1 text-micro text-slate-600">
-              The Initiative type is reserved for the Initiatives workflow and is never a card type.
-              None is a built-in card type, always available and never edited or removed.
+              Initiative is reserved for the initiatives workflow. None is built in: always available, never
+              edited or removed.
             </p>
           </div>
           )}
@@ -479,10 +477,8 @@ export function BoardSettings() {
           <div>
             <div className={label}>Initiative kinds</div>
             <p className="mb-1.5 text-micro text-slate-600">
-              This board's own labels for its initiatives — a bet, a programme, an experiment. They
-              are labels and nothing more: no columns, no WIP, and nothing derived from them. None is
-              always available and is the absence of a kind; it is listed here so the vocabulary is
-              complete.
+              This board’s own labels for its initiatives — a bet, a programme, an experiment. Nothing else reads
+              them.
             </p>
             <div className="space-y-1">
               <div className={row}>
@@ -490,7 +486,7 @@ export function BoardSettings() {
                 <span className="min-w-0 flex-1 text-meta font-medium text-slate-700">None</span>
                 <span className="shrink-0 rounded bg-slate-100 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">built-in</span>
               </div>
-              {kinds.length === 0 && <p className="text-meta text-slate-600">No custom kinds yet — None is always available.</p>}
+              {kinds.length === 0 && <p className="text-meta text-slate-600">No kinds of your own yet.</p>}
               {kinds.map((k) => {
                 const used = initiativesCarrying(items, k.id)
                 return (
@@ -565,8 +561,7 @@ export function BoardSettings() {
           <div>
             <div className={label}>Tags</div>
             <p className="mb-1.5 text-micro text-slate-600">
-              This board's own labels for its work — a card or an initiative can carry several, and
-              they are labels and nothing more. The only thing that reads them is a filter.
+              This board’s own labels for its work. A card can carry several; only a filter reads them.
             </p>
             <div className="space-y-1">
               {tags.length === 0 && <p className="text-meta text-slate-600">No tags yet.</p>}
@@ -660,12 +655,12 @@ export function BoardSettings() {
               onChange={(e) => setBoardWipEnforcement(board.id, e.target.value as 'visualize' | 'justify' | 'block')}
               className="rounded border border-slate-200 px-1.5 py-1 text-meta"
             >
-              <option value="visualize">Visualize — tint at/over the limit, moves always allowed</option>
-              <option value="justify">Justify — allow exceeding, but ask for a reason</option>
-              <option value="block">Block — refuse moves that would exceed a limit</option>
+              <option value="visualize">Visualize — tint at or over the limit</option>
+              <option value="justify">Justify — ask for a reason to exceed</option>
+              <option value="block">Block — refuse the move</option>
             </select>
             {cardsFlows(flows, board.id).length > 1 && (
-              <p className="mt-1 text-micro text-slate-600">The policy is the board’s, and applies to every cards flow.</p>
+              <p className="mt-1 text-micro text-slate-600">Applies to every flow.</p>
             )}
           </div>
 
@@ -684,7 +679,7 @@ export function BoardSettings() {
                 <LayoutTemplate size={13} /> Save as template
               </button>
               <span className="text-meta text-slate-600">
-                Keeps this board’s columns, its default card type and its WIP policy — not its cards or linked boards.
+                Keeps the columns, default card type and WIP policy. Not the cards or the linked boards.
               </span>
             </div>
             {savedTemplate && (
@@ -731,19 +726,18 @@ export function BoardSettings() {
                   </label>
                 ))}
                 {linked.length === 0 && candidates.length === 0 && (
-                  <p className="text-meta text-slate-600">No boards can be linked here.</p>
+                  <p className="text-meta text-slate-600">No boards to link.</p>
                 )}
               </div>
               <p className="mt-1 flex items-center gap-1 text-micro text-slate-600">
-                <Target size={10} /> Teams or other coordination boards, any depth — their initiatives appear as bands. A board
-                can’t be linked under one of its own descendants.
+                <Target size={10} /> Teams or coordination boards, at any depth. A board cannot sit under its own
+                descendant.
               </p>
               {/* Said here because this is where the link is made, and a portfolio is the one board
                   whose surface will not show it. */}
               {portfolio && (
                 <p className="mt-1 text-micro text-slate-600">
-                  A portfolio shows no bands: these roll up on the programme boards beneath it. Its own surface is its
-                  objectives and the initiatives that serve them.
+                  A portfolio shows no bands. Its surface is its objectives and the initiatives that serve them.
                 </p>
               )}
             </div>
@@ -751,7 +745,7 @@ export function BoardSettings() {
         </div>
 
         <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
-          <span className="text-micro text-slate-500">Changes are saved as you edit.</span>
+          <span className="text-micro text-slate-500">Saved as you edit.</span>
           <button
             type="button"
             onClick={close}

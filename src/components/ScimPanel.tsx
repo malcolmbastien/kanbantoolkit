@@ -156,7 +156,7 @@ export function ScimPanel() {
                 <button
                   onClick={() => void revoke(token)}
                   disabled={busy === token.id}
-                  title="The provider is refused on its next call"
+                  title="Refused on its next call"
                   className="shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-micro text-rose-700 hover:bg-rose-50 disabled:opacity-40"
                 >
                   {busy === token.id ? 'revoking…' : 'revoke'}
@@ -165,7 +165,7 @@ export function ScimPanel() {
             </li>
           )
         })}
-        {tokens.length === 0 && <li className="text-meta text-slate-600">No SCIM token yet — your directory cannot provision anything.</li>}
+        {tokens.length === 0 && <li className="text-meta text-slate-600">No SCIM token yet, so your directory cannot provision anything.</li>}
       </ul>
     </section>
   )

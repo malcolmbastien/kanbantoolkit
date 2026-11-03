@@ -35,7 +35,7 @@ export function QuarantineBanner() {
           downloadText(file.filename, file.text, 'application/json')
         }}
         className="flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 font-semibold text-amber-900 transition hover:border-amber-400 hover:bg-amber-100"
-        title="Download the workspace that could not be read, as a workspace file"
+        title="Download the workspace file that could not be read"
       >
         <Download size={13} /> Download the kept copy
       </button>
@@ -43,7 +43,7 @@ export function QuarantineBanner() {
         onClick={() =>
           askConfirm({
             title: 'Delete the kept copy?',
-            body: 'It is the only copy of the workspace that could not be read. Download it first unless you are sure.',
+            body: 'It is the only copy. Download it before deleting.',
             confirmLabel: 'Delete',
             danger: true,
             onConfirm: () => {

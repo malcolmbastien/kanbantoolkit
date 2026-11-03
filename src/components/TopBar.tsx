@@ -77,7 +77,7 @@ export function TopBar(props: Props) {
           'flex items-center gap-2 rounded-md px-1.5 py-1 transition',
           showBoards ? 'bg-white ring-1 ring-indigo-300' : 'hover:bg-white',
         )}
-        title="Workspace Home — every board in the organisation"
+        title="Every board in the organisation"
       >
         <span className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
@@ -110,7 +110,7 @@ export function TopBar(props: Props) {
               'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
               boardActive ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
-            title="Board — the board itself"
+            title="Board"
           >
             <Kanban size={12} /> Board
           </button>
@@ -122,7 +122,7 @@ export function TopBar(props: Props) {
               'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
               showDashboard ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
-            title="Dashboard — a summary view of this board's initiatives"
+            title="This board's initiatives at a glance"
           >
             <LayoutDashboard size={12} /> Dashboard
           </button>
@@ -134,7 +134,7 @@ export function TopBar(props: Props) {
               'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
               showTimeline ? 'border-teal-300 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
-            title="Timeline — this board's initiatives laid out over time"
+            title="This board's initiatives over time"
           >
             <ChartNoAxesGantt size={12} /> Timeline
           </button>
@@ -149,7 +149,7 @@ export function TopBar(props: Props) {
                 'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
                 showMetrics ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
               )}
-              title="Flow — this board's delivery metrics, read from each card's own history"
+              title="Delivery metrics from each card's history"
             >
               <TrendingUp size={12} /> Flow
             </button>
@@ -162,7 +162,7 @@ export function TopBar(props: Props) {
               'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
               showArchive ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
             )}
-            title="Archive — filed-away items (still searchable, still in links)"
+            title="Filed-away items, still searchable"
           >
             <Archive size={12} /> Archive
           </button>
@@ -190,7 +190,7 @@ export function TopBar(props: Props) {
             <button
               onClick={onAddInitiative}
               disabled={editMode}
-              title="New initiative — an outcome this board owns, in its initiatives workflow"
+              title="A new initiative on this board"
               className="flex items-center gap-1 rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-meta font-medium text-indigo-700 hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-40"
             >
               <Plus size={13} /> Initiative
@@ -219,7 +219,7 @@ export function TopBar(props: Props) {
           <button
             onClick={onOpenBoardSettings}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
-            title={isPortfolio(board) ? 'Board settings — title, flight level, linked boards' : 'Board settings — title, card types, labels and workflow'}
+            title={isPortfolio(board) ? 'Title, flight level, linked boards' : 'Title, card types, labels, workflow'}
           >
             <Settings size={13} /> Settings
           </button>
@@ -232,14 +232,14 @@ export function TopBar(props: Props) {
               <button
                 onClick={onSaveEdit}
                 className="flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-meta font-semibold text-white hover:bg-emerald-500"
-                title="Save layout changes"
+                title="Save the layout"
               >
                 <Check size={13} /> Save
               </button>
               <button
                 onClick={onCancelEdit}
                 className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                title="Discard layout changes"
+                title="Discard the changes"
               >
                 <X size={13} /> Cancel
               </button>
@@ -248,7 +248,7 @@ export function TopBar(props: Props) {
           <button
             onClick={onEditBoard}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
-            title="Edit board design (split/add/rename lanes)"
+            title="Split, add and rename lanes"
           >
             <Pencil size={13} /> Edit board
           </button>

@@ -167,7 +167,7 @@ test('the dependency picker leaves filed-away work out', async ({ page }) => {
   // Archive a Done card on this board first.
   await page.locator('[data-card-id="st-signup-screens"]').click()
   const panel = page.locator('[data-item-panel]')
-  await panel.getByRole('button', { name: /More — duplicate/ }).click()
+  await panel.getByRole('button', { name: 'More', exact: true }).click()
   await panel.getByRole('button', { name: 'Archive', exact: true }).click()
   await page.keyboard.press('Escape')
 

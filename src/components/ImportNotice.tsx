@@ -55,7 +55,7 @@ export function ImportNotice() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((value) => !value)}
-        title="This workspace lives in this browser. Copy it to your account so it is on the server too."
+        title="This workspace lives in this browser. Copy it to your account to keep it on the server."
         className="flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-meta font-medium text-amber-800 hover:bg-amber-100"
       >
         <Upload size={13} /> Copy to account

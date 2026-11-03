@@ -131,7 +131,7 @@ export function TagInput({
           }
         }}
         placeholder={tags.length === 0 ? 'Add or create a tag…' : 'Add a tag…'}
-        title="Type to find a tag this board defines — or to create one it does not"
+        title="Type to find a tag, or make a new one"
         autoComplete="off"
         spellCheck={false}
         className={cn(

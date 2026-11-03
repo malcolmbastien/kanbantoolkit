@@ -109,16 +109,16 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards, addsIni
   const actions: (PaletteEntry & { run: () => void })[] = useMemo(
     () => [
       ...(makesCards && canWrite
-        ? [{ id: 'action:new-card', kind: 'action' as PaletteKind, label: 'New card', hint: "Add a card to this board's default cell", keywords: 'create add task story bug', run: onNewCard }]
+        ? [{ id: 'action:new-card', kind: 'action' as PaletteKind, label: 'New card', hint: "In this board's default cell", keywords: 'create add task story bug', run: onNewCard }]
         : []),
       ...(addsInitiatives && canWrite
-        ? [{ id: 'action:new-initiative', kind: 'action' as PaletteKind, label: 'New initiative', hint: 'Add an initiative to this board', keywords: 'create outcome', run: onNewInitiative }]
+        ? [{ id: 'action:new-initiative', kind: 'action' as PaletteKind, label: 'New initiative', hint: 'On this board', keywords: 'create outcome', run: onNewInitiative }]
         : []),
       ...(editMode || !canDesign || !canDesignBoard(boards.find((b) => b.id === boardId))
         ? []
-        : [{ id: 'action:edit', kind: 'action' as PaletteKind, label: 'Edit board design', hint: 'Split, add, rename and delete lanes; add a cards flow', keywords: 'lanes columns rows wip', run: beginEdit }]),
-      { id: 'action:filters', kind: 'action', label: 'Filters', hint: 'Narrow the cards shown on this board, across every flow', keywords: 'find narrow', run: toggleFilters },
-      { id: 'action:shortcuts', kind: 'action', label: 'Keyboard shortcuts', hint: 'Every key path in the app', keywords: 'keys help ? reference', run: openShortcuts },
+        : [{ id: 'action:edit', kind: 'action' as PaletteKind, label: 'Edit board design', hint: 'Lanes, splits and flows', keywords: 'lanes columns rows wip', run: beginEdit }]),
+      { id: 'action:filters', kind: 'action', label: 'Filters', hint: 'Narrow the cards here, across every flow', keywords: 'find narrow', run: toggleFilters },
+      { id: 'action:shortcuts', kind: 'action', label: 'Keyboard shortcuts', hint: 'Every key in the app', keywords: 'keys help ? reference', run: openShortcuts },
       ...(canSettings
         ? [{
             id: 'action:settings',
@@ -139,7 +139,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards, addsIni
         ? [{ id: 'action:flow', kind: 'action' as PaletteKind, label: 'Flow metrics', hint: 'Lead time, cycle time, throughput', keywords: 'metrics cfd report', run: () => setMetrics(true) }]
         : []),
       { id: 'action:archive', kind: 'action', label: 'Archive', hint: 'Filed-away items', keywords: 'done filed old', run: () => setArchive(true) },
-      { id: 'action:mywork', kind: 'action', label: 'My work', hint: 'Everything assigned to one person', keywords: 'mine assigned', run: () => setMyWork(true) },
+      { id: 'action:mywork', kind: 'action', label: 'My work', hint: 'Everything assigned to you', keywords: 'mine assigned', run: () => setMyWork(true) },
       { id: 'action:boards', kind: 'action', label: 'All boards', hint: 'The board workspace', keywords: 'workspace switch', run: () => setBoards(true) },
     ],
     [addsInitiatives, beginEdit, boardId, boards, canDesign, canSettings, canWrite, editMode, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setTimeline, toggleBoardSettings, toggleFilters],

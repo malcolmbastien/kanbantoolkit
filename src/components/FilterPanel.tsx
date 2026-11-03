@@ -128,12 +128,9 @@ export function FilterPanel() {
             type="search"
             value={filters.text ?? ''}
             onChange={(e) => setFilters({ text: e.target.value })}
-            placeholder="Contains — title or description"
+            placeholder="Title or description contains…"
             className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-meta text-slate-700 placeholder:text-slate-400"
           />
-          <p className="mt-1 text-micro text-slate-600">
-            Case doesn't matter. Clearing the field shows every card again.
-          </p>
         </section>
 
         <section>
@@ -154,15 +151,12 @@ export function FilterPanel() {
               )
             })}
           </div>
-          <p className="mt-1 text-micro text-slate-600">No type checked shows every type.</p>
         </section>
 
         <section>
           <SectionLabel>Initiative</SectionLabel>
           {initiativesHere.length === 0 ? (
-            <p className="text-micro text-slate-600">
-              No cards on this board sit under an initiative yet — connect a card to one and it appears here.
-            </p>
+            <p className="text-micro text-slate-600">No card here sits under an initiative yet.</p>
           ) : (
             <>
               <select
@@ -177,10 +171,7 @@ export function FilterPanel() {
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-micro text-slate-600">
-                Narrows to the work under one initiative, however deep. Cards that roll up to no initiative are
-                excluded.
-              </p>
+              <p className="mt-1 text-micro text-slate-600">The work under one initiative, however deep.</p>
             </>
           )}
         </section>
@@ -212,7 +203,7 @@ export function FilterPanel() {
               <span className="flex-1 italic text-slate-600">Unassigned</span>
             </label>
           </div>
-          <p className="mt-1 text-micro text-slate-600">Nothing checked shows every card; the picked people and "Unassigned" combine.</p>
+          <p className="mt-1 text-micro text-slate-600">Nothing checked shows everyone. Unassigned adds to the people picked.</p>
         </section>
 
         <section>
@@ -236,13 +227,13 @@ export function FilterPanel() {
               )
             })}
           </div>
-          <p className="mt-1 text-micro text-slate-600">Cards with no priority are shown by any selection.</p>
+          <p className="mt-1 text-micro text-slate-600">Cards without a priority always show.</p>
         </section>
 
         <section>
           <SectionLabel>Tag</SectionLabel>
           {tagsHere.length === 0 ? (
-            <p className="text-micro text-slate-600">No tags on this board's work yet.</p>
+            <p className="text-micro text-slate-600">No tags on this board yet.</p>
           ) : (
             <div className="space-y-1">
               {tagsHere.map((t) => {
@@ -263,7 +254,7 @@ export function FilterPanel() {
               })}
             </div>
           )}
-          <p className="mt-1 text-micro text-slate-600">Nothing checked shows every card; several combine as “any of”.</p>
+          <p className="mt-1 text-micro text-slate-600">Nothing checked shows every card. Several combine as any of them.</p>
         </section>
 
         <section>
@@ -286,7 +277,7 @@ export function FilterPanel() {
             })}
           </div>
           <p className="mt-1 text-micro text-slate-600">
-            Age is time in the card's current lane. Cards that predate the clock have no age, so an age filter excludes them.
+            Age is time in the card's current lane. Cards older than the clock have no age.
           </p>
         </section>
 
@@ -377,7 +368,7 @@ function SavedSection({
     <section>
       <SectionLabel>Saved filters</SectionLabel>
       {saved.length === 0 ? (
-        <p className="text-micro text-slate-600">Nothing saved yet. Set some filters below, then name and save them here.</p>
+        <p className="text-micro text-slate-600">Nothing saved yet. Name a set of filters to keep it here.</p>
       ) : (
         <div className="space-y-1">
           {saved.map((s) => (
@@ -395,7 +386,7 @@ function SavedSection({
               {!s.boardId && (
                 <span
                   className="shrink-0 rounded bg-slate-100 px-1 text-micro text-slate-600"
-                  title="Saved before presets belonged to a board, so it stays available on every board"
+                  title="Saved before presets were per board, so it shows on every board"
                 >
                   shared
                 </span>

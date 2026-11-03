@@ -158,7 +158,7 @@ export function BulkActions() {
             value={targetBoard}
             onChange={(e) => setTargetBoard(e.target.value)}
             className={SELECT_CLS}
-            title="Move every selected card to another board, into the cell that board lands cards in"
+            title="Move the selected cards to another board's landing cell"
           >
             <option value="">board…</option>
             {elsewhere.map(({ board, lane }) => (

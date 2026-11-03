@@ -13,18 +13,18 @@ import type { BoardBand, BoardTemplate } from '@/domain/types'
 const BAND_DETAIL: Record<BoardBand, { tagline: string; body: string; useFor: string }> = {
   team: {
     tagline: 'The working board',
-    body: 'The team’s working board: columns, cards and WIP limits, plus the initiatives its cards roll up to.',
-    useFor: 'A squad or delivery team doing the work.',
+    body: 'Columns, cards and WIP limits, plus the initiatives the cards roll up to.',
+    useFor: 'A squad delivering work.',
   },
   program: {
     tagline: 'Coordination across teams',
-    body: 'A coordination board for a programme or value stream. Linked teams roll their initiatives up here as bands. No cards workflow.',
-    useFor: 'A programme or value stream coordinating several teams.',
+    body: 'A band per linked team, rolled up from their own boards. No cards here.',
+    useFor: 'A programme or value stream.',
   },
   portfolio: {
     tagline: 'Strategy and investment',
-    body: 'The organisation’s strategy view: objectives with the strategic initiatives that serve them, and coverage gaps. No cards workflow or bands.',
-    useFor: 'Leadership steering a portfolio of programmes.',
+    body: 'Objectives, the initiatives that serve them, and the coverage gaps. No cards or bands.',
+    useFor: 'Leadership steering a portfolio.',
   },
 }
 
@@ -93,8 +93,7 @@ export function NewBoardDialog({
               New board
             </h2>
             <p className="mt-1 text-meta leading-relaxed text-slate-600">
-              A board’s type decides what the board is for and how its work rolls up. You can change it later in Board
-              settings.
+              Change it later in Board settings.
             </p>
           </div>
           <button
@@ -188,8 +187,8 @@ export function NewBoardDialog({
             </select>
             <span className="text-micro text-slate-600">
               {templateId
-                ? 'Uses that template’s columns, card types and WIP policy.'
-                : 'Starts as the standard Backlog → Done columns; shape it after.'}
+                ? 'Uses that template’s columns, types and WIP policy.'
+                : 'Backlog to Done. Shape it after.'}
             </span>
           </label>
         </div>

@@ -172,7 +172,7 @@ export function ItemPicker({
         onClick={() => (open ? close(true) : openPanel())}
         aria-haspopup="listbox"
         aria-expanded={open}
-        title={`${label} — search by title or board`}
+        title={`${label}: search by title or board`}
         className={cn(
           'flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900',
           triggerClassName ?? 'w-60',

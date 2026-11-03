@@ -111,7 +111,7 @@ export function BoardWorkspace() {
   const remove = (board: Board) =>
     askConfirm({
       title: `Delete “${board.name}”?`,
-      body: 'Its lanes, cards and placements go with it, and any board that links it is unlinked. This cannot be undone.',
+      body: 'Its lanes, cards and placements go with it, and any board that links it is unlinked.',
       confirmLabel: 'Delete',
       danger: true,
       onConfirm: () => removeBoard(board.id),
@@ -124,7 +124,7 @@ export function BoardWorkspace() {
           <div className="flex flex-wrap items-end gap-x-6 gap-y-2 px-4 py-3">
           <div>
             <h1 className="text-heading font-semibold text-slate-800">Workspace Home</h1>
-            <p className="mt-0.5 text-meta text-slate-600">Every board in the organisation, and the designs behind them.</p>
+            <p className="mt-0.5 text-meta text-slate-600">Every board in the organisation.</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {activeTab === 'boards' && canCreate && (
@@ -133,7 +133,7 @@ export function BoardWorkspace() {
                 <button
                   onClick={() => setShowNewBoard(true)}
                   className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-meta font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-                  title="Create a board in this organisation"
+                  title="Create a board"
                 >
                   <Plus size={14} /> New board
                 </button>
@@ -170,7 +170,7 @@ export function BoardWorkspace() {
             <button
               onClick={() => setView('admin')}
               className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-              title="Admin — the copies of this workspace this browser keeps, and its storage"
+              title="This browser's copies of the workspace, and its storage"
             >
               <Database size={13} /> Admin
             </button>
@@ -393,7 +393,7 @@ export function BoardWorkspace() {
                             setDashboard(true)
                           }}
                           className="rounded p-1 text-slate-600 transition hover:text-slate-700"
-                          title={`Open ${b.name}'s dashboard — a summary of its initiatives`}
+                          title={`Open ${b.name}'s dashboard`}
                         >
                           <LayoutDashboard size={13} />
                         </a>
@@ -406,7 +406,7 @@ export function BoardWorkspace() {
                             setTimeline(true)
                           }}
                           className="rounded p-1 text-slate-600 transition hover:text-slate-700"
-                          title={`Open ${b.name}'s timeline — its initiatives over time`}
+                          title={`Open ${b.name}'s timeline`}
                         >
                           <ChartNoAxesGantt size={13} />
                         </a>
@@ -419,7 +419,7 @@ export function BoardWorkspace() {
                                 'grid h-6 w-6 place-items-center rounded transition',
                                 menuFor === b.id ? 'bg-slate-100 text-slate-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-700',
                               )}
-                              title={`More — ${b.name}`}
+                              title={`More for ${b.name}`}
                             >
                               <MoreVertical size={14} />
                             </button>
@@ -440,7 +440,7 @@ export function BoardWorkspace() {
                                     <MenuRow
                                       icon={b.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
                                       label={b.archived ? 'Restore' : 'Archive'}
-                                      hint={b.archived ? 'put it back in play' : 'file it away, keep its links'}
+                                      hint={b.archived ? 'back in play' : 'keeps its links'}
                                       onClick={() => {
                                         if (b.archived) unarchiveBoard(b.id)
                                         else archiveBoard(b.id)
@@ -487,7 +487,7 @@ export function BoardWorkspace() {
               <button
                 onClick={createTemplate}
                 className="ml-auto flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                title="Create a template to start boards from"
+                title="Create a template"
               >
                 <Plus size={13} /> New template
               </button>
@@ -495,7 +495,7 @@ export function BoardWorkspace() {
 
             {boardTemplates.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-6 text-center text-meta text-slate-600">
-                No templates yet. Create one here, or save a board’s design from its settings.
+                No templates yet. Make one here, or save a board as a template from its settings.
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -504,7 +504,7 @@ export function BoardWorkspace() {
                     key={t.id}
                     onClick={() => setPreviewId(t.id)}
                     className="group flex flex-col rounded-xl border border-dashed border-sky-300 bg-white p-3 text-left shadow-sm transition hover:border-sky-400 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
-                    title={`Open the ${t.name} template`}
+                    title="Open this template"
                   >
                     <span className="flex items-center justify-between">
                       <span className="grid h-9 w-9 place-items-center rounded-lg bg-sky-100 text-sky-700">
@@ -517,7 +517,7 @@ export function BoardWorkspace() {
 
                     <span className="mt-3 truncate text-title font-semibold text-slate-800">{t.name}</span>
                     <span className="mt-0.5 text-meta text-slate-600">
-                      {t.lanes.length} lane{t.lanes.length === 1 ? '' : 's'} · a board design
+                      {t.lanes.length} lane{t.lanes.length === 1 ? '' : 's'}
                     </span>
                     <span className="mt-2 flex items-center gap-1 text-micro font-medium text-sky-700">
                       Open design <ArrowRight size={11} />

@@ -119,7 +119,7 @@ export function TemplateEditor({
   const deleteType = (id: string, name: string) =>
     askConfirm({
       title: `Delete the “${name}” type?`,
-      body: 'It goes from every board and template, not just this one. Cards using it fall back to a generic item.',
+      body: 'It goes from every board and template. Cards using it fall back to a generic item.',
       confirmLabel: 'Delete',
       danger: true,
       onConfirm: () => {
@@ -152,7 +152,7 @@ export function TemplateEditor({
           />
           <span className="text-meta text-slate-600">
             {isNew
-              ? 'new template — name it, then shape its design'
+              ? 'name it, then shape the design'
               : editing
                 ? 'editing this design'
                 : 'a board design, not its work'}
@@ -168,7 +168,7 @@ export function TemplateEditor({
                     ? 'border-emerald-400/60 bg-emerald-50 text-emerald-700'
                     : 'border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700',
                 )}
-                title={editing ? 'Stop editing' : 'Edit this template’s lanes and settings'}
+                title={editing ? 'Stop editing' : 'Edit the lanes and settings'}
               >
                 {editing ? (
                   <>
@@ -246,7 +246,7 @@ export function TemplateEditor({
                         title={
                           canRemoveTemplateFlow(template, flow.key)
                             ? 'Remove this flow and its lanes'
-                            : 'A template keeps at least one cards flow'
+                            : 'A template needs at least one cards flow'
                         }
                         aria-label={`Remove ${flow.name}`}
                         className="grid h-5 w-5 place-items-center rounded text-slate-500 transition hover:bg-rose-50 hover:text-rose-700 disabled:pointer-events-none disabled:opacity-30"
@@ -266,7 +266,7 @@ export function TemplateEditor({
             {editing && (
               <button
                 onClick={() => setTemplateDesign(template.id, templateAddFlow(template))}
-                title="Add a cards flow — another set of columns in this template"
+                title="Another set of columns in this template"
                 aria-label="Add a cards flow"
                 className="flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-indigo-300 px-2 py-1.5 text-meta font-medium text-indigo-700 transition hover:bg-indigo-50"
               >
@@ -392,9 +392,9 @@ export function TemplateEditor({
                   aria-label="Template WIP policy"
                   className={field}
                 >
-                  <option value="visualize">Visualize — tint, moves always allowed</option>
+                  <option value="visualize">Visualize — tint at or over the limit</option>
                   <option value="justify">Justify — ask for a reason to exceed</option>
-                  <option value="block">Block — refuse moves that would exceed</option>
+                  <option value="block">Block — refuse the move</option>
                 </select>
               ) : (
                 <span className="text-slate-700">{template.wipEnforcement ?? 'visualize'}</span>
@@ -403,15 +403,15 @@ export function TemplateEditor({
           </dl>
 
           <p className="text-micro text-slate-600">
-            Cards, placements and linked boards are never part of a template — they belong to a board.
+            A template holds no cards, placements or linked boards.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
           <p className="text-micro text-slate-600">
             {isNew
-              ? 'Cancel discards this template; Done keeps it.'
-              : 'Deleting a template never touches boards made from it.'}
+              ? 'Cancel discards it.'
+              : 'Boards made from it are untouched.'}
           </p>
           {isNew ? (
             <div className="flex items-center gap-2">

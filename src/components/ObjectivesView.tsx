@@ -176,7 +176,7 @@ export function ObjectivesView() {
                 setPeriodError('')
               }}
               className="flex items-center gap-1 rounded-md border border-violet-300 bg-white px-2 py-1 text-meta font-medium text-violet-700 transition hover:bg-violet-50"
-              title="Name a new period and set its window, then add its first objective"
+              title="Name a period, set its window, then add an objective"
             >
               <Plus size={12} /> New period
             </button>
@@ -189,7 +189,7 @@ export function ObjectivesView() {
                   setPeriodId(ordered.find((p) => p.id !== selected.id)?.id ?? '')
                 }}
                 className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:border-rose-300 hover:text-rose-600"
-                title={`Delete ${selected.name} — offered only while no objective is committed for it`}
+                title={`Delete ${selected.name}. Only offered while nothing is committed for it.`}
               >
                 <Trash2 size={12} /> Delete period
               </button>
@@ -306,7 +306,7 @@ export function ObjectivesView() {
         {shown.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-100 p-8 text-center text-meta text-slate-600">
             {ordered.length === 0 ? (
-              <>No periods yet. Name one above, set its window, then add its first objective.</>
+              <>No periods yet. Name one above, set its window, then add an objective.</>
             ) : (
               <>
                 No objectives in {selected?.name ?? 'this period'} yet. Name one above and press{' '}

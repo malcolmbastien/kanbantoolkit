@@ -38,7 +38,7 @@ export function PriorityBadge({ priority }: { priority?: Priority }) {
     <span
       role="img"
       aria-label={`Priority: ${label}`}
-      title={`Priority — ${label.toLowerCase()}`}
+      title={`Priority: ${label.toLowerCase()}`}
       className="flex shrink-0 items-center"
     >
       <Icon size={14} className={cn('shrink-0', dot)} />
