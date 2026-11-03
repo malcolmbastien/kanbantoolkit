@@ -1,16 +1,15 @@
 # Outbound webhooks
 
-A webhook is a signed HTTP request this instance sends when the work changes. It is the supported
-automation seam: a receiver can post into Slack, start a CI job, or keep a second system in step
-without polling the API or reading the database.
+A webhook is a signed HTTP request this instance sends when the work changes: a receiver can post
+into Slack, start a CI job, or keep a second system in step without polling the API or reading the
+database.
 
 A workspace administrator adds an endpoint under **Admin → Webhooks**. The endpoint is a URL, a set
 of events and a signing secret. The secret is shown once, when the endpoint is made.
 
 <img src="img/guide/webhooks-admin.webp" alt="Admin → Webhooks: endpoint URL, event checkboxes, the endpoint list with pause, test and delete, and recent deliveries" width="1000">
 
-*Admin → Webhooks: one endpoint, the events it subscribes to, and the delivery log that says what
-answered.*
+*Admin → Webhooks: one endpoint, the events it subscribes to, and the delivery log.*
 
 ## The events
 
@@ -27,7 +26,7 @@ answered.*
 
 An endpoint with **no events selected** receives all of them. `initiative.health_changed` is a
 convenience: health is derived, so a receiver can also compute it from the item events and the
-workspace it already reads. The event says what changed, not what the receiver should think.
+workspace it already reads.
 
 ## The envelope
 
@@ -50,8 +49,8 @@ Every request body is one JSON object:
 }
 ```
 
-`data` is deliberately small: the ids and the words a receiver needs to fetch the rest from
-`/api/v1` if it wants more. The whole workspace is never sent.
+`data` is small: the ids and the words a receiver needs to fetch the rest from `/api/v1`. The whole
+workspace is never sent.
 
 ## Verifying a delivery
 
@@ -90,9 +89,9 @@ failed. A `410 Gone` means the receiver has finished with the endpoint, so the e
 and not retried. Every attempt is kept in the delivery log
 with its status, try count, answer and error, and a failed one can be retried by hand.
 
-The dispatcher is not in the request path. A self-hosted instance runs it every fifteen seconds
-(`WEBHOOKS=0` turns it off); a Worker runs it from the cron trigger named in `wrangler.jsonc`.
-**Send due now** on the admin screen asks for an immediate pass.
+The dispatcher runs outside the request path: a self-hosted instance every fifteen seconds
+(`WEBHOOKS=0` turns it off), a Worker from the cron trigger named in `wrangler.jsonc`. **Send due
+now** on the admin screen asks for an immediate pass.
 
 ## Security
 
@@ -106,5 +105,5 @@ The dispatcher is not in the request path. A self-hosted instance runs it every 
 ## What it is not
 
 There is no inbound webhook, no chat client and no digest. A webhook is an event out; a receiver
-that wants people to read it writes that part. The event layer is what a future notification or
-digest feature would build on, so the names and the envelope are meant to stay.
+that wants people to read it writes that part. The event names and the envelope are meant to stay: a
+notification or digest feature would build on them.

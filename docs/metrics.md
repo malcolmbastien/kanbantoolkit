@@ -1,10 +1,9 @@
 # Lean metrics and reporting
 
-The plan for the **Flow** view: what it measures now, what to add, and what it deliberately stays
-out of. It is a strengthening of one screen, not a reporting product.
+The plan for the **Flow** view: what it measures now, what to add, and what it stays out of.
 
-The references are at the bottom. The short version of all four: show distributions rather than
-averages, make old work visible, and forecast with a range instead of a date.
+All four references agree on the short version: show distributions rather than averages, make old
+work visible, and forecast with a range instead of a date.
 
 ## What the Flow view is now
 
@@ -14,45 +13,44 @@ level expectation, when the open work will be done, and how many by a date. The 
 exports the window's delivered cards — the rows the scatter used to list — as CSV.
 
 The cycle-time dots and the throughput bars are coloured by the card's **type**, using the board's
-own type colours. Each chart carries a legend naming the types in its window, so the colours are
-read with words rather than guessed at; the tooltip names the type again, and so does the CSV.
+own type colours. Each chart carries a legend naming the types in its window; the tooltip names the
+type again, and so does the CSV.
 
 <img src="img/guide/flow-view.webp" alt="The Flow view for Team Atlas: the header reading, cycle-time scatter and distribution, aging work, cumulative flow, throughput and the planning panel" width="1100">
 
 *The Flow view: the window and cards flow at the top, with the delivery history beneath them.*
 
 Three things were built and then removed when the screen was narrowed: **blocked work**, **Little's
-Law**, and the **data-quality section**. (The **CSV export** was removed with them, and came back
-once the per-card table under the scatter went: the file is where those rows live now.) None was wrong; together they made the
-screen longer than the reading it is for. The phase tables below are the record of how it got here —
-a row marked *removed* is history, not scope. WIP by column, the per-card forecast and flow
-efficiency remain unbuilt and are in Phase 3.
+Law**, and the **data-quality section**. The **CSV export** went with them, and came back once the
+per-card table under the scatter went: the file is where those rows live now. A row marked *removed*
+in the phase tables is history, not scope. WIP by column, the per-card forecast and flow efficiency
+remain unbuilt, in Phase 3.
 
 ## What the references agree on
 
-**Troy Magennis / Crisp — forecasting and coaching with data.** Use percentiles and ranges, not
-single numbers. Build a *balanced* dashboard: improve the system, not one metric. Forecast duration,
-capacity and scope from history when it exists, and use range estimates when it does not. Keep
-dependencies and queues in view, because they are what make delivery uncertain.
+**Troy Magennis / Crisp — forecasting and coaching with data.** Percentiles and ranges, not single
+numbers; a *balanced* dashboard that improves the system rather than one metric. Forecast duration,
+capacity and scope from history where it exists, and with range estimates where it does not. Keep
+dependencies and queues in view: they are what make delivery uncertain.
 
 **Planview LeanKit — measuring and reporting.** WIP, queues, blockers, lead time, cycle time,
 throughput, Little's Law, and the cumulative flow diagram. Blockers are the easiest useful metric
 for a new team: count them *and* measure how long they last. A CFD answers several questions at
 once — WIP now, approximate lead time by horizontal distance, throughput by the slope of Done.
 
-**Kanbanize / Businessmap — kanban analytics.** The chart set: CFD, cycle time scatterplot,
-cycle time histogram, throughput histogram, aging WIP, flow efficiency, blocker clustering, and
-Monte Carlo for "when will it be done" and "how many by then". Service level expectations are read
-from the cycle-time distribution at 85% and 95%.
+**Kanbanize / Businessmap — kanban analytics.** CFD, cycle time scatterplot, cycle time histogram,
+throughput histogram, aging WIP, flow efficiency, blocker clustering, and Monte Carlo for "when will
+it be done" and "how many by then". Service level expectations are read from the cycle-time
+distribution at 85% and 95%.
 
 **JiraMetrics — data-quality first, and two chart details.** Its reports open with a Data Quality
-section, which was tried here and later removed (the screen is for flow, not for auditing the board).
-What remained is the aging line at the 85th percentile of completed work and the scatter's y-axis
-cap at a high percentile, so the tail does not squash the bulk; it also warns that a trend line on a
-scatter is descriptive, not predictive.
+section, tried here and later removed: the screen is for flow, not for auditing the board. What
+remained is the aging line at the 85th percentile of completed work and the scatter's y-axis cap at
+a high percentile, so the tail does not squash the bulk. A trend line on a scatter is descriptive,
+not predictive.
 
-**What this plan takes from that.** The additions that pay for themselves first are the
-distribution (scatter and histogram) and aging work. Forecasting comes next, because it needs enough
+**What this plan takes from that.** The additions that pay first are the distribution (scatter and
+histogram) and aging work. Forecasting comes next, because it needs enough
 history to be honest. Flow efficiency waits, because the model cannot yet tell a queue from active
 work without a new lane setting.
 
@@ -62,8 +60,8 @@ work without a new lane setting.
    already exist. No snapshot table, no nightly rollup, no target to keep in step.
 2. **The stage is the stable grain.** A team renames and splits columns; the four stages do not
    move. Column-level history is used only where a log entry carries a lane id.
-3. **A percentile carries its sample.** p85 of four cards is a rumour. Every figure shows `n`, and
-   thin history says so in words rather than drawing a confident line.
+3. **A percentile carries its sample.** Every figure shows `n`, and thin history says so in words
+   rather than drawing a confident line.
 4. **No new data entry.** Nothing asks a person to estimate size, score a card, or classify work.
    If a metric needs data the board does not already record, it waits for a deliberate model change.
 5. **Read-only.** There are no targets, no red/green scores and no generated narrative. A chart is
@@ -71,10 +69,9 @@ work without a new lane setting.
 6. **One screen.** No report builder, no saved report definitions, no per-person metrics. The
    controls are the window, the flow filter, and the inputs the planning readings need.
 7. **Accessible and dependency-free.** Inline SVG and the existing bar primitives, no chart library.
-   Each chart has a sentence summary, and the distributions keep a table of their numbers for a
-   screen reader. The scatter's per-card rows are the CSV export's job now, so the chart is the
-   reading and the file is the data. Type colour is never the only channel: every chart that uses
-   it names the type in a legend, a tooltip and its accessible label.
+   Each chart has a sentence summary, the distributions keep a table of their numbers for a screen
+   reader, and type colour is never the only channel: every chart that uses it names the type in a
+   legend, a tooltip and its accessible label. The scatter's per-card rows are the CSV export's job.
 8. **The first download does not grow.** `metrics.ts` is imported by the lazy Flow screen only, so
    additions belong there and must stay there.
 9. **Balanced, not one number.** Every phase pairs a speed reading with a waiting one — cycle time
@@ -98,8 +95,7 @@ No schema change. One pull request per line, or two small ones.
 | 1.9 | **Data quality** *removed*. A short section under the header with counts and links: moved backwards, moved back to Backlog after commitment, changed after Done, finished before it started, created outside Backlog, done with open children or checklist items, and cards placed on more than one board. Each names what it means and never blocks a chart. | JiraMetrics' lesson: the charts are only as good as the data, and the reader should know where the process bends the model. | S–M |
 
 **Ends with:** a team can open Flow for a chosen quarter and flow, see the shape of its cycle time,
-find the cards that are old today, and click any of them. Everything still derives from the board,
-with no migration and no new field.
+find the cards that are old today, and click any of them. No migration, no new field.
 
 ## Phase 2 — Forecast from the same history
 
@@ -113,10 +109,9 @@ Still no schema change.
 | 2.4 | **The assumptions, on screen.** Scope stays fixed; the future resembles the sampled weeks; weekly grain; dependencies and batch size are not modelled. Re-forecast when scope changes. | A range without its assumptions is a promise the data cannot keep. | S |
 | 2.5 | **The rows behind the charts** *removed*. A CSV of delivered cards with created, committed, done, lead, cycle and blocked days for the window. | A team that wants a spreadsheet should not have to scrape the screen, and it fits the existing board CSV. | S |
 
-Minimums before forecasting: at least 4 weeks in the window and at least 8 delivered cards.
-Below that the screen says what is missing and shows nothing else. Magennis's range estimates are
-the right fallback, and they are deliberately not built: a typed range would be a second source of
-truth beside the board.
+Minimums before forecasting: at least 4 weeks in the window and at least 8 delivered cards. Below
+that the screen says what is missing and shows nothing else. Range estimates are not built: a typed
+range would be a second source of truth beside the board.
 
 <img src="img/guide/flow-planning.webp" alt="The Planning panel: service level, when the open work will be done, and how many by a date" width="1100">
 
@@ -135,12 +130,10 @@ These are real lean metrics, but each costs something the plan above avoids.
 - **Flow efficiency.** The share of cycle time spent active rather than waiting. It needs a lane
   property — *this column is a queue* — because the four stages cannot tell a review queue from
   work. That is a board-design field, a persistence migration and a schema bump, and it can only
-  measure *forward*: history before the setting existed cannot be classified. Worth doing if
-  queues are the team's problem, not before.
+  measure *forward*: history before the setting existed cannot be classified.
 - **WIP by column.** How much time each column spent at each WIP level, with the configured limit
   drawn on it — JiraMetrics' `wip_by_column_chart`. The lane ids in the log make it possible. It
-  stops at showing the limit: automatic limit recommendations from a few months of data would be
-  advice the sample cannot support.
+  shows the limit and does not recommend one: a few months of data cannot support advice.
 - **A single-item forecast.** "Days likely remaining" for an aging card, from how long work
   historically took to cross the columns that remain (JiraMetrics' aging-table forecast). It is a
   per-card version of the scope forecast, and it refuses when the card is already older than the
@@ -149,7 +142,7 @@ These are real lean metrics, but each costs something the plan above avoids.
   text (case-insensitive) is cheap and belongs in 1.5; real categories need a small, fixed list or
   a tag convention, which is data entry we are not adding yet.
 - **Breakdowns.** Cycle time by card type, assignee or tag; aging by owner. Useful once the base
-  panels are trusted. Keep it to a grouping selector on the scatter, not a pivot builder.
+  panels are trusted. Keep it to a grouping selector on the scatter.
 - **Portfolio rollups.** The program and portfolio boards already roll up initiatives. A flow
   reading across linked boards is a different question (different teams, different throughput) and
   belongs with the portfolio surfaces, not here.
@@ -161,8 +154,7 @@ These are real lean metrics, but each costs something the plan above avoids.
 - Story points, estimates or any size field; the board counts issues and the rollups are issue
   counts.
 - Burn-down or velocity charts; they assume a fixed scope and a sprint, and this board does not.
-- An AI-written summary of the charts. The numbers are the report, and the project does not send
-  work to a model.
+- An AI-written summary of the charts. The project does not send work to a model.
 - Cross-team comparison or individual performance metrics. Both punish the wrong behaviour.
 
 ## The model and the functions
@@ -202,8 +194,7 @@ Rules that need writing down and testing:
 - **One toolbar** above the panels: range, flow, and the definition of the four headline numbers.
 - Panels in the current visual language: white card, uppercase title, one line of explanation.
   Charts use the existing stage colours; no new palette.
-- Every dot and every aging row opens the card panel. A chart that cannot take you to the work is
-  a dead end.
+- Every dot and every aging row opens the card panel.
 - The empty and thin states are sentences, not blank axes: what is missing, and what would make it
   appear.
 - URL: `?board=<id>&view=flow&range=12w&flow=<flowId>`. Unknown values fall back to the defaults,
@@ -241,7 +232,7 @@ Rules that need writing down and testing:
 | 2.4 assumptions | 2.2 | 0.5 day |
 | 2.5 CSV *removed* | 1.1 | 0.5 day |
 
-Phase 1 is about a week of work; Phase 2 is two to three days. That is the whole proposal.
+Phase 1 is about a week of work; Phase 2 is two to three days.
 
 ## Decisions taken, and the ones still open
 
@@ -256,7 +247,7 @@ Taken:
   this board does not have a size.
 - **The window defaults to 12 weeks**, with all history available for small boards.
 - **The aging line compares time since commitment with completed cycle time.** Time in the current
-  column is shown too, as a separate fact, because comparing it to cycle time would be wrong.
+  column is shown as a separate fact.
 
 Open, to settle before Phase 2:
 

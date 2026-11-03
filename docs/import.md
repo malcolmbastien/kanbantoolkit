@@ -1,8 +1,8 @@
 # Importing a board
 
-A team arriving with work somewhere else should not rebuild its board by hand. **Workspace Home →
-Import board…** (or **Admin → Workspace data**) reads a Trello board export or a Jira CSV and creates
-**one** new board. It never replaces another board, and Cancel leaves the workspace exactly as it was.
+**Workspace Home → Import board…** (or **Admin → Workspace data**) reads a Trello board export or a
+Jira CSV and creates **one** new board. It never replaces another board, and Cancel leaves the
+workspace exactly as it was.
 
 ## Trello
 
@@ -29,19 +29,16 @@ attachments and issue links are not imported.
 
 ## The mapping step
 
-The source cannot know what its list names mean here, so the dialog asks:
-
 <img src="img/guide/import-mapping.webp" alt="The Import a board dialog after reading a Trello file: source and file, lists mapped to stages, people mapping and a preview of three cards" width="1000">
 
 *The mapping step: what the source calls a list becomes a stage, a person becomes somebody here, and
-the preview says what will be created before Import is pressed.*
+the preview says what will be created.*
 
 - **Lists → stages.** Every source list maps to Backlog, Not Started, In Progress or Done. Two
-  source lists mapped to the same stage become two **cells** in that column, named after the lists,
-  so the distinction is kept rather than flattened.
-- **People.** Each source person can be associated with a person already in this workspace. There is
-  no “create a person” answer — an import is not a place to mint accounts — so anyone left as
-  **None** is imported without an assignee, and the preview says how many names were unmatched.
+  source lists mapped to the same stage become two **cells** in that column, named after the lists.
+- **People.** Each source person can be associated with a person already in this workspace. Anyone
+  left as **None** is imported without an assignee, and the preview says how many names were
+  unmatched.
 - **Types.** Each Jira issue type maps to one of the workspace's card types. A missing or unmatched
   type becomes **None**, and the warning says so.
 
@@ -51,12 +48,11 @@ could not match — before anything is written.
 ## What is created
 
 One team board with a **Cards** flow (the four typed columns, split where the mapping needs it) and
-the standard **Initiatives** flow. Imported cards carry a log entry naming the source and its key, so
-the origin stays readable in Activity. A used tag is added to the board's own tags; the workspace
-directory is unchanged — an import never creates a person.
+the standard **Initiatives** flow. Imported cards carry a log entry naming the source and its key,
+readable in Activity. A used tag is added to the board's own tags; the workspace directory is
+unchanged — an import never creates a person.
 
 ## What is not
 
-There is no automatic re-import or two-way sync. An import is a starting point; after it, the board
-is the team's own. A whole-workspace JSON restore is a different act, under
-[Workspace data](using.md#the-workspace).
+There is no automatic re-import or two-way sync. A whole-workspace JSON restore is a different act,
+under [Workspace data](using.md#the-workspace).

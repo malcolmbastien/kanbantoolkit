@@ -1,8 +1,8 @@
 # Board types
 
-Every board has a **flight level** — **Team**, **Program** or **Portfolio**. The level is not a
-label on the board: it decides what the board renders, what work can be entered on it, and where its
-initiatives roll up. Choose it when the board is made.
+Every board has a **flight level** — **Team**, **Program** or **Portfolio**. The level decides what
+the board renders, what work can be entered on it, and where its initiatives roll up. Choose it when
+the board is made.
 
 | | Team | Program | Portfolio |
 | --- | --- | --- | --- |
@@ -23,8 +23,8 @@ columns — and the **initiatives flow** the cards roll up into. Cards are made 
 limited here; the board's WIP policy, card types, tags, default drop cell and flow metrics all belong
 to this level.
 
-This is where the work happens. An initiative on the same board is the outcome the work belongs to, and
-its progress is computed from the cards below it.
+An initiative on the same board is the outcome the work belongs to, and its progress is computed from
+the cards below it.
 
 **Use it for**
 
@@ -38,15 +38,13 @@ its progress is computed from the cards below it.
 
 ## Program boards
 
-A coordination board. The app's label for this level is **Program**. A program board has its own
+A coordination board; the app's label for this level is **Program**. A program board has its own
 initiatives flow, which holds the outcomes the program owns, and a **band for each linked board**. Each
-band shows the initiatives from the teams or programs beneath it. It
-does not carry a cards flow: nobody makes a card on a program board, because the work belongs to
-the team that does it.
+band shows the initiatives from the teams or programs beneath it. It carries no cards flow: the work
+belongs to the team that does it.
 
-The program is for the questions a single team cannot answer: which initiatives are moving, which
-are blocked or waiting, which teams depend on each other, and what the combined picture looks like.
-Its dashboard and timeline read the same initiatives, not a copy of them.
+A program answers what a single team cannot: which initiatives are moving, which are blocked or
+waiting, which teams depend on each other. Its dashboard and timeline read the same initiatives.
 
 Each linked band is **read-only**: it is a rollup of that board's initiatives, and the band says so
 at its header. To move an initiative or change its details, use **Open board**. The work stays on the
@@ -67,11 +65,11 @@ belongs on a team board beneath the program.
 The strategy board. It leads with the **strategy map**: the board's own initiatives grouped by the
 **objectives** they serve, with key results and the two coverage gaps — an objective nothing serves,
 and an initiative serving nothing. Objectives and key results are authored here; an initiative serves
-one objective, and is moved between them deliberately.
+one objective, and mapping it to another moves it.
 
-A portfolio has no cards flow and no bands. Its links to programs still exist for the rollup, but
-the portfolio surface chooses to read the work by objective rather than by team. That is the point of
-the level: a reader should see whether the strategy is covered, not which squad is busiest.
+A portfolio has no cards flow and no bands. Its links to programs still exist for the rollup, but this
+surface reads the work by objective rather than by team, so a reader sees whether the strategy is
+covered rather than which squad is busiest.
 
 <img src="img/guide/portfolio-overview.webp" alt="The Company Strategy portfolio board: Portfolio at a glance above objective flows for Grow activation, Improve reliability and Reduce cost to serve" width="1100">
 
@@ -98,13 +96,13 @@ it holds no cards and arranges no lanes of its own.
 Open the portfolio board and choose **Objectives**. This is the only place objectives and key
 results are authored; they are not a global view.
 
-**Periods.** A period is a record with a name and the window it covers — not a label typed onto
-each objective. Choose one in **Period**, or press **New period**, name it (for example `FY27 Q1`)
-and give it a **Starts** and **Ends** date; its first objective joins it. The window belongs to the
-period, so setting it once is the deadline for every objective committed for it: an objective has
-no target date of its own. Set or change the dates beside the **Period** select at any time; a
-period can be deleted only while no objective is committed for it. Periods read in calendar order —
-start date, then name — and a period with no window yet sorts after the dated ones.
+**Periods.** A period is a record with a name and the window it covers, not a label typed onto each
+objective. Choose one in **Period**, or press **New period**, name it (for example `FY27 Q1`) and give
+it a **Starts** and **Ends** date; its first objective joins it. The window belongs to the period, so
+setting it once is the deadline for every objective committed for it: an objective has no target date
+of its own. Set or change the dates beside the **Period** select at any time; a period can be deleted
+only while no objective is committed for it. Periods read in calendar order — start date, then name —
+and a period with no window yet sorts after the dated ones.
 
 **Add an objective.** With the period chosen, type the outcome beside **New objective** and press
 Enter or the button. The card's title is editable in place. Aim for three to five objectives in a
@@ -126,11 +124,11 @@ Detach one with the × beside it. Mapping is attribution: it never counts as WIP
 move a card.
 
 **Why only a top-level outcome.** An objective's completeness is the work below its mapped
-initiatives. A nested initiative inherits its parent's objective through the hierarchy, so mapping
-it as well would count the same work twice — or leave the parent's card and the objective reading
-different numbers. The rule keeps progress a partition: each piece of work counts toward exactly
-one objective, and a mapped initiative's percentage is its own rollup. An initiative that is
-already mapped cannot be rolled up under another; unmap it first if the work belongs elsewhere.
+initiatives. A nested initiative inherits its parent's objective through the hierarchy, so mapping it
+as well would count the same work twice, or leave the parent's card and the objective reading
+different numbers. The rule keeps progress a partition: each piece of work counts toward exactly one
+objective, and a mapped initiative's percentage is its own rollup. An initiative that is already
+mapped cannot be rolled up under another; unmap it first if the work belongs elsewhere.
 
 **See the gaps.** The strategy map groups the initiatives mapped to each objective, wherever they
 live, and shows both coverage gaps: an objective that nothing serves, and a top-level initiative in
@@ -142,8 +140,7 @@ objective nothing serves has no percentage at all, because there is no work to r
 period: the period's window, how many initiatives are mapped to it, its completeness and the health
 of those initiatives. The four readings — **No coverage**, **At risk**, **Watch** and **On track** —
 are derived from the same rules the cards and the strategy map use, and every cell says its reading
-in words as well as colour. Choosing an objective takes you to its flow below; the heatmap is a way
-in, not a second report.
+in words as well as colour. Choosing an objective takes you to its flow below.
 
 <img src="img/guide/portfolio-heatmap.webp" alt="Portfolio at a glance: three objectives by period with coverage, progress and health columns" width="1000">
 
@@ -159,12 +156,12 @@ Ask what the board is for, not who opens it:
 - **Are you deciding or communicating what the work is for, with objectives and coverage?** A
   portfolio board.
 
-The type is fixed when the board is created. It is not a theme: it decides which surfaces exist and
-where the initiatives roll up. A board made as a team board and later changed to a program would
-not gain the bands of work that was never linked to it — it would lose the cards flow that holds its
-work instead. So the application refuses the change in the settings panel, in the store and on the
-server, rather than warning and proceeding. To change the level, create a new board of the other type
-and move or link the work there. Start at the level the work belongs to.
+The type is fixed when the board is created. It decides which surfaces exist and where the
+initiatives roll up. A board made as a team board and later changed to a program would not gain the
+bands of work that was never linked to it — it would lose the cards flow that holds its work instead.
+The application therefore refuses the change in the settings panel, in the store and on the server,
+rather than warning and proceeding. To change the level, create a new board of the other type and
+move or link the work there.
 
 ## A worked example
 
@@ -176,7 +173,7 @@ their own cards; their initiatives appear as bands on Product Delivery; the init
 objective appear on the portfolio's strategy map, whether they live on a program or a team board.
 
 The same card is read three ways without being copied: the team moves it, the program rolls it up,
-and the portfolio asks which objective it serves. No level keeps its own version of the work.
+and the portfolio asks which objective it serves.
 
 ## Related
 

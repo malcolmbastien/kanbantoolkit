@@ -7,8 +7,8 @@ instance, on their own domain. What the site owes a visitor is what this is, how
 documentation is, and what the licence lets them do.
 
 The site was built in tasks **151** and **163–167**, which are done. The commercial pages were cancelled
-(153, 155, 156, 161, 162), and so was the help section (158). The backlog holds the task history. This page
-holds the shape, the page inventory, the content outline and the decisions, in the order the site needs them.
+(153, 155, 156, 161, 162), and so was the help section (158). The backlog holds the task history; this
+page holds the shape, the page inventory, the content and the decisions.
 
 ## What this is, and what it is not
 
@@ -125,8 +125,7 @@ One screen must answer three questions: what is this, why is it different, and w
     the shape is super-productivity's — a name, a handful of destinations, the licence said once.
 
 **There is no cost section and no "how is this free?" section.** There is nothing to sell and nothing
-to explain away, and a paragraph about being free is still a paragraph about money. What stands in
-its place is evidence: the licence, the install page, the demo.
+to explain away. What stands in their place is evidence: the licence, the install page, the demo.
 
 **The rule for every sentence:** it must be true of the code in this repository, and there must be
 something to point at. A claim with no proof does not ship.
@@ -189,7 +188,7 @@ files. It is not a second manuscript.
 
 ## The promises ledger
 
-Every claim the site makes has a page and a proof. If a claim cannot be proved, it is cut.
+Every claim the site makes has a page and a proof.
 
 | The site says | What makes it true |
 | --- | --- |

@@ -1,8 +1,7 @@
 # Roadmap
 
-This page gives the order of the work and the reason for it. The backlog holds the detail and the
-requirements. Each phase below ends with something a person can check, not with a percentage. The
-task numbers are the backlog's.
+The order of the work, and the reason for it. The backlog holds the detail and the requirements; the
+task numbers are its own. Each phase below ends with something a person can check, not a percentage.
 
 ## Where the project is
 
@@ -23,7 +22,7 @@ a D1 database, and a browser holds a cache of the workspace. The pieces that mak
 
 ## What was cancelled
 
-These were planned and then dropped. Each is kept here so the decision is not lost.
+Planned, then dropped.
 
 - **Paid plans, billing and the merchant of record** (153, 155, 156, 161). The project is free software that
   you run yourself. There is no plan to buy.
@@ -49,9 +48,9 @@ The open work is in the backlog. The main items are:
 
 ## The order that was followed
 
-The original plan was a critical path from a server shape (129), through identity (117), the workspace
-move (118), collaboration (120, 121, 122), and operations (119, 128). Each phase ended with something a
-person could test:
+The critical path ran from the server shape (129) through identity (117), the workspace move (118),
+collaboration (120, 121, 122) and operations (119, 128). Each phase ended with something a person
+could test:
 
 1. **A server with one shape.** A Hono app with no bindings, a `Database` interface, a Worker entry and a
    Node entry, and a health check on both. A CI job boots the Node entry.
@@ -68,5 +67,5 @@ it, so the seam came first. Collaboration needs real identity, so identity came 
 
 ## The decision that was made early
 
-The licence is **AGPL-3.0-or-later**, chosen before the repository was opened. Anyone who runs a modified
-version for other people over a network must offer them its source. It is recorded in the README.
+The licence is **AGPL-3.0-or-later**, chosen before the repository was opened. Anyone who runs a
+modified version for other people over a network must offer them its source.

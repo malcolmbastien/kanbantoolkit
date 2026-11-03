@@ -1,10 +1,10 @@
 # Architecture
 
-One application, two runtimes, one database schema. This page is the map: what the pieces are, what
-may import what, and what happens to a request from the moment a browser sends it.
+One application, two runtimes, one database schema: what the pieces are, what may import what, and
+what happens to a request from the moment a browser sends it.
 
-The deeper arguments live in their own pages: [the two runtimes](server-runtime.md),
-[the data model](data-model-v2.md), [collaboration](collaboration.md) and [the API](api.md).
+The longer arguments are in [the two runtimes](server-runtime.md), [the data model](data-model-v2.md),
+[collaboration](collaboration.md) and [the API](api.md).
 
 ## The layers
 
@@ -20,11 +20,10 @@ The dependency rule is a table in [server-runtime.md](server-runtime.md), and it
 `npm run portable` fails if `server/` imports `cloudflare:workers`, `D1Database`, `env.ASSETS` or any
 Cloudflare-only storage.
 
-Two consequences worth holding on to:
+Two consequences:
 
 - **The client works with no server at all.** `dist/` on any static host is a complete board; the
-  workspace lives in `localStorage`. The server adds accounts, sharing and a second device, and takes
-  nothing away.
+  workspace lives in `localStorage`. The server adds accounts, sharing and a second device.
 - **A rule that can be written as a function of the data belongs in `src/domain/`.** Rollup, depth,
   WIP, dependency state, objective coverage: each is a pure function with tests, and both the client
   and the server call the same one.
@@ -42,7 +41,7 @@ caller belongs to it (or, for an instance administrator, when it exists). A clie
 read at a workspace it is not in, and a write that would reach across the boundary is a `404` — the
 same answer as "no such thing", because naming it would confirm it exists.
 
-Two axes of authority, deliberately separate:
+Two axes of authority:
 
 | | Where | What it means |
 | --- | --- | --- |
@@ -50,8 +49,8 @@ Two axes of authority, deliberately separate:
 | **the authority** | `workspace_members.role`, or a group | what they may read, write, invite or delete in this workspace |
 
 An instance administrator may repair a workspace. A workspace administrator runs their team and
-nothing else. The permission matrix is `src/domain/roles.ts`, and it is read on every request rather
-than cached in the session — a demotion is visible on the next request, with no re-login.
+nothing else. The permission matrix is `src/domain/roles.ts`, read on every request rather than
+cached in the session, so a demotion is visible on the next request with no re-login.
 
 ## A request, end to end
 
@@ -63,8 +62,7 @@ than cached in the session — a demotion is visible on the next request, with n
    with `401` (not signed in), `403` (signed in, but not allowed), or `404` (nothing here for you).
 4. **The route** does one thing, through the domain's rules, in one transaction.
 5. **The change feed.** A write bumps the item's revision and appends a row to `changes`. The live
-   channel is then rung with a **nudge** — `{"revision": n}` — and never with the change itself: a
-   client that receives a nudge reads the feed it already knows how to read.
+   channel is then rung with a **nudge** — `{"revision": n}` — and never with the change itself.
 
 ## Offline and conflict
 
@@ -76,17 +74,14 @@ way back it sends them in order, each with the revision it was based on:
   answer and never merges by hand;
 - the card is **held** by someone else's editing lease → `423`, with who holds it;
 - a retry after a lost response carries the change's key, and the server answers with what is stored
-  rather than applying it twice — which is what makes a queue safe to flush twice.
+  rather than applying it twice.
 
 ## The live channel
 
-The socket says only that the feed has moved. It never carries the change itself. On Cloudflare it is a
-Durable Object per workspace, holding hibernatable sockets. On Node it is the process's own `ws` server.
-With neither, clients poll `/api/workspace/changes?since=<cursor>` and read the changes themselves.
-`LIVE=0` forces the poll, which is how CI exercises the fallback.
-
-The point is that the fallback is not a degraded mode: the same client code reads the same feed, and
-the socket is only a way to be told when to read it.
+The socket says only that the feed has moved, never the change itself. On Cloudflare it is a Durable
+Object per workspace, holding hibernatable sockets. On Node it is the process's own `ws` server. With
+neither, clients poll `/api/workspace/changes?since=<cursor>` and read the changes themselves: the
+same client code reads the same feed. `LIVE=0` forces the poll, which is how CI exercises the fallback.
 
 ## Where the state lives
 

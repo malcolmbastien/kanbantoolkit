@@ -1,13 +1,13 @@
 # Connecting an agent (MCP)
 
 Kanban Toolkit speaks [Model Context Protocol](https://modelcontextprotocol.io), so an agent can read and
-write your board on your behalf. It is not a second product. The tools are named after things a person
-does on the board, they call the same operations as [`/api/v1`](rest-api.md), and the same domain rules
-decide them. A move an agent makes is a move: a WIP limit can refuse it, it is recorded in the item's
-history, and the history says whose token made it.
+write your board on your behalf. The tools are named after things a person does on the board, they
+call the same operations as [`/api/v1`](rest-api.md), and the same domain rules decide them. A move an
+agent makes is a move: a WIP limit can refuse it, it is recorded in the item's history, and the
+history says whose token made it.
 
-This page is for someone who runs an instance, or uses one, and wants an agent to work on it. The
-project's own contributor rules are in [`AGENTS.md`](../AGENTS.md); they are not for you.
+This page is for someone who runs an instance and wants an agent to work on it. The project's
+contributor rules are in [`AGENTS.md`](../AGENTS.md).
 
 ## Before you start
 
@@ -31,11 +31,10 @@ in the image, so it needs a checkout.
 
 ## Get a token
 
-A token is a secret that identifies you to the instance. Create one in either of two ways.
+A token is a secret that identifies you to the instance. Create one in one of two ways.
 
 **From the app.** Sign in, open **Admin → Connect an agent**, choose a name, and choose whether the
-agent may write. The app shows the configuration with the secret in it. The secret is shown once, so
-copy it then.
+agent may write. The app shows the configuration with the secret in it, once.
 
 - Read-only mints `boards:read`, `items:read`, `people:read` and `items:comment`.
 - Read and write adds `items:write` and `objectives:write`.
@@ -89,9 +88,9 @@ Use this for Docker installs, and for any instance the agent reaches over the ne
 }
 ```
 
-Replace `ktk_…` with your token and the URL with your instance's address. The connection is stateless,
-so the agent can restart, or the server can, without losing anything. A plain `GET /mcp` returns `405`
-and says that this server does not stream to the client. That is expected.
+Replace `ktk_…` with your token and the URL with your instance's address. The connection is
+stateless: the agent or the server can restart without losing anything. A plain `GET /mcp` returns
+`405` and says that this server does not stream to the client.
 
 ### On your machine (stdio)
 
@@ -126,12 +125,12 @@ Then point the agent at the checkout:
   then carry a secret.
 - If `KANBANTOOLKIT_URL` is unset, the bridge uses `http://localhost:8787`.
 
-The bridge is a relay. It forwards each message to your instance, so the tools, the rules and the history
-are the instance's own.
+The bridge is a relay: it forwards each message to your instance, so the tools, the rules and the
+history are the instance's own.
 
 ## Your first session
 
-A reasonable order for an agent, and what each step is for:
+A reasonable order for an agent:
 
 1. `list_boards`: which boards exist, and whether each one is archived or read-only.
 2. `workspace_summary`: counts and the columns of your team board, without paging through every card.
@@ -176,7 +175,8 @@ A batch of twenty cards is twenty calls, and each is accepted or refused on its 
 
 ## When a tool refuses
 
-A refusal is a normal answer, not a crash. The result has `isError: true` and a sentence a person can read:
+A refusal is a normal answer, not a crash: the result has `isError: true` and a sentence a person can
+read:
 
 ```json
 {
@@ -204,8 +204,7 @@ A refusal is a normal answer, not a crash. The result has `isError: true` and a 
 | `not_found` | the id is not on this instance, or not in this workspace | search again |
 | `conflict` | an item with that id already exists | use a new id, or leave it out for the server to choose |
 
-A token that cannot write has no write tools at all. Its `tools/list` does not include them, so an agent
-never sees a tool it cannot use.
+A token that cannot write has no write tools: its `tools/list` does not include them.
 
 ## Troubleshooting
 
@@ -221,13 +220,13 @@ never sees a tool it cannot use.
 
 ## The rule
 
-An agent writes what a person asked for. It may choose the words of a card it was asked to file. It may
-not invent work, and nothing on this server will do that for the model.
+An agent writes what a person asked for, and may choose the words of a card it was asked to file. It
+may not invent work.
 
 ## Out of scope, on purpose
 
-- **Prompts and sampling.** This is a server that lets an agent read and write the board. It is not a chat
+- **Prompts and sampling.** This is a server that lets an agent read and write the board, not a chat
   feature inside Kanban Toolkit.
-- **Server-initiated streams.** There is no `GET /mcp` event stream. The tools are request and response, and
-  an open stream that nobody needs is a connection someone has to keep alive.
+- **Server-initiated streams.** There is no `GET /mcp` event stream. The tools are request and
+  response.
 - **An unauthenticated mode.** The history has to be able to say who acted.

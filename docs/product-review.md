@@ -1,8 +1,7 @@
 # Product review
 
 A reading of the product as it stands, and candidates for what could come next. Nothing here is a
-commitment; it is a list to choose from. Where a candidate has since been built, its row says so. Those
-statements were checked against the code when this page was revised.
+commitment. Where a candidate has since been built, its row says so.
 
 ## The product in one paragraph
 
@@ -15,7 +14,7 @@ accounts, roles, audit, an API and an MCP door.
 
 The strongest idea is the **two altitudes of one dataset**: a card moving in a team's flow changes
 the initiative, its section, its percentage and its health with no one entering a status. Features
-that deepen that idea will fit the product better than generic project-management features.
+that deepen that idea fit the product better than generic project-management features.
 
 ## What is strong
 
@@ -99,12 +98,12 @@ The board itself is mature. The gaps are mostly at its **edges**:
    needs no new data model, and it turns several existing signals (waiting, boundary, blocked) into
    one readable view.
 2. **L2 — the digest, built on the webhook layer (C6, now built).** The product is good at showing the
-   truth while it is open. A digest is what makes it part of the week when it is closed. It is larger, but it is the most
-   direct answer to "why did the team stop using it?".
+   truth while it is open. A digest is what makes it part of the week when it is closed. It is larger,
+   but it is the most direct answer to "why did the team stop using it?".
 3. **C5 — a card spreadsheet import.** Trello and Jira imports are built (L3). A generic spreadsheet
    import would remove the first-day cost for a team that keeps its work in a sheet.
 
-For immediate value without a project: **Q1, Q3 and Q6**. Three small changes that make the existing
+For immediate value without a project: **Q1, Q3 and Q6** — three small changes that make the existing
 product feel more finished.
 
 ## Deliberately not suggested
@@ -122,7 +121,8 @@ product feel more finished.
 ## A technical note
 
 The event layer behind **C6** now exists: items, health and objectives emit events into one outbox, and
-webhook delivery retries from it. Notifications and a digest (**L2**) would read from the same outbox, so
-they are the natural next step. The second is the **bundle budget**. The first download is checked against
-169 KB in CI, so the next first-download feature has little room. Either keep splitting screens (the templates editor and the Flow screen are the precedent) or
-raise the budget deliberately with a recorded reason, but do not let it grow by drift.
+webhook delivery retries from it. Notifications and a digest (**L2**) would read from the same outbox,
+so they are the natural next step. The other constraint is the **bundle budget**: the first download
+is checked against 169 KB in CI, so the next first-download feature has little room. Either keep
+splitting screens (the templates editor and the Flow screen are the precedent) or raise the budget
+deliberately with a recorded reason, but do not let it grow by drift.

@@ -1,11 +1,7 @@
 # Backup and restore
 
-> What to copy, where to keep it, and how to prove it works before the day it matters. Two deployments,
-> two roads — and the same drill at the end.
-
-**Owner:** the repository maintainer. Update this line when that changes; a runbook without a name
-is a document nobody owns.
-**Last drill:** 2026-10-23 — automated, by `server/backup.test.ts`, and it runs on every push.
+> **Owner:** the repository maintainer. Update this line when that changes.
+> **Last drill:** 2026-10-23 — automated, by `server/backup.test.ts`, and it runs on every push.
 
 ## What has to be copied
 
@@ -22,9 +18,8 @@ npm run backup -- backup ./kanbantoolkit.db ./backups
 # backed up ./kanbantoolkit.db → ./backups/kanbantoolkit-2026-10-23T02-00-00-000.db (412 KB, keeping 30 days)
 ```
 
-The copy is taken with `VACUUM INTO`, which is a single read transaction: it is consistent while the
-server keeps running, and it is compact. A plain file copy can catch a write half-written, which is
-the one thing a backup must not do.
+The copy is taken with `VACUUM INTO`, a single read transaction: consistent while the server keeps
+running, and compact. A plain file copy can catch a write half-written.
 
 Daily, from cron:
 
@@ -38,7 +33,7 @@ Daily, from cron:
 
 **Admin → Backups** takes the same copy, in `BACKUP_DIR` (beside the database by default), and lists
 the files with their size and time. **Download** saves one; **Restore from a file** verifies an
-uploaded database and stages it — it does **not** replace the live file while connections are open.
+uploaded database and stages it. It does **not** replace the live file while connections are open.
 The screen says what was verified and what to do next.
 
 <img src="img/guide/backups-admin.webp" alt="Admin → Backups: restore from a file, a list of database copies with size and time, and the confirmation that a copy was taken" width="1000">
@@ -47,10 +42,10 @@ The screen says what was verified and what to do next.
 route for putting one back.*
 
 A Worker has no filesystem. Its Backups tab says the database provider owns backup and restore, and
-points at the provider's console; it does not pretend an in-app file copy exists.
+points at the provider's console.
 
-**A second copy, on a different machine or with a different provider, is the part that is not
-optional.** A backup on the machine that fails is not a backup. Any of these, nightly, after the copy:
+**A second copy, on a different machine or with a different provider, is not optional.** A backup on
+the machine that fails is not a backup. Any of these, nightly, after the copy:
 
 ```bash
 rclone sync ./backups remote:kanbantoolkit-backups
@@ -65,10 +60,9 @@ npm run backup -- restore ./backups/kanbantoolkit-2026-10-23T02-00-00-000.db ./k
 # restored … (3 boards, 128 items)
 ```
 
-It refuses to overwrite without `--force`, because a restore is run on a day something has already
-gone wrong and the second mistake of that day must not be the restore. After copying it checks
-`PRAGMA integrity_check` and the row counts, so the command says *what* it restored, not just that a
-file moved.
+It refuses to overwrite without `--force`: a restore runs on a day something has already gone wrong.
+After copying it checks `PRAGMA integrity_check` and the row counts, so the command says *what* it
+restored.
 
 Then restart the server. The migrations run on boot (`server/migrate.ts`).
 
@@ -86,11 +80,11 @@ D1 keeps its own history, and it is the provider's to keep:
 - **An export**, for a copy outside Cloudflare:
   `npx wrangler d1 export kanbantoolkit --remote --output=kanbantoolkit-2026-10-23.sql`
 
-The export is the second copy: keep it somewhere that is not the same account. It is a `.sql` file
+The export is the second copy: keep it somewhere that is not the same account. It is a `.sql` file,
 and restoring it is `wrangler d1 execute kanbantoolkit --remote --file=…`.
 
-Neither of these is a daily task anyone performs. Cloudflare runs the schedule. Check once a quarter that
-Time Travel is still available, and that the export job still runs.
+Cloudflare runs the schedule. Check once a quarter that Time Travel is still available, and that the
+export job still runs.
 
 ## The drill
 
@@ -105,14 +99,14 @@ Do this at least once a quarter, and after any change to the schema or the deplo
    entries are in the restored copy.
 4. **Record the date.** Update the "Last drill" line at the top of this file.
 
-The automated part of the drill — seed a workspace, back it up, restore it into a scratch file, and
-compare the whole workspace object — runs in `server/backup.test.ts` on every push. It cannot reach the
-provider's backups, so the manual steps above are still needed.
+The automated part — seed a workspace, back it up, restore it into a scratch file, compare the whole
+workspace object — runs in `server/backup.test.ts` on every push. It cannot reach the provider's
+backups, so the manual steps above are still needed.
 
 ## What this does not cover
 
-- **The browser's snapshots.** They are a ring in `IndexedDB`, for a bad edit in a tab — not a
-  backup, and never a substitute for one.
+- **The browser's snapshots.** They are a ring in `IndexedDB`, for a bad edit in a tab: not a backup,
+  and never a substitute for one.
 - **Configuration.** The provider's client secrets and the database path live in the environment;
   they are documented in [configure.md](configure.md) and should be kept wherever the operator keeps
   secrets.

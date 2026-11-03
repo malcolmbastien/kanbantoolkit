@@ -1,26 +1,23 @@
 # TLS and the proxy
 
-Kanban Toolkit does not terminate TLS. It listens on a port, on the loopback or on your private network,
-and a reverse proxy is what puts `https://` in front of it. That is the one thing every operator must
-get right: without it the session cookie is not secure, and the sign-in providers will not accept
-your redirect URI.
+Kanban Toolkit does not terminate TLS: it listens on a port, on loopback or your private network, and
+a reverse proxy puts `https://` in front of it. Without one the session cookie is not secure and the
+sign-in providers will not accept your redirect URI.
 
 ## What the proxy has to do
 
-1. **Terminate TLS** for the instance's address, with a certificate that is valid for it.
+1. **Terminate TLS** for the instance's address, with a certificate valid for it.
 2. **Forward to the process** — `127.0.0.1:8787` in the examples here.
 3. **Pass the client's address** in `X-Forwarded-For`. The error endpoint hashes it (never stores it)
    and rate-limits by it; without the header, every request looks like the proxy's address.
-4. **Upgrade the socket** at `/api/workspace/live` if you want the live channel. Without the upgrade
-   the app still works: it polls the same feed.
+4. **Upgrade the socket** at `/api/workspace/live` for the live channel. Without the upgrade the app
+   still works: it polls the same feed.
 5. **Set the response headers** a browser needs. On Cloudflare these come from `public/_headers`; on a
-   Node deployment the proxy is what applies them, because a file next to the build is not something
-   this process reads.
+   Node deployment the proxy applies them.
 
 ## Caddy
 
-Caddy gets a certificate and renews it without being asked, which is why it is the shortest correct
-configuration.
+Caddy gets a certificate and renews it without being asked.
 
 ```caddy
 kanbantoolkit.example {
@@ -48,8 +45,8 @@ kanbantoolkit.example {
 }
 ```
 
-Caddy passes `Upgrade` and `Connection` through by default, so the socket works with no extra
-directive. If you put Kanban Toolkit behind another proxy in the same chain, keep HTTP/1.1 to this one.
+Caddy passes `Upgrade` and `Connection` through by default, so the socket needs no extra directive. If
+you put Kanban Toolkit behind another proxy in the same chain, keep HTTP/1.1 to this one.
 
 ## nginx
 
@@ -83,17 +80,16 @@ server {
 
 ## The parts that bite
 
-**`PUBLIC_URL` must be the https address.** It is what the redirect URI is built from and what tells
-the server the browser is on https, which is what makes the session cookie `Secure`. If it is unset,
-the cookie is issued for whatever the request's origin was — usually `http` behind a proxy, and then
-it is not `Secure`.
+**`PUBLIC_URL` must be the https address.** It builds the redirect URI and tells the server the browser
+is on https, which makes the session cookie `Secure`. Unset, the cookie is issued for whatever the
+request's origin was — usually `http` behind a proxy.
 
 **The callback address must match exactly.** Register `https://kanbantoolkit.example/api/auth/callback`
-as written, with no trailing slash and no port. The provider compares it character for character.
+as written, with no trailing slash and no port; the provider compares it character for character.
 
-**The `noindex` header is for the app, not the site.** `public/_headers` applies it only to `/app/*`,
-because the project's site is meant to be indexed. The snippets above apply it to the whole origin,
-which is right for a self-hoster who runs only the app. If you serve both from one origin, narrow it:
+**`noindex` is for the app, not the site.** `public/_headers` applies it only to `/app/*`, because the
+project's site is meant to be indexed. The snippets above apply it to the whole origin, which is right
+if you run only the app. Serving both from one origin, narrow it:
 
 ```caddy
 @app path /app /app/*
@@ -101,7 +97,7 @@ header @app X-Robots-Tag "noindex"
 ```
 
 **Compression is the proxy's job.** The build ships uncompressed files; `encode`/`gzip` in the proxy
-is what keeps the first download small.
+keeps the first download small.
 
 **The database file is not served.** It sits beside the process, not inside `dist/`. Nothing in the
 static directory can reach it, and nothing should be added that would.
@@ -114,8 +110,8 @@ curl -s  https://kanbantoolkit.example/api/health
 # {"ok":true,"database":"ok"}
 ```
 
-And in a browser: sign in, then look at the session cookie. It should be `HttpOnly`, `SameSite=Lax`,
-and `Secure`. A cookie without `Secure` on an https page is the sign that `PUBLIC_URL` is not set.
+In a browser: sign in, then look at the session cookie. It should be `HttpOnly`, `SameSite=Lax`, and
+`Secure`. A cookie without `Secure` on an https page means `PUBLIC_URL` is not set.
 
 ---
 

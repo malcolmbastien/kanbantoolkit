@@ -1,7 +1,7 @@
 # In a container
 
-One instance, one container, one volume. The image is built from this repository, so the only things you
-need are Docker and a clone. A published image also exists, described below, but it is not required.
+One instance, one container, one volume. The image builds from this repository: you need Docker and a
+clone. A published image also exists, described below.
 
 ```bash
 git clone https://github.com/malcolmbastien/kanbantoolkit kanbantoolkit
@@ -9,29 +9,25 @@ cd kanbantoolkit
 docker compose up -d
 ```
 
-Then open <http://localhost:8787/app>. The database is created on the volume by the first start, the
+Then open <http://localhost:8787/app>. The first start creates the database on the volume, the
 migrations run on boot, and the first person to sign in administers the instance and its one
 workspace.
 
 The container runs an **instance of the application**: `/` redirects to `/app`, and the project's
-website is not inside it. `/install/`, `/privacy/` and the rest answer the instance's own 404 — they
+website is not inside it. `/install/`, `/privacy/` and the rest answer the instance's own 404; they
 belong to this project's site, at this project's address.
 
-`compose.yaml` is deliberately short: a service, a port bound to loopback, a named volume, and the
-environment. Nothing else is needed to run it, and nothing else is hidden. The container is named
-**`kanbantoolkit`**, so `docker exec kanbantoolkit …` and Docker Desktop show the same name; Compose's
-generated name would otherwise be `<project>-kanbantoolkit-1`. The project and its volume keep the
-name Compose gives them, so updating the file does not move your data.
-
-The fixed name means one of these per host. That is the shape of an instance — one container, one
-volume — and [the notes below](#the-volume-is-the-instance) explain why a second container is not a
-way to scale this app.
+`compose.yaml` holds a service, a port bound to loopback, a named volume, and the environment. The
+container is named **`kanbantoolkit`**, so `docker exec kanbantoolkit …` and Docker Desktop show the
+same name; Compose's generated name would otherwise be `<project>-kanbantoolkit-1`. The project and its
+volume keep the name Compose gives them, so updating the file does not move your data. The fixed name
+means one container and one volume per host, and [the notes
+below](#the-volume-is-the-instance) explain why a second container does not scale this app.
 
 ## The published image
 
-CI builds the image on every push and tests it — health, the unprivileged user, the database it
-creates, the first sign-in — and on `main` it publishes that build to a registry for `amd64` and
-`arm64`:
+CI builds and tests the image on every push — health, the unprivileged user, the database it creates,
+the first sign-in — and on `main` publishes it for `amd64` and `arm64`:
 
 ```bash
 docker run -d --name kanbantoolkit -p 127.0.0.1:8787:8787 -v kanbantoolkit-data:/data \
@@ -40,7 +36,7 @@ docker run -d --name kanbantoolkit -p 127.0.0.1:8787:8787 -v kanbantoolkit-data:
 
 Or, in a compose file, replace `build: .` with `image: ghcr.io/malcolmbastien/kanbantoolkit:<version>`.
 
-Three tags, and what each one means:
+Three tags:
 
 | Tag | What it is |
 | --- | --- |
@@ -50,13 +46,10 @@ Three tags, and what each one means:
 
 > **The package carries its own visibility, not the repository's.** A package created while the
 > repository was private stays private until somebody changes it: **Packages → kanbantoolkit → Package
-> settings → Change visibility**. If a `docker pull` asks for credentials, that is the switch. The
-> clone-and-build path above needs no registry at all, which is why it is still the first road in
-> this page.
+> settings → Change visibility**. If a `docker pull` asks for credentials, that is the switch.
 
 The container reports which build it is: `curl -s localhost:8787/api/health` answers
-`{"ok":true,"database":"ok","version":"0.1.0"}`. Three instances on three machines can be told apart
-without remembering.
+`{"ok":true,"database":"ok","version":"0.1.0"}`.
 
 ## The volume is the instance
 
@@ -66,9 +59,8 @@ without remembering.
 | `docker compose down -v` | removes the volume too — the workspace, its accounts and its history |
 | `docker compose up -d --build` | rebuilds from the checkout and starts again, on the same volume |
 
-The database is `/data/kanbantoolkit.db` inside the container. It is one SQLite file, and the volume is
-what makes it outlive the image. Back it up with the same command a bare-metal instance uses, run
-inside the container:
+The database is `/data/kanbantoolkit.db` inside the container; the volume makes it outlive the image.
+Back it up with the same command a bare-metal instance uses:
 
 ```bash
 docker exec kanbantoolkit npm run backup -- backup /data/kanbantoolkit.db /data/backups
@@ -76,7 +68,7 @@ docker exec kanbantoolkit npm run backup -- backup /data/kanbantoolkit.db /data/
 
 `docker exec kanbantoolkit npm run backup -- restore <file> /data/kanbantoolkit.db --force` is the other half,
 and [backup.md](backup.md) is the drill that proves both. Copying the volume also works, but only with the
-container stopped. A running database is being written to.
+container stopped: a running database is being written to.
 
 ## What the image does and does not do
 
@@ -88,9 +80,9 @@ container stopped. A running database is being written to.
 - **Builds the application from source** in the first stage. The second stage carries only the bundled
   server, the built client, the migrations and `package.json`. The project's website is not in the image.
 
-Configuration is the environment, exactly as it is on a bare machine. `compose.yaml` lists the
-values worth setting and reads them from `.env`; [configure.md](configure.md) is every variable,
-its default, and what an unset one does.
+Configuration is the environment, exactly as on a bare machine. `compose.yaml` lists the values worth
+setting and reads them from `.env`; [configure.md](configure.md) is every variable, its default, and
+what an unset one does.
 
 ```bash
 # `<<EOF` is deliberately unquoted: $(openssl …) runs while the file is written.
@@ -102,19 +94,16 @@ EOF
 docker compose up -d
 ```
 
-`.env` is gitignored, which is the point: it holds the salt and, if you use them, the provider
-secrets.
+`.env` is gitignored: it holds the salt and, if you use them, the provider secrets.
 
-`ERROR_SALT` has no default in `compose.yaml`, and the image **will not start without it** — a salt
-published in a file anyone can read is not a secret, so it is not shipped as one. Start the container
-without it and `docker compose logs kanbantoolkit` prints the line that names the variable, and the
-container exits. Generate it once and keep it: the value is what lets today's rate-limit counts match
-yesterday's, and changing it does not corrupt anything, it only makes the addresses already hashed
-unmatchable.
+`ERROR_SALT` has no default in `compose.yaml` and the image **will not start without it**: a salt
+published in a file anyone can read is not a secret. Without it `docker compose logs kanbantoolkit`
+prints the line that names the variable, then the container exits. Generate it once and keep it: the
+value is what lets today's rate-limit counts match yesterday's. Changing it corrupts nothing; the
+addresses already hashed stop matching.
 
 **Set `PUBLIC_URL` to the https address** when a proxy is in front — see [tls.md](tls.md). Without
-it, the session cookie is issued for whatever the request's origin was, which behind a proxy is
-http.
+it, the session cookie is issued for whatever the request's origin was, which behind a proxy is http.
 
 ## Upgrading
 
@@ -126,22 +115,20 @@ docker compose logs --tail 20 kanbantoolkit                                     
 ```
 
 A release that adds a migration applies it on boot, inside the transaction, and stops the container
-if it cannot. [upgrade.md](upgrade.md) is the long version, including how to go back — which is a
-restore, not a rollback.
+if it cannot. [upgrade.md](upgrade.md) is the long version, including how to go back, which is a
+restore rather than a rollback.
 
 ## What SQLite means, plainly
 
-The database is a file. That is the whole design, and it has two consequences an operator should hear
-before choosing it:
+The database is a file, with two consequences:
 
 - **One file serves one instance.** Do not run two containers against the same file on a shared
   volume. SQLite's file locking does not work reliably across a network filesystem, so the volume must be on local disk.
-- **Scaling out means Postgres**, not a second container. There is no multi-instance mode today: this
-  application is built for one deployment per team, and [architecture.md](architecture.md) says why
-  that is a design decision rather than a gap.
+- **Scaling out means Postgres**, not a second container. There is no multi-instance mode: this
+  application is built for one deployment per team, and [architecture.md](architecture.md) says why.
 
-One instance is built for one team's work. If you outgrow it, the answer is a different database behind the same interface
-(`server/db.ts`), which is a port, not a rewrite.
+If you outgrow it, the answer is a different database behind the same interface (`server/db.ts`), a
+port rather than a rewrite.
 
 ## Checking it
 

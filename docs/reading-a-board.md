@@ -1,8 +1,7 @@
 # Reading a board
 
-A board is more than one list of cards. It has columns, one or more cards flows, initiatives that roll
-work up, a side drawer for the detail, and a boundary for work that lives somewhere else. This page
-explains what each part is showing.
+A board has columns, one or more cards flows, initiatives that roll work up, a side drawer for the
+detail, and a boundary for work that lives somewhere else. This page explains what each part shows.
 
 <img src="img/guide/board-overview.webp" alt="The Team Atlas board with its initiatives flow above the Cards flow, and the four typed columns in each" width="1100">
 
@@ -46,10 +45,9 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
 - A **template** captures a set of cards flows — their names, columns and limits — and a new board
   made from it gets all of them. A program or portfolio board has no cards flow of its own.
 
-Each flow's header stays at the top of the board while its columns scroll, so a reader moving through
-a long lane never loses which flow — and which set of columns — is in front of them. The initiatives
-and boundary bands behave the same way. A cards flow lines up with the bands above and below it, and a
-wide flow takes the width its columns need.
+Each flow's header stays on screen while its columns scroll, so a reader in a long lane keeps the
+flow, and its set of columns, in view. The initiatives and boundary bands behave the same way. A cards
+flow lines up with the bands above and below it, and a wide flow takes the width its columns need.
 
 A workflow's chevron folds that whole band away to its header: the name, the count and the controls
 stay, and the columns give their room to the workflow below. Opening it brings the header to the top
@@ -83,7 +81,7 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
 
 Opening a card also brings it into view: the board scrolls the card into the middle of what is left
 beside the drawer, so its column and neighbours are in front of the reader. A card already in view is
-left where it is — the board does not move under a click that was made on it.
+left where it is.
 
 The drawer is where editing happens. If somebody else is editing the same card, the drawer shows who has
 it, and the fields stay closed to you until they finish. A Viewer, and an archived or discarded item,
@@ -117,8 +115,7 @@ and the roll-up label says what it rolls up to.*
 
 The small coloured squares across an initiative card are its **direct children**, one pip each, in
 the order of the four stages. The colour is the child's own stage — green for Done, violet for In
-Progress, blue for Not Started, grey for Backlog — so "how much green" is a glance rather than a
-count.
+Progress, blue for Not Started, grey for Backlog.
 
 - A pip is a way into that child: clicking it opens the child and, on a board, brings it into view.
 - Pips are direct children, not every descendant. The work beneath a child is behind that child's
@@ -135,9 +132,8 @@ parent's progress.
 
 The denominator is all the leaves, including those still in Backlog, so planning more uncommitted
 work moves the percentage back. A Backlog leaf does not drag the initiative's *status* backwards, but
-it does count in the percentage. An initiative with nothing below it has no percentage and no bar:
-that is a different fact from 0%, and the absence says it. **Done** on the card means every leaf below
-is done.
+it does count in the percentage. An initiative with nothing below it has no percentage and no bar,
+which is a different fact from 0%. **Done** on the card means every leaf below is done.
 
 ### Roll-up and automatic movement
 
@@ -189,12 +185,6 @@ A cleared entry stays in the workflow after it is satisfied or closed, so a read
 board was waiting for last week. The **Waiting on** chip on a card disappears as soon as the link is
 no longer open; the workflow keeps the history. The header counts what is **open** and what has been
 **cleared**.
-
-## Putting it together
-
-When a card moves, its stage changes. The initiative above it then updates its pips, percentage and
-section on its own. If the card waits on work from another board, the boundary entry and the card's
-**Waiting on** chip show that edge. Every part is a reading of the same item, not a copy of it.
 
 ## Related
 

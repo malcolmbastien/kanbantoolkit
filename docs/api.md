@@ -1,14 +1,13 @@
 # The API
 
-One `fetch` handler. Hono exposes it as `app.fetch`; the Worker exports it and the Node entry serves
-it. There is no second implementation, no GraphQL and no SDK: a JSON request and a JSON answer.
+One `fetch` handler: Hono exposes it as `app.fetch`; the Worker exports it and the Node entry serves
+it. No GraphQL, no SDK — a JSON request and a JSON answer.
 
-This page is the **internal** API — what the shipped client calls, which changes with it in the same
-commit and promises nobody else anything. The surface a script may build on is
-[`/api/v1`](rest-api.md), and it says what it will not change.
+This is the **internal** API: what the shipped client calls, changing with it in the same commit and
+promising nobody else anything. The surface a script may build on is [`/api/v1`](rest-api.md).
 
-Everything is under `/api`. The client is a static build, so every one of these is same-origin and no
-route answers a request from another origin.
+Everything is under `/api`. The client is a static build, so every route here is same-origin and none
+answers a request from another origin.
 
 ## The session
 
@@ -19,27 +18,27 @@ route answers a request from another origin.
 | **What it holds** | an opaque token; the session row holds a **hash** of it, the browser it was opened on, and when it was last used |
 | **Revocation** | a sign-out deletes that row; "sign out everywhere" deletes all of them; an administrator can revoke one, or all of somebody's |
 
-A cookie is not a claim about authority. Every request re-reads the caller's roles from the database,
-so a demotion or a removal takes effect on the next request rather than at the next sign-in.
+Every request re-reads the caller's roles from the database, so a demotion or a removal takes effect
+on the next request, not at the next sign-in.
 
-Writes are JSON with `Content-Type: application/json`, which a cross-site form cannot send — that and
-`SameSite=Lax` are what stand in for a CSRF token here.
+Writes are JSON with `Content-Type: application/json`, which a cross-site form cannot send; that and
+`SameSite=Lax` stand in for a CSRF token.
 
 ## Machine credentials
 
-A tool has no browser and cannot hold a cookie, so it signs in with a **bearer token** instead:
+A tool has no browser and no cookie, so it signs in with a **bearer token**:
 
 ```
 Authorization: Bearer ktk_…
 ```
 
 A token is minted once, shown once, stored as SHA-256, scoped, expiring and revocable. It is a
-credential for a *person*: whatever it does, the audit says whose it was.
+credential for a *person*: whatever it does, the audit names its owner.
 
-**Two ceilings, both checked on every request.** The first is the token's **scopes** — what the tool
-was allowed to ask for. The second is the owner's **role**, read from `workspace_members` at that
-moment. A demotion tightens every token its owner holds, with nothing to revoke; a token can only
-ever narrow a role, never widen it.
+**Two ceilings, both checked on every request:** the token's **scopes** — what the tool was allowed
+to ask for — and the owner's **role**, read from `workspace_members` at that moment. A demotion
+tightens every token its owner holds, with nothing to revoke. A token can only narrow a role, never
+widen it.
 
 | Scope | Reaches |
 | --- | --- |
@@ -55,8 +54,8 @@ ever narrow a role, never widen it.
 
 `board.design`, `board.settings` and `board.delete` are administrator acts in the matrix, so an
 editor's `boards:write` token creates boards and cannot redesign one. Minting refuses a scope the
-person could not exercise *at all* (`422`, naming it) — a Viewer cannot hold `items:write` — which is
-why `items:comment` is a scope of its own.
+person could not exercise *at all* (`422`, naming it) — a Viewer cannot hold `items:write` — so
+`items:comment` is a scope of its own.
 
 | Route | Authority | What it does |
 | --- | --- | --- |
@@ -68,14 +67,12 @@ why `items:comment` is a scope of its own.
 | `POST /api/admin/users/:id/tokens` | `instance:admin` | mint for a daemon, within **that person's** role (R9) |
 | `DELETE /api/admin/users/:id/tokens/:tokenId` | `instance:admin` | revoke, audited |
 
-Expiry is 90 days unless asked otherwise; `expiresInDays: null` means never, for a machine nobody will
-revisit. Revoked and expired rows stay, marked, because "which credential was this" is a question an
-audit asks after the fact.
+Expiry is 90 days unless asked otherwise; `expiresInDays: null` means never. Revoked and expired rows
+stay, marked: an audit asks afterwards which credential was used.
 
 ### A tool connects itself
 
-An administrator minting a secret by hand and pasting it somewhere is the part of this design that
-does not scale, so there is a device flow:
+A tool can also connect itself, through a device flow:
 
 | Route | Authority | What it does |
 | --- | --- | --- |
@@ -85,7 +82,7 @@ does not scale, so there is a device flow:
 | `POST /api/tokens/device/token` | none | `{ device_code }` → `428` while pending, `200 { secret }` once, `410` after |
 
 The short code lives ten minutes, is single-use in both directions, and says nothing about who the
-tool is until a person presses Approve. The CLI does the whole dance:
+tool is until a person presses Approve. The CLI does the whole flow:
 
 ```
 npm run kanbantoolkit -- login --url http://localhost:8787
@@ -99,8 +96,8 @@ passes through a clipboard, a shell history or a chat message.
 ### One credential, one owner
 
 A token belongs to a person, and an account's deletion takes its tokens with it. An administrator can
-list and revoke somebody's, and never sees a value: the row holds a hash, so there is nothing to
-reveal. Minting *for* somebody else is checked against **their** role, not the administrator's.
+list and revoke somebody's, and never sees a value: the row holds a hash. Minting *for* somebody else
+is checked against **their** role, not the administrator's.
 
 ## Statuses
 
@@ -118,7 +115,7 @@ reveal. Minting *for* somebody else is checked against **their** role, not the a
 | `503` | the database is not configured, is behind the code's schema, or cannot be reached |
 
 Errors are always `{"error": "a sentence"}`. A refusal that needs more (a conflict's item, a lease's
-holder) carries it beside the sentence rather than in it.
+holder) carries it beside the sentence.
 
 ## Signing in
 
@@ -133,8 +130,7 @@ holder) carries it beside the sentence rather than in it.
 
 `return` is honoured only if it is a path on this origin; anything else is ignored, not followed.
 
-A provider that is not configured does not appear in `/providers` and its start route answers `404`,
-which is what lets a sign-in page draw exactly the buttons that work.
+A provider that is not configured does not appear in `/providers` and its start route answers `404`.
 
 ## The workspace
 
@@ -158,9 +154,7 @@ which is what lets a sign-in page draw exactly the buttons that work.
 ### Writing the workspace's words
 
 Types, board templates, periods, objectives and key results are whole-list edits with no position of
-their own, so they travel as one document — beside the design and deliberately not inside it, because
-one revision for the board's layout and the workspace's words would have two administrators refusing
-each other for unrelated changes.
+their own, so they travel as one document, beside the design and not inside it.
 
 ```http
 PUT /api/workspace/vocabulary
@@ -174,10 +168,10 @@ A period is a record — `{ "id", "name", "start"?, "end"? }` — and an objecti
 (`periodId`). An objective has no target date and no score: the period's window is when it is due,
 and its completeness comes from the work below it.
 
-The document is the whole truth about those lists: a row the sender did not send is deleted, which is
-why a malformed list is refused rather than filtered. The answer is the next revision; a stale one is
-refused with the revision that is there, and the client re-reads rather than sending its version over
-somebody else's.
+The document is the whole truth about those lists: a row the sender did not send is deleted, so a
+malformed list is refused rather than filtered. The answer is the next revision. A stale one is
+refused with the revision that is there, and the client re-reads rather than sending its version
+over somebody else's.
 
 | Answer | Means |
 | --- | --- |
@@ -192,12 +186,11 @@ somebody else's.
 Permission is **per list**, because a role can hold one and not another: `board.settings` for issue
 types, `template.manage` for templates, `objective.write` for periods, objectives and key results, and
 `workspace.settings` for `autoArchiveDays`. A list the caller may not change is refused by name
-rather than dropped, so the app never answers "saved" to a change it did not make. The built-in
-labels (`None`, `Initiative`) are the app's and are refused when the document forgets them.
+rather than dropped. The built-in labels (`None`, `Initiative`) are the app's and are refused when
+the document forgets them.
 
-`savedFilters` and `collapsedLanes` are **not** in the document. They are one device's view — a saved
-filter narrows a board for one person, a collapsed column is where they left their screen — and they
-stay in that browser.
+`savedFilters` and `collapsedLanes` are **not** in the document. They are one device's view and stay
+in that browser.
 
 ### Writing an item
 
@@ -216,19 +209,17 @@ Content-Type: application/json
 | `423 {"holder": …}` | somebody else's lease is on this card |
 | `404` | no such item here — including an item that exists in another workspace |
 
-Creation is the same route: an item the server has never seen is created whatever `baseRev` says,
-which is what lets a workspace that lived only in a browser arrive one card at a time.
+Creation is the same route: an item the server has never seen is created whatever `baseRev` says, so
+a workspace that lived only in a browser can arrive one card at a time.
 
-`log` is append-only. The client may send the entries it knows rather than the whole history — it is
-not carrying one any more — and the server inserts only ids it does not already hold. An entry the
-server has is never rewritten; a Viewer may append only notes, and a `moved` entry is a change to the
-work rather than a comment.
+`log` is append-only. The client may send the entries it knows rather than the whole history, and the
+server inserts only ids it does not already hold. An entry the server has is never rewritten. A
+Viewer may append only notes, and a `moved` entry is a change to the work rather than a comment.
 
 ### Reading history
 
-The workspace document carries cards, not what happened to them. Opening a board does not load every
-move and note ever written, so a workspace with years of history costs the same to open as a new one.
-Three reads answer the views that need it.
+The workspace document carries cards, not what happened to them: opening a board does not load every
+move and note ever written. Three reads answer the views that need history.
 
 One card's history, newest first:
 
@@ -242,8 +233,7 @@ GET /api/workspace/items/i-atlas-01/log?limit=50
 ```
 
 `nextCursor` asks for the page before this one and is `null` at the beginning; `total` is the whole
-count, so a drawer can say how much there is before every page has arrived. A page is `50` entries
-unless `limit` says otherwise, and never more than `200`. An id from another workspace is `404`, not
+count. A page is `50` entries unless `limit` says otherwise, and never more than `200`. An id from another workspace is `404`, not
 an empty log.
 
 One board's moves, for the flow reading:
@@ -258,9 +248,9 @@ GET /api/workspace/movements?boardId=b-atlas&since=1751328000000
 ```
 
 Only `moved` entries, and only the stages they landed in: flow metrics rebuild each card's stages
-from stages, never from lane names, so a renamed column does not rewrite the past. `since` is an
-instant in milliseconds. The cap is 50,000 moves, and when it bites the *oldest* go and `truncated`
-says so, because a chart is read from the present backwards.
+from stages, never lane names, so a renamed column does not rewrite the past. `since` is an
+instant in milliseconds. The cap is 50,000 moves; when it bites the *oldest* go and `truncated` says
+so.
 
 The notes search and mentions read:
 
@@ -275,7 +265,7 @@ GET /api/workspace/notes?mention=me
 ```
 
 `q` is a case-insensitive substring of the note's words; `mention=me` is the caller's own notes and
-nobody else's, which is why it takes no user id. Newest first, `100` by default and `200` at most.
+nobody else's, so it takes no user id. Newest first, `100` by default and `200` at most.
 
 A move appends its entry without changing the card's revision:
 
@@ -286,11 +276,10 @@ Content-Type: application/json
 { "entries": [{ "id": "l-9", "at": 1760000000000, "kind": "moved", "toStage": "done", "boardId": "b-atlas" }] }
 ```
 
-A drag is arrangement: it changes the placement and the card's log, but a revision that changed on
-every drag would make a card somebody is editing impossible to rearrange. The entries are written as
-they are, ids making a retry a no-op, and `{"appended": 1}` says how many were offered. A malformed
-entry refuses the whole body rather than storing half of one. Placement changes travel with the
-board's design, not here.
+A drag is arrangement: it changes the placement and the card's log, not the card's revision. Entries
+are written as they are, ids making a retry a no-op, and `{"appended": 1}` says how many were offered.
+A malformed entry refuses the whole body rather than storing half of one. Placement changes travel
+with the board's design, not here.
 
 ### The change feed
 
@@ -303,8 +292,7 @@ board's design, not here.
 ```
 
 A card written twice in one page appears once, at its latest revision. Ask again with `since=<cursor>`.
-`50` changes at most per answer, so a client that has been away makes a few short requests rather
-than one enormous one.
+`50` changes at most per answer.
 
 ## The live channel
 
@@ -332,8 +320,8 @@ the route is absent) and the client polls on the same interval it always did.
 
 ## Administering the deployment
 
-`/api/admin/*`, for instance administrators. `/api/admin/workspace/*`, for workspace administrators.
-The split is the two axes: the first is the deployment, the second is the team.
+`/api/admin/*` is for instance administrators, `/api/admin/workspace/*` for workspace administrators:
+the deployment on one axis, the team on the other.
 
 | Route | What it does |
 | --- | --- |
@@ -387,7 +375,7 @@ address it names. A forwarded link still needs a sign-in as that person.
 
 `POST /api/workspaces` answers `409` with a sentence: a deployment is one workspace, created with the
 installation (see [install.md](install.md)). The route exists so that a stale tab or a script written
-against an older API is told why, rather than given a `404` that reads like a typo.
+against an older API is told why, rather than given a `404`.
 
 ## Health and reports
 
@@ -397,8 +385,7 @@ against an older API is told why, rather than given a `404` that reads like a ty
 | `POST /api/errors` | a report from a browser: message, stack, path, view, build, browser — never a query string, never an address |
 
 Reports are rate-limited per hashed address and capped per page. The endpoint answers `204`, and
-`503` when its database is not configured rather than failing as though the client did something
-wrong.
+`503` when its database is not configured.
 
 ---
 

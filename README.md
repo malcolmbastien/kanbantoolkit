@@ -4,10 +4,13 @@
 
 **One board for the team. One clear view for everyone else.**
 
-Kanban Toolkit is a Kanban board for a team's own work, and a simple way to show that work to the people
-outside the team. The team keeps its board; other groups read the same work as **initiatives** —
-progress, risk and what depends on what — without asking for a status update or keeping a second set
-of tickets.
+Kanban Toolkit is a Kanban board for a team's own work, and a way to show that work to the people
+outside the team. The team keeps its board; other groups read the same cards as **initiatives** —
+progress, risk and what depends on what — without a status meeting or a second set of tickets.
+
+The wait is on the board too: how long a card has sat in its column, what it is blocked on, what it
+is waiting for on another board, and which committed work has nobody's name on it. All of it read
+from cards that are already there, none of it typed twice.
 
 [**Open the demo**](https://kanbantoolkit.com/app) — nothing to sign up for ·
 [Run it yourself](#run-it) · [Documentation](docs/README.md)
@@ -18,132 +21,86 @@ of tickets.
 
 </div>
 
-The demo is the application itself: on a first visit it seeds a complete board, keeps the work in
-your browser, and asks you for nothing. Nothing is collected and no account is needed.
-
-**The time is not in the work — it is in the waiting.** Kanban Toolkit puts the wait where it can be read:
-how many days a card has sat in its lane, what it is blocked on, what it is waiting for on another
-board, and which committed work below has nobody's name on it. None of that is a second report, and
-none of it is entered twice — it is read from the cards that are already there.
+The demo is the application itself. A first visit seeds a complete board and keeps the work in your
+browser. There is no account and nothing is collected.
 
 ## How it works
 
 1. **The team works on its board.** Cards move through four fixed stages — **Backlog → Not Started →
-   In Progress → Done**. Drag one into the column it belongs in; the column's stage is the card's
-   status.
+   In Progress → Done**. Drag one into a column and the column's stage is the card's status.
 2. **The board is shaped around the work.** Split a stage into the steps your team actually uses,
-   name them, arrange them in columns or rows, and set a limit on how much work is in flight where
-   that helps. The stage stays underneath, so reporting does not change when the board does. A board
-   can carry more than one cards flow — a delivery flow and a support queue, say — each with its own
-   columns, its own name and its own limit, stacked as separate bands.
+   name them, arrange them in columns or rows, and set a limit on work in flight where that helps.
+   The stage stays underneath, so reporting does not change when the board does. A board can carry
+   more than one cards flow — delivery and support, say — each with its own columns and limits,
+   stacked as separate bands.
 3. **Cards roll up into initiatives.** A card dragged onto an initiative becomes its child. The
    initiative's progress and delivery risk are computed from the work below it, so the wider view
    cannot drift from the board.
-4. **Other groups read the same work.** A program, a portfolio or another team reads the initiatives
-   flow — what is planned, what is moving and what depends on what — from the same cards, with no
-   second set of tickets to keep in step.
+4. **Other groups read the same work.** A program board, a portfolio or another team reads the
+   initiatives flow — what is planned, what is moving and what depends on what — from the same
+   cards.
 
 <img src="site/img/initiatives.webp" alt="The initiatives flow: three initiatives under their stage headings, each showing progress and the work beneath it" width="960">
-
-## What it gives you
-
-- **A real Kanban board.** Four fixed stages — **Backlog, Not Started, In Progress and Done** — that
-  stay honest however your team reshapes the board.
-- **A workflow you can shape — or several.** Split a stage into the steps your team actually uses,
-  arrange them in columns or rows, give each one a clear name, and set a limit on how much work is in
-  flight where it helps. A board can carry more than one cards flow, each with its own columns, and a
-  card moves between them like it moves between any two cells. The board belongs to the team, not to
-  a template.
-- **Initiatives for the wider view.** Day-to-day cards roll up into initiatives, so other groups can
-  see progress and delivery risk without interrupting the team. The team's board and the wider
-  view are two readings of the same work.
-- **One card, one truth.** A card keeps its identity, history and owner wherever it is read, so it
-  never has to be copied into another system.
-- **Private and self-hosted.** Run it on your own machine or server. No ads, no analytics, no
-  third-party scripts, and your work is yours to export whenever you want.
-- **Open source.** AGPL-3.0. Read it, change it, and run it on your own terms.
 
 ## Features
 
 - **Boards**
-  - Four fixed stages: Backlog, Not Started, In Progress and Done.
-  - Split a stage into named cells, arranged in columns or rows.
-  - Remove a column only while it is empty.
-  - One or more card flows per board, shown as stacked bands, each with its own name, columns and limits.
-  - Drag a card between cells, or between the board's card flows.
+  - Four fixed stages. A stage splits into named cells, arranged in columns or rows.
+  - One or more cards flows per board, stacked as bands, each with its own columns and limits.
+  - Drag a card between cells, or between the board's flows.
   - Per-column WIP limits; a limit can tint the column, ask for a reason, or refuse the move.
-  - A default cell for new cards and a default card type.
-  - Board settings for name, description, band, linked boards, card types, tags and initiative types.
-  - Edit mode for changing the board's structure, and a read mode for using it.
-  - Archive and unarchive a board.
-  - Board list grouped by band, with a filter and a search.
+  - A default cell and card type for new cards, and settings for name, description, band, linked
+    boards, card types, tags and initiative types.
+  - Edit mode for the board's structure, read mode for using it. Archive and unarchive.
+  - Workspace Home lists every board by band, with a filter and a search.
 - **Cards**
-  - Create a card from a column's footer or from the toolbar.
-  - Move and reorder cards by dragging.
-  - Card panel with Overview, Hierarchy and Activity.
-  - Title, Markdown description, type, priority, assignees, tags, target start and end dates, and a due date.
+  - Title, Markdown description, type, priority, assignees, tags, target dates and a due date.
+  - Sub-task checklists, notes in the activity log, and dependencies that clear when the other item
+    reaches Done.
+  - Mark a card blocked with a reason; give it a parent and children by dropping it on an initiative.
   - The creator is recorded and cannot be changed afterwards.
-  - A checklist for sub-tasks.
-  - Notes in the activity log, with who and when.
-  - Dependencies: one item waits on another, and the waiting state clears when the other reaches Done.
-  - Mark a card blocked with a reason.
-  - Parent and children; drop a card on an initiative to make it a child.
-  - Select several cards for bulk move, type, assignee, parent, archive/discard or delete.
-  - Focus on one item and its hierarchy.
+  - Bulk move, retype, assign, reparent, archive, discard or delete a selection; focus on one item
+    and its hierarchy.
 - **Initiatives**
-  - Status and percentage computed from the cards below.
-  - No estimate or status field of their own.
+  - Status and percentage computed from the cards below, with no estimate or status of their own.
   - The section is derived from the rollup; the cell inside it is arranged by hand.
-  - Parent/child decomposition, including linking a team initiative under a management initiative.
+  - Parent/child decomposition across boards, including a team initiative linked under a management
+    initiative.
   - Health flags for blocked, waiting, stale, unowned, unplanned work below, and past target date.
-- **Views and finding work**
-  - Workspace Home with every board, grouped by band.
-  - Dashboard of a board's initiatives.
-  - Timeline of initiatives over their target dates.
-  - Flow metrics on team boards: lead time, cycle time, throughput, distributions, aging and a forecast.
-  - Archive of completed and discarded work, with restore.
-  - Auto-archive Done cards after a set number of days.
-  - My work drawer for the signed-in person's cards.
-  - Strategy map on portfolio boards: objectives, key results, the initiatives that serve them, and coverage gaps.
-  - An objective's completeness comes from the work below it.
-  - Search across every board by title.
-  - Command palette for boards, cards, views and actions.
-  - Filters for text, type, assignee or unassigned, priority, tags, blocked, overdue, due soon and initiative.
-  - Saved filters and collapsed columns, kept per device.
+- **Views**
+  - Dashboard and timeline of a board's initiatives.
+  - Flow metrics on team boards: lead time, cycle time, throughput, distributions, aging and a
+    forecast.
+  - Strategy map on portfolio boards: objectives, key results, the initiatives that serve them, and
+    coverage gaps. An objective's completeness comes from the work below it.
+  - Archive of completed and discarded work, with restore, and auto-archive of Done cards after a set
+    number of days.
+  - My work for the signed-in person, search across every board, and a command palette.
+  - Filters for text, type, assignee or unassigned, priority, tags, blocked, overdue, due soon and
+    initiative. Saved filters and collapsed columns, kept per device.
   - The address bar names the board, the view and the open card, so a link can be shared.
-- **Accounts and collaboration (instance)**
+- **Accounts and collaboration** (instance)
   - Viewer, editor and administrator roles, checked on every request.
   - Sign-in with any OIDC issuer, a password, or a magic link when mail is configured.
-  - Invitations with a link, a role, an expiry and a revoke.
-  - People and membership management.
-  - Session list and revocation, including sign out everywhere.
-  - Audit log with a CSV export.
-  - SCIM provisioning from a directory.
-  - Live updates over a socket or by polling.
-  - An editing lease per card, and revision checks that refuse a stale write.
-- **Data and backups**
-  - Export the workspace as JSON and import it back.
-  - Export a board's cards as CSV.
+  - Invitations with a link, a role, an expiry and a revoke; people and membership management;
+    sessions with sign-out everywhere; an audit log with a CSV export; SCIM provisioning.
+  - Live updates over a socket or by polling, an editing lease per card, and revision checks that
+    refuse a stale write.
+- **Data**
+  - Export the workspace as JSON and import it back; export a board's cards as CSV.
   - Back up and restore the SQLite file from the command line.
-  - Templates of a board's card flows, columns and limits.
-  - Browser snapshots of the workspace.
-  - A warning when browser storage is full, and quarantine of saved data a build cannot read.
-  - Reset to the demo workspace.
-- **Running it**
-  - A static build that runs with no server, keeping the workspace in the browser.
-  - A self-hosted instance: one Node process and one SQLite file.
-  - Docker image and Compose file.
-  - A Cloudflare Worker entry.
-  - No ads, analytics or third-party scripts.
-- **Machine access**
-  - Personal API tokens with scopes and expiry.
-  - REST API at `/api/v1`.
-  - MCP server, over HTTP or stdio, with a tool per read and write.
-  - Rate limiting per token.
-- **Interface**
-  - Keyboard access to menus, moving cards and closing panels.
-  - Screen-reader labels and focus handling.
-  - Error reports with the error, path, view, build and browser, and no workspace data.
+  - Templates of a board's flows, columns and limits.
+  - Browser snapshots, a warning when storage is full, and quarantine of saved data a build cannot
+    read.
+- **Running it and machine access**
+  - A static build that runs with no server, keeping the workspace in the browser, or a self-hosted
+    instance: one Node process and one SQLite file.
+  - Docker image, Compose file and a Cloudflare Worker entry.
+  - Personal API tokens with scopes, expiry and rate limits; REST at `/api/v1`; an MCP server over
+    HTTP or stdio, with a tool per read and write.
+  - Keyboard access, screen-reader labels and focus handling.
+  - No ads, analytics or third-party scripts. Error reports carry the error, path, view, build and
+    browser, and no workspace data.
 
 ## Run it
 
@@ -174,10 +131,10 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
   PORT=8787 DB_PATH=./kanbantoolkit.db STATIC_DIR=./dist npm run server
 ```
 
-The build writes the site and the application into `dist/`; the server applies every pending
+The build writes the site and the application into `dist/`. The server applies every pending
 migration on start and prints the schema version it reached. A run without `ERROR_SALT` is a
-development run: it starts, with a salt generated for the process, so a real instance should take the
-value from its unit file and keep it (docs/install.md).
+development run: it starts with a salt generated for the process, so a real instance should keep the
+value in its unit file ([docs/install.md](docs/install.md)).
 
 </details>
 

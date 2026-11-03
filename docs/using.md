@@ -1,7 +1,7 @@
 # Using Kanban Toolkit
 
-This page covers the application from the outside: the workspace, a board, a card, an initiative, and the
-views that read the same work at another altitude. [Installing it](install.md) is the other half.
+This page covers the application from the outside: the workspace, a board, a card, an initiative, and
+the views that read the same work at another altitude. [Installing it](install.md) is the other half.
 
 ## The workspace
 
@@ -27,7 +27,7 @@ by title, description and note, and shows the line that matched.
 
 Every board is a **team**, **program** or **portfolio** board; [Board types](board-types.md) explains
 what each level is for and when to choose it. The level is fixed when the board is made: **Settings**
-shows it but does not offer to change it, because a different type would hide the work the board
+shows it but does not offer to change it, because a different level would hide the work the board
 already holds.
 
 **Board settings** is a tabbed dialog. **General** holds the board’s name, description and type;
@@ -39,9 +39,8 @@ saved as you edit.
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a
 stage is the team's. **Edit board** splits a column into cells, renames them, adds a lane, or removes
-one — a split cell is still in its stage, the work simply reads more precisely. A lane is removed
-only while it is **empty**: deleting a column never moves a card, and a split whose remaining cell
-holds cards is left as it is rather than folded over them.
+one. A lane is removed only while it is **empty**: deleting a column never moves a card, and a split
+whose remaining cell holds cards is left as it is rather than folded over them.
 
 <img src="img/guide/board-overview.webp" alt="The Team Atlas demo board: the initiatives flow above the team's Cards flow, with Backlog, Not Started, In Progress and Done columns" width="1100">
 
@@ -78,7 +77,7 @@ applies. A column can carry a **WIP limit**; **Settings** decides what a limit d
 hazard tape and the words (**visualize**), hold the move until a reason is given (**justify**), or
 refuse it (**block**) — and that policy covers every cards flow on the board.
 
-The keyboard is a full way in, not a fallback: focus a card and press
+The keyboard reaches everything. Focus a card and press
 <kbd>Shift</kbd>+<kbd>F10</kbd> for its menu — **Move to lane**, **Move earlier**, **Move later**,
 **Set parent…** — and <kbd>Enter</kbd> to choose. <kbd>Escape</kbd> closes a panel and gives the focus
 back. Press <kbd>?</kbd> anywhere you are not typing — or choose **Keyboard shortcuts** in the command
@@ -122,7 +121,7 @@ with what raises it and what clears it.
 
 An initiative is the unit the wider organisation reads. It has no estimate and no status field: its
 status is the rollup of the cards below it, and its percentage is the share of those cards that are
-done. Add a card and the number moves, because the work moved.
+done.
 
 Its **section** — Backlog, Not Started, In Progress, Done — is derived from that rollup; the **cell**
 inside the section is where a person arranged it. Dragging an initiative moves it within its section.
@@ -147,17 +146,15 @@ a program's outcome is decomposed into a team's initiative.
 
 None of these is a second copy: they read the same items, placements and edges.
 
-**My work** is not one of the board's tabs: it is under your name in the top right and opens as a
-right-hand drawer beside the board, because it is about the person rather than the board that
-happens to be open. The board stays in front; clicking a card replaces the drawer with that card's
-item panel on the same side.
+**My work** sits under your name in the top right and opens as a right-hand drawer beside the board,
+because it is about the person rather than the open board. The board stays in front; clicking a card
+replaces the drawer with that card's item panel on the same side.
 
-Objectives and key results are **not** a global view. They are created and managed from a
-**Portfolio** board, whose Strategy map carries them and the initiatives mapped to them. A
-**period** is a record with a window: choose it in the **Period** field, set its start and end dates
-once, and every objective committed for it is due then — an objective has no target date of its own.
-[Board types](board-types.md) walks through periods, key results and mapping an initiative to an
-objective.
+Objectives and key results live on a **Portfolio** board, in its Strategy map, with the initiatives
+mapped to them. A **period** is a record with a window: choose it in the **Period** field, set its
+start and end dates once, and every objective committed for it is due then. An objective has no
+target date of its own. [Board types](board-types.md) walks through periods, key results and mapping
+an initiative to an objective.
 
 ## Keeping a copy
 
@@ -179,11 +176,10 @@ reload, and so is an objective made on a portfolio board.
 Which of those a person may change is a role, and it is checked list by list: an administrator for
 card types and the auto-archive rule, `template.manage` for templates, `objective.write` for
 objectives and key results. A change the server refuses is said in words beside the control that made
-it, and the edit stays in this browser — it is never reported as saved when it was not.
+it, and the edit stays in this browser.
 
-**Saved filters** and **collapsed columns** stay on the device deliberately: a saved filter is one
-person's way of narrowing a board, and a collapsed column is where they left their screen. Neither is
-a fact about the workspace, so neither is written back to it.
+**Saved filters** and **collapsed columns** stay on the device: they describe one person's screen, not
+the workspace, so neither is written back to it.
 
 Accounts, invitations and roles belong to the instance: they are managed on its **Admin** screen.
 [Install](install.md) and [configure](configure.md) are how the application is run in the first place.

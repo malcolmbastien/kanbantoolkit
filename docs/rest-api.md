@@ -1,15 +1,15 @@
 # The REST API
 
-`/api/v1` is the surface a script may build on. It is the same board, the same rules and the same trail
-as the app — a different door, not a second product. [The API](api.md) is the internal one the client
-calls; this page is the one with a promise attached.
+`/api/v1` is the surface a script may build on: the same board, the same rules and the same trail as
+the app. [The API](api.md) is the internal one the client calls; this page is the one with a promise
+attached.
 
 ## What it promises
 
 Within `v1`:
 
 - **Fields are added, never removed and never retyped.** A client may read the fields documented here
-  and rely on them still being there.
+  and rely on them.
 - **A new field is always optional.** A response may grow; it will not grow a field you must send.
 - **A new *required* field in a request is a breaking change**, so it does not happen inside `v1`.
 - **`code` in an error body is stable.** Branch on it; never on `message`, which is for a person.
@@ -21,8 +21,8 @@ test fails when the two disagree. Generate a client from it rather than from thi
 
 ## Getting a credential
 
-A token, never a session: a script has no browser, and a cookie carries no scopes. The token is
-acquired by the tool rather than copied by hand:
+A script uses a token, never a session: it has no browser, and a cookie carries no scopes. The tool
+acquires the token rather than a person copying it by hand:
 
 ```bash
 npm run kanbantoolkit -- login --url https://board.example.com
@@ -49,7 +49,7 @@ A spent window is `429`, with `{"error":{"code":"rate_limited"}}` and a `retryAf
 
 ### What a token may do
 
-Two ceilings, both read on every request: the token's **scopes**, and the owner's **role**. A demotion
+Two ceilings, both read on every request: the token's **scopes** and the owner's **role**. A demotion
 tightens every token its holder has, with nothing to revoke.
 
 | Scope | Reaches |
@@ -63,9 +63,9 @@ tightens every token its holder has, with nothing to revoke.
 | `objectives:write` | periods, objectives and key results |
 | `workspace:admin` | settings, people, and restoring a workspace file (`POST /workspace`) |
 
-A route that needs a scope your token does not have answers `403 scope_required` with the scope in
-`details.scope`. A route whose *action* your role does not allow answers `403 role_forbidden` — the
-difference is worth reading: the first is the token you chose, the second is the person you are.
+A route that needs a scope your token does not have answers `403 scope_required`, with the scope in
+`details.scope`. A route whose *action* your role does not allow answers `403 role_forbidden`: the
+first is the token you chose, the second is the person you are.
 
 ## The resources
 
@@ -88,27 +88,26 @@ difference is worth reading: the first is the token you chose, the second is the
 | `GET /workspace` | `boards:read` | the workspace file, for a backup |
 | `POST /workspace` | `workspace:admin` | restore a file into an empty instance |
 
-A note is an item-log entry of kind `noted`. It may carry `mentions`, a list of user ids that sits beside
-the note text. A mention is part of the note, not a thread, and the typed `@Name` stays in `note`.
+A note is an item-log entry of kind `noted`. It may carry `mentions`, a list of user ids beside the
+note text; a mention is part of the note, not a thread, and the typed `@Name` stays in `note`.
 
-The board design is written as one document through `PUT /api/workspace/structure`. That route belongs to
-the app, not to this API, and it changes with the app, so it is not part of v1. A board's shape is read
-here through `GET /boards/{boardId}`. The workspace's words are here too: `GET` and `PUT /vocabulary` use
-the same document, revision and per-list rules as the app.
+The board design is written through `PUT /api/workspace/structure`, which belongs to the app and
+changes with it, so it is not part of v1. A board's shape is read here through
+`GET /boards/{boardId}`. The workspace's words are here too: `GET` and `PUT /vocabulary` use the same
+document, revision and per-list rules as the app.
 
-A board's lane trees are **flows**. A board has one **initiatives** flow and one or more **cards** flows.
-`GET /boards/{boardId}` returns both views. `workflows.cards` is the board's **first** cards flow, which is
-the shape v1 always had, and `workflows.initiatives` is the initiatives flow. `flows` lists every flow with
-its `id`, `name`, `kind`, `order` and `lanes`, so a board with Delivery and Support shows both. An item is a
-card or an initiative. Its `typeId` is what makes it one, not a different resource.
+A board's lane trees are **flows**: one **initiatives** flow and one or more **cards** flows.
+`GET /boards/{boardId}` returns both views. `workflows.cards` is the board's **first** cards flow, the
+shape v1 always had, and `workflows.initiatives` is the initiatives flow. `flows` lists every flow with
+its `id`, `name`, `kind`, `order` and `lanes`. An item is a card or an initiative; its `typeId` is what
+makes it one, not a different resource.
 
 There is no `size` field. The board counts issues, not points, and progress is the number finished over
 the number below.
 
-`createdById` is the person who made the item. The server records it from the session, returns it on every
-item, and refuses a body that tries to send or change it, because it records an act that has already
-happened. A request that sends one gets `422 invalid` and the field name, rather than a silently dropped
-value.
+`createdById` is the person who made the item. The server records it from the session and returns it
+on every item; a body that sends or changes it is refused with `422 invalid` and the field name,
+rather than silently dropped.
 
 An initiative is placed in the initiatives flow, and a card in a cards cell, in any of the board's cards
 flows. Moving between cards flows is a move. A route that tries to cross the two kinds answers
@@ -123,9 +122,8 @@ flows. Moving between cards flows is a move. A route that tries to cross the two
 that moment. Note the time *before* your read, then ask again with it.
 
 **Revisions.** A `PATCH` carries `baseRev`: the revision you read. If the item has moved past it the
-answer is `409 stale`, and `details.item` is the current item — read it and decide, rather than
-guessing. A move does not need one (it is arrangement, not content), but it may carry one and be
-refused the same way.
+answer is `409 stale`, and `details.item` is the current item. A move does not need one (it is
+arrangement, not content), but it may carry one and be refused the same way.
 
 **Idempotency.** `Idempotency-Key: <your key>` on `POST /items` and `PATCH /items/{id}` makes a retry
 safe: the key names the change, and a replay answers with what the change wrote instead of writing it
@@ -153,10 +151,10 @@ twice. It lives in the same table the app's own queue uses, and is pruned after 
 | `422` | `invalid` | a field this route will not take |
 | `429` | `rate_limited` | the minute is spent; `details.retryAfter` |
 
-**What a move refuses, and why.** The WIP policy is the board's, not the API's: `visualize` lets it
-through, `justify` answers `reason_required` until a reason is given, and `block` refuses. A move into
-another workflow, or an initiative's move across a section, is refused in the same words the app uses,
-because it is the same function (`src/domain/move.ts`) deciding.
+**What a move refuses.** The WIP policy is the board's, not the API's: `visualize` lets it through,
+`justify` answers `reason_required` until a reason is given, and `block` refuses. A move into another
+workflow, or an initiative across a section, is refused in the same words the app uses: the same
+function (`src/domain/move.ts`) decides.
 
 **The trail.** Every write answers as the token's owner and is recorded as `api.write`, naming the
 operation, the item and the token. A script cannot write without a trail, and cannot write as somebody
@@ -164,7 +162,7 @@ else: a token belongs to one account, and its scopes are that account's to give.
 
 ## A worked script
 
-Move every card on one board into the board's first Not Started cell, one card at a time, and print what
+Move every card on one board into the board's first Not Started cell, one at a time, and print what
 happened to each. This shell version works in a CI job:
 
 ```bash
@@ -217,20 +215,19 @@ for (const line of (await import('node:fs')).readFileSync('titles.txt', 'utf8').
 }
 ```
 
-Both scripts do what a person would do by hand, one card at a time. There is no bulk endpoint: a batch
-of twenty cards is twenty calls, and twenty entries the trail can explain.
+There is no bulk endpoint: a batch of twenty cards is twenty calls, each with its own trail entry.
 
 ## The other door
 
-An agent can reach the same acts through **MCP** — over `POST /mcp` or through the stdio bridge —
-with a token like the one above. The tools are named after the acts (`create_item`, `move_item`,
+An agent can reach the same acts through **MCP**, over `POST /mcp` or through the stdio bridge, with a
+token like the one above. The tools are named after the acts (`create_item`, `move_item`,
 `set_parent`) and call the same operations this page describes, so a WIP limit refuses an agent in the
-same words. [The MCP server](mcp.md) is the page for it.
+same words. See [the MCP server](mcp.md).
 
 ## What is not here
 
-- **A query language.** Search is the app's search. A filter expression language would be a second API
-  with none of the first one's rules.
+- **A query language.** Search is the app's search; a filter expression language would be a second API
+  with none of this one's rules.
 - **Unscoped tokens.** A token with no scopes reaches nothing; there is no "all" spelling.
 - **An unauthenticated mode.** The document is public; everything else needs a credential, because the
   trail has to be able to say who acted.
