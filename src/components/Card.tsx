@@ -1,5 +1,5 @@
-import { memo, useEffect, useRef, useState } from 'react'
-import { Ban, Check, ChevronDown, Clock, CornerDownRight, Link2, ListChecks, Lock, ShieldAlert } from 'lucide-react'
+import { memo } from 'react'
+import { Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR } from '@/lib/colors'
 import { NONE_TYPE_ID } from '@/domain/board'
@@ -98,13 +98,11 @@ interface Props {
    */
   blockedTone?: 'detail' | 'aggregate'
   /**
-   * An initiative's kind, already resolved (`initiativeTypeById`), and the board's list to pick
-   * from. Given only on the initiatives surface: a card has no kind, and `onSetKind` being absent
-   * is what says so — so nothing renders on the cards workflow.
+   * An initiative's kind, already resolved (`initiativeTypeById`). Given only on the initiatives
+   * surface: a card has no kind, so nothing renders on the cards workflow. The band reads the
+   * kind; it is changed from the card menu or the drawer, never from the card face.
    */
   kind?: InitiativeType
-  kinds?: InitiativeType[]
-  onSetKind?: (kindId: string | undefined) => void
   /** This item's tags, already resolved. A set, so the footer shows a few and counts the rest. */
   tags?: Tag[]
   /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
@@ -283,7 +281,7 @@ function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (depend
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, kinds, onSetKind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
   const dragProps =
@@ -474,8 +472,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         )}
       >
         {/* The kind, as a band across the top — the initiative's identity, and the one thing a
-            card never has. */}
-        {kind && <KindBand kind={kind} kinds={kinds ?? []} onSet={onSetKind} locked={locked} />}
+            card never has. It is a label here, not a control: the card menu and the drawer are
+            where a kind is changed. */}
+        {kind && <KindBand kind={kind} />}
 
         <div className="flex flex-1 flex-col gap-2 p-3">
           {/* The title, at the size the reading happens at. Beside it the one small judgement it
@@ -816,10 +815,8 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.waitingOn && b.waitingOn && a.waitingOn.some((w, i) => w.id !== b.waitingOn![i].id || w.title !== b.waitingOn![i].title)) return false
   if (a.dropTarget !== b.dropTarget) return false
   if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title) return false
-  // The kind is drawn, so a change to it re-renders. The list is the board's own array, which the
-  // store replaces only when it changes — `onSetKind` is ignored like the other callbacks.
+  // The kind is drawn, so a change to it re-renders.
   if (a.kind?.id !== b.kind?.id || a.kind?.name !== b.kind?.name || a.kind?.color !== b.kind?.color) return false
-  if (a.kinds !== b.kinds) return false
   if (a.tags?.length !== b.tags?.length) return false
   if (a.tags && b.tags && a.tags.some((t, i) => t.id !== b.tags![i].id || t.name !== b.tags![i].name || t.color !== b.tags![i].color)) return false
   if (a.symbols?.length !== b.symbols?.length) return false
@@ -848,112 +845,24 @@ const summaryEqual = (a: CardSummary, b: CardSummary) =>
  * the top, in the kind's own colour. A card is tinted by its type and railed down the left; an
  * initiative wears its kind as a band. The two shapes are told apart before either is read.
  *
- * The band is also where the kind is *changed* — Businessmap's affordance, and the better one: the
- * label is where the reading happens, so it is where the changing should happen too, with no trip
- * to the panel to change a word. The list is the board's own, plus the kind this initiative
- * already carries if that came from another board, so the control never lies about what the item
- * says.
+ * **The band reads; it does not change.** The kind is edited from the card's context menu or the
+ * drawer's Kind field, which are the app's normal homes for a property. A menu on the card face was
+ * a second place to type a word, and it made a label look like a control.
  *
  * **A header is drawn only when there is something to put in it.** An initiative wearing no kind
  * has no band — not a band saying "No kind" — because a header for an absence is a header for
- * nothing, and the app says the same thing everywhere else about a label nobody set. Setting one
- * has two homes already, both the app's normal ones: the drawer's Kind field and the card menu.
+ * nothing, and the app says the same thing everywhere else about a label nobody set.
  */
-function KindBand({
-  kind,
-  kinds,
-  onSet,
-  locked,
-}: {
-  /** The kind it wears. A card without one does not render this at all. */
-  kind: InitiativeType
-  kinds: InitiativeType[]
-  /** Absent on a surface that does not own the vocabulary — a Linked boards band. */
-  onSet?: (kindId: string | undefined) => void
-  /** Board-design mode: the band still says what it is, but it is not a control. */
-  locked?: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-
-  // A locked band is not a disabled button: a disabled button shows no tooltip, and this one has
-  // something to say.
-  const canSet = Boolean(onSet) && !locked
-  // The board's own list, plus the kind this initiative already carries if that came from another
-  // board — so the control never lies about what the item says.
-  const options = kinds.some((k) => k.id === kind.id) ? kinds : [...kinds, kind]
+function KindBand({ kind }: { kind: InitiativeType }) {
   const chip = chipColors(kind.color)
-  const choose = (id: string | undefined) => {
-    onSet?.(id)
-    setOpen(false)
-  }
-
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={(e) => {
-          // A band that is not a control lets the click through: on a surface that only reads
-          // another board's flow the band still says what the kind is, and clicking the card
-          // should open the card.
-          if (!canSet) return
-          e.stopPropagation()
-          setOpen((o) => !o)
-        }}
-        onKeyDown={(e) => {
-          // The list is the topmost layer, so Escape closes it rather than the panel or the board
-          // behind it — the same rule the tag field and the card menu keep.
-          if (e.key !== 'Escape' || !open) return
-          e.preventDefault()
-          e.stopPropagation()
-          setOpen(false)
-        }}
-        style={{ backgroundColor: chip.background, color: chip.color }}
-        className={cn(
-          'flex w-full items-center gap-1.5 px-2.5 py-1 text-left text-micro font-bold uppercase tracking-wide transition hover:brightness-95',
-          !canSet && 'cursor-default',
-        )}
-        title={`Kind: ${kind.name}${canSet ? '. Click to change it.' : ''}`}
-        aria-label={`Kind: ${kind.name}`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className="min-w-0 flex-1 truncate">{kind.name}</span>
-        {canSet && <ChevronDown size={11} className="shrink-0 opacity-70" />}
-      </button>
-      {open && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-0.5 overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg">
-          {[undefined, ...options.map((k) => k.id)].map((id) => {
-            const option = id === undefined ? undefined : options.find((k) => k.id === id)
-            const on = id === kind?.id
-            return (
-              <button
-                key={id ?? 'none'}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  choose(id)
-                }}
-                className={cn(
-                  'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta transition hover:bg-slate-50',
-                  on ? 'font-semibold text-indigo-700' : 'text-slate-700',
-                )}
-              >
-                {option && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chipColors(option.color).background }} />}
-                <span className="min-w-0 flex-1 truncate">{option?.name ?? 'None'}</span>
-                {on && <Check size={11} className="shrink-0" />}
-              </button>
-            )
-          })}
-        </div>
-      )}
+    <div
+      style={{ backgroundColor: chip.background, color: chip.color }}
+      className="flex w-full items-center gap-1.5 px-2.5 py-1 text-micro font-bold uppercase tracking-wide"
+      title={`Kind: ${kind.name}`}
+      aria-label={`Kind: ${kind.name}`}
+    >
+      <span className="min-w-0 flex-1 truncate">{kind.name}</span>
     </div>
   )
 }

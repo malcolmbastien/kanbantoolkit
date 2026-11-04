@@ -91,7 +91,6 @@ export function BoardSummary({
   const flows = useStore((s) => s.flows)
   const issueTypes = useStore((s) => s.issueTypes)
   const boards = useStore((s) => s.boards)
-  const setInitiativeKind = useStore((s) => s.setInitiativeKind)
   const users = useStore((s) => s.users)
   const links = useStore((s) => s.links)
   const selectedItemId = useStore((s) => s.selectedItemId)
@@ -153,7 +152,6 @@ export function BoardSummary({
       : boardInitiatives({ items, edges, links, placements, lanes }, boardId, issueTypes, { rootsOnly })
   }, [onlyKey, items, edges, links, placements, lanes, issueTypes, boardId, rootsOnly])
   const initiatives = allInitiatives
-  const boardKinds = boards.find((b) => b.id === boardId)?.initiativeTypes
 
   /**
    * A section is a typed column; its cells are its leaves — itself, until it's split.
@@ -344,12 +342,11 @@ export function BoardSummary({
         // about this board. A coordination board is reading work several levels down and says so
         // more quietly — which is what the softer tone was always for.
         blockedTone={readBoard?.band === 'team' ? 'detail' : 'aggregate'}
-        // A kind is a board's own label for its own outcomes, so it is offered where the board
-        // owns them — its own initiatives flow, not the bands another board's flow shows through.
+        // A kind is a board's own label for its own outcomes, so it is read where the board owns
+        // them — its own initiatives flow, not the bands another board's flow shows through. The
+        // band is a reading; the card menu and the drawer are where it changes.
         kind={isInitiatives ? initiativeTypeById(boards, c.initiativeTypeId) : undefined}
-        kinds={isInitiatives ? boardKinds : undefined}
         tags={tagsOf(boards, c)}
-        onSetKind={interactive && !editMode ? (kindId) => setInitiativeKind(c.id, kindId) : undefined}
         selected={selectedItemId === c.id}
         dropTarget={dropTargetId === c.id}
         lens={lensRole(c.id, lensId, graph)}
