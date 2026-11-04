@@ -158,8 +158,8 @@ a program's outcome is decomposed into a team's initiative.
 - **Flow** — on a team board, lead time (how long a card takes from start to finish) and cycle time
   (how long it takes to finish once work has started), throughput, their distributions, aging, a
   service level expectation (how long most work takes) and a forecast of when the open work could
-  finish. The time window (4 to 26 weeks, or all history) and the cards-flow filter are kept in the
-  page's address. A program or portfolio board has no
+  finish. The time window (4 to 26 weeks, or all history), the cards-flow filter and the card-type
+  filter are kept in the page's address. A program or portfolio board has no
   cards flow, so it offers no Flow view. The definitions and the reasoning are in
   [Lean metrics](metrics.md).
 - **Archive** — work that has left this board. Each board has its own archive, and it lists only

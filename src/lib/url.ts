@@ -8,6 +8,7 @@
  *     /app?board=b-atlas&view=timeline            a view of that board
  *     /app?board=b-atlas&view=flow&range=26       the Flow view over a longer window
  *     /app?board=b-atlas&view=flow&flow=f-cards   the Flow view of one cards flow
+ *     /app?board=b-atlas&view=flow&type=t-bug     the Flow view of one card type
  *     /app?board=b-atlas&view=timeline&zoom=wide  the Timeline drawn day by day
  *     /app?board=b-atlas&item=init-signup         a card or initiative open on it
  *     /app?board=b-atlas&view=dashboard&item=…    both at once
@@ -58,6 +59,8 @@ export interface Place {
   range?: FlowWindow
   /** The Flow view's cards flow, when it is one rather than all of them. */
   flowId?: string | null
+  /** The Flow view's card type, when it is one rather than every type on the board. */
+  typeId?: string | null
   /**
    * The Timeline's zoom, when it is not the default. Like the Flow view's window, it is part of the
    * place: a link that opens the axis a week at a time must open that, not the default width.
@@ -96,6 +99,7 @@ export function urlQuery(place: Place): string {
   if (place.view === 'flow') {
     if (place.range !== undefined && place.range !== DEFAULT_FLOW_WINDOW) params.set('range', flowWindowParam(place.range))
     if (place.flowId) params.set('flow', place.flowId)
+    if (place.typeId) params.set('type', place.typeId)
   }
   // The same rule for the Timeline's width: the default is left out, so an ordinary link stays
   // the shortest true thing to say.
@@ -160,6 +164,8 @@ export function placeFromQuery(search: string): Partial<Place> {
   }
   const flow = params.get('flow')
   if (flow) place.flowId = flow
+  const type = params.get('type')
+  if (type) place.typeId = type
   const zoom = params.get('zoom')
   if (zoom !== null && isTimelineZoom(zoom)) place.zoom = zoom
   return place

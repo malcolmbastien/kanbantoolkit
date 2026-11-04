@@ -149,6 +149,11 @@ export interface ViewState {
    */
   metricsFlowId: string | null
   /**
+   * The card type the Flow view reads, or `null` for every type on the board. Like the flow, it is
+   * a reading of one board and is cleared when another board opens.
+   */
+  metricsTypeId: string | null
+  /**
    * How wide the timeline draws a day. A lens on the board rather than workspace data: it is written
    * into the place (the URL) and never into the vocabulary, so a link is what reproduces it.
    */
@@ -255,6 +260,8 @@ export interface Actions {
   setFlowWindow: (window: FlowWindow) => void
   /** The Flow view's cards flow, or `null` for all of them. */
   setMetricsFlow: (flowId: string | null) => void
+  /** The Flow view's card type, or `null` for every type on the board. */
+  setMetricsType: (typeId: string | null) => void
   /** The timeline's zoom — a lens on the board, kept in the URL rather than in the workspace. */
   setTimelineZoom: (zoom: TimelineZoom) => void
   toggleBoards: () => void
@@ -1083,6 +1090,7 @@ const initialView: ViewState = {
   showMetrics: false,
   flowWindow: DEFAULT_FLOW_WINDOW,
   metricsFlowId: null,
+  metricsTypeId: null,
   timelineZoom: DEFAULT_TIMELINE_ZOOM,
   recentItemIds: [],
   favouriteBoardIds: [],
@@ -1711,6 +1719,7 @@ export const useStore = create<Store>()(
           showObjectives: false,
           showMetrics: false,
           metricsFlowId: null,
+          metricsTypeId: null,
           boundaryId: null,
           multiSelect: [],
           cardMenu: null,
@@ -2173,6 +2182,7 @@ export const useStore = create<Store>()(
       },
       setFlowWindow: (flowWindow) => set({ flowWindow }),
       setMetricsFlow: (metricsFlowId) => set({ metricsFlowId }),
+      setMetricsType: (metricsTypeId) => set({ metricsTypeId }),
       setTimelineZoom: (timelineZoom) => set({ timelineZoom }),
       toggleBoards: () => {
         const on = !get().showBoards

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 
 /**
- * The Flow view's reading: a window and a cards flow, both part of the place.
+ * The Flow view's reading: a window, a cards flow and a card type, all part of the place.
  *
  * The numbers themselves are unit-tested; this spec is about the reading being real in a browser —
  * the controls change it, and a link keeps it. The heavier chart coverage arrives with the panels
@@ -40,6 +40,7 @@ test('the Flow view opens on a quarter of every cards flow', async ({ page }) =>
   // The demo has two cards flows, so the filter is offered and starts on all of them.
   await expect(view.getByLabel('Range')).toHaveValue('12')
   await expect(view.getByLabel('Cards flow')).toHaveValue('')
+  await expect(view.getByLabel('Card type')).toHaveValue('')
   // Twelve weekly buckets in the cumulative flow, and twelve in throughput.
   await expect(view.locator('[data-flow-bucket]')).toHaveCount(12)
   await expect(view.locator('[data-flow-week]')).toHaveCount(12)
@@ -72,6 +73,36 @@ test('a window and a flow are part of the link', async ({ page }) => {
   // Back to every flow, and the URL stops naming one.
   await page.getByLabel('Cards flow').selectOption('')
   await expect(page).not.toHaveURL(/flow=/)
+})
+
+test('a card type is part of the link', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+
+  // The Support queue's delivered card is a User Story; the cards in flight there are a Task and a
+  // Bug. Narrowing to the story keeps the delivery and drops both of those.
+  const flow = view.getByLabel('Cards flow')
+  const support = await flow.locator('option', { hasText: 'Support' }).getAttribute('value')
+  await flow.selectOption(support!)
+  const type = view.getByLabel('Card type')
+  const story = await type.locator('option', { hasText: 'User Story' }).getAttribute('value')
+  await type.selectOption(story!)
+
+  await expect(page).toHaveURL(new RegExp(`type=${story}`))
+  await expect(view.locator('[data-flow-stat="In flight"] [data-flow-stat-value]')).toHaveText('0')
+  await expect(view.locator('[data-flow-stat="Delivered"] [data-flow-stat-value]')).toHaveText('1')
+
+  // The reading is the account's, not the browser's. Scoped to the view: the board behind it also
+  // has labelled flow bands, and a page-wide label lookup would find those too.
+  await page.reload()
+  const after = page.locator('[data-flow-view]')
+  await expect(after.getByLabel('Cards flow')).toHaveValue(support!)
+  await expect(after.getByLabel('Card type')).toHaveValue(story!)
+  await expect(after.locator('[data-flow-stat="Delivered"] [data-flow-stat-value]')).toHaveText('1')
+
+  // Back to every type, and the URL stops naming one.
+  await after.getByLabel('Card type').selectOption('')
+  await expect(page).not.toHaveURL(/type=/)
 })
 
 test('the summary figures keep their columns when a number grows', async ({ page }) => {

@@ -41,7 +41,7 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
   removed while it is empty, and while another cards flow remains.
 - The board's **default drop cell** and its **WIP enforcement** are board-wide, so a new card or a
   card moved from elsewhere lands consistently wherever it came from. The Flow view can be narrowed
-  to one cards flow.
+  to one cards flow, and to one card type within it.
 - A **template** captures a set of cards flows — their names, columns and limits — and a new board
   made from it gets all of them. A program or portfolio board has no cards flow of its own.
 

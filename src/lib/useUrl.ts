@@ -30,10 +30,11 @@ export function useUrl() {
   const boardId = useStore((s) => s.boardId)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const view = useStore(viewOf)
-  // The Flow view's reading: which window and which cards flow. Subscribed because a change to
-  // either is a change to the place, and the URL has to follow it.
+  // The Flow view's reading: which window, cards flow and card type. Subscribed because a change
+  // to any of them is a change to the place, and the URL has to follow it.
   const flowWindow = useStore((s) => s.flowWindow)
   const metricsFlowId = useStore((s) => s.metricsFlowId)
+  const metricsTypeId = useStore((s) => s.metricsTypeId)
   // The Timeline's reading, subscribed for the same reason: a change to it changes the place.
   const timelineZoom = useStore((s) => s.timelineZoom)
   // The document's name, derived the same way the URL is: the board and the view. The open card
@@ -63,6 +64,13 @@ export function useUrl() {
     const flowId = place.flowId
     const known = Boolean(flowId) && s.flows.some((f) => f.id === flowId && f.boardId === s.boardId && f.kind === 'cards')
     s.setMetricsFlow(known ? flowId! : null)
+    // A type this board carries is a reading; a type from another board, or one no card wears, is
+    // not, so it falls back to every type rather than lighting a control with no effect.
+    const typeId = place.typeId
+    const onBoard = Boolean(typeId) && s.items.some(
+      (item) => item.typeId === typeId && s.placements.some((p) => p.itemId === item.id && p.boardId === s.boardId),
+    )
+    s.setMetricsType(onBoard ? typeId! : null)
   }, [])
 
   /**
@@ -148,7 +156,7 @@ export function useUrl() {
       boardId: s.boardId,
       view: viewOf(s),
       itemId: s.selectedItemId,
-      ...(flow ? { range: s.flowWindow, flowId: s.metricsFlowId } : {}),
+      ...(flow ? { range: s.flowWindow, flowId: s.metricsFlowId, typeId: s.metricsTypeId } : {}),
       ...(viewOf(s) === 'timeline' ? { zoom: s.timelineZoom } : {}),
     }
     const before = last.current
@@ -163,7 +171,7 @@ export function useUrl() {
     const samePlace = before !== null && before.boardId === place.boardId && before.view === place.view
     if (wasFirst || samePlace) window.history.replaceState(null, '', query)
     else window.history.pushState(null, '', query)
-  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId, timelineZoom])
+  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId, metricsTypeId, timelineZoom])
 
   // ---- And back: the places the app has been ----
   useEffect(() => {

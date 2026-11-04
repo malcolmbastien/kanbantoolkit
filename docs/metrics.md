@@ -24,7 +24,7 @@ type again, and so does the CSV.
 
 <img src="img/guide/flow-view.webp" alt="The Flow view for Team Atlas: the header reading, cycle-time scatter and distribution, aging work, cumulative flow, throughput and the planning panel" width="1100">
 
-*The Flow view: the window and cards flow at the top, with the delivery history beneath them.*
+*The Flow view: the window, cards flow and card type at the top, with the delivery history beneath them.*
 
 Three things were built and then removed when the screen was narrowed: **blocked work**, **Little's
 Law**, and the **data-quality section**. The **CSV export** went with them, and came back once the
@@ -73,7 +73,8 @@ work without a new lane setting.
 5. **Read-only.** There are no targets, no red/green scores and no generated narrative. A chart is
    the report.
 6. **One screen.** No report builder, no saved report definitions, no per-person metrics. The
-   controls are the window, the flow filter, and the inputs the planning readings need.
+   controls are the window, the flow filter, the card-type filter, and the inputs the planning
+   readings need.
 7. **Accessible and dependency-free.** Inline SVG and the existing bar primitives, no chart library.
    Each chart has a sentence summary, the distributions keep a table of their numbers for a screen
    reader, and type colour is never the only channel: every chart that uses it names the type in a
@@ -90,7 +91,7 @@ No schema change. One pull request per line, or two small ones.
 
 | # | What | Why | Size |
 | --- | --- | --- | --- |
-| 1.1 | **Range and flow controls.** 4, 8, 12, 26 weeks or all history (default 12); all cards flows or one. Kept in the URL (`range`, `flow`) so a link shows the same reading. | The board can carry several flows now, and 8 weeks is a guess. Sharing a reading is how a team discusses it. | S |
+| 1.1 | **Range, flow and type controls.** 4, 8, 12, 26 weeks or all history (default 12); all cards flows or one; all card types or one. Kept in the URL (`range`, `flow`, `type`) so a link shows the same reading. | The board can carry several flows and several types now, and 8 weeks is a guess. Sharing a reading is how a team discusses it. | S |
 | 1.2 | **Distribution summary.** p50, p85 and p95 for lead and cycle, each with `n`; keep in flight and delivered. A one-line definition behind each label. | Percentiles are the SLE language the references use; the current median + p85 is almost there. | S |
 | 1.3 | **Cycle time scatterplot.** One dot per delivered card, x = completion date, y = cycle days; p50/p85/p95 lines; hover says the card and its dates; click opens the card. The y axis caps at p98, with the rest drawn as a count above an axis break so the long tail cannot squash the bulk. No trend line by default. | Outliers are the story, and a scatter is the cheapest way to see them. A straight trend line over a scattered cloud looks more certain than it is. | M |
 | 1.4 | **Aging work.** Open cards in the selected flow **and the selected columns** — the checkboxes offer Backlog (off by default), Not Started and In Progress — oldest first: card, its type and status as pills, time in that column, and **time since commitment** — with the cycle-time p85 drawn as the reference line. A card past the line has been in flight longer than 85% of the work the team finished. Click opens the card. | The most actionable lean metric is "what is old right now", and the data is already there (`laneEnteredAt` and the last move). The line belongs on time since commitment, not time in the column, or it compares two different clocks. | M |

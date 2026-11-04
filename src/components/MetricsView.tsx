@@ -78,8 +78,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const [atLeast, setAtLeast] = useState('')
   const flowWindow = useStore((s) => s.flowWindow)
   const metricsFlowId = useStore((s) => s.metricsFlowId)
+  const metricsTypeId = useStore((s) => s.metricsTypeId)
   const setFlowWindow = useStore((s) => s.setFlowWindow)
   const setMetricsFlow = useStore((s) => s.setMetricsFlow)
+  const setMetricsType = useStore((s) => s.setMetricsType)
 
   /**
    * The board's moves, fetched once when the view opens.
@@ -114,14 +116,28 @@ export function MetricsView({ boardId }: { boardId: string }) {
   // The cards this board carries in its cards workflow — archived ones included, because filing
   // a delivered card away must not erase it from the board's throughput.
   const laneOf = new Map(placements.filter((p) => p.boardId === boardId).map((p) => [p.itemId, p.laneId]))
-  const cards = [...laneOf.keys()]
+  const flowOfCard = (id: string) => lanes.find((l) => l.id === laneOf.get(id))?.flowId
+  const boardCards = [...laneOf.keys()]
     .filter((id) => {
-      const lane = lanes.find((l) => l.id === laneOf.get(id))
-      if (!lane || kindOf(flows, lane.flowId) !== 'cards') return false
-      return selectedFlow === null || lane.flowId === selectedFlow.id
+      const flowId = flowOfCard(id)
+      return Boolean(flowId) && kindOf(flows, flowId!) === 'cards'
     })
     .map((id) => items.find((i) => i.id === id))
     .filter((i): i is Item => Boolean(i) && !isInitiativeItem(i, issueTypes))
+
+  // The type choices are the board's own — every card it carries, across its cards flows — so
+  // changing the flow never removes the type that was selected from the list.
+  const typeOrder = new Map(issueTypes.map((type, index) => [type.id, index]))
+  const boardTypeChoices = issueTypes
+    .filter((type) => boardCards.some((card) => card.typeId === type.id))
+    .sort((a, b) => (typeOrder.get(a.id) ?? 999) - (typeOrder.get(b.id) ?? 999) || a.name.localeCompare(b.name))
+  // A type the board no longer carries — a link from when it did, or a card retyped in another tab
+  // — is not a reading: the screen shows every type rather than an empty chart under a stale control.
+  const selectedType = boardTypeChoices.find((type) => type.id === metricsTypeId) ?? null
+
+  const cards = boardCards
+    .filter((card) => selectedFlow === null || flowOfCard(card.id) === selectedFlow.id)
+    .filter((card) => selectedType === null || card.typeId === selectedType.id)
 
   const now = Date.now()
   /** One card's moves: the board's read, and anything this tab recorded after it. */
@@ -166,7 +182,6 @@ export function MetricsView({ boardId }: { boardId: string }) {
   // Throughput read by type: the same weekly buckets as the bars, split by the card's type. The
   // order is the board's own type order, so each board keeps its own vocabulary.
   const deliveredRecords = deliveredSince(records, since)
-  const typeOrder = new Map(issueTypes.map((type, index) => [type.id, index]))
   const throughputTypes = (() => {
     const seen = new Map<string, IssueType>()
     for (const record of deliveredRecords) {
@@ -193,7 +208,9 @@ export function MetricsView({ boardId }: { boardId: string }) {
   // What the shared scope control would add: the cards still in play *because* they are in Backlog.
   const backlogCards = Math.max(0, openScope(records, now, true) - openCommitted)
   const remaining = openScope(records, now, includeBacklog)
-  const scopeName = selectedFlow ? `the ${selectedFlow.name} flow` : 'all flows'
+  const scopeName = `${selectedFlow ? `the ${selectedFlow.name} flow` : 'all flows'}${
+    selectedType ? ` (${selectedType.name} only)` : ''
+  }`
   const forecast = forecastWhen(remaining, delivered, now)
   const atLeastCount = atLeast.trim() === '' ? remaining : Math.max(0, Math.min(remaining, Number(atLeast) || 0))
   const byDateAt = new Date(`${byDate}T12:00:00`).getTime()
@@ -215,7 +232,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
       cycleDays: point.cycle,
     }))
     downloadText(
-      csvFilename(`${board?.name ?? 'board'}${selectedFlow ? ` ${selectedFlow.name}` : ''}`, 'flow'),
+      csvFilename(
+        `${board?.name ?? 'board'}${selectedFlow ? ` ${selectedFlow.name}` : ''}${selectedType ? ` ${selectedType.name}` : ''}`,
+        'flow',
+      ),
       flowCsv(rows),
     )
   }
@@ -231,7 +251,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
               </div>
               <div className="text-heading font-semibold text-slate-900">{board?.name ?? 'Board'}</div>
               <div className="mt-0.5 text-micro text-slate-500">
-                Read from the cards' own moves{selectedFlow ? ` · ${selectedFlow.name}` : ''}
+                Read from the cards' own moves{selectedFlow ? ` · ${selectedFlow.name}` : ''}{selectedType ? ` · ${selectedType.name}` : ''}
               </div>
               <div data-flow-history className="mt-1 flex flex-wrap items-center gap-x-1.5 text-micro text-slate-500">
                 {firstMove === undefined ? (
@@ -316,6 +336,24 @@ export function MetricsView({ boardId }: { boardId: string }) {
                   {boardFlows.map((flow) => (
                     <option key={flow.id} value={flow.id}>
                       {flow.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {boardTypeChoices.length > 1 && (
+              <label className="flex items-center gap-1.5 text-meta text-slate-600">
+                Card type
+                <select
+                  aria-label="Card type"
+                  value={selectedType?.id ?? ''}
+                  onChange={(event) => setMetricsType(event.target.value || null)}
+                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                >
+                  <option value="">All card types</option>
+                  {boardTypeChoices.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
                     </option>
                   ))}
                 </select>

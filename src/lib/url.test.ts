@@ -50,9 +50,16 @@ describe('the query a place writes', () => {
     expect(urlQuery(place({ view: 'flow', range: 26, flowId: 'f-support' }))).toBe(
       '?board=b-atlas&view=flow&range=26&flow=f-support',
     )
-    // A window and a flow mean nothing on a board's own flow or on another view: one place, one URL.
+    expect(urlQuery(place({ view: 'flow', typeId: 't-bug' }))).toBe('?board=b-atlas&view=flow&type=t-bug')
+    expect(urlQuery(place({ view: 'flow', range: 26, flowId: 'f-support', typeId: 't-bug' }))).toBe(
+      '?board=b-atlas&view=flow&range=26&flow=f-support&type=t-bug',
+    )
+    // A window, a flow and a type mean nothing on a board's own flow or on another view: one place,
+    // one URL.
     expect(urlQuery(place({ range: 4 }))).toBe('?board=b-atlas')
-    expect(urlQuery(place({ view: 'timeline', flowId: 'f-support' }))).toBe('?board=b-atlas&view=timeline')
+    expect(urlQuery(place({ view: 'timeline', flowId: 'f-support', typeId: 't-bug' }))).toBe(
+      '?board=b-atlas&view=timeline',
+    )
   })
 
   it('writes the Timeline’s zoom, but not the default, and only for the Timeline', () => {
@@ -123,17 +130,19 @@ describe('the place a query names', () => {
     expect(placeFromQuery('?edit=1&select=a,b&collapse=l1')).toEqual({ view: 'board' })
   })
 
-  it('reads a Flow window and flow, dropping the ones it does not know', () => {
-    expect(placeFromQuery('?board=b-atlas&view=flow&range=26&flow=f-support')).toEqual({
+  it('reads a Flow window, flow and type, dropping the ones it does not know', () => {
+    expect(placeFromQuery('?board=b-atlas&view=flow&range=26&flow=f-support&type=t-bug')).toEqual({
       boardId: 'b-atlas',
       view: 'flow',
       range: 26,
       flowId: 'f-support',
+      typeId: 't-bug',
     })
     expect(placeFromQuery('?view=flow&range=all').range).toBe('all')
     expect(placeFromQuery('?view=flow&range=7').range).toBeUndefined()
     expect(placeFromQuery('?view=flow&range=nonsense').range).toBeUndefined()
     expect(placeFromQuery('?view=flow&flow=').flowId).toBeUndefined()
+    expect(placeFromQuery('?view=flow&type=').typeId).toBeUndefined()
   })
 
   it('reads a Timeline zoom, dropping the ones it does not know', () => {
