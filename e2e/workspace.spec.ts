@@ -77,7 +77,7 @@ test('None is a card type, always offered', async ({ page }) => {
   await card.click()
 
   const panel = page.locator('[data-item-panel]')
-  const type = panel.getByLabel('Type', { exact: true })
+  const type = panel.getByRole('button', { name: /^Type:/ })
   await type.click()
   await panel.getByRole('option', { name: 'None' }).click()
   await expect(type).toHaveAttribute('data-type-id', 't-none')

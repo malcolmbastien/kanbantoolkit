@@ -1110,7 +1110,7 @@ export function ItemPanel({ itemId }: Props) {
                     <div ref={typeMenuRef} className="relative w-fit min-w-[11rem] max-w-full">
                       <button
                         type="button"
-                        aria-label="Type"
+                        aria-label={`Type: ${type.name}`}
                         aria-haspopup="listbox"
                         aria-expanded={typeOpen}
                         data-type-id={item.typeId}

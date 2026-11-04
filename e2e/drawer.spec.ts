@@ -46,7 +46,7 @@ test('a field is as wide as what it holds, and its chips stay inside it', async 
   await expect(panel.getByLabel('Title')).toBeVisible()
 
   // Type is a word, not a box: the control is no wider than its own options rather than the row.
-  const type = panel.getByLabel('Type', { exact: true })
+  const type = panel.getByRole('button', { name: /^Type:/ })
   const typeBox = (await type.boundingBox())!
   expect(typeBox.width).toBeLessThan(240)
 
@@ -128,7 +128,7 @@ test('the type menu shows a colour for each type, and a dash for None', async ({
   await openBoard(page)
   await page.locator('[data-card-id="st-usage-billing"]').click()
   const panel = page.locator('[data-item-panel]')
-  const type = panel.getByLabel('Type', { exact: true })
+  const type = panel.getByRole('button', { name: /^Type:/ })
 
   // The chosen type's colour is on the control itself, so it reads before the menu is opened.
   await expect(type.locator('[data-type-swatch]')).toBeVisible()

@@ -83,7 +83,7 @@ test('priority keeps the top-right corner when the card has no type', async ({ p
   // its leading chip, and the weight a reader scans for must not move to where the chip was.
   await page.locator('[data-card-id="st-usage-billing"]').click()
   const panel = page.locator('[data-item-panel]')
-  await panel.getByLabel('Type', { exact: true }).click()
+  await panel.getByRole('button', { name: /^Type:/ }).click()
   await panel.getByRole('option', { name: 'None' }).click()
   await panel.locator('label', { hasText: 'Priority' }).locator('button').first().click()
   await panel.getByRole('button', { name: 'High', exact: true }).click()
