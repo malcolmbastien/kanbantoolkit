@@ -3,8 +3,6 @@ import {
   Archive,
   ArchiveX,
   Ban,
-  Bell,
-  BellOff,
   CalendarClock,
   Check,
   ChevronRight,
@@ -28,7 +26,6 @@ import { cn } from '@/lib/utils'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
 import { cardsFlows } from '@/domain/flows'
-import { toggleWatch } from '@/lib/watch'
 
 interface Props {
   /** The cards this menu acts on — a selection group, or just the one. */
@@ -76,7 +73,6 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const unblockItems = useStore((s) => s.unblockItems)
   const archiveItems = useStore((s) => s.archiveItems)
   const askConfirm = useStore((s) => s.askConfirm)
-  const watchedItemIds = useStore((s) => s.watchedItemIds)
 
   const [open, setOpen] = useState<Panel | null>(null)
   const [subPos, setSubPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null)
@@ -413,18 +409,6 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
               <Unlink size={13} />
             </span>
             <span className="flex-1">Remove parent</span>
-          </button>
-        )}
-        {/* Watching is one person's interest in one piece of work, so the menu offers it for the
-            card it was opened on — never for a selection, which would be a subscription to several
-            things at once. It is not a content edit, so a lease does not stop it. */}
-        {single && only && (
-          <button className={ITEM} onClick={() => runMove(() => void toggleWatch(only.id))}>
-            <span className="shrink-0 text-slate-600">
-              {watchedItemIds.includes(only.id) ? <BellOff size={13} /> : <Bell size={13} />}
-            </span>
-            <span className="flex-1">{watchedItemIds.includes(only.id) ? 'Unwatch' : 'Watch'}</span>
-            {watchedItemIds.includes(only.id) && <span className="text-micro text-slate-500">Watching</span>}
           </button>
         )}
         {/* An initiative does not live in a lane — it lives in a cell of a section, and moves

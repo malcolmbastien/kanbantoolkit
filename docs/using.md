@@ -119,9 +119,8 @@ The checklist holds the card's sub-tasks. A card can wait on another: the waitin
 the two ends, so it clears when the blocker reaches Done — there is nothing to update by hand.
 **Mark blocked** records a reason when the work is stopped for something that is not another card.
 
-The bell in **Overview** watches the card, and so does the card menu. A watch is one person's
-interest in one piece of work — the creator, each person assigned and whoever writes a note join
-without asking. A watch starts when you make it: the card's earlier work stays in its **Activity**,
+The bell in **Overview** watches the card. A watch is one person's interest in one piece of work —
+the creator, each person assigned and whoever writes a note join without asking. A watch starts when you make it: the card's earlier work stays in its **Activity**,
 not in the inbox; only what happens next is news. Watching is not a permission: a Viewer can watch
 too. The **bell in the top bar** opens the inbox, newest first: what changed on the work you watch,
 with the board and column, and a row opens the card where it lives. **Mark all read** moves the
