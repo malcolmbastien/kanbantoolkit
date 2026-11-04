@@ -193,6 +193,7 @@ describe('the tool table', () => {
       'update_item',
       'move_item',
       'set_parent',
+      'add_note',
     ])
     // R6, spelled out: a tool that invented words would be the app writing what nobody wrote.
     for (const name of names) {
@@ -204,7 +205,7 @@ describe('the tool table', () => {
     for (const tool of TOOLS) {
       expect(tool.description.length).toBeGreaterThan(80)
       expect(tool.inputSchema).toMatchObject({ type: 'object' })
-      expect(['boards:read', 'items:read', 'people:read', 'items:write']).toContain(tool.scope)
+      expect(['boards:read', 'items:read', 'people:read', 'items:write', 'items:comment']).toContain(tool.scope)
     }
     // The four writes are the four acts; nothing else in the table writes.
     expect(TOOLS.filter((tool) => tool.scope === 'items:write').map((tool) => tool.name)).toEqual([
@@ -276,6 +277,39 @@ describe('the HTTP door', () => {
 })
 
 describe('the tools do what the doors do', () => {
+  it('lets an agent leave a note, and says which token wrote it', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const agent = await token(person, ['boards:read', 'items:read', 'items:comment'], 'CI bot')
+
+    const noted = await call(agent.rpc, 'add_note', { itemId: 'i-1', text: 'Deployed to staging; smoke test is green.' })
+    expect(noted.result?.isError).toBeUndefined()
+
+    // The note is in the card's own history, with the person it speaks for and the token it came
+    // through — a script's note must not read as a person's.
+    const read = await call(agent.rpc, 'get_item', { itemId: 'i-1' })
+    const item = read.result!.structuredContent as {
+      log: Array<{ kind: string; note?: string; by?: string; via?: string }>
+    }
+    expect(item.log.find((entry) => entry.kind === 'noted')).toMatchObject({
+      note: 'Deployed to staging; smoke test is green.',
+      by: person.id,
+      via: 'CI bot',
+    })
+
+    // Empty is not a note; the operation's sentence is the answer, not an invented entry.
+    const empty = await call(agent.rpc, 'add_note', { itemId: 'i-1', text: '   ' })
+    expect(empty.result?.isError).toBe(true)
+    expect(empty.result?.structuredContent).toMatchObject({ error: 'invalid' })
+
+    // A credential without `items:comment` does not have the tool at all — not one that refuses.
+    const reader = await token(person, ['boards:read', 'items:read'], 'reader')
+    const listed = (await (await reader.rpc({ jsonrpc: '2.0', id: 1, method: 'tools/list' })).json()) as {
+      result: { tools: Array<{ name: string }> }
+    }
+    expect(listed.result.tools.map((tool) => tool.name)).not.toContain('add_note')
+  })
+
   it('creates, moves, and records the token in the trail', async () => {
     const { signIn, token, db } = await world()
     const person = await signIn('editor@example.com', 'editor')

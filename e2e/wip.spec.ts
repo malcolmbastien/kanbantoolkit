@@ -10,8 +10,7 @@ import { cardsIn, dropAbove, laneRegion, openBoard } from './support'
 async function askForReasons(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Settings' }).click()
   const settings = page.locator('[data-board-settings]')
-  // Board settings opens on General; the WIP policy lives on the Workflow tab.
-  await settings.getByRole('tab', { name: 'Workflow', exact: true }).click()
+  // Board settings opens on General, where the WIP policy sits beside the board's identity.
   await page.locator('#board-wip').selectOption('justify')
   await page.keyboard.press('Escape')
   await expect(settings).toHaveCount(0)

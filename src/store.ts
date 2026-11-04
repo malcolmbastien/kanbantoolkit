@@ -32,8 +32,13 @@ import { uid as makeUid } from '@/lib/utils'
 import type { ImportPlan } from '@/domain/import'
 import type { ViewName } from '@/lib/url'
 import { DEFAULT_FLOW_WINDOW, type FlowWindow } from '@/domain/flowWindow'
+import { DEFAULT_TIMELINE_ZOOM, type TimelineZoom } from '@/domain/timelineZoom'
+import { AUTO_ARCHIVE_DAYS } from '@/domain/autoArchive'
+import { externalLabelOf, safeExternalUrl } from '@/domain/externalLink'
+import { isDemoWorkspace } from '@/lib/demo'
 import { noteVisit, pruneFavourites, pruneVisits, toggleFavourite, type BoardVisit } from '@/domain/boardShortcuts'
 import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Period, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
+import { demoInboxRows, type InboxRow } from '@/domain/inbox'
 
 export interface Draft {
   boards: FlowState['boards']
@@ -84,6 +89,28 @@ interface WorkspaceIdentity {
   meUserId?: string
 }
 
+/**
+ * What this person watches, and what has happened to it.
+ *
+ * `watchedItemIds` and `inboxReadAt` are the demo's record, held in this browser like a saved
+ * filter: a static build has no server to keep them. On an instance they are a **cache** — the
+ * account owns the watch list and the cursor, and `lib/watch.ts` replaces both from the server.
+ * The rows and the count are view data and are never persisted: they are a reading of the outbox,
+ * not a second history.
+ */
+export interface InboxState {
+  watchedItemIds: string[]
+  /**
+   * When this browser started watching each card. A watch shows what happens next; the history
+   * before it is not news. An instance keeps the equivalent position on the server.
+   */
+  watchStartedAt: Record<string, number>
+  /** The moment the demo's inbox has been read up to. An instance keeps its cursor on the server. */
+  inboxReadAt: number
+  inboxRows: InboxRow[]
+  inboxUnread: number
+}
+
 export interface ViewState {
   boardId: string
   selectedItemId: string | null
@@ -121,6 +148,11 @@ export interface ViewState {
    * another board opens, because a flow id belongs to one board.
    */
   metricsFlowId: string | null
+  /**
+   * How wide the timeline draws a day. A lens on the board rather than workspace data: it is written
+   * into the place (the URL) and never into the vocabulary, so a link is what reproduces it.
+   */
+  timelineZoom: TimelineZoom
   /**
    * Items opened lately, newest first — the command palette's empty state. View state, and
    * deliberately not persisted: it is about this session, not about the work.
@@ -174,6 +206,23 @@ export interface ViewState {
   cardMenu: CardMenuState | null
 }
 export interface Actions {
+  /**
+   * Watch or unwatch one item, locally.
+   *
+   * The store owns the local record; the network half is `lib/watch.ts`, because this action is
+   * also how a create, an assignment and a note subscribe the person acting. A manager keeps this
+   * synchronous so the control answers at once, and an instance's server is told by the caller that
+   * has one to tell.
+   */
+  setWatching: (itemId: string, watching: boolean) => void
+  /** Replace the cache with the account's list — an instance's answer, not a local edit. */
+  replaceWatches: (itemIds: string[]) => void
+  /** Replace the inbox rows and unread count with a reading of the outbox. */
+  replaceInbox: (rows: InboxRow[], unread: number) => void
+  /** Rebuild the demo's inbox from the items' histories. No-op on an instance's cached rows. */
+  recomputeInbox: () => void
+  /** Mark every row read in this browser and move the demo's cursor to now. */
+  markInboxReadLocally: () => void
   selectBoard: (id: string) => void
   /** Keep a board on the home, or take it off. This browser's shortcut, not the workspace's. */
   toggleFavouriteBoard: (id: string) => void
@@ -206,6 +255,8 @@ export interface Actions {
   setFlowWindow: (window: FlowWindow) => void
   /** The Flow view's cards flow, or `null` for all of them. */
   setMetricsFlow: (flowId: string | null) => void
+  /** The timeline's zoom — a lens on the board, kept in the URL rather than in the workspace. */
+  setTimelineZoom: (zoom: TimelineZoom) => void
   toggleBoards: () => void
   setBoards: (v: boolean) => void
   /** The workspace's own administration: copies and storage. Not a board surface. */
@@ -254,6 +305,15 @@ export interface Actions {
    * or a dependency — a deadline is a date, not a state.
    */
   setDueDate: (itemId: string, date: string | undefined) => void
+  /**
+   * The external link on a card: a label and an address, or neither.
+   *
+   * An empty address clears both — a label with nowhere to go is not a link. Only `http`/`https`
+   * are written; anything else is refused and answers `false`, so the panel can say why rather than
+   * store something a reader would press. A filed-away item is refused like every other edit, and
+   * the change is one log line naming the label, not one per field.
+   */
+  setExternalLink: (itemId: string, label: string, url: string) => boolean
   /** Block every listed item (an optional reason, recorded in each item's log). */
   blockItems: (itemIds: string[], reason?: string) => void
   unblockItems: (itemIds: string[], note?: string) => void
@@ -320,7 +380,7 @@ export interface Actions {
    */
   saveBoardAsTemplate: (boardId: string, name?: string) => void
   /**
-   * Start a template from scratch: a name and the flight level of the boards it will
+   * Start a template from scratch: a name and the board type of the boards it will
    * create. It begins as the standard typed columns; save a board as a template to
    * capture a richer design. Answers the new template's id so the caller can open it.
    */
@@ -356,7 +416,7 @@ export interface Actions {
   /** Write the board's own description. */
   setBoardDescription: (id: string, description: string) => void
   /**
-   * A board's flight level is fixed when it is made — it decides which surfaces the board has and
+   * A board's type is fixed when it is made — it decides which surfaces the board has and
    * where its initiatives roll up, so changing it on a board that already holds work would hide
    * that work rather than move it. Refused here as well as in the settings panel and on the
    * server: a stale tab or a queued design cannot talk its way past the rule. Answers false.
@@ -557,14 +617,16 @@ export interface Actions {
   unarchiveItem: (itemId: string) => void
   /** Archive every resolved (Done) item on a board. */
   archiveDoneOnBoard: (boardId: string) => void
-  /** Auto-archive Done items older than N days (0/undefined turns it off). */
-  setAutoArchiveDays: (days?: number) => void
+  /**
+   * File finished work that has sat long enough: a week after it was done, always. The age is the
+   * product's constant (`AUTO_ARCHIVE_DAYS`), not a workspace setting, so there is nothing to pass.
+   */
   runAutoArchive: () => void
   /** Delete a card and every relationship it participates in. */
   deleteItem: (itemId: string) => void
 }
 
-export type Store = FlowState & WorkspaceIdentity & ViewState & Actions
+export type Store = FlowState & WorkspaceIdentity & ViewState & InboxState & Actions
 
 /**
  * Is the board itself the surface in front? Every other view — dashboard, timeline, archive,
@@ -1021,6 +1083,7 @@ const initialView: ViewState = {
   showMetrics: false,
   flowWindow: DEFAULT_FLOW_WINDOW,
   metricsFlowId: null,
+  timelineZoom: DEFAULT_TIMELINE_ZOOM,
   recentItemIds: [],
   favouriteBoardIds: [],
   recentBoards: [],
@@ -1037,9 +1100,17 @@ const initialView: ViewState = {
   cardMenu: null,
 }
 
+const initialInbox: InboxState = {
+  watchedItemIds: [],
+  watchStartedAt: {},
+  inboxReadAt: 0,
+  inboxRows: [],
+  inboxUnread: 0,
+}
+
 /**
  * Backfills fields added after earlier persisted versions:
- * - `Board.level` (boards saved before the flight-level badge existed);
+ * - `Board.level` (boards saved before the board-type badge existed);
  * - item-to-item `links` (v9 kept dependencies inside `edges`);
  * - dropped link approval status + rejected links (v11);
  * - OKR attribution limited to initiatives (v12);
@@ -1056,7 +1127,7 @@ export function migrateState(persisted: unknown): Partial<Store> {
   const p = (persisted ?? {}) as Record<string, unknown>
   // v16: `Board.level` became `Board.band`, and `teamBoardIds` became the
   // depth-agnostic `linkedBoardIds`. v17: the band values were renamed to the
-  // flight-level vocabulary (team / program / portfolio). An old 'portfolio' level
+  // board-type vocabulary (team / program / portfolio). An old 'portfolio' level
   // (an aggregating board) becomes a *program*, while a v16 'strategic' band
   // becomes the new *portfolio*.
   if (Array.isArray(p.boards)) {
@@ -1274,6 +1345,26 @@ export function migrateState(persisted: unknown): Partial<Store> {
   // v28: named filter sets became persisted data — the deliberate exception to filters
   // being view state. Older state simply has none.
   if (!Array.isArray(p.savedFilters)) p.savedFilters = []
+  // v41: watching and the inbox. Older state watches nothing and has read nothing; both are
+  // optional in the model, and a missing list is an empty one.
+  if (!Array.isArray(p.watchedItemIds)) p.watchedItemIds = []
+  else p.watchedItemIds = (p.watchedItemIds as unknown[]).filter((id): id is string => typeof id === 'string')
+  if (!p.watchStartedAt || typeof p.watchStartedAt !== 'object' || Array.isArray(p.watchStartedAt)) {
+    // A watch written before this migration has no start. It takes now, which is the same one-time
+    // choice the server's migration makes: the history that was already in the feed stops being
+    // news, and the next change is.
+    const started = Date.now()
+    p.watchStartedAt = Object.fromEntries(
+      ((p.watchedItemIds as string[] | undefined) ?? []).map((id) => [id, started]),
+    )
+  } else {
+    p.watchStartedAt = Object.fromEntries(
+      Object.entries(p.watchStartedAt as Record<string, unknown>).filter(
+        ([, at]) => typeof at === 'number' && Number.isFinite(at),
+      ),
+    )
+  }
+  if (typeof p.inboxReadAt !== 'number' || !Number.isFinite(p.inboxReadAt)) p.inboxReadAt = 0
   // v31: an initiative serves one objective, not several — attribution is a choice, not a set.
   // State from before the rule keeps the first objective each initiative was mapped to; the rest
   // were choices the model no longer offers, and keeping them would make the map, the OKR view and
@@ -1446,8 +1537,14 @@ const repository = chooseRepository()
  *
  * 40 is the home's two shortcuts: the boards this browser keeps (`favouriteBoardIds`) and the ones
  * it opened lately (`recentBoards`). Old state has neither, and ids that are not boards are pruned.
+ *
+ * 41 is the watch list and the demo's inbox cursor. Old state watches nothing and has read nothing,
+ * so both backfill to empty rather than to a guess.
+ *
+ * 42 is when each watch began. Old state has watches with no start; they take zero, which is the
+ * same "show the history" answer a server watch written before the rule gets.
  */
-export const PERSIST_VERSION = 40
+export const PERSIST_VERSION = 42
 /**
  * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
  * guess is not what a person's workspace gets.
@@ -1461,9 +1558,9 @@ export const MIN_MIGRATABLE_VERSION = 9
  * also keeps it is a separate question, and each field answers one of three ways:
  *
  *   - the **design** — boards, flows, lanes, placements — is `PUT /api/workspace/structure`;
- *   - the **words** — issue types, board templates, objectives, key results — and `autoArchiveDays`
- *     are `PUT /api/workspace/vocabulary`, because a type belongs to the workspace and the
- *     auto-archive policy changes what every person's Done column does;
+ *   - the **words** — issue types, board templates, objectives, key results — are
+ *     `PUT /api/workspace/vocabulary`, because a type belongs to the workspace rather than to a
+ *     board;
  *   - `savedFilters`, `collapsedLanes`, `favouriteBoardIds` and `recentBoards` are **this
  *     browser's** and go nowhere in the syncs: a saved filter is one person's way of narrowing a
  *     board, a collapsed column is where they left their screen, and a favourite or a recent board
@@ -1489,8 +1586,12 @@ export function persistedSlice(s: Store): Partial<Store> {
     periods: s.periods,
     keyResults: s.keyResults,
     boardTemplates: s.boardTemplates,
-    autoArchiveDays: s.autoArchiveDays,
     savedFilters: s.savedFilters,
+    // The demo's watch list and cursor — this browser's, like a saved filter, and replaced by the
+    // account's answer on an instance.
+    watchedItemIds: s.watchedItemIds,
+    watchStartedAt: s.watchStartedAt,
+    inboxReadAt: s.inboxReadAt,
     // Collapsed columns are remembered across reloads.
     collapsedLanes: s.collapsedLanes,
     // The home's shortcuts: this browser's, and only this browser's.
@@ -1520,8 +1621,10 @@ export const WORKSPACE_KEYS = [
   'periods',
   'keyResults',
   'boardTemplates',
-  'autoArchiveDays',
   'savedFilters',
+  'watchedItemIds',
+  'watchStartedAt',
+  'inboxReadAt',
   'collapsedLanes',
   'favouriteBoardIds',
   'recentBoards',
@@ -1549,7 +1652,48 @@ export const useStore = create<Store>()(
     (set, get) => ({
       ...createSeed(),
       ...initialView,
+      ...initialInbox,
 
+      setWatching: (itemId, watching) => {
+        const state = get()
+        // A watch points at a card: an id this workspace does not hold is not one.
+        if (!state.items.some((item) => item.id === itemId)) return
+        const watchingNow = state.watchedItemIds.includes(itemId)
+        if (watchingNow === watching) return
+        set({
+          watchedItemIds: watching
+            ? [...state.watchedItemIds, itemId]
+            : state.watchedItemIds.filter((id) => id !== itemId),
+          watchStartedAt: watching
+            ? { ...state.watchStartedAt, [itemId]: Date.now() }
+            : Object.fromEntries(Object.entries(state.watchStartedAt).filter(([id]) => id !== itemId)),
+        })
+      },
+      replaceWatches: (itemIds) => {
+        const ids = [...new Set(itemIds.filter((id): id is string => typeof id === 'string' && id.length > 0))]
+        set({ watchedItemIds: ids })
+      },
+      replaceInbox: (rows, unread) => set({ inboxRows: rows, inboxUnread: Math.max(0, unread) }),
+      recomputeInbox: () => {
+        const state = get()
+        const rows = demoInboxRows({
+          items: state.items,
+          users: state.users,
+          boards: state.boards,
+          lanes: state.lanes,
+          watchedItemIds: state.watchedItemIds,
+          watchStartedAt: state.watchStartedAt,
+          readAt: state.inboxReadAt,
+        })
+        set({ inboxRows: rows, inboxUnread: rows.filter((row) => !row.read).length })
+      },
+      markInboxReadLocally: () => {
+        set({
+          inboxReadAt: Date.now(),
+          inboxRows: get().inboxRows.map((row) => ({ ...row, read: true })),
+          inboxUnread: 0,
+        })
+      },
       selectBoard: (boardId) => {
         const state = get()
         // Objectives are a portfolio board's own surface, so opening another board leaves it. A
@@ -1803,6 +1947,9 @@ export const useStore = create<Store>()(
             i.id === itemId && !(i.assignees ?? []).includes(userId) ? { ...i, assignees: [...(i.assignees ?? []), userId] } : i,
           ),
         })
+        // Being put on a piece of work is the moment a person starts caring what happens to it —
+        // and in this browser only one person is "me", so another assignee is not my subscription.
+        if (userId === get().meUserId) get().setWatching(itemId, true)
       },
       addItemsAssignee: (itemIds, userId) => {
         const state = get()
@@ -1814,6 +1961,7 @@ export const useStore = create<Store>()(
             ids.has(i.id) && !(i.assignees ?? []).includes(userId) ? { ...i, assignees: [...(i.assignees ?? []), userId] } : i,
           ),
         })
+        if (userId === get().meUserId) for (const id of itemIds) get().setWatching(id, true)
       },
       clearItemsAssignees: (itemIds) => {
         const ids = new Set(itemIds)
@@ -1847,6 +1995,51 @@ export const useStore = create<Store>()(
         // is guessing, and a stored non-day would be a promise nobody can read.
         if (dueDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return
         get().setItemFields(itemId, { dueDate })
+      },
+      setExternalLink: (itemId, label, url) => {
+        const state = get()
+        const item = state.items.find((i) => i.id === itemId)
+        if (!item || item.archived) return false
+        const cleanLabel = label.trim()
+        const address = safeExternalUrl(url)
+        // An empty address means no link, and both fields go together: a label pointing nowhere is
+        // not something a reader can press.
+        if (!url.trim()) {
+          if (!item.externalUrl && !item.externalLabel) return true
+          set({
+            items: writeItems(state, (i) =>
+              i.id === itemId
+                ? {
+                    ...i,
+                    externalLabel: undefined,
+                    externalUrl: undefined,
+                    log: [...(i.log ?? []), logEntry('edited', `external link: ${externalLabelOf(i) ?? 'none'} → none`)],
+                  }
+                : i,
+            ),
+          })
+          return true
+        }
+        // A scheme a browser may follow, or nothing. The panel shows the refusal; the store never
+        // writes a value the card could not safely press.
+        if (!address) return false
+        const nextLabel = cleanLabel || undefined
+        if (item.externalUrl === address && (item.externalLabel ?? '') === (nextLabel ?? '')) return true
+        const before = externalLabelOf(item) ?? 'none'
+        const after = nextLabel ?? new URL(address).host
+        set({
+          items: writeItems(state, (i) =>
+            i.id === itemId
+              ? {
+                  ...i,
+                  externalLabel: nextLabel,
+                  externalUrl: address,
+                  log: [...(i.log ?? []), logEntry('edited', `external link: ${before} → ${after}`)],
+                }
+              : i,
+          ),
+        })
+        return true
       },
       blockItems: (itemIds, reason) => {
         const note = reason?.trim() || undefined
@@ -1980,6 +2173,7 @@ export const useStore = create<Store>()(
       },
       setFlowWindow: (flowWindow) => set({ flowWindow }),
       setMetricsFlow: (metricsFlowId) => set({ metricsFlowId }),
+      setTimelineZoom: (timelineZoom) => set({ timelineZoom }),
       toggleBoards: () => {
         const on = !get().showBoards
         set({
@@ -2093,7 +2287,6 @@ export const useStore = create<Store>()(
           periods: [],
           keyResults: [],
           boardTemplates: [],
-          autoArchiveDays: undefined,
           savedFilters: [],
           collapsedLanes: {},
           favouriteBoardIds: [],
@@ -2189,6 +2382,11 @@ export const useStore = create<Store>()(
           collapsedLanes: {},
           meUserId: undefined,
           boardId: undefined,
+          watchedItemIds: [],
+          watchStartedAt: {},
+          inboxReadAt: 0,
+          inboxRows: [],
+          inboxUnread: 0,
         } as Partial<Store>)
       },
 
@@ -2552,6 +2750,8 @@ export const useStore = create<Store>()(
           rank: nextRank(get().placements, laneId),
         }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
+        // The creator watches what they made, the same rule the server applies to a token's create.
+        if (currentAuthor) get().setWatching(item.id, true)
       },
 
       setInitiativeKind: (itemId, kindId) => get().setItemsKind([itemId], kindId),
@@ -3273,12 +3473,15 @@ export const useStore = create<Store>()(
         })
       },
 
-      addLogNote: (itemId, note, mentions) =>
+      addLogNote: (itemId, note, mentions) => {
         set({
           items: writeItems(get(), (i) =>
             i.id === itemId ? { ...i, log: [...(i.log ?? []), logEntry('noted', note, mentions)] } : i,
           ),
-        }),
+        })
+        // A note is a person speaking on the card, so it subscribes them to what happens next.
+        get().setWatching(itemId, true)
+      },
 
       recordHistory: (itemId, entries) =>
         set((state) => {
@@ -3350,13 +3553,16 @@ export const useStore = create<Store>()(
         set({ items: fileAway(state, ids, Date.now()) })
       },
 
-      setAutoArchiveDays: (days) => set({ autoArchiveDays: days && days > 0 ? days : undefined }),
-
       runAutoArchive: () => {
         const state = get()
-        const days = state.autoArchiveDays ?? 0
-        if (days <= 0) return
-        const cutoff = Date.now() - days * 86_400_000
+        // The demo is a fixed snapshot: every date in it is relative to the demo's own "today",
+        // not to the wall clock (`SEED_TODAY`). A rule that reads the clock would file the example
+        // the product hands out before anybody had looked at it — so the untouched demo is exempt.
+        // Any edit makes it the person's workspace, and from then on the week applies to it too.
+        if (isDemoWorkspace(state)) return
+        // One week, always: finished work is filed once it has been done that long. Not a setting —
+        // see `AUTO_ARCHIVE_DAYS` — so there is no stored value here to be unset or out of date.
+        const cutoff = Date.now() - AUTO_ARCHIVE_DAYS * 86_400_000
         const candidates = state.items.filter(
           (i) => !i.archived && statusOf(i.id, state).resolved && (i.resolvedAt ?? i.createdAt) <= cutoff,
         )

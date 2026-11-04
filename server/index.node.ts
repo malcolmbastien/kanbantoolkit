@@ -25,6 +25,7 @@ import type { Migration } from './migrate'
 import { openSqlite } from './sqlite'
 import { isProduction, saltProblem, workspaceName } from './config'
 import { dispatchDue } from './webhooks'
+import { sendDigests } from './digest'
 import { changeRetentionDays, pruneChanges } from './workspace/changes'
 import { fileBackups } from './file-backup'
 import { record } from './audit'
@@ -136,6 +137,19 @@ feedRetention.unref?.()
  * both there is no mailer at all: the magic-link door is absent rather than broken.
  */
 const mail = process.env.MAIL_CONSOLE === '1' ? consoleMailer() : smtpMailer(process.env)
+
+/**
+ * Digests, on the same kind of timer the webhook dispatcher uses.
+ *
+ * With no mailer this block is not even installed: a deployment without a relay does not collect a
+ * queue it can never send. `MAIL_DIGEST=0` turns it off for a relay used only for sign-in links.
+ */
+if (mail && process.env.MAIL_DIGEST !== '0') {
+  const digest = setInterval(() => {
+    void sendDigests(db, { mail, env: process.env }).catch((error) => console.error('mail digest failed', error))
+  }, 30_000)
+  digest.unref?.()
+}
 
 /**
  * The version this instance is, read once from the package it shipped with.

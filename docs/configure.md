@@ -84,10 +84,19 @@ instead.
 | `SMTP_URL` | — | The relay: `smtp://user:pass@host:587`, or `smtps://` for implicit TLS on 465. STARTTLS is required for anything that is not a relay on this machine. |
 | `MAIL_FROM` | — | The envelope sender, and the `From:` a person sees. Both this and `SMTP_URL` are needed; either alone means no mail. |
 | `MAIL_CONSOLE` | off | `MAIL_CONSOLE=1` writes each message to the log instead of sending it — development, and the test suite, which must not open a socket to a mail server. |
+| `MAIL_DIGEST` | on | `MAIL_DIGEST=0` turns off the watched-work digest for a relay used only for sign-in links. The digest is only offered when a relay exists. |
 
 A relay on `127.0.0.1`, `::1` or `localhost` may be plain SMTP, which is how a self-hoster usually
 runs postfix beside the app. Anything else must offer STARTTLS; a server that does not is refused
 rather than spoken to in the clear.
+
+When a relay exists, people may turn on **Email me about the work I watch** in their profile, and
+choose *as it happens*, *daily* or *weekly*. One plain-text message per person per period is computed
+at send time from the outbox and the board: what changed on the work they watch, what was assigned
+to them, where they were mentioned, what is due this week, and the watched initiatives that went at
+risk. It carries a tokenized unsubscribe link and a preferences link; nothing in it fetches a remote
+resource, so opening it tells nobody. `PUBLIC_URL` is what makes those links absolute — without it
+the message still sends, with a line telling the reader to open their instance.
 
 The Worker has no mail: it cannot open an SMTP connection, so on Cloudflare the magic-link door is
 absent and the identity provider is the way in.

@@ -518,6 +518,45 @@ describe('writing', () => {
     expect(junk.status).toBe(422)
   })
 
+  it('carries an external link, refuses one that is not a web address, and clears it', async () => {
+    const { signIn, token } = await world()
+    const person = await signIn('editor@example.com', 'editor')
+    const writer = await token(person, ['items:write', 'boards:read'], 'writer')
+
+    const created = await writer.call('/items', {
+      method: 'POST',
+      body: body({
+        boardId: 'b-1',
+        title: 'A linked card',
+        typeId: 't-card',
+        externalLabel: 'ATLAS-12',
+        externalUrl: 'https://jira.example.com/browse/ATLAS-12',
+      }),
+    })
+    expect(created.status).toBe(201)
+    const { item } = (await created.json()) as { item: { id: string; rev: number; externalLabel?: string; externalUrl?: string } }
+    expect(item.externalLabel).toBe('ATLAS-12')
+    expect(item.externalUrl).toBe('https://jira.example.com/browse/ATLAS-12')
+
+    // Only an address a browser may follow. Anything else is refused, not stored and reported.
+    const refused = await writer.call(`/items/${item.id}`, {
+      method: 'PATCH',
+      body: body({ baseRev: item.rev, externalUrl: 'javascript:alert(1)' }),
+    })
+    expect(refused.status).toBe(422)
+    expect(((await refused.json()) as { error: { details?: { field?: string } } }).error.details?.field).toBe('externalUrl')
+
+    // Null clears the link, and the label with it.
+    const cleared = await writer.call(`/items/${item.id}`, {
+      method: 'PATCH',
+      body: body({ baseRev: item.rev, externalUrl: null }),
+    })
+    expect(cleared.status).toBe(200)
+    const after = ((await cleared.json()) as { item: { externalLabel?: string; externalUrl?: string } }).item
+    expect(after.externalUrl).toBeUndefined()
+    expect(after.externalLabel).toBeUndefined()
+  })
+
   it('answers a repeated idempotency key from what it already wrote', async () => {
     const { signIn, token, db } = await world()
     const person = await signIn('editor@example.com', 'editor')

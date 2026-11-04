@@ -37,7 +37,6 @@ export interface Workspace {
   periods: Period[]
   keyResults: KeyResult[]
   boardTemplates: BoardTemplate[]
-  autoArchiveDays?: number
   savedFilters: SavedFilter[]
   /** Collapsed columns, remembered across reloads. */
   collapsedLanes: Record<string, boolean>
@@ -53,8 +52,8 @@ export interface Workspace {
  * The workspace's words: the lists the app authors as one document, apart from the board design.
  *
  * Types, templates, periods, objectives and key results are whole-list edits — a rename is a new
- * array, not a patch — so they travel together, with the auto-archive policy, under one revision of
- * their own.
+ * array, not a patch — so they travel together under one revision of their own. The auto-archive
+ * age is deliberately not here: it is the product's constant, not a word the workspace chooses.
  */
 export interface Vocabulary {
   issueTypes: IssueType[]
@@ -63,7 +62,6 @@ export interface Vocabulary {
   periods: Period[]
   objectives: Objective[]
   keyResults: KeyResult[]
-  autoArchiveDays?: number
 }
 
 /** The settings row's name, until task 122 gives a workspace an identity of its own. */

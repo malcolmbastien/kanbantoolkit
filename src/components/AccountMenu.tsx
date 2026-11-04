@@ -21,7 +21,11 @@ import { cn } from '@/lib/utils'
 export function AccountMenu() {
   const auth = useAuth()
   // A sign-in that did not finish lands on `?auth=denied`; the menu opens itself to say why.
-  const [profileOpen, setProfileOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    // The preferences link in a digest arrives here: it names the profile, not the menu.
+    return new URLSearchParams(window.location.search).get('profile') === '1'
+  })
   const [open, setOpen] = useState(() => {
     if (typeof window === 'undefined') return false
     const query = new URLSearchParams(window.location.search)

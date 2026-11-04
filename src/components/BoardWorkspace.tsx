@@ -12,7 +12,7 @@ import { useStore } from '@/store'
 import type { Board, BoardBand } from '@/domain/types'
 
 /**
- * The board workspace: every board in the organisation, grouped by flight level, with a
+ * The board workspace: every board in the organisation, grouped by type, with a
  * name filter.
  *
  * Each board appears **exactly once** — the aggregation graph is a DAG, so nesting a
@@ -47,7 +47,7 @@ export function BoardWorkspace() {
   const [q, setQ] = useState('')
   const [showNewBoard, setShowNewBoard] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
-  // The browser's primary cut is the flight level, so it is a filter rather than a
+  // The browser's primary cut is the board type, so it is a filter rather than a
   // section header you scroll past.
   const [bandFilter, setBandFilter] = useState<BoardBand | 'all'>('all')
   // Which card's kebab menu is open. Board admin lives behind it, so the card face is
@@ -309,7 +309,7 @@ export function BoardWorkspace() {
         ) : null}
 
         <div className="space-y-3">
-          {/* A card per board. The flight level is a chip on the card and a filter above,
+          {/* A card per board. The type is a chip on the card and a filter above,
               so the list is flat — grouping by band as well would say it twice. */}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {groups.flatMap(({ band, boards: inBand }) =>

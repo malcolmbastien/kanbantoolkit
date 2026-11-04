@@ -135,7 +135,7 @@ something to point at. A claim with no proof does not ship.
 The page the home page's claims link to, for the reader who has decided to care. Sections, each one
 short paragraph plus one screenshot, in this order: one card, many boards; the lane tree and the four
 stages; initiatives computed from the work below; dependencies that clear themselves; the same graph
-read at three flight levels; what is deliberately not automatable (no generated cards, no AI guesses —
+read at three levels; what is deliberately not automatable (no generated cards, no AI guesses —
 the app never writes what nobody wrote). Ends with the demo link and the install page, and nothing
 about accounts or plans.
 

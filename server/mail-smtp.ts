@@ -213,6 +213,8 @@ export function smtpMailer(env: NodeJS.ProcessEnv): Mail | undefined {
           'MIME-Version: 1.0',
           'Content-Type: text/plain; charset=utf-8',
           'Content-Transfer-Encoding: 8bit',
+          // A header value is a line: a newline in one would let a caller write another header.
+          ...Object.entries(message.headers ?? {}).map(([name, value]) => `${name}: ${value.replace(/[\r\n]+/g, ' ')}`),
         ]
         // Dot-stuffing: a line that begins with "." would end the message early.
         const body = message.text.replace(/\r?\n/g, '\r\n').replace(/^\./gm, '..')

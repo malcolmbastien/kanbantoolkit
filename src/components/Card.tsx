@@ -4,10 +4,12 @@ import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR } from '@/lib/colors'
 import { NONE_TYPE_ID } from '@/domain/board'
 import { STAGE_LABELS } from '@/domain/lanes'
-import { FORMER_MEMBER, initialsOf } from '@/domain/users'
+import { peopleOf } from '@/domain/users'
+import { externalLabelOf, hasExternalLink, safeExternalUrl } from '@/domain/externalLink'
 import { STALE_AFTER_DAYS } from '@/domain/filters'
 import type { HealthFlagInfo } from '@/domain/health'
 import type { InitiativeType, Tag } from '@/domain/types'
+import { PersonAvatar } from './PersonAvatar'
 import { PriorityBadge } from './PriorityBadge'
 import { DueChip } from './DueChip'
 import { heldByOther, usePresence } from '@/lib/presence'
@@ -148,6 +150,34 @@ interface Props {
   onMultiSelect?: (id: string) => void
   /** Right-click (or the ⋯ button) — open the card context menu at (x, y). */
   onContextMenu?: (id: string, x: number, y: number) => void
+}
+
+/**
+ * The external link, as a chip a reader can press.
+ *
+ * A link, not a field: it opens in a new tab, and the press does not open the card (a card is a
+ * group with a click of its own, so the anchor stops the event and the keydown that would open it).
+ * Nothing is fetched — no preview, no favicon — so it costs a request only when somebody presses it.
+ */
+function ExternalLinkChip({ item }: { item: Item }) {
+  const url = safeExternalUrl(item.externalUrl)
+  const label = externalLabelOf(item)
+  if (!url || !label) return null
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer noopener"
+      draggable={false}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      title={`${label} — opens in a new tab`}
+      className="flex min-w-0 shrink items-center gap-1 rounded bg-white px-1.5 py-0.5 text-micro font-semibold text-indigo-700 ring-1 ring-indigo-200 transition hover:bg-indigo-50"
+    >
+      <Link2 size={11} className="shrink-0" />
+      <span className="max-w-[9rem] truncate">{label}</span>
+    </a>
+  )
 }
 
 /**
@@ -301,15 +331,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
   // A removed member keeps their chip: the card still belongs partly to the person who did the
   // work, and "Former member" is a truer chip than a name silently disappearing (task 144).
-  const assignees = (item.assignees ?? []).map((id) => {
-    const person = users?.find((u) => u.id === id)
-    return {
-      id,
-      name: person?.name ?? FORMER_MEMBER,
-      avatarUrl: person?.avatarUrl,
-      gone: !person,
-    }
-  })
+  const assignees = peopleOf(users ?? [], item.assignees)
 
   // Blocked rolls up: the item's own status is precise; a count of blocked
   // descendants is what lets a team blockage surface on its initiative.
@@ -517,6 +539,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               </span>
             ) : null}
             <span className="ml-auto flex items-center gap-1.5">
+              <ExternalLinkChip item={item} />
               <DueChip item={item} complete={complete} />
               {summary.done && <DoneStamp />}
               {pct !== undefined && (
@@ -594,7 +617,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-200 pt-1.5 text-micro text-slate-600">
               <span className="ml-auto flex shrink-0 items-center -space-x-1.5">
                 {assignees.slice(0, 3).map((u) => (
-                  <Avatar key={u.id} user={u} />
+                  <PersonAvatar key={u.id} user={u} gone={u.gone} className="ring-2 ring-white" />
                 ))}
                 {assignees.length > 3 && (
                   <span
@@ -714,10 +737,11 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         </div>
 
         {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
-        {(hasChecklist || aged || summary.done || assignees.length > 0 || Boolean(item.dueDate)) && (
+        {(hasChecklist || aged || summary.done || assignees.length > 0 || Boolean(item.dueDate) || hasExternalLink(item)) && (
           <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <DueChip item={item} complete={complete} />
+              <ExternalLinkChip item={item} />
               {hasChecklist && (
                 <span
                   className="flex shrink-0 items-center gap-1 rounded bg-white px-1.5 py-0.5 text-micro text-slate-600 ring-1 ring-slate-200"
@@ -748,7 +772,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             {assignees.length > 0 && (
               <span className="flex shrink-0 items-center -space-x-1.5">
                 {assignees.slice(0, 3).map((u) => (
-                  <Avatar key={u.id} user={u} />
+                  <PersonAvatar key={u.id} user={u} gone={u.gone} className="ring-2 ring-white" />
                 ))}
                 {assignees.length > 3 && (
                   <span
@@ -765,39 +789,6 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       </div>
       {multi && <span className="pointer-events-none absolute inset-0 bg-indigo-500/15" aria-hidden />}
     </div>
-  )
-}
-
-/** A user's avatar: their profile photo, their initials, or a mark for somebody who has left. */
-function Avatar({ user }: { user: { id: string; name: string; avatarUrl?: string; gone?: boolean } }) {
-  if (user.gone) {
-    return (
-      <span
-        className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-200 text-micro font-bold text-slate-600 ring-2 ring-white"
-        title={`${user.name}: their account was removed`}
-        aria-label={user.name}
-      >
-        ?
-      </span>
-    )
-  }
-  if (user.avatarUrl) {
-    return (
-      <img
-        src={user.avatarUrl}
-        alt={user.name}
-        title={user.name}
-        className="h-6 w-6 shrink-0 rounded-full object-cover ring-2 ring-white"
-      />
-    )
-  }
-  return (
-    <span
-      className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-700 text-micro font-bold text-white ring-2 ring-white"
-      title={user.name}
-    >
-      {initialsOf(user.name)}
-    </span>
   )
 }
 

@@ -137,7 +137,6 @@ function seeded(): Workspace {
     keyResults: [],
     boardTemplates: [],
     boardId: '',
-    autoArchiveDays: 0,
     savedFilters: [],
     collapsedLanes: {},
   }

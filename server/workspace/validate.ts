@@ -27,6 +27,7 @@ import type {
   TemplateLane,
   User,
 } from '../../src/domain/types'
+import { safeExternalUrl } from '../../src/domain/externalLink'
 import type { Vocabulary, Workspace } from './types'
 
 const LIMITS = { id: 100, title: 300, description: 20_000, text: 2_000, list: 200, log: 2_000 } as const
@@ -159,6 +160,14 @@ export function parseItem(input: unknown): Item | null {
   // not rejected for them).
   const dueDate = text(raw.dueDate, 10)
   if (dueDate !== undefined && DAY.test(dueDate)) item.dueDate = dueDate
+  // A link is an address a browser may follow, and a label that belongs to one: an address with no
+  // label is still a link (the chip shows the host), and a label with no address is not.
+  const externalUrl = safeExternalUrl(typeof raw.externalUrl === 'string' ? raw.externalUrl.slice(0, 2000) : undefined)
+  if (externalUrl !== undefined) {
+    item.externalUrl = externalUrl
+    const externalLabel = text(raw.externalLabel, LIMITS.title)?.trim()
+    if (externalLabel) item.externalLabel = externalLabel
+  }
   const rev = number(raw.rev)
   if (rev !== undefined) item.rev = rev
   if (raw.resolvedAt === null) item.resolvedAt = null
@@ -240,7 +249,6 @@ export function parseWorkspace(input: unknown): Workspace | null {
     objectives: rows<Objective>(raw.objectives, 2_000),
     keyResults: rows<KeyResult>(raw.keyResults, 5_000),
     boardTemplates: rows<BoardTemplate>(raw.boardTemplates, 200),
-    autoArchiveDays: typeof raw.autoArchiveDays === 'number' ? raw.autoArchiveDays : undefined,
     savedFilters: Array.isArray(raw.savedFilters) ? raw.savedFilters.slice(0, 200) : [],
     collapsedLanes:
       raw.collapsedLanes && typeof raw.collapsedLanes === 'object' && !Array.isArray(raw.collapsedLanes)
@@ -473,7 +481,6 @@ export function parseVocabulary(input: unknown): Vocabulary | null {
     periods: (periods as Period[]).map(canonicalPeriod),
     objectives: (objectives as Objective[]).map(canonicalObjective),
     keyResults: (keyResults as KeyResult[]).map(canonicalKeyResult),
-    ...(typeof raw.autoArchiveDays === 'number' && raw.autoArchiveDays > 0 ? { autoArchiveDays: raw.autoArchiveDays } : {}),
   }
 }
 

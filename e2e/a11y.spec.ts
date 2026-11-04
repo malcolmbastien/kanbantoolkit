@@ -62,6 +62,14 @@ test('the Flow view has no barrier a machine can find', async ({ page }) => {
   expect(await barriers(page)).toEqual([])
 })
 
+test('the Timeline view has no barrier a machine can find', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&view=timeline')
+  await expect(page.locator('[data-timeline-body]')).toBeVisible()
+  // The blocks' people are images with the names for a name, and the zoom is a named group.
+  await expect(page.getByRole('group', { name: 'Zoom' })).toBeVisible()
+  expect(await barriers(page)).toEqual([])
+})
+
 test('a card open in its panel has none either', async ({ page }) => {
   await page.goto('/app?board=b-atlas')
   await page.locator('[data-workflow="cards"] [data-card-id]').first().click()

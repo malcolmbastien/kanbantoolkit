@@ -19,6 +19,8 @@ of events and a signing secret. The secret is shown once, when the endpoint is m
 | `item.moved` | A card moves between columns. |
 | `item.blocked` | A card is explicitly blocked. |
 | `item.unblocked` | That block is cleared. |
+| `item.noted` | A note is added to a card, with the mentions it names. |
+| `item.updated` | A card’s fields are edited; `data.fields` names them, never the words themselves. |
 | `initiative.health_changed` | The derived health of an initiative above the changed item changes. |
 | `objective.mapped` | A top-level initiative is mapped to an objective. |
 | `objective.unmapped` | That mapping is removed. |

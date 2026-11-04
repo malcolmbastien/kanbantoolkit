@@ -29,7 +29,6 @@ export const VOCABULARY_ACTIONS: Record<string, Action> = {
   periods: 'objective.write',
   objectives: 'objective.write',
   keyResults: 'objective.write',
-  autoArchiveDays: 'workspace.settings',
 }
 
 /** The scope a token must hold to change each list. */
@@ -39,7 +38,6 @@ export const VOCABULARY_SCOPES: Record<string, Scope> = {
   periods: 'objectives:write',
   objectives: 'objectives:write',
   keyResults: 'objectives:write',
-  autoArchiveDays: 'workspace:admin',
 }
 
 export interface VocabularyFailure {
@@ -72,7 +70,6 @@ export function changedVocabulary(before: Workspace, vocabulary: Vocabulary): st
   if (stable(byId(before.periods.map(canonicalPeriod))) !== stable(byId(vocabulary.periods))) changed.push('periods')
   if (stable(byId(before.objectives.map(canonicalObjective))) !== stable(byId(vocabulary.objectives))) changed.push('objectives')
   if (stable(byId(before.keyResults.map(canonicalKeyResult))) !== stable(byId(vocabulary.keyResults))) changed.push('keyResults')
-  if ((before.autoArchiveDays ?? null) !== (vocabulary.autoArchiveDays ?? null)) changed.push('autoArchiveDays')
   return changed
 }
 
@@ -86,7 +83,6 @@ export async function readVocabulary(db: Database, workspaceId: string) {
     periods: state.periods,
     objectives: state.objectives,
     keyResults: state.keyResults,
-    ...(state.autoArchiveDays === undefined ? {} : { autoArchiveDays: state.autoArchiveDays }),
   }
 }
 

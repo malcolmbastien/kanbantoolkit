@@ -1,8 +1,8 @@
 # Board types
 
-Every board has a **flight level** — **Team**, **Program** or **Portfolio**. The level decides what
-the board renders, what work can be entered on it, and where its initiatives roll up. Choose it when
-the board is made.
+Every board has a **type** — **Team**, **Program** or **Portfolio**. The type decides what the board
+renders, what work can be entered on it, and where its initiatives roll up. Choose it when the board
+is made; it is fixed from then on, and the board settings name it without offering to change it.
 
 | | Team | Program | Portfolio |
 | --- | --- | --- | --- |
@@ -86,10 +86,10 @@ it in the board's own four-stage flow.*
 
 **Not for:** tracking cards or team flow. Use the program and team boards beneath it for that.
 
-**Its settings.** A portfolio board's settings are its title, its description, the fixed flight level
-and the boards it reads. It has none of the work-shaped settings a team board has — no card types, no
-initiative kinds, no tags, no cell for new cards to land in, no WIP policy and no template — because
-it holds no cards and arranges no lanes of its own.
+**Its settings.** A portfolio board's settings are its title, its description and the boards it
+reads. It has none of the work-shaped settings a team board has — no card types, no initiative kinds,
+no tags, no cell for new cards to land in, no WIP policy and no template — because it holds no cards
+and arranges no lanes of its own.
 
 ### Using objectives on a portfolio board
 

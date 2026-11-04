@@ -22,8 +22,8 @@
  *
  * `savedFilters` and `collapsedLanes` are absent from the document on purpose: a saved filter is one
  * person's way of narrowing a board and a collapsed column is where they left their screen, so they
- * stay in this browser. `autoArchiveDays` travels, because it changes what every person's board does
- * with Done work.
+ * stay in this browser. And there is no auto-archive age in it any more: how long finished work
+ * stays on a board is the product's constant (`AUTO_ARCHIVE_DAYS`), not a word the workspace chooses.
  */
 
 import { useEffect } from 'react'
@@ -55,15 +55,12 @@ export interface VocabularyDocument {
   periods: Period[]
   objectives: Objective[]
   keyResults: KeyResult[]
-  autoArchiveDays?: number
 }
 
 /**
  * The document as this browser holds it.
  *
- * The lists are the store's own arrays, so nothing is translated on the way out. The policy is
- * always a key; `JSON.stringify` drops it when it is `undefined`, so "no auto-archive" travels as
- * absence rather than as zero.
+ * The lists are the store's own arrays, so nothing is translated on the way out.
  */
 export function vocabularyDocument(): VocabularyDocument {
   const state = useStore.getState()
@@ -73,8 +70,6 @@ export function vocabularyDocument(): VocabularyDocument {
     periods: state.periods,
     objectives: state.objectives,
     keyResults: state.keyResults,
-    // `undefined` is dropped by `JSON.stringify`, so "no policy" is absence rather than zero.
-    autoArchiveDays: state.autoArchiveDays,
   }
 }
 
@@ -205,12 +200,11 @@ export function useVocabularySync(): void {
   const periods = useStore((s) => s.periods)
   const objectives = useStore((s) => s.objectives)
   const keyResults = useStore((s) => s.keyResults)
-  const autoArchiveDays = useStore((s) => s.autoArchiveDays)
 
   useEffect(() => {
     if (!signedIn || rev === null) return
     // Adoption already recorded the document it read: nothing has changed since.
     if (!vocabularyChanged()) return
     scheduleVocabularyWrite()
-  }, [signedIn, rev, issueTypes, boardTemplates, periods, objectives, keyResults, autoArchiveDays])
+  }, [signedIn, rev, issueTypes, boardTemplates, periods, objectives, keyResults])
 }

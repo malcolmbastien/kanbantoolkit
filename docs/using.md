@@ -6,7 +6,7 @@ the views that read the same work at another altitude. [Installing it](install.m
 ## The workspace
 
 The **Kanban Toolkit** button at the top left returns to **Workspace Home**: every board in the organisation,
-grouped by flight level (team, program, portfolio), with a band filter and a search. **New board**
+grouped by type (team, program, portfolio), with a type filter and a search. **New board**
 makes one. **Import board…** brings a Trello export or a Jira CSV in as one new board, with a
 mapping step for lists, people and types — [Importing a board](import.md) explains the files and
 what is created.
@@ -20,8 +20,12 @@ On a browser-only build, the browser holds the whole workspace and nothing is se
 instance, the boards are shared, and signing in adds your account to the workspace's people.
 
 The **command palette** (<kbd>Ctrl</kbd>+<kbd>K</kbd>, or <kbd>⌘</kbd>+<kbd>K</kbd>) reaches every
-board, card and view, and the verbs that make them. The search field beside it searches every board
-by title, description and note, and shows the line that matched.
+board, card and view, and the verbs that make them. With a card open, it also acts on that card:
+assign it to yourself, move it to Done, block it with a reason, watch or unwatch it, set its due
+date, or open its panel. Each verb is the same call the drawer or the card menu makes, so the board's
+own rules decide — a full `block` column refuses the move with the same sentence, and a verb that
+would be refused is not offered. The search field beside it searches every board by title,
+description and note, and shows the line that matched.
 
 ## A board
 
@@ -30,11 +34,12 @@ what each level is for and when to choose it. The level is fixed when the board 
 shows it but does not offer to change it, because a different level would hide the work the board
 already holds.
 
-**Board settings** is a tabbed dialog. **General** holds the board’s name, description and type;
-**Cards** its card types and the type and cell new cards start in; **Labels** its initiative kinds
-and tags; **Workflow** its WIP enforcement and template; and **Boards** the boards a program or
-portfolio reads beneath it. Only the tabs a board can act on are shown, and changes are
-saved as you edit.
+**Board settings** is a tabbed dialog. **General** holds the board’s name and description, its WIP
+enforcement and the template a board design can be saved as; **Cards** its card types and its
+initiative kinds, with the type and cell new cards start in; **Tags** its tags; and **Boards** the
+boards a program or portfolio reads beneath it. Only the tabs a board can act on are shown, and
+changes are saved as you edit. A board’s type is fixed when it is made and is not a setting: the
+dialog’s header names it, and there is nothing to change.
 
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a
@@ -90,8 +95,8 @@ palette — for the full sheet, grouped by where each key works.
 ## A card
 
 Choose a card to open its panel. **Overview** holds the title, the description (Markdown), status,
-priority, type, people, tags, target dates and the day the work is due; the creator is recorded and
-is not editable.
+priority, type, people, tags, target dates, the day the work is due and an external link to where the
+work lives elsewhere; the creator is recorded and is not editable.
 **Hierarchy** shows the parent and the work below. **Activity** is the card's own history — every
 move, edit, note and dependency, with who and when.
 
@@ -114,6 +119,20 @@ The checklist holds the card's sub-tasks. A card can wait on another: the waitin
 the two ends, so it clears when the blocker reaches Done — there is nothing to update by hand.
 **Mark blocked** records a reason when the work is stopped for something that is not another card.
 
+The bell in **Overview** watches the card, and so does the card menu. A watch is one person's
+interest in one piece of work — the creator, each person assigned and whoever writes a note join
+without asking. A watch starts when you make it: the card's earlier work stays in its **Activity**,
+not in the inbox; only what happens next is news. Watching is not a permission: a Viewer can watch
+too. The **bell in the top bar** opens the inbox, newest first: what changed on the work you watch,
+with the board and column, and a row opens the card where it lives. **Mark all read** moves the
+cursor. An instance keeps the watch
+list and the cursor with the account; a static build keeps both in this browser, and the panel says
+so. Notifications are only ever about cards and initiatives you watch — there is no board or filter
+subscription. A person may also turn email on in **Your profile → Email delivery**, choosing *as it
+happens*, *daily* or *weekly*; one plain-text message per period carries the changes, assignments,
+mentions, due work and watched initiatives at risk, with a link that stops it. Email is only offered
+when the operator configured a relay.
+
 Every badge a card, initiative or objective can carry is catalogued in [Warnings and signals](warnings.md),
 with what raises it and what clears it.
 
@@ -131,7 +150,12 @@ a program's outcome is decomposed into a team's initiative.
 ## The views
 
 - **Dashboard** — the board's initiatives at a glance.
-- **Timeline** — the same initiatives over their target dates.
+- **Timeline** — the same initiatives over their target dates. Each block carries its own people,
+  as initials beside its dates; a bar too narrow for them keeps its title, and the names travel in
+  its tooltip. The grid is one line per day with the weeks and months a shade stronger, so the axis
+  reads at one rhythm. It zooms from **Compact** to **Wide** — the narrowest step is still wide
+  enough to print a day number with room around it — and the width is kept in the page's address,
+  so a link opens the reading it names.
 - **Flow** — on a team board, lead time (how long a card takes from start to finish) and cycle time
   (how long it takes to finish once work has started), throughput, their distributions, aging, a
   service level expectation (how long most work takes) and a forecast of when the open work could
@@ -142,7 +166,8 @@ a program's outcome is decomposed into a team's initiative.
 - **Archive** — work that has left this board. Each board has its own archive, and it lists only
   the work filed from that board. A card in a Done column is **archived**; anything else is
   **discarded**, dropped without claiming it was finished. The archive keeps that one fact, not the
-  column the work sat in, and either item can be restored.
+  column the work sat in, and either item can be restored. Finished work is filed automatically a
+  week after it is done — one rule for every board, and not a setting.
 
 None of these is a second copy: they read the same items, placements and edges.
 
@@ -169,14 +194,14 @@ the same workspace, and [backup](backup.md) is the operator's copy of it.
 ## What the server keeps, and what it does not
 
 On an instance the workspace lives on the server, not in one browser. Two documents are saved there: the **design** — boards, flows, lanes and where every card sits — and the workspace's
-**words**: card types, board templates, objectives and key results, with the auto-archive rule. A
-type renamed on one machine is renamed on every machine; a template made on one is there at the next
-reload, and so is an objective made on a portfolio board.
+**words**: card types, board templates, objectives and key results. A type renamed on one machine is
+renamed on every machine; a template made on one is there at the next reload, and so is an objective
+made on a portfolio board.
 
 Which of those a person may change is a role, and it is checked list by list: an administrator for
-card types and the auto-archive rule, `template.manage` for templates, `objective.write` for
-objectives and key results. A change the server refuses is said in words beside the control that made
-it, and the edit stays in this browser.
+card types, `template.manage` for templates, `objective.write` for objectives and key results. A
+change the server refuses is said in words beside the control that made it, and the edit stays in
+this browser.
 
 **Saved filters** and **collapsed columns** stay on the device: they describe one person's screen, not
 the workspace, so neither is written back to it.

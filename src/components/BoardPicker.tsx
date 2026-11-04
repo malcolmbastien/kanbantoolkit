@@ -15,7 +15,7 @@ interface Props {
 
 /**
  * The board switcher. Native selects can't show a hierarchy, so this lists every
- * board grouped by flight-level band and names the boards each one rolls up under
+ * board grouped by board type and names the boards each one rolls up under
  * — which is honest even where a board is linked by more than one parent.
  */
 export function BoardPicker({ boards, boardId, onSelect }: Props) {

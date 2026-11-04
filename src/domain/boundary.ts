@@ -118,29 +118,62 @@ export function boundaryInStage(entries: BoundaryEntry[], stage: Stage): Boundar
   return entries.filter((entry) => entry.stage === stage)
 }
 
+export interface ExternalWait {
+  dependency: Item
+  state: DependencyState
+}
+
 /**
- * The external items *one card* is still waiting on, for the chip it wears in the cards workflow.
+ * What *one card* is still waiting on, for the chip it wears in the cards workflow.
  *
  * Only open links: a satisfied dependency is not something the card is waiting for any more, and a
  * chip saying so would be a lie. The boundary workflow still shows the satisfied entry, because the
  * workflow is a history of the edge as well as a list of what blocks today.
  */
-export function externalWaits(
-  itemId: string,
-  graph: Graph,
-  boardId: string,
-): Array<{ dependency: Item; state: DependencyState }> {
+export function externalWaits(itemId: string, graph: Graph, boardId: string): ExternalWait[] {
+  return externalWaitsByItem(graph, boardId).get(itemId) ?? []
+}
+
+/**
+ * The same answer for **every card on the board**, in one pass.
+ *
+ * `externalWaits` rebuilds the board's placement set and walks every link for the one item it is
+ * asked about, so asking it once per card is quadratic — on a board of a thousand cards that is the
+ * single largest per-render cost the canvas has. The board asks for every card at once, after every
+ * change to the data, and the whole question costs one pass over the links.
+ *
+ * The shape of an answer is the one the chip needs: the dependency and how the link stands, worst
+ * first, and deduplicated by the dependency (a card waiting on the same work through two links is
+ * waiting on it once).
+ */
+export function externalWaitsByItem(graph: Graph, boardId: string): Map<string, ExternalWait[]> {
   const onBoard = new Set(graph.placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
-  const seen = new Set<string>()
-  const out: Array<{ dependency: Item; state: DependencyState }> = []
+  const itemsById = new Map(graph.items.map((item) => [item.id, item]))
+  const waits = new Map<string, ExternalWait[]>()
+  const seen = new Map<string, Set<string>>()
+
   for (const link of graph.links) {
-    if (link.to !== itemId || onBoard.has(link.from) || seen.has(link.from)) continue
-    const dependency = graph.items.find((item) => item.id === link.from)
+    // Work on this board is not across its edge; a card waiting on its own board waits on a card.
+    if (onBoard.has(link.from)) continue
+    const dependency = itemsById.get(link.from)
     if (!dependency || isArchived(dependency)) continue
+    const depended = seen.get(link.to) ?? new Set<string>()
+    if (depended.has(link.from)) continue
     const state = dependencyState(link.from, link.to, graph)
     if (!isOpen(state)) continue
-    seen.add(link.from)
-    out.push({ dependency, state })
+    depended.add(link.from)
+    seen.set(link.to, depended)
+    const list = waits.get(link.to)
+    if (list) list.push({ dependency, state })
+    else waits.set(link.to, [{ dependency, state }])
   }
-  return out.sort((a, b) => boundaryStateRank(a.state) - boundaryStateRank(b.state) || a.dependency.title.localeCompare(b.dependency.title))
+
+  for (const list of waits.values()) {
+    list.sort(
+      (a, b) =>
+        boundaryStateRank(a.state) - boundaryStateRank(b.state) ||
+        a.dependency.title.localeCompare(b.dependency.title),
+    )
+  }
+  return waits
 }

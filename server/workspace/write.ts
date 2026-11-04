@@ -116,6 +116,8 @@ function itemRow(item: Item): Row {
     target_start_date: value(item.targetStartDate),
     target_end_date: value(item.targetEndDate),
     due_date: value(item.dueDate),
+    external_label: value(item.externalLabel),
+    external_url: value(item.externalUrl),
     created_at: item.createdAt,
     rev: value(item.rev),
     resolved_at: item.resolvedAt === undefined ? null : item.resolvedAt,
@@ -162,6 +164,7 @@ function historyRow(itemId: string, entry: ItemLogEntry, workspaceId: string): R
     at: entry.at,
     kind: entry.kind,
     by_user: value(entry.by),
+    via: value(entry.via),
     note: value(entry.note),
     mentions: json(entry.mentions),
     from_lane_id: value(entry.fromLaneId),
@@ -403,14 +406,12 @@ export async function writeVocabulary(
     { sql: 'DELETE FROM key_results WHERE workspace_id = ?1', params: [workspaceId] },
   ]
   addVocabulary(statements, vocabulary, workspaceId)
-  // The policy and the revision land together with the lists: a write that half-arrived could not
-  // be refused next time, because the number it left behind would say it had.
+  // The revision lands together with the lists: a write that half-arrived could not be refused
+  // next time, because the number it left behind would say it had.
   statements.push({
-    sql: `INSERT INTO workspace (id, auto_archive_days, vocabulary_rev) VALUES (?1, ?2, ?3)
-          ON CONFLICT (id) DO UPDATE SET
-            auto_archive_days = excluded.auto_archive_days,
-            vocabulary_rev = excluded.vocabulary_rev`,
-    params: [workspaceId, value(vocabulary.autoArchiveDays), rev + 1],
+    sql: `INSERT INTO workspace (id, vocabulary_rev) VALUES (?1, ?2)
+          ON CONFLICT (id) DO UPDATE SET vocabulary_rev = excluded.vocabulary_rev`,
+    params: [workspaceId, rev + 1],
   })
   await db.batch(statements)
 }
@@ -542,7 +543,6 @@ export async function writeWorkspace(
   add(statements, 'workspace', {
     id: WORKSPACE_ROW,
     board_id: workspace.boardId || null,
-    auto_archive_days: value(workspace.autoArchiveDays),
     saved_filters: json(workspace.savedFilters),
     collapsed_lanes: json(workspace.collapsedLanes),
   }, workspaceId)

@@ -93,7 +93,6 @@ describe('workspace keys', () => {
       objectives: [],
       keyResults: [],
       boardTemplates: [],
-      autoArchiveDays: undefined,
       savedFilters: [],
       collapsedLanes: {},
       boardId: 'b',

@@ -218,7 +218,14 @@ test('a card finished in a second flow is archived as completed', async ({ page 
   await page.locator(`[data-card-id="${card}"]`).click({ button: 'right' })
   const menu = page.locator('[data-card-menu][role="menu"]').first()
   await menu.getByRole('button', { name: 'Move to lane' }).hover()
-  await page.locator('[data-card-flyout]').getByRole('group', { name: 'Escalations' }).getByRole('button', { name: 'Done' }).click()
+  // The flyout is scrollable: with three flows and the card-menu's own actions, the last flow's
+  // Done cell can be below the fold. Scrolling the target into view is what a reader does.
+  const escalationsDone = page
+    .locator('[data-card-flyout]')
+    .getByRole('group', { name: 'Escalations' })
+    .getByRole('button', { name: 'Done' })
+  await escalationsDone.scrollIntoViewIfNeeded()
+  await escalationsDone.click()
 
   // Filed away from the card's own panel: it is Done, so the word is Archive.
   await page.locator(`[data-card-id="${card}"]`).click()

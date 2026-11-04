@@ -76,6 +76,11 @@ export interface TimelineDay {
   monthStart: boolean
   /** Saturday or Sunday. */
   weekend: boolean
+  /**
+   * The first day of a week — Monday — so the grid can group the axis into the weeks a person
+   * reads. A month's first day is often a week start too; the stronger of the two lines wins.
+   */
+  weekStart: boolean
 }
 
 export interface TimelineLayout {
@@ -181,6 +186,7 @@ export function layoutTimeline(entries: readonly TimelineEntry[], options: Timel
       day: d.getDate(),
       monthStart: d.getDate() === 1,
       weekend: weekday === 0 || weekday === 6,
+      weekStart: weekday === 1,
     }
   })
 

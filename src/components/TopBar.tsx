@@ -1,5 +1,6 @@
 import { Archive, ChartNoAxesGantt, Check, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
+import { InboxBell } from './InboxBell'
 import { AccountMenu } from './AccountMenu'
 import { SyncNotice } from './SyncNotice'
 import { ImportNotice } from './ImportNotice'
@@ -199,6 +200,8 @@ export function TopBar(props: Props) {
           </>
         )}
 
+        <InboxBell />
+
         <GlobalSearch />
 
         {/* The keyboard's page, for anyone who would rather click than learn a key. It sits with
@@ -219,7 +222,7 @@ export function TopBar(props: Props) {
           <button
             onClick={onOpenBoardSettings}
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 hover:text-slate-900"
-            title={isPortfolio(board) ? 'Title, flight level, linked boards' : 'Title, card types, labels, workflow'}
+            title={isPortfolio(board) ? 'Title, board type, linked boards' : 'Title, card types, tags, WIP'}
           >
             <Settings size={13} /> Settings
           </button>

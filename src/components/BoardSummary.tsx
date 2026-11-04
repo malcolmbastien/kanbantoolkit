@@ -143,33 +143,60 @@ export function BoardSummary({
   // still appear as top-level on its own board.
   // A named set is drawn as named, wherever the initiatives live; otherwise this is the board's
   // own initiatives, found once so every surface that reads them agrees.
-  const only = onlyKey === null ? null : new Set(onlyKey.split(',').filter(Boolean))
-  const allInitiatives = only
-    ? items.filter((i) => only.has(i.id) && isInitiativeItem(i, issueTypes) && !i.archived)
-    : boardInitiatives(graph, boardId, issueTypes, { rootsOnly })
+  // The board's initiatives, found when the data changes rather than on every selection: one
+  // pass over the items, keyed on the ids a named set carries (the array itself is rebuilt by
+  // whoever passes it, so it cannot be a dependency).
+  const allInitiatives = useMemo(() => {
+    const only = onlyKey === null ? null : new Set(onlyKey.split(',').filter(Boolean))
+    return only
+      ? items.filter((i) => only.has(i.id) && isInitiativeItem(i, issueTypes) && !i.archived)
+      : boardInitiatives({ items, edges, links, placements, lanes }, boardId, issueTypes, { rootsOnly })
+  }, [onlyKey, items, edges, links, placements, lanes, issueTypes, boardId, rootsOnly])
   const initiatives = allInitiatives
   const boardKinds = boards.find((b) => b.id === boardId)?.initiativeTypes
 
-  // A section is a typed column; its cells are its leaves — itself, until it's split.
-  const initiativesFlowOf = initiativesFlow(flows, boardId)
-  const sections = (initiativesFlowOf ? topLevelLanes(lanes, initiativesFlowOf.id) : [])
-    .slice()
-    .sort((a, b) => a.order - b.order)
-    .map((section) => {
-      const stage = (section.stage ?? 'inProgress') as Stage
-      const cells = leavesUnder(lanes, section.id)
-      // A cell's initiatives are a rank a person orders — the same order a drop writes — so
-      // they read through placements. An initiative the work below has rolled out of the cell
-      // it was arranged in has no rank left to read; `initiativeRanks` decides where it reads
-      // instead of dropping it, which is what this filtering used to do by hand.
-      const byCell = initiativeRanks(graph, boardId, section.id, initiatives, flows)
-      // The badge reads the column, not the view: narrowing the flow changes what is *shown*, and
-      // never the load the cell carries. Two walks, because the two answers differ exactly when a
-      // filter is on — and only then.
-      const held = initiativeRanks(graph, boardId, section.id, allInitiatives, flows)
-      const total = [...held.values()].reduce((n, rank) => n + rank.length, 0)
-      return { section, stage, cells, byCell, held, total }
-    })
+  /**
+   * A section is a typed column; its cells are its leaves — itself, until it's split.
+   *
+   * Memoised on the data, because `initiativeRanks` asks for a rollup per initiative — twice per
+   * section — and a rollup walks the work below it. On a board of a thousand cards that is the
+   * largest thing a *selection* used to redo, for an answer that cannot have changed.
+   */
+  const initiativesFlowOf = useMemo(() => initiativesFlow(flows, boardId), [flows, boardId])
+  const sections = useMemo(
+    () =>
+      (initiativesFlowOf ? topLevelLanes(lanes, initiativesFlowOf.id) : [])
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((section) => {
+          const stage = (section.stage ?? 'inProgress') as Stage
+          const cells = leavesUnder(lanes, section.id)
+          // A cell's initiatives are a rank a person orders — the same order a drop writes — so
+          // they read through placements. An initiative the work below has rolled out of the cell
+          // it was arranged in has no rank left to read; `initiativeRanks` decides where it reads
+          // instead of dropping it, which is what this filtering used to do by hand.
+          const graph = { items, edges, links, placements, lanes }
+          const byCell = initiativeRanks(graph, boardId, section.id, initiatives, flows)
+          // The badge reads the column, not the view: narrowing the flow changes what is *shown*,
+          // and never the load the cell carries. Two walks, because the two answers differ exactly
+          // when a filter is on — and only then.
+          const held = initiativeRanks(graph, boardId, section.id, allInitiatives, flows)
+          const total = [...held.values()].reduce((n, rank) => n + rank.length, 0)
+          return { section, stage, cells, byCell, held, total }
+        }),
+    [
+      initiativesFlowOf,
+      lanes,
+      items,
+      edges,
+      links,
+      placements,
+      boardId,
+      initiatives,
+      allInitiatives,
+      flows,
+    ],
+  )
 
   const isInitiatives = variant === 'initiatives'
   // The board the person is actually reading — the band's host when this is a band.

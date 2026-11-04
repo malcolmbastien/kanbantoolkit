@@ -363,7 +363,7 @@ describe('store actions', () => {
     expect(counts()).toEqual(countsBefore)
   })
 
-  it('a board keeps the flight-level band it was made with', () => {
+  it('a board keeps the type it was made with', () => {
     expect(s().boards.find((b) => b.id === 'b-strategy')?.band).toBe('portfolio')
     expect(s().boards.find((b) => b.id === 'b-portfolio')?.band).toBe('program')
     expect(s().boards.find((b) => b.id === 'b-atlas')?.band).toBe('team')
@@ -879,15 +879,19 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === 'st-email')?.archived ?? false).toBe(false)
   })
 
-  it('auto-archive files Done items older than the threshold', () => {
+  it('auto-archive files Done items once they have been finished a week', () => {
     const done = laneByName('b-atlas', 'Done')
+    // One past the week, one inside it: the boundary is the rule, so both are asserted.
     s().moveCard('st-email', 'b-atlas', done.id)
-    s().setItemFields('st-email', { resolvedAt: Date.now() - 40 * 86_400_000 })
-    s().setAutoArchiveDays(30)
+    s().setItemFields('st-email', { resolvedAt: Date.now() - 8 * 86_400_000 })
+    s().moveCard('st-sso', 'b-atlas', done.id)
+    s().setItemFields('st-sso', { resolvedAt: Date.now() - 6 * 86_400_000 })
+
     s().runAutoArchive()
     expect(s().items.find((i) => i.id === 'st-email')?.archived).toBe(true)
-    // a Done item without an old resolvedAt is left alone
-    expect(s().items.find((i) => i.id === 'st-signup-design')?.archived ?? false).toBe(false)
+    expect(s().items.find((i) => i.id === 'st-sso')?.archived ?? false).toBe(false)
+    // A card that is not Done is never filed, however long it has sat there.
+    expect(s().items.find((i) => i.id === 'st-pricing-cache')?.archived ?? false).toBe(false)
   })
 
   it('moves sub-lanes within their top-level parent; top-level columns are fixed', () => {
@@ -2781,6 +2785,34 @@ describe('store actions', () => {
     expect(imported.targetStartDate).toBeUndefined()
   })
 
+  it('an external link is a label and a web address, written once and cleared together', () => {
+    expect(s().setExternalLink('st-email', 'ATLAS-431', 'https://jira.example.com/browse/ATLAS-431')).toBe(true)
+    const linked = s().items.find((i) => i.id === 'st-email')!
+    expect(linked.externalLabel).toBe('ATLAS-431')
+    expect(linked.externalUrl).toBe('https://jira.example.com/browse/ATLAS-431')
+    // One line for the change, not one per field.
+    expect(linked.log?.filter((e) => e.note?.startsWith('external link:')).map((e) => e.note)).toEqual([
+      'external link: none → ATLAS-431',
+    ])
+
+    // A scheme a browser must not follow is refused, and nothing is written or logged.
+    const logs = s().items.find((i) => i.id === 'st-email')?.log?.length
+    expect(s().setExternalLink('st-email', 'Bad', 'javascript:alert(1)')).toBe(false)
+    expect(s().items.find((i) => i.id === 'st-email')?.externalUrl).toBe('https://jira.example.com/browse/ATLAS-431')
+    expect(s().items.find((i) => i.id === 'st-email')?.log?.length).toBe(logs)
+
+    // Clearing the address clears the label with it: a label with nowhere to go is not a link.
+    expect(s().setExternalLink('st-email', 'ATLAS-431', '')).toBe(true)
+    expect(s().items.find((i) => i.id === 'st-email')?.externalUrl).toBeUndefined()
+    expect(s().items.find((i) => i.id === 'st-email')?.externalLabel).toBeUndefined()
+    expect(s().items.find((i) => i.id === 'st-email')?.log?.at(-1)?.note).toBe('external link: ATLAS-431 → none')
+
+    // Filed-away work is read-only, as every other edit is.
+    s().archiveItems(['st-sso'])
+    expect(s().setExternalLink('st-sso', 'X', 'https://example.com')).toBe(false)
+    expect(s().items.find((i) => i.id === 'st-sso')?.externalUrl).toBeUndefined()
+  })
+
   it('migrateState turns the old board level into a band', () => {
     const migrated = migrateState({
       boards: [
@@ -3194,9 +3226,8 @@ describe('the flows of a board', () => {
     // Auto-archive reads the same stage: a card finished in the second flow is eligible too.
     s().moveCard('st-sso', 'b-atlas', supportDone.id)
     useStore.setState({
-      items: s().items.map((i) => (i.id === 'st-sso' ? { ...i, resolvedAt: Date.now() - 2 * 86_400_000 } : i)),
+      items: s().items.map((i) => (i.id === 'st-sso' ? { ...i, resolvedAt: Date.now() - 8 * 86_400_000 } : i)),
     })
-    s().setAutoArchiveDays(1)
     s().runAutoArchive()
     expect(s().items.find((i) => i.id === 'st-sso')?.archived).toBe(true)
   })
@@ -3863,5 +3894,76 @@ describe('the home’s shortcuts', () => {
     s().importWorkspace(file as Record<string, unknown>, PERSIST_VERSION)
     expect(s().favouriteBoardIds).toEqual(['b-atlas'])
     expect(s().recentBoards).toEqual([{ boardId: 'b-atlas', at: 1 }])
+  })
+})
+
+describe('watching, and the demo inbox', () => {
+  beforeEach(() => {
+    resetToFixture()
+    useStore.setState({ meUserId: 'u-mb' })
+  })
+
+  it('subscribes the creator, and nobody else by default', () => {
+    const lane = leafLanes(s().lanes, flow('b-atlas')).find((l) => l.stage === 'backlog')!
+    s().addCard({ boardId: 'b-atlas', typeId: 't-story', laneId: lane.id, title: 'A watched card' })
+    const card = s().items.find((item) => item.title === 'A watched card')!
+
+    expect(s().watchedItemIds).toContain(card.id)
+    // Watching is in the drawer and the menu too, and it is one act either way.
+    s().setWatching(card.id, false)
+    expect(s().watchedItemIds).not.toContain(card.id)
+    s().setWatching(card.id, true)
+    expect(s().watchedItemIds).toContain(card.id)
+  })
+
+  it('subscribes a person when they are assigned or when they write a note', () => {
+    // Assigning somebody else is their subscription, not this browser's.
+    s().addAssignee('st-email', 'u-rk')
+    expect(s().watchedItemIds).not.toContain('st-email')
+    // Being assigned yourself is the moment you care.
+    s().addAssignee('st-email', 'u-mb')
+    expect(s().watchedItemIds).toContain('st-email')
+
+    s().setWatching('st-email', false)
+    s().addLogNote('st-email', 'Deployed to staging.')
+    expect(s().watchedItemIds).toContain('st-email')
+  })
+
+  it('starts a watch now, so the card’s earlier history is not in the inbox', () => {
+    // st-email has a history from before this moment.
+    s().setWatching('st-email', true)
+    s().recomputeInbox()
+    expect(s().inboxRows.filter((row) => row.itemId === 'st-email')).toEqual([])
+    expect(s().watchStartedAt['st-email']).toBeGreaterThan(0)
+
+    s().addLogNote('st-email', 'A note written after the watch.')
+    s().recomputeInbox()
+    const rows = s().inboxRows.filter((row) => row.itemId === 'st-email')
+    expect(rows.map((row) => row.type)).toEqual(['item.noted'])
+  })
+
+  it('reads the watched items’ histories as an inbox, and mark-all-read moves the cursor', () => {
+    s().setWatching('st-email', true)
+    s().addLogNote('st-email', 'A note worth seeing.')
+    s().recomputeInbox()
+
+    const row = s().inboxRows.find((entry) => entry.type === 'item.noted')
+    expect(row).toMatchObject({ itemId: 'st-email', read: false })
+    expect(s().inboxUnread).toBeGreaterThan(0)
+
+    s().markInboxReadLocally()
+    expect(s().inboxUnread).toBe(0)
+    expect(s().inboxRows.every((entry) => entry.read)).toBe(true)
+    expect(s().inboxReadAt).toBeGreaterThan(0)
+
+    // An unconnected item's history is not this person's inbox.
+    s().setWatching('st-email', false)
+    s().recomputeInbox()
+    expect(s().inboxRows.some((entry) => entry.itemId === 'st-email')).toBe(false)
+  })
+
+  it('keeps the list this browser watches, and replaces it with an account’s answer', () => {
+    s().replaceWatches(['st-email', 'st-email', 3 as unknown as string])
+    expect(s().watchedItemIds).toEqual(['st-email'])
   })
 })

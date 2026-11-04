@@ -133,3 +133,17 @@ test('done work is archived, and restoring it puts the card back in play', async
   await openBoard(page)
   await expect(page.locator('[data-card-id="st-signup-screens"]')).toHaveCount(1)
 })
+
+test('auto-archive has no setting anywhere: finished work is filed after a week', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&view=archive')
+  await expect(page.getByText('Team Atlas archive')).toBeVisible()
+
+  // The archive reads what has been filed, and the age is the product's constant — so neither this
+  // page nor Board settings offers a number to change.
+  await expect(page.getByLabel('Auto-archive Done after')).toHaveCount(0)
+  await openBoard(page)
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const dialog = page.locator('[data-board-settings]')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByLabel('Auto-archive Done after')).toHaveCount(0)
+})

@@ -210,7 +210,7 @@ export function MyWorkView() {
               <section key={g.boardId} data-my-work-board={g.boardId} className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm">
                 <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-100 px-4 py-2">
                   {/* The band is named and drawn as well as coloured: a coloured dot alone left
-                      a colour-blind reader to guess which flight level a board sat at. */}
+                      a colour-blind reader to guess which type of board it sat at. */}
                   <BandBadge band={g.band} />
                   <span className="text-body font-semibold text-slate-800">{g.boardName}</span>
                   <span className="text-meta text-slate-600">

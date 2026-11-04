@@ -18,6 +18,12 @@ export interface Message {
   to: string
   subject: string
   text: string
+  /**
+   * Extra headers, for the protocol-level facts a reader's client acts on — `List-Unsubscribe` is
+   * the one this product sends. Never a tracking header: there is no `Message-ID` correlation here
+   * and no remote resource for a client to fetch.
+   */
+  headers?: Record<string, string>
 }
 
 /** What the runtime can do: send one plain-text message, or not be there at all. */

@@ -110,10 +110,13 @@ function randomSalt(): string {
  * Where this instance is, as the outside world sees it. A redirect URI has to match what was
  * registered with the provider, and behind a proxy the request's own origin is not that address.
  */
-export function publicUrl(env: unknown, request: Request): string {
+export function publicBase(env: unknown): string | undefined {
   const configured = value(env, 'PUBLIC_URL')
-  if (configured) return configured.replace(/\/+$/, '')
-  return new URL(request.url).origin
+  return configured ? configured.replace(/\/+$/, '') : undefined
+}
+
+export function publicUrl(env: unknown, request: Request): string {
+  return publicBase(env) ?? new URL(request.url).origin
 }
 
 /**

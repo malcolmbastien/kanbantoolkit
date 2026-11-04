@@ -147,7 +147,7 @@ A provider that is not configured does not appear in `/providers` and its start 
 | `POST /api/workspace/items/:id/heartbeat` | `item.write` | renew it |
 | `DELETE /api/workspace/items/:id/lock` | `item.write` | release it |
 | `PUT /api/workspace/structure` | `board.design` | write the board design — boards, flows, lanes and placements — as one document, with the revision it began from |
-| `PUT /api/workspace/vocabulary` | per list | write the workspace's words — issue types, templates, periods, objectives, key results and the auto-archive policy — as one document, with the revision it began from |
+| `PUT /api/workspace/vocabulary` | per list | write the workspace's words — issue types, templates, periods, objectives and key results — as one document, with the revision it began from |
 | `POST /api/workspace/import` | `workspace.import` | replace an empty workspace with a file — refused once it has boards |
 | `DELETE /api/workspace` | `workspace.delete` | end the workspace; `{"confirm": "<its name>"}` |
 
@@ -161,7 +161,7 @@ PUT /api/workspace/vocabulary
 Content-Type: application/json
 
 { "rev": 4, "issueTypes": [...], "boardTemplates": [...], "periods": [...], "objectives": [...],
-  "keyResults": [...], "autoArchiveDays": 14 }
+  "keyResults": [...] }
 ```
 
 A period is a record — `{ "id", "name", "start"?, "end"? }` — and an objective names one
@@ -184,10 +184,12 @@ over somebody else's.
 | `403` | a role that may change none of it, or no session |
 
 Permission is **per list**, because a role can hold one and not another: `board.settings` for issue
-types, `template.manage` for templates, `objective.write` for periods, objectives and key results, and
-`workspace.settings` for `autoArchiveDays`. A list the caller may not change is refused by name
-rather than dropped. The built-in labels (`None`, `Initiative`) are the app's and are refused when
-the document forgets them.
+types, `template.manage` for templates, and `objective.write` for periods, objectives and key
+results. A list the caller may not change is refused by name rather than dropped. The built-in
+labels (`None`, `Initiative`) are the app's and are refused when the document forgets them.
+
+How long finished work stays on a board is **not** in this document: it is the product's constant
+(`AUTO_ARCHIVE_DAYS`, seven days), not a word the workspace chooses.
 
 `savedFilters` and `collapsedLanes` are **not** in the document. They are one device's view and stay
 in that browser.

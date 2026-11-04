@@ -141,20 +141,29 @@ test('board settings is a tabbed modal, and its tabs work from the keyboard', as
   const dialog = page.locator('[data-board-settings]')
   await expect(dialog).toBeVisible()
 
-  // A team board has the identity, its card vocabulary, its labels and its workflow.
-  await expect(dialog.getByRole('tab')).toHaveText(['General', 'Cards', 'Labels', 'Workflow'])
+  // A team board has its identity and its policies on General, its card vocabulary on Cards, and
+  // its tags on their own tab — one tab per kind of question, and the board's type is not one.
+  await expect(dialog.getByRole('tab')).toHaveText(['General', 'Cards', 'Tags'])
   await expect(dialog.getByLabel('Title')).toBeVisible()
+  // How the board treats a full column is General's, and so is turning it into a template.
+  await expect(dialog.getByLabel('WIP limit enforcement')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: /Save as template/ })).toBeVisible()
 
   // Arrow keys move between tabs, and the panel behind the selected tab is the one on screen.
   await dialog.getByRole('tab', { name: 'General' }).focus()
   await page.keyboard.press('ArrowRight')
   await expect(dialog.getByRole('tab', { name: 'Cards' })).toHaveAttribute('aria-selected', 'true')
   await expect(dialog.getByPlaceholder('Define a new card type…')).toBeVisible()
+  // The initiative kinds live with the types; the tags have a tab of their own, so the cards
+  // panel says nothing about them (the panel is in the DOM either way, hidden).
+  const cardsPanel = dialog.locator('#board-settings-panel-cards')
+  await expect(cardsPanel.getByText('Initiative kinds', { exact: true })).toBeVisible()
+  await expect(cardsPanel.getByText('Tags', { exact: true })).toHaveCount(0)
 
-  // End goes to the last section, whose controls are the workflow's.
+  // End goes to the last tab, which is the tags' own list.
   await page.keyboard.press('End')
-  await expect(dialog.getByRole('tab', { name: 'Workflow' })).toHaveAttribute('aria-selected', 'true')
-  await expect(dialog.getByText('WIP limit enforcement', { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('tab', { name: 'Tags' })).toHaveAttribute('aria-selected', 'true')
+  await expect(dialog.locator('#board-settings-panel-tags').getByPlaceholder('Define a new tag…')).toBeVisible()
 
   await dialog.getByRole('button', { name: 'Done' }).click()
   await expect(dialog).toHaveCount(0)
@@ -187,19 +196,19 @@ test('a workflow can carry an optional sub-header, written in edit mode', async 
   await expect(page.getByText('Delivery, from idea to done.')).toBeVisible()
 })
 
-test('a board type is shown but cannot be changed in settings', async ({ page }) => {
+test('a board type is named, never offered as a setting', async ({ page }) => {
   await openBoard(page)
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
   const dialog = page.locator('[data-board-settings]')
   await expect(dialog).toBeVisible()
 
-  const band = dialog.locator('[data-board-band-fixed]')
-  await expect(band).toContainText('Team')
-  await expect(band).toContainText('Fixed when the board was made')
-  // No band chooser, and no warning-and-proceed path either.
+  // The dialog's header names the board's type. General does not repeat it as a field, and there is
+  // no chooser and no warning-and-proceed path either: a type fixed at creation is not a setting.
+  await expect(dialog.getByText('Team', { exact: true })).toHaveCount(1)
+  await expect(dialog).not.toContainText('Flight-level')
   await expect(dialog.getByRole('button', { name: 'Program', exact: true })).toHaveCount(0)
   await expect(dialog.getByRole('button', { name: 'Portfolio', exact: true })).toHaveCount(0)
-  await expect(dialog).toContainText('To change it, make a board of the other type')
+  await expect(dialog.locator('[data-board-band-fixed]')).toHaveCount(0)
 })
 
 test('the fold and policy controls have usable hit targets', async ({ page }) => {

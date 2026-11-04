@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boundaryEntries, boundaryInStage, externalWaits } from './boundary'
+import { boundaryEntries, boundaryInStage, externalWaits, externalWaitsByItem } from './boundary'
 import type { Graph } from './derive'
 import type { Item, ItemLink, Lane, Placement } from './types'
 
@@ -175,5 +175,22 @@ describe('what one card is still waiting on', () => {
 
   it('leaves a satisfied link off the card, because it is no longer waiting', () => {
     expect(externalWaits('a-3', graph(), 'a')).toEqual([])
+  })
+
+  it('answers for every card in one pass, with the same results as one at a time', () => {
+    const g = graph()
+    const all = externalWaitsByItem(g, 'a')
+    // Only the cards that wait on something appear: a card with nothing across the edge is absent,
+    // not an empty list, so the canvas can pass `undefined` and the card draws no chip.
+    for (const item of g.items) {
+      expect(all.get(item.id) ?? [], item.id).toEqual(externalWaits(item.id, g, 'a'))
+    }
+    expect(all.get('a-1')?.map((wait) => wait.dependency.id)).toEqual(['ext-live'])
+    expect(all.has('a-3')).toBe(false)
+    // The edge is the board's: the same graph read from the other board waits on *this* board's
+    // work, so the map is not the same one reflected.
+    for (const [id, waits] of externalWaitsByItem(g, 'b')) {
+      expect(waits.map((wait) => wait.dependency.id)).toEqual(externalWaits(id, g, 'b').map((wait) => wait.dependency.id))
+    }
   })
 })

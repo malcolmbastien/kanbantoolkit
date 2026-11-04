@@ -12,8 +12,9 @@ import type { Item, ItemLogEntry } from './types'
  * app's, so a card is found by the words on it — all of them.
  */
 
-/** Where a search found its word. A title is best, then the description, then a note. */
-export type SearchField = 'title' | 'description' | 'note'
+/** Where a search found its word. A title is best, then the description and the card's link label,
+ * then a note. */
+export type SearchField = 'title' | 'description' | 'link' | 'note'
 
 /**
  * The matching line, in three pieces so a caller can mark the hit without parsing it again.
@@ -73,8 +74,11 @@ function matchIn(text: string, query: string, field: SearchField): SearchMatch |
 
 /**
  * Where an item carries the query, if it does. The title wins over the description, which wins
- * over a note; among notes the newest match is the one shown, because that is the one a reader
- * means when a word has been said twice.
+ * over the link's label, which wins over a note; among notes the newest match is the one shown,
+ * because that is the one a reader means when a word has been said twice.
+ *
+ * The link's **label** is searched, not its address: a ticket key (`ATLAS-12`) is a word somebody
+ * types, and the URL is not.
  *
  * A note is an entry of kind `noted`; the item's other history (a move, an edit) is not a comment
  * and is not searched.
@@ -89,6 +93,9 @@ export function matchOf(item: Item, query: string): SearchMatch | undefined {
   const description = item.description ? matchIn(item.description, q, 'description') : undefined
   if (description) return description
 
+  const link = item.externalLabel ? matchIn(item.externalLabel, q, 'link') : undefined
+  if (link) return link
+
   const notes = (item.log ?? []).filter((entry) => entry.kind === 'noted' && entry.note?.trim())
   for (let i = notes.length - 1; i >= 0; i--) {
     const note = matchIn(notes[i].note ?? '', q, 'note')
@@ -98,10 +105,10 @@ export function matchOf(item: Item, query: string): SearchMatch | undefined {
 }
 
 /** The field order a result list is read in: the title first, then the body, then the notes. */
-const FIELD_ORDER: Record<SearchField, number> = { title: 0, description: 1, note: 2 }
+const FIELD_ORDER: Record<SearchField, number> = { title: 0, description: 1, link: 2, note: 3 }
 
 /**
- * Global search: the items whose title, description or a note contains the query
+ * Global search: the items whose title, description, link label or a note contains the query
  * (case-insensitive), each with the line that matched. An empty query returns no matches.
  *
  * Title matches are listed before body matches, and body matches before notes, so the most

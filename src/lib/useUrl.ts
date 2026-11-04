@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { filtersFromParam } from '@/domain/filters'
 import { useStore } from '@/store'
 import { DEFAULT_FLOW_WINDOW } from '@/domain/flowWindow'
+import { DEFAULT_TIMELINE_ZOOM } from '@/domain/timelineZoom'
 import { placeFromQuery, urlQuery, viewOf, type Place } from './url'
 import { titleFor } from './title'
 
@@ -33,6 +34,8 @@ export function useUrl() {
   // either is a change to the place, and the URL has to follow it.
   const flowWindow = useStore((s) => s.flowWindow)
   const metricsFlowId = useStore((s) => s.metricsFlowId)
+  // The Timeline's reading, subscribed for the same reason: a change to it changes the place.
+  const timelineZoom = useStore((s) => s.timelineZoom)
   // The document's name, derived the same way the URL is: the board and the view. The open card
   // is deliberately not read here — opening a drawer must not rename the page.
   const title = useStore((s) =>
@@ -62,6 +65,16 @@ export function useUrl() {
     s.setMetricsFlow(known ? flowId! : null)
   }, [])
 
+  /**
+   * Apply the Timeline's reading from a place: the width it asked for, or the default. A step this
+   * build does not know never arrives here (the query reader drops it), and a place that is not the
+   * Timeline keeps the step it had.
+   */
+  const applyTimelineReading = useCallback((place: Partial<Place>) => {
+    if (place.view !== 'timeline') return
+    useStore.getState().setTimelineZoom(place.zoom ?? DEFAULT_TIMELINE_ZOOM)
+  }, [])
+
   // ---- On the way in: what the link asked for ----
   // A layout effect, so the place is applied before the first paint. The app's home and a board are
   // different screens, and a link to one must not flash the other — or download it — on the way in.
@@ -78,6 +91,7 @@ export function useUrl() {
     if (params.get('edit')) s().beginEdit()
     if (place.view) s().setView(place.view)
     applyFlowReading(place)
+    applyTimelineReading(place)
     // My work is a drawer, not a view: a link that names it opens the drawer over the place it
     // would otherwise have landed on. (The first write normalises the URL back to that place.)
     if (params.get('view') === 'mywork') s().setMyWork(true)
@@ -121,7 +135,7 @@ export function useUrl() {
     if (stress !== null) s().addStressBoard(Math.max(1, Math.min(2000, Number(stress) || 300)))
 
     ready.current = true
-  }, [applyFlowReading])
+  }, [applyFlowReading, applyTimelineReading])
 
   // ---- On the way out: the place, as a query ----
   useEffect(() => {
@@ -135,6 +149,7 @@ export function useUrl() {
       view: viewOf(s),
       itemId: s.selectedItemId,
       ...(flow ? { range: s.flowWindow, flowId: s.metricsFlowId } : {}),
+      ...(viewOf(s) === 'timeline' ? { zoom: s.timelineZoom } : {}),
     }
     const before = last.current
     last.current = place
@@ -148,7 +163,7 @@ export function useUrl() {
     const samePlace = before !== null && before.boardId === place.boardId && before.view === place.view
     if (wasFirst || samePlace) window.history.replaceState(null, '', query)
     else window.history.pushState(null, '', query)
-  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId])
+  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId, timelineZoom])
 
   // ---- And back: the places the app has been ----
   useEffect(() => {
@@ -161,6 +176,7 @@ export function useUrl() {
       // the screen disagreeing.
       if (place.view) s.setView(place.view)
       applyFlowReading(place)
+      applyTimelineReading(place)
       // Whatever the URL says about the open card is the truth, including saying nothing.
       const open = useStore.getState().selectedItemId
       if (place.itemId && place.itemId !== open && s.items.some((i) => i.id === place.itemId)) s.openItem(place.itemId)
@@ -168,5 +184,5 @@ export function useUrl() {
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
-  }, [applyFlowReading])
+  }, [applyFlowReading, applyTimelineReading])
 }

@@ -87,7 +87,7 @@ export type V1Caller = OpCaller
 export async function requireToken(
   c: Ctx,
   runtime: Runtime,
-): Promise<{ db: Database; user: AuthUser; tokenId: string; scopes: Scope[]; workspaceId: string; role: Role } | Response> {
+): Promise<{ db: Database; user: AuthUser; tokenId: string; tokenName: string; scopes: Scope[]; workspaceId: string; role: Role } | Response> {
   const db = runtime.database(c.env)
   if (!db) return failure(c, 503, 'not_configured', 'this instance has no database')
 
@@ -118,7 +118,15 @@ export async function requireToken(
   const resolved = await resolveWorkspace(db, found.user.id, instanceRole === 'admin', undefined)
   if (!resolved) return failure(c, 404, 'no_workspace', 'this account is not in a workspace on this instance')
 
-  return { db, user: found.user, tokenId: found.tokenId, scopes: found.scopes, workspaceId: resolved.id, role: resolved.role }
+  return {
+    db,
+    user: found.user,
+    tokenId: found.tokenId,
+    tokenName: found.tokenName,
+    scopes: found.scopes,
+    workspaceId: resolved.id,
+    role: resolved.role,
+  }
 }
 
 /**
@@ -353,7 +361,7 @@ export function v1Routes(runtime: Runtime) {
     {
       method: 'GET',
       path: '/vocabulary',
-      summary: 'The workspace\'s words: issue types, board templates, objectives, key results and the auto-archive policy.',
+      summary: 'The workspace\'s words: issue types, board templates, objectives and key results.',
       scope: 'boards:read',
       responses: { '200': { description: 'The document and its `rev`' } },
       handler: async (c, caller) => respond(c, ok(await readVocabulary(caller.db, caller.workspaceId))),
@@ -466,6 +474,8 @@ const itemSchema = {
     targetStartDate: { type: 'string', format: 'date' },
     targetEndDate: { type: 'string', format: 'date' },
     dueDate: { type: 'string', format: 'date', description: 'The day the work is promised for — one date, not the target window.' },
+    externalLabel: { type: 'string', description: 'Where the work lives elsewhere: the label the card shows.' },
+    externalUrl: { type: 'string', format: 'uri', description: 'The address it opens — http or https only.' },
     boardId: { type: 'string' },
     laneId: { type: 'string' },
     rank: { type: 'number' },
@@ -530,6 +540,8 @@ const schemas = {
       targetStartDate: { type: 'string', format: 'date' },
       targetEndDate: { type: 'string', format: 'date' },
       dueDate: { type: 'string', format: 'date', description: 'The day the work is promised for.' },
+      externalLabel: { type: 'string', description: 'Where the work lives elsewhere: the label the card shows.' },
+      externalUrl: { type: 'string', format: 'uri', description: 'The address it opens — http or https only.' },
     },
   },
   ItemPatch: {
@@ -546,6 +558,8 @@ const schemas = {
       targetStartDate: { type: ['string', 'null'], format: 'date' },
       targetEndDate: { type: ['string', 'null'], format: 'date' },
       dueDate: { type: ['string', 'null'], format: 'date', description: 'The day the work is promised for, or null to clear it.' },
+      externalLabel: { type: ['string', 'null'], description: 'The label the card shows for its link, or null to clear it.' },
+      externalUrl: { type: ['string', 'null'], format: 'uri', description: 'The address the link opens — http or https — or null to clear the link.' },
       parentId: { type: ['string', 'null'] },
     },
   },

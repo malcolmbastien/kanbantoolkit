@@ -7,7 +7,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { focusBoundary } from './BoundaryWorkflow'
-import { Card, type CardParent } from './Card'
+import { Card, type CardParent, type Wait } from './Card'
 import { LaneEditControls } from './LaneCtl'
 import { DragLayer } from './DragLayer'
 import { InlineEdit } from './InlineEdit'
@@ -21,7 +21,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, tagsOf } from '@/domain/board'
-import { externalWaits } from '@/domain/boundary'
+import { externalWaitsByItem } from '@/domain/boundary'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
@@ -83,6 +83,11 @@ interface Ctx {
   effectiveLane: Map<string, string>
   /** The board's derived facts, built once for the render rather than per card. */
   model: BoardModel
+  /**
+   * What each card waits on across this board's edge, resolved once for the whole board. Asking
+   * per card rebuilt the board's placement set and walked every link for every card.
+   */
+  waits: ReadonlyMap<string, Wait[]>
   /** How long a card has sat in its lane, when the placement knows. See `ageDays`. */
   ageOf: (itemId: string) => number | undefined
   /** The ids an initiative filter narrows to, when one is active. See `initiativeScope`. */
@@ -520,7 +525,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               selected={ctx.selectedItemId === c.id}
               dropTarget={ctx.drag.dropTargetId === c.id}
               boundary={ctx.boundaryId ? ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId) === true : false}
-              waitingOn={externalWaits(c.id, graph, ctx.boardId).map((wait) => ({ id: wait.dependency.id, title: wait.dependency.title }))}
+              waitingOn={ctx.waits.get(c.id)}
               onBoundary={ctx.onBoundary}
               multi={ctx.multiSelect.includes(c.id)}
               dimmed={
@@ -744,6 +749,14 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const graph: Graph = { items, edges, links, placements, lanes }
   // One pass over the workspace arrays; every card below reads a map instead of scanning them.
   const model = useMemo(() => buildBoardModel(graph), [items, edges, links, placements, lanes])
+  // The boundary waits, once for the board: `externalWaitsByItem` answers for every card in one
+  // pass, where asking per card was quadratic in the size of the board.
+  const waits = useMemo(() => {
+    const found = externalWaitsByItem(graph, boardId)
+    const out = new Map<string, Wait[]>()
+    for (const [id, list] of found) out.set(id, list.map((wait) => ({ id: wait.dependency.id, title: wait.dependency.title })))
+    return out
+  }, [items, edges, links, placements, lanes, boardId])
   const root = rootLane(lanes, flowId)
   const boardName = boards.find((b) => b.id === boardId)?.name
   const flowName = flows.find((f) => f.id === flowId)?.name
@@ -753,23 +766,37 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const pan = usePanScroll<HTMLDivElement>()
   const openCardMenu = useStore((s) => s.openCardMenu)
 
-  const boardPlacements = placements
-    .filter((p) => p.boardId === boardId)
-    .sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER))
-  const isInitiative = (typeId: string) => issueTypes.find((t) => t.id === typeId)?.name === 'Initiative'
+  // The board's placements in rank order: a fact about the data, so it is found when the data
+  // changes rather than on every selection, drag or hover.
+  const boardPlacements = useMemo(
+    () =>
+      placements
+        .filter((p) => p.boardId === boardId)
+        .sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER)),
+    [placements, boardId],
+  )
+  const initiativeTypeId = useMemo(() => issueTypes.find((t) => t.name === 'Initiative')?.id, [issueTypes])
+  const isInitiative = useCallback((typeId: string) => typeId === initiativeTypeId, [initiativeTypeId])
 
   // The cards workflow shows the team's cards (non-initiative items) in their lanes.
   // The board's initiatives are surfaced separately in the "Initiatives workflow" on top.
   // A focus narrows this to one initiative's work — the lens is a filter here, not a tint.
   // The cards workflow shows the team's cards (non-initiative items) in their lanes.
   // The board's initiatives are surfaced separately in the "Initiatives workflow" on top.
-  const boardItems = boardPlacements
-    .map((p) => model.itemsById.get(p.itemId))
-    .filter((i): i is Item => Boolean(i))
-    .filter((i) => !isInitiative(i.typeId) && !i.archived)
+  const boardItems = useMemo(
+    () =>
+      boardPlacements
+        .map((p) => model.itemsById.get(p.itemId))
+        .filter((i): i is Item => Boolean(i))
+        .filter((i) => !isInitiative(i.typeId) && !i.archived),
+    [boardPlacements, model, isInitiative],
+  )
 
-  const effectiveLane = new Map<string, string>()
-  for (const p of boardPlacements) effectiveLane.set(p.itemId, p.laneId)
+  const effectiveLane = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of boardPlacements) map.set(p.itemId, p.laneId)
+    return map
+  }, [boardPlacements])
 
   // The card in the air, and the single gap it would land in. The gesture itself is shared with
   // the initiatives workflow; only where the card lands is this surface's own.
@@ -860,11 +887,17 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     if (!lift) setDragPreview(null)
   }, [lift, setDragPreview])
 
-  const boardPlacement = new Map<string, Placement>()
-  for (const placement of placements) if (placement.boardId === boardId && !boardPlacement.has(placement.itemId)) boardPlacement.set(placement.itemId, placement)
+  const boardPlacement = useMemo(() => {
+    const map = new Map<string, Placement>()
+    for (const placement of placements) {
+      if (placement.boardId === boardId && !map.has(placement.itemId)) map.set(placement.itemId, placement)
+    }
+    return map
+  }, [placements, boardId])
   const ctx: Ctx = {
     lanes, items, issueTypes, graph, users, boards, editMode, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     model,
+    waits,
     ageOf: (itemId) => ageDays(boardPlacement.get(itemId)),
     initiativeScope: initiativeScope(filters, graph),
     interactive,

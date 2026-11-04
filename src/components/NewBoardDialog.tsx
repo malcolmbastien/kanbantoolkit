@@ -6,9 +6,9 @@ import { useDialogFocus } from '@/lib/useDialogFocus'
 import type { BoardBand, BoardTemplate } from '@/domain/types'
 
 /**
- * What each flight level means, in the words a person choosing one needs. The short `hint`
- * beside the badge is enough once a board exists; this is the longer answer to "which one am
- * I making?", and it belongs where the choice is made.
+ * What each board type means, in the words a person choosing one needs: the longer answer to
+ * "which one am I making?". It belongs where the choice is made, because the type decides what
+ * the board's surface renders and where the work rolls up.
  */
 const BAND_DETAIL: Record<BoardBand, { tagline: string; body: string; useFor: string }> = {
   team: {
@@ -171,7 +171,7 @@ export function NewBoardDialog({
               onChange={(e) => {
                 const id = e.target.value
                 setTemplateId(id)
-                // A template carries a flight level, so offer it as the default.
+                // A template carries a board type, so offer it as the default.
                 const chosen = templates.find((t) => t.id === id)
                 if (chosen) setBand(chosen.band)
               }}

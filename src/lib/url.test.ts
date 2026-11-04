@@ -55,6 +55,16 @@ describe('the query a place writes', () => {
     expect(urlQuery(place({ view: 'timeline', flowId: 'f-support' }))).toBe('?board=b-atlas&view=timeline')
   })
 
+  it('writes the Timeline’s zoom, but not the default, and only for the Timeline', () => {
+    expect(urlQuery(place({ view: 'timeline', zoom: 'wide' }))).toBe('?board=b-atlas&view=timeline&zoom=wide')
+    expect(urlQuery(place({ view: 'timeline', zoom: 'compact' }))).toBe('?board=b-atlas&view=timeline&zoom=compact')
+    // The default is what a link without the parameter already means.
+    expect(urlQuery(place({ view: 'timeline', zoom: 'normal' }))).toBe('?board=b-atlas&view=timeline')
+    // A width means nothing on another view: one place, one URL.
+    expect(urlQuery(place({ zoom: 'wide' }))).toBe('?board=b-atlas')
+    expect(urlQuery(place({ view: 'dashboard', zoom: 'wide' }))).toBe('?board=b-atlas&view=dashboard')
+  })
+
   it('says nothing at all for a place with no board', () => {
     expect(urlQuery(place({ boardId: '' }))).toBe('')
   })
@@ -67,6 +77,8 @@ describe('the query a place writes', () => {
       place({ view: 'flow' }),
       place({ view: 'flow', range: 4 }),
       place({ view: 'flow', range: 'all' }),
+      place({ view: 'timeline', zoom: 'compact' }),
+      place({ view: 'timeline', zoom: 'wide' }),
       place({ view: 'flow', flowId: 'f-support' }),
       place({ boardId: 'b-nova' }),
       place({ itemId: 'init-signup' }),
@@ -124,6 +136,18 @@ describe('the place a query names', () => {
     expect(placeFromQuery('?view=flow&flow=').flowId).toBeUndefined()
   })
 
+  it('reads a Timeline zoom, dropping the ones it does not know', () => {
+    expect(placeFromQuery('?board=b-atlas&view=timeline&zoom=wide')).toEqual({
+      boardId: 'b-atlas',
+      view: 'timeline',
+      zoom: 'wide',
+    })
+    expect(placeFromQuery('?view=timeline&zoom=compact').zoom).toBe('compact')
+    expect(placeFromQuery('?view=timeline&zoom=year').zoom).toBeUndefined()
+    expect(placeFromQuery('?view=timeline&zoom=28').zoom).toBeUndefined()
+    expect(placeFromQuery('?view=timeline&zoom=').zoom).toBeUndefined()
+  })
+
   it('accepts the store’s older word for the Flow view', () => {
     expect(placeFromQuery('?view=metrics').view).toBe('flow')
     expect(placeFromQuery('?view=flow').view).toBe('flow')
@@ -154,6 +178,7 @@ describe('a place survives the round trip', () => {
       expect(back.boardId).toBe(p.boardId)
       expect(back.view).toBe(p.view)
       expect(back.itemId ?? null).toBe(p.itemId)
+      if (p.view === 'timeline') expect(back.zoom ?? 'normal').toBe(p.zoom ?? 'normal')
     }
   })
 

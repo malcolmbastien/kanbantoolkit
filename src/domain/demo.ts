@@ -10,7 +10,7 @@ import type { Board, BoardFlow, BoardTemplate, IssueType, Lane, TemplateFlow, Te
  * run against — and they share these boards so that "the same boards, different work" is true by
  * construction rather than by two copies agreeing with each other.
  *
- * The boards, their flight levels and their links are what a client reads first, so they are the
+ * The boards, their types and their links are what a client reads first, so they are the
  * part worth being able to change in one place.
  */
 const issueTypes: IssueType[] = [

@@ -63,7 +63,6 @@ describe('keeping the workspace’s words on the server', () => {
       periods: [],
       objectives: [],
       keyResults: [],
-      autoArchiveDays: undefined,
     })
     // Forget whatever a previous test last sent, without claiming any revision.
     noteVocabularyRev(null)
@@ -188,7 +187,7 @@ describe('keeping the workspace’s words on the server', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('is due for a type, a template, an objective or the policy — and never for a saved filter', () => {
+  it('is due for a type, a template or an objective — and never for a saved filter', () => {
     noteVocabularyRev(4)
     expect(vocabularyChanged()).toBe(false)
 
@@ -204,16 +203,17 @@ describe('keeping the workspace’s words on the server', () => {
     expect(vocabularyChanged()).toBe(true)
   })
 
-  it('carries the policy and never this device’s view state', () => {
+  it('carries the words and never this device’s view state — or an auto-archive age', () => {
     useStore.setState({
-      autoArchiveDays: 14,
       savedFilters: [{ id: 'f-1', name: 'Mine', boardId: 'b-1', filters: { typeIds: [], blocked: false, overdue: false, dueSoon: false, unassigned: false, assigneeIds: [], priorities: [], tagIds: [] } }],
       collapsedLanes: { 'l-1': true },
     })
 
     const document = vocabularyDocument()
-    expect(document.autoArchiveDays).toBe(14)
+    expect(document.issueTypes.map((t) => t.name)).toEqual(['None', 'Initiative'])
     expect(document).not.toHaveProperty('savedFilters')
     expect(document).not.toHaveProperty('collapsedLanes')
+    // How long finished work stays on a board is the product's constant, not a workspace word.
+    expect(document).not.toHaveProperty('autoArchiveDays')
   })
 })

@@ -11,6 +11,7 @@ import { DueChip } from './DueChip'
 const SEARCH_FIELD_LABEL: Record<SearchHit['match']['field'], string> = {
   title: 'Title',
   description: 'Description',
+  link: 'Link',
   note: 'Note',
 }
 

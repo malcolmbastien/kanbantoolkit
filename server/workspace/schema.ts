@@ -89,5 +89,28 @@ export const WORKSPACE_SCHEMA = 1
  * 40 adds `items.due_date`: the single day a piece of work is promised for, beside the target
  * window that is its plan. A database without it cannot store the promise, and "overdue" would
  * have nothing of its own to read — the same reason every number before it moved.
+ *
+ * 41 drops `workspace.auto_archive_days`: how long finished work stays on a board is the product's
+ * constant now, not a workspace setting. A database that still carries the column is one this code
+ * has stopped reading, which is the case the number exists to refuse — like `items.size` at 26.
+ *
+ * 42 adds `item_log.via`: the token an agent or a script acted with, so a history can tell a
+ * person's edit from a token's on the same card. A database without it cannot record the difference,
+ * and a column the code writes but the shape lacks is a write that fails — refused at the door.
+ *
+ * 43 adds `items.external_label` and `items.external_url`: where a card's work lives elsewhere. A
+ * database without them cannot store the link the drawer offers, so the same rule applies.
+ *
+ * 44 adds the watch and the inbox: `item_watch`, the per-person cursor, and the outbox's `seq` and
+ * `item_id`. Without them the bell has nothing to read and a watch has nowhere to live — and the
+ * outbox writes the two columns, so a database lacking them cannot record an event at all.
+ *
+ * 45 adds mail delivery: the two preference columns and the digest's own cursor. A database without
+ * them cannot say whether a person asked for email, and the profile read names both — refused at
+ * the door rather than answered with an invented default.
+ *
+ * 46 adds `item_watch.since_seq`: the outbox position a watch began at. The inbox reads after it, so
+ * watching a card shows what happens next rather than its whole history. A database without it
+ * would answer every watch with the past — the behaviour this column exists to stop.
  */
-export const REQUIRED_SCHEMA = 40
+export const REQUIRED_SCHEMA = 46

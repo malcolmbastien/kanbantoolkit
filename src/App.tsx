@@ -71,7 +71,6 @@ export default function App() {
   // view keeps the choice — coming back shows it again.
   const boardSurface = useStore(isBoardSurface)
   const showBoardSettings = useStore((s) => s.showBoardSettings)
-  const autoArchiveDays = useStore((s) => s.autoArchiveDays)
   const runAutoArchive = useStore((s) => s.runAutoArchive)
   const lanes = useStore((s) => s.lanes)
   const flows = useStore((s) => s.flows)
@@ -99,10 +98,11 @@ export default function App() {
   // with a revision of its own. Nothing in one write can rename what the other is arranging.
   useVocabularySync()
 
-  // Auto-archive (a user-set rule): file Done items once they age past the threshold.
+  // Auto-archive: finished work is filed a week after it is done. A product constant, not a
+  // setting, so this runs when the workspace opens rather than when somebody changes a number.
   useEffect(() => {
     runAutoArchive()
-  }, [autoArchiveDays, runAutoArchive])
+  }, [runAutoArchive])
 
   // Escape, or a click on any empty part of the screen, dismisses the topmost
   // layer: a confirm dialog or card menu handles its own; otherwise the current

@@ -19,6 +19,7 @@ import type { Item, IssueType } from '../src/domain/types'
 import type { WebhookEventType } from '../src/domain/webhooks'
 import type { Database, Statement } from './db'
 import { readWorkspace } from './workspace/read'
+import { syncAutoWatches } from './watch'
 
 const newId = () => crypto.randomUUID()
 
@@ -75,10 +76,21 @@ export async function emitEvent(
   )
   const interested = endpoints.filter((endpoint) => wants(endpoint.event_types, type))
 
+  // Two things a reader needs that a receiver does not: an order (`seq`) and the item the event is
+  // about. The public id stays the UUID the webhook contract names; `seq` is the inbox's position,
+  // taken from the outbox itself so two events cannot claim the same place.
+  const itemId =
+    typeof data.itemId === 'string'
+      ? data.itemId
+      : typeof data.initiativeId === 'string'
+        ? data.initiativeId
+        : null
+
   const statements: Statement[] = [
     {
-      sql: 'INSERT INTO outbound_events (id, workspace_id, type, payload, occurred_at, actor_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)',
-      params: [id, workspaceId, type, payload, occurredAt, actorId ?? null],
+      sql: `INSERT INTO outbound_events (id, workspace_id, type, payload, occurred_at, actor_id, item_id, seq)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, (SELECT COALESCE(MAX(seq), 0) + 1 FROM outbound_events))`,
+      params: [id, workspaceId, type, payload, occurredAt, actorId ?? null, itemId],
     },
   ]
   for (const endpoint of interested) {
@@ -94,6 +106,52 @@ export async function emitEvent(
 
 const movedEntry = (item: Item | undefined) =>
   [...(item?.log ?? [])].filter((entry) => entry.kind === 'moved').sort((a, b) => a.at - b.at).at(-1)
+
+/**
+ * The fields an edit changed, in the words a row prints.
+ *
+ * `blocked` is not here: a block has its own event, and saying it twice would be two rows for one
+ * act. `rev`, `log` and the derived arrival/archive clocks are not fields a person edited either.
+ * External link is one line because a label and an address are one link.
+ */
+const EDITABLE_FIELDS: Array<{ key: keyof Item; label: string }> = [
+  { key: 'title', label: 'title' },
+  { key: 'description', label: 'description' },
+  { key: 'typeId', label: 'type' },
+  { key: 'initiativeTypeId', label: 'kind' },
+  { key: 'priority', label: 'priority' },
+  { key: 'assignees', label: 'assignees' },
+  { key: 'tagIds', label: 'tags' },
+  { key: 'targetStartDate', label: 'target start' },
+  { key: 'targetEndDate', label: 'target end' },
+  { key: 'dueDate', label: 'due date' },
+  { key: 'externalLabel', label: 'external link' },
+  { key: 'externalUrl', label: 'external link' },
+  { key: 'checklist', label: 'checklist' },
+  { key: 'archived', label: 'archived' },
+  { key: 'discarded', label: 'discarded' },
+]
+
+function sameValue(left: unknown, right: unknown): boolean {
+  if (left === right) return true
+  if (typeof left !== 'object' || typeof right !== 'object' || left === null || right === null) return false
+  if (Array.isArray(left) !== Array.isArray(right)) return false
+  const one = left as Record<string, unknown>
+  const two = right as Record<string, unknown>
+  const keys = Object.keys(one)
+  if (keys.length !== Object.keys(two).length) return false
+  return keys.every((key) => key in two && sameValue(one[key], two[key]))
+}
+
+/** The labels of the fields that moved, once each, in the order above. */
+function changedFields(before: Item, after: Item): string[] {
+  const labels: string[] = []
+  for (const { key, label } of EDITABLE_FIELDS) {
+    if (sameValue(before[key], after[key])) continue
+    if (!labels.includes(label)) labels.push(label)
+  }
+  return labels
+}
 
 function graphOf(state: Awaited<ReturnType<typeof readWorkspace>>): Graph {
   return { items: state.items, edges: state.edges, links: state.links, placements: state.placements, lanes: state.lanes }
@@ -146,18 +204,33 @@ export async function emitItemChange(
   afterState?: AfterGraph,
 ): Promise<void> {
   try {
-    let afterGraph: Graph
-    let issueTypes: IssueType[]
+    // The people a write implies watch it from now on: the creator, a person just assigned, the
+    // author of a note. It runs inside this try because a watch is a consequence of the write, and
+    // the card must not fail because the consequence did.
+    await syncAutoWatches(db, workspaceId, before, after, actorId)
+
+    // The whole graph is read only when health is going to be compared. A note or a move appended
+    // through `/log` needs neither the derived reading nor the workspace behind it, so it asks the
+    // one placement instead of reading every card on the instance.
+    let afterGraph: Graph | undefined
+    let issueTypes: IssueType[] = []
     if (afterState) {
       afterGraph = afterState.graph
       issueTypes = afterState.issueTypes
-    } else {
+    } else if (beforeGraph) {
       const read = await readWorkspace(db, workspaceId)
       afterGraph = graphOf(read)
       issueTypes = read.issueTypes
     }
+    const placementBoard = after
+      ? await db.get<{ board_id: string }>(
+          'SELECT board_id FROM placements WHERE item_id = ?1 AND workspace_id = ?2 LIMIT 1',
+          [after.id, workspaceId],
+        )
+      : undefined
     const boardId = after
-      ? (afterGraph.placements.find((placement) => placement.itemId === after.id)?.boardId ??
+      ? (afterGraph?.placements.find((placement) => placement.itemId === after.id)?.boardId ??
+        placementBoard?.board_id ??
         movedEntry(after)?.boardId)
       : undefined
 
@@ -189,27 +262,57 @@ export async function emitItemChange(
         await emitEvent(db, workspaceId, 'item.unblocked', { itemId: after.id, title: after.title, ...(boardId ? { boardId } : {}) }, actorId)
       }
 
-      const from = movedEntry(before)
-      const to = movedEntry(after)
-      if (to && to.id !== from?.id) {
+      // What this write appended, rather than the last move in the whole history: a card can be
+      // moved, noted and edited between two reads, and every entry is a sentence of its own.
+      const known = new Set((before.log ?? []).map((entry) => entry.id))
+      for (const entry of after.log ?? []) {
+        if (known.has(entry.id)) continue
+        const by = entry.by ?? actorId
+        if (entry.kind === 'moved') {
+          await emitEvent(
+            db,
+            workspaceId,
+            'item.moved',
+            {
+              itemId: after.id,
+              title: after.title,
+              ...(entry.boardId ?? boardId ? { boardId: entry.boardId ?? boardId } : {}),
+              ...(entry.fromStage ? { fromStage: entry.fromStage } : {}),
+              ...(entry.toStage ? { toStage: entry.toStage } : {}),
+              ...(entry.toLaneId ? { laneId: entry.toLaneId } : {}),
+            },
+            by,
+          )
+        } else if (entry.kind === 'noted') {
+          await emitEvent(
+            db,
+            workspaceId,
+            'item.noted',
+            {
+              itemId: after.id,
+              entryId: entry.id,
+              ...(entry.mentions?.length ? { mentions: entry.mentions } : {}),
+            },
+            by,
+          )
+        }
+      }
+
+      // An edit is what is left once the acts with their own events are taken out: the field names
+      // travel, never the card's body.
+      const fields = changedFields(before, after)
+      if (fields.length) {
         await emitEvent(
           db,
           workspaceId,
-          'item.moved',
-          {
-            itemId: after.id,
-            title: after.title,
-            ...(to.boardId ?? boardId ? { boardId: to.boardId ?? boardId } : {}),
-            ...(to.fromStage ? { fromStage: to.fromStage } : {}),
-            ...(to.toStage ? { toStage: to.toStage } : {}),
-            ...(to.toLaneId ? { laneId: to.toLaneId } : {}),
-          },
+          'item.updated',
+          { itemId: after.id, fields, ...(boardId ? { boardId } : {}) },
           actorId,
         )
       }
     }
 
-    if (!beforeGraph || !after) return
+    if (!beforeGraph || !after || !afterGraph) return
 
     // The item itself, if it is an initiative, and every initiative above it. Both the before and
     // after graphs are walked: a parent set by this write is an initiative in only one of them.

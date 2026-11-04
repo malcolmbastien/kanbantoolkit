@@ -71,6 +71,9 @@ export const BOARD_CSV_HEADER = [
   'Target end',
   // The promise, beside the plan: a reader of the file has the same two dates the drawer shows.
   'Due',
+  // Where the work lives elsewhere: the label the card shows and the address it opens.
+  'External label',
+  'External URL',
   'Parent',
   'Tags',
 ]
@@ -110,6 +113,8 @@ export function boardCsv(
         item.targetStartDate ?? '',
         item.targetEndDate ?? '',
         item.dueDate ?? '',
+        item.externalLabel ?? '',
+        item.externalUrl ?? '',
         parentId ? graph.items.find((i) => i.id === parentId)?.title ?? '' : '',
         // Semicolons, like assignees: a comma in a tag name must not break the column.
         tagsOf(boards, item).map((t) => t.name).join('; '),

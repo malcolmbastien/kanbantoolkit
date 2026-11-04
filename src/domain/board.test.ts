@@ -50,7 +50,7 @@ const flow = (flows: BoardFlow[], boardId: string, kind: 'cards' | 'initiatives'
 describe('board workspace — grouping, ordering and the name filter', () => {
   const s = createFixture()
 
-  it('groups by flight level top-down, then by name', () => {
+  it('groups by board type top-down, then by name', () => {
     const groups = boardsByBand(s.boards)
     expect(groups.map((g) => g.band)).toEqual(['portfolio', 'program', 'team'])
     expect(groups.map((g) => g.boards.map((b) => b.name))).toEqual([

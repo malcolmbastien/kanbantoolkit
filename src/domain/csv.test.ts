@@ -93,6 +93,15 @@ describe('csv', () => {
       'Answer the customer',
     ])
 
+    // The link travels as its two fields: the label the card shows and the address it opens.
+    const linked = rows.find((r) => at(r, 'Title') === 'Design signup screens')!
+    expect(at(linked, 'External label')).toBe('FIG-88')
+    expect(at(linked, 'External URL')).toBe('https://design.example.com/fig-88')
+    // A card with no link leaves both columns empty, never the word "undefined".
+    const unlinked = rows.find((r) => at(r, 'Title') === 'Email verification')!
+    expect(at(unlinked, 'External label')).toBe('')
+    expect(at(unlinked, 'External URL')).toBe('')
+
     const form = rows.find((r) => at(r, 'Title') === 'Build signup form')!
     expect(at(form, 'Type')).toBe('User Story')
     expect(at(form, 'Column')).toBe('In Progress / Dev') // the cell's full path, not just its own name

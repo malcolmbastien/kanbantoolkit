@@ -10,16 +10,23 @@ import { useDialogFocus } from '@/lib/useDialogFocus'
 import { cardsFlows } from '@/domain/flows'
 import { VocabularySaveError } from './VocabularySaveError'
 
-type SettingsTab = 'general' | 'cards' | 'labels' | 'workflow' | 'boards'
+type SettingsTab = 'general' | 'cards' | 'tags' | 'boards'
 
 /**
- * Board settings: title, the flight-level band (shown, fixed at creation), and — for a team or
- * programme board — its card-type default, its initiatives kinds, its tags and its WIP policy.
+ * Board settings, in the order a person reads it: **General** holds who the board is — its title
+ * and description — beside how it treats work (its WIP enforcement) and what it can become (a
+ * template). **Cards** holds the vocabulary a card is chosen from: the workspace's card types and
+ * this board's own initiative kinds, with the type and cell new cards start in. **Tags** is the
+ * board's other set of labels. **Boards** is the boards a coordination board reads beneath it.
+ *
+ * The board's **type** is not here. It is fixed when the board is made — it decides which surfaces
+ * exist and where the work rolls up, so changing it would hide work rather than move it — and the
+ * dialog's own header already names it. A setting that cannot be changed is not a setting.
  *
  * A **portfolio** board has none of the work-shaped settings: it renders no cards workflow, makes no
  * initiatives of its own and arranges no lanes, so a default card type, a landing cell, its own
  * kinds, its own tags, a WIP policy and a template of its columns would all be settings with nothing
- * to act on. What it keeps is the title, the band, and the boards it reads beneath it.
+ * to act on. What it keeps is its identity and the boards it reads beneath it.
  */
 export function BoardSettings() {
   const boards = useStore((s) => s.boards)
@@ -122,10 +129,11 @@ export function BoardSettings() {
   // portfolio has no card-shaped settings and hides those tabs rather than showing empty ones.
   const tabs: Array<{ id: SettingsTab; label: string }> = [{ id: 'general', label: 'General' }]
   if (!portfolio) {
+    // The word-shaped settings, and the tags beside them: a type and a kind are one choice about
+    // what the work is, and a tag is another — a set, read on its own list.
     tabs.push(
       { id: 'cards', label: 'Cards' },
-      { id: 'labels', label: 'Labels' },
-      { id: 'workflow', label: 'Workflow' },
+      { id: 'tags', label: 'Tags' },
     )
   }
   if (isAggregatingBoard) tabs.push({ id: 'boards', label: 'Boards' })
@@ -242,26 +250,55 @@ export function BoardSettings() {
             <p className="mt-1 text-micro text-slate-600">The command palette searches it too.</p>
           </div>
 
-          {/* Flight-level band — the board's type, fixed when it was made. It decides which
-              surfaces exist and where the initiatives roll up, so changing it would hide work
-              rather than move it. The panel says the rule instead of offering a warning. */}
-          <div>
-            <div className={label}>Flight-level band</div>
-            <div
-              data-board-band
-              data-board-band-fixed
-              className="flex items-center gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5"
-            >
-              <span className="rounded bg-white px-1.5 py-0.5 text-meta font-semibold text-slate-700 ring-1 ring-slate-200">
-                {BAND_STYLES[board.band]?.label ?? board.band}
-              </span>
-              <span className="text-micro text-slate-600">Fixed when the board was made</span>
+          {/* WIP enforcement — the board's policy for its own lanes, offered beside the identity
+              because it is how this board treats its work rather than a property of one column. */}
+          {!portfolio && (
+            <div>
+              <label className={label} htmlFor="board-wip">
+                WIP limit enforcement
+              </label>
+              <select
+                id="board-wip"
+                value={board.wipEnforcement ?? 'visualize'}
+                onChange={(e) => setBoardWipEnforcement(board.id, e.target.value as 'visualize' | 'justify' | 'block')}
+                className="rounded border border-slate-200 px-1.5 py-1 text-meta"
+              >
+                <option value="visualize">Visualize — tint at or over the limit</option>
+                <option value="justify">Justify — ask for a reason to exceed</option>
+                <option value="block">Block — refuse the move</option>
+              </select>
+              {cardsFlows(flows, board.id).length > 1 && (
+                <p className="mt-1 text-micro text-slate-600">Applies to every flow.</p>
+              )}
             </div>
-            <p className="mt-1 text-micro text-slate-600">
-              {BAND_STYLES[board.band]?.hint} To change it, make a board of the other type and move or link the
-              work there.
-            </p>
+          )}
+
+          {/* Template — a board design, reusable when creating boards. A portfolio has no columns
+              of its own to keep, so there is nothing to save. */}
+          {!portfolio && (
+          <div>
+            <div className={label}>Template</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  saveBoardAsTemplate(board.id)
+                  setSavedTemplate(true)
+                }}
+                className="flex shrink-0 items-center gap-1 rounded border border-slate-200 px-2 py-1.5 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+              >
+                <LayoutTemplate size={13} /> Save as template
+              </button>
+              <span className="text-meta text-slate-600">
+                Keeps the columns, default card type and WIP policy. Not the cards or the linked boards.
+              </span>
+            </div>
+            {savedTemplate && (
+              <p className="mt-1 text-meta font-medium text-emerald-600">
+                Saved as “{board.name}”. Rename it in the board workspace.
+              </p>
+            )}
           </div>
+          )}
           </div>
 
           {/* Card types — the workspace's vocabulary, not this board's: every board offers all
@@ -460,234 +497,178 @@ export function BoardSettings() {
               Initiative is reserved for the initiatives workflow. None is built in: always available, never
               edited or removed.
             </p>
-          </div>
-          )}
 
-          {/* Initiative kinds — this board's own vocabulary, deliberately not the workspace's.
-              None is not an entry here: it is the *absence* of a kind, so there is nothing to
-              remove and nothing to protect from removal. */}
-          {!portfolio && (
-          <div
-            role="tabpanel"
-            id="board-settings-panel-labels"
-            aria-labelledby="board-settings-tab-labels"
-            hidden={activeTab !== 'labels'}
-            className="space-y-4"
-          >
-          <div>
-            <div className={label}>Initiative kinds</div>
-            <p className="mb-1.5 text-micro text-slate-600">
-              This board’s own labels for its initiatives — a bet, a programme, an experiment. Nothing else reads
-              them.
-            </p>
-            <div className="space-y-1">
-              <div className={row}>
-                <Minus size={13} className="shrink-0 text-slate-400" />
-                <span className="min-w-0 flex-1 text-meta font-medium text-slate-700">None</span>
-                <span className="shrink-0 rounded bg-slate-100 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">built-in</span>
-              </div>
-              {kinds.length === 0 && <p className="text-meta text-slate-600">No kinds of your own yet.</p>}
-              {kinds.map((k) => {
-                const used = initiativesCarrying(items, k.id)
-                return (
-                  <div key={k.id} className={row}>
-                    <input
-                      type="color"
-                      value={k.color}
-                      onChange={(e) => updateInitiativeType(board.id, k.id, { color: e.target.value })}
-                      title={`${k.name} colour`}
-                      className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-                    />
-                    <input
-                      value={k.name}
-                      onChange={(e) => updateInitiativeType(board.id, k.id, { name: e.target.value })}
-                      aria-label={`${k.name} name`}
-                      className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-200 focus:border-indigo-300"
-                    />
-                    {used > 0 && (
-                      <span className="shrink-0 text-micro text-slate-600">
-                        {used} initiative{used === 1 ? '' : 's'}
-                      </span>
-                    )}
-                    <button
-                      disabled={used > 0}
-                      onClick={() => removeInitiativeType(board.id, k.id)}
-                      title={
-                        used > 0
-                          ? `${used} initiative${used === 1 ? ' still carries' : 's still carry'} this kind — clear ${used === 1 ? 'it' : 'those'} first`
-                          : `Remove ${k.name}`
-                      }
-                      className="shrink-0 rounded p-0.5 text-slate-600 transition enabled:hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="mt-2 flex items-center gap-1">
-              <input
-                type="color"
-                value={newKindColor}
-                onChange={(e) => setNewKindColor(e.target.value)}
-                title="New kind colour"
-                className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-              />
-              <input
-                value={newKindName}
-                onChange={(e) => setNewKindName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addKind()
-                  }
-                }}
-                placeholder="Define a new initiative kind…"
-                className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
-              />
-              <button
-                disabled={!newKindName.trim()}
-                onClick={addKind}
-                className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-meta font-medium text-white disabled:opacity-40"
-                title="Create this kind for this board"
-              >
-                <Plus size={11} /> Add kind
-              </button>
-            </div>
-          </div>
-
-          {/* Tags — this board's own labels, like its kinds. A set rather than a choice, so
-              there is no None to protect: an item with no tags simply has none. */}
-          <div>
-            <div className={label}>Tags</div>
-            <p className="mb-1.5 text-micro text-slate-600">
-              This board’s own labels for its work. A card can carry several; only a filter reads them.
-            </p>
-            <div className="space-y-1">
-              {tags.length === 0 && <p className="text-meta text-slate-600">No tags yet.</p>}
-              {tags.map((t) => {
-                const used = itemsCarryingTag(items, t.id)
-                return (
-                  <div key={t.id} className={row}>
-                    <input
-                      type="color"
-                      value={t.color}
-                      onChange={(e) => updateTag(board.id, t.id, { color: e.target.value })}
-                      title={`${t.name} colour`}
-                      className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-                    />
-                    <input
-                      value={t.name}
-                      onChange={(e) => updateTag(board.id, t.id, { name: e.target.value })}
-                      aria-label={`${t.name} name`}
-                      className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-200 focus:border-indigo-300"
-                    />
-                    {used > 0 && (
-                      <span className="shrink-0 text-micro text-slate-600">
-                        {used} item{used === 1 ? '' : 's'}
-                      </span>
-                    )}
-                    <button
-                      disabled={used > 0}
-                      onClick={() => removeTag(board.id, t.id)}
-                      title={
-                        used > 0
-                          ? `${used} item${used === 1 ? ' still carries' : 's still carry'} this tag — clear ${used === 1 ? 'it' : 'those'} first`
-                          : `Remove ${t.name}`
-                      }
-                      className="shrink-0 rounded p-0.5 text-slate-600 transition enabled:hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="mt-2 flex items-center gap-1">
-              <input
-                type="color"
-                value={newTagColor}
-                onChange={(e) => setNewTagColor(e.target.value)}
-                title="New tag colour"
-                className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
-              />
-              <input
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addTagToBoard()
-                  }
-                }}
-                placeholder="Define a new tag…"
-                className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
-              />
-              <button
-                disabled={!newTagName.trim()}
-                onClick={addTagToBoard}
-                className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-meta font-medium text-white disabled:opacity-40"
-                title="Create this tag for this board"
-              >
-                <Plus size={11} /> Add tag
-              </button>
-            </div>
-          </div>
-          </div>
-          )}
-
-          {/* WIP enforcement */}
-          {!portfolio && (
-          <div
-            role="tabpanel"
-            id="board-settings-panel-workflow"
-            aria-labelledby="board-settings-tab-workflow"
-            hidden={activeTab !== 'workflow'}
-            className="space-y-4"
-          >
-          <div>
-            <label className={label} htmlFor="board-wip">
-              WIP limit enforcement
-            </label>
-            <select
-              id="board-wip"
-              value={board.wipEnforcement ?? 'visualize'}
-              onChange={(e) => setBoardWipEnforcement(board.id, e.target.value as 'visualize' | 'justify' | 'block')}
-              className="rounded border border-slate-200 px-1.5 py-1 text-meta"
-            >
-              <option value="visualize">Visualize — tint at or over the limit</option>
-              <option value="justify">Justify — ask for a reason to exceed</option>
-              <option value="block">Block — refuse the move</option>
-            </select>
-            {cardsFlows(flows, board.id).length > 1 && (
-              <p className="mt-1 text-micro text-slate-600">Applies to every flow.</p>
-            )}
-          </div>
-
-          {/* Template — a board design, reusable when creating boards. A portfolio has no columns
-              of its own to keep, so there is nothing to save. */}
-          <div>
-            <div className={label}>Template</div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => {
-                  saveBoardAsTemplate(board.id)
-                  setSavedTemplate(true)
-                }}
-                className="flex shrink-0 items-center gap-1 rounded border border-slate-200 px-2 py-1.5 text-meta font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
-              >
-                <LayoutTemplate size={13} /> Save as template
-              </button>
-              <span className="text-meta text-slate-600">
-                Keeps the columns, default card type and WIP policy. Not the cards or the linked boards.
-              </span>
-            </div>
-            {savedTemplate && (
-              <p className="mt-1 text-meta font-medium text-emerald-600">
-                Saved as “{board.name}”. Rename it in the board workspace.
+            <div>
+              <div className={label}>Initiative kinds</div>
+              <p className="mb-1.5 text-micro text-slate-600">
+                This board’s own labels for its initiatives — a bet, a programme, an experiment. Nothing else reads
+                them.
               </p>
-            )}
+              <div className="space-y-1">
+                <div className={row}>
+                  <Minus size={13} className="shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1 text-meta font-medium text-slate-700">None</span>
+                  <span className="shrink-0 rounded bg-slate-100 px-1 py-px text-micro font-semibold uppercase tracking-wide text-slate-600">built-in</span>
+                </div>
+                {kinds.length === 0 && <p className="text-meta text-slate-600">No kinds of your own yet.</p>}
+                {kinds.map((k) => {
+                  const used = initiativesCarrying(items, k.id)
+                  return (
+                    <div key={k.id} className={row}>
+                      <input
+                        type="color"
+                        value={k.color}
+                        onChange={(e) => updateInitiativeType(board.id, k.id, { color: e.target.value })}
+                        title={`${k.name} colour`}
+                        className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                      />
+                      <input
+                        value={k.name}
+                        onChange={(e) => updateInitiativeType(board.id, k.id, { name: e.target.value })}
+                        aria-label={`${k.name} name`}
+                        className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-200 focus:border-indigo-300"
+                      />
+                      {used > 0 && (
+                        <span className="shrink-0 text-micro text-slate-600">
+                          {used} initiative{used === 1 ? '' : 's'}
+                        </span>
+                      )}
+                      <button
+                        disabled={used > 0}
+                        onClick={() => removeInitiativeType(board.id, k.id)}
+                        title={
+                          used > 0
+                            ? `${used} initiative${used === 1 ? ' still carries' : 's still carry'} this kind — clear ${used === 1 ? 'it' : 'those'} first`
+                            : `Remove ${k.name}`
+                        }
+                        className="shrink-0 rounded p-0.5 text-slate-600 transition enabled:hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-2 flex items-center gap-1">
+                <input
+                  type="color"
+                  value={newKindColor}
+                  onChange={(e) => setNewKindColor(e.target.value)}
+                  title="New kind colour"
+                  className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                />
+                <input
+                  value={newKindName}
+                  onChange={(e) => setNewKindName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addKind()
+                    }
+                  }}
+                  placeholder="Define a new initiative kind…"
+                  className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <button
+                  disabled={!newKindName.trim()}
+                  onClick={addKind}
+                  className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-meta font-medium text-white disabled:opacity-40"
+                  title="Create this kind for this board"
+                >
+                  <Plus size={11} /> Add kind
+                </button>
+              </div>
+            </div>
+
           </div>
+          )}
+
+          {/* Tags — this board's own labels for its work: a set rather than a choice, so there
+              is no None to protect and an item with no tags simply has none. A tab of their own
+              because the list is read on its own, and it grows one entry at a time. */}
+          {!portfolio && (
+          <div
+            role="tabpanel"
+            id="board-settings-panel-tags"
+            aria-labelledby="board-settings-tab-tags"
+            hidden={activeTab !== 'tags'}
+            className="space-y-4"
+          >
+            <div>
+              <div className={label}>Tags</div>
+              <p className="mb-1.5 text-micro text-slate-600">
+                This board’s own labels for its work. A card can carry several; only a filter reads them.
+              </p>
+              <div className="space-y-1">
+                {tags.length === 0 && <p className="text-meta text-slate-600">No tags yet.</p>}
+                {tags.map((t) => {
+                  const used = itemsCarryingTag(items, t.id)
+                  return (
+                    <div key={t.id} className={row}>
+                      <input
+                        type="color"
+                        value={t.color}
+                        onChange={(e) => updateTag(board.id, t.id, { color: e.target.value })}
+                        title={`${t.name} colour`}
+                        className="h-6 w-6 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                      />
+                      <input
+                        value={t.name}
+                        onChange={(e) => updateTag(board.id, t.id, { name: e.target.value })}
+                        aria-label={`${t.name} name`}
+                        className="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-200 focus:border-indigo-300"
+                      />
+                      {used > 0 && (
+                        <span className="shrink-0 text-micro text-slate-600">
+                          {used} item{used === 1 ? '' : 's'}
+                        </span>
+                      )}
+                      <button
+                        disabled={used > 0}
+                        onClick={() => removeTag(board.id, t.id)}
+                        title={
+                          used > 0
+                            ? `${used} item${used === 1 ? ' still carries' : 's still carry'} this tag — clear ${used === 1 ? 'it' : 'those'} first`
+                            : `Remove ${t.name}`
+                        }
+                        className="shrink-0 rounded p-0.5 text-slate-600 transition enabled:hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-2 flex items-center gap-1">
+                <input
+                  type="color"
+                  value={newTagColor}
+                  onChange={(e) => setNewTagColor(e.target.value)}
+                  title="New tag colour"
+                  className="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                />
+                <input
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addTagToBoard()
+                    }
+                  }}
+                  placeholder="Define a new tag…"
+                  className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <button
+                  disabled={!newTagName.trim()}
+                  onClick={addTagToBoard}
+                  className="flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2 py-1.5 text-meta font-medium text-white disabled:opacity-40"
+                  title="Create this tag for this board"
+                >
+                  <Plus size={11} /> Add tag
+                </button>
+              </div>
+            </div>
           </div>
           )}
 

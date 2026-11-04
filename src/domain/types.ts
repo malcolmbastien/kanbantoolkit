@@ -102,7 +102,7 @@ export interface Lane {
 }
 
 /**
- * The lens a board presents, named by flight level. Depth is structural (a board
+ * The lens a board presents, named by its type. Depth is structural (a board
  * can aggregate boards at any depth); the band picks the view:
  * - `team`      — L1 operational: renders work (lanes, cards, WIP).
  * - `program`   — L2 coordination: aggregates linked boards and shows the interfaces.
@@ -301,6 +301,12 @@ export interface ItemLogEntry {
    * worse than the blank.
    */
   by?: string
+  /**
+   * The token a change was made with, when it was not made in the app: an agent's or a script's
+   * name, written by the server and never by a client. Absent on anything a person did at the
+   * board, so "Maya" and "Maya via CI bot" stay different sentences.
+   */
+  via?: string
   /** What happened, in the words of the moment — a move's lane names as they were then. */
   note?: string
   /**
@@ -373,6 +379,17 @@ export interface Item {
    * is about size, not deadlines. It never affects status, rollup, WIP or a dependency.
    */
   dueDate?: string
+  /**
+   * Where this work lives elsewhere: the label the team chose, and the address it points at.
+   *
+   * A reference, not a relationship. Nothing about it affects status, rollup, WIP or a dependency,
+   * the app never fetches the address (no preview, no icon, no metadata), and the other system
+   * cannot push anything back through it. The URL makes the link — an address a browser may follow
+   * (`http`/`https` only) — and the label is what the card shows; without a label it reads as the
+   * site's host.
+   */
+  externalLabel?: string
+  externalUrl?: string
   createdAt: number
   /**
    * The item's revision: incremented once per accepted change to its own **content**. Optional,
@@ -520,6 +537,4 @@ export interface FlowState {
   keyResults: KeyResult[]
   /** Reusable board designs. Part of the workspace's data, not of any one board. */
   boardTemplates: BoardTemplate[]
-  /** Auto-archive Done items after this many days (0/undefined = off). */
-  autoArchiveDays?: number
 }

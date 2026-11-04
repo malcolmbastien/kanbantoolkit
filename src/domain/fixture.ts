@@ -83,6 +83,9 @@ export function createFixture(): FlowState {
     // Long in the making, delivered this week: the slowest card on the board, and the one the
     // flow view's tail is honest about.
     resolvedAt: T - 2 * DAY,
+    // The one card with a link, so exports, search and the card chip have a fixture to read.
+    externalLabel: 'FIG-88',
+    externalUrl: 'https://design.example.com/fig-88',
     log: [
       { id: 'log-design-1', at: T - 58 * DAY, kind: 'created' },
       moved('log-design-2', T - 56 * DAY, a.backlog, a.ns, 'backlog', 'notStarted'),

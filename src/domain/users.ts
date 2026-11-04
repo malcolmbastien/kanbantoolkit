@@ -29,3 +29,21 @@ export function nameOfUser(users: User[], id: string | undefined): string | unde
   if (!id) return undefined
   return userById(users, id)?.name ?? FORMER_MEMBER
 }
+
+/**
+ * The people an item names, as the faces a surface draws.
+ *
+ * One rule for both ends of it: an id the directory holds is that person, and an id it does not is
+ * `FORMER_MEMBER` rather than a raw id or a blank — the work still names whoever did it, and a card
+ * that says "u_9f3a" has forgotten it was written by a person. `gone` is what lets a surface draw
+ * the removed account's mark while still having a name to put in a tooltip.
+ */
+export function peopleOf(
+  users: User[],
+  ids: string[] | undefined,
+): Array<{ id: string; name: string; avatarUrl?: string; gone: boolean }> {
+  return (ids ?? []).map((id) => {
+    const person = userById(users, id)
+    return { id, name: person?.name ?? FORMER_MEMBER, avatarUrl: person?.avatarUrl, gone: !person }
+  })
+}

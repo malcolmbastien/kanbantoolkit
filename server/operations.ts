@@ -16,15 +16,17 @@ import { decompositionParent, objectiveRollup, rollupOf } from '../src/domain/de
 import { cardsFlows, initiativesFlow, kindOf } from '../src/domain/flows'
 import { boardCardTypeId, boardTags, canRetype, canServeObjective, canSetParent, defaultDropLane, isInitiativeItem } from '../src/domain/board'
 import { searchHits } from '../src/domain/search'
+import { mentionedIds } from '../src/domain/mentions'
+import { safeExternalUrl } from '../src/domain/externalLink'
 import { moveCard, moveInitiative } from '../src/domain/move'
-import type { Role } from '../src/domain/roles'
+import { can, type Role } from '../src/domain/roles'
 import type { Scope } from '../src/domain/scopes'
 import { statement } from './audit'
 import type { Database, Statement } from './db'
 import { randomToken } from './auth/oauth'
 import type { AuthUser } from './auth/session'
-import { boardFromRow, itemFromRow, readItem, readWorkspace } from './workspace/read'
-import { appliedItemOf, writeItemAndPlacements, writeWorkspace } from './workspace/write'
+import { boardFromRow, itemBelongsElsewhere, itemFromRow, readItem, readWorkspace } from './workspace/read'
+import { appendHistory, appliedItemOf, writeItemAndPlacements, writeWorkspace } from './workspace/write'
 import { emitItemChange, emitObjectiveMapping } from './events'
 import { parseItem, parseWorkspace } from './workspace/validate'
 import type { Board, BoardFlow, Item, ItemLogEntry, Lane, Placement } from '../src/domain/types'
@@ -37,6 +39,8 @@ export interface OpCaller {
   user: AuthUser
   /** The token that acted — named in the trail, and the unit a rate limit counts. */
   tokenId: string
+  /** The token's own name, so a card's history can say "via CI bot" beside the person. */
+  tokenName?: string
   scopes: Scope[]
   workspaceId: string
   role: Role
@@ -71,6 +75,8 @@ export const compactItem = (item: Item, placement?: Placement) => ({
   ...(item.targetStartDate ? { targetStartDate: item.targetStartDate } : {}),
   ...(item.targetEndDate ? { targetEndDate: item.targetEndDate } : {}),
   ...(item.dueDate ? { dueDate: item.dueDate } : {}),
+  ...(item.externalLabel ? { externalLabel: item.externalLabel } : {}),
+  ...(item.externalUrl ? { externalUrl: item.externalUrl } : {}),
   ...(placement ? { boardId: placement.boardId, laneId: placement.laneId, rank: placement.rank ?? 0 } : {}),
   rev: item.rev ?? 0,
   createdAt: item.createdAt,
@@ -170,7 +176,13 @@ export const auditWrite = (caller: OpCaller, operation: string, target: string, 
     action: 'api.write',
     targetType: 'item',
     targetId: target,
-    data: { operation, token: caller.tokenId, scopes: caller.scopes, ...extra },
+    data: {
+      operation,
+      token: caller.tokenId,
+      ...(caller.tokenName ? { tokenName: caller.tokenName } : {}),
+      scopes: caller.scopes,
+      ...extra,
+    },
   })
 
 const newId = (prefix = 'i') => `${prefix}_${randomToken(9)}`
@@ -417,6 +429,59 @@ export async function search(caller: OpCaller, q: string, limit?: unknown) {
   return ok(pageOf(rows, boundedLimit(limit)))
 }
 
+export interface NoteInput {
+  text?: unknown
+}
+
+/**
+ * A note on a card, through a token.
+ *
+ * The same act as the drawer's composer — a `noted` entry in the item's history, with its author and
+ * the mentions a sentence names — and the same refusal when the note is empty. It takes no revision:
+ * a note is an append, so a script reporting back cannot be blocked by somebody else's edit, and it
+ * cannot overwrite one either.
+ *
+ * `item.comment` is the door, exactly as it is for a Viewer at the board, so a read-only agent that
+ * was granted the scope can report back without being able to change the plan.
+ */
+export async function addNote(caller: OpCaller, itemId: string, body: NoteInput) {
+  const text = typeof body.text === 'string' ? body.text.trim() : ''
+  if (!text) return no(422, 'invalid', '`text` is required: a note is something somebody wrote', { field: 'text' })
+  if (text.length > 2000) return no(422, 'invalid', 'a note holds 2000 characters at most', { field: 'text' })
+
+  const current = await readItem(caller.db, itemId, caller.workspaceId)
+  if (!current) {
+    if (await itemBelongsElsewhere(caller.db, itemId, caller.workspaceId)) return no(404, 'not_found', 'no such item')
+    return no(404, 'not_found', 'no such item')
+  }
+  if (!can(caller.role, 'item.comment')) {
+    return no(403, 'role_forbidden', `a ${caller.role} may not add a note`)
+  }
+
+  // A mention is only looked for when the sentence carries one: a plain note does not need the
+  // people directory read at all.
+  const mentions = text.includes('@') ? mentionedIds(text, (await readWorkspace(caller.db, caller.workspaceId)).users) : []
+  const at = Date.now()
+  const entry: ItemLogEntry = {
+    id: newId('l'),
+    at,
+    kind: 'noted',
+    note: text,
+    by: caller.user.id,
+    ...(caller.tokenName ? { via: caller.tokenName } : {}),
+    ...(mentions.length ? { mentions } : {}),
+  }
+
+  await appendHistory(caller.db, itemId, [entry], caller.workspaceId)
+  // The same post-write reading every other change uses: a note emits `item.noted`, subscribes its
+  // author to the card, and reaches a receiver — without a second path that could drift.
+  await emitItemChange(caller.db, caller.workspaceId, current, { ...current, log: [...(current.log ?? []), entry] }, undefined, caller.user.id)
+  // One trail row for the call, written with the note: a token's act that left no audit row would
+  // be the one act the admin screen could not explain.
+  await caller.db.batch([auditWrite(caller, 'item.note', itemId)])
+  return ok({ item: compactItem(current), entry })
+}
+
 /** What an agent reads before it plans: the shape of the workspace, not every card in it. */
 export async function workspaceSummary(caller: OpCaller) {
   const state = await readWorkspace(caller.db, caller.workspaceId)
@@ -505,6 +570,8 @@ export interface NewItemInput {
   targetStartDate?: unknown
   targetEndDate?: unknown
   dueDate?: unknown
+  externalLabel?: unknown
+  externalUrl?: unknown
 }
 
 export async function createItem(caller: OpCaller, body: NewItemInput, key?: string) {
@@ -558,6 +625,13 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
     }
   }
 
+  // A link is an address a browser may follow. A client that sends anything else hears so, rather
+  // than having a chip nobody can press stored on the card.
+  const external = body.externalUrl === undefined ? undefined : safeExternalUrl(typeof body.externalUrl === 'string' ? body.externalUrl : '')
+  if (body.externalUrl !== undefined && !external) {
+    return no(422, 'invalid', '`externalUrl` must be an http or https address', { field: 'externalUrl' })
+  }
+
   // The board stopped counting points. A client that still sends `size` hears so, rather than
   // having a number it believes in quietly dropped on the floor.
   if ('size' in body) return no(422, 'invalid', '`size` is gone: this board counts issues, not points', { field: 'size' })
@@ -580,8 +654,12 @@ export async function createItem(caller: OpCaller, body: NewItemInput, key?: str
     ...(typeof body.targetStartDate === 'string' ? { targetStartDate: body.targetStartDate } : {}),
     ...(typeof body.targetEndDate === 'string' ? { targetEndDate: body.targetEndDate } : {}),
     ...(typeof body.dueDate === 'string' ? { dueDate: body.dueDate } : {}),
+    ...(external ? { externalUrl: external } : {}),
+    ...(external && typeof body.externalLabel === 'string' && body.externalLabel.trim()
+      ? { externalLabel: body.externalLabel.trim().slice(0, 300) }
+      : {}),
     rev: 1,
-    log: [{ id: newId(), at: now, kind: 'created', by: caller.user.id }],
+    log: [{ id: newId(), at: now, kind: 'created', by: caller.user.id, ...(caller.tokenName ? { via: caller.tokenName } : {}) }],
   }
   // The shape check is the server's own parser, not a second one written here.
   const item = parseItem(draft)
@@ -647,6 +725,8 @@ export interface ItemPatch {
   targetStartDate?: unknown
   targetEndDate?: unknown
   dueDate?: unknown
+  externalLabel?: unknown
+  externalUrl?: unknown
   parentId?: unknown
 }
 
@@ -756,6 +836,40 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
     if (!parsed.ok) return parsed
     next.dueDate = parsed.value
   }
+  // The link: an address, and a label that belongs to one. `null` (or an empty address) clears both,
+  // because a label with nowhere to go is not a link a reader can press.
+  if (body.externalUrl !== undefined) {
+    if (body.externalUrl !== null && typeof body.externalUrl !== 'string') {
+      return no(422, 'invalid', '`externalUrl` must be a web address or null', { field: 'externalUrl' })
+    }
+    const address = typeof body.externalUrl === 'string' ? safeExternalUrl(body.externalUrl) : undefined
+    if (typeof body.externalUrl === 'string' && body.externalUrl.trim() !== '' && !address) {
+      return no(422, 'invalid', '`externalUrl` must be an http or https address', { field: 'externalUrl' })
+    }
+    if (!address) {
+      next.externalUrl = undefined
+      next.externalLabel = undefined
+      changes.push('external link')
+    } else {
+      next.externalUrl = address
+      if (body.externalLabel !== undefined) {
+        if (body.externalLabel !== null && typeof body.externalLabel !== 'string') {
+          return no(422, 'invalid', '`externalLabel` must be a string or null', { field: 'externalLabel' })
+        }
+        next.externalLabel = typeof body.externalLabel === 'string' ? body.externalLabel.trim().slice(0, 300) || undefined : undefined
+      }
+      changes.push('external link')
+    }
+  } else if (body.externalLabel !== undefined) {
+    if (!next.externalUrl) {
+      return no(422, 'invalid', 'set `externalUrl` too: a label belongs to a link', { field: 'externalLabel' })
+    }
+    if (body.externalLabel !== null && typeof body.externalLabel !== 'string') {
+      return no(422, 'invalid', '`externalLabel` must be a string or null', { field: 'externalLabel' })
+    }
+    next.externalLabel = typeof body.externalLabel === 'string' ? body.externalLabel.trim().slice(0, 300) || undefined : undefined
+    changes.push('external link')
+  }
   if (body.parentId !== undefined) {
     const parentId = body.parentId === null ? undefined : String(body.parentId)
     // The domain decides, exactly as it does for a drop.
@@ -767,7 +881,17 @@ export async function updateItem(caller: OpCaller, itemId: string, body: ItemPat
 
   const stored: Item = {
     ...next,
-    ...(changes.length ? { log: [...(next.log ?? []), editedEntry({ id: newId, at: now, by: caller.user.id }, changes.join(', '))] } : {}),
+    ...(changes.length
+      ? {
+          log: [
+            ...(next.log ?? []),
+            {
+              ...editedEntry({ id: newId, at: now, by: caller.user.id }, changes.join(', ')),
+              ...(caller.tokenName ? { via: caller.tokenName } : {}),
+            },
+          ],
+        }
+      : {}),
     rev: body.baseRev + 1,
   }
 

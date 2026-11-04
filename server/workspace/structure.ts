@@ -45,7 +45,7 @@ export async function readBoardBands(db: Database, workspaceId: string): Promise
 }
 
 /**
- * A board's flight level is fixed when it is made.
+ * A board's type is fixed when it is made.
  *
  * A design may add a board of any band, and may delete one; it may not move a board that already
  * exists from one band to another. The band decides which surfaces the board has and where its

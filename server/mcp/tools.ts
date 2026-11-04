@@ -29,6 +29,7 @@ import {
   setParentItem,
   updateItem,
   workspaceSummary,
+  addNote,
   type Op,
   type OpCaller,
 } from '../operations'
@@ -134,6 +135,8 @@ export const TOOLS: ToolSpec[] = [
         targetStartDate: { type: 'string', description: 'YYYY-MM-DD.' },
         targetEndDate: { type: 'string', description: 'YYYY-MM-DD.' },
         dueDate: { type: 'string', description: 'YYYY-MM-DD — the day the work is promised for.' },
+        externalLabel: { type: 'string', description: 'Where the work lives elsewhere: the label the card shows.' },
+        externalUrl: { type: 'string', description: 'The address it opens — http or https only.' },
       },
       ['boardId', 'title'],
     ),
@@ -142,7 +145,7 @@ export const TOOLS: ToolSpec[] = [
   {
     name: 'update_item',
     description:
-      'Change the fields a person writes: title, description, type, priority, assignees, tags, target dates, due date, parent. `baseRev` is required and is the revision from get_item — a revision that has moved is refused with the current item, so read it and decide rather than forcing. An initiative is never retyped; a parent must be an initiative and nothing can be its own ancestor.',
+      'Change the fields a person writes: title, description, type, priority, assignees, tags, target dates, due date, external link (label and http/https URL), parent. `baseRev` is required and is the revision from get_item — a revision that has moved is refused with the current item, so read it and decide rather than forcing. An initiative is never retyped; a parent must be an initiative and nothing can be its own ancestor.',
     scope: 'items:write',
     action: 'item.write',
     inputSchema: object(
@@ -158,6 +161,8 @@ export const TOOLS: ToolSpec[] = [
         targetStartDate: { type: ['string', 'null'], description: 'YYYY-MM-DD or null.' },
         targetEndDate: { type: ['string', 'null'], description: 'YYYY-MM-DD or null.' },
         dueDate: { type: ['string', 'null'], description: 'YYYY-MM-DD or null — the day the work is promised for.' },
+        externalLabel: { type: ['string', 'null'], description: 'The label the card shows for its link, or null.' },
+        externalUrl: { type: ['string', 'null'], description: 'The address the link opens (http or https), or null to clear it.' },
         parentId: { type: ['string', 'null'], description: 'An initiative’s id, or null to detach.' },
       },
       ['itemId', 'baseRev'],
@@ -205,6 +210,21 @@ export const TOOLS: ToolSpec[] = [
     ),
     run: (caller, args) =>
       setParentItem(caller, String(args.itemId ?? ''), args.parentId === null ? null : String(args.parentId ?? ''), args.baseRev),
+  },
+  {
+    name: 'add_note',
+    description:
+      'Add a note to an item: a comment in its activity, written as you (the token’s owner), with the mentions its sentence names. Use it to report what you did, ask for a decision, or leave a finding — it is how an agent writes back without changing the plan. It changes no field and takes no revision, so a move by somebody else cannot block it. `text` is required, plain text, 2000 characters at most.',
+    scope: 'items:comment',
+    action: 'item.comment',
+    inputSchema: object(
+      {
+        itemId: id('The item to add the note to.'),
+        text: text('The note. Plain text; `@Name` mentions somebody on this instance.'),
+      },
+      ['itemId', 'text'],
+    ),
+    run: (caller, args) => addNote(caller, String(args.itemId ?? ''), { text: args.text }),
   },
 ]
 

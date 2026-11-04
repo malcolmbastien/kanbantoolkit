@@ -161,12 +161,27 @@ describe('timeline layout', () => {
     })
     expect(l.days).toHaveLength(l.totalDays) // November and December, whole months
     // 1 Nov 2026 is a Sunday, and it is where the axis restates the month.
-    expect(l.days[0]).toEqual({ offset: 0, dateIso: '2026-11-01', day: 1, monthStart: true, weekend: true })
-    expect(l.days[31]).toEqual({ offset: 31, dateIso: '2026-12-02', day: 2, monthStart: false, weekend: false })
+    expect(l.days[0]).toEqual({ offset: 0, dateIso: '2026-11-01', day: 1, monthStart: true, weekend: true, weekStart: false })
+    expect(l.days[31]).toEqual({ offset: 31, dateIso: '2026-12-02', day: 2, monthStart: false, weekend: false, weekStart: false })
     expect(l.days.filter((d) => d.monthStart).map((d) => d.dateIso)).toEqual(['2026-11-01', '2026-12-01'])
     // The weekends are the calendar's own: Sat 5 Dec is one, Fri 4 Dec is not.
     expect(l.days.filter((d) => d.weekend).map((d) => d.dateIso)).toContain('2026-12-05')
     expect(l.days.find((d) => d.dateIso === '2026-12-04')!.weekend).toBe(false)
+    // A week starts on Monday: 30 Nov 2026 is one, and the Sunday before it is not.
+    expect(l.days.filter((d) => d.weekStart).map((d) => d.dateIso)).toEqual([
+      '2026-11-02',
+      '2026-11-09',
+      '2026-11-16',
+      '2026-11-23',
+      '2026-11-30',
+      '2026-12-07',
+      '2026-12-14',
+      '2026-12-21',
+      '2026-12-28',
+    ])
+    expect(l.days.find((d) => d.dateIso === '2026-11-29')!.weekStart).toBe(false)
+    // A month's first day can be a week start as well; the grid draws the stronger line.
+    expect(l.days.find((d) => d.dateIso === '2026-11-30')!.monthStart).toBe(false)
     // The offsets are the ones the bars are placed with, so a tick cannot drift off its column.
     expect(l.days.map((d) => d.offset)).toEqual(l.days.map((_, i) => i))
   })
@@ -174,7 +189,7 @@ describe('timeline layout', () => {
   it('numbers an empty board’s axis too, so the tick row is never blank', () => {
     const l = layoutTimeline([], { today: TODAY })
     expect(l.days).toHaveLength(31) // December 2026
-    expect(l.days[0]).toEqual({ offset: 0, dateIso: '2026-12-01', day: 1, monthStart: true, weekend: false })
+    expect(l.days[0]).toEqual({ offset: 0, dateIso: '2026-12-01', day: 1, monthStart: true, weekend: false, weekStart: false })
     expect(l.days[30].day).toBe(31)
   })
 

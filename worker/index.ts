@@ -13,6 +13,7 @@ import { createApp } from '../server/app'
 import { liveCaller } from '../server/live'
 import { WORKSPACE_ID } from '../server/auth/session'
 import { dispatchDue } from '../server/webhooks'
+import { sendDigests } from '../server/digest'
 import { changeRetentionDays, pruneChanges } from '../server/workspace/changes'
 import { d1 } from './d1'
 
@@ -105,6 +106,10 @@ export default {
     const db = database(env)
     if (!db) return
     ctx.waitUntil(dispatchDue(db).catch((error) => console.error('webhook dispatch failed', error)))
+    // The Worker has no relay (SMTP is not a binding it can open), so this answers "unavailable"
+    // and sends nothing. It is here because the schedule is the deployment's, not the mailbox's:
+    // an entry that grows a mail binding gets delivery without a second timer.
+    ctx.waitUntil(sendDigests(db, { env }).catch((error) => console.error('mail digest failed', error)))
     ctx.waitUntil(
       pruneChanges(db, { days: changeRetentionDays(env) }).catch((error) =>
         console.error('change feed prune failed', error),

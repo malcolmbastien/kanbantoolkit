@@ -94,6 +94,36 @@ test('a due date set in the drawer is on the card, and says how late it is', asy
   await expect(chip).toHaveAttribute('data-due-date', '2020-01-02')
 })
 
+test('a link set in the drawer is on the card, and opens in a new tab', async ({ page }) => {
+  await openBoard(page)
+  const id = await openFirstBacklogCard(page)
+  // The target is never fetched by the app; the test does not fetch it either.
+  await page.route('https://jira.example.com/**', (route) => route.abort())
+
+  await page.getByLabel('External link label').fill('ATLAS-431')
+  await page.getByLabel('External link URL').fill('https://jira.example.com/browse/ATLAS-431')
+  await page.getByLabel('External link URL').blur()
+
+  // An address a browser must not follow is refused where it is written, and the typed value stays
+  // so a missing `https://` can be fixed in place.
+  await page.getByLabel('External link URL').fill('javascript:alert(1)')
+  await page.getByLabel('External link URL').blur()
+  await expect(page.getByText('That is not a web address')).toBeVisible()
+  await page.getByLabel('External link URL').fill('https://jira.example.com/browse/ATLAS-431')
+  await page.getByLabel('External link URL').blur()
+  await expect(page.getByText('That is not a web address')).toHaveCount(0)
+
+  await closeDrawer(page)
+  const chip = card(page, id).getByRole('link', { name: /ATLAS-431/ })
+  await expect(chip).toHaveAttribute('href', 'https://jira.example.com/browse/ATLAS-431')
+  await expect(chip).toHaveAttribute('target', '_blank')
+
+  // The chip is a way out, not a way in: it opens the target and leaves the card closed.
+  const [popup] = await Promise.all([page.waitForEvent('popup'), chip.click()])
+  await popup.close()
+  await expect(page.locator('[data-item-panel]')).toHaveCount(0)
+})
+
 test('a person added in the drawer is on the card', async ({ page }) => {
   await openBoard(page)
   const id = await openFirstBacklogCard(page)

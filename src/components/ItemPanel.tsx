@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, ArchiveX, ArrowRight, Ban, CalendarClock, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Archive, ArchiveX, ArrowRight, Ban, Bell, BellOff, CalendarClock, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Link2, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
   archiveOutcome,
   attributedObjectives,
   canDepend,
   checklistItems,
-  decompositionChildren,
   decompositionParent,
   dependenciesOf,
   dependentsOf,
   lineageOf,
-  isComplete,
   objectiveRollup,
-  rollupOf,
   type Graph,
 } from '@/domain/derive'
 import { boardInitiativeTypes, boardTags, canFocusBoard, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, NONE_TYPE_ID, placementOn, tagsOf } from '@/domain/board'
@@ -33,7 +30,9 @@ import { useAuth } from '@/lib/auth'
 import { useMay } from '@/lib/permissions'
 import { useSync } from '@/lib/sync'
 import { fetchItemLog, mergeLog, type LogPage } from '@/lib/history'
+import { toggleWatch } from '@/lib/watch'
 import { useStore, isBoardSurface } from '@/store'
+import { buildBoardModel } from '@/domain/boardModel'
 import { TagInput } from './TagInput'
 import { PersonAvatar } from './PersonAvatar'
 import { PersonPicker } from './PersonPicker'
@@ -84,6 +83,7 @@ export function ItemPanel({ itemId }: Props) {
   useReturnFocus()
   const setItemFields = useStore((s) => s.setItemFields)
   const setDueDate = useStore((s) => s.setDueDate)
+  const setExternalLink = useStore((s) => s.setExternalLink)
   const setParent = useStore((s) => s.setParent)
   const addChecklistEntry = useStore((s) => s.addChecklistEntry)
   const toggleChecklistEntry = useStore((s) => s.toggleChecklistEntry)
@@ -113,6 +113,8 @@ export function ItemPanel({ itemId }: Props) {
   const setObjectives = useStore((s) => s.setObjectives)
   const toggleLens = useStore((s) => s.toggleLens)
   const lensId = useStore((s) => s.lensId)
+  // A watch is not a permission — a Viewer can watch — so this is not behind `canWrite`.
+  const watching = useStore((s) => s.watchedItemIds.includes(itemId))
 
   const [tab, setTab] = useState<Tab>('overview')
   // The card's history from the server: `undefined` while asking, `null` when this deployment has
@@ -153,15 +155,27 @@ export function ItemPanel({ itemId }: Props) {
   }
   const [editingEntry, setEditingEntry] = useState<string | null>(null)
   const [entryDraft, setEntryDraft] = useState('')
+  // The link is typed before it is a link: two fields committed on blur, so a half-typed address is
+  // never written and never logged. The draft is dropped when another card opens.
+  const [linkDraft, setLinkDraft] = useState<{ label: string; url: string } | null>(null)
+  const [linkError, setLinkError] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    setLinkDraft(null)
+    setLinkError(undefined)
+  }, [itemId])
   // Escape closes the editor without saving, and the blur that follows must not put the text
   // back. A ref rather than state, because the blur can arrive before a render.
   const abandoned = useRef(false)
 
   const graph: Graph = { items, edges, links, placements, lanes }
+  // The same derived model the board builds — a drawer reads one item's rollup and its children
+  // on every keystroke in the description, and each of those walked the whole subtree. Built once
+  // per change to the work, never per render.
+  const model = useMemo(() => buildBoardModel(graph), [items, edges, links, placements, lanes])
   const item = items.find((i) => i.id === itemId)
   // Filing away is one act with two names: a card whose work is done is archived, and a card still
   // in play is discarded, which drops it from the board without claiming it was finished.
-  const complete = Boolean(item) && isComplete(itemId, graph)
+  const complete = Boolean(item) && model.rollup.get(itemId)?.bucket === 'done'
   // The lease: somebody else's pen closes the fields, and this tab's own is taken on intent.
   const locks = usePresence((s) => s.locks)
   const held = heldByOther(locks, itemId)
@@ -176,6 +190,30 @@ export function ItemPanel({ itemId }: Props) {
   const archived = Boolean(item?.archived)
   const locked = Boolean(held) || !canWrite || archived
   const refusal = useSync((s) => s.refusals[itemId])
+
+  // What this item breaks down into, and the two lists a picker offers. They are derived from the
+  // graph, so they are found when it changes — not on every render of the drawer, and not at all
+  // for a picker nobody has opened.
+  const childItems = useMemo(() => {
+    if (!item) return []
+    return (model.childrenOf.get(item.id) ?? [])
+      .map((id) => model.itemsById.get(id))
+      .filter((i): i is Item => Boolean(i))
+  }, [model, item?.id])
+  const parentCandidates = useMemo(
+    () => (item && parentEditorOpen ? items.filter((i) => canSetParent(item.id, i.id, graph, issueTypes)) : []),
+    // `graph` is rebuilt each render, so the arrays it holds are the dependencies that matter.
+    [item?.id, parentEditorOpen, items, edges, links, placements, lanes, issueTypes],
+  )
+  const dependencyCandidates = useMemo(
+    () =>
+      item && tab === 'hierarchy'
+        ? items
+            .filter((i) => canDepend(item.id, i.id, graph))
+            .sort((a, b) => a.title.localeCompare(b.title))
+        : [],
+    [item?.id, tab, items, edges, links, placements, lanes],
+  )
 
   // A refusal that was only a lease ends when the lease does: the card is editable again without
   // anybody having to press anything.
@@ -221,13 +259,11 @@ export function ItemPanel({ itemId }: Props) {
   const type = issueTypes.find((t) => t.id === item.typeId) ?? { id: item.typeId, name: 'Item', color: '#64748b' }
   const parentId = decompositionParent(item.id, edges)
   const parent = parentId ? items.find((i) => i.id === parentId) : undefined
-  const children = decompositionChildren(item.id, edges)
-    .map((id) => items.find((i) => i.id === id))
-    .filter((i): i is Item => Boolean(i))
+  const children = childItems
   const dependencies = dependenciesOf(item.id, graph)
   const dependents = dependentsOf(item.id, graph)
   const attributed = attributedObjectives(item.id, edges, objectives)
-  const roll = rollupOf(item.id, graph)
+  const roll = model.rollup.get(item.id)!
   const stage = roll.bucket
   // What this browser knew, plus the pages the drawer read. Ascending; the Activity tab reverses.
   const log = mergeLog(item.log, historyPage?.entries)
@@ -399,16 +435,42 @@ export function ItemPanel({ itemId }: Props) {
   /** How many of a warning's cards are named before the rest are counted. */
   const WARN_CARDS = 4
 
+  /**
+   * The link, committed when the field is left.
+   *
+   * A label typed before its address is a field **in progress**, not a link: leaving the label
+   * keeps the draft, so the address typed next still has the label to belong to. Clearing an
+   * address the card already had does clear the link — with the label, because a label pointing
+   * nowhere is not something a reader can press.
+   *
+   * A store refusal is the sentence under the field, not a silent revert: the typed address stays
+   * where it was written so a missing `https://` can be fixed in place.
+   */
+  const commitLink = () => {
+    if (!linkDraft) return
+    if (!linkDraft.url.trim() && !item.externalUrl) return
+    if (setExternalLink(item.id, linkDraft.label, linkDraft.url)) {
+      setLinkDraft(null)
+      setLinkError(undefined)
+    } else {
+      setLinkError('That is not a web address. Use http:// or https://.')
+    }
+  }
+  const clearLink = () => {
+    setExternalLink(item.id, '', '')
+    setLinkDraft(null)
+    setLinkError(undefined)
+  }
+
   // A parent is always an initiative — the same rule the store enforces (`canSetParent`), offered
   // here so the select cannot propose something that would be refused, including a mapped
-  // initiative that has to stay a root.
-  const candidates = items.filter((i) => canSetParent(item.id, i.id, graph, issueTypes))
+  // initiative that has to stay a root. `parentCandidates` is the memoised list, and it is empty
+  // until the editor is open.
+  const candidates = parentCandidates
   // A dependency is a link across the decomposition, never along it, and never one that closes a
   // loop — the same rule the store enforces (`canDepend`). The picker therefore offers only the
   // cards the link would actually be made to: not the item itself, not a parent or a descendant.
-  const dependencyCandidates = items
-    .filter((i) => canDepend(item.id, i.id, graph))
-    .sort((a, b) => a.title.localeCompare(b.title))
+  // Likewise memoised, and empty until the Hierarchy tab is open.
   // Initiative is reserved for the Initiatives workflow — a card can't be promoted to it.
   // Every card type is offered; the item's current type is always among them.
   const typeOptions = cardTypes(issueTypes)
@@ -466,7 +528,7 @@ export function ItemPanel({ itemId }: Props) {
    * an action of its own keeps that action beside the name rather than making the row a button.
    */
   const itemRow = (c: Item, onOpen: () => void, opts: { onRemove?: () => void; stage?: boolean } = {}) => {
-    const bucket = rollupOf(c.id, graph).bucket
+    const bucket = model.rollup.get(c.id)!.bucket
     return (
       <div
         key={c.id}
@@ -513,7 +575,7 @@ export function ItemPanel({ itemId }: Props) {
    */
   const linkRow = (c: Item, opts: { onRemove?: () => void } = {}) => {
     const there = boardOf(c.id)
-    const bucket = rollupOf(c.id, graph).bucket
+    const bucket = model.rollup.get(c.id)!.bucket
     return (
       <div key={c.id} className="group relative">
         <button
@@ -594,6 +656,13 @@ export function ItemPanel({ itemId }: Props) {
             </button>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
+            <IconButton
+              title={watching ? 'Watching — stop watching this item' : 'Watch this item'}
+              active={watching}
+              onClick={() => void toggleWatch(item.id)}
+            >
+              {watching ? <BellOff size={15} /> : <Bell size={15} />}
+            </IconButton>
             {!archived && focusable && (
               <IconButton
                 title={focusOn ? 'Stop focusing this line' : 'Focus this line on the board'}
@@ -1194,6 +1263,59 @@ export function ItemPanel({ itemId }: Props) {
                     <DueChip item={item} complete={complete} />
                   </div>
                 </Field>
+
+                {/* Where the work lives elsewhere. Two fields, because a link is a label and an
+                    address: the label is what the card shows, and the address is what a reader
+                    presses. Nothing is fetched — no preview, no icon from the other site — and
+                    only a web address is written. */}
+                <Field
+                  label="External link"
+                  className="col-span-2"
+                  hint="Where the work lives elsewhere — a ticket, a design, a page. Only http and https."
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className={cn(WELL, 'flex-1')}>
+                      <Link2 size={13} className="shrink-0 text-slate-400" />
+                      <input
+                        value={linkDraft ? linkDraft.label : item.externalLabel ?? ''}
+                        onChange={(e) => {
+                          setLinkDraft({ label: e.target.value, url: linkDraft ? linkDraft.url : item.externalUrl ?? '' })
+                          setLinkError(undefined)
+                        }}
+                        onBlur={commitLink}
+                        aria-label="External link label"
+                        placeholder="Label, e.g. ATLAS-12"
+                        className="min-w-0 flex-1 bg-transparent text-meta text-slate-700 outline-none"
+                      />
+                    </div>
+                    <div className={cn(WELL, 'flex-[2]')}>
+                      <input
+                        value={linkDraft ? linkDraft.url : item.externalUrl ?? ''}
+                        onChange={(e) => {
+                          setLinkDraft({ label: linkDraft ? linkDraft.label : item.externalLabel ?? '', url: e.target.value })
+                          setLinkError(undefined)
+                        }}
+                        onBlur={commitLink}
+                        aria-label="External link URL"
+                        placeholder="https://…"
+                        inputMode="url"
+                        className="min-w-0 flex-1 bg-transparent text-meta text-slate-700 outline-none"
+                      />
+                      {(item.externalUrl || linkDraft?.url) && (
+                        <button
+                          onClick={clearLink}
+                          title="Remove the link"
+                          aria-label="Remove the external link"
+                          className="shrink-0 text-slate-500 transition hover:text-rose-600"
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {linkError && <p className="mt-1 text-micro text-rose-600">{linkError}</p>}
+                </Field>
+
                 {/* Who made it: the record the server keeps, read where the item's other facts are
                     read. Never a field — no box, no control — and when the item predates the record
                     it says so, because a blank would read as "nobody made this". */}
@@ -1564,7 +1686,7 @@ export function ItemPanel({ itemId }: Props) {
                    hunting through what is done. */
                 <div className="space-y-3">
                   {STAGE_ORDER.map((stage) => {
-                    const group = children.filter((c) => rollupOf(c.id, graph).bucket === stage)
+                    const group = children.filter((c) => model.rollup.get(c.id)?.bucket === stage)
                     if (group.length === 0) return null
                     return (
                       <div key={stage} className="space-y-1">
@@ -1695,6 +1817,9 @@ export function ItemPanel({ itemId }: Props) {
                         {/* Who, beside when. An entry from before identities says only when: a
                             name would be invented, and a blank is the honest answer. */}
                         {authorOf(e) ? ` · ${authorOf(e)}` : ''}
+                        {/* A change made through a token says which one: an agent acts as its
+                            owner, so without this a script's note reads as a person's. */}
+                        {e.via ? <span className="text-slate-500"> · via {e.via}</span> : null}
                       </div>
                     </div>
                   </div>

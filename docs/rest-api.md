@@ -9,7 +9,9 @@ attached.
 Within `v1`:
 
 - **Fields are added, never removed and never retyped.** A client may read the fields documented here
-  and rely on them.
+  and rely on them. One exception is on the record: `autoArchiveDays` left `GET /vocabulary` when the
+  setting itself did — finished work is filed after a week, always. A document that still sends it is
+  not refused; the field is simply not stored.
 - **A new field is always optional.** A response may grow; it will not grow a field you must send.
 - **A new *required* field in a request is a breaking change**, so it does not happen inside `v1`.
 - **`code` in an error body is stable.** Branch on it; never on `message`, which is for a person.
@@ -81,7 +83,7 @@ first is the token you chose, the second is the person you are.
 | `GET /objectives` | `boards:read` | objectives with their completeness and key results |
 | `POST /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | map a top-level initiative to an objective; one objective per initiative, so this moves it |
 | `DELETE /objectives/{objectiveId}/initiatives/{itemId}` | `items:write` | unmap it |
-| `GET /vocabulary` | `boards:read` | issue types, board templates, objectives, key results and the auto-archive policy, with `rev` |
+| `GET /vocabulary` | `boards:read` | issue types, board templates, objectives and key results, with `rev` |
 | `PUT /vocabulary` | `boards:read`, then per list | replace the whole vocabulary; requires `rev`, and a list the token's scopes or the role do not allow refuses the document |
 | `GET /people` | `people:read` | names and ids, so an assignment names a person |
 | `GET /search?q=` | `items:read` | the app's own search over titles, descriptions and notes, not a query language; each result carries the clipped matching line |

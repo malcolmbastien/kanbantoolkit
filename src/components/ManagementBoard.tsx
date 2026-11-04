@@ -49,7 +49,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   /**
    * A section is the same slim bar a team board uses — a dot in the band's colour, a title,
    * a subtitle and a rule — so a program or portfolio reads like a team board. Only the
-   * colour changes with the flight level; the shape is the product's.
+   * colour changes with the board type; the shape is the product's.
    */
   const section = (
     key: string,

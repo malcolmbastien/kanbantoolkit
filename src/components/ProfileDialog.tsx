@@ -23,6 +23,10 @@ interface Profile {
   avatarUrl?: string
   timezone?: string
   language?: string
+  /** Whether this deployment has a relay at all. Absent from an older server means no. */
+  mailAvailable?: boolean
+  mailOn?: boolean
+  mailFrequency?: 'immediate' | 'daily' | 'weekly'
 }
 
 interface Identity {
@@ -54,6 +58,9 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
   const [timezone, setTimezone] = useState('')
   const [language, setLanguage] = useState('')
   const [avatar, setAvatar] = useState<string | undefined>()
+  const [mailAvailable, setMailAvailable] = useState(false)
+  const [mailOn, setMailOn] = useState(false)
+  const [mailFrequency, setMailFrequency] = useState<'immediate' | 'daily' | 'weekly'>('daily')
   const [error, setError] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
 
@@ -70,6 +77,9 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
         setTimezone(body.timezone ?? '')
         setLanguage(body.language ?? '')
         setAvatar(body.avatarUrl)
+        setMailAvailable(Boolean(body.mailAvailable))
+        setMailOn(Boolean(body.mailOn))
+        setMailFrequency(body.mailFrequency ?? 'daily')
 
         const list = await fetch('/api/me/identities', { headers: { accept: 'application/json' } })
         if (list.ok) setIdentities(((await list.json()) as { identities: Identity[] }).identities)
@@ -131,7 +141,15 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
       const response = await fetch('/api/me', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, timezone, language, avatarUrl: avatar ?? '' }),
+        body: JSON.stringify({
+          name,
+          timezone,
+          language,
+          avatarUrl: avatar ?? '',
+          // Only where the instance has a relay. Sending a preference it cannot honour would be a
+          // switch that looks saved and never does anything.
+          ...(mailAvailable ? { mailOn, mailFrequency } : {}),
+        }),
       })
       if (response.status === 422) {
         setError('The picture was refused: it must be a small png, jpeg or webp.')
@@ -166,7 +184,7 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
 
   return (
     <div ref={dialogRef} className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Your profile">
-      <div className="w-full max-w-md rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
         <div className="flex items-center justify-between">
           <h2 className="text-body font-semibold text-slate-900">Your profile</h2>
           <button onClick={onClose} aria-label="Close" className="rounded p-1 text-slate-500 hover:bg-slate-100">
@@ -211,6 +229,40 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
                   className={cn(FIELD, 'mt-1')}
                 />
               </label>
+            </div>
+
+            <div className="text-micro font-semibold uppercase tracking-wide text-slate-500">
+              Email delivery
+              {mailAvailable ? (
+                <div className="mt-1 space-y-1.5 font-normal normal-case">
+                  <label className="flex items-center gap-2 text-meta text-slate-700">
+                    <input type="checkbox" checked={mailOn} onChange={(event) => setMailOn(event.target.checked)} />
+                    Email me about the work I watch
+                  </label>
+                  <label className="flex items-center justify-between gap-2 text-meta text-slate-700">
+                    How often
+                    <select
+                      value={mailFrequency}
+                      onChange={(event) => setMailFrequency(event.target.value as typeof mailFrequency)}
+                      disabled={!mailOn}
+                      className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-800 outline-none disabled:opacity-50"
+                    >
+                      <option value="immediate">As it happens</option>
+                      <option value="daily">Daily, 08:00</option>
+                      <option value="weekly">Weekly, Monday 08:00</option>
+                    </select>
+                  </label>
+                  <p className="text-micro text-slate-500">
+                    The in-app inbox is always on. Times are in your time zone. One message per
+                    period, plain text, with a link that stops it.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-1 text-meta font-normal normal-case text-slate-500">
+                  This instance has no mail relay, so email is not offered. The in-app inbox is
+                  still here.
+                </p>
+              )}
             </div>
 
             <div className="text-micro font-semibold uppercase tracking-wide text-slate-500">

@@ -308,7 +308,8 @@ export function workspaceRoutes(runtime: Runtime) {
 
     const id = c.req.param('id')
     // "No such item here" and "such an item, in another workspace" are different answers.
-    if (!(await readItem(allowed.db, id, allowed.workspaceId))) {
+    const before = await readItem(allowed.db, id, allowed.workspaceId)
+    if (!before) {
       return c.json({ error: 'no such item' }, 404)
     }
     const body = (await c.req.json().catch(() => null)) as { entries?: unknown } | null
@@ -316,6 +317,12 @@ export function workspaceRoutes(runtime: Runtime) {
     if (!entries) return c.json({ error: '`entries` must be history entries' }, 400)
 
     await appendHistory(allowed.db, id, entries, allowed.workspaceId)
+
+    // A move is arrangement, so it appends history rather than rewriting the card — but it is still
+    // a change somebody watches. The post-write reading emits `item.moved`/`item.noted` for the
+    // entries that actually arrived (an append is idempotent, so a replay emits nothing).
+    const after = await readItem(allowed.db, id, allowed.workspaceId)
+    if (after) await emitItemChange(allowed.db, allowed.workspaceId, before, after, undefined, allowed.user.id)
     return c.json({ appended: entries.length })
   })
 

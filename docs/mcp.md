@@ -62,7 +62,7 @@ npm run kanbantoolkit -- login --url https://board.example.com \
 | `items:read` | search and read items |
 | `items:write` | create, update and move items, and set parents |
 | `people:read` | list people, so an assignee is a real person |
-| `items:comment` | add a note to an item. No MCP tool uses it yet |
+| `items:comment` | add a note to an item — the one write that changes no field, so a read-only agent granted it can report back |
 
 Mint the token read-only unless the agent needs to change the board. Grant `boards:write` only if you
 have a reason: no MCP tool uses it.
@@ -138,7 +138,10 @@ A reasonable order for an agent:
    move a card come from here.
 4. `search_items`: find an item by part of its title. It returns ids.
 5. `get_item`: one item, with its `rev`. A write has to say which revision it was based on.
-6. `update_item` or `move_item`: make the change, passing the `rev` from step 5 as `baseRev`.
+6. `update_item` or `move_item`: make the change, passing the `rev` from step 5 as `baseRev`. A
+   move and a note take no revision — an append cannot be stale.
+7. `add_note`: say what you did or what you need. It is the one write that changes nothing but the
+   card's history, and it is how an agent reports back.
 
 ## The tools
 
@@ -162,6 +165,7 @@ Writes:
 | `update_item` | `items:write` | a missing or stale `baseRev`, returning the current item; a change of type into or out of Initiative or Sub-task (`invalid`); a `size`; a `createdById`; a parent that is not an initiative, or would make a cycle |
 | `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell, or an initiative into a cards cell; an initiative across its section |
 | `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or one of its own descendants |
+| `add_note` | `items:comment` | an empty note, or one over 2000 characters. It changes no field and takes no revision, so a move by somebody else cannot block it; the note lands in the card's Activity with its mentions, and the activity says which token wrote it |
 
 Reads are paged. A page holds 50 items by default and never more than 200. A list answer includes a
 `nextCursor` when there is another page. Pass it back to continue.
@@ -172,6 +176,12 @@ asked to file, and the words are the agent's to choose, within that request.
 
 There is no bulk write, no `force` argument, no SQL or filter expression, and no unauthenticated mode.
 A batch of twenty cards is twenty calls, and each is accepted or refused on its own.
+
+## Give the agent the skill
+
+[`skills/kanbantoolkit/SKILL.md`](../skills/kanbantoolkit/SKILL.md) is the same knowledge as this page, written for a model to load: the
+shape of the work, the rules that will refuse it, the order to read in, and the refusal codes. Point
+a skill-aware agent at that file and it does not have to be taught the board twice.
 
 ## When a tool refuses
 

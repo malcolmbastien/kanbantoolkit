@@ -171,7 +171,7 @@ export async function tokensOf(db: Database, userId: string): Promise<TokenRow[]
 export async function callerForSecret(
   db: Database,
   secret: string,
-): Promise<{ tokenId: string; user: AuthUser; scopes: Scope[] } | undefined> {
+): Promise<{ tokenId: string; tokenName: string; user: AuthUser; scopes: Scope[] } | undefined> {
   if (!secret.startsWith(TOKEN_PREFIX)) return undefined
 
   const row = await db.get<TokenRow>('SELECT * FROM api_tokens WHERE token_hash = ?1', [await sha256(secret)])
@@ -189,7 +189,7 @@ export async function callerForSecret(
     await db.run('UPDATE api_tokens SET last_used_at = ?1 WHERE id = ?2', [at, row.id])
   }
 
-  return { tokenId: row.id, user, scopes: parseScopes(row.scopes) }
+  return { tokenId: row.id, tokenName: row.name, user, scopes: parseScopes(row.scopes) }
 }
 
 /**

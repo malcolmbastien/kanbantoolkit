@@ -25,6 +25,8 @@ import { backupRoutes } from './backup-routes'
 import { v1Routes } from './v1/routes'
 import { mcpRoutes } from './mcp/http'
 import { scimAdminRoutes, scimRoutes } from './scim/routes'
+import { watchRoutes } from './watch'
+import { mailRoutes } from './mail-routes'
 import { meRoutes } from './me'
 import { workspaceMembersRoutes } from './workspace-members'
 import { authRoutes } from './auth/routes'
@@ -134,6 +136,8 @@ export function createApp(runtime: Runtime, extras: AppExtras = {}) {
   app.route('/api/admin', tokenAdminRoutes(runtime))
   app.route('/api/admin/workspace', workspaceMembersRoutes(runtime))
   app.route('/api/workspace', workspaceRoutes(runtime))
+  app.route('/api/workspace', watchRoutes(runtime))
+  app.route('/api/mail', mailRoutes(runtime))
   // The supported surface (task 169): the same rules, a contract instead of a client's habits.
   app.route('/api/v1', v1Routes(runtime))
   // The third door (task 170): the same operations, spoken as MCP.

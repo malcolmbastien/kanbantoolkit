@@ -160,8 +160,7 @@ task-master list            # terminal 2
   cards** — a coordination board (program or portfolio) shows bands or objective-grouped flows
   and has no cards flow, so neither the toolbar's *Card* nor the palette's *New card* is offered
   there. *Initiative* is, because an initiative is what such a board is read for. A board has a
-  **flight-level band**
-  (`band: 'team' | 'program' | 'portfolio'`) that picks its lens: a
+  **type** (`band: 'team' | 'program' | 'portfolio'`) that picks its lens: a
   **team** board renders work, while a **program** board aggregates other boards — its own
   initiatives plus a band per `linkedBoardIds`. Bands are
   lenses, not depths: the aggregation graph may be any depth and mix teams with other

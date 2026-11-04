@@ -319,7 +319,7 @@ export const WIP_SURFACE = {
 
 /**
  * The accent a board's initiative surfaces wear. It follows the band badge so the
- * flight level reads from the work itself: Team = green, Program = blue,
+ * board type reads from the work itself: Team = green, Program = blue,
  * Portfolio = violet.
  */
 export const BAND_ACCENT: Record<

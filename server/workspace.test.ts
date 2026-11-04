@@ -204,7 +204,6 @@ const workspace: Workspace = {
       ],
     },
   ],
-  autoArchiveDays: 30,
   savedFilters: [
     {
       id: 'f-1',
@@ -587,6 +586,34 @@ describe('writing one item', () => {
     const cleared = await patch('i-card', { baseRev: 3, item: card() })
     expect(cleared.status).toBe(200)
     expect(((await cleared.json()) as { item: Item }).item.dueDate).toBeUndefined()
+  })
+
+  it('stores an external link, and keeps only an address a browser may follow', async () => {
+    const { request, patch, cookie } = await writer()
+
+    const first = await patch('i-card', {
+      baseRev: 0,
+      item: card({ externalLabel: 'ATLAS-12', externalUrl: 'https://jira.example.com/browse/ATLAS-12' }),
+    })
+    expect(first.status).toBe(200)
+    expect(((await first.json()) as { item: Item }).item).toMatchObject({
+      externalLabel: 'ATLAS-12',
+      externalUrl: 'https://jira.example.com/browse/ATLAS-12',
+    })
+
+    const body = (await (await request('/api/workspace', { headers: { cookie } })).json()) as Workspace
+    expect(body.items.find((item) => item.id === 'i-card')?.externalUrl).toBe('https://jira.example.com/browse/ATLAS-12')
+
+    // The parser is the door: an address a browser would execute is not kept, and a label that
+    // belongs to nothing goes with it.
+    const bad = await patch('i-card', {
+      baseRev: 1,
+      item: card({ externalLabel: 'Nope', externalUrl: 'javascript:alert(1)' }),
+    })
+    expect(bad.status).toBe(200)
+    const stored = (await bad.json()) as { item: Item }
+    expect(stored.item.externalUrl).toBeUndefined()
+    expect(stored.item.externalLabel).toBeUndefined()
   })
 
   it('stores the people a note mentions, once each, and reads them back', async () => {
@@ -1197,7 +1224,6 @@ describe('writing the workspace vocabulary', () => {
     periods: [{ id: 'p-q1', name: '2026-Q1', start: '2026-01-01', end: '2026-03-31' }],
     objectives: [{ id: 'o-1', title: 'Sign in without a password', periodId: 'p-q1', status: 'active' as const }],
     keyResults: [{ id: 'k-1', objectiveId: 'o-1', title: 'Every member can sign in' }],
-    autoArchiveDays: 14,
   })
 
   async function writer(role: 'admin' | 'editor' | 'viewer' = 'admin') {
@@ -1222,7 +1248,7 @@ describe('writing the workspace vocabulary', () => {
     return { db, request, put, read, cookie, rev }
   }
 
-  it('writes the words and the policy as one document, and answers the new revision', async () => {
+  it('writes the words as one document, and answers the new revision', async () => {
     const { put, read, rev } = await writer()
     const document = vocabulary()
 
@@ -1240,7 +1266,8 @@ describe('writing the workspace vocabulary', () => {
     expect(body.objectives).toEqual(document.objectives)
     expect(body.keyResults).toEqual(document.keyResults)
     expect(body.boardTemplates).toEqual(document.boardTemplates)
-    expect(body.autoArchiveDays).toBe(14)
+    // The auto-archive age is the product's constant, not a word a workspace writes.
+    expect(body).not.toHaveProperty('autoArchiveDays')
 
     // The design's revision is not touched by a vocabulary write: the two documents are separate.
     expect(body.structureRev).toBe(1)

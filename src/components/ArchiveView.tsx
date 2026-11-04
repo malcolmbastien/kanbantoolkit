@@ -4,7 +4,6 @@ import { archiveOutcome, type Graph } from '@/domain/derive'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType } from '@/domain/types'
-import { VocabularySaveError } from './VocabularySaveError'
 
 /**
  * The Archive: filed-away items. They have left the boards (so boards don't clutter), but they are
@@ -24,8 +23,6 @@ export function ArchiveView() {
   const lanes = useStore((s) => s.lanes)
   const boards = useStore((s) => s.boards)
   const issueTypes = useStore((s) => s.issueTypes)
-  const autoArchiveDays = useStore((s) => s.autoArchiveDays)
-  const setAutoArchiveDays = useStore((s) => s.setAutoArchiveDays)
   const unarchiveItem = useStore((s) => s.unarchiveItem)
   const openItem = useStore((s) => s.openItem)
 
@@ -62,21 +59,9 @@ export function ArchiveView() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <label
-              className="flex items-center gap-1.5 text-meta text-slate-600"
-              title="Auto-archive applies to every board in the workspace"
-            >
-              Auto-archive Done after
-              <input
-                type="number"
-                min={0}
-                value={autoArchiveDays ?? ''}
-                placeholder="off"
-                onChange={(e) => setAutoArchiveDays(e.target.value === '' ? undefined : Number(e.target.value))}
-                className="w-16 rounded border border-slate-300 px-1.5 py-1 text-meta outline-none focus:ring-2 focus:ring-amber-300"
-              />
-              days
-            </label>
+            {/* There is no auto-archive control anywhere: finished work is filed a week after it is
+                done, always. This page reads what has been filed, and the search is the only
+                control it needs. */}
             <div className="relative">
               <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -86,10 +71,6 @@ export function ArchiveView() {
                 className="w-48 rounded-md border border-slate-300 py-1 pl-7 pr-2 text-meta outline-none focus:ring-2 focus:ring-amber-300"
               />
             </div>
-          </div>
-          {/* The policy is the workspace's, not this browser's: a refusal is said beside it. */}
-          <div className="w-full">
-            <VocabularySaveError lists={['autoArchiveDays']} />
           </div>
         </div>
 

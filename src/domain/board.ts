@@ -116,7 +116,7 @@ export function boardInitiatives(
  * The board workspace — every board in the organisation
  * ------------------------------------------------------------------ */
 
-/** Flight levels top-down — how the workspace lists them. (Board settings shows them
+/** Board types top-down — how the workspace lists them. (The settings header shows one
  *  bottom-up, which is the order you build in; this is the order you read in.) */
 export const BOARD_BAND_ORDER: BoardBand[] = ['portfolio', 'program', 'team']
 

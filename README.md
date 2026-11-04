@@ -73,9 +73,10 @@ browser. There is no account and nothing is collected.
     forecast.
   - Strategy map on portfolio boards: objectives, key results, the initiatives that serve them, and
     coverage gaps. An objective's completeness comes from the work below it.
-  - Archive of completed and discarded work, with restore, and auto-archive of Done cards after a set
-    number of days.
-  - My work for the signed-in person, search across every board, and a command palette.
+  - Archive of completed and discarded work, with restore; finished cards are filed a week after
+    they are done.
+  - My work for the signed-in person, an inbox for the cards and initiatives you watch, search
+    across every board, and a command palette.
   - Filters for text, type, assignee or unassigned, priority, tags, blocked, overdue, due soon and
     initiative. Saved filters and collapsed columns, kept per device.
   - The address bar names the board, the view and the open card, so a link can be shared.

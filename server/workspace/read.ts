@@ -231,6 +231,10 @@ function itemFrom(row: Row, checklist: Row[], log: Row[]): Item {
     if (end !== undefined) item.targetEndDate = end
     const due = maybeText(row.due_date)
     if (due !== undefined) item.dueDate = due
+    const externalLabel = maybeText(row.external_label)
+    if (externalLabel !== undefined) item.externalLabel = externalLabel
+    const externalUrl = maybeText(row.external_url)
+    if (externalUrl !== undefined) item.externalUrl = externalUrl
     const rev = maybeCount(row.rev)
     if (rev !== undefined) item.rev = rev
     if (row.resolved_at !== null) item.resolvedAt = maybeCount(row.resolved_at) ?? null
@@ -269,6 +273,8 @@ export function logEntryFrom(entry: Row): ItemLogEntry {
   }
   const by = maybeText(entry.by_user)
   if (by !== undefined) line.by = by
+  const via = maybeText(entry.via)
+  if (via !== undefined) line.via = via
   const note = maybeText(entry.note)
   if (note !== undefined) line.note = note
   const mentions = parse<string[]>(entry.mentions)
@@ -475,12 +481,10 @@ export async function readVocabularyRev(db: Database, workspaceId: string): Prom
   return row?.vocabulary_rev ?? 0
 }
 
-async function readSettings(db: Database, workspaceId: string): Promise<{ boardId: string; autoArchiveDays?: number; savedFilters: SavedFilter[]; collapsedLanes: Record<string, boolean> }> {
+async function readSettings(db: Database, workspaceId: string): Promise<{ boardId: string; savedFilters: SavedFilter[]; collapsedLanes: Record<string, boolean> }> {
   const row = await db.get<Row>('SELECT * FROM workspace WHERE id = ?1', [workspaceId])
-  const autoArchiveDays = row ? maybeCount(row.auto_archive_days) : undefined
   return {
     boardId: row ? text(row.board_id) : '',
-    ...(autoArchiveDays !== undefined ? { autoArchiveDays } : {}),
     savedFilters: (row ? parse<SavedFilter[]>(row.saved_filters) : undefined) ?? [],
     collapsedLanes: (row ? parse<Record<string, boolean>>(row.collapsed_lanes) : undefined) ?? {},
   }

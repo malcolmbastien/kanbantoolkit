@@ -11,7 +11,7 @@
 
 import { Hono } from 'hono'
 import { deleteCookie, getCookie } from 'hono/cookie'
-import { requireUser } from './access'
+import { requireUser, resolveWorkspace } from './access'
 import { statement } from './audit'
 import { MIN_LENGTH, acceptable, hash } from './auth/password'
 import {
@@ -41,7 +41,13 @@ interface Profile {
   avatarUrl?: unknown
   timezone?: unknown
   language?: unknown
+  mailOn?: unknown
+  mailFrequency?: unknown
 }
+
+/** The rhythms a person may choose. A word, not a number of minutes: a person chooses a habit. */
+const FREQUENCIES = ['immediate', 'daily', 'weekly'] as const
+type Frequency = (typeof FREQUENCIES)[number]
 
 /**
  * A data URL we are willing to store, or a path, or nothing.
@@ -87,10 +93,15 @@ export function meRoutes(runtime: Runtime) {
     const caller = await requireUser(c, runtime)
     if (caller instanceof Response) return caller
 
-    const row = await caller.db.get<{ avatar_url: string | null; timezone: string | null; language: string | null }>(
-      'SELECT avatar_url, timezone, language FROM users WHERE id = ?1',
-      [caller.user.id],
-    )
+    const row = await caller.db.get<{
+      avatar_url: string | null
+      timezone: string | null
+      language: string | null
+      mail_on: number
+      mail_frequency: string | null
+    }>('SELECT avatar_url, timezone, language, mail_on, mail_frequency FROM users WHERE id = ?1', [
+      caller.user.id,
+    ])
     return c.json({
       id: caller.user.id,
       name: caller.user.name,
@@ -99,6 +110,11 @@ export function meRoutes(runtime: Runtime) {
       timezone: row?.timezone ?? undefined,
       language: row?.language ?? undefined,
       instanceRole: caller.user.instanceRole,
+      // Delivery is a capability of this deployment, not a preference: without a relay the profile
+      // says so in one line rather than offering a switch that cannot do anything.
+      mailAvailable: Boolean(runtime.mail),
+      mailOn: row?.mail_on === 1,
+      mailFrequency: row?.mail_frequency ?? 'daily',
     })
   })
 
@@ -113,7 +129,7 @@ export function meRoutes(runtime: Runtime) {
     if (caller instanceof Response) return caller
 
     const body = (await c.req.json().catch(() => null)) as Profile | null
-    const updates: Record<string, string | null> = {}
+    const updates: Record<string, string | number | null> = {}
 
     if (body && 'name' in body) {
       const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) : ''
@@ -141,6 +157,30 @@ export function meRoutes(runtime: Runtime) {
       updates.avatar_url = avatar.avatarUrl ?? null
     }
 
+    let mailChanged = false
+    if (body && 'mailOn' in body) {
+      if (typeof body.mailOn !== 'boolean') return c.json({ error: '`mailOn` must be true or false' }, 400)
+      // A deployment with no relay does not offer this; refusing here keeps a client from storing a
+      // preference the instance can never honour.
+      if (body.mailOn && !runtime.mail) {
+        return c.json({ error: 'this instance has no mail relay, so email is not offered' }, 422)
+      }
+      const current = await caller.db.get<{ mail_on: number }>('SELECT mail_on FROM users WHERE id = ?1', [
+        caller.user.id,
+      ])
+      // Only a change moves the digest's cursor. Saving a name or a time zone must not swallow the
+      // news that was waiting for tomorrow's message.
+      mailChanged = (body.mailOn ? 1 : 0) !== (current?.mail_on ?? 0)
+      updates.mail_on = body.mailOn ? 1 : 0
+    }
+    if (body && 'mailFrequency' in body) {
+      const frequency = typeof body.mailFrequency === 'string' ? body.mailFrequency.trim() : ''
+      if (!FREQUENCIES.includes(frequency as Frequency)) {
+        return c.json({ error: '`mailFrequency` must be immediate, daily or weekly' }, 400)
+      }
+      updates.mail_frequency = frequency
+    }
+
     if (Object.keys(updates).length === 0) {
       return c.json({ error: 'nothing to change' }, 400)
     }
@@ -158,6 +198,29 @@ export function meRoutes(runtime: Runtime) {
         params: [caller.user.id, 'user.edit', 'user', caller.user.id, JSON.stringify({ fields: columns })],
       },
     ])
+
+    // Turning email on starts from now, and turning it off parks the cursor there: a month of old
+    // news is not a digest, and the inbox still has it for anyone who wants to read back.
+    if (mailChanged) {
+      const workspace = await resolveWorkspace(
+        caller.db,
+        caller.user.id,
+        caller.instanceRole === 'admin',
+        undefined,
+      )
+      if (workspace) {
+        const max = await caller.db.get<{ seq: number | null }>(
+          'SELECT MAX(seq) AS seq FROM outbound_events WHERE workspace_id = ?1',
+          [workspace.id],
+        )
+        await caller.db.run(
+          `INSERT INTO mail_state (workspace_id, user_id, last_sent_at, last_sent_seq) VALUES (?1, ?2, ?3, ?4)
+           ON CONFLICT (workspace_id, user_id) DO UPDATE SET last_sent_at = excluded.last_sent_at,
+                                                           last_sent_seq = excluded.last_sent_seq`,
+          [workspace.id, caller.user.id, Date.now(), max?.seq ?? 0],
+        )
+      }
+    }
 
     return c.body(null, 204)
   })

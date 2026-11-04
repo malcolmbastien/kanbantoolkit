@@ -20,7 +20,18 @@ describe('search — a card is found by all the words on it', () => {
     card('note-third', 'Triage the inbound request', {
       log: [note('l1', 1, 'Older gateway note'), note('l2', 2, 'Newer gateway note')],
     }),
+    card('link-fourth', 'Rework the drop target', {
+      externalLabel: 'ATLAS-431',
+      externalUrl: 'https://jira.example.com/browse/ATLAS-431',
+    }),
   ]
+
+  it('finds the link label, and never the address it opens', () => {
+    // A ticket key is a word somebody types; the URL is not searched.
+    const hit = matchOf(items.find((i) => i.id === 'link-fourth')!, 'atlas-431')
+    expect(hit).toMatchObject({ field: 'link', matched: 'ATLAS-431' })
+    expect(matchOf(items.find((i) => i.id === 'link-fourth')!, 'jira.example.com')).toBeUndefined()
+  })
 
   it('finds a title before a description, and a description before a note', () => {
     expect(searchHits(items, 'gateway').map((hit) => hit.item.id)).toEqual([
