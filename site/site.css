@@ -450,7 +450,7 @@ pre code {
   background: var(--blue);
 }
 
-/* The showcase: a pill switcher over one framed picture. The switcher is four radios, so it works
+/* The showcase: a pill switcher over one framed picture. The switcher is five radios, so it works
    with no script and with the keyboard's own arrow keys; each label is the tab and each figure is
    the panel. */
 .showcase {
@@ -516,7 +516,8 @@ pre code {
 #shot-0:checked ~ .showcase-tabs label[for='shot-0'],
 #shot-1:checked ~ .showcase-tabs label[for='shot-1'],
 #shot-2:checked ~ .showcase-tabs label[for='shot-2'],
-#shot-3:checked ~ .showcase-tabs label[for='shot-3'] {
+#shot-3:checked ~ .showcase-tabs label[for='shot-3'],
+#shot-4:checked ~ .showcase-tabs label[for='shot-4'] {
   background: var(--blue);
   color: #fff;
   box-shadow: 0 2px 6px rgba(53, 37, 205, 0.28);
@@ -525,7 +526,8 @@ pre code {
 #shot-0:focus-visible ~ .showcase-tabs label[for='shot-0'],
 #shot-1:focus-visible ~ .showcase-tabs label[for='shot-1'],
 #shot-2:focus-visible ~ .showcase-tabs label[for='shot-2'],
-#shot-3:focus-visible ~ .showcase-tabs label[for='shot-3'] {
+#shot-3:focus-visible ~ .showcase-tabs label[for='shot-3'],
+#shot-4:focus-visible ~ .showcase-tabs label[for='shot-4'] {
   outline: 3px solid var(--blue);
   outline-offset: 2px;
 }
@@ -554,7 +556,8 @@ pre code {
 #shot-0:checked ~ .showcase-frame .slide-0,
 #shot-1:checked ~ .showcase-frame .slide-1,
 #shot-2:checked ~ .showcase-frame .slide-2,
-#shot-3:checked ~ .showcase-frame .slide-3 {
+#shot-3:checked ~ .showcase-frame .slide-3,
+#shot-4:checked ~ .showcase-frame .slide-4 {
   display: grid;
 }
 
