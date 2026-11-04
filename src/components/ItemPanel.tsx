@@ -125,6 +125,8 @@ export function ItemPanel({ itemId }: Props) {
   const recordHistory = useStore((s) => s.recordHistory)
   const [moreOpen, setMoreOpen] = useState(false)
   const [priorityOpen, setPriorityOpen] = useState(false)
+  const [typeOpen, setTypeOpen] = useState(false)
+  const typeMenuRef = useRef<HTMLDivElement>(null)
   const [blockOpen, setBlockOpen] = useState(false)
   const [parentChoice, setParentChoice] = useState('')
   const [parentEditorOpen, setParentEditorOpen] = useState(false)
@@ -162,7 +164,18 @@ export function ItemPanel({ itemId }: Props) {
   useEffect(() => {
     setLinkDraft(null)
     setLinkError(undefined)
+    setTypeOpen(false)
   }, [itemId])
+  // A menu that covers the fields below gets out of the way when the person goes elsewhere. The
+  // trigger is inside the wrapper, so its own click still toggles rather than closing twice.
+  useEffect(() => {
+    if (!typeOpen) return
+    const away = (event: PointerEvent) => {
+      if (!typeMenuRef.current?.contains(event.target as Node)) setTypeOpen(false)
+    }
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [typeOpen])
   // Escape closes the editor without saving, and the blur that follows must not put the text
   // back. A ref rather than state, because the blur can arrive before a render.
   const abandoned = useRef(false)
@@ -1087,18 +1100,72 @@ export function ItemPanel({ itemId }: Props) {
                     ⋯ menu says so) and only its kind is a choice. */}
                 {/* Type and Kind are words, not data with a shape: the control is as wide as its
                     own options, so a full-width box does not sit around "User Story" pretending
-                    to hold more. A card shows Type, an initiative shows Kind, never both. */}
+                    to hold more. A card shows Type, an initiative shows Kind, never both.
+
+                    The menu carries the type's colour, the way the card menu does: a label is
+                    easier to recognise as a dot than as a word alone, and "None" is a dash
+                    rather than a colour because it is the absence of one. */}
                 {!typeIsFixed && (
                   <Field label="Type" className="col-span-2">
-                    <select
-                      value={item.typeId}
-                      onChange={(e) => setItemFields(item.id, { typeId: e.target.value })}
-                      className={cn(WELL, 'w-fit max-w-full font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
-                    >
-                      {typeOptions.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
+                    <div ref={typeMenuRef} className="relative w-fit min-w-[11rem] max-w-full">
+                      <button
+                        type="button"
+                        aria-label="Type"
+                        aria-haspopup="listbox"
+                        aria-expanded={typeOpen}
+                        data-type-id={item.typeId}
+                        onClick={() => setTypeOpen((open) => !open)}
+                        className={cn(WELL, 'w-full text-left font-medium outline-none transition focus:ring-2 focus:ring-indigo-400')}
+                      >
+                        {item.typeId === NONE_TYPE_ID ? (
+                          <span data-type-none className="grid h-2.5 w-2.5 shrink-0 place-items-center text-slate-400">
+                            <Minus size={12} />
+                          </span>
+                        ) : (
+                          <span
+                            data-type-swatch
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: type.color }}
+                          />
+                        )}
+                        <span className="min-w-0 truncate">{type.name}</span>
+                        <ChevronDown size={12} className={cn('ml-auto shrink-0 text-slate-400 transition', typeOpen && 'rotate-180')} />
+                      </button>
+
+                      {typeOpen && (
+                        <div
+                          role="listbox"
+                          aria-label="Type"
+                          className="absolute left-0 z-20 mt-1 w-max min-w-full max-w-[16rem] overflow-hidden rounded-lg border border-slate-200 bg-white py-0.5 shadow-lg"
+                        >
+                          {typeOptions.map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              role="option"
+                              aria-selected={item.typeId === t.id}
+                              data-type-id={t.id}
+                              onClick={() => { setItemFields(item.id, { typeId: t.id }); setTypeOpen(false) }}
+                              className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-meta text-slate-700 hover:bg-slate-50"
+                            >
+                              {t.id === NONE_TYPE_ID ? (
+                                <span data-type-none className="grid h-2.5 w-2.5 shrink-0 place-items-center text-slate-400">
+                                  <Minus size={12} />
+                                </span>
+                              ) : (
+                                <span
+                                  data-type-swatch
+                                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: t.color }}
+                                />
+                              )}
+                              <span className="flex-1 truncate">{t.name}</span>
+                              {item.typeId === t.id && <Check size={11} className="ml-auto shrink-0 text-indigo-600" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </Field>
                 )}
 

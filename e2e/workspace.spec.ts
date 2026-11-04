@@ -77,8 +77,11 @@ test('None is a card type, always offered', async ({ page }) => {
   await card.click()
 
   const panel = page.locator('[data-item-panel]')
-  await panel.getByLabel('Type').selectOption('t-none')
-  await expect(panel.getByLabel('Type')).toHaveValue('t-none')
+  const type = panel.getByLabel('Type', { exact: true })
+  await type.click()
+  await panel.getByRole('option', { name: 'None' }).click()
+  await expect(type).toHaveAttribute('data-type-id', 't-none')
+  await expect(type).toContainText('None')
   await page.keyboard.press('Escape')
   // No type is the absence of a badge, not the word "None" on the face.
   await expect(card).not.toContainText('None')

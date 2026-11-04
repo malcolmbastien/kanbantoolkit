@@ -45,8 +45,8 @@ test('a field is as wide as what it holds, and its chips stay inside it', async 
   const panel = page.locator('[data-item-panel]')
   await expect(panel.getByLabel('Title')).toBeVisible()
 
-  // Type is a word, not a box: the select is no wider than its own options rather than the row.
-  const type = panel.locator('label', { hasText: 'Type' }).locator('select')
+  // Type is a word, not a box: the control is no wider than its own options rather than the row.
+  const type = panel.getByLabel('Type', { exact: true })
   const typeBox = (await type.boundingBox())!
   expect(typeBox.width).toBeLessThan(240)
 
@@ -122,6 +122,31 @@ test('a link set in the drawer is on the card, and opens in a new tab', async ({
   const [popup] = await Promise.all([page.waitForEvent('popup'), chip.click()])
   await popup.close()
   await expect(page.locator('[data-item-panel]')).toHaveCount(0)
+})
+
+test('the type menu shows a colour for each type, and a dash for None', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-usage-billing"]').click()
+  const panel = page.locator('[data-item-panel]')
+  const type = panel.getByLabel('Type', { exact: true })
+
+  // The chosen type's colour is on the control itself, so it reads before the menu is opened.
+  await expect(type.locator('[data-type-swatch]')).toBeVisible()
+  await type.click()
+
+  const menu = panel.getByRole('listbox', { name: 'Type' })
+  await expect(menu).toBeVisible()
+  const story = menu.getByRole('option', { name: 'User Story' })
+  await expect(story.locator('[data-type-swatch]')).toHaveAttribute('style', /background-color/)
+  // None is the absence of a type, so it is a dash rather than a colour.
+  await expect(menu.getByRole('option', { name: 'None' }).locator('[data-type-swatch]')).toHaveCount(0)
+  await expect(menu.getByRole('option', { name: 'None' }).locator('[data-type-none]')).toBeVisible()
+
+  // Choosing it puts the dash on the control and takes the colour away.
+  await menu.getByRole('option', { name: 'None' }).click()
+  await expect(type).toHaveAttribute('data-type-id', 't-none')
+  await expect(type.locator('[data-type-none]')).toBeVisible()
+  await expect(type.locator('[data-type-swatch]')).toHaveCount(0)
 })
 
 test('a person added in the drawer is on the card', async ({ page }) => {

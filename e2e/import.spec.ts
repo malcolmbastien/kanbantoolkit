@@ -72,6 +72,6 @@ test('a Trello board is imported as one board and opens with its cards', async (
   // A source card with no type of ours is None, not the first real card type.
   await first.click()
   const panel = page.locator('[data-item-panel]')
-  await expect(panel.getByLabel('Type')).toHaveValue('t-none')
+  await expect(panel.getByLabel('Type', { exact: true })).toHaveAttribute('data-type-id', 't-none')
   await page.keyboard.press('Escape')
 })
