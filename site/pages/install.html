@@ -72,11 +72,14 @@ NODE_ENV=production ERROR_SALT=$(openssl rand -hex 32) \
   <li><code>PUBLIC_URL</code> — the address the outside world uses. Behind a proxy, the https one.</li>
   <li><code>LIVE</code> — set it to <code>0</code> to switch the live channel off; the app then polls the same feed.</li>
   <li><code>ERROR_SALT</code> — mixed into the hash of a reporter's address before it is stored. <strong>Required:</strong> a production instance refuses to start without it, and a development run generates one for the process.</li>
+  <li><code>SMTP_URL</code> and <code>MAIL_FROM</code> — optional; together they add magic-link sign-in and the opt-in email digest. <code>MAIL_CONSOLE=1</code> writes messages to the log instead, and <code>MAIL_DIGEST=0</code> turns the digest off for a relay used only for sign-in links.</li>
 </ul>
 <p>
   The sign-in providers are optional, and an instance with none still runs: the board works, and the
   app says in words that it has no way in configured rather than drawing a button that cannot work.
-  Every variable, with its default and what an unset one does, is in the documentation.
+  Mail is optional too: without a relay, no magic link is offered and nobody is offered an email
+  digest; with one, each person chooses in their profile whether to receive a plain-text message and
+  how often. Every variable, with its default and what an unset one does, is in the documentation.
 </p>
 
 <h2 id="limits">The honest limits</h2>

@@ -55,6 +55,8 @@ browser. There is no account and nothing is collected.
   - Workspace Home lists every board by band, with a filter and a search.
 - **Cards**
   - Title, Markdown description, type, priority, assignees, tags, target dates and a due date.
+  - A link to where the work lives elsewhere — a ticket, a design, a page — kept as a reference: the
+    app never fetches it, and only `http`/`https` is stored.
   - Sub-task checklists, notes in the activity log, and dependencies that clear when the other item
     reaches Done.
   - Mark a card blocked with a reason; give it a parent and children by dropping it on an initiative.
@@ -77,6 +79,11 @@ browser. There is no account and nothing is collected.
     they are done.
   - My work for the signed-in person, an inbox for the cards and initiatives you watch, search
     across every board, and a command palette.
+  - A watch starts when you make it: the card's history stays in its Activity, and the inbox shows
+    only what happens next — moved, blocked, edited, noted, filed, a due-date change or an
+    initiative's health. Mark all read, and a deleted item drops out rather than leaving a dead link.
+  - The palette also acts on the open card: assign to me, move to Done, block with a reason, watch,
+    set the due date or open the panel, through the same rules the board enforces.
   - Filters for text, type, assignee or unassigned, priority, tags, blocked, overdue, due soon and
     initiative. Saved filters and collapsed columns, kept per device.
   - The address bar names the board, the view and the open card, so a link can be shared.
@@ -87,6 +94,10 @@ browser. There is no account and nothing is collected.
     sessions with sign-out everywhere; an audit log with a CSV export; SCIM provisioning.
   - Live updates over a socket or by polling, an editing lease per card, and revision checks that
     refuse a stale write.
+  - Opt-in email: immediate, daily or weekly plain-text digests of watched changes, assignments,
+    mentions, due work and watched initiatives at risk, with a tokenized unsubscribe link and a
+    preferences link. One message per period, computed at send time, and only when the operator
+    configured a relay — no third-party mail service and no tracking pixel.
 - **Data**
   - Export the workspace as JSON and import it back; export a board's cards as CSV.
   - Back up and restore the SQLite file from the command line.
@@ -98,7 +109,10 @@ browser. There is no account and nothing is collected.
     instance: one Node process and one SQLite file.
   - Docker image, Compose file and a Cloudflare Worker entry.
   - Personal API tokens with scopes, expiry and rate limits; REST at `/api/v1`; an MCP server over
-    HTTP or stdio, with a tool per read and write.
+    HTTP or stdio, with a tool per read and write. `add_note` lets an agent report back without
+    changing the plan, and the activity names the token it came through.
+  - A skill in [`skills/kanbantoolkit/SKILL.md`](skills/kanbantoolkit/SKILL.md) teaches a model the
+    board's shape, the rules that will refuse it, and the order to read in.
   - Keyboard access, screen-reader labels and focus handling.
   - No ads, analytics or third-party scripts. Error reports carry the error, path, view, build and
     browser, and no workspace data.

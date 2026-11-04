@@ -111,6 +111,12 @@ the number below.
 on every item; a body that sends or changes it is refused with `422 invalid` and the field name,
 rather than silently dropped.
 
+`externalLabel` and `externalUrl` are the card's reference elsewhere — a ticket, a design, a page.
+The URL must be `http` or `https`; anything else is refused, and an empty URL clears the label with
+it. The app never fetches the address, so a link is a way for a reader to leave the board, not an
+integration. `add_note` through MCP writes a note without taking a revision; the history names the
+token it came through.
+
 An initiative is placed in the initiatives flow, and a card in a cards cell, in any of the board's cards
 flows. Moving between cards flows is a move. A route that tries to cross the two kinds answers
 `422 wrong_workflow`.

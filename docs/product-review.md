@@ -40,8 +40,10 @@ The board itself is mature. The gaps are mostly at its **edges**:
 1. **Bringing work in.** A team with existing work can import a Trello export or a Jira CSV as one board
    ([Importing a board](import.md)). A plain spreadsheet of cards has no import yet (C5), so that team
    builds its board by hand.
-2. **Bringing people back.** Live updates only reach a browser that is open. There are no
-   notifications, mentions or digests for an assignment, a block, a due date or a health change.
+2. **Bringing people back.** The inbox now carries a change on a watched card or initiative, an
+   assignment, a mention or a due date, and an opt-in plain-text email digest can reach a person who
+   is not looking at the board. What is still missing is a push to a chat client or a phone; the
+   digest is the only message that leaves the instance.
 3. **Letting people read without an account.** Read-only share links were cancelled (task 123);
    today a leader or a stakeholder must be invited as a member to see a board.
 4. **Reading dependencies.** Dependencies exist per card, health rolls up "waiting", and the
@@ -88,7 +90,7 @@ The board itself is mature. The gaps are mostly at its **edges**:
 | ID | Idea | Why it is worth doing | Effort |
 | --- | --- | --- | --- |
 | **L1** | **Read-only share links, reconsidered.** A scoped, expiring, revocable link to a board or a portfolio reading, with no account. | This is the original promise — "one clear view for everyone else" — without adding every stakeholder as a member. Task 123 was cancelled; this is a narrower design decision, not a reversal by accident. | M–L |
-| **L2** | **An email digest and notifications.** A daily or weekly summary of assigned work, mentions, blocks, due dates and health changes, with per-person preferences. | Work leaves the board and nothing brings the person back. This depends on the event layer from C6 and is the retention feature the product is missing. | L |
+| **L2** | **An email digest and notifications.** A daily or weekly summary of assigned work, mentions, blocks, due dates and health changes, with per-person preferences. *Built* — in-app watching and an inbox, plus immediate/daily/weekly plain-text email. | Work leaves the board and nothing brings the person back. It reads the outbox C6 built, so it cannot disagree with the board. A chat or phone push is a receiver, not a second event layer. | L |
 | **L3** | **Import from Trello or Jira.** A guided mapping of boards, lists/statuses and cards. *Built.* | The biggest acquisition friction is a team's existing board. CSV (C5) is the first step; a named importer is the second. | L |
 | **L4** | **Attachments.** First links with a title, then object storage for a self-hosted instance. | Specification, screenshots and contracts live beside the card. It is also a backup and storage decision, not only a UI one. | L |
 
@@ -97,9 +99,10 @@ The board itself is mature. The gaps are mostly at its **edges**:
 1. **C1 — dependencies, end to end.** It is the clearest extension of the product's own promise, it
    needs no new data model, and it turns several existing signals (waiting, boundary, blocked) into
    one readable view.
-2. **L2 — the digest, built on the webhook layer (C6, now built).** The product is good at showing the
-   truth while it is open. A digest is what makes it part of the week when it is closed. It is larger,
-   but it is the most direct answer to "why did the team stop using it?".
+2. **L2 — the digest, built on the webhook layer (C6).** The product is good at showing the truth
+   while it is open; the inbox and the digest are what make it part of the week when it is closed.
+   Both now exist, and the next step is a receiver that pushes to a chat client or a phone rather
+   than another reading of the outbox.
 3. **C5 — a card spreadsheet import.** Trello and Jira imports are built (L3). A generic spreadsheet
    import would remove the first-day cost for a team that keeps its work in a sheet.
 
@@ -114,15 +117,17 @@ product feel more finished.
   people for the system they work in.
 - **AI-written summaries or cards.** The product's rule is that it writes what somebody wrote; a
   model's guess is nobody's words.
-- **Real-time chat.** Comments, mentions and webhooks cover the need without building a second inbox.
+- **Real-time chat.** Comments, mentions, webhooks and the inbox/digest cover the need without
+  building a second inbox.
 - **Multi-workspace tenancy.** One workspace per instance is a deliberate shape; multiple teams live
   as boards inside it.
 
 ## A technical note
 
-The event layer behind **C6** now exists: items, health and objectives emit events into one outbox, and
-webhook delivery retries from it. Notifications and a digest (**L2**) would read from the same outbox,
-so they are the natural next step. The other constraint is the **bundle budget**: the first download
-is checked against 169 KB in CI, so the next first-download feature has little room. Either keep
-splitting screens (the templates editor and the Flow screen are the precedent) or raise the budget
-deliberately with a recorded reason, but do not let it grow by drift.
+The event layer behind **C6** exists: items, health and objectives emit into one outbox, webhook
+delivery retries from it, and the inbox and digest (**L2**) now read the same outbox. That is why a
+watched change, a bell row and an email cannot disagree about what happened. The next integration is
+a receiver — chat or phone — rather than a second history. The other constraint is the **bundle
+budget**: the first download is checked against 169 KB in CI, so the next first-download feature has
+little room. Either keep splitting screens (the templates editor and the Flow screen are the
+precedent) or raise the budget deliberately with a recorded reason, but do not let it grow by drift.

@@ -106,6 +106,12 @@ now** on the admin screen asks for an immediate pass.
 
 ## What it is not
 
-There is no inbound webhook, no chat client and no digest. A webhook is an event out; a receiver
-that wants people to read it writes that part. The event names and the envelope are meant to stay: a
-notification or digest feature would build on them.
+There is no inbound webhook and no chat client. A webhook is an event out; a receiver that wants
+people to read it writes that part.
+
+The product's own readers are the **inbox** and the **email digest**, and both read the same
+`outbound_events` rather than keeping a second history. The inbox is a per-watch cursor
+(`item_watch.since_seq`) over the events on the cards a person watches; the digest is a per-person
+cursor over the same outbox, computed when it sends. So a row in the bell and a delivery to a
+receiver cannot disagree about what happened. A chat integration is a receiver, not another event
+layer.

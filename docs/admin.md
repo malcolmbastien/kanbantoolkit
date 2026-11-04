@@ -115,7 +115,9 @@ The Admin panel separates:
 
 - **Users & Access** — users, groups, global permissions, workspace roles;
 - **Security** — sign-in policy, feature switches, agent limits, user statistics;
-- **Communication** — notification settings and email templates;
+- **Communication** — per-person email delivery, set in each profile rather than by an
+  administrator: on or off, and immediate, daily or weekly. The digest is the only message, and it
+  is offered only when the operator configured a relay;
 - **Configuration** — custom fields, screens, statuses, workflows, item types;
 - **Operations** — audit logs, API tokens, Jira import, themes.
 

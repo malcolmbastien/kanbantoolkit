@@ -19,6 +19,7 @@ path: /security/
   <li><strong>An invitation is a link, not an email row.</strong> It works once, for the address it was written for, expires, and can be revoked. A forwarded link needs a sign-in as that person.</li>
   <li><strong>Reports hold no address.</strong> The error endpoint stores a message, a stack, the path of the page, the view, the build and the browser. Never a query string, never an IP address — an address is hashed for rate limiting and nothing else.</li>
   <li><strong>No third-party code, anywhere.</strong> No analytics, no advertising, no font host, no CDN. The public pages make no request off their own domain, and the application loads nothing it did not ship. There is no cookie banner because there is nothing non-essential to consent to.</li>
+  <li><strong>Mail is the operator's relay.</strong> Magic links and the opt-in digest are plain SMTP to the relay the operator configured. There is no email API in the path, no remote image in a message, and no pixel that reports an open.</li>
   <li><strong>Your work is not training data.</strong> Nothing in this product trains a model, and there is no third party in the path to read a board.</li>
   <li><strong>Backups are a copy, and the copy is tested.</strong> One SQLite file, copied with <code>VACUUM INTO</code> while the server keeps running, and a restore that checks its own integrity and says what it restored. The drill runs in the test suite on every push.</li>
 </ul>
