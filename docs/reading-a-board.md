@@ -34,8 +34,11 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done**,
 **Filters**: **Mini → Summary → Full**.
 
 - **Full** is the card described on this page — every field, badge and control.
-- **Summary** keeps the title, type, due date and people, and keeps the blocked and warning markers.
-  The description, tags, checklist, links, parent, age, priority and counts are not drawn.
+- **Summary** keeps the title, type, due date and people, with the due date at the foot where Full
+  puts it. The card face carries **one** badge, not a row: red for a blockage or risk, amber for a
+  warning, and always the most urgent finding's own words (a block, a rolled-up block, the work it
+  waits on). The description, tags, checklist, links, parent, age, priority and counts are not
+  drawn.
 - **Mini** draws each item as a small colour tile in a wrapping grid: the type's colour, a red marker
   when the card is blocked, and an amber marker when it has a warning. Hovering or focusing a tile
   opens a reading card with the title and type, what it rolls up to, who is assigned (or
