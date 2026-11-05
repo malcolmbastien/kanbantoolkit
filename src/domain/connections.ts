@@ -8,6 +8,7 @@
  * connect it to. The view draws what the board renders, not what the model holds everywhere.
  */
 
+import { boundaryEntries } from './boundary'
 import type { Graph } from './derive'
 import type { Edge, Item, ItemLink, Placement } from './types'
 
@@ -23,7 +24,12 @@ export interface ConnectionEdge {
 }
 
 /**
- * The edges whose **both endpoints are on this board** and still drawn there.
+ * The edges between items the board draws.
+ *
+ * Hierarchy and on-board dependencies need both ends placed here. A **boundary** dependency is
+ * the other case: its dependent is placed here and the external item is drawn in the boundary band
+ * below the cards, so it is the same graph seen at its edge. The overlay still drops any edge whose
+ * two ends are not both in the DOM — a folded band or a filtered card has no element to connect.
  *
  * An archived item is not rendered, so an edge to it has no second end. A filtered or collapsed
  * item is still in this list — filtering is a view of the board, not a different graph — and the
@@ -48,6 +54,21 @@ export function boardConnections(graph: Graph, boardId: string): ConnectionEdge[
   for (const link of graph.links as ItemLink[]) {
     if (!items.has(link.from) || !items.has(link.to)) continue
     edges.push({ id: link.id, kind: 'dependency', from: link.from, to: link.to })
+  }
+
+  // The boundary band is the other end of the same graph: the external item has no placement here,
+  // but it is drawn on the board, and its dependent is a card this board owns. `boundaryEntries`
+  // already applies the edge rules (not archived, dependent on this board, dependency elsewhere),
+  // so this does not invent a second definition of what crosses the boundary.
+  for (const entry of boundaryEntries(graph, boardId)) {
+    for (const dependent of entry.dependents) {
+      edges.push({
+        id: `boundary:${entry.dependency.id}:${dependent.id}`,
+        kind: 'dependency',
+        from: entry.dependency.id,
+        to: dependent.id,
+      })
+    }
   }
   return edges
 }

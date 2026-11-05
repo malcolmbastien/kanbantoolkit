@@ -55,7 +55,8 @@ browser. There is no account and nothing is collected.
   - A **Detail** dial per board: Mini (colour tiles), Summary (the key facts) or Full (the whole
     card), remembered in this browser and not a permission.
   - A **Connections** lens: every hierarchy and dependency edge between the items a board renders,
-    drawn as red strings over the board. Off by default and remembered per browser.
+    including boundary dependencies to the bottom band, drawn as red strings over the board. Off by
+    default and remembered per browser.
   - Workspace Home lists every board by band, with a filter and a search.
 - **Cards**
   - Title, Markdown description, type, priority, assignees, tags, target dates and a due date.

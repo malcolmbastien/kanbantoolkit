@@ -37,6 +37,18 @@ test('the lens is off at rest, and the button draws and clears every edge', asyn
   await expect(page.locator('[data-connection-link]')).toHaveCount(0)
 })
 
+test('the boundary band is part of the same graph', async ({ page }) => {
+  await openBoard(page)
+  await page.getByRole('button', { name: 'Connections', exact: true }).click()
+
+  // Atlas waits on Team Nova's identity platform; its boundary card is rendered in the bottom
+  // band, so the connection reaches down to it just as it reaches across the cards.
+  const boundary = page.locator('[data-connection-link="boundary:init-identity:st-enterprise-sso"]')
+  await expect(boundary).toHaveCount(1)
+  await expect(boundary).toHaveAttribute('data-connection-kind', 'dependency')
+  await expect(boundary.locator('path')).toHaveAttribute('marker-end', /connection-arrow/)
+})
+
 test('the choice belongs to this browser and this board', async ({ page }) => {
   await onNova(page)
   await page.getByRole('button', { name: 'Connections', exact: true }).click()

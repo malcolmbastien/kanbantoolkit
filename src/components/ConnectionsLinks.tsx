@@ -61,9 +61,15 @@ export function ConnectionsLinks({
     }
     const bounds = content.getBoundingClientRect()
     const next: Line[] = []
+    // A boundary edge has one end in the bottom band rather than a card on this board; both
+    // selectors are tried because either end may be the external item.
+    const element = (id: string) =>
+      content.querySelector<HTMLElement>(
+        `[data-card-id="${CSS.escape(id)}"], [data-boundary-card="${CSS.escape(id)}"]`,
+      )
     for (const edge of boardConnections({ items, edges, links, placements, lanes }, boardId)) {
-      const source = content.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(edge.from)}"]`)
-      const target = content.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(edge.to)}"]`)
+      const source = element(edge.from)
+      const target = element(edge.to)
       if (!source || !target) continue
       const curve = edgeCurve(source.getBoundingClientRect(), target.getBoundingClientRect(), bounds)
       next.push({ ...edge, ...curve })

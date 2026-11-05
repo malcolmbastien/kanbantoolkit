@@ -55,11 +55,11 @@ The **Connections** toggle in the secondary bar draws the board's relationships 
   dependent end.
 
 Only edges with **both ends rendered on this board** are drawn. A card that is archived, filtered
-out or in a folded flow has no element to connect to; a boundary link whose other end lives on
-another board belongs to the boundary workflow, not this view; attribution to an objective is not a
-card-to-card edge. The strings sit above the workflow headers, never take a click, and are
-`aria-hidden` — the chips, the boundary cards and the drawer already say the same relationships in
-words.
+out or in a folded flow has no element to connect to; attribution to an objective is not a
+card-to-card edge. A **boundary** link is included: its string runs from the boundary card below to
+the card here that waits on it, so the boundary band is the same graph seen at its edge. The strings
+sit above the workflow headers, never take a click, and are `aria-hidden` — the chips, the boundary
+cards and the drawer already say the same relationships in words.
 
 The view is off by default and is remembered in this browser per board; it is a reading, not a
 permission or workspace data. Turning it off leaves every card and placement untouched.

@@ -50,7 +50,8 @@ the keyboard all work the same. **Edit board** always shows Full and disables th
 
 The same secondary bar has a **Connections** toggle. When it is on, every hierarchy edge (parent →
 child, dashed) and dependency (blocker → dependent, solid with an arrow) between items this board
-renders is drawn as a red string above the board. It is a reading aid: off by default, remembered in
+renders is drawn as a red string above the board — including a boundary dependency, whose string
+runs from the bottom band to the card that waits. It is a reading aid: off by default, remembered in
 this browser per board, and it does not change the work or intercept a click.
 
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The

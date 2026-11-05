@@ -56,15 +56,16 @@ describe('the edges a board can draw', () => {
     expect(boardConnections(graph(), 'b-1')).toEqual([
       { id: 'h-1', kind: 'hierarchy', from: 'init', to: 'child' },
       { id: 'd-1', kind: 'dependency', from: 'blocker', to: 'dependent' },
+      // The other end is in the boundary band, which is still a drawn end.
+      { id: 'boundary:elsewhere:dependent', kind: 'dependency', from: 'elsewhere', to: 'dependent' },
     ])
   })
 
-  it('drops an edge into another board, an archived item, or an attribution', () => {
+  it('drops a hierarchy into another board, an archived item, or an attribution', () => {
     const ids = boardConnections(graph(), 'b-1').map((edge) => edge.id)
     expect(ids).not.toContain('h-2') // the child lives on b-2
     expect(ids).not.toContain('h-3') // the child is archived, so it is not drawn
     expect(ids).not.toContain('a-1') // attribution is initiative → objective, not item → item
-    expect(ids).not.toContain('d-2') // the blocker lives on b-2
   })
 
   it('is empty for a board with no items of its own', () => {
