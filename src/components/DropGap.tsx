@@ -15,7 +15,16 @@ import { cn } from '@/lib/utils'
  * Both surfaces draw it — the cards workflow's lanes and the initiatives workflow's cells — so
  * there is one answer to what a lift leaves behind, rather than two that can drift apart.
  */
-export function DropGap({ height }: { height?: number }) {
+export function DropGap({ height, compact = false }: { height?: number; compact?: boolean }) {
+  if (compact) {
+    // The Mini level's shadow is a tile, because the thing that will land there is a tile.
+    return (
+      <div
+        data-drop-placeholder
+        className="h-6 w-6 shrink-0 rounded-[5px] border-2 border-dashed border-indigo-400 bg-indigo-50"
+      />
+    )
+  }
   return (
     <div
       data-drop-placeholder

@@ -41,6 +41,12 @@ boards a program or portfolio reads beneath it. Only the tabs a board can act on
 changes are saved as you edit. A board’s type is fixed when it is made and is not a setting: the
 dialog’s header names it, and there is nothing to change.
 
+The **Detail** dial beside the board controls chooses how much of a card the board draws:
+**Mini** (colour tiles, with blocked and warning markers), **Summary** (title, type, due date and
+people, warnings kept) or **Full** (the whole card). It is one person's reading, remembered in this
+browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and
+the keyboard all work the same. **Edit board** always shows Full and disables the dial.
+
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a
 stage is the team's. **Edit board** splits a column into cells, renames them, adds a lane, or removes

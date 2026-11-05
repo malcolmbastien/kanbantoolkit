@@ -28,6 +28,23 @@ A column can be **split** into named cells, arranged in columns or rows. Every c
 stage of the column it came from, so a split makes the board more precise without inventing a fifth
 stage. The top-level columns themselves are not added, removed or reordered.
 
+## Level of detail
+
+Every board has a **Detail** dial in its toolbar: **Mini → Summary → Full**.
+
+- **Full** is the card described on this page — every field, badge and control.
+- **Summary** keeps the title, type, due date and people, and keeps the blocked and warning markers.
+  The description, tags, checklist, links, parent, age, priority and counts are not drawn.
+- **Mini** draws each item as a small colour tile in a wrapping grid: the type's colour, a red marker
+  when the card is blocked, and an amber marker when it has a warning. The title, type and warnings
+  are in the tile's tooltip and accessible name.
+
+The level changes only the drawing. The same items are in the same cells, with the same counts, WIP,
+filters, search, focus, selection, drag, card menu and keyboard moves. It is remembered in this
+browser per board, not in the workspace, so two people may read one board differently and a shared
+link opens the reader's own choice. It is not a permission — a Viewer gets it too. **Board design
+mode** always draws Full and disables the dial; Save or Cancel returns to the chosen level.
+
 ## Multiple cards workflows
 
 A board has exactly **one initiatives flow** and **one or more cards flows**.

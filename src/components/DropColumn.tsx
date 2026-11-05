@@ -23,6 +23,7 @@ export function DropColumn({
   draggingHeight,
   at,
   footer,
+  dense = false,
 }: {
   laneId: string
   /** The cards in this lane, in order. */
@@ -37,6 +38,8 @@ export function DropColumn({
   /** The gap currently shown in this lane, if any. */
   at?: number | null
   footer?: React.ReactNode
+  /** Mini detail: the cards are tiles, arranged in a wrapping grid rather than a column. */
+  dense?: boolean
 }) {
   // The lifted card has left the lane — it is drawn in the air by DragLayer — so the gap is
   // counted among the cards that are left, which is the list a drop lands in.
@@ -45,10 +48,17 @@ export function DropColumn({
   // A shadow, not a box: the lifted card is the thing you are holding, so what it leaves
   // behind is the shape it will occupy — recessed, the way a shadow is, and the card's own
   // size, so a tall card does not leave a short shadow.
-  const placeholder = <DropGap height={draggingHeight ?? undefined} />
+  const placeholder = <DropGap height={draggingHeight ?? undefined} compact={dense} />
 
   return (
-    <div data-lane-id={laneId} className="flex min-h-[96px] flex-1 flex-col gap-2 p-1 transition">
+    <div
+      data-lane-id={laneId}
+      className={
+        dense
+          ? 'flex min-h-[96px] flex-1 flex-row flex-wrap content-start gap-1 p-1 transition'
+          : 'flex min-h-[96px] flex-1 flex-col gap-2 p-1 transition'
+      }
+    >
       {remaining.map((item, i) => (
         <Fragment key={item.id}>
           {at === i ? placeholder : null}

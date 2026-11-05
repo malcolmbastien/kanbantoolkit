@@ -1,3 +1,4 @@
+import { useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Archive, ChartNoAxesGantt, Check, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InboxBell } from './InboxBell'
@@ -9,7 +10,15 @@ import { cn } from '@/lib/utils'
 import { useMay } from '@/lib/permissions'
 import { openShortcuts } from '@/lib/shortcutDialog'
 import { canAddInitiative, canDesignBoard, isAggregating, isPortfolio } from '@/domain/board'
-import { isBoardSurface } from '@/store'
+import { isBoardSurface, useStore } from '@/store'
+import {
+  BOARD_DETAIL_HINT,
+  BOARD_DETAIL_LABEL,
+  BOARD_DETAIL_LEVELS,
+  detailFor,
+  nextDetail,
+  type BoardDetail,
+} from '@/domain/boardDetail'
 import type { Board } from '@/domain/types'
 
 interface Props {
@@ -49,8 +58,28 @@ export function TopBar(props: Props) {
   const mayWrite = may('item.write')
   const mayDesign = may('board.design')
   const maySettings = may('board.settings')
-
   const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
+  const boardDetail = useStore((s) => s.boardDetail)
+  const setBoardDetail = useStore((s) => s.setBoardDetail)
+  // Design mode draws Full whatever the choice: a Mini tile has no fields to compare across a
+  // split. The stored choice is untouched and comes back when design mode ends.
+  const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, boardId)
+  const detailRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * The dial's keyboard half. A radio group is one stop, and the arrows move the choice inside it;
+   * focus follows the choice so a screen reader hears what changed rather than staying on a word
+   * that is no longer selected.
+   */
+  const onDetailKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (editMode) return
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    const next = nextDetail(detail, step)
+    setBoardDetail(boardId, next)
+    requestAnimationFrame(() => detailRef.current?.querySelector<HTMLElement>(`[data-detail="${next}"]`)?.focus())
+  }
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
@@ -198,6 +227,43 @@ export function TopBar(props: Props) {
             </button>
             )}
           </>
+        )}
+
+        {boardActive && (
+          <div
+            ref={detailRef}
+            role="radiogroup"
+            aria-label="Level of detail"
+            aria-disabled={editMode || undefined}
+            onKeyDown={onDetailKey}
+            className="flex shrink-0 items-center gap-1.5"
+          >
+            <span className="text-micro font-semibold uppercase tracking-wide text-slate-600">Detail</span>
+            <div className="flex overflow-hidden rounded-md border border-slate-200 bg-white">
+              {BOARD_DETAIL_LEVELS.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  role="radio"
+                  aria-checked={detail === level}
+                  data-detail={level}
+                  disabled={editMode}
+                  tabIndex={detail === level ? 0 : -1}
+                  title={editMode ? 'Finish editing to change the level' : BOARD_DETAIL_HINT[level]}
+                  onClick={() => setBoardDetail(boardId, level)}
+                  className={cn(
+                    'border-r border-slate-200 px-1.5 py-1 text-micro font-medium last:border-r-0',
+                    detail === level
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                    editMode && 'cursor-not-allowed opacity-60',
+                  )}
+                >
+                  {BOARD_DETAIL_LABEL[level]}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         <InboxBell />

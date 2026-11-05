@@ -35,6 +35,7 @@ import { DEFAULT_FLOW_WINDOW, type FlowWindow } from '@/domain/flowWindow'
 import { DEFAULT_TIMELINE_ZOOM, type TimelineZoom } from '@/domain/timelineZoom'
 import { AUTO_ARCHIVE_DAYS } from '@/domain/autoArchive'
 import { externalLabelOf, safeExternalUrl } from '@/domain/externalLink'
+import { isBoardDetail, type BoardDetail } from '@/domain/boardDetail'
 import { isDemoWorkspace } from '@/lib/demo'
 import { noteVisit, pruneFavourites, pruneVisits, toggleFavourite, type BoardVisit } from '@/domain/boardShortcuts'
 import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Period, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
@@ -154,6 +155,11 @@ export interface ViewState {
    */
   metricsTypeId: string | null
   /**
+   * How much of a card each board draws, by board id. A reading choice, not workspace data: two
+   * people on one board may choose different levels, and a missing board is `full`.
+   */
+  boardDetail: Record<string, BoardDetail>
+  /**
    * How wide the timeline draws a day. A lens on the board rather than workspace data: it is written
    * into the place (the URL) and never into the vocabulary, so a link is what reproduces it.
    */
@@ -262,6 +268,8 @@ export interface Actions {
   setMetricsFlow: (flowId: string | null) => void
   /** The Flow view's card type, or `null` for every type on the board. */
   setMetricsType: (typeId: string | null) => void
+  /** How much of a card one board draws. Remembered in this browser, per board. */
+  setBoardDetail: (boardId: string, detail: BoardDetail) => void
   /** The timeline's zoom — a lens on the board, kept in the URL rather than in the workspace. */
   setTimelineZoom: (zoom: TimelineZoom) => void
   toggleBoards: () => void
@@ -1091,6 +1099,7 @@ const initialView: ViewState = {
   flowWindow: DEFAULT_FLOW_WINDOW,
   metricsFlowId: null,
   metricsTypeId: null,
+  boardDetail: {},
   timelineZoom: DEFAULT_TIMELINE_ZOOM,
   recentItemIds: [],
   favouriteBoardIds: [],
@@ -1357,6 +1366,14 @@ export function migrateState(persisted: unknown): Partial<Store> {
   // optional in the model, and a missing list is an empty one.
   if (!Array.isArray(p.watchedItemIds)) p.watchedItemIds = []
   else p.watchedItemIds = (p.watchedItemIds as unknown[]).filter((id): id is string => typeof id === 'string')
+  // v43: how much of a card each board draws. Old state has no choice; every board opens Full.
+  if (!p.boardDetail || typeof p.boardDetail !== 'object' || Array.isArray(p.boardDetail)) {
+    p.boardDetail = {}
+  } else {
+    p.boardDetail = Object.fromEntries(
+      Object.entries(p.boardDetail as Record<string, unknown>).filter(([, detail]) => isBoardDetail(detail)),
+    )
+  }
   if (!p.watchStartedAt || typeof p.watchStartedAt !== 'object' || Array.isArray(p.watchStartedAt)) {
     // A watch written before this migration has no start. It takes now, which is the same one-time
     // choice the server's migration makes: the history that was already in the feed stops being
@@ -1551,8 +1568,11 @@ const repository = chooseRepository()
  *
  * 42 is when each watch began. Old state has watches with no start; they take zero, which is the
  * same "show the history" answer a server watch written before the rule gets.
+ *
+ * 43 is the board detail dial. Old state has no choices, so every board opens on Full — the card
+ * this build has always drawn.
  */
-export const PERSIST_VERSION = 42
+export const PERSIST_VERSION = 43
 /**
  * The oldest shape this build can migrate. Below it there is no migration, only a guess — and a
  * guess is not what a person's workspace gets.
@@ -1595,6 +1615,8 @@ export function persistedSlice(s: Store): Partial<Store> {
     keyResults: s.keyResults,
     boardTemplates: s.boardTemplates,
     savedFilters: s.savedFilters,
+    // The board's own density: this browser's choice, per board, not a fact about the workspace.
+    boardDetail: s.boardDetail,
     // The demo's watch list and cursor — this browser's, like a saved filter, and replaced by the
     // account's answer on an instance.
     watchedItemIds: s.watchedItemIds,
@@ -1630,6 +1652,7 @@ export const WORKSPACE_KEYS = [
   'keyResults',
   'boardTemplates',
   'savedFilters',
+  'boardDetail',
   'watchedItemIds',
   'watchStartedAt',
   'inboxReadAt',
@@ -2183,6 +2206,15 @@ export const useStore = create<Store>()(
       setFlowWindow: (flowWindow) => set({ flowWindow }),
       setMetricsFlow: (metricsFlowId) => set({ metricsFlowId }),
       setMetricsType: (metricsTypeId) => set({ metricsTypeId }),
+      setBoardDetail: (boardId, detail) => {
+        // A value this build cannot draw is not written; the default is Full, and a stale entry
+        // would keep a board on a level no renderer knows.
+        if (!isBoardDetail(detail)) return
+        const next = { ...get().boardDetail }
+        if (detail === 'full') delete next[boardId]
+        else next[boardId] = detail
+        set({ boardDetail: next })
+      },
       setTimelineZoom: (timelineZoom) => set({ timelineZoom }),
       toggleBoards: () => {
         const on = !get().showBoards

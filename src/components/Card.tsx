@@ -1,7 +1,9 @@
 import { memo } from 'react'
 import { Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR } from '@/lib/colors'
+import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
+import { dueLabel, dueState } from '@/domain/due'
+import type { BoardDetail } from '@/domain/boardDetail'
 import { NONE_TYPE_ID } from '@/domain/board'
 import { STAGE_LABELS } from '@/domain/lanes'
 import { peopleOf } from '@/domain/users'
@@ -103,6 +105,11 @@ interface Props {
    * kind; it is changed from the card menu or the drawer, never from the card face.
    */
   kind?: InitiativeType
+  /**
+   * How much of the card to draw. The board's dial chooses `mini`, `summary` or `full`; a surface
+   * that has no dial (the Timeline, a dashboard card) leaves it out and gets the full card.
+   */
+  detail?: BoardDetail
   /** This item's tags, already resolved. A set, so the footer shows a few and counts the rest. */
   tags?: Tag[]
   /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
@@ -281,7 +288,7 @@ function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (depend
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
   const dragProps =
@@ -379,6 +386,206 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   const checklistTotal = checklist?.total ?? 0
   const checklistPct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0
 
+  /**
+   * The things a reader has to notice, in the same order the full card shows them. The compact
+   * levels reuse these words rather than inventing a second warning vocabulary: the blocked card,
+   * the blocked work below it, an initiative's health flags, what it waits on, and who waits on it.
+   * A due date joins only the Mini tile's marker — Summary already carries the Due chip.
+   */
+  const attention = (withDue: boolean) => {
+    const found: Array<{ label: string; tone: 'risk' | 'watch'; why?: string }> = []
+    if (item.blocked && !complete) {
+      found.push({
+        label: 'Blocked',
+        tone: 'risk',
+        why: item.blockedReason ? `Blocked: ${item.blockedReason}` : 'Blocked',
+      })
+    }
+    if (!complete && !item.blocked && summary.blockedBelow > 0) {
+      found.push({
+        label: `${summary.blockedBelow} blocked below`,
+        tone: blockedTone === 'aggregate' ? 'watch' : 'risk',
+        why:
+          blockedTone === 'aggregate'
+            ? `${summary.blockedBelow} blocked below — rolled up from team cards`
+            : `${summary.blockedBelow} blocked below`,
+      })
+    }
+    if (!complete) {
+      for (const flag of flags ?? []) found.push({ label: flag.label, tone: flag.tone, why: flag.why })
+    }
+    if (!complete && waitingOn?.length) {
+      found.push({
+        label: waitingOn.length === 1 ? 'Waiting on 1' : `Waiting on ${waitingOn.length}`,
+        tone: 'watch',
+        why: `Waiting on ${waitingOn.map((wait) => wait.title).join(', ')}`,
+      })
+    }
+    if (!complete && summary.dependentsCount > 0) {
+      found.push({
+        label: `${summary.dependentsCount} depend on it`,
+        tone: 'watch',
+        why: `${summary.dependentsCount} item${summary.dependentsCount === 1 ? '' : 's'} depend on this — if it slips, they are blocked`,
+      })
+    }
+    if (aged) {
+      found.push({
+        label: `${summary.ageDays}d in lane`,
+        tone: 'watch',
+        why: `${summary.ageDays} days in this lane — work that has stopped moving`,
+      })
+    }
+    if (withDue) {
+      const due = dueState(item.dueDate, complete)
+      if (due?.tone === 'overdue') found.push({ label: dueLabel(due), tone: 'risk' })
+      else if (due?.tone === 'soon') found.push({ label: dueLabel(due), tone: 'watch' })
+    }
+    return [...new Map(found.map((entry) => [entry.label, entry])).values()]
+  }
+  const summaryAttention = attention(false)
+  const miniAttention = attention(true)
+
+  const openOnClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    if (locked) return
+    if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
+    else onOpen(item.id)
+  }
+  const openOnContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (locked || !onContextMenu) return
+    e.preventDefault()
+    e.stopPropagation()
+    onContextMenu(item.id, e.clientX, e.clientY)
+  }
+
+  if (detail === 'summary') {
+    return (
+      <div
+        {...dragProps}
+        {...cardKeyboard(item, locked, onOpen, onContextMenu)}
+        data-card-id={item.id}
+        data-card-detail="summary"
+        data-card-initiative={wide ? '' : undefined}
+        onClick={openOnClick}
+        onContextMenu={openOnContextMenu}
+        className={cn(
+          'group relative flex min-h-[76px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] border-slate-300/80 bg-white text-left shadow-sm transition',
+          summary.done && 'bg-slate-50',
+          FOCUS_RING,
+          draggable && !locked && 'touch-pan-y',
+          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-md',
+          lensCls,
+          lockCls,
+          dimCls,
+          dropTarget && 'ring-2 ring-indigo-500',
+        )}
+        style={{ borderLeftColor: type.color }}
+      >
+        <div className="flex items-center gap-1.5 px-2 pt-1.5">
+          {type.id !== NONE_TYPE_ID && (
+            <span
+              className="inline-flex min-h-[18px] shrink-0 items-center whitespace-nowrap rounded px-1.5 text-micro font-bold uppercase tracking-wide"
+              style={softChipColors(type.color)}
+            >
+              {type.name}
+            </span>
+          )}
+          <span className="ml-auto flex shrink-0 items-center gap-1">
+            <DueChip item={item} complete={complete} />
+          </span>
+        </div>
+
+        <div
+          className={cn(
+            'line-clamp-2 break-words px-2 pt-1 text-body font-semibold leading-snug',
+            summary.done ? 'text-slate-700' : 'text-slate-900',
+          )}
+        >
+          {item.title}
+        </div>
+
+        <div className="mt-auto flex items-end justify-between gap-2 px-2 pb-1.5 pt-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1">
+            {summaryAttention.map((warning) => (
+              <span
+                key={warning.label}
+                data-card-warning={warning.tone}
+                className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[warning.tone])}
+                title={warning.why ?? warning.label}
+              >
+                {warning.label}
+              </span>
+            ))}
+          </div>
+          {assignees.length > 0 && (
+            <span className="flex shrink-0 items-center -space-x-1">
+              {assignees.slice(0, 3).map((person) => (
+                <PersonAvatar key={person.id} user={person} gone={person.gone} small className="ring-1 ring-white" />
+              ))}
+              {assignees.length > 3 && (
+                <span
+                  className="grid h-4 w-4 place-items-center rounded-full bg-slate-200 text-micro font-semibold text-slate-600 ring-1 ring-white"
+                  title={assignees.map((person) => person.name).join(', ')}
+                >
+                  +{assignees.length - 3}
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+        {multi && <span className="pointer-events-none absolute inset-0 bg-indigo-500/15" aria-hidden />}
+      </div>
+    )
+  }
+
+  if (detail === 'mini') {
+    const blocked = Boolean(item.blocked && !complete)
+    const warned = miniAttention.some((warning) => warning.label !== 'Blocked')
+    const label = [item.title, type.name, ...miniAttention.map((warning) => warning.why ?? warning.label)].join(' — ')
+    return (
+      <div
+        {...dragProps}
+        {...cardKeyboard(item, locked, onOpen, onContextMenu)}
+        aria-label={label}
+        title={label}
+        data-card-id={item.id}
+        data-card-detail="mini"
+        data-card-initiative={wide ? '' : undefined}
+        data-card-blocked={blocked ? '' : undefined}
+        data-card-warning={warned ? '' : undefined}
+        onClick={openOnClick}
+        onContextMenu={openOnContextMenu}
+        className={cn(
+          'relative h-6 w-6 shrink-0 rounded-[5px] border-2 transition',
+          FOCUS_RING,
+          draggable && !locked && 'touch-pan-y',
+          locked ? 'cursor-default' : 'cursor-pointer hover:brightness-95',
+          lensCls,
+          lockCls,
+          dimCls,
+          dropTarget && 'ring-2 ring-indigo-500',
+        )}
+        style={{ backgroundColor: tintOn(type.color, 0.28), borderColor: type.color }}
+      >
+        {blocked && (
+          <span
+            data-card-marker="blocked"
+            className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-600 ring-2 ring-white"
+            title={item.blockedReason ? `Blocked: ${item.blockedReason}` : 'Blocked'}
+          />
+        )}
+        {warned && (
+          <span
+            data-card-marker="warning"
+            className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white"
+            title="Warning"
+          />
+        )}
+        {multi && <span className="pointer-events-none absolute inset-0 rounded-[4px] bg-indigo-500/20" aria-hidden />}
+      </div>
+    )
+  }
+
   if (wide) {
     // A rollup is a statement about the work below. An initiative with nothing under it has no
     // percentage to show and no bar to fill: both would say "0%" about work that has not been
@@ -436,6 +643,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         {...dragProps}
         {...cardKeyboard(item, locked, onOpen, onContextMenu)}
         data-card-id={item.id}
+        data-card-detail="full"
         // The wide card is the initiative, and an initiative is what a card can roll up to — so
         // the marker is how a drop finds the cards that could be its target. A card is not one.
         data-card-initiative=""
@@ -639,6 +847,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       {...dragProps}
       {...cardKeyboard(item, locked, onOpen, onContextMenu)}
       data-card-id={item.id}
+      data-card-detail="full"
       style={{
         // The type is the rail down the left edge and the badge in the identity row. The rest of
         // the surface is white, as the board's card spec asks: the lane is already tinted, and a
@@ -807,7 +1016,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
 export function cardPropsEqual(a: Props, b: Props): boolean {
   // An item is immutable: the store replaces it rather than mutating it, so a new reference is
   // a real change and the same reference is not.
-  if (a.item !== b.item || a.type !== b.type || a.users !== b.users) return false
+  if (a.item !== b.item || a.type !== b.type || a.users !== b.users || a.detail !== b.detail) return false
   if (a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
   if (a.draggable !== b.draggable || a.locked !== b.locked || a.lens !== b.lens) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false

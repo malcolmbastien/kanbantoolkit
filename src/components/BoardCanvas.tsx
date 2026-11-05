@@ -12,6 +12,7 @@ import { LaneEditControls } from './LaneCtl'
 import { DragLayer } from './DragLayer'
 import { InlineEdit } from './InlineEdit'
 import { useCardLift } from '@/lib/useCardLift'
+import { insertionIndex } from '@/lib/dropIndex'
 import { parentTargetUnder } from '@/lib/dropTarget'
 import { DropColumn } from './DropColumn'
 import { LanePolicy, LaneSettings } from './LaneSettings'
@@ -21,6 +22,7 @@ import {
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, tagsOf } from '@/domain/board'
+import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { externalWaitsByItem } from '@/domain/boundary'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
@@ -70,6 +72,8 @@ interface Ctx {
   /** Multi-select group (shift+click). */
   multiSelect: string[]
   toggleMultiSelect: (id: string) => void
+  /** How much of a card this board draws: the dial's choice, or Full while designing. */
+  detail: BoardDetail
   askConfirm: (request: ConfirmRequest) => void
   selectedItemId: string | null
   /** Cards to render. */
@@ -505,6 +509,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       {!hideHeader && header(true)}
       <DropColumn
         laneId={lane.id}
+        dense={ctx.detail === 'mini'}
         draggingId={ctx.drag.itemId}
         draggingHeight={ctx.drag.height}
         at={ctx.drag.laneId === lane.id ? ctx.drag.index : null}
@@ -521,6 +526,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               key={c.id}
               item={c}
               type={typeOf(c.typeId)}
+              detail={ctx.detail}
               parent={parent}
               selected={ctx.selectedItemId === c.id}
               dropTarget={ctx.drag.dropTargetId === c.id}
@@ -717,6 +723,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const toggleMultiSelect = useStore((s) => s.toggleMultiSelect)
   const askConfirm = useStore((s) => s.askConfirm)
   const selectedItemId = useStore((s) => s.selectedItemId)
+  const boardDetail = useStore((s) => s.boardDetail)
   const storeEdit = useStore((s) => s.editMode)
   const openItem = useStore((s) => s.openItem)
   const splitLane = useStore((s) => s.splitLane)
@@ -761,6 +768,9 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const boardName = boards.find((b) => b.id === boardId)?.name
   const flowName = flows.find((f) => f.id === flowId)?.name
   const editMode = storeEdit && interactive
+  // Designing a board needs the full card: a Mini tile has no fields to compare across a split.
+  // The chosen level is untouched and returns when design mode ends.
+  const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, boardId)
   const rowRef = useRef<HTMLDivElement>(null)
   // Drag empty workflow space to move the board. See usePanScroll.
   const pan = usePanScroll<HTMLDivElement>()
@@ -826,7 +836,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
    * the gap one slot too low: lifting the top card left the card below at the top and showed the
    * shadow in the second slot, as if the gesture had already moved a place.
    */
-  const gapUnder = (draggedId: string, x: number, y: number) => {
+  const gapUnder = (draggedId: string, x: number, y: number, dense: boolean) => {
     let lane = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-lane-id]') ?? null
     if (!lane) {
       // A release just below the last card lands past the lane's own box, and 'put it at the
@@ -843,15 +853,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     const laneId = lane?.dataset.laneId
     if (!lane || !laneId) return null
     const cards = [...lane.querySelectorAll<HTMLElement>('[data-card-id]')].filter((el) => el.dataset.cardId !== draggedId)
-    let index = cards.length
-    for (let i = 0; i < cards.length; i++) {
-      const r = cards[i].getBoundingClientRect()
-      if (y < r.top + r.height / 2) {
-        index = i
-        break
-      }
-    }
-    return { laneId, index }
+    return { laneId, index: insertionIndex(cards, x, y, dense) }
   }
 
   const { lift, start: startLift, justDragged } = useCardLift({
@@ -862,7 +864,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
       // An initiative card under the pointer takes the drop, and the lane gives way to it: one
       // gesture, one meaning. The lane's gap is cleared so the two can never both be showing.
       const parent = parentTargetUnder(x, y, itemId, graph, issueTypes)
-      const gap = parent ? null : gapUnder(itemId, x, y)
+      const gap = parent ? null : gapUnder(itemId, x, y, detail === 'mini')
       setDropTarget(parent)
       setDragPreview({ itemId, height, laneId: gap?.laneId ?? null, index: gap?.index ?? null })
     },
@@ -875,7 +877,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
         setParent(itemId, parent)
         return
       }
-      const gap = gapUnder(itemId, x, y)
+      const gap = gapUnder(itemId, x, y, detail === 'mini')
       if (gap) dropCardAt(itemId, gap.laneId, gap.index)
     },
   })
@@ -895,7 +897,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     return map
   }, [placements, boardId])
   const ctx: Ctx = {
-    lanes, items, issueTypes, graph, users, boards, editMode, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
+    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
     model,
     waits,
     ageOf: (itemId) => ageDays(boardPlacement.get(itemId)),

@@ -154,7 +154,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
                   <BoundaryCard key={entry.dependency.id} entry={entry} homeBoard={boardName(entry.homeBoardId)} type={typeOf(entry.dependency.typeId)} selected={boundaryId === entry.dependency.id} />
                 ))}
                 {inStage.length === 0 && (
-                  <p className="px-1 py-4 text-center text-micro text-slate-500">Nothing waiting here.</p>
+                  <p className="px-1 py-4 text-center text-micro text-slate-600">Nothing waiting here.</p>
                 )}
               </div>
             </div>

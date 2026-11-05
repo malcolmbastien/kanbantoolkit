@@ -4,6 +4,7 @@ import { DragLayer } from './DragLayer'
 import { DropGap } from './DropGap'
 import { InlineEdit } from './InlineEdit'
 import { useCardLift } from '@/lib/useCardLift'
+import { insertionIndex } from '@/lib/dropIndex'
 import { parentTargetUnder } from '@/lib/dropTarget'
 import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
@@ -16,6 +17,7 @@ import {
 import { buildBoardModel } from '@/domain/boardModel'
 import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
 import { boardInitiatives, initiativeCellOf, initiativeRanks, initiativeTypeById, isInitiativeItem, tagsOf } from '@/domain/board'
+import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -99,6 +101,7 @@ export function BoardSummary({
   const openItem = useStore((s) => s.openItem)
   const lensId = useStore((s) => s.lensId)
   const editMode = useStore((s) => s.editMode)
+  const boardDetail = useStore((s) => s.boardDetail)
   const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
 
   const graph: Graph = { items, edges, links, placements, lanes }
@@ -199,6 +202,9 @@ export function BoardSummary({
   const isInitiatives = variant === 'initiatives'
   // The board the person is actually reading — the band's host when this is a band.
   const readBoard = boards.find((b) => b.id === (viewedBoardId ?? boardId))
+  // A band is read on the board in front of the reader, so the dial of that board decides how
+  // much of the band's initiatives to draw. A team board's own flow uses its own choice.
+  const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, viewedBoardId ?? boardId)
   const collapsedLanes = useStore((s) => s.collapsedLanes)
 
   /** The initiative currently in flight, if any. */
@@ -255,15 +261,7 @@ export function BoardSummary({
     // The position the drop will write: the cards that remain, in rank order — which is the
     // order they render in — and how many of them sit above the pointer.
     const cards = [...cell.querySelectorAll<HTMLElement>('[data-card-id]')].filter((el) => el.dataset.cardId !== itemId)
-    let index = cards.length
-    for (let i = 0; i < cards.length; i++) {
-      const r = cards[i].getBoundingClientRect()
-      if (y < r.top + r.height / 2) {
-        index = i
-        break
-      }
-    }
-    return { cellId, index }
+    return { cellId, index: insertionIndex(cards, x, y, detail === 'mini') }
   }
   const parentPickId = useStore((s) => s.parentPickId)
   const setParent = useStore((s) => s.setParent)
@@ -302,8 +300,9 @@ export function BoardSummary({
       at,
       0,
       // The card's own measurements, so the shadow is the shape that will land there — an
-      // initiative carrying a parent label and a blocked row is taller than a plain card.
-      <DropGap key="drop-gap" height={lift?.height} />,
+      // initiative carrying a parent label and a blocked row is taller than a plain card. At Mini
+      // it is a tile, because that is what will land.
+      <DropGap key="drop-gap" height={lift?.height} compact={detail === 'mini'} />,
     )
     return out
   }
@@ -330,6 +329,7 @@ export function BoardSummary({
         key={c.id}
         item={c}
         type={typeOf(c.typeId)}
+        detail={detail}
         parent={parent}
         wide
         users={users}
@@ -425,6 +425,7 @@ export function BoardSummary({
             sectionId={section.id}
             interactive={interactive}
             editMode={editMode}
+            detail={detail}
             // A section with more cells claims more of the width, so every *cell* gets an
             // equal share of the board — splitting a column doesn't squeeze its own cells.
             style={{
@@ -457,6 +458,7 @@ export function BoardSummary({
                       count={(held.get(cell.id) ?? []).length}
                       interactive={interactive}
                       editMode={editMode}
+                      detail={detail}
                       // Stacked cells size to their content with the last one filling what
                       // is left of the section, the same as a stacked lane in the canvas.
                       className={
@@ -496,6 +498,7 @@ function Cell({
   count,
   interactive,
   editMode,
+  detail,
   className,
   style,
   children,
@@ -509,6 +512,7 @@ function Cell({
   count: number
   interactive: boolean
   editMode: boolean
+  detail: BoardDetail
   className?: string
   style?: React.CSSProperties
   children: React.ReactNode
@@ -719,7 +723,11 @@ function Cell({
         data-section-id={sectionId}
         role="region"
         aria-label={`${lanePath(lanes, lane.id).join(' / ') || lane.name || 'Cell'} — ${count} initiative${count === 1 ? '' : 's'}`}
-        className="flex min-h-[96px] min-w-0 flex-1 flex-col gap-2 p-1.5"
+        className={
+          detail === 'mini'
+            ? 'flex min-h-[96px] min-w-0 flex-1 flex-row flex-wrap content-start gap-1 p-1.5'
+            : 'flex min-h-[96px] min-w-0 flex-1 flex-col gap-2 p-1.5'
+        }
       >
         {empty ? (
           // Words, not another box: the column is already a place, and a dashed frame inside

@@ -3967,3 +3967,34 @@ describe('watching, and the demo inbox', () => {
     expect(s().watchedItemIds).toEqual(['st-email'])
   })
 })
+
+describe('the board detail dial', () => {
+  beforeEach(() => resetToFixture())
+
+  it('remembers a level per board, and Full is the absence of a choice', () => {
+    s().setBoardDetail('b-atlas', 'summary')
+    s().setBoardDetail('b-nova', 'mini')
+    expect(s().boardDetail).toEqual({ 'b-atlas': 'summary', 'b-nova': 'mini' })
+
+    // The boards are independent: choosing one does not change the other.
+    expect(s().boardDetail['b-atlas']).toBe('summary')
+    expect(s().boardDetail['b-nova']).toBe('mini')
+
+    // Full is the default, so it is stored as no entry rather than as a word with no effect.
+    s().setBoardDetail('b-atlas', 'full')
+    expect(s().boardDetail).toEqual({ 'b-nova': 'mini' })
+  })
+
+  it('refuses a level this build does not draw, and migrates old state to Full', () => {
+    s().setBoardDetail('b-atlas', 'tiny' as never)
+    expect(s().boardDetail).toEqual({})
+
+    const migrated = migrateState({
+      boardDetail: { 'b-atlas': 'mini', 'b-nova': 'tiny' },
+    })
+    expect(migrated.boardDetail).toEqual({ 'b-atlas': 'mini' })
+
+    // Old state has no map at all; every board then reads Full.
+    expect(migrateState({}).boardDetail).toEqual({})
+  })
+})

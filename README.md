@@ -52,6 +52,8 @@ browser. There is no account and nothing is collected.
   - A default cell and card type for new cards, and settings for name, description, band, linked
     boards, card types, tags and initiative types.
   - Edit mode for the board's structure, read mode for using it. Archive and unarchive.
+  - A **Detail** dial per board: Mini (colour tiles), Summary (the key facts) or Full (the whole
+    card), remembered in this browser and not a permission.
   - Workspace Home lists every board by band, with a filter and a search.
 - **Cards**
   - Title, Markdown description, type, priority, assignees, tags, target dates and a due date.

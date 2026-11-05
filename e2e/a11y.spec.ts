@@ -48,6 +48,15 @@ test('the board has no barrier a machine can find', async ({ page }) => {
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
+test('the board has no barrier at Summary or Mini', async ({ page }) => {
+  await page.goto('/app?board=b-atlas')
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
+  await page.getByRole('radio', { name: 'Summary' }).click()
+  expect(await barriers(page, { nestedInteractive: true })).toEqual([])
+  await page.getByRole('radio', { name: 'Mini' }).click()
+  expect(await barriers(page, { nestedInteractive: true })).toEqual([])
+})
+
 test('board settings has no barrier a machine can find', async ({ page }) => {
   await page.goto('/app?board=b-atlas')
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
