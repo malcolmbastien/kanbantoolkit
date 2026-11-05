@@ -96,8 +96,9 @@ every page, and the security address is in `security.txt`.
 
 One screen must answer three questions: what is this, why is it different, and what do I do next.
 
-1. **Nav** — Product · Install · Docs · Help · Changelog · Status, then **Sign in** (`/app`) and the
-   primary action **Install** (`/install/`). One line, no mega-menu.
+1. **Nav** — How it works · FAQ · Install · Docs · GitHub, then **Open the demo** (`/app`) and the
+   primary action **Install**, which points at the install documentation on GitHub rather than a
+   summary page on this site. One line, no mega-menu.
 2. **Hero** — an H1 in the product's own words, not a category label: *the truth is derived, not
    typed* is the claim the whole app is built to keep. One sentence under it naming the two audiences
    (the team's flow, management's read of it) and the one promise they share: nothing is entered

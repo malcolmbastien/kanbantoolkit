@@ -223,13 +223,15 @@ for (const file of html) {
   }
 }
 
-// The navigation's second item is Install, and Docs points at the documentation.
+// The navigation's Install item points at the install documentation on GitHub — the site does not
+// keep a second copy of it — and Docs points at the documentation.
 const nav = /<nav class="site-nav"[\s\S]*?<\/nav>/.exec(homePage)?.[0] ?? ''
 if (!nav) fail('the home page has no main navigation')
 else {
-  if (!/href="\/install\/"[^>]*>Install</.test(nav)) fail('the navigation has no Install item')
+  if (!/href="https:\/\/[^"]+\/wiki\/Install"[^>]*>Install</.test(nav)) {
+    fail('the navigation has no Install item pointing at the install documentation')
+  }
   if (!/href="https:\/\/[^"]+"[^>]*>Docs</.test(nav)) fail('the navigation has no Docs link')
-
 }
 
 // ---- R1: the licence is decided, written, and named where a person looks (task 165) ----
