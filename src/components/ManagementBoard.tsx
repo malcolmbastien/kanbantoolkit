@@ -4,7 +4,7 @@ import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
 import { DetailDial } from './DetailDial'
-import { ConnectionsToggle } from './ConnectionsToggle'
+import { ConnectionsLegend, ConnectionsToggle } from './ConnectionsToggle'
 import { ConnectionsLinks } from './ConnectionsLinks'
 import { StrategyMap } from './StrategyMap'
 import { BAND_ACCENT } from '@/lib/colors'
@@ -95,6 +95,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
         {board.archived && <ArchivedBoardChip />}
         <div className="ml-auto flex items-center gap-2">
+          <ConnectionsLegend boardId={board.id} />
           <DetailDial boardId={board.id} editMode={editMode} />
           <ConnectionsToggle boardId={board.id} />
         </div>

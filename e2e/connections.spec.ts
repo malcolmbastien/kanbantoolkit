@@ -22,12 +22,16 @@ test('the lens is off at rest, and the button draws and clears every edge', asyn
   await expect(toggle).toHaveAttribute('aria-pressed', 'false')
   await expect(page.locator('[data-connection-link]')).toHaveCount(0)
 
+  const detail = page.getByRole('radiogroup', { name: 'Level of detail' })
   const before = (await toggle.boundingBox())!
+  const detailBefore = (await detail.boundingBox())!
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('[data-connection-legend]')).toBeVisible()
-  // Turning the lens on must not move the control out from under the pointer that turned it on.
+  // Turning the lens on must not move the control out from under the pointer, nor the Detail
+  // control beside it.
   expect(Math.abs((await toggle.boundingBox())!.x - before.x)).toBeLessThanOrEqual(1)
+  expect(Math.abs((await detail.boundingBox())!.x - detailBefore.x)).toBeLessThanOrEqual(1)
   await expect(page.locator('[data-connection-kind="hierarchy"]').first()).toBeVisible()
   await expect(page.locator('[data-connection-kind="dependency"]').first()).toBeVisible()
 

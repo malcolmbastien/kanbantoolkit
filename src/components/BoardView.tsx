@@ -3,7 +3,7 @@ import { Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Tra
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { DetailDial } from './DetailDial'
-import { ConnectionsToggle } from './ConnectionsToggle'
+import { ConnectionsLegend, ConnectionsToggle } from './ConnectionsToggle'
 import { ConnectionsLinks } from './ConnectionsLinks'
 import { InlineEdit } from './InlineEdit'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
@@ -149,6 +149,7 @@ export function BoardView({ requestMove }: Props) {
         <div className="ml-auto flex items-center gap-2">
           {/* The board's own reading: how much of a card it draws. It lives here with the other
               controls that command the surface beneath it, not in the global bar. */}
+          <ConnectionsLegend boardId={boardId} />
           <DetailDial boardId={boardId} editMode={editMode} />
           <ConnectionsToggle boardId={boardId} />
           <span aria-hidden className="h-4 w-px bg-slate-200" />
