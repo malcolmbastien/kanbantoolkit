@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import { Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
@@ -15,6 +15,7 @@ import { PersonAvatar } from './PersonAvatar'
 import { PriorityBadge } from './PriorityBadge'
 import { DueChip } from './DueChip'
 import { heldByOther, usePresence } from '@/lib/presence'
+import { MiniHoverCard } from './MiniHoverCard'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
 
 export interface CardSummary {
@@ -291,6 +292,15 @@ const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset f
 function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
+
+  // The Mini tile carries no text, so its reading is a hover/focus layer. The tile is the anchor
+  // and the state lives here, beside the data the layer repeats; a press clears it first, so the
+  // click that opens or lifts a card never leaves a layer hovering over the next surface.
+  const tileRef = useRef<HTMLDivElement>(null)
+  const [hovered, setHovered] = useState(false)
+  const hoverAllowed = useRef(true)
+  const closeHover = useCallback(() => setHovered(false), [])
+
   const dragProps =
     draggable && !locked
       ? onLift
@@ -448,6 +458,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   const openOnClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
     if (locked) return
+    closeHover()
     if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
     else onOpen(item.id)
   }
@@ -541,13 +552,23 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   if (detail === 'mini') {
     const blocked = Boolean(item.blocked && !complete)
     const warned = miniAttention.some((warning) => warning.label !== 'Blocked')
-    const label = [item.title, type.name, ...miniAttention.map((warning) => warning.why ?? warning.label)].join(' — ')
+    // The tile's accessible name is the same reading the hover layer gives a pointer: what it is,
+    // what it rolls up to, who has it, and why it is marked.
+    const label = [
+      item.title,
+      type.name,
+      parent ? `Rolls up to ${parent.title}` : null,
+      assignees.length > 0 ? `Assigned to ${assignees.map((person) => person.name).join(', ')}` : 'Unassigned',
+      ...miniAttention.map((warning) => warning.why ?? warning.label),
+    ]
+      .filter(Boolean)
+      .join(' — ')
     return (
       <div
+        ref={tileRef}
         {...dragProps}
         {...cardKeyboard(item, locked, onOpen, onContextMenu)}
         aria-label={label}
-        title={label}
         data-card-id={item.id}
         data-card-detail="mini"
         data-card-initiative={wide ? '' : undefined}
@@ -555,6 +576,28 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         data-card-warning={warned ? '' : undefined}
         onClick={openOnClick}
         onContextMenu={openOnContextMenu}
+        // A pointer over the tile is a reader asking what it is; a press is a reader acting on
+        // it, so the layer goes first and does not reappear until the pointer has left.
+        onMouseEnter={() => {
+          hoverAllowed.current = true
+          setHovered(true)
+        }}
+        onMouseLeave={() => {
+          hoverAllowed.current = true
+          setHovered(false)
+        }}
+        onFocus={() => {
+          if (hoverAllowed.current) setHovered(true)
+        }}
+        onBlur={closeHover}
+        // Capture, so the tile's own press-to-lift handler still runs.
+        onPointerDownCapture={() => {
+          hoverAllowed.current = false
+          setHovered(false)
+        }}
+        onKeyDownCapture={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') closeHover()
+        }}
         className={cn(
           'relative h-6 w-6 shrink-0 rounded-[5px] border-2 transition',
           FOCUS_RING,
@@ -571,17 +614,89 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           <span
             data-card-marker="blocked"
             className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-600 ring-2 ring-white"
-            title={item.blockedReason ? `Blocked: ${item.blockedReason}` : 'Blocked'}
           />
         )}
         {warned && (
           <span
             data-card-marker="warning"
             className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white"
-            title="Warning"
           />
         )}
         {multi && <span className="pointer-events-none absolute inset-0 rounded-[4px] bg-indigo-500/20" aria-hidden />}
+
+        <MiniHoverCard open={hovered && !locked} anchor={tileRef} onClose={closeHover}>
+          <div data-mini-hover="card">
+            <div className="flex items-center gap-1.5">
+              {type.id !== NONE_TYPE_ID && (
+                <span
+                  className="inline-flex min-h-[18px] shrink-0 items-center whitespace-nowrap rounded px-1.5 text-micro font-bold uppercase tracking-wide"
+                  style={softChipColors(type.color)}
+                >
+                  {type.name}
+                </span>
+              )}
+              {summary.done && (
+                <span className="ml-auto flex shrink-0 items-center gap-0.5 text-micro font-semibold text-emerald-700">
+                  <Check size={11} strokeWidth={3} /> Done
+                </span>
+              )}
+            </div>
+
+            <p className="mt-1.5 break-words text-meta font-semibold leading-snug text-slate-900">{item.title}</p>
+
+            {parent && (
+              <p className="mt-1 flex min-w-0 items-center gap-1 text-micro text-slate-500">
+                <CornerDownRight size={11} className="shrink-0 text-slate-400" aria-hidden />
+                <span className="min-w-0 truncate">Rolls up to {parent.title}</span>
+              </p>
+            )}
+
+            <div className="mt-2 border-t border-slate-200 pt-1.5" data-mini-hover-people>
+              <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">Assigned</p>
+              {assignees.length === 0 ? (
+                <p className="mt-0.5 text-micro text-slate-600">Unassigned</p>
+              ) : (
+                <ul className="mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                  {assignees.map((person) => (
+                    <li key={person.id} className="flex min-w-0 items-center gap-1 text-micro text-slate-700">
+                      <PersonAvatar user={person} gone={person.gone} small />
+                      <span className="truncate">{person.gone ? `${person.name} (former member)` : person.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {miniAttention.length > 0 && (
+              <div className="mt-2 border-t border-slate-200 pt-1.5" data-mini-hover-reasons>
+                <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">Why it is marked</p>
+                <ul className="mt-1 space-y-1">
+                  {miniAttention.map((warning) => (
+                    <li
+                      key={warning.label}
+                      className="flex items-start gap-1.5"
+                      data-mini-hover-reason={warning.tone}
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'mt-1 h-2 w-2 shrink-0 rounded-full',
+                          warning.tone === 'risk' ? 'bg-rose-600' : 'bg-amber-500',
+                        )}
+                      />
+                      <span className="min-w-0 text-micro leading-snug">
+                        <span className="font-semibold text-slate-800">{warning.label}</span>
+                        {warning.why && warning.why !== warning.label && (
+                          <span className="block text-slate-600">{warning.why}</span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </MiniHoverCard>
       </div>
     )
   }

@@ -37,8 +37,12 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done**,
 - **Summary** keeps the title, type, due date and people, and keeps the blocked and warning markers.
   The description, tags, checklist, links, parent, age, priority and counts are not drawn.
 - **Mini** draws each item as a small colour tile in a wrapping grid: the type's colour, a red marker
-  when the card is blocked, and an amber marker when it has a warning. The title, type and warnings
-  are in the tile's tooltip and accessible name.
+  when the card is blocked, and an amber marker when it has a warning. Hovering or focusing a tile
+  opens a reading card with the title and type, what it rolls up to, who is assigned (or
+  **Unassigned**) and the reason behind each red or amber marker — the same words the tile's
+  accessible name carries. The layer is visual only: it takes no click, and it closes on a press,
+  a scroll or when focus leaves. A **Boundary** tile opens the same way, with its state, home board
+  and the cards here that wait on it.
 
 The level changes only the drawing. The same items are in the same cells, with the same counts, WIP,
 filters, search, focus, selection, drag, card menu and keyboard moves. It is remembered in this
@@ -205,6 +209,9 @@ and the cards here that wait on it are named beside it.*
 - Each entry names the home board, its state, and the cards here that wait on it. The card that
   waits wears a **Waiting on …** chip; selecting a boundary card highlights its dependents, and
   selecting a dependent's chip takes you to the boundary card.
+- Boundary cards follow the board's **Detail** level: **Full** names the dependent cards,
+  **Summary** keeps the type, title, state, home board and dependent count, and **Mini** is a
+  type-coloured tile with a state marker. Selection and the **linked** badge work at every level.
 - Selecting a boundary card — the one wearing the **linked** badge — draws a red string from it to
   each card on this board that waits on it, and highlights those dependents. Nothing is drawn at
   rest, and the string is a reading aid, not a control. A satisfied or closed link keeps its entry

@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Link2, Rows3 } from 'lucide-react'
 import { boundaryInStage, boundaryEntries, type BoundaryEntry } from '@/domain/boundary'
 import { STAGES, STAGE_LABELS } from '@/domain/lanes'
-import { chipColors, DEP_STATE_STYLES, STAGE_ACCENT, STAGE_DOT, STAGE_SURFACE } from '@/lib/colors'
+import { chipColors, DEP_STATE_STYLES, STAGE_ACCENT, STAGE_DOT, STAGE_SURFACE, tintOn } from '@/lib/colors'
+import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { announce } from '@/lib/announce'
 import { stillScrolling } from '@/lib/useStillScroll'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { WorkflowToggle } from './WorkflowToggle'
+import { MiniHoverCard } from './MiniHoverCard'
 import type { IssueType } from '@/domain/types'
 
 /**
@@ -52,6 +54,10 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
   const edges = useStore((s) => s.edges)
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
+  const boardDetail = useStore((s) => s.boardDetail)
+  const editMode = useStore((s) => s.editMode)
+  // Boundary cards are cards on this board's edge, so they follow the same dial as the rest.
+  const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, boardId)
   const [collapsed, setCollapsed] = useState(false)
   const sectionRef = useRef<HTMLElement>(null)
   const toggleWorkflow = () => {
@@ -149,9 +155,22 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
                   </span>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 p-1.5">
+              <div
+                className={
+                  detail === 'mini'
+                    ? 'flex flex-wrap content-start gap-1 p-1.5'
+                    : 'flex flex-col gap-2 p-1.5'
+                }
+              >
                 {inStage.map((entry) => (
-                  <BoundaryCard key={entry.dependency.id} entry={entry} homeBoard={boardName(entry.homeBoardId)} type={typeOf(entry.dependency.typeId)} selected={boundaryId === entry.dependency.id} />
+                  <BoundaryCard
+                    key={entry.dependency.id}
+                    entry={entry}
+                    homeBoard={boardName(entry.homeBoardId)}
+                    type={typeOf(entry.dependency.typeId)}
+                    selected={boundaryId === entry.dependency.id}
+                    detail={detail}
+                  />
                 ))}
                 {inStage.length === 0 && (
                   <p className="px-1 py-4 text-center text-micro text-slate-600">Nothing waiting here.</p>
@@ -180,15 +199,23 @@ function BoundaryCard({
   homeBoard,
   type,
   selected,
+  detail,
 }: {
   entry: BoundaryEntry
   homeBoard: string
   type: IssueType
   selected: boolean
+  detail: BoardDetail
 }) {
   const toggleBoundary = useStore((s) => s.toggleBoundary)
   const openItem = useStore((s) => s.openItem)
   const [expanded, setExpanded] = useState(false)
+
+  // The Mini tile is the boundary card's own reading layer — the same treatment a card gets, so a
+  // tile at the edge of the board does not become the one unlabelled square on it.
+  const tileRef = useRef<HTMLButtonElement>(null)
+  const [hovered, setHovered] = useState(false)
+  const closeHover = useCallback(() => setHovered(false), [])
 
   const state = DEP_STATE_STYLES[entry.state]
   const chip = chipColors(type.color)
@@ -208,9 +235,182 @@ function BoundaryCard({
     if (first) reveal(`[data-card-id="${first.id}"]`)
   }
 
+  const stateTone = entry.state === 'OpenLiveBlockage' ? 'risk' : entry.state === 'OpenPlanningRisk' ? 'watch' : undefined
+  const dependentCount = `${entry.dependents.length} card${entry.dependents.length === 1 ? '' : 's'}`
+
+  if (detail === 'mini') {
+    // The accessible name carries what the hover layer shows: the work, its state and home, and
+    // which of this board's cards wait on it.
+    const namedDependents = entry.dependents.slice(0, 3).map((dependent) => dependent.title)
+    const moreDependents = entry.dependents.length - namedDependents.length
+    const waitedOnNames = namedDependents.join(', ') + (moreDependents > 0 ? ` and ${moreDependents} more` : '')
+    const label = `${entry.dependency.title} — ${type.name}; ${state.label}; ${homeBoard}; waited on by ${waitedOnNames}`
+    const stateWhy =
+      entry.state === 'OpenLiveBlockage'
+        ? 'Work here has started and is waiting on it — a live blockage.'
+        : 'Work here has not started yet, so this is a planning risk rather than a live blockage.'
+    const shownDependents = entry.dependents.slice(0, 3)
+    return (
+      <button
+        ref={tileRef}
+        type="button"
+        data-boundary-card={entry.dependency.id}
+        data-boundary-detail="mini"
+        data-boundary-state={entry.state}
+        aria-pressed={selected}
+        aria-label={label}
+        onClick={() => {
+          // Acting on the tile closes its reading layer first; it returns when the pointer does.
+          closeHover()
+          select()
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={closeHover}
+        onFocus={() => setHovered(true)}
+        onBlur={closeHover}
+        className={cn(
+          'relative h-6 w-6 shrink-0 rounded-[5px] border-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500',
+          selected ? 'ring-2 ring-slate-900' : 'hover:brightness-95',
+        )}
+        style={{ backgroundColor: tintOn(type.color, 0.28), borderColor: type.color }}
+      >
+        {stateTone && (
+          <span
+            data-boundary-marker={stateTone}
+            className={cn(
+              'absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-white',
+              stateTone === 'risk' ? 'bg-rose-600' : 'bg-amber-500',
+            )}
+          />
+        )}
+
+        <MiniHoverCard open={hovered} anchor={tileRef} onClose={closeHover}>
+          <div data-mini-hover="boundary">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="shrink-0 rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide"
+                style={{ backgroundColor: chip.background, color: chip.color }}
+              >
+                {type.name}
+              </span>
+              <span className={cn('ml-auto shrink-0 rounded px-1.5 py-px text-micro font-semibold ring-1', state.className)}>
+                {state.label}
+              </span>
+            </div>
+
+            <p className="mt-1.5 break-words text-meta font-semibold leading-snug text-slate-900">
+              {entry.dependency.title}
+            </p>
+            <p className="mt-1 text-micro text-slate-600">On {homeBoard}</p>
+
+            {stateTone && (
+              <div className="mt-2 border-t border-slate-200 pt-1.5" data-mini-hover-reasons>
+                <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">Why it is marked</p>
+                <ul className="mt-1 space-y-1">
+                  <li className="flex items-start gap-1.5" data-mini-hover-reason={stateTone}>
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'mt-1 h-2 w-2 shrink-0 rounded-full',
+                        stateTone === 'risk' ? 'bg-rose-600' : 'bg-amber-500',
+                      )}
+                    />
+                    <span className="min-w-0 text-micro leading-snug">
+                      <span className="font-semibold text-slate-800">{state.label}</span>
+                      <span className="block text-slate-600">{stateWhy}</span>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-2 border-t border-slate-200 pt-1.5" data-mini-hover-dependents>
+              <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">
+                Waited on by {dependentCount}
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {shownDependents.map((dependent) => (
+                  <li key={dependent.id} className="flex min-w-0 items-center gap-1 text-micro text-slate-700">
+                    <Rows3 size={10} className="shrink-0 text-slate-400" aria-hidden />
+                    <span className="truncate">{dependent.title}</span>
+                  </li>
+                ))}
+              </ul>
+              {entry.dependents.length > shownDependents.length && (
+                <p className="mt-0.5 text-micro text-slate-500">
+                  +{entry.dependents.length - shownDependents.length} more
+                </p>
+              )}
+            </div>
+          </div>
+        </MiniHoverCard>
+      </button>
+    )
+  }
+
+  if (detail === 'summary') {
+    return (
+      <article
+        data-boundary-card={entry.dependency.id}
+        data-boundary-detail="summary"
+        data-boundary-state={entry.state}
+        onClick={select}
+        className={cn(
+          'cursor-pointer rounded-lg border bg-white p-2 shadow-sm transition hover:shadow-md',
+          selected ? 'border-slate-900 ring-2 ring-slate-900' : 'border-slate-300/80 hover:border-slate-400',
+        )}
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="shrink-0 rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide" style={{ backgroundColor: chip.background, color: chip.color }}>
+            {type.name}
+          </span>
+          {selected && (
+            <span className="flex shrink-0 items-center gap-0.5 rounded bg-slate-900 px-1.5 py-px text-micro font-semibold text-white">
+              <Link2 size={10} /> linked
+            </span>
+          )}
+          <button
+            onClick={(event) => {
+              event.stopPropagation()
+              openItem(entry.dependency.id)
+            }}
+            className="ml-auto flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-micro font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+            title={`Open ${entry.dependency.title} on ${homeBoard}`}
+          >
+            Open <ArrowUpRight size={11} className="shrink-0" />
+          </button>
+        </div>
+
+        <button
+          onClick={(event) => {
+            event.stopPropagation()
+            select()
+          }}
+          aria-pressed={selected}
+          className="mt-1 w-full rounded text-left text-meta font-semibold leading-snug text-slate-900 outline-none transition hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+          title={selected ? 'Clear the highlight' : 'Show the cards on this board that wait on it'}
+        >
+          <span className="line-clamp-2">{entry.dependency.title}</span>
+        </button>
+
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <span className={cn('shrink-0 rounded px-1.5 py-px text-micro font-semibold ring-1', state.className)}>{state.label}</span>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-micro font-medium text-slate-700" title={`This dependency sits on ${homeBoard}`}>
+            {homeBoard}
+          </span>
+          <span className="rounded-full bg-white px-2 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200" title={entry.dependents.map((d) => d.title).join(', ')}>
+            Waited on by {dependentCount}
+          </span>
+        </div>
+      </article>
+    )
+  }
+
   return (
     <article
       data-boundary-card={entry.dependency.id}
+      data-boundary-detail="full"
+      data-boundary-state={entry.state}
       aria-labelledby={`boundary-${entry.dependency.id}`}
       // The card itself is the way in: pressing anywhere on it selects it and shows the cards on
       // this board that wait for it. The title below is the keyboard's door to the same act — a

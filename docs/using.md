@@ -42,10 +42,11 @@ changes are saved as you edit. A board’s type is fixed when it is made and is 
 dialog’s header names it, and there is nothing to change.
 
 The **Detail** dial in the board’s secondary bar — beside **Archive done**, **Export CSV** and
-**Filters** — chooses how much of a card the board draws:
+**Filters** — chooses how much of a card the board draws, including a Boundary card:
 **Mini** (colour tiles, with blocked and warning markers), **Summary** (title, type, due date and
-people, warnings kept) or **Full** (the whole card). It is one person's reading, remembered in this
-browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and
+people, warnings kept) or **Full** (the whole card). Hover or focus a Mini tile to read the card it
+stands for: its title and type, what it rolls up to, who is assigned, and why it has a red or amber
+marker. It is one person's reading, remembered in this browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and
 the keyboard all work the same. **Edit board** always shows Full and disables the dial.
 
 The same secondary bar has a **Connections** toggle. When it is on, every hierarchy edge (parent →

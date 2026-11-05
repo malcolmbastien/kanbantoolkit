@@ -79,6 +79,45 @@ test('Mini is a colour tile per item, with blocked and warning markers and an ac
   )
 })
 
+test('a Mini tile explains itself on hover, including why it is marked', async ({ page }) => {
+  await openBoard(page)
+  await choose(page, 'Mini')
+
+  const hover = page.locator('[data-mini-hover-card]')
+  await expect(hover).toHaveCount(0)
+
+  // The blocked card: the red marker's reason, the title, the type, the parent and the person.
+  const blocked = page.locator('[data-card-id="st-enterprise-sso"]')
+  await blocked.hover()
+  await expect(hover).toBeVisible()
+  await expect(hover).toContainText('Add SSO for enterprise tenants')
+  await expect(hover).toContainText('User Story')
+  await expect(hover).toContainText('Rolls up to Enterprise SSO')
+  await expect(hover).toContainText('Jonah Tran')
+  await expect(hover.locator('[data-mini-hover-reason="risk"]')).toContainText('Blocked')
+  await expect(hover).toContainText('Waiting on the identity contract')
+
+  // The layer is a reading, not a control: it takes no pointer and adds no second accessible name.
+  await expect(hover).toHaveAttribute('aria-hidden', 'true')
+  await expect(hover).toHaveCSS('pointer-events', 'none')
+
+  // A warning tile says *why* the amber marker is there, in the same place.
+  const warned = page.locator('[data-card-id="st-signup-validation"]')
+  await warned.hover()
+  await expect(hover).toBeVisible()
+  await expect(hover).toContainText('Signup validation on retry')
+  await expect(hover).toContainText('Maya Blake')
+  await expect(hover.locator('[data-mini-hover-reason="watch"]').first()).toBeVisible()
+
+  // Leaving closes it, and focus is the keyboard's route to the same reading.
+  await page.mouse.move(2, 2)
+  await expect(hover).toHaveCount(0)
+  await warned.focus()
+  await expect(hover).toBeVisible()
+  await warned.blur()
+  await expect(hover).toHaveCount(0)
+})
+
 test('an initiative is a Mini tile too, and still opens its card', async ({ page }) => {
   await openBoard(page)
   await choose(page, 'Mini')
@@ -88,6 +127,48 @@ test('an initiative is a Mini tile too, and still opens its card', async ({ page
   await expect(initiative).toHaveAttribute('data-card-initiative', '')
   await initiative.click()
   await expect(page.locator('[data-item-panel]')).toHaveAttribute('aria-label', 'Card details: Signup redesign')
+})
+
+test('boundary cards follow the board detail level too', async ({ page }) => {
+  await openBoard(page)
+  const identity = page.locator('[data-boundary-card="init-identity"]')
+  await expect(identity).toHaveAttribute('data-boundary-detail', 'full')
+
+  await choose(page, 'Summary')
+  await expect(identity).toHaveAttribute('data-boundary-detail', 'summary')
+  await expect(identity).toContainText('Identity platform')
+  await expect(identity).toContainText('Open · live blockage')
+  await expect(identity).toContainText('Waited on by 1 card')
+
+  await choose(page, 'Mini')
+  await expect(identity).toHaveAttribute('data-boundary-detail', 'mini')
+  await expect(identity).toHaveAttribute('aria-label', /Identity platform/)
+  await identity.click()
+  await expect(identity).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('a boundary Mini tile explains the external work it stands for', async ({ page }) => {
+  await openBoard(page)
+  await choose(page, 'Mini')
+
+  const tile = page.locator('[data-boundary-card="init-identity"]')
+  await tile.scrollIntoViewIfNeeded()
+  await tile.hover()
+
+  const hover = page.locator('[data-mini-hover-card]')
+  await expect(hover).toBeVisible()
+  await expect(hover).toContainText('Identity platform')
+  await expect(hover).toContainText('Initiative')
+  await expect(hover).toContainText('Open · live blockage')
+  await expect(hover).toContainText('On Team Nova')
+  await expect(hover).toContainText('Waited on by 1 card')
+  await expect(hover.locator('[data-mini-hover-reason="risk"]')).toContainText('live blockage')
+
+  // Selecting the tile still works, and closes the reading layer rather than leaving it over the
+  // cards it highlights.
+  await tile.click()
+  await expect(tile).toHaveAttribute('aria-pressed', 'true')
+  await expect(hover).toHaveCount(0)
 })
 
 test('a Mini tile is still dragged between cells', async ({ page }) => {
