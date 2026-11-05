@@ -21,6 +21,23 @@ export function ConnectionsToggle({ boardId }: { boardId: string }) {
 
   return (
     <div className="flex shrink-0 items-center gap-2">
+      {/* The legend comes *before* the button: the right-hand controls are anchored to the bar's
+          right edge, so a legend on the button's right pushed the button left just as a reader
+          reached for it again. To the left it grows into the space before the control and leaves
+          the button where it was. */}
+      {on && (
+        <span data-connection-legend className="hidden items-center gap-2 text-micro text-slate-600 lg:inline-flex">
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden className="w-4 border-t-2 border-dashed border-rose-600" />
+            Hierarchy
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden className="w-4 border-t-2 border-rose-600" />
+            Dependency
+          </span>
+        </span>
+      )}
+
       <button
         type="button"
         data-connections-toggle
@@ -36,19 +53,6 @@ export function ConnectionsToggle({ boardId }: { boardId: string }) {
       >
         <Waypoints size={11} aria-hidden /> Connections
       </button>
-
-      {on && (
-        <span data-connection-legend className="hidden items-center gap-2 text-micro text-slate-600 lg:inline-flex">
-          <span className="inline-flex items-center gap-1">
-            <span aria-hidden className="w-4 border-t-2 border-dashed border-rose-600" />
-            Hierarchy
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span aria-hidden className="w-4 border-t-2 border-rose-600" />
-            Dependency
-          </span>
-        </span>
-      )}
     </div>
   )
 }
