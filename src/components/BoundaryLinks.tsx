@@ -101,7 +101,7 @@ export function BoundaryLinks({
     <svg
       aria-hidden="true"
       data-boundary-links
-      className="pointer-events-none absolute inset-0 z-10 overflow-visible print:hidden"
+      className="pointer-events-none absolute inset-0 z-30 overflow-visible print:hidden"
       width={size.width}
       height={size.height}
     >
@@ -111,12 +111,12 @@ export function BoundaryLinks({
             d={line.path}
             fill="none"
             stroke={line.active ? '#b91c1c' : '#dc2626'}
-            strokeWidth={line.active ? 2.5 : 1.5}
-            strokeOpacity={line.active ? 0.9 : 0.38}
+            strokeWidth={line.active ? 5 : 3}
+            strokeOpacity={line.active ? 0.95 : 0.45}
             strokeLinecap="round"
           />
-          <circle cx={line.x1} cy={line.y1} r={line.active ? 3 : 2} fill="#dc2626" fillOpacity={line.active ? 0.9 : 0.5} />
-          <circle cx={line.x2} cy={line.y2} r={line.active ? 3 : 2} fill="#dc2626" fillOpacity={line.active ? 0.9 : 0.5} />
+          <circle cx={line.x1} cy={line.y1} r={line.active ? 4.5 : 3} fill="#dc2626" fillOpacity={line.active ? 0.95 : 0.55} />
+          <circle cx={line.x2} cy={line.y2} r={line.active ? 4.5 : 3} fill="#dc2626" fillOpacity={line.active ? 0.95 : 0.55} />
         </g>
       ))}
     </svg>
