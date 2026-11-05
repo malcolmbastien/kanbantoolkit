@@ -70,22 +70,27 @@ test('both ends name each other, and either one enters the focus state', async (
   await expect(title).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('a red string joins a boundary card to the card it waits on', async ({ page }) => {
+test('a red string joins a boundary card to the card it waits on, only while selected', async ({ page }) => {
   await openBoard(page)
   const identity = page.locator('[data-boundary-card="init-identity"]')
   const sso = page.locator('[data-card-id="st-enterprise-sso"]')
   await expect(sso).toBeAttached()
   const link = page.locator('[data-boundary-link="init-identity:st-enterprise-sso"]')
-  await expect(link).toHaveCount(1)
-  await expect(link.locator('path')).toHaveAttribute('stroke', '#dc2626')
-  await expect(link.locator('path')).toHaveAttribute('stroke-width', '3')
 
-  // Selecting the boundary card is asking to read that edge; the string becomes the strongest line
-  // on the board, and the unrelated work recedes.
+  // At rest the boundary is a list. The string is the reading of one selected edge.
+  await expect(page.locator('[data-boundary-link]')).toHaveCount(0)
+
   await identity.getByText('Open · live blockage').click()
+  await expect(identity).toContainText('linked')
+  await expect(link).toHaveCount(1)
   await expect(link).toHaveAttribute('data-boundary-link-active', '')
   await expect(link.locator('path')).toHaveAttribute('stroke', '#b91c1c')
   await expect(link.locator('path')).toHaveAttribute('stroke-width', '5')
+
+  // Clearing the selection takes the string with it.
+  await identity.getByText('Open · live blockage').click()
+  await expect(identity).not.toContainText('linked')
+  await expect(page.locator('[data-boundary-link]')).toHaveCount(0)
 })
 
 test('clicking away ends the focus, and a card takes it over', async ({ page }) => {

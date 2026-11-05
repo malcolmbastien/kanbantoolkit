@@ -16,10 +16,10 @@ import { useStore } from '@/store'
  * content's own coordinates are stable under scrolling. The overlay is pointer-events-none and
  * aria-hidden — it is a drawing, and the two ends already carry the relationship in words.
  *
- * Only **open** links are drawn. A satisfied or closed dependency is history, not a string still
- * pulling on the work; the boundary band keeps the entry so the history is readable, but a red
- * line would say "waiting" about something that is no longer waited on. The selected boundary is
- * drawn darker and thicker, because selection is the reader asking to see exactly that edge.
+ * Nothing is drawn at rest. The strings belong to the **selected** boundary card — the one wearing
+ * the "linked" badge — because that is the reader asking to see exactly that edge. Only its open
+ * links are drawn: a satisfied or closed dependency is history, not a string still pulling on the
+ * work, and a red line would say "waiting" about something that is no longer waited on.
  */
 export function BoundaryLinks({
   contentRef,
@@ -64,7 +64,9 @@ export function BoundaryLinks({
     const entries = boundaryEntries({ items, edges, links, placements, lanes }, boardId)
 
     for (const entry of entries) {
-      if (!isOpen(entry.state)) continue
+      // The strings are the selected card's, not the whole board's: at rest the boundary is a
+      // list, and selecting an entry is what asks for the connection to be drawn.
+      if (!boundaryId || boundaryId !== entry.dependency.id || !isOpen(entry.state)) continue
       const source = content.querySelector<HTMLElement>(`[data-boundary-card="${CSS.escape(entry.dependency.id)}"]`)
       if (!source) continue
       const sourceRect = source.getBoundingClientRect()

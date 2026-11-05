@@ -187,10 +187,10 @@ and the cards here that wait on it are named beside it.*
 - Each entry names the home board, its state, and the cards here that wait on it. The card that
   waits wears a **Waiting on …** chip; selecting a boundary card highlights its dependents, and
   selecting a dependent's chip takes you to the boundary card.
-- Every **open** link is also drawn as a red string from the boundary card to the card on this board
-  that waits on it. The string is a reading aid, not a control: selecting the boundary card darkens
-  it and highlights the dependents. A satisfied or closed link keeps its entry in the band but has
-  no string, because the work is no longer waiting.
+- Selecting a boundary card — the one wearing the **linked** badge — draws a red string from it to
+  each card on this board that waits on it, and highlights those dependents. Nothing is drawn at
+  rest, and the string is a reading aid, not a control. A satisfied or closed link keeps its entry
+  in the band but has no string, because the work is no longer waiting.
 - The section is a **lens**, not an editor: nothing can be dragged into it, and the only way to move
   the external work is to open it on the board that owns it.
 
