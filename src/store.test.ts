@@ -3998,3 +3998,21 @@ describe('the board detail dial', () => {
     expect(migrateState({}).boardDetail).toEqual({})
   })
 })
+
+describe('the connections lens', () => {
+  beforeEach(() => resetToFixture())
+
+  it('is off by default, per board, and toggles without touching the work', () => {
+    expect(s().connectionsOn['b-atlas']).toBeUndefined()
+    const before = s().items
+    s().setBoardConnections('b-atlas', true)
+    expect(s().connectionsOn).toEqual({ 'b-atlas': true })
+    expect(s().items).toBe(before)
+
+    s().setBoardConnections('b-nova', true)
+    expect(s().connectionsOn).toEqual({ 'b-atlas': true, 'b-nova': true })
+
+    s().setBoardConnections('b-atlas', false)
+    expect(s().connectionsOn).toEqual({ 'b-nova': true })
+  })
+})

@@ -46,6 +46,24 @@ browser per board, not in the workspace, so two people may read one board differ
 link opens the reader's own choice. It is not a permission — a Viewer gets it too. **Board design
 mode** always draws Full and disables the dial; Save or Cancel returns to the chosen level.
 
+## Connections
+
+The **Connections** toggle in the secondary bar draws the board's relationships over the work:
+
+- **Hierarchy** — a parent → child decomposition edge, as a dashed red string.
+- **Dependency** — a blocker → dependent link, as a solid red string with an arrow at the
+  dependent end.
+
+Only edges with **both ends rendered on this board** are drawn. A card that is archived, filtered
+out or in a folded flow has no element to connect to; a boundary link whose other end lives on
+another board belongs to the boundary workflow, not this view; attribution to an objective is not a
+card-to-card edge. The strings sit above the workflow headers, never take a click, and are
+`aria-hidden` — the chips, the boundary cards and the drawer already say the same relationships in
+words.
+
+The view is off by default and is remembered in this browser per board; it is a reading, not a
+permission or workspace data. Turning it off leaves every card and placement untouched.
+
 ## Multiple cards workflows
 
 A board has exactly **one initiatives flow** and **one or more cards flows**.

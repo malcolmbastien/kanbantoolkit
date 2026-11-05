@@ -36,6 +36,7 @@ import { DEFAULT_TIMELINE_ZOOM, type TimelineZoom } from '@/domain/timelineZoom'
 import { AUTO_ARCHIVE_DAYS } from '@/domain/autoArchive'
 import { externalLabelOf, safeExternalUrl } from '@/domain/externalLink'
 import { isBoardDetail, type BoardDetail } from '@/domain/boardDetail'
+import { readBoardConnections, writeBoardConnections } from '@/lib/connections'
 import { isDemoWorkspace } from '@/lib/demo'
 import { noteVisit, pruneFavourites, pruneVisits, toggleFavourite, type BoardVisit } from '@/domain/boardShortcuts'
 import type { Board, BoardBand, BoardFlow, BoardTemplate, Edge, FlowState, FlowKind, InitiativeType, IssueType, Item, ItemLogEntry, KeyResult, Lane, Objective, Period, Placement, SplitOrientation, Tag, TemplateFlow, TemplateLane, User } from '@/domain/types'
@@ -160,6 +161,12 @@ export interface ViewState {
    */
   boardDetail: Record<string, BoardDetail>
   /**
+   * Whether the Connections lens is on, by board id. A browser reading like the Detail level,
+   * but deliberately kept outside the persisted workspace slice: a link shared with somebody
+   * must not turn their board into a diagram.
+   */
+  connectionsOn: Record<string, boolean>
+  /**
    * How wide the timeline draws a day. A lens on the board rather than workspace data: it is written
    * into the place (the URL) and never into the vocabulary, so a link is what reproduces it.
    */
@@ -270,6 +277,8 @@ export interface Actions {
   setMetricsType: (typeId: string | null) => void
   /** How much of a card one board draws. Remembered in this browser, per board. */
   setBoardDetail: (boardId: string, detail: BoardDetail) => void
+  /** Show or hide every hierarchy and dependency edge on one board. */
+  setBoardConnections: (boardId: string, on: boolean) => void
   /** The timeline's zoom — a lens on the board, kept in the URL rather than in the workspace. */
   setTimelineZoom: (zoom: TimelineZoom) => void
   toggleBoards: () => void
@@ -1100,6 +1109,7 @@ const initialView: ViewState = {
   metricsFlowId: null,
   metricsTypeId: null,
   boardDetail: {},
+  connectionsOn: readBoardConnections(),
   timelineZoom: DEFAULT_TIMELINE_ZOOM,
   recentItemIds: [],
   favouriteBoardIds: [],
@@ -2214,6 +2224,13 @@ export const useStore = create<Store>()(
         if (detail === 'full') delete next[boardId]
         else next[boardId] = detail
         set({ boardDetail: next })
+      },
+      setBoardConnections: (boardId, on) => {
+        const next = { ...get().connectionsOn }
+        if (on) next[boardId] = true
+        else delete next[boardId]
+        writeBoardConnections(next)
+        set({ connectionsOn: next })
       },
       setTimelineZoom: (timelineZoom) => set({ timelineZoom }),
       toggleBoards: () => {

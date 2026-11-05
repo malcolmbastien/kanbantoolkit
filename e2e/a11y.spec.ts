@@ -57,6 +57,14 @@ test('the board has no barrier at Summary or Mini', async ({ page }) => {
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
+test('the board has no barrier with connections on', async ({ page }) => {
+  await page.goto('/app?board=b-nova')
+  await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Connections', exact: true }).click()
+  await expect(page.locator('[data-connection-link]').first()).toBeVisible()
+  expect(await barriers(page, { nestedInteractive: true })).toEqual([])
+})
+
 test('board settings has no barrier a machine can find', async ({ page }) => {
   await page.goto('/app?board=b-atlas')
   await page.getByRole('button', { name: 'Settings', exact: true }).click()

@@ -3,6 +3,8 @@ import { Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Tra
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
 import { DetailDial } from './DetailDial'
+import { ConnectionsToggle } from './ConnectionsToggle'
+import { ConnectionsLinks } from './ConnectionsLinks'
 import { InlineEdit } from './InlineEdit'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
 import { BoundaryLinks } from './BoundaryLinks'
@@ -148,6 +150,7 @@ export function BoardView({ requestMove }: Props) {
           {/* The board's own reading: how much of a card it draws. It lives here with the other
               controls that command the surface beneath it, not in the global bar. */}
           <DetailDial boardId={boardId} editMode={editMode} />
+          <ConnectionsToggle boardId={boardId} />
           <span aria-hidden className="h-4 w-px bg-slate-200" />
           {doneCount > 0 && !editMode && may('item.delete') && (
             <button
@@ -210,6 +213,7 @@ export function BoardView({ requestMove }: Props) {
         className={cn('min-h-0 flex-1 overflow-y-auto p-4', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}
       >
         <div ref={contentRef} className="relative space-y-6">
+        <ConnectionsLinks contentRef={contentRef} boardId={boardId} />
         <BoundaryLinks contentRef={contentRef} boardId={boardId} />
         {/* Initiatives workflow — this team's initiatives, by rollup. The strategic surface:
             a tinted band of its own, so a reader knows which workflow they are looking at

@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Layers, Lock, Plus, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
 import { DetailDial } from './DetailDial'
+import { ConnectionsToggle } from './ConnectionsToggle'
+import { ConnectionsLinks } from './ConnectionsLinks'
 import { StrategyMap } from './StrategyMap'
 import { BAND_ACCENT } from '@/lib/colors'
 import { linkableBoards } from '@/domain/board'
@@ -28,6 +30,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const editMode = useStore((s) => s.editMode)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [pick, setPick] = useState('')
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const board = boards.find((b) => b.id === boardId)
   if (!board) return null
@@ -91,12 +94,14 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           strip to carry the chip. */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
         {board.archived && <ArchivedBoardChip />}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <DetailDial boardId={board.id} editMode={editMode} />
+          <ConnectionsToggle boardId={board.id} />
         </div>
       </div>
 
-      <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 space-y-3 overflow-y-auto p-3', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
+      <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 overflow-y-auto p-3', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
+        <div ref={contentRef} className="relative space-y-3">
         {/* A portfolio leads with strategy: objectives and the initiatives that serve
             them on one page. Other coordination boards show the initiatives workflow. */}
         {portfolio
@@ -228,6 +233,8 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             <Layers size={11} /> Each band is a read-only rollup of that board’s initiatives — Not Started / In Progress / Done. Open a board to move its work or change its flow.
           </div>
         )}
+        <ConnectionsLinks contentRef={contentRef} boardId={board.id} />
+        </div>
       </div>
     </div>
   )
