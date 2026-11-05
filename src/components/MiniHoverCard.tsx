@@ -88,3 +88,42 @@ export function MiniHoverCard({
     document.body,
   )
 }
+
+/**
+ * The markers' reasons, one row each, shared by a card's tile and a boundary tile.
+ *
+ * The words are the board's own (`miniAttention`, a boundary entry's state), never a second
+ * vocabulary invented for the hover layer — so a red dot on the tile and its reason here cannot
+ * disagree.
+ */
+export function MiniHoverReasons({
+  reasons,
+}: {
+  reasons: Array<{ label: string; tone: 'risk' | 'watch'; why?: string }>
+}) {
+  if (!reasons.length) return null
+  return (
+    <div className="mt-2 border-t border-slate-200 pt-1.5">
+      <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">Why it is marked</p>
+      <ul className="mt-1 space-y-1">
+        {reasons.map((reason) => (
+          <li key={reason.label} className="flex items-start gap-1.5" data-mini-hover-reason={reason.tone}>
+            <span
+              aria-hidden
+              className={cn(
+                'mt-1 h-2 w-2 shrink-0 rounded-full',
+                reason.tone === 'risk' ? 'bg-rose-600' : 'bg-amber-500',
+              )}
+            />
+            <span className="min-w-0 text-micro leading-snug">
+              <span className="font-semibold text-slate-800">{reason.label}</span>
+              {reason.why && reason.why !== reason.label && (
+                <span className="block text-slate-600">{reason.why}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}

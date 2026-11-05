@@ -55,8 +55,14 @@ const DIST = 'dist'
  * a loop, and the same rule is read by the store — which every screen loads — and by the item
  * panel's picker, so it cannot be a lazy screen of its own. It is the rule that keeps a card from
  * waiting on its own parent.
+ *
+ * 170 is the Mini tile's reading layer, and the Boundary band on the same Detail dial. A Mini card
+ * carries no text, so the hover/focus card that names it — type, parent, people and the reason
+ * behind each red or amber marker — is how a board at that level is read; a hover is part of the
+ * card, not a screen behind a lazy import. The boundary band follows the same dial, and both share
+ * `MiniHoverCard` and `MiniHoverReasons`, so there is one layer rather than two.
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 169)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 170)
 
 let manifest
 try {

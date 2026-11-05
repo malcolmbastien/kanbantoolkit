@@ -15,7 +15,7 @@ import { PersonAvatar } from './PersonAvatar'
 import { PriorityBadge } from './PriorityBadge'
 import { DueChip } from './DueChip'
 import { heldByOther, usePresence } from '@/lib/presence'
-import { MiniHoverCard } from './MiniHoverCard'
+import { MiniHoverCard, MiniHoverReasons } from './MiniHoverCard'
 import type { IssueType, Item, Stage, User } from '@/domain/types'
 
 export interface CardSummary {
@@ -625,7 +625,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         {multi && <span className="pointer-events-none absolute inset-0 rounded-[4px] bg-indigo-500/20" aria-hidden />}
 
         <MiniHoverCard open={hovered && !locked} anchor={tileRef} onClose={closeHover}>
-          <div data-mini-hover="card">
+          <div>
             <div className="flex items-center gap-1.5">
               {type.id !== NONE_TYPE_ID && (
                 <span
@@ -651,7 +651,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               </p>
             )}
 
-            <div className="mt-2 border-t border-slate-200 pt-1.5" data-mini-hover-people>
+            <div className="mt-2 border-t border-slate-200 pt-1.5">
               <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">Assigned</p>
               {assignees.length === 0 ? (
                 <p className="mt-0.5 text-micro text-slate-600">Unassigned</p>
@@ -667,34 +667,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               )}
             </div>
 
-            {miniAttention.length > 0 && (
-              <div className="mt-2 border-t border-slate-200 pt-1.5" data-mini-hover-reasons>
-                <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">Why it is marked</p>
-                <ul className="mt-1 space-y-1">
-                  {miniAttention.map((warning) => (
-                    <li
-                      key={warning.label}
-                      className="flex items-start gap-1.5"
-                      data-mini-hover-reason={warning.tone}
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'mt-1 h-2 w-2 shrink-0 rounded-full',
-                          warning.tone === 'risk' ? 'bg-rose-600' : 'bg-amber-500',
-                        )}
-                      />
-                      <span className="min-w-0 text-micro leading-snug">
-                        <span className="font-semibold text-slate-800">{warning.label}</span>
-                        {warning.why && warning.why !== warning.label && (
-                          <span className="block text-slate-600">{warning.why}</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <MiniHoverReasons reasons={miniAttention} />
           </div>
         </MiniHoverCard>
       </div>

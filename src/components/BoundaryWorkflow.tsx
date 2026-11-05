@@ -9,7 +9,7 @@ import { stillScrolling } from '@/lib/useStillScroll'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { WorkflowToggle } from './WorkflowToggle'
-import { MiniHoverCard } from './MiniHoverCard'
+import { MiniHoverCard, MiniHoverReasons } from './MiniHoverCard'
 import type { IssueType } from '@/domain/types'
 
 /**
@@ -285,7 +285,7 @@ function BoundaryCard({
         )}
 
         <MiniHoverCard open={hovered} anchor={tileRef} onClose={closeHover}>
-          <div data-mini-hover="boundary">
+          <div>
             <div className="flex items-center gap-1.5">
               <span
                 className="shrink-0 rounded px-1.5 py-px text-micro font-bold uppercase tracking-wide"
@@ -303,44 +303,18 @@ function BoundaryCard({
             </p>
             <p className="mt-1 text-micro text-slate-600">On {homeBoard}</p>
 
-            {stateTone && (
-              <div className="mt-2 border-t border-slate-200 pt-1.5" data-mini-hover-reasons>
-                <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">Why it is marked</p>
-                <ul className="mt-1 space-y-1">
-                  <li className="flex items-start gap-1.5" data-mini-hover-reason={stateTone}>
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'mt-1 h-2 w-2 shrink-0 rounded-full',
-                        stateTone === 'risk' ? 'bg-rose-600' : 'bg-amber-500',
-                      )}
-                    />
-                    <span className="min-w-0 text-micro leading-snug">
-                      <span className="font-semibold text-slate-800">{state.label}</span>
-                      <span className="block text-slate-600">{stateWhy}</span>
-                    </span>
-                  </li>
-                </ul>
-              </div>
-            )}
+            {stateTone && <MiniHoverReasons reasons={[{ label: state.label, tone: stateTone, why: stateWhy }]} />}
 
-            <div className="mt-2 border-t border-slate-200 pt-1.5" data-mini-hover-dependents>
+            <div className="mt-2 border-t border-slate-200 pt-1.5">
               <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">
                 Waited on by {dependentCount}
               </p>
-              <ul className="mt-1 space-y-0.5">
-                {shownDependents.map((dependent) => (
-                  <li key={dependent.id} className="flex min-w-0 items-center gap-1 text-micro text-slate-700">
-                    <Rows3 size={10} className="shrink-0 text-slate-400" aria-hidden />
-                    <span className="truncate">{dependent.title}</span>
-                  </li>
-                ))}
-              </ul>
-              {entry.dependents.length > shownDependents.length && (
-                <p className="mt-0.5 text-micro text-slate-500">
-                  +{entry.dependents.length - shownDependents.length} more
-                </p>
-              )}
+              <p className="mt-0.5 text-micro text-slate-700">
+                {shownDependents.map((dependent) => dependent.title).join(' · ')}
+                {entry.dependents.length > shownDependents.length
+                  ? ` · +${entry.dependents.length - shownDependents.length} more`
+                  : ''}
+              </p>
             </div>
           </div>
         </MiniHoverCard>
