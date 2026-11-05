@@ -70,6 +70,24 @@ test('both ends name each other, and either one enters the focus state', async (
   await expect(title).toHaveAttribute('aria-pressed', 'true')
 })
 
+test('a red string joins a boundary card to the card it waits on', async ({ page }) => {
+  await openBoard(page)
+  const identity = page.locator('[data-boundary-card="init-identity"]')
+  const sso = page.locator('[data-card-id="st-enterprise-sso"]')
+  await expect(sso).toBeAttached()
+  const link = page.locator('[data-boundary-link="init-identity:st-enterprise-sso"]')
+  await expect(link).toHaveCount(1)
+  await expect(link.locator('path')).toHaveAttribute('stroke', '#dc2626')
+  await expect(link.locator('path')).toHaveAttribute('stroke-width', '1.5')
+
+  // Selecting the boundary card is asking to read that edge; the string becomes the strongest line
+  // on the board, and the unrelated work recedes.
+  await identity.getByText('Open · live blockage').click()
+  await expect(link).toHaveAttribute('data-boundary-link-active', '')
+  await expect(link.locator('path')).toHaveAttribute('stroke', '#b91c1c')
+  await expect(link.locator('path')).toHaveAttribute('stroke-width', '2.5')
+})
+
 test('clicking away ends the focus, and a card takes it over', async ({ page }) => {
   await openBoard(page)
 

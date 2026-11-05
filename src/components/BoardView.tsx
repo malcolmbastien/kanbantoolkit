@@ -5,6 +5,7 @@ import { BoardCanvas } from './BoardCanvas'
 import { DetailDial } from './DetailDial'
 import { InlineEdit } from './InlineEdit'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
+import { BoundaryLinks } from './BoundaryLinks'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
 import { WorkflowToggle } from './WorkflowToggle'
@@ -208,7 +209,8 @@ export function BoardView({ requestMove }: Props) {
         data-board-scroll
         className={cn('min-h-0 flex-1 overflow-y-auto p-4', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}
       >
-        <div ref={contentRef} className="space-y-6">
+        <div ref={contentRef} className="relative space-y-6">
+        <BoundaryLinks contentRef={contentRef} boardId={boardId} />
         {/* Initiatives workflow — this team's initiatives, by rollup. The strategic surface:
             a tinted band of its own, so a reader knows which workflow they are looking at
             before reading a single column. */}
