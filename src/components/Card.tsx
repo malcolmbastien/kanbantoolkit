@@ -454,12 +454,22 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   }
   const summaryAttention = attention(false)
   const miniAttention = attention(true)
-  // The compact card face carries one badge, not a row of them: the most urgent finding, red for a
-  // blockage or risk and amber for a warning. Its own words stay, so the badge still says *what*
-  // (a block, a rolled-up block, work waiting on it) rather than only that something is wrong;
-  // Full is where the whole set is read.
+  // The compact card face carries one badge, not a row of them: red for a blockage or risk and
+  // amber for a warning. A single finding keeps its own words, so the badge says *what* rather
+  // than only that something is wrong; several warnings become a count, because their labels are
+  // unrelated facts and "27d in lane, 2 depend on it" is a sentence, not a badge. Full is where
+  // the whole set is read.
+  const risk = summaryAttention.find((warning) => warning.tone === 'risk')
+  const warnings = summaryAttention.filter((warning) => warning.tone === 'watch')
   const summaryBadge =
-    summaryAttention.find((warning) => warning.tone === 'risk') ?? summaryAttention[0]
+    risk ??
+    (warnings.length > 1
+      ? {
+          label: `${warnings.length} warnings`,
+          tone: 'watch' as const,
+          why: warnings.map((warning) => warning.why ?? warning.label).join(' · '),
+        }
+      : warnings[0])
 
   const openOnClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()

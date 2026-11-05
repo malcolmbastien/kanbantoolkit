@@ -60,8 +60,15 @@ test('Summary keeps the title, type, due date and people, and drops the extras',
   await expect(billing.locator('[data-card-warning]')).toHaveCount(1)
   await expect(billing.locator('[data-card-warning]')).toHaveAttribute('data-card-warning', 'risk')
 
+  // One warning wears its own words; several become a count, so the badge stays a badge.
+  const trial = page.locator('[data-card-id="init-trial"]')
+  await expect(trial.locator('[data-card-warning]')).toHaveCount(1)
+  await expect(trial.locator('[data-card-warning]')).toHaveAttribute('data-card-warning', 'watch')
+  await expect(trial.locator('[data-card-warning]')).toHaveText('2 warnings')
+
   await expect(rebuilt.locator('[data-card-warning]')).toHaveCount(1)
   await expect(rebuilt.locator('[data-card-warning]')).toHaveAttribute('data-card-warning', 'watch')
+  await expect(rebuilt.locator('[data-card-warning]')).not.toContainText('warnings')
 
   // The same cards are there: a level changes the drawing, not the work.
   expect(await cardsIn(page, 'Backlog')).toEqual(backlog)
