@@ -36,6 +36,13 @@ interface Shot {
   path: string
   /** The element, when the picture is a part of the board rather than the whole of it. */
   pick?: (page: Page) => Locator
+  /** The card to open in the drawer first, when the picture is the panel. */
+  card?: string
+  /**
+   * Keep only this many CSS pixels from the top of the capture. A drawer is taller than the frame
+   * can show, and a picture of its whole length would shrink the words this shot exists for.
+   */
+  crop?: number
 }
 
 const SHOTS: Shot[] = [
@@ -56,7 +63,18 @@ const SHOTS: Shot[] = [
   {
     name: 'drawer',
     path: '/app?board=b-atlas',
+    card: 'st-usage-billing',
     pick: (page) => page.locator('[data-item-panel]'),
+  },
+  {
+    name: 'blocked',
+    path: '/app?board=b-atlas',
+    // The "What's blocked" tab: a card whose block is a call-out, not a status word. The reason
+    // sits at the top of the panel, in red, beside the Unblock control — the thing the tab names.
+    card: 'st-enterprise-sso',
+    pick: (page) => page.locator('[data-item-panel]'),
+    // Down to the people and tags: the block, the reason and the card it belongs to, larger.
+    crop: 565,
   },
   { name: 'flights', path: '/app?view=dashboard' },
 ]
@@ -67,7 +85,7 @@ const SHOTS: Shot[] = [
  * tabbed frame. The home page's transfer budget counts every image it names, and a 1440px capture
  * shown at 900 is bytes nobody sees.
  */
-const SHOWCASE = ['board', 'lanes', 'initiatives', 'drawer']
+const SHOWCASE = ['board', 'lanes', 'initiatives', 'blocked']
 
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true })
@@ -104,8 +122,8 @@ async function main(): Promise<void> {
       )
       await page.waitForTimeout(600)
 
-      if (shot.pick && shot.name === 'drawer') {
-        await page.locator('[data-workflow="cards"] [data-card-id]').first().click()
+      if (shot.card) {
+        await page.locator(`[data-card-id="${shot.card}"]`).first().click()
         await page.locator('[data-item-panel]').waitFor()
         await page.waitForTimeout(400)
       }
@@ -113,7 +131,17 @@ async function main(): Promise<void> {
       const target = shot.pick ? shot.pick(page).first() : page
       const png = await target.screenshot({ type: 'png', animations: 'disabled' })
       const file = join(OUT, `${shot.name}.webp`)
-      await sharp(png).webp({ quality: 74 }).toFile(file)
+      let image = sharp(png)
+      if (shot.crop) {
+        const meta = await image.metadata()
+        image = sharp(png).extract({
+          left: 0,
+          top: 0,
+          width: meta.width ?? 0,
+          height: Math.min(meta.height ?? 0, shot.crop),
+        })
+      }
+      await image.webp({ quality: 74 }).toFile(file)
       const size = (await sharp(file).metadata()).width
       console.log(`  ${shot.name}.webp — ${size}px wide`)
     }
