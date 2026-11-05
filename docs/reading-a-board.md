@@ -30,7 +30,8 @@ stage. The top-level columns themselves are not added, removed or reordered.
 
 ## Level of detail
 
-Every board has a **Detail** dial in its toolbar: **Mini → Summary → Full**.
+Every board has a **Detail** dial in its secondary bar, beside **Archive done**, **Export CSV** and
+**Filters**: **Mini → Summary → Full**.
 
 - **Full** is the card described on this page — every field, badge and control.
 - **Summary** keeps the title, type, due date and people, and keeps the blocked and warning markers.

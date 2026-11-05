@@ -569,7 +569,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           }
         })}
         footer={
-          ctx.interactive && !ctx.editMode ? (
+          ctx.interactive && !ctx.editMode && ctx.detail !== 'mini' ? (
             /* The way to make work in this column, and the largest target in it: a full-width
                dashed block rather than a hairline of text, because "add a card here" is the one
                thing a reader does to a lane that has nothing in it. It paints quietly — the

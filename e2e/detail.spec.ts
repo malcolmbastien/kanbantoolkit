@@ -29,6 +29,7 @@ test('Summary keeps the title, type, due date and people, and drops the extras',
   await expect(rebuilt.locator('[aria-label^="Priority"]')).toBeVisible()
 
   await choose(page, 'Summary')
+  await expect(page.getByRole('button', { name: 'Add card to Backlog' }).first()).toBeVisible()
   await expect(rebuilt).toHaveAttribute('data-card-detail', 'summary')
   await expect(rebuilt).toContainText('Rebuild the signup form')
   await expect(rebuilt).toContainText('User Story')
@@ -56,6 +57,8 @@ test('Mini is a colour tile per item, with blocked and warning markers and an ac
   const spike = page.locator('[data-card-id="st-pricing-experiment"]')
   await expect(story).toHaveAttribute('data-card-detail', 'mini')
   await expect(story).toHaveAttribute('aria-label', /Add usage-based billing events/)
+  // Mini is for scanning: the add-card offer goes with the detail.
+  await expect(page.getByRole('button', { name: 'Add card to Backlog' })).toHaveCount(0)
   // The type is the colour: two types do not wear the same tile.
   expect(await story.getAttribute('style')).not.toBe(await spike.getAttribute('style'))
 

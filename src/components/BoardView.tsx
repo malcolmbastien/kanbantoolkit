@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Archive, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BoardCanvas } from './BoardCanvas'
+import { DetailDial } from './DetailDial'
 import { InlineEdit } from './InlineEdit'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
 import { BoardSummary } from './BoardSummary'
@@ -143,6 +144,10 @@ export function BoardView({ requestMove }: Props) {
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
+          {/* The board's own reading: how much of a card it draws. It lives here with the other
+              controls that command the surface beneath it, not in the global bar. */}
+          <DetailDial boardId={boardId} editMode={editMode} />
+          <span aria-hidden className="h-4 w-px bg-slate-200" />
           {doneCount > 0 && !editMode && may('item.delete') && (
             <button
               onClick={() =>

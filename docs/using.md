@@ -41,7 +41,8 @@ boards a program or portfolio reads beneath it. Only the tabs a board can act on
 changes are saved as you edit. A board’s type is fixed when it is made and is not a setting: the
 dialog’s header names it, and there is nothing to change.
 
-The **Detail** dial beside the board controls chooses how much of a card the board draws:
+The **Detail** dial in the board’s secondary bar — beside **Archive done**, **Export CSV** and
+**Filters** — chooses how much of a card the board draws:
 **Mini** (colour tiles, with blocked and warning markers), **Summary** (title, type, due date and
 people, warnings kept) or **Full** (the whole card). It is one person's reading, remembered in this
 browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and

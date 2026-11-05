@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ExternalLink, Layers, Lock, Plus, X } from '
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
+import { DetailDial } from './DetailDial'
 import { StrategyMap } from './StrategyMap'
 import { BAND_ACCENT } from '@/lib/colors'
 import { linkableBoards } from '@/domain/board'
@@ -24,6 +25,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const selectBoard = useStore((s) => s.selectBoard)
   const setObjectives = useStore((s) => s.setObjectives)
+  const editMode = useStore((s) => s.editMode)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [pick, setPick] = useState('')
 
@@ -84,12 +86,15 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-200">
-      {/* A retired board says so here too — it has no other strip to carry the chip. */}
-      {board.archived && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
-          <ArchivedBoardChip />
+      {/* A coordination board has the same secondary bar as a team board: its state on the left,
+          and the reading controls on the right. A retired board says so here too — it has no other
+          strip to carry the chip. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
+        {board.archived && <ArchivedBoardChip />}
+        <div className="ml-auto">
+          <DetailDial boardId={board.id} editMode={editMode} />
         </div>
-      )}
+      </div>
 
       <div ref={pan.ref} {...pan.handlers} className={cn('min-h-0 flex-1 space-y-3 overflow-y-auto p-3', pan.panning ? 'cursor-grabbing select-none' : 'cursor-grab')}>
         {/* A portfolio leads with strategy: objectives and the initiatives that serve
