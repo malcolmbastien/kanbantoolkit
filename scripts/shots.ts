@@ -38,6 +38,8 @@ interface Shot {
   pick?: (page: Page) => Locator
   /** The card to open in the drawer first, when the picture is the panel. */
   card?: string
+  /** Something to set up before the capture, such as a detail level or a lens. */
+  prepare?: (page: Page) => Promise<void>
   /**
    * Keep only this many CSS pixels from the top of the capture. A drawer is taller than the frame
    * can show, and a picture of its whole length would shrink the words this shot exists for.
@@ -61,12 +63,6 @@ const SHOTS: Shot[] = [
       page.locator('section').filter({ has: page.getByRole('heading', { name: 'Initiatives workflow' }) }),
   },
   {
-    name: 'drawer',
-    path: '/app?board=b-atlas',
-    card: 'st-usage-billing',
-    pick: (page) => page.locator('[data-item-panel]'),
-  },
-  {
     name: 'blocked',
     path: '/app?board=b-atlas',
     // The "What's blocked" tab: a card whose block is a call-out, not a status word. The reason
@@ -76,7 +72,32 @@ const SHOTS: Shot[] = [
     // Down to the people and tags: the block, the reason and the card it belongs to, larger.
     crop: 565,
   },
-  { name: 'flights', path: '/app?view=dashboard' },
+  {
+    name: 'summary',
+    path: '/app?board=b-atlas',
+    // The middle density: type, title, people, the due date at the foot and one badge.
+    prepare: async (page) => {
+      await page.getByRole('radio', { name: 'Summary' }).click()
+      await page.waitForTimeout(400)
+    },
+  },
+  {
+    name: 'connections',
+    path: '/app?board=b-atlas',
+    // The lens that draws every hierarchy and dependency edge, boundary links included.
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Connections', exact: true }).click()
+      await page.waitForTimeout(500)
+    },
+  },
+  {
+    name: 'portfolio',
+    path: '/app?board=b-strategy',
+    // A portfolio leads with its strategy map; objectives heading their own initiatives flow.
+  },
+  { name: 'flow', path: '/app?board=b-atlas&view=flow' },
+  // The program dashboard: the team boards rolled up, and what needs attention.
+  { name: 'flights', path: '/app?board=b-delivery&view=dashboard' },
 ]
 
 /**
@@ -85,7 +106,7 @@ const SHOTS: Shot[] = [
  * tabbed frame. The home page's transfer budget counts every image it names, and a 1440px capture
  * shown at 900 is bytes nobody sees.
  */
-const SHOWCASE = ['board', 'lanes', 'initiatives', 'blocked']
+const SHOWCASE = ['board', 'lanes', 'initiatives', 'blocked', 'flow']
 
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true })
@@ -112,15 +133,25 @@ async function main(): Promise<void> {
         (board) => {
           const root = document.querySelector('#root')
           if (!root || root.childElementCount === 0) return false
-          // A board is drawn when a lane has height; any other screen when it has said something.
+          // A board is drawn when a lane has height; a coordination board has no cards flow but
+          // has its strategy map, and the Flow view speaks when its own surface is up.
           if (!board) return document.body.innerText.trim().length > 200
           const cell = document.querySelector('[data-workflow="cards"] [data-lane-cell]')
-          return Boolean(cell && cell.getBoundingClientRect().height > 10)
+          if (cell && cell.getBoundingClientRect().height > 10) return true
+          // A coordination board has no cards flow: a program reads its initiatives band and a
+          // portfolio its strategy map. Flow and the dashboard have their own surfaces.
+          return Boolean(
+            document.querySelector(
+              '[data-objective-group], [data-workflow="initiatives"], [data-flow-view], [data-attention-tile]',
+            ),
+          )
         },
         wantsBoard,
         { timeout: 20_000 },
       )
       await page.waitForTimeout(600)
+
+      await shot.prepare?.(page)
 
       if (shot.card) {
         await page.locator(`[data-card-id="${shot.card}"]`).first().click()

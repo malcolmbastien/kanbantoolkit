@@ -65,7 +65,7 @@ without a loader.
 | Path | What it is for | JS | Indexed | Task |
 | --- | --- | --- | --- | --- |
 | `/` | what it is, and the two things a visitor can do: the demo, or install | no | yes | 152 (done), 164 |
-| `/product/` | how the model works, with the real UI | no | yes | 152 (done) |
+| `/product/` | the features and the model, with the real UI | no | yes | 152 (done) |
 | `/install/` | how to run it: one command, the configuration, TLS, and where the runbook is | no | yes | 164, 160, 128 |
 | `/privacy/` | what the demo holds, who processes it, how to take it away | no | yes | 150 (done) |
 | `/terms/` | the terms of open-source software you run yourself | no | yes | 150 (done) |
@@ -96,7 +96,7 @@ every page, and the security address is in `security.txt`.
 
 One screen must answer three questions: what is this, why is it different, and what do I do next.
 
-1. **Nav** — How it works · FAQ · Install · Docs · GitHub, then **Open the demo** (`/app`) and the
+1. **Nav** — Features · FAQ · Install · Docs · GitHub, then **Open the demo** (`/app`) and the
    primary action **Install**, which points at the install documentation on GitHub rather than a
    summary page on this site. One line, no mega-menu.
 2. **Hero** — an H1 in the product's own words, not a category label: *the truth is derived, not
@@ -131,14 +131,15 @@ to explain away. What stands in their place is evidence: the licence, the instal
 **The rule for every sentence:** it must be true of the code in this repository, and there must be
 something to point at. A claim with no proof does not ship.
 
-### `/product/` — how it works
+### `/product/` — features
 
 The page the home page's claims link to, for the reader who has decided to care. Sections, each one
-short paragraph plus one screenshot, in this order: one card, many boards; the lane tree and the four
-stages; initiatives computed from the work below; dependencies that clear themselves; the same graph
-read at three levels; what is deliberately not automatable (no generated cards, no AI guesses —
-the app never writes what nobody wrote). Ends with the demo link and the install page, and nothing
-about accounts or plans.
+short paragraph plus one screenshot, in this order: one card on many boards; flows and the four
+stages; the three levels of detail; connections and boundary dependencies; a block that says why and
+clears itself; initiatives computed from the work below; objectives and the strategy map; flow
+measured from the moves; the same model read at every altitude; the inbox; and what is deliberately
+not automatable (no generated cards, no AI guesses — the app never writes what nobody wrote). Ends
+with the demo link and the install page, and nothing about accounts or plans.
 
 ### `/install/` — running it
 
