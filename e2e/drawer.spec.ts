@@ -59,6 +59,22 @@ test('a description is one rich editor, and the toolbar formats in place', async
   await expect(reopened.locator('em, i').first()).toBeVisible()
 })
 
+test('the description placeholder leaves when the editor is active', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-pricing-experiment"]').click()
+  const editor = page.getByRole('textbox', { name: 'Description' })
+  const placeholder = page.locator('[data-description-placeholder]')
+
+  await expect(placeholder).toBeVisible()
+  await editor.click()
+  await expect(placeholder).toHaveCount(0)
+
+  // Opening an empty heading is formatting, not words; the prompt stays out of the way while the
+  // person is writing.
+  await page.keyboard.type('# ')
+  await expect(placeholder).toHaveCount(0)
+})
+
 test('markdown shortcuts format the description as it is typed', async ({ page }) => {
   await openBoard(page)
   await page.locator('[data-card-id="st-signup-rebuild"]').click()

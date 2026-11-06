@@ -253,8 +253,12 @@ export function DescriptionEditor({
 
       <div className="relative">
         <EditorContent editor={editor} />
-        {!locked && value.trim() === '' && (
-          <span className="pointer-events-none absolute left-3 top-2.5 text-meta text-slate-500" aria-hidden>
+        {!locked && !focused && value.trim() === '' && (
+          <span
+            data-description-placeholder
+            className="pointer-events-none absolute left-3 top-2.5 text-meta text-slate-500"
+            aria-hidden
+          >
             Add a description…
           </span>
         )}
