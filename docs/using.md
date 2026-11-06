@@ -113,8 +113,9 @@ Choose a card to open its panel. **Overview** holds the title, the description (
 formatting toolbar), status, priority, type, people, tags, target dates, the day the work is due and
 an external link to where the work lives elsewhere; the creator is recorded and is not editable.
 Select words in the description and the toolbar formats them in place — bold, italic, inline code, a
-link, a list or a heading — while the field still stores Markdown. **Hierarchy** shows the parent and
-the work below. **Activity** is the card's own history — every move, edit, note and dependency, with
+link, a list or a heading — while the field still stores Markdown. Markdown shortcuts work as you
+type too: `# ` starts a heading, `- ` or `1. ` a list, and `**bold**`, `*italic*` and `` `code` ``
+are recognised as they close. **Hierarchy** shows the parent and the work below. **Activity** is the card's own history — every move, edit, note and dependency, with
 who and when.
 
 <img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form: type, title, Overview, Hierarchy and Activity tabs, status, priority, people and the parent initiative" width="420">

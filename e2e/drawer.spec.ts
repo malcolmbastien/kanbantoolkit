@@ -59,6 +59,46 @@ test('a description is one rich editor, and the toolbar formats in place', async
   await expect(reopened.locator('em, i').first()).toBeVisible()
 })
 
+test('markdown shortcuts format the description as it is typed', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  const editor = page.getByRole('textbox', { name: 'Description' })
+  await editor.click()
+  await page.keyboard.press('Control+A')
+  await page.keyboard.press('Backspace')
+
+  // "# " turns the line into a heading; "- " starts a bulleted list.
+  await page.keyboard.type('# Plan')
+  await expect(editor.locator('h1')).toHaveText('Plan')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('- One')
+  await expect(editor.locator('ul li').first()).toContainText('One')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Two')
+  await expect(editor.locator('ul li')).toHaveCount(2)
+
+  // The shortcuts wrote markdown: reopening renders the same heading and list.
+  await closeDrawer(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  const reopened = page.getByRole('textbox', { name: 'Description' })
+  await expect(reopened.locator('h1')).toHaveText('Plan')
+  await expect(reopened.locator('ul li')).toHaveCount(2)
+})
+
+test('typed markdown marks format in place', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  const editor = page.getByRole('textbox', { name: 'Description' })
+  await editor.click()
+  await page.keyboard.press('Control+A')
+  await page.keyboard.press('Backspace')
+
+  await page.keyboard.type('**Bold** and *italic* and `code`')
+  await expect(editor.locator('strong')).toHaveText('Bold')
+  await expect(editor.locator('em')).toHaveText('italic')
+  await expect(editor.locator('code')).toHaveText('code')
+})
+
 test('inline code in the description stays code', async ({ page }) => {
   await openBoard(page)
   await page.locator('[data-card-id="st-signup-rebuild"]').click()

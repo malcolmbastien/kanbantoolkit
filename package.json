@@ -49,6 +49,9 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
+    "@tiptap/pm": "^3.33.0",
+    "@tiptap/react": "^3.33.0",
+    "@tiptap/starter-kit": "^3.33.0",
     "hono": "^4.13.13",
     "ws": "^8.22.0"
   },

@@ -1,20 +1,22 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
 import { Bold, Code, Heading2, Italic, Link2, List, ListOrdered, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderMarkdown } from '@/lib/markdown'
 import { htmlToMarkdown, safeMarkdownUrl } from '@/lib/richText'
 
 /**
- * The card description as one rich surface.
+ * The card description as one rich surface, on TipTap.
  *
- * A person writes where they read: the editor is the rendered description, not a textarea with a
- * preview somewhere else. The toolbar formats the selection in place, and the DOM is turned back
- * into markdown on every change — so the field's stored value, search, history and export stay
- * plain markdown while the thing on screen is the description itself.
+ * TipTap brings the editing model — a real document with a selection, undo, and the markdown input
+ * rules that turn `# ` into a heading and `- ` into a list as it is typed. The value a card stores
+ * is still markdown: the editor is seeded with `renderMarkdown(value)`, and `htmlToMarkdown` turns
+ * the editor's HTML back into the same markdown search, history, export and the server read.
  *
- * The editor is uncontrolled while it has focus. Rewriting its `innerHTML` on each keystroke would
- * move the caret; it is only re-rendered when the value changes from outside (another card, a sync)
- * and the editor is not the active element.
+ * The extensions are limited to the markdown this app can render again: blockquotes, horizontal
+ * rules, strikethrough, underline and hard breaks are off, because they would round-trip into text
+ * the rest of the app cannot draw.
  */
 export function DescriptionEditor({
   value,
@@ -29,167 +31,112 @@ export function DescriptionEditor({
   onBlur: () => void
   locked: boolean
 }) {
-  const editor = useRef<HTMLDivElement>(null)
-  const linkInput = useRef<HTMLInputElement>(null)
-  const lastEmitted = useRef<string | null>(null)
-  const savedRange = useRef<Range | null>(null)
-  // The selection survives a tab to the toolbar (and into the link field), so a keyboard reader
-  // can choose a format after selecting words, exactly as a pointer reader can.
-  const selectionRange = useRef<Range | null>(null)
+  const onChangeRef = useRef(onChange)
+  const onFocusRef = useRef(onFocus)
+  const onBlurRef = useRef(onBlur)
+  onChangeRef.current = onChange
+  onFocusRef.current = onFocus
+  onBlurRef.current = onBlur
+
+  const lastEmitted = useRef(value)
   const [focused, setFocused] = useState(false)
-  const [active, setActive] = useState({ bold: false, italic: false, ul: false, ol: false, heading: false })
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkError, setLinkError] = useState<string | undefined>(undefined)
+  const linkInput = useRef<HTMLInputElement>(null)
 
-  /** The editor's DOM, as the markdown the card stores. */
-  const sync = () => {
-    const element = editor.current
-    if (!element) return
-    const markdown = htmlToMarkdown(element)
-    // Select-all then Backspace inside a list leaves an empty list item, and a heading leaves an
-    // empty heading. Clear the block furniture too, so the next word is a paragraph again rather
-    // than a list item the Heading command cannot reach.
-    if (markdown === '' && element.querySelector('ul, ol, h1, h2, h3, h4, h5, h6, blockquote, pre')) {
-      element.innerHTML = '<div><br></div>'
-      if (document.activeElement === element) {
-        const range = document.createRange()
-        range.selectNodeContents(element)
-        range.collapse(true)
-        const selection = document.getSelection()
-        selection?.removeAllRanges()
-        selection?.addRange(range)
-      }
-    }
-    if (markdown === lastEmitted.current) return
-    lastEmitted.current = markdown
-    onChange(markdown)
+  const markdownOf = (ed: { getHTML(): string }) => {
+    const container = document.createElement('div')
+    container.innerHTML = ed.getHTML()
+    return htmlToMarkdown(container)
   }
 
-  // The saved description is rendered once, before paint. After that React must not touch the
-  // editor's `innerHTML`: the browser's editing, selection and undo are the source of truth while
-  // it has focus. A change from outside (another card, a remote edit) replaces the document only
-  // when the editor is not the active element.
-  useLayoutEffect(() => {
-    const element = editor.current
-    if (!element) return
-    if (focused) return
-    if (htmlToMarkdown(element) === value) {
-      lastEmitted.current = value
-      return
-    }
-    element.innerHTML = value ? renderMarkdown(value) : ''
-    lastEmitted.current = value
-  }, [value, focused])
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        blockquote: false,
+        horizontalRule: false,
+        strike: false,
+        underline: false,
+        hardBreak: false,
+        heading: { levels: [1, 2, 3] },
+        link: {
+          openOnClick: false,
+          autolink: true,
+          linkOnPaste: true,
+          validate: (href) => Boolean(safeMarkdownUrl(href)),
+          HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+        },
+      }),
+    ],
+    content: renderMarkdown(value),
+    editable: !locked,
+    immediatelyRender: true,
+    editorProps: {
+      attributes: {
+        'aria-label': 'Description',
+        'aria-multiline': 'true',
+        'aria-readonly': String(locked),
+        role: 'textbox',
+        spellcheck: 'true',
+        'data-description-editor': '',
+        class:
+          'rich-text min-h-[96px] max-h-72 overflow-auto px-3 py-2.5 text-meta leading-relaxed text-slate-700 outline-none',
+      },
+    },
+    onUpdate: ({ editor }) => {
+      const markdown = markdownOf(editor)
+      if (markdown === lastEmitted.current) return
+      lastEmitted.current = markdown
+      onChangeRef.current(markdown)
+    },
+    onFocus: () => {
+      setFocused(true)
+      onFocusRef.current()
+    },
+    onBlur: () => {
+      setFocused(false)
+      onBlurRef.current()
+    },
+  })
 
-  // The toolbar's pressed state follows the selection, the way a word processor's does.
+  // The toolbar's pressed state follows ProseMirror's selection, the way a word processor's does.
+  const active = useEditorState({
+    editor,
+    selector: ({ editor }) => ({
+      bold: editor?.isActive('bold') ?? false,
+      italic: editor?.isActive('italic') ?? false,
+      code: editor?.isActive('code') ?? false,
+      ul: editor?.isActive('bulletList') ?? false,
+      ol: editor?.isActive('orderedList') ?? false,
+      heading: editor?.isActive('heading') ?? false,
+    }),
+  })
+
+  // A lock can arrive after the panel opened (another tab takes the lease); the surface follows.
   useEffect(() => {
-    const refresh = () => {
-      const element = editor.current
-      const selection = document.getSelection()
-      if (!element || !selection?.anchorNode || !element.contains(selection.anchorNode)) return
-      if (selection.rangeCount > 0) selectionRange.current = selection.getRangeAt(0).cloneRange()
-      const format = String(document.queryCommandValue('formatBlock')).replace(/[<>]/g, '').toLowerCase()
-      setActive({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        ul: document.queryCommandState('insertUnorderedList'),
-        ol: document.queryCommandState('insertOrderedList'),
-        heading: format === 'h2',
-      })
-    }
-    document.addEventListener('selectionchange', refresh)
-    return () => document.removeEventListener('selectionchange', refresh)
-  }, [])
+    if (!editor) return
+    editor.setEditable(!locked)
+    if (locked) setLinkOpen(false)
+  }, [editor, locked])
+
+  // An outside change — another card, a remote edit — replaces the document. Never while a person
+  // is typing into it: ProseMirror's own selection and undo are the truth then.
+  useEffect(() => {
+    if (!editor || focused) return
+    if (lastEmitted.current === value) return
+    editor.commands.setContent(renderMarkdown(value), { emitUpdate: false })
+    lastEmitted.current = value
+  }, [editor, value, focused])
 
   useEffect(() => {
     if (linkOpen) linkInput.current?.focus()
   }, [linkOpen])
 
-  /** Put the caret/selection back in the editor before a command acts on it. */
-  const restoreSelection = () => {
-    const element = editor.current
-    if (!element) return
-    element.focus()
-    if (!selectionRange.current) return
-    const selection = document.getSelection()
-    selection?.removeAllRanges()
-    selection?.addRange(selectionRange.current)
-  }
-
-  /**
-   * A block cannot stand inside a heading or a paragraph. `execCommand` will sometimes produce
-   * `<h2><ul>…</ul></h2>` when a list is applied across blocks; lift the list out so the document
-   * the editor shows is one markdown can describe.
-   */
-  const normalizeBlocks = () => {
-    const element = editor.current
-    if (!element) return
-    for (const block of element.querySelectorAll('h1, h2, h3, h4, h5, h6, p')) {
-      const nested = [...block.children].filter((child) =>
-        /^(UL|OL|PRE|BLOCKQUOTE|H[1-6])$/.test(child.tagName),
-      )
-      if (!nested.length) continue
-      for (const child of nested) block.parentElement?.insertBefore(child, block.nextSibling)
-      if (!block.textContent?.trim()) block.remove()
-    }
-  }
-
-  const run = (command: string, argument?: string) => {
-    restoreSelection()
-    document.execCommand(command, false, argument)
-    normalizeBlocks()
-    sync()
-  }
-
-  const toggleHeading = () => {
-    restoreSelection()
-    const format = String(document.queryCommandValue('formatBlock')).replace(/[<>]/g, '').toLowerCase()
-    run('formatBlock', format === 'h2' ? 'p' : 'h2')
-  }
-
-  /** Inline code has no `execCommand`; wrap or unwrap the selection itself. */
-  const toggleCode = () => {
-    const element = editor.current
-    restoreSelection()
-    const selection = document.getSelection()
-    if (!element || !selection?.rangeCount) return
-    const range = selection.getRangeAt(0)
-
-    let node: Node | null = range.commonAncestorContainer
-    let code: HTMLElement | null = null
-    while (node && node !== element) {
-      if (node instanceof HTMLElement && node.tagName === 'CODE' && node.parentElement?.tagName !== 'PRE') {
-        code = node
-        break
-      }
-      node = node.parentNode
-    }
-
-    if (code) {
-      const parent = code.parentNode
-      if (parent) {
-        while (code.firstChild) parent.insertBefore(code.firstChild, code)
-        parent.removeChild(code)
-      }
-    } else {
-      if (range.collapsed) return
-      const wrapper = document.createElement('code')
-      wrapper.appendChild(range.extractContents())
-      range.insertNode(wrapper)
-      const after = document.createRange()
-      after.selectNodeContents(wrapper)
-      selection.removeAllRanges()
-      selection.addRange(after)
-    }
-    sync()
-  }
-
   const openLink = () => {
-    const selection = document.getSelection()
-    savedRange.current =
-      selectionRange.current ?? (selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null)
-    setLinkUrl('')
+    if (!editor) return
+    const existing = editor.isActive('link') ? (editor.getAttributes('link').href as string | undefined) : undefined
+    setLinkUrl(existing ?? '')
     setLinkError(undefined)
     setLinkOpen(true)
   }
@@ -198,35 +145,28 @@ export function DescriptionEditor({
     setLinkOpen(false)
     setLinkUrl('')
     setLinkError(undefined)
-    editor.current?.focus()
+    editor?.chain().focus().run()
   }
 
   const applyLink = () => {
+    if (!editor) return
     const href = safeMarkdownUrl(linkUrl)
     if (!href) {
       setLinkError('Enter an https, http or mailto address.')
       return
     }
-    const element = editor.current
-    if (!element) return
-    // Returning to the editor starts (or continues) the edit the parent records on blur; the link
-    // button itself never takes focus away from the selection.
-    element.focus()
-    const selection = document.getSelection()
-    if (savedRange.current) {
-      selection?.removeAllRanges()
-      selection?.addRange(savedRange.current)
-      if (savedRange.current.collapsed) {
-        const label = href.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        document.execCommand('insertHTML', false, `<a href="${label.replace(/"/g, '&quot;')}">${label}</a>`)
-      } else {
-        document.execCommand('createLink', false, href)
-      }
+    if (editor.state.selection.empty) {
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: 'text', text: href, marks: [{ type: 'link', attrs: { href } }] })
+        .run()
+    } else {
+      editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
     }
     setLinkOpen(false)
     setLinkUrl('')
     setLinkError(undefined)
-    sync()
   }
 
   return (
@@ -238,26 +178,34 @@ export function DescriptionEditor({
     >
       {!locked && (
         <div className="flex items-center gap-0.5 border-b border-slate-200 bg-slate-50/80 px-1.5 py-1">
-          <Tool label="Bold" pressed={active.bold} onPress={() => run('bold')} disabled={locked}>
+          <Tool label="Bold" pressed={active.bold} onPress={() => editor?.chain().focus().toggleBold().run()}>
             <Bold size={13} />
           </Tool>
-          <Tool label="Italic" pressed={active.italic} onPress={() => run('italic')} disabled={locked}>
+          <Tool label="Italic" pressed={active.italic} onPress={() => editor?.chain().focus().toggleItalic().run()}>
             <Italic size={13} />
           </Tool>
-          <Tool label="Inline code" onPress={toggleCode} disabled={locked}>
+          <Tool label="Inline code" pressed={active.code} onPress={() => editor?.chain().focus().toggleCode().run()}>
             <Code size={13} />
           </Tool>
-          <Tool label="Link" onPress={openLink} disabled={locked}>
+          <Tool label="Link" onPress={openLink}>
             <Link2 size={13} />
           </Tool>
           <span aria-hidden className="mx-0.5 h-4 w-px bg-slate-200" />
-          <Tool label="Bulleted list" pressed={active.ul} onPress={() => run('insertUnorderedList')} disabled={locked}>
+          <Tool label="Bulleted list" pressed={active.ul} onPress={() => editor?.chain().focus().toggleBulletList().run()}>
             <List size={13} />
           </Tool>
-          <Tool label="Numbered list" pressed={active.ol} onPress={() => run('insertOrderedList')} disabled={locked}>
+          <Tool label="Numbered list" pressed={active.ol} onPress={() => editor?.chain().focus().toggleOrderedList().run()}>
             <ListOrdered size={13} />
           </Tool>
-          <Tool label="Heading" pressed={active.heading} onPress={toggleHeading} disabled={locked}>
+          <Tool
+            label="Heading"
+            pressed={active.heading}
+            onPress={() => {
+              if (!editor) return
+              if (editor.isActive('heading')) editor.chain().focus().setParagraph().run()
+              else editor.chain().focus().setHeading({ level: 2 }).run()
+            }}
+          >
             <Heading2 size={13} />
           </Tool>
         </div>
@@ -304,45 +252,7 @@ export function DescriptionEditor({
       {linkError && !locked && <p className="border-b border-rose-100 bg-rose-50 px-2 py-1 text-micro text-rose-700">{linkError}</p>}
 
       <div className="relative">
-        <div
-          ref={editor}
-          data-description-editor
-          role="textbox"
-          aria-label="Description"
-          aria-multiline="true"
-          aria-readonly={locked}
-          contentEditable={!locked}
-          suppressContentEditableWarning
-          spellCheck
-          onFocus={() => {
-            setFocused(true)
-            onFocus()
-          }}
-          onBlur={() => {
-            setFocused(false)
-            onBlur()
-          }}
-          onInput={sync}
-          onPaste={(event) => {
-            // A pasted page brings its own styles and scripts-shaped markup; the description holds
-            // words and the marks this editor can serialize, so paste them as text.
-            event.preventDefault()
-            document.execCommand('insertText', false, event.clipboardData.getData('text/plain'))
-            sync()
-          }}
-          onKeyDown={(event) => {
-            const command = (event.metaKey || event.ctrlKey) && !event.altKey
-            if (!command) return
-            if (event.key.toLowerCase() === 'b') {
-              event.preventDefault()
-              run('bold')
-            } else if (event.key.toLowerCase() === 'i') {
-              event.preventDefault()
-              run('italic')
-            }
-          }}
-          className="rich-text min-h-[96px] max-h-72 overflow-auto px-3 py-2.5 text-meta leading-relaxed text-slate-700 outline-none"
-        />
+        <EditorContent editor={editor} />
         {!locked && value.trim() === '' && (
           <span className="pointer-events-none absolute left-3 top-2.5 text-meta text-slate-500" aria-hidden>
             Add a description…
