@@ -25,10 +25,22 @@ import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { IssueType, Stage } from '@/domain/types'
 import { cardsFlows } from '@/domain/flows'
-import { dueState } from '@/domain/due'
-import { DueChip } from './DueChip'
+import { dueLabel, dueState, dueWhy } from '@/domain/due'
 
 const barColor = (pct: number) => (pct >= 100 ? '#10b981' : pct > 0 ? '#6366f1' : '#cbd5e1')
+
+/** The promise's voice in the Dates column: a passed day is rose, the coming week amber. */
+const DUE_TEXT = {
+  overdue: 'font-semibold text-rose-700',
+  soon: 'text-amber-800',
+  later: 'text-slate-700',
+} as const
+
+const DUE_DOT = {
+  overdue: 'bg-rose-600',
+  soon: 'bg-amber-500',
+  later: 'bg-slate-300',
+} as const
 
 /** Each tile's mark, and the accent it reads in. The hard stops are the loud ones. */
 const ATTENTION_ICON: Record<AttentionKey, LucideIcon> = {
@@ -138,11 +150,10 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
   const rows = initiatives.map((item) => {
     const roll = rollupOf(item.id, graph)
     const blocked = blockedBelow(item.id, graph)
-    const target = parseDate(item.targetEndDate)
-    // Overdue is about the promise, not the plan: the target window is what this column reads,
-    // and the due date is what the word means everywhere else in the app.
+    // Two different promises, read as two lines: the target window is the plan, and the due date
+    // is the day the work is promised for. They can fall months apart, so neither stands for the
+    // other in the Dates column.
     const due = dueState(item.dueDate, roll.bucket === 'done')
-    const overdue = due?.tone === 'overdue'
     const childInits = decompositionChildren(item.id, edges).filter(
       (id) => items.find((i) => i.id === id)?.typeId === initiativeTypeId,
     ).length
@@ -150,8 +161,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
       item,
       roll,
       blocked,
-      target,
-      overdue,
+      due,
       childInits,
       health: initiativeHealth(item.id, graph),
       // The kind is the board's own label, resolved wherever it is defined — and "None" is the
@@ -294,7 +304,8 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
             <div>
               <h2 className="text-heading font-semibold text-slate-800">Initiatives</h2>
               <p className="text-meta text-slate-600">
-                Every initiative this board reads, with its work rolled up, its dates and its health.
+                Every initiative this board reads, with its work rolled up, its plan, its due date
+                and its health.
               </p>
             </div>
             <span className="ml-auto text-meta text-slate-500">Rolled up from the work below</span>
@@ -311,7 +322,7 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ item, roll, childInits, health }) => {
+              {rows.map(({ item, roll, due, childInits, health }) => {
                 const type = typeOf(item.typeId)
                 const bucket = roll.bucket as Stage
                 return (
@@ -355,18 +366,53 @@ export function ManagementDashboard({ boardId }: { boardId: string }) {
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-1 text-meta text-slate-600">
-                        <CalendarClock size={12} className="text-slate-400" />
-                        {item.targetStartDate ? `${formatDate(item.targetStartDate)} → ` : ''}
-                        {formatDate(item.targetEndDate)}
+                      {/* The plan and the promise, labelled. A target end in December beside an
+                          overdue chip for a November due date was two dates arguing with no word
+                          saying which was which. */}
+                      <div className="flex items-start gap-1.5" data-date="target" title="The target window is the plan.">
+                        <span className="mt-px w-10 shrink-0 text-micro font-semibold uppercase tracking-wide text-slate-500">
+                          Target
+                        </span>
+                        <CalendarClock size={12} className="mt-0.5 shrink-0 text-slate-400" />
+                        <span className="min-w-0 text-meta text-slate-700">
+                          {item.targetEndDate ? (
+                            <>
+                              {item.targetStartDate ? `${formatDate(item.targetStartDate)} → ` : ''}
+                              {formatDate(item.targetEndDate)}
+                            </>
+                          ) : item.targetStartDate ? (
+                            `From ${formatDate(item.targetStartDate)}`
+                          ) : (
+                            <span className="text-slate-500">Not set</span>
+                          )}
+                        </span>
                       </div>
-                      {/* The promise, under the plan: one date, and the same chip the card and the
-                          drawer use, so "overdue" means one thing in all three places. */}
-                      {item.dueDate && (
-                        <div className="mt-0.5">
-                          <DueChip item={item} complete={roll.bucket === 'done'} />
-                        </div>
-                      )}
+                      <div
+                        className="mt-1 flex items-start gap-1.5"
+                        data-date="due"
+                        title={due ? dueWhy(due) : 'No due date is set.'}
+                      >
+                        <span className="mt-px w-10 shrink-0 text-micro font-semibold uppercase tracking-wide text-slate-500">
+                          Due
+                        </span>
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
+                            due ? DUE_DOT[due.tone] : 'bg-slate-300',
+                          )}
+                        />
+                        <span className={cn('min-w-0 text-meta', due ? DUE_TEXT[due.tone] : 'text-slate-500')}>
+                          {due ? (
+                            <>
+                              {formatDate(item.dueDate)}
+                              {due.tone !== 'later' && <span> · {dueLabel(due)}</span>}
+                            </>
+                          ) : (
+                            'Not set'
+                          )}
+                        </span>
+                      </div>
                     </td>
 
                     <td className="px-4 py-2.5">

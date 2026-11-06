@@ -168,7 +168,8 @@ a program's outcome is decomposed into a team's initiative.
 
 ## The views
 
-- **Dashboard** — the board's initiatives at a glance.
+- **Dashboard** — the board's initiatives at a glance: work progress, the target plan, the due
+  date and their health, each read as its own fact.
 - **Timeline** — the same initiatives over their target dates. Each block carries its own people,
   as initials beside its dates; a bar too narrow for them keeps its title, and the names travel in
   its tooltip. The grid is one line per day with the weeks and months a shade stronger, so the axis

@@ -65,3 +65,22 @@ test('the initiatives table has a section header of its own', async ({ page }) =
   const column = (await status.boundingBox())!
   expect(column.y, 'the table sits under its header').toBeGreaterThan(head.y)
 })
+
+test('the Dates column names the plan and the promise separately', async ({ page }) => {
+  await page.goto('/app?board=b-atlas&view=dashboard')
+
+  const row = page.locator('[data-item-row="init-signup-redesign"]')
+  const target = row.locator('[data-date="target"]')
+  const due = row.locator('[data-date="due"]')
+
+  // The plan reaches December; the promise was November, and that is why the row is late.
+  await expect(target).toContainText('Target')
+  await expect(target).toContainText('Dec 31, 2026')
+  await expect(due).toContainText('Due')
+  await expect(due).toContainText('Nov 4, 2026')
+  await expect(due).toContainText(/overdue/)
+
+  // Neither line stands in for the other.
+  expect(await target.innerText()).not.toContain('Nov 4, 2026')
+  expect(await due.innerText()).not.toContain('Dec 31, 2026')
+})
