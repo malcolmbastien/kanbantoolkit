@@ -1,3 +1,5 @@
+import { safeMarkdownUrl } from './richText'
+
 /**
  * Minimal, dependency-free markdown → HTML for the card description preview.
  * Input is escaped first, so the output is safe to inject.
@@ -17,10 +19,13 @@ export function renderMarkdown(md: string): string {
   text = text.replace(/`([^`]+)`/g, '<code class="rounded bg-slate-100 px-1">$1</code>')
   text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
   text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>')
-  text = text.replace(
-    /\[([^\]]+)\]\(([^)\s]+)\)/g,
-    '<a class="text-indigo-600 underline" href="$2" target="_blank" rel="noopener">$1</a>',
-  )
+  text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_match, label: string, target: string) => {
+    const href = safeMarkdownUrl(target)
+    // A link is a way out to the web or to mail; a script scheme is not a link, so the label
+    // stays as words rather than becoming a control that runs something.
+    if (!href) return label
+    return `<a class="text-indigo-600 underline" href="${href.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" target="_blank" rel="noopener">${label}</a>`
+  })
 
   const out: string[] = []
   let inUl = false

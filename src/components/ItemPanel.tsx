@@ -18,6 +18,7 @@ import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
 import { insertMention, mentionQueryAt, mentionedIds } from '@/domain/mentions'
 import { renderMarkdown } from '@/lib/markdown'
+import { DescriptionEditor } from './DescriptionEditor'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { DueChip } from './DueChip'
 import { FORMER_MEMBER, initialsOf, nameOfUser } from '@/domain/users'
@@ -1543,34 +1544,17 @@ export function ItemPanel({ itemId }: Props) {
               </Section>
             )}
 
-            {/* The description — the card's own words, written as markdown. The editor and its
-                rendered output are one surface: what is typed above is formatted below, with no
-                second mode to choose and nothing to remember to press. */}
+            {/* The description — the card's own words. The editor is the rendered description:
+                the toolbar formats in place, and the DOM is written back as markdown. */}
             <Section label="Description">
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white transition focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-400">
-                <textarea
-                  aria-label="Description"
-                  value={item.description ?? ''}
-                  onFocus={() => startTextEdit(item.id, 'description', item.description ?? '')}
-                  onBlur={() => endTextEdit('description')}
-                  onChange={(e) => setItemFields(item.id, { description: e.target.value })}
-                  rows={5}
-                  placeholder="Add a description. Markdown works: **bold**, lists, `code`, links."
-                  className="block w-full resize-y border-0 bg-transparent px-3 py-2.5 text-meta leading-relaxed outline-none"
-                />
-                {(item.description ?? '').trim().length > 0 && (
-                  <div
-                    data-description-preview
-                    className="max-h-56 overflow-auto border-t border-slate-200 bg-slate-50/70 px-3 py-2.5"
-                  >
-                    <span className="mb-1 block text-micro font-semibold uppercase tracking-wide text-slate-500">Formatted</span>
-                    <div
-                      className="text-meta leading-relaxed text-slate-700"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(item.description ?? '') }}
-                    />
-                  </div>
-                )}
-              </div>
+              <DescriptionEditor
+                key={item.id}
+                value={item.description ?? ''}
+                locked={locked}
+                onChange={(description) => setItemFields(item.id, { description })}
+                onFocus={() => startTextEdit(item.id, 'description', item.description ?? '')}
+                onBlur={() => endTextEdit('description')}
+              />
             </Section>
 
             {/* Checklist — a card's sub-tasks. They are not work of their own: no

@@ -93,3 +93,66 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * The rich description editor.
+ *
+ * `renderMarkdown` emits its own classes for a saved description. These rules style what a person
+ * types into the contenteditable — a new paragraph, a list, a heading — with the same rhythm, so
+ * the editor and the description after a reload are the same document rather than two renderings.
+ */
+.rich-text :where(p) {
+  @apply mt-1;
+}
+
+.rich-text > :first-child {
+  @apply mt-0;
+}
+
+.rich-text :where(h1, h2, h3, h4, h5, h6) {
+  @apply mt-2 font-semibold text-slate-800;
+}
+
+.rich-text :where(h1) {
+  @apply text-heading;
+}
+
+.rich-text :where(h2) {
+  @apply text-title;
+}
+
+.rich-text :where(h3, h4, h5, h6) {
+  @apply text-body;
+}
+
+.rich-text :where(ul) {
+  @apply mt-1 list-disc pl-4;
+}
+
+.rich-text :where(ol) {
+  @apply mt-1 list-decimal pl-4;
+}
+
+.rich-text :where(li) {
+  @apply mt-0.5;
+}
+
+.rich-text :where(code) {
+  @apply rounded bg-slate-100 px-1;
+}
+
+.rich-text :where(pre) {
+  @apply mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-micro;
+}
+
+.rich-text :where(pre code) {
+  @apply bg-transparent p-0;
+}
+
+.rich-text :where(a) {
+  @apply text-indigo-600 underline;
+}
+
+.rich-text :where(blockquote) {
+  @apply mt-1 border-l-2 border-slate-300 pl-2 text-slate-600;
+}

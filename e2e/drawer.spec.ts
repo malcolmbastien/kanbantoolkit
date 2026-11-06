@@ -27,31 +27,89 @@ test('a title edited in the drawer is the card’s title', async ({ page }) => {
   await expect(card(page, id)).toContainText('Renamed where a person renames it')
 })
 
-test('a description is written and rendered in one live editor', async ({ page }) => {
+test('a description is one rich editor, and the toolbar formats in place', async ({ page }) => {
   await openBoard(page)
   await page.locator('[data-card-id="st-signup-rebuild"]').click()
 
-  // One surface: the saved words are already rendered below the editor, and there is no mode to
-  // switch between writing and looking.
+  // One surface: the description is the editable text, not a raw field with a preview elsewhere.
   const editor = page.getByRole('textbox', { name: 'Description' })
   await expect(editor).toBeVisible()
   await expect(page.getByRole('button', { name: 'Write', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Preview', exact: true })).toHaveCount(0)
-  const preview = page.locator('[data-description-preview]')
-  await expect(preview.locator('p')).toHaveCount(2)
+  for (const name of ['Bold', 'Italic', 'Inline code', 'Link', 'Bulleted list', 'Numbered list', 'Heading']) {
+    await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
+  }
 
-  // Formatting appears as the text is typed, while the textarea keeps the markdown itself.
-  await editor.fill('**Bold** and `code`, with a [link](https://example.com).\n\n- one\n- two')
-  await expect(preview.locator('strong')).toHaveText('Bold')
-  await expect(preview.locator('code')).toHaveText('code')
-  await expect(preview.locator('a')).toHaveAttribute('href', 'https://example.com')
-  await expect(preview.locator('li')).toHaveCount(2)
-  await expect(editor).toHaveValue(/\*\*Bold\*\*/)
+  // The saved markdown is already the rendered description on the surface.
+  await expect(editor).toContainText('One page, one field at a time.')
 
-  // It is the card's own description: closing and reopening keeps it, still formatted.
+  // A selection formatted from the toolbar changes the words in place, not a preview below them.
+  await editor.click()
+  await page.keyboard.press('Control+A')
+  await page.getByRole('button', { name: 'Bold' }).click()
+  await expect(editor.locator('b, strong').first()).toContainText('One page')
+  await page.getByRole('button', { name: 'Italic' }).click()
+  await expect(editor.locator('em, i').first()).toBeVisible()
+
+  // The field is still markdown underneath: closing and reopening renders the same marks.
   await closeDrawer(page)
   await page.locator('[data-card-id="st-signup-rebuild"]').click()
-  await expect(page.locator('[data-description-preview]')).toContainText('Bold')
+  const reopened = page.getByRole('textbox', { name: 'Description' })
+  await expect(reopened.locator('b, strong').first()).toContainText('One page')
+  await expect(reopened.locator('em, i').first()).toBeVisible()
+})
+
+test('inline code in the description stays code', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  const editor = page.getByRole('textbox', { name: 'Description' })
+
+  await editor.click()
+  await page.keyboard.press('Control+A')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.type('Run the tests')
+  await page.keyboard.press('Control+A')
+  await page.getByRole('button', { name: 'Inline code' }).click()
+  await expect(editor.locator('code')).toHaveText('Run the tests')
+
+  await closeDrawer(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  await expect(page.getByRole('textbox', { name: 'Description' }).locator('code')).toHaveText('Run the tests')
+})
+
+test('the description toolbar adds a link, a list and a heading', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  const editor = page.getByRole('textbox', { name: 'Description' })
+
+  // A link wraps the selection; a bare address becomes an https link.
+  await editor.click()
+  await page.keyboard.press('Control+A')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.type('Docs')
+  await page.keyboard.press('Control+A')
+  await page.getByRole('button', { name: 'Link' }).click()
+  await page.getByRole('textbox', { name: 'Link address' }).fill('example.com/docs')
+  await page.keyboard.press('Enter')
+  await expect(editor.locator('a')).toHaveAttribute('href', 'https://example.com/docs')
+  await expect(editor.locator('a')).toHaveText('Docs')
+
+  // Lists and a heading are blocks on the same surface.
+  await page.keyboard.press('Control+A')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.type('One')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Two')
+  await page.keyboard.press('Control+A')
+  await page.getByRole('button', { name: 'Bulleted list' }).click()
+  await expect(editor.locator('ul li')).toHaveCount(2)
+
+  await page.keyboard.press('Control+A')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.type('Plan')
+  await page.keyboard.press('Control+A')
+  await page.getByRole('button', { name: 'Heading' }).click()
+  await expect(editor.locator('h2')).toHaveText('Plan')
 })
 
 test('a tag added in the drawer is on the card', async ({ page }) => {
