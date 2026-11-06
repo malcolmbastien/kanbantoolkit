@@ -1401,9 +1401,7 @@ export function ItemPanel({ itemId }: Props) {
                   <div data-created-by={creator?.id ?? ''} className="flex min-h-[26px] items-center gap-1.5 text-meta text-slate-700">
                     {creator ? (
                       <>
-                        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-micro font-bold text-slate-600 ring-1 ring-slate-200">
-                          {initialsOf(creator.name)}
-                        </span>
+                        <PersonAvatar user={creator} small />
                         <span className="font-medium">{creator.name}</span>
                         <span className="text-slate-400">·</span>
                         <span className="text-slate-600" title={new Date(item.createdAt).toLocaleString()}>

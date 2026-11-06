@@ -49,8 +49,15 @@ async function me() {
 
 describe('a profile the person owns', () => {
   it('changes the four things that are theirs', async () => {
-    const { patch, read } = await me()
+    const { db, request, cookie, patch, read } = await me()
     const avatar = `data:image/png;base64,${'A'.repeat(200)}`
+    const account = await db.get<{ id: string }>("SELECT id FROM users WHERE email = 'ada@example.com'")
+    await db.run('INSERT OR IGNORE INTO people (id, workspace_id, name, avatar_url) VALUES (?1, ?2, ?3, ?4)', [
+      account!.id,
+      'workspace',
+      'Ada',
+      null,
+    ])
 
     expect((await patch({ name: 'Ada Lovelace', timezone: 'Europe/London', language: 'en', avatarUrl: avatar })).status).toBe(204)
 
@@ -60,6 +67,36 @@ describe('a profile the person owns', () => {
       language: 'en',
       avatarUrl: avatar,
     })
+
+    // The picture is not only the account's: the workspace roster is what an assignee, an author
+    // and the people picker read, so the same save updates it.
+    expect(await db.get('SELECT name, avatar_url FROM people WHERE id = ?1', [account!.id])).toEqual({
+      name: 'Ada Lovelace',
+      avatar_url: avatar,
+    })
+
+    // The account menu reads the session payload; it must carry the picture too.
+    const session = (await (await request('/api/auth/session', { headers: { cookie } })).json()) as {
+      user: { avatarUrl?: string }
+    }
+    expect(session.user.avatarUrl).toBe(avatar)
+  })
+
+  it('repairs a roster picture that predates the account’s', async () => {
+    const { db, request, cookie } = await me()
+    const account = await db.get<{ id: string }>("SELECT id FROM users WHERE email = 'ada@example.com'")
+    const avatar = 'data:image/png;base64,AAAA'
+    await db.run('INSERT OR IGNORE INTO people (id, workspace_id, name, avatar_url) VALUES (?1, ?2, ?3, ?4)', [
+      account!.id,
+      'workspace',
+      'Ada',
+      null,
+    ])
+    await db.run('UPDATE users SET avatar_url = ?1 WHERE id = ?2', [avatar, account!.id])
+
+    const workspace = await request('/api/workspace', { headers: { cookie } })
+    expect(workspace.status).toBe(200)
+    expect(await db.get('SELECT avatar_url FROM people WHERE id = ?1', [account!.id])).toEqual({ avatar_url: avatar })
   })
 
   it('ignores the fields that are somebody else’s decision', async () => {

@@ -17,6 +17,8 @@ export interface AuthUser {
   id: string
   name: string
   email: string
+  /** The person's picture, when they have one. */
+  avatarUrl?: string
   /** What they may do in this workspace: viewer | editor | admin. */
   role: string
   /** Whether they may sign in here at all: admin | member. */

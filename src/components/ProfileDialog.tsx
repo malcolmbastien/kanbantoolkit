@@ -5,6 +5,7 @@ import { mySessions, revokeSession, signOutEverywhere, type SessionInfo } from '
 import { useAuth } from '@/lib/auth'
 import { TokenPanel } from './TokenPanel'
 import { useDialogFocus } from '@/lib/useDialogFocus'
+import { useStore } from '@/store'
 
 /**
  * The profile a person owns.
@@ -35,8 +36,67 @@ interface Identity {
   email: string
 }
 
-const MAX_AVATAR = 256 * 1024
+const MAX_UPLOAD = 10 * 1024 * 1024
+/** What the workspace stores: the browser has already made the picture fit this. */
+const MAX_STORED = 256 * 1024
+const PICTURE_SIDE = 512
 const TYPES = ['image/png', 'image/jpeg', 'image/webp']
+
+/** The bytes a base64 data URL decodes to, without decoding it a second time. */
+function dataUrlBytes(value: string): number {
+  const comma = value.indexOf(',')
+  if (comma < 0) return value.length
+  const base64 = value.slice(comma + 1)
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding)
+}
+
+function readPicture(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve(image)
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('picture'))
+    }
+    image.src = url
+  })
+}
+
+/**
+ * A profile picture is shown at 16–24px. The upload may be a phone photo, but what is stored is a
+ * 512px WebP that fits the workspace payload — the original never leaves the browser.
+ */
+async function preparePicture(file: File): Promise<string> {
+  const image = await readPicture(file)
+  const sourceWidth = image.naturalWidth || image.width
+  const sourceHeight = image.naturalHeight || image.height
+  if (!sourceWidth || !sourceHeight) throw new Error('picture')
+
+  for (const side of [PICTURE_SIDE, 384, 256]) {
+    const scale = Math.min(1, side / Math.max(sourceWidth, sourceHeight))
+    const width = Math.max(1, Math.round(sourceWidth * scale))
+    const height = Math.max(1, Math.round(sourceHeight * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('canvas')
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = 'high'
+    context.drawImage(image, 0, 0, width, height)
+
+    for (const quality of [0.86, 0.72, 0.58, 0.44]) {
+      const data = canvas.toDataURL('image/webp', quality)
+      if (dataUrlBytes(data) <= MAX_STORED) return data
+    }
+  }
+  throw new Error('picture too large')
+}
 const FIELD =
   'w-full rounded-md border border-slate-200 px-2 py-1 text-meta text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400'
 
@@ -58,6 +118,7 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
   const [timezone, setTimezone] = useState('')
   const [language, setLanguage] = useState('')
   const [avatar, setAvatar] = useState<string | undefined>()
+  const [pictureBusy, setPictureBusy] = useState(false)
   const [mailAvailable, setMailAvailable] = useState(false)
   const [mailOn, setMailOn] = useState(false)
   const [mailFrequency, setMailFrequency] = useState<'immediate' | 'daily' | 'weekly'>('daily')
@@ -96,14 +157,17 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
   async function onFile(file: File | undefined) {
     if (!file) return
     if (!TYPES.includes(file.type)) return setError('The picture must be a png, jpeg or webp.')
-    if (file.size > MAX_AVATAR) return setError('The picture must be smaller than 256 KB.')
+    if (file.size > MAX_UPLOAD) return setError('The picture must be smaller than 10 MB.')
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      setError(undefined)
-      setAvatar(String(reader.result))
+    setError(undefined)
+    setPictureBusy(true)
+    try {
+      setAvatar(await preparePicture(file))
+    } catch {
+      setError('That picture could not be prepared. Try another png, jpeg or webp.')
+    } finally {
+      setPictureBusy(false)
     }
-    reader.readAsDataURL(file)
   }
 
   /**
@@ -137,12 +201,13 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
   async function save() {
     setBusy(true)
     setError(undefined)
+    const savedName = name.trim().slice(0, 120)
     try {
       const response = await fetch('/api/me', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          name,
+          name: savedName,
           timezone,
           language,
           avatarUrl: avatar ?? '',
@@ -159,6 +224,14 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
         setError('That could not be saved.')
         return
       }
+      // The drawer, the assignee picker and "Created by" read the workspace directory, not the
+      // account. Update the same row here so the new face is visible without a reload; the server
+      // has already written it, and the next workspace read would repair it anyway.
+      useStore.setState((state) => ({
+        users: state.users.map((entry) =>
+          entry.id === account?.id ? { ...entry, name: savedName, avatarUrl: avatar } : entry,
+        ),
+      }))
       onSaved()
       onClose()
     } catch {
@@ -272,15 +345,20 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
+                  disabled={pictureBusy}
                   onChange={(event) => void onFile(event.target.files?.[0])}
                   className="text-meta font-normal normal-case text-slate-600"
                 />
+                {pictureBusy && <span className="text-micro font-normal normal-case text-slate-500">Preparing…</span>}
                 {avatar && (
                   <button onClick={() => setAvatar(undefined)} className="text-micro font-normal normal-case text-slate-500 hover:text-slate-800">
                     remove
                   </button>
                 )}
               </div>
+              <p className="mt-1 text-micro font-normal normal-case text-slate-500">
+                PNG, JPEG or WebP up to 10 MB. The picture is resized and stored small.
+              </p>
             </div>
 
             <div className="text-micro font-semibold uppercase tracking-wide text-slate-500">
@@ -353,7 +431,7 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
               </button>
               <button
                 onClick={() => void save()}
-                disabled={busy}
+                disabled={busy || pictureBusy}
                 className="rounded-md bg-slate-900 px-2.5 py-1 text-meta font-medium text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 {busy ? 'Saving…' : 'Save'}

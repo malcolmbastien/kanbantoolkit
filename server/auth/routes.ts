@@ -480,7 +480,7 @@ export function authRoutes(runtime: Runtime) {
     const workspaces = resolved ? [{ id: resolved.id, role: resolved.role }] : []
 
     return c.json({
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}) },
       instanceRole: user.instanceRole,
       workspaces,
       dev: devAuth(c.env),

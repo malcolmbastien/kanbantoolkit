@@ -36,6 +36,8 @@ export interface AuthUser {
   id: string
   name: string
   email: string
+  /** The person's picture, when they have one. */
+  avatarUrl?: string
   /** What they may do in this workspace: viewer | editor | admin. */
   role: string
   /** Whether they may sign in here at all: admin | member. */
@@ -46,7 +48,7 @@ export interface AuthUser {
 // `workspace_members`. The workspace id is the settings row's until 122.1 gives it a table.
 export const WORKSPACE_ID = 'workspace'
 
-const USER_QUERY = `SELECT u.id, u.name, u.email,
+const USER_QUERY = `SELECT u.id, u.name, u.email, u.avatar_url AS avatarUrl,
     COALESCE(w.role, 'viewer') AS role,
     COALESCE(i.role, 'member') AS instanceRole
   FROM users u

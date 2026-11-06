@@ -84,7 +84,13 @@ export function AccountMenu() {
         )}
         title={auth.user ? `${auth.user.email} — ${auth.user.role}` : 'Sign in'}
       >
-        {initial ? (
+        {auth.user?.avatarUrl ? (
+          <img
+            src={auth.user.avatarUrl}
+            alt=""
+            className="size-[20px] shrink-0 rounded-full object-cover ring-1 ring-white"
+          />
+        ) : initial ? (
           <span className="grid size-[20px] place-items-center rounded-full bg-emerald-600 text-micro font-semibold text-white">
             {initial}
           </span>

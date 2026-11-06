@@ -112,7 +112,7 @@ export async function ensurePersonRow(
 ): Promise<void> {
   await db.run(
     `INSERT INTO people (id, workspace_id, name, avatar_url) VALUES (?1, ?2, ?3, ?4)
-     ON CONFLICT (id) DO UPDATE SET name = excluded.name`,
+     ON CONFLICT (id) DO UPDATE SET name = excluded.name, avatar_url = excluded.avatar_url`,
     [user.id, workspaceId, user.name, user.avatarUrl ?? null],
   )
 }

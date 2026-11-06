@@ -3,6 +3,7 @@ import { Search, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { ROLES } from '@/domain/roles'
 import { TokenPanel } from './TokenPanel'
+import { PersonAvatar } from './PersonAvatar'
 import { RoleSelect } from './RoleSelect'
 import { cn } from '@/lib/utils'
 import { useDialogFocus } from '@/lib/useDialogFocus'
@@ -368,8 +369,11 @@ export function PeoplePanel() {
                   />
                 </td>
                 <td className="truncate py-1.5 pr-2">
-                  <span className="font-medium text-slate-800">{entry.name}</span>
-                  <span className="ml-1.5 text-meta text-slate-500">{entry.email}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <PersonAvatar user={{ name: entry.name, avatarUrl: entry.avatarUrl }} small />
+                    <span className="truncate font-medium text-slate-800">{entry.name}</span>
+                    <span className="truncate text-meta text-slate-500">{entry.email}</span>
+                  </span>
                 </td>
                 <td className="py-1.5 text-meta text-slate-700">
                   {entry.effectiveRole && entry.effectiveRole !== entry.role ? (

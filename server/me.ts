@@ -71,7 +71,8 @@ export function readAvatar(value: unknown): { ok: true; avatarUrl?: string } | {
     return { ok: false, reason: 'the picture must be a png, jpeg or webp' }
   }
 
-  const bytes = Math.floor((match[2].length * 3) / 4)
+  const padding = match[2].endsWith('==') ? 2 : match[2].endsWith('=') ? 1 : 0
+  const bytes = Math.floor((match[2].length * 3) / 4) - padding
   if (bytes > MAX_AVATAR) return { ok: false, reason: 'the picture must be smaller than 256 KB' }
   return { ok: true, avatarUrl: value }
 }
@@ -187,10 +188,25 @@ export function meRoutes(runtime: Runtime) {
 
     const columns = Object.keys(updates)
     const values = Object.values(updates)
+    // The workspace roster is a copy of the account's name and picture, kept for assignees,
+    // authors and the people picker. A profile save writes both copies, so the new face is there
+    // before the next workspace read repairs it (`ensurePersonRow`).
+    const personName = typeof updates.name === 'string' ? updates.name : caller.user.name
+    const personAvatar = updates.avatar_url === undefined ? caller.user.avatarUrl ?? null : updates.avatar_url
+    const workspace = await resolveWorkspace(
+      caller.db,
+      caller.user.id,
+      caller.instanceRole === 'admin',
+      undefined,
+    )
     await caller.db.batch([
       {
         sql: `UPDATE users SET ${columns.map((column, index) => `${column} = ?${index + 1}`).join(', ')}, updated_at = ?${columns.length + 1} WHERE id = ?${columns.length + 2}`,
         params: [...values, new Date().toISOString(), caller.user.id],
+      },
+      {
+        sql: 'UPDATE people SET name = ?1, avatar_url = ?2 WHERE id = ?3 AND workspace_id = ?4',
+        params: [personName, personAvatar, caller.user.id, workspace?.id ?? ''],
       },
       {
         sql: 'INSERT INTO audit_events (actor_id, action, target_type, target_id, data) VALUES (?1, ?2, ?3, ?4, ?5)',
@@ -201,25 +217,17 @@ export function meRoutes(runtime: Runtime) {
 
     // Turning email on starts from now, and turning it off parks the cursor there: a month of old
     // news is not a digest, and the inbox still has it for anyone who wants to read back.
-    if (mailChanged) {
-      const workspace = await resolveWorkspace(
-        caller.db,
-        caller.user.id,
-        caller.instanceRole === 'admin',
-        undefined,
+    if (mailChanged && workspace) {
+      const max = await caller.db.get<{ seq: number | null }>(
+        'SELECT MAX(seq) AS seq FROM outbound_events WHERE workspace_id = ?1',
+        [workspace.id],
       )
-      if (workspace) {
-        const max = await caller.db.get<{ seq: number | null }>(
-          'SELECT MAX(seq) AS seq FROM outbound_events WHERE workspace_id = ?1',
-          [workspace.id],
-        )
-        await caller.db.run(
-          `INSERT INTO mail_state (workspace_id, user_id, last_sent_at, last_sent_seq) VALUES (?1, ?2, ?3, ?4)
-           ON CONFLICT (workspace_id, user_id) DO UPDATE SET last_sent_at = excluded.last_sent_at,
-                                                           last_sent_seq = excluded.last_sent_seq`,
-          [workspace.id, caller.user.id, Date.now(), max?.seq ?? 0],
-        )
-      }
+      await caller.db.run(
+        `INSERT INTO mail_state (workspace_id, user_id, last_sent_at, last_sent_seq) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT (workspace_id, user_id) DO UPDATE SET last_sent_at = excluded.last_sent_at,
+                                                         last_sent_seq = excluded.last_sent_seq`,
+        [workspace.id, caller.user.id, Date.now(), max?.seq ?? 0],
+      )
     }
 
     return c.body(null, 204)

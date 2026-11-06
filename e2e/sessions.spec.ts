@@ -1,4 +1,6 @@
+import { randomBytes } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
+import sharp from 'sharp'
 
 /**
  * Where you are signed in, and how you leave.
@@ -119,4 +121,49 @@ test('signing out everywhere ends this browser too', async ({ page }) => {
   await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
   // The cookie it was holding is not a credential any more.
   expect((await page.request.get(`${SELF_HOSTED}/api/me`)).status()).toBe(401)
+})
+
+test('a large picture is resized, stored and reaches the workspace directory', async ({ page }) => {
+  // The first account: it is the one that belongs to the workspace, and the picture test changes
+  // only its face, not the name the session tests read.
+  await page.goto(`${SELF_HOSTED}/app`)
+  await page.getByPlaceholder('you@example.com').fill('maya.blake@example.com')
+  await page.getByRole('button', { name: 'Sign in as this address' }).click()
+  await expect(page.getByRole('button', { name: /Maya Blake/ })).toBeVisible()
+
+  await page.getByRole('button', { name: /Maya Blake/ }).click()
+  await page.getByRole('button', { name: 'Profile' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Your profile' })
+  await expect(dialog.getByText('Picture')).toBeVisible()
+
+  // A noisy 1200px PNG: well over the old 256 KB upload limit, and over the stored limit too.
+  const png = await sharp(randomBytes(1200 * 1200 * 3), {
+    raw: { width: 1200, height: 1200, channels: 3 },
+  })
+    .png()
+    .toBuffer()
+  expect(png.length).toBeGreaterThan(256 * 1024)
+  await dialog.locator('input[type=file]').setInputFiles({ name: 'big.png', mimeType: 'image/png', buffer: png })
+  await expect(dialog.locator('img')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  await expect(dialog).toHaveCount(0)
+
+  // The account menu now wears the same face — the session payload carries it, not just `/api/me`.
+  await expect(page.getByRole('button', { name: /Maya Blake/ }).locator('img')).toBeVisible()
+
+  // What the account stored is the resized image, not the original.
+  const profile = (await (await page.request.get(`${SELF_HOSTED}/api/me`)).json()) as { avatarUrl?: string }
+  expect(profile.avatarUrl).toMatch(/^data:image\/(webp|png);base64,/)
+  const bytes = Math.floor(((profile.avatarUrl!.split(',')[1] ?? '').length * 3) / 4)
+  expect(bytes).toBeLessThanOrEqual(256 * 1024)
+
+  // The session carries it, and so does the workspace roster that assignees and the picker read.
+  const session = (await (await page.request.get(`${SELF_HOSTED}/api/auth/session`)).json()) as {
+    user: { id: string; avatarUrl?: string }
+  }
+  expect(session.user.avatarUrl).toBe(profile.avatarUrl)
+  const workspaceResponse = await page.request.get(`${SELF_HOSTED}/api/workspace`)
+  expect(workspaceResponse.status()).toBe(200)
+  const workspace = (await workspaceResponse.json()) as { users: Array<{ id: string; avatarUrl?: string }> }
+  expect(workspace.users.find((user) => user.id === session.user.id)?.avatarUrl).toBe(profile.avatarUrl)
 })
