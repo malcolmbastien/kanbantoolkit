@@ -24,8 +24,10 @@ test('a comment mentions a teammate, and the mention comes back in My work', asy
 
   await note.pressSequentially('can you review the copy?')
   await note.press('Enter')
-  await expect(panel.locator('[data-mention-chip="u-rk"]')).toContainText('Riley Kim')
+  await expect(panel.locator('[data-mention-pill]')).toContainText('@Riley Kim')
   await expect(panel).toContainText('can you review the copy?')
+  // The pill is in the sentence; there is no second "Mentioned" row repeating the name.
+  await expect(panel.getByText('Mentioned', { exact: true })).toHaveCount(0)
   // Flat by construction: there is no reply or thread control on a note.
   await expect(panel.getByRole('button', { name: /reply/i })).toHaveCount(0)
 

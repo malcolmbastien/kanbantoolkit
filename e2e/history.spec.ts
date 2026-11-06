@@ -90,7 +90,7 @@ test('a browser that never held the history still reads it', async ({ browser })
   await expect(drawer.locator('[data-comments-loading]')).toHaveCount(0)
   await expect(drawer).toContainText(NOTE)
   await expect(drawer.locator('[data-comment-entry]')).toContainText('Ada Lovelace')
-  await expect(drawer.locator('[data-mention-chip]')).toContainText('Ada Lovelace')
+  await expect(drawer.locator('[data-mention-pill]')).toContainText('Ada Lovelace')
 
   // Search finds the note, though the card this browser loaded carries no history.
   await drawer.getByTitle('Close').click()

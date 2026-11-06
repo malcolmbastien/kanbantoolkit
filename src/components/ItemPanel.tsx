@@ -17,7 +17,7 @@ import { periodNameOf } from '@/domain/periods'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
 import { insertMention, mentionQueryAt, mentionedIds } from '@/domain/mentions'
-import { renderMarkdown } from '@/lib/markdown'
+import { renderCommentMarkdown } from '@/lib/mentionMarkup'
 import { DescriptionEditor } from './DescriptionEditor'
 import { PRIORITY_META, PRIORITY_ORDER } from './PriorityBadge'
 import { DueChip } from './DueChip'
@@ -1860,22 +1860,10 @@ export function ItemPanel({ itemId }: Props) {
                       </div>
                       <div
                         className="mt-1 text-meta leading-relaxed text-slate-700"
-                        dangerouslySetInnerHTML={{ __html: renderMarkdown(entry.note ?? '') }}
+                        dangerouslySetInnerHTML={{
+                          __html: renderCommentMarkdown(entry.note ?? '', entry.mentions ?? [], users),
+                        }}
                       />
-                      {entry.mentions?.length ? (
-                        <div data-mention-chips className="mt-1 flex flex-wrap items-center gap-1">
-                          <span className="text-micro font-semibold uppercase tracking-wide text-slate-500">Mentioned</span>
-                          {entry.mentions.map((id) => (
-                            <span
-                              key={id}
-                              data-mention-chip={id}
-                              className="rounded-full bg-indigo-50 px-1.5 py-px text-micro font-medium text-indigo-700 ring-1 ring-indigo-200"
-                            >
-                              {nameOfUser(users, id)}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
                     </article>
                   )
                 })}

@@ -125,14 +125,14 @@ record of changes — every move, edit, block and link, with who and when.
 Comments, the parent in Hierarchy and the changes in History.*
 
 A comment is written at the bottom of **Comments**, and typing `@` offers a teammate to mention.
-Mentions are flat: there are no replies and no threads. The person is recorded on the comment, named
-beneath it in **Comments**, and the comment appears under **Mentions** in **My work** — the place that
-brings a mention back to the person it names.
+Mentions are flat: there are no replies and no threads. The person is recorded on the comment and
+shown as a pill in the sentence, and the comment appears under **Mentions** in **My work** — the
+place that brings a mention back to the person it names.
 
-<img src="img/guide/mention-comments.webp" alt="Comments in the card drawer showing a comment that mentions Riley Kim, with the mention named beneath it" width="420">
+<img src="img/guide/mention-comments.webp" alt="Comments in the card drawer showing a comment with a mention of Riley Kim marked as a pill in the sentence" width="420">
 
-*A mention is part of the comment: the name stays in the sentence and the person it means is recorded
-beside it.*
+*A mention is part of the comment: the name stays in the sentence as a pill, and the person it means
+is recorded on the entry.*
 
 The checklist holds the card's sub-tasks. A card can wait on another: the waiting state is read from
 the two ends, so it clears when the blocker reaches Done — there is nothing to update by hand.
