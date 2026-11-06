@@ -107,7 +107,8 @@ its name and count.
 Clicking a card or an initiative opens the **side drawer** on the right; the board stays visible
 beside it. The same drawer opens from search, the dashboard, the timeline and the archive.
 
-- **Overview** holds the fields: title, description (Markdown), status, priority, type, people, tags,
+- **Overview** holds the fields: title, description (Markdown, formatted as you type), status,
+  priority, type, people, tags,
   target dates, due date, an external link and the checklist. The target dates are the plan a management surface reads; the
   due date is the one day the work is promised for, and it is the date the **Overdue** and **Due soon**
   filters and every late badge speak about. A passed due date is never a block: it is a chip, and it

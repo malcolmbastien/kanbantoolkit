@@ -133,7 +133,6 @@ export function ItemPanel({ itemId }: Props) {
   // Which warning's affected work is open. Closed by default: the chip row is the summary, and
   // the cards behind a chip are what you ask for, not what you are given.
   const [openWarning, setOpenWarning] = useState<string | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
   const [blockReason, setBlockReason] = useState('')
   const [note, setNote] = useState('')
   const [noteCaret, setNoteCaret] = useState(0)
@@ -1544,45 +1543,34 @@ export function ItemPanel({ itemId }: Props) {
               </Section>
             )}
 
-            {/* The description — the card's own words, written as markdown. */}
-            <Section
-              label="Description"
-              action={
-                <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 p-0.5">
-                  {(['Write', 'Preview'] as const).map((m) => {
-                    const on = (m === 'Preview') === showPreview
-                    return (
-                      <button
-                        key={m}
-                        onClick={() => setShowPreview(m === 'Preview')}
-                        className={cn(
-                          'rounded-md px-2 py-0.5 text-micro font-medium transition',
-                          on ? 'bg-slate-800 text-white' : 'text-slate-600 hover:text-slate-900',
-                        )}
-                      >
-                        {m}
-                      </button>
-                    )
-                  })}
-                </div>
-              }
-            >
-              {showPreview ? (
-                <div
-                  className="min-h-[72px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-meta leading-relaxed text-slate-700"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(item.description ?? '') || '<p class="text-slate-600">Nothing to preview yet.</p>' }}
-                />
-              ) : (
+            {/* The description — the card's own words, written as markdown. The editor and its
+                rendered output are one surface: what is typed above is formatted below, with no
+                second mode to choose and nothing to remember to press. */}
+            <Section label="Description">
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white transition focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-400">
                 <textarea
+                  aria-label="Description"
                   value={item.description ?? ''}
                   onFocus={() => startTextEdit(item.id, 'description', item.description ?? '')}
                   onBlur={() => endTextEdit('description')}
                   onChange={(e) => setItemFields(item.id, { description: e.target.value })}
                   rows={5}
                   placeholder="Add a description. Markdown works: **bold**, lists, `code`, links."
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-meta leading-relaxed outline-none transition focus:ring-2 focus:ring-indigo-400"
+                  className="block w-full resize-y border-0 bg-transparent px-3 py-2.5 text-meta leading-relaxed outline-none"
                 />
-              )}
+                {(item.description ?? '').trim().length > 0 && (
+                  <div
+                    data-description-preview
+                    className="max-h-56 overflow-auto border-t border-slate-200 bg-slate-50/70 px-3 py-2.5"
+                  >
+                    <span className="mb-1 block text-micro font-semibold uppercase tracking-wide text-slate-500">Formatted</span>
+                    <div
+                      className="text-meta leading-relaxed text-slate-700"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(item.description ?? '') }}
+                    />
+                  </div>
+                )}
+              </div>
             </Section>
 
             {/* Checklist — a card's sub-tasks. They are not work of their own: no

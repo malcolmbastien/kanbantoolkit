@@ -27,6 +27,33 @@ test('a title edited in the drawer is the card’s title', async ({ page }) => {
   await expect(card(page, id)).toContainText('Renamed where a person renames it')
 })
 
+test('a description is written and rendered in one live editor', async ({ page }) => {
+  await openBoard(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+
+  // One surface: the saved words are already rendered below the editor, and there is no mode to
+  // switch between writing and looking.
+  const editor = page.getByRole('textbox', { name: 'Description' })
+  await expect(editor).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Write', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Preview', exact: true })).toHaveCount(0)
+  const preview = page.locator('[data-description-preview]')
+  await expect(preview.locator('p')).toHaveCount(2)
+
+  // Formatting appears as the text is typed, while the textarea keeps the markdown itself.
+  await editor.fill('**Bold** and `code`, with a [link](https://example.com).\n\n- one\n- two')
+  await expect(preview.locator('strong')).toHaveText('Bold')
+  await expect(preview.locator('code')).toHaveText('code')
+  await expect(preview.locator('a')).toHaveAttribute('href', 'https://example.com')
+  await expect(preview.locator('li')).toHaveCount(2)
+  await expect(editor).toHaveValue(/\*\*Bold\*\*/)
+
+  // It is the card's own description: closing and reopening keeps it, still formatted.
+  await closeDrawer(page)
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  await expect(page.locator('[data-description-preview]')).toContainText('Bold')
+})
+
 test('a tag added in the drawer is on the card', async ({ page }) => {
   await openBoard(page)
   const id = await openFirstBacklogCard(page)
