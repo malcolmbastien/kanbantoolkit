@@ -61,7 +61,7 @@ const LOG_STYLES: Record<string, string> = {
 const WELL = 'flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5'
 const CHIP = 'flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-1.5 text-meta font-medium text-slate-700 ring-1 ring-slate-200'
 
-type Tab = 'overview' | 'hierarchy' | 'activity'
+type Tab = 'overview' | 'comments' | 'hierarchy' | 'history'
 
 /** The stages in the order a board reads them, which is the order the work below is listed in. */
 const STAGE_ORDER: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
@@ -142,6 +142,7 @@ export function ItemPanel({ itemId }: Props) {
   // `@`, so dismissing one suggestion list does not turn mentions off for the note.
   const [mentionDismissed, setMentionDismissed] = useState<number | null>(null)
   const noteRef = useRef<HTMLInputElement>(null)
+  const commentsEnd = useRef<HTMLDivElement>(null)
   const [newSubtask, setNewSubtask] = useState('')
   // Free text is logged once, when the field is left: a title is typed a letter at a time, and
   // a history of every keystroke is not a history. See `logTextEdit`.
@@ -236,13 +237,15 @@ export function ItemPanel({ itemId }: Props) {
     useSync.getState().forget(itemId)
   }, [refusal?.reason, locks, itemId])
 
-  // The Activity tab is the only reader of a card's whole history, so it is asked for when that
+  // Comments and History are the readers of a card's whole log, so it is asked for when either
   // tab is opened rather than when the drawer is. A deployment with no history answers `undefined`
   // and the card's own log, when it has one, is what is shown.
   useEffect(() => {
-    if (tab !== 'activity') return
+    if (tab !== 'comments' && tab !== 'history') return
+    // Both tabs read the same log; once it is loaded, moving between them must not throw the
+    // earlier pages away and ask again.
+    if (historyPage !== undefined) return
     let live = true
-    setHistoryPage(undefined)
     void fetchItemLog(itemId).then((page) => {
       if (!live) return
       setHistoryPage(page ?? null)
@@ -251,7 +254,7 @@ export function ItemPanel({ itemId }: Props) {
     return () => {
       live = false
     }
-  }, [itemId, tab, recordHistory])
+  }, [itemId, tab, recordHistory, historyPage])
 
   const loadEarlier = async () => {
     if (!historyPage?.nextCursor || historyBusy) return
@@ -278,8 +281,12 @@ export function ItemPanel({ itemId }: Props) {
   const attributed = attributedObjectives(item.id, edges, objectives)
   const roll = model.rollup.get(item.id)!
   const stage = roll.bucket
-  // What this browser knew, plus the pages the drawer read. Ascending; the Activity tab reverses.
+  // What this browser knew, plus the pages the drawer read. Ascending.
   const log = mergeLog(item.log, historyPage?.entries)
+  // A note is a comment in the conversation; everything else is a change in the record. The two
+  // tabs read the same log, split by what a reader is looking for.
+  const comments = log.filter((entry) => entry.kind === 'noted')
+  const historyEntries = log.filter((entry) => entry.kind !== 'noted')
   const historyTotal = historyPage?.total ?? log.length
   const historyLoading = historyPage === undefined && log.length === 0
   const itemPlacements = placements.filter((p) => p.itemId === item.id)
@@ -515,15 +522,19 @@ export function ItemPanel({ itemId }: Props) {
     setNoteCaret(0)
     setMentionActive(0)
     setMentionDismissed(null)
+    // The new comment is the last one in the thread, and the thread ends just above the composer.
+    requestAnimationFrame(() => commentsEnd.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
   }
 
-  // The three faces of one item, in the order a reader wants them: what it is, where it sits in
-  // the work, and what has happened to it. The tabs carry no counts: each view counts what it
-  // holds in its own headings, and a number repeated on the tab only makes the tab read as one.
+  // The faces of one item, in the order a reader wants them: what it is, what people said about
+  // it, where it sits in the work, and what has happened to it. The tabs carry no counts: each view
+  // counts what it holds in its own headings, and a number repeated on the tab only makes the tab
+  // read as one.
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
+    { id: 'comments', label: 'Comments' },
     { id: 'hierarchy', label: 'Hierarchy' },
-    { id: 'activity', label: 'Activity' },
+    { id: 'history', label: 'History' },
   ]
 
   /**
@@ -943,7 +954,7 @@ export function ItemPanel({ itemId }: Props) {
       {!canWrite && !archived && (
         <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-2 text-meta text-slate-700">
           You are a <span className="font-semibold">Viewer</span> here, so this card is read-only. You can still
-          leave a note at the bottom.
+          comment in the <span className="font-semibold">Comments</span> tab.
         </div>
       )}
 
@@ -1812,53 +1823,101 @@ export function ItemPanel({ itemId }: Props) {
           </>
         )}
 
-        {tab === 'activity' && (
-          <Section label="Activity" count={historyTotal} aside={<span className="text-micro text-slate-600">Newest first</span>}>
+        {tab === 'comments' && (
+          <Section label="Comments" count={comments.length} aside={<span className="text-micro text-slate-600">Oldest first</span>}>
+            {comments.length === 0 ? (
+              historyLoading ? (
+                <p className="text-meta text-slate-600" data-comments-loading>
+                  Loading comments…
+                </p>
+              ) : (
+                <p className="text-meta text-slate-600">No comments yet. Write the first one below.</p>
+              )
+            ) : (
+              <div className="space-y-2">
+                {comments.map((entry) => {
+                  const author = entry.by ? userById(entry.by) : undefined
+                  return (
+                    <article
+                      key={entry.id}
+                      data-comment-entry
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-2"
+                    >
+                      <div className="flex items-center gap-1.5 text-micro text-slate-600">
+                        {entry.by ? (
+                          <>
+                            <PersonAvatar
+                              user={author ?? { name: authorOf(entry) ?? FORMER_MEMBER }}
+                              gone={!author}
+                              small
+                            />
+                            <span className="font-semibold text-slate-700">{authorOf(entry) ?? FORMER_MEMBER}</span>
+                            <span aria-hidden>·</span>
+                          </>
+                        ) : null}
+                        <span>{whenLabel(entry.at)}</span>
+                        {entry.via ? <span className="text-slate-500">· via {entry.via}</span> : null}
+                      </div>
+                      <div
+                        className="mt-1 text-meta leading-relaxed text-slate-700"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(entry.note ?? '') }}
+                      />
+                      {entry.mentions?.length ? (
+                        <div data-mention-chips className="mt-1 flex flex-wrap items-center gap-1">
+                          <span className="text-micro font-semibold uppercase tracking-wide text-slate-500">Mentioned</span>
+                          {entry.mentions.map((id) => (
+                            <span
+                              key={id}
+                              data-mention-chip={id}
+                              className="rounded-full bg-indigo-50 px-1.5 py-px text-micro font-medium text-indigo-700 ring-1 ring-indigo-200"
+                            >
+                              {nameOfUser(users, id)}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  )
+                })}
+                <div ref={commentsEnd} />
+                {historyPage?.nextCursor && (
+                  <button
+                    type="button"
+                    data-history-more
+                    onClick={() => void loadEarlier()}
+                    disabled={historyBusy}
+                    className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-meta text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {historyBusy ? 'Loading…' : 'Load earlier comments'}
+                  </button>
+                )}
+              </div>
+            )}
+          </Section>
+        )}
+
+        {tab === 'history' && (
+          <Section label="History" count={historyEntries.length} aside={<span className="text-micro text-slate-600">Newest first</span>}>
             {historyLoading ? (
               <p className="text-meta text-slate-600" data-history-loading>
                 Loading history…
               </p>
-            ) : log.length === 0 ? (
-              <p className="text-meta text-slate-600">No activity yet.</p>
+            ) : historyEntries.length === 0 ? (
+              <p className="text-meta text-slate-600">No changes yet.</p>
             ) : (
               <div className="space-y-1">
-                {[...log].reverse().map((e) => (
-                  <div key={e.id} className="flex items-start gap-2 rounded-lg border border-slate-200 px-2.5 py-2">
-                    <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', LOG_STYLES[e.kind] ?? 'bg-slate-300')} />
+                {[...historyEntries].reverse().map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2 rounded-lg border border-slate-200 px-2.5 py-2">
+                    <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', LOG_STYLES[entry.kind] ?? 'bg-slate-300')} />
                     <div className="min-w-0 flex-1">
                       <div className="text-meta text-slate-700">
-                        <span className="font-medium capitalize">{e.kind}</span>
-                        {e.kind === 'noted' && e.note ? (
-                          // A comment is markdown, like a description — the composer promises it.
-                          <div className="mt-0.5" dangerouslySetInnerHTML={{ __html: renderMarkdown(e.note) }} />
-                        ) : (
-                          e.note ? ` — ${e.note}` : ''
-                        )}
-                        {e.mentions?.length ? (
-                          <div data-mention-chips className="mt-1 flex flex-wrap items-center gap-1">
-                            <span className="text-micro font-semibold uppercase tracking-wide text-slate-500">
-                              Mentioned
-                            </span>
-                            {e.mentions.map((id) => (
-                              <span
-                                key={id}
-                                data-mention-chip={id}
-                                className="rounded-full bg-indigo-50 px-1.5 py-px text-micro font-medium text-indigo-700 ring-1 ring-indigo-200"
-                              >
-                                {nameOfUser(users, id)}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
+                        <span className="font-medium capitalize">{entry.kind}</span>
+                        {entry.note ? ` — ${entry.note}` : ''}
                       </div>
                       <div className="text-micro text-slate-600">
-                        {whenLabel(e.at)}
-                        {/* Who, beside when. An entry from before identities says only when: a
-                            name would be invented, and a blank is the honest answer. */}
-                        {authorOf(e) ? ` · ${authorOf(e)}` : ''}
-                        {/* A change made through a token says which one: an agent acts as its
-                            owner, so without this a script's note reads as a person's. */}
-                        {e.via ? <span className="text-slate-500"> · via {e.via}</span> : null}
+                        {whenLabel(entry.at)}
+                        {authorOf(entry) ? ` · ${authorOf(entry)}` : ''}
+                        {entry.via ? <span className="text-slate-500"> · via {entry.via}</span> : null}
                       </div>
                     </div>
                   </div>
@@ -1871,7 +1930,7 @@ export function ItemPanel({ itemId }: Props) {
                     disabled={historyBusy}
                     className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-meta text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
                   >
-                    {historyBusy ? 'Loading…' : `Load earlier activity (${Math.max(0, historyTotal - log.length)} more)`}
+                    {historyBusy ? 'Loading…' : `Load earlier history (${Math.max(0, historyTotal - log.length)} more)`}
                   </button>
                 )}
               </div>
@@ -1882,8 +1941,10 @@ export function ItemPanel({ itemId }: Props) {
       </fieldset>
 
       {/* ---- The composer: one line, and what it will do -------------------------
-          Outside the fieldset on purpose: `item.comment` is a Viewer's, so the one control a
-          read-only role keeps is the one it may actually use. */}
+          The composer lives where the conversation is, in Comments. It is outside the fieldset on
+          purpose: `item.comment` is a Viewer's, so the one control a read-only role keeps is the
+          one it may actually use. An archived card takes no new notes. */}
+      {tab === 'comments' && !archived && (
       <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-2.5">
         <div className="relative flex items-center gap-2">
           {mentionOpen && mention && (
@@ -1955,8 +2016,8 @@ export function ItemPanel({ itemId }: Props) {
                 sendNote()
               }
             }}
-            placeholder="Leave a note or mention @teammate…"
-            aria-label="Leave a note"
+            placeholder="Write a comment or mention @teammate…"
+            aria-label="Write a comment"
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={mentionOpen}
@@ -1976,6 +2037,7 @@ export function ItemPanel({ itemId }: Props) {
           <span>Markdown</span>
         </div>
       </div>
+      )}
     </aside>
   )
 }

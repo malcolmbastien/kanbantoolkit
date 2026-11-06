@@ -295,7 +295,7 @@ export default function App() {
           <Suspense
             fallback={<aside aria-busy="true" className="h-full w-[460px] shrink-0 border-l border-slate-300 bg-white" />}
           >
-            <ItemPanel itemId={selectedItemId} />
+            <ItemPanel key={selectedItemId} itemId={selectedItemId} />
           </Suspense>
         ) : null}
       </div>

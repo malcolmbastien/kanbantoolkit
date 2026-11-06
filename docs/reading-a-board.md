@@ -122,7 +122,10 @@ beside it. The same drawer opens from search, the dashboard, the timeline and th
   cannot be given one. The parent picker follows the same rule — only active initiatives are parents.
   A dependency is a plan, not a block. It never stops a move, and it clears itself when the item it
   waits on reaches Done.
-- **Activity** is the item's own history: every move, edit, note and link, with who and when.
+- **Comments** is the conversation about the item; write at the bottom of that tab. A comment is
+  Markdown and `@` mentions a teammate.
+- **History** is the item's own record of changes: every move, edit, block and link, with who and
+  when. Comments stay in Comments rather than being mixed into the record.
 
 Opening a card also brings it into view: the board scrolls the card into the middle of what is left
 beside the drawer, so its column and neighbours are in front of the reader. A card already in view is
@@ -130,7 +133,8 @@ left where it is.
 
 The drawer is where editing happens. If somebody else is editing the same card, the drawer shows who has
 it, and the fields stay closed to you until they finish. A Viewer, and an archived or discarded item,
-are read-only. A Viewer can still leave a note, but an archived item accepts no edits or notes.
+are read-only. A Viewer can still comment in **Comments**, but an archived item accepts no edits or
+comments.
 
 The eye button on an initiative starts **Focus**, which highlights its lineage on the board. Opening
 an initiative does not start it — the button is the only way in — and opening an archived item does
@@ -141,10 +145,10 @@ People are chosen from the workspace's own directory, shown with their photo or 
 a name searches that directory. The picker never creates a person, because an account arrives by
 invitation. <kbd>Escape</kbd> closes the drawer.
 
-<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form, with Overview, Hierarchy and Activity tabs" width="420">
+<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form, with Overview, Comments, Hierarchy and History tabs" width="420">
 
-*The drawer is the card's own page beside the board: fields in Overview, lineage in Hierarchy and the
-history in Activity.*
+*The drawer is the card's own page beside the board: fields in Overview, the conversation in
+Comments, lineage in Hierarchy and the record in History.*
 
 ## What an initiative shows
 

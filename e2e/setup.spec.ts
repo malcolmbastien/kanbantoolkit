@@ -224,9 +224,9 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
     // The one control that is a Viewer's. It reaches the server, which is the half a screenshot
     // cannot show.
     note = 'Read it — looks right to me.'
-    await panel.getByLabel('Leave a note').fill(note)
-    await panel.getByLabel('Leave a note').press('Enter')
-    await panel.getByRole('button', { name: 'Activity' }).click()
+    await panel.getByRole('button', { name: 'Comments' }).click()
+    await panel.getByLabel('Write a comment').fill(note)
+    await panel.getByLabel('Write a comment').press('Enter')
     await expect(panel.getByText(note)).toBeVisible()
 
     // The palette offers the reading verbs and none of the writing ones.

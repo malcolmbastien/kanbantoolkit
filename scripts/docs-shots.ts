@@ -154,16 +154,16 @@ async function main(): Promise<void> {
     await page.waitForTimeout(200)
     await save(page, 'keyboard-sheet', sheet, 900)
 
-    // 8. A note with a mention, read in Activity where the mention is named.
+    // 8. A comment with a mention, read in Comments where the mention is named.
     await page.goto(`${ORIGIN}/app?board=b-atlas`)
     await waitForApp(page, true)
     await page.locator('[data-card-id="st-signup-rebuild"]').click()
     const panel = page.locator('[data-item-panel]')
-    await panel.getByLabel('Leave a note').fill('@Riley Kim can you review the copy?')
-    await panel.getByLabel('Leave a note').press('Enter')
-    await panel.getByRole('button', { name: 'Activity', exact: true }).click()
+    await panel.getByRole('button', { name: 'Comments', exact: true }).click()
+    await panel.getByLabel('Write a comment').fill('@Riley Kim can you review the copy?')
+    await panel.getByLabel('Write a comment').press('Enter')
     await page.waitForTimeout(300)
-    await save(page, 'mention-activity', panel, 760, 500)
+    await save(page, 'mention-comments', panel, 760, 500)
 
     // 9. The import mapping step: a file read, but nothing written.
     await page.goto(`${ORIGIN}/app?view=boards`)

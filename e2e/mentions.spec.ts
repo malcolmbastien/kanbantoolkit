@@ -5,16 +5,17 @@ import { openBoard } from './support'
  * A mention is a name in a note, not a thread.
  *
  * `@` offers people, choosing one writes the name into the sentence, and the note records who it
- * means. The person is named under the note in Activity and the same note is listed under Mentions
+ * means. The person is named under the comment in Comments and the same note is listed under Mentions
  * in My work — the two places a mention has to be readable from.
  */
-test('a note mentions a teammate, and the mention comes back in My work', async ({ page }) => {
+test('a comment mentions a teammate, and the mention comes back in My work', async ({ page }) => {
   await openBoard(page)
   await page.locator('[data-card-id="st-signup-rebuild"]').click()
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
 
-  const note = panel.getByLabel('Leave a note')
+  await panel.getByRole('button', { name: 'Comments', exact: true }).click()
+  const note = panel.getByLabel('Write a comment')
   await note.fill('@Ri')
   const picker = panel.locator('[data-mention-picker]')
   await expect(picker).toBeVisible()
@@ -23,7 +24,6 @@ test('a note mentions a teammate, and the mention comes back in My work', async 
 
   await note.pressSequentially('can you review the copy?')
   await note.press('Enter')
-  await panel.getByRole('button', { name: 'Activity', exact: true }).click()
   await expect(panel.locator('[data-mention-chip="u-rk"]')).toContainText('Riley Kim')
   await expect(panel).toContainText('can you review the copy?')
   // Flat by construction: there is no reply or thread control on a note.

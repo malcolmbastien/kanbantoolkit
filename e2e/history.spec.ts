@@ -5,8 +5,8 @@ import { addCardTo, laneRegion, openInstanceBoard, signInOnInstance } from './su
  * A card's history, read where it is read (task 192).
  *
  * The workspace document carries cards, not what happened to them. This spec proves that from the
- * outside: one browser makes a board, a note and a move; a second browser — with no local history
- * at all — signs in and still finds the note in Activity, in search and in My work, and the move in
+ * outside: one browser makes a board, a comment and a move; a second browser — with no local history
+ * at all — signs in and still finds the comment in Comments, in search and in My work, and the move in
  * the flow reading. If any view were still reading the loaded cards, the second browser would show
  * nothing.
  */
@@ -39,7 +39,8 @@ test('a browser that never held the history still reads it', async ({ browser })
 
   await card.click()
   const panel = writer.locator('[data-item-panel]')
-  const composer = panel.getByLabel('Leave a note')
+  await panel.getByRole('button', { name: 'Comments', exact: true }).click()
+  const composer = panel.getByLabel('Write a comment')
   await composer.fill('@Ad')
   const picker = panel.locator('[data-mention-picker]')
   await expect(picker).toBeVisible()
@@ -49,7 +50,6 @@ test('a browser that never held the history still reads it', async ({ browser })
   await expect(composer).toHaveValue(/@Ada Lovelace /)
   await composer.pressSequentially(`${NOTE} for next quarter`)
   await composer.press('Enter')
-  await panel.getByRole('button', { name: 'Activity', exact: true }).click()
   await expect(panel).toContainText(NOTE)
 
   // The note reaches the instance before the next write is based on a revision. A move sent while
@@ -86,9 +86,10 @@ test('a browser that never held the history still reads it', async ({ browser })
   await page.locator('[data-workflow="cards"] [data-card-id]').first().click()
   const drawer = page.locator('[data-item-panel]')
 
-  await drawer.getByRole('button', { name: 'Activity', exact: true }).click()
-  await expect(drawer.locator('[data-history-loading]')).toHaveCount(0)
+  await drawer.getByRole('button', { name: 'Comments', exact: true }).click()
+  await expect(drawer.locator('[data-comments-loading]')).toHaveCount(0)
   await expect(drawer).toContainText(NOTE)
+  await expect(drawer.locator('[data-comment-entry]')).toContainText('Ada Lovelace')
   await expect(drawer.locator('[data-mention-chip]')).toContainText('Ada Lovelace')
 
   // Search finds the note, though the card this browser loaded carries no history.

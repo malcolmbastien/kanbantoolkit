@@ -28,7 +28,7 @@ Planned, then dropped.
   you run yourself. There is no plan to buy.
 - **Read-only board sharing** (123). Cancelled before it was built.
 - **Board-level history** (127). A card can sit on several boards, so its history belongs to the card. The
-  card's Activity tab is that record.
+  card's History tab is that record.
 - **The home-page rewrite and the help pages** (152, 158). The current site covers the same ground.
 
 ## Deferred

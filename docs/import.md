@@ -49,7 +49,7 @@ could not match — before anything is written.
 
 One team board with a **Cards** flow (the four typed columns, split where the mapping needs it) and
 the standard **Initiatives** flow. Imported cards carry a log entry naming the source and its key,
-readable in Activity. A used tag is added to the board's own tags; the workspace directory is
+readable in History. A used tag is added to the board's own tags; the workspace directory is
 unchanged — an import never creates a person.
 
 ## What is not

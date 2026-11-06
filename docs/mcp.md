@@ -165,7 +165,7 @@ Writes:
 | `update_item` | `items:write` | a missing or stale `baseRev`, returning the current item; a change of type into or out of Initiative or Sub-task (`invalid`); a `size`; a `createdById`; a parent that is not an initiative, or would make a cycle |
 | `move_item` | `items:write` | a `block` lane at its limit; a `justify` lane without a reason; a card into an initiatives cell, or an initiative into a cards cell; an initiative across its section |
 | `set_parent` | `items:write` | a parent that is not an initiative, the item itself, or one of its own descendants |
-| `add_note` | `items:comment` | an empty note, or one over 2000 characters. It changes no field and takes no revision, so a move by somebody else cannot block it; the note lands in the card's Activity with its mentions, and the activity says which token wrote it |
+| `add_note` | `items:comment` | an empty note, or one over 2000 characters. It changes no field and takes no revision, so a move by somebody else cannot block it; the note lands in the card's Comments with its mentions, and the entry says which token wrote it |
 
 Reads are paged. A page holds 50 items by default and never more than 200. A list answer includes a
 `nextCursor` when there is another page. Pass it back to continue.

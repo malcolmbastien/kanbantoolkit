@@ -90,9 +90,9 @@ test('a reason lands the card where it was dropped, and is recorded on it', asyn
   // Where it was dropped: above the card it was dropped above.
   await expect.poll(() => cardsIn(page, 'Not Started')).toEqual([moved, ...target])
 
-  // On the card's Activity...
+  // On the card's History...
   await page.locator(`[data-card-id="${moved}"]`).click()
-  await page.getByRole('button', { name: 'Activity' }).click()
+  await page.getByRole('button', { name: 'History' }).click()
   await expect(page.getByText(reason)).toBeVisible()
 
   // ...and on the card itself, as the workspace holds it.

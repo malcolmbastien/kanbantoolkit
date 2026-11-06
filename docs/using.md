@@ -25,7 +25,7 @@ assign it to yourself, move it to Done, block it with a reason, watch or unwatch
 date, or open its panel. Each verb is the same call the drawer or the card menu makes, so the board's
 own rules decide — a full `block` column refuses the move with the same sentence, and a verb that
 would be refused is not offered. The search field beside it searches every board by title,
-description and note, and shows the line that matched.
+description and comment, and shows the line that matched.
 
 ## A board
 
@@ -115,22 +115,23 @@ an external link to where the work lives elsewhere; the creator is recorded and 
 Select words in the description and the toolbar formats them in place — bold, italic, inline code, a
 link, a list or a heading — while the field still stores Markdown. Markdown shortcuts work as you
 type too: `# ` starts a heading, `- ` or `1. ` a list, and `**bold**`, `*italic*` and `` `code` ``
-are recognised as they close. **Hierarchy** shows the parent and the work below. **Activity** is the card's own history — every move, edit, note and dependency, with
-who and when.
+are recognised as they close. **Comments** is the conversation about the card, with the composer at
+the bottom of that tab; **Hierarchy** shows the parent and the work below; **History** is the card's
+record of changes — every move, edit, block and link, with who and when.
 
-<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form: type, title, Overview, Hierarchy and Activity tabs, status, priority, people and the parent initiative" width="420">
+<img src="img/guide/card-drawer.webp" alt="The card drawer for Rebuild the signup form: type, title, Overview, Comments, Hierarchy and History tabs, status, priority, people and the parent initiative" width="420">
 
-*The side drawer, with the board still behind it: the fields in Overview, the parent in Hierarchy and
-the item's history in Activity.*
+*The side drawer, with the board still behind it: the fields in Overview, the conversation in
+Comments, the parent in Hierarchy and the changes in History.*
 
-A note is a comment on the card, and typing `@` offers a teammate to mention. Mentions are flat:
-there are no replies and no threads. The person is recorded on the note, named under it in
-**Activity**, and the note appears under **Mentions** in **My work** — the place that brings a
-mention back to the person it names.
+A comment is written at the bottom of **Comments**, and typing `@` offers a teammate to mention.
+Mentions are flat: there are no replies and no threads. The person is recorded on the comment, named
+beneath it in **Comments**, and the comment appears under **Mentions** in **My work** — the place that
+brings a mention back to the person it names.
 
-<img src="img/guide/mention-activity.webp" alt="Activity in the card drawer showing a note that mentions Riley Kim, with the mention named beneath the note" width="420">
+<img src="img/guide/mention-comments.webp" alt="Comments in the card drawer showing a comment that mentions Riley Kim, with the mention named beneath it" width="420">
 
-*A mention is part of the note: the name stays in the sentence and the person it means is recorded
+*A mention is part of the comment: the name stays in the sentence and the person it means is recorded
 beside it.*
 
 The checklist holds the card's sub-tasks. A card can wait on another: the waiting state is read from
@@ -138,8 +139,9 @@ the two ends, so it clears when the blocker reaches Done — there is nothing to
 **Mark blocked** records a reason when the work is stopped for something that is not another card.
 
 The bell in **Overview** watches the card. A watch is one person's interest in one piece of work —
-the creator, each person assigned and whoever writes a note join without asking. A watch starts when you make it: the card's earlier work stays in its **Activity**,
-not in the inbox; only what happens next is news. Watching is not a permission: a Viewer can watch
+the creator, each person assigned and whoever writes a comment join without asking. A watch starts
+when you make it: the card's earlier record stays in **History**, not in the inbox; only what happens
+next is news. Watching is not a permission: a Viewer can watch
 too. The **bell in the top bar** opens the inbox, newest first: what changed on the work you watch,
 with the board and column, and a row opens the card where it lives. **Mark all read** moves the
 cursor. An instance keeps the watch

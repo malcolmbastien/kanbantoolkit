@@ -62,7 +62,7 @@ browser. There is no account and nothing is collected.
   - Title, Markdown description, type, priority, assignees, tags, target dates and a due date.
   - A link to where the work lives elsewhere — a ticket, a design, a page — kept as a reference: the
     app never fetches it, and only `http`/`https` is stored.
-  - Sub-task checklists, notes in the activity log, and dependencies that clear when the other item
+  - Sub-task checklists, comments on the card, and dependencies that clear when the other item
     reaches Done.
   - Mark a card blocked with a reason; give it a parent and children by dropping it on an initiative.
   - The creator is recorded and cannot be changed afterwards.
@@ -84,8 +84,8 @@ browser. There is no account and nothing is collected.
     they are done.
   - My work for the signed-in person, an inbox for the cards and initiatives you watch, search
     across every board, and a command palette.
-  - A watch starts when you make it: the card's history stays in its Activity, and the inbox shows
-    only what happens next — moved, blocked, edited, noted, filed, a due-date change or an
+  - A watch starts when you make it: the card's earlier record stays on the card, and the inbox shows
+    only what happens next — moved, blocked, edited, commented, filed, a due-date change or an
     initiative's health. Mark all read, and a deleted item drops out rather than leaving a dead link.
   - The palette also acts on the open card: assign to me, move to Done, block with a reason, watch,
     set the due date or open the panel, through the same rules the board enforces.
