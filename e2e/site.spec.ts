@@ -17,7 +17,7 @@ test('the front page is the site, and it is readable with no JavaScript at all',
   const page = await context.newPage()
   try {
     await page.goto('/')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('An open-source Kanban board for teams')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('The open-source Kanban board for teams')
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
     await expect(page.getByRole('contentinfo')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Open the demo (no account needed)' }).first()).toBeVisible()
@@ -28,6 +28,7 @@ test('the front page is the site, and it is readable with no JavaScript at all',
     await expect(page.getByRole('heading', { name: 'Straightforward answers' })).toBeVisible()
     await expect(page.locator('.faq-item')).toHaveCount(5)
     // The two things a visitor can do, and where the documentation is.
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Features' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Install' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Docs' })).toBeVisible()
     // Nothing on the page sells anything (task 164).
@@ -169,7 +170,7 @@ test('the home page holds at 320 pixels wide', async ({ page }) => {
   )
   expect(overflow).toBeLessThanOrEqual(0)
   // And it is still the page: the heading and the demo action.
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('An open-source Kanban board for teams')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('The open-source Kanban board for teams')
   await expect(page.getByRole('link', { name: 'Open the demo (no account needed)' }).first()).toBeVisible()
 })
 

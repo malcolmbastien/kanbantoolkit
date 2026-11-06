@@ -228,6 +228,7 @@ for (const file of html) {
 const nav = /<nav class="site-nav"[\s\S]*?<\/nav>/.exec(homePage)?.[0] ?? ''
 if (!nav) fail('the home page has no main navigation')
 else {
+  if (!/href="\/product\/"[^>]*>Features</.test(nav)) fail('the navigation has no Features item')
   if (!/href="https:\/\/[^"]+\/wiki\/Install"[^>]*>Install</.test(nav)) {
     fail('the navigation has no Install item pointing at the install documentation')
   }
