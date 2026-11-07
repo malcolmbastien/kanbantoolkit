@@ -354,7 +354,19 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         aria-level={level}
         aria-expanded={false}
         className="flex h-full min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2"
-        style={accent ? { backgroundColor: tintOn(accent, 0.18), borderColor: accent } : undefined}
+        style={
+          accent
+            ? {
+                backgroundColor: tintOn(accent, 0.18),
+                // Longhands, not the `borderColor` shorthand: mixing a shorthand here with the
+                // column's longhand top accent makes React drop the colour when the rail expands.
+                borderTopColor: accent,
+                borderRightColor: accent,
+                borderBottomColor: accent,
+                borderLeftColor: accent,
+              }
+            : undefined
+        }
       >
         <button
           onClick={() => ctx.toggleCollapse(lane.id)}
@@ -409,7 +421,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
           !top && wip ? WIP_SURFACE[wip].cell : '',
           top && stage && !wip && STAGE_SURFACE[stage],
         )}
-        style={top && stage && !wip ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
+        style={top && stage && !wip ? { borderTopWidth: 4, borderTopStyle: 'solid', borderTopColor: STAGE_ACCENT[stage] } : undefined}
       >
         {/* Hazard tape: the one striped edge on the board, so a breach is not read as another
             column colour. It replaces the stage accent line while the alarm stands. */}
@@ -507,7 +519,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         top && (wip ? WIP_SURFACE[wip].lane : 'border-slate-300/80'),
         top ? (wip ? '' : stage ? STAGE_SURFACE[stage] : 'bg-slate-100') : wip ? WIP_SURFACE[wip].cell : '',
       )}
-      style={top && stage && !wip ? { borderTop: `4px solid ${STAGE_ACCENT[stage]}` } : undefined}
+      style={top && stage && !wip ? { borderTopWidth: 4, borderTopStyle: 'solid', borderTopColor: STAGE_ACCENT[stage] } : undefined}
     >
       {wip && (
         <span

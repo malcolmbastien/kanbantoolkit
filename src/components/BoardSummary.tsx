@@ -426,7 +426,9 @@ export function BoardSummary({
             // A section with more cells claims more of the width, so every *cell* gets an
             // equal share of the board — splitting a column doesn't squeeze its own cells.
             style={{
-              borderTop: `4px solid ${STAGE_ACCENT[stage]}`,
+              borderTopWidth: 4,
+              borderTopStyle: 'solid',
+              borderTopColor: STAGE_ACCENT[stage],
               // A folded section gives its width back rather than its share of it. A stacked
               // one claims a single share — its cells are its own full width already — while
               // a split column shares itself out, so either way every cell holds one share
@@ -571,7 +573,20 @@ function Cell({
     return (
       <div
         className="flex min-h-0 w-full flex-col items-center gap-2 overflow-hidden rounded-lg border border-slate-300 py-2"
-        style={{ ...style, ...(accent ? { backgroundColor: tintOn(accent, 0.18), borderColor: accent } : {}) }}
+        style={{
+          ...style,
+          ...(accent
+            ? {
+                backgroundColor: tintOn(accent, 0.18),
+                // Longhands, not the `borderColor` shorthand: mixing a shorthand here with the
+                // column's longhand top accent makes React drop the colour when the rail expands.
+                borderTopColor: accent,
+                borderRightColor: accent,
+                borderBottomColor: accent,
+                borderLeftColor: accent,
+              }
+            : {}),
+        }}
       >
         <button
           onClick={() => toggleCollapse(lane.id)}
