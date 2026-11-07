@@ -149,6 +149,59 @@ export function softChipColors(hex: string): { background: string; color: string
 export const TAG_PALETTE = ['#0ea5e9', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#64748b']
 
 /**
+ * The palette a new type or kind starts from, in order. Two vocabulary entries with the same
+ * colour stop being tellable apart at a glance, so the next free colour is chosen rather than a
+ * fixed default. Past the named palette a fresh hue is generated rather than repeating one.
+ */
+export const VOCABULARY_PALETTE = [
+  '#0ea5e9',
+  '#8b5cf6',
+  '#f43f5e',
+  '#f59e0b',
+  '#10b981',
+  '#64748b',
+  '#6366f1',
+  '#14b8a6',
+  '#ec4899',
+  '#84cc16',
+  '#f97316',
+  '#06b6d4',
+]
+
+/** HSL to a hex colour, for the colours past the named palette. */
+function hslToHex(hue: number, saturation: number, lightness: number): string {
+  const a = saturation * Math.min(lightness, 1 - lightness)
+  const channel = (n: number) => {
+    const k = (n + hue / 30) % 12
+    const value = lightness - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+    return Math.round(255 * value)
+      .toString(16)
+      .padStart(2, '0')
+  }
+  return `#${channel(0)}${channel(8)}${channel(4)}`
+}
+
+/**
+ * The first colour in `palette` the workspace is not already using, or a fresh hue beyond it.
+ *
+ * The comparison is case-insensitive because a colour is a value, not a spelling. A workspace with
+ * more colours than the palette still gets one of its own rather than an echo.
+ */
+export function nextUnusedColor(
+  used: Iterable<string>,
+  palette: readonly string[] = VOCABULARY_PALETTE,
+): string {
+  const taken = new Set([...used].map((color) => color.toLowerCase()))
+  const free = palette.find((color) => !taken.has(color.toLowerCase()))
+  if (free) return free
+  for (let hue = 0; hue < 360; hue += 12) {
+    const candidate = hslToHex(hue, 0.65, 0.45)
+    if (!taken.has(candidate.toLowerCase())) return candidate
+  }
+  return palette[0] ?? '#64748b'
+}
+
+/**
  * The shape of a warning badge, and the colour it wears by tone.
  *
  * One shape for every warning, wherever it is drawn — a card's badge row and the drawer's warnings

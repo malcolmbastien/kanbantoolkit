@@ -4,6 +4,7 @@ import { BAND_STYLES } from './BandBadge'
 import { cardTypes, defaultCardTypeId, isAggregating, isPortfolio, linkableBoards, NONE_TYPE_ID } from '@/domain/board'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
+import { nextUnusedColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { useDialogFocus } from '@/lib/useDialogFocus'
@@ -58,10 +59,19 @@ export function BoardSettings() {
   // A dialog over the board: the caret is in it, Tab stays in it, Escape puts the caret back on
   // the control that opened it.
   useDialogFocus(dialogRef, close)
+  // The board's vocabulary, read before the state below so a new entry can start from a colour the
+  // workspace is not already using.
+  const board = boards.find((b) => b.id === boardId)
+  const types = cardTypes(issueTypes)
+  const kinds = board?.initiativeTypes ?? []
+  // Every issue type is a colour in use, including the built-in Initiative and Sub-task that are
+  // not chosen from the card-type list. A new card type must not echo any of them.
+  const typeColorsKey = issueTypes.map((t) => t.color.toLowerCase()).join(',')
+  const kindColorsKey = kinds.map((k) => k.color.toLowerCase()).join(',')
   const [newTypeName, setNewTypeName] = useState('')
-  const [newTypeColor, setNewTypeColor] = useState('#8b5cf6')
+  const [newTypeColor, setNewTypeColor] = useState(() => nextUnusedColor(issueTypes.map((t) => t.color)))
   const [newKindName, setNewKindName] = useState('')
-  const [newKindColor, setNewKindColor] = useState('#0ea5e9')
+  const [newKindColor, setNewKindColor] = useState(() => nextUnusedColor(kinds.map((k) => k.color)))
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState('#64748b')
   const [savedTemplate, setSavedTemplate] = useState(false)
@@ -69,6 +79,17 @@ export function BoardSettings() {
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('#8b5cf6')
   const [tab, setTab] = useState<SettingsTab>('general')
+
+  // A new entry keeps offering a free colour as the vocabulary grows. The key is the colours
+  // themselves, because the arrays are rebuilt on every render.
+  useEffect(() => {
+    const used = typeColorsKey ? typeColorsKey.split(',') : []
+    setNewTypeColor((current) => (used.includes(current.toLowerCase()) ? nextUnusedColor(used) : current))
+  }, [typeColorsKey])
+  useEffect(() => {
+    const used = kindColorsKey ? kindColorsKey.split(',') : []
+    setNewKindColor((current) => (used.includes(current.toLowerCase()) ? nextUnusedColor(used) : current))
+  }, [kindColorsKey])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -81,11 +102,8 @@ export function BoardSettings() {
     return () => window.removeEventListener('keydown', onKey)
   }, [close])
 
-  const board = boards.find((b) => b.id === boardId)
   if (!board) return null
 
-  const types = cardTypes(issueTypes)
-  const kinds = board.initiativeTypes ?? []
   const tags = board.tags ?? []
   const linked = board.linkedBoardIds ?? []
   const isAggregatingBoard = isAggregating(board)

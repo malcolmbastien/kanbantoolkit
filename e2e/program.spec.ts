@@ -15,6 +15,16 @@ test('a programme board marks its linked bands as read-only', async ({ page }) =
   await expect(page.getByRole('button', { name: /^Team / })).toBeVisible()
 })
 
+test('a linked band keeps the initiative kind banner', async ({ page }) => {
+  await page.goto('/app?board=b-lob')
+  await expect(page.getByText('Linked boards', { exact: true })).toBeVisible()
+
+  // Growth value stream is read-only here, but its initiatives keep the kinds its own board gave
+  // them: the band is that board's flow, not a copy of it.
+  const band = page.locator('[data-linked-board="b-portfolio"]')
+  await expect(band.getByLabel('Kind: Workstream').first()).toBeVisible()
+})
+
 test('a programme board links a board from the foot of the board, in edit mode', async ({ page }) => {
   await page.goto('/app?board=b-delivery')
 

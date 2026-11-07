@@ -170,7 +170,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             {linked.map((t) => {
               const isCollapsed = collapsed[`linked-${t.id}`]
               return (
-                <div key={t.id} className="space-y-2">
+                <div key={t.id} data-linked-board={t.id} className="space-y-2">
                   <div className={cn('flex items-center gap-2 border-b pb-1.5', BAND_ACCENT[t.band].rule)}>
                     <button
                       onClick={() => setCollapsed((c) => ({ ...c, [`linked-${t.id}`]: !c[`linked-${t.id}`] }))}
@@ -209,7 +209,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
                       )}
                     </span>
                   </div>
-                  {!isCollapsed && <BoardSummary boardId={t.id} viewedBoardId={board.id} />}
+                  {!isCollapsed && <BoardSummary boardId={t.id} viewedBoardId={board.id} variant="initiatives" />}
                 </div>
               )
             })}

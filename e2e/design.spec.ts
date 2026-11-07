@@ -169,6 +169,49 @@ test('board settings is a tabbed modal, and its tabs work from the keyboard', as
   await expect(dialog).toHaveCount(0)
 })
 
+test('a new type and kind start from colours the vocabulary is not using', async ({ page }) => {
+  await openBoard(page)
+  const palette = await page.evaluate(() => {
+    const raw = localStorage.getItem('kanbantoolkit-state-v3')
+    if (!raw) return { types: [], kinds: [] }
+    const parsed = JSON.parse(raw) as { state?: Record<string, unknown> }
+    const state = (parsed.state ?? parsed) as {
+      issueTypes: Array<{ color: string }>
+      boards: Array<{ id: string; initiativeTypes?: Array<{ color: string }> }>
+    }
+    return {
+      types: state.issueTypes.map((type) => type.color.toLowerCase()),
+      kinds: (state.boards.find((board) => board.id === 'b-portfolio')?.initiativeTypes ?? []).map((kind) =>
+        kind.color.toLowerCase(),
+      ),
+    }
+  })
+
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const dialog = page.locator('[data-board-settings]')
+  await dialog.getByRole('tab', { name: 'Cards', exact: true }).click()
+
+  const typeColour = (title: string) => dialog.getByTitle(title).inputValue()
+  const newType = await typeColour('New type colour')
+  expect(palette.types).not.toContain(newType)
+
+  // Once a colour is spent, the next new type starts from the next free one.
+  await dialog.getByPlaceholder('Define a new card type…').fill('Colour probe')
+  await dialog.getByRole('button', { name: 'Add type' }).click()
+  await expect(dialog.getByText('Colour probe').first()).toBeVisible()
+  await expect.poll(() => typeColour('New type colour')).not.toBe(newType)
+  const nextType = await typeColour('New type colour')
+  expect(palette.types).not.toContain(nextType)
+  await page.keyboard.press('Escape')
+
+  // Kinds are per board: the Growth value stream defines Workstream and Enabler.
+  await page.goto('/app?board=b-portfolio')
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const kinds = page.locator('[data-board-settings]')
+  await kinds.getByRole('tab', { name: 'Cards', exact: true }).click()
+  expect(palette.kinds).not.toContain(await kinds.getByTitle('New kind colour').inputValue())
+})
+
 test('a workflow can carry an optional sub-header, written in edit mode', async ({ page }) => {
   await openBoard(page)
   await editBoard(page)
