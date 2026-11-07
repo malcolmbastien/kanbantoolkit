@@ -49,7 +49,7 @@ Three tags:
 > settings → Change visibility**. If a `docker pull` asks for credentials, that is the switch.
 
 The container reports which build it is: `curl -s localhost:8787/api/health` answers
-`{"ok":true,"database":"ok","version":"0.1.0"}`.
+`{"ok":true,"database":"ok","version":"0.2.0"}`.
 
 ## The volume is the instance
 
