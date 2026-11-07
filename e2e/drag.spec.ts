@@ -17,6 +17,36 @@ test('a card dragged to another lane lands above the card it was dropped above',
   await expect.poll(() => cardsIn(page, 'Backlog')).toEqual(backlog.slice(1))
 })
 
+test('a wide card leaving a column does not change the column widths mid-drag', async ({ page }) => {
+  await openBoard(page)
+  const flow = page.locator('[data-flow-band]').first().locator('[data-workflow="cards"]')
+  // Every column of the flow, at every depth: the Dev cell that holds this card is nested inside
+  // the In Progress column, and it is the one that shrinks when the card leaves.
+  const columns = flow.locator('[data-lane-col]')
+  const widths = () =>
+    columns.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width))
+  const before = await widths()
+
+  // The Dev column is wider than its neighbours because this card is its widest content.
+  const card = page.locator('[data-card-id="st-enterprise-sso"]')
+  const target = lane(page, 'Backlog')
+  const cardBox = (await card.boundingBox())!
+  const targetBox = (await target.boundingBox())!
+  await page.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + 18)
+  await page.mouse.down()
+  await page.mouse.move(cardBox.x + cardBox.width / 2 + 20, cardBox.y + 24, { steps: 5 })
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height - 10, { steps: 12 })
+
+  await expect(page.locator('[data-drag-layer]')).toHaveCount(1)
+  const during = await widths()
+  expect(during).toHaveLength(before.length)
+  during.forEach((width, i) => expect(width).toBeCloseTo(before[i], 0))
+
+  // The gesture still does what it says: the card lands where it was aimed.
+  await page.mouse.up()
+  await expect.poll(() => cardsIn(page, 'Backlog')).toContain('st-enterprise-sso')
+})
+
 test('a workflow holds its starting height while a card is in the air', async ({ page }) => {
   await openBoard(page)
   const flow = page.locator('[data-flow-band]').first().locator('[data-workflow="cards"]')

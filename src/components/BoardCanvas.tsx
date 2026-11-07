@@ -145,6 +145,7 @@ function LaneBox({
   hideHeader,
   gridRef,
   holdHeight,
+  holdWidths,
 }: {
   lane: Lane
   ctx: Ctx
@@ -154,6 +155,8 @@ function LaneBox({
   gridRef?: React.Ref<HTMLDivElement>
   /** The height that row had when the gesture began, applied while a card is in the air. */
   holdHeight?: number | null
+  /** The width each column had when the gesture began, so a lift cannot change it. */
+  holdWidths?: Record<string, number> | null
 }) {
   const { lanes, issueTypes, graph, editMode, boardItems, effectiveLane } = ctx
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -428,6 +431,7 @@ function LaneBox({
           isRoot={isRoot}
           gridRef={gridRef}
           holdHeight={holdHeight}
+          holdWidths={holdWidths}
         />
       )
     }
@@ -480,13 +484,19 @@ function LaneBox({
               ...(orientation === 'columns'
                 ? {
                     gridTemplateColumns: kids
-                      .map((k) =>
-                        ctx.collapsedLanes[k.id]
+                      .map((k) => {
+                        // A column is as wide as its widest card, and taking that card out would
+                        // re-measure every column under the reader's hand — at every depth of the
+                        // split. Freeze the tracks the gesture started with, so only the card
+                        // moves while it is in the air.
+                        const held = holdWidths?.[k.id]
+                        if (held != null) return `${held}px`
+                        return ctx.collapsedLanes[k.id]
                           ? isRoot
                             ? '36px'
                             : '48px'
-                          : 'minmax(min-content, 1fr)',
-                      )
+                          : 'minmax(min-content, 1fr)'
+                      })
                       .join(' '),
                   }
                 : {}),
@@ -501,6 +511,7 @@ function LaneBox({
             {kids.map((k, i) => (
               <div
                 key={k.id}
+                data-lane-col={k.id}
                 className={cn(
                   'flex min-h-0 min-w-0 flex-col',
                   // Rows size to their content (+ buffer); only the last row stretches
@@ -520,7 +531,7 @@ function LaneBox({
                       ),
                 )}
               >
-                <LaneBox lane={k} ctx={ctx} isRoot={false} />
+                <LaneBox lane={k} ctx={ctx} isRoot={false} holdWidths={holdWidths} />
               </div>
             ))}
         </div>
@@ -664,6 +675,7 @@ function SwimlaneBoard({
   isRoot,
   gridRef,
   holdHeight,
+  holdWidths,
 }: {
   lane: Lane
   columns: Lane[]
@@ -671,6 +683,7 @@ function SwimlaneBoard({
   isRoot: boolean
   gridRef?: React.Ref<HTMLDivElement>
   holdHeight?: number | null
+  holdWidths?: Record<string, number> | null
 }) {
   const { lanes, editMode } = ctx
   const rowNames: string[] = []
@@ -710,14 +723,21 @@ function SwimlaneBoard({
         data-lane-grid={isRoot ? '' : undefined}
         className="grid w-full flex-1 min-h-0"
         style={{
-          gridTemplateColumns: `160px repeat(${columns.length}, minmax(min-content, 1fr))`,
+          gridTemplateColumns: `160px ${columns
+            .map((c) => {
+              // The same freeze as the ordinary row of columns: the lane rail keeps its 160px,
+              // and every column keeps the width the gesture started with.
+              const held = holdWidths?.[c.id]
+              return held != null ? `${held}px` : 'minmax(min-content, 1fr)'
+            })
+            .join(' ')}`,
           ...(isRoot && holdHeight != null ? { minHeight: holdHeight } : {}),
         }}
       >
         {/* column headers */}
         <div />
         {columns.map((col) => (
-          <div key={col.id} className={cn(HEAD_ROW, 'gap-1.5 border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-slate-800')}>
+          <div key={col.id} data-lane-col={col.id} className={cn(HEAD_ROW, 'gap-1.5 border-b border-slate-300 bg-slate-100 px-2.5 py-1.5 text-slate-800')}>
             <span />
             {editMode ? (
               <InlineEdit
@@ -756,7 +776,7 @@ function SwimlaneBoard({
                 return (
                   <div key={col.id + name} className="flex min-h-[64px] w-full flex-col">
                     {cell ? (
-                      <LaneBox lane={cell} ctx={ctx} isRoot={false} hideHeader />
+                      <LaneBox lane={cell} ctx={ctx} isRoot={false} hideHeader holdWidths={holdWidths} />
                     ) : (
                       <div className="flex-1 rounded-md border border-dashed border-slate-300/60 bg-slate-100/40" />
                     )}
@@ -853,6 +873,9 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   // where the reader is aiming; the workflow's height follows the row.
   const laneGridRef = useRef<HTMLDivElement>(null)
   const dragStartHeight = useRef<number | null>(null)
+  // Each column's width at the same moment. A column is as wide as its widest card, so taking
+  // that card out would narrow it and widen its neighbours mid-drag.
+  const dragStartWidths = useRef<Record<string, number> | null>(null)
   // Drag empty workflow space to move the board. See usePanScroll.
   const pan = usePanScroll<HTMLDivElement>()
   const openCardMenu = useStore((s) => s.openCardMenu)
@@ -965,7 +988,16 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const lifting = lift !== null
   // Measure before the lift's first render, while the card is still in its lane.
   const beginLift = (event: React.PointerEvent, itemId: string) => {
-    dragStartHeight.current = laneGridRef.current?.getBoundingClientRect().height ?? null
+    const grid = laneGridRef.current
+    dragStartHeight.current = grid?.getBoundingClientRect().height ?? null
+    dragStartWidths.current = grid
+      ? Object.fromEntries(
+          [...grid.querySelectorAll<HTMLElement>('[data-lane-col]')].map((el) => [
+            el.dataset.laneCol ?? '',
+            el.getBoundingClientRect().width,
+          ]),
+        )
+      : null
     startLift(event, itemId)
   }
 
@@ -1083,6 +1115,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
               isRoot
               gridRef={laneGridRef}
               holdHeight={lifting ? dragStartHeight.current : null}
+              holdWidths={lifting ? dragStartWidths.current : null}
             />
           ) : (
             <p className="text-meta text-slate-600">This board has no lanes.</p>
