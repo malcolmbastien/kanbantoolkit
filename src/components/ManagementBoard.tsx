@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Layers, Link2, Lock, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
-import { LinkBoardDialog } from './LinkBoardDialog'
 import { BoardSummary } from './BoardSummary'
 import { DetailDial } from './DetailDial'
 import { ConnectionsLegend, ConnectionsToggle } from './ConnectionsToggle'
@@ -14,6 +13,11 @@ import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { usePanScroll } from '@/lib/usePanScroll'
 import { useRevealSelection } from '@/lib/useRevealSelection'
+
+// A board is linked only in Edit board, so the picker is not part of the first download.
+const LinkBoardDialog = lazy(() =>
+  import('./LinkBoardDialog').then((module) => ({ default: module.LinkBoardDialog })),
+)
 
 /**
  * An aggregating board (coordination or strategic), Kanbanize-style:
@@ -241,15 +245,17 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
       </div>
 
       {editMode && linkOpen && (
-        <LinkBoardDialog
-          candidates={candidates}
-          hostName={board.name}
-          onLink={(id) => {
-            addLinkedBoard(board.id, id)
-            setLinkOpen(false)
-          }}
-          onClose={() => setLinkOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <LinkBoardDialog
+            candidates={candidates}
+            hostName={board.name}
+            onLink={(id) => {
+              addLinkedBoard(board.id, id)
+              setLinkOpen(false)
+            }}
+            onClose={() => setLinkOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
   )

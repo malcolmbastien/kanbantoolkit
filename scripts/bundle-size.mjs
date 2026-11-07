@@ -61,8 +61,13 @@ const DIST = 'dist'
  * behind each red or amber marker — is how a board at that level is read; a hover is part of the
  * card, not a screen behind a lazy import. The boundary band follows the same dial, and both share
  * `MiniHoverCard` and `MiniHoverReasons`, so there is one layer rather than two.
+ *
+ * 171 is the connections lens on the card drawer. The routing that draws each string, the
+ * item-scoped toggle and the colour/arrow legend are all on the board path — a connection is read
+ * on the board, not in a screen opened later. The board-link picker moved behind a lazy import,
+ * which paid for most of the growth (measured 170.0 before the raise).
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 170)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 171)
 
 let manifest
 try {
