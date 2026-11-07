@@ -1,5 +1,5 @@
 import { lazy, Suspense, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ExternalLink, Layers, Link2, Lock, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, Layers, Link2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
@@ -150,16 +150,8 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           <>
             <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Linked boards</span>
             <span className="text-micro text-slate-600">
-              {linked.length} board{linked.length === 1 ? '' : 's'} roll up here
+              {linked.length} board{linked.length === 1 ? '' : 's'} roll up here · each in its own initiatives flow
             </span>
-            {linked.length > 0 && (
-              <span
-                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200"
-                title="The bands below are read from their own boards. Open one to move its work or change its flow."
-              >
-                <Lock size={9} aria-hidden /> read-only
-              </span>
-            )}
           </>,
           <div className="space-y-3 p-2">
             {linked.length === 0 && (
@@ -183,9 +175,9 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
                     <span className="min-w-0 truncate text-meta font-semibold text-slate-800">{t.name}</span>
                     <span
                       className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200"
-                      title={`Read-only: this band is read from ${t.name}. Open that board to change it.`}
+                      title={`Viewing ${t.name}’s initiatives flow from its own board. Cards open and edit here; open the board to move them.`}
                     >
-                      <Lock size={9} aria-hidden /> Read-only
+                      <Layers size={9} aria-hidden /> Initiatives flow
                     </span>
                     <span className="ml-auto flex shrink-0 items-center gap-1">
                       <button
@@ -220,7 +212,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
 
         {!portfolio && (
           <div className="flex items-center gap-1 px-1 text-micro text-slate-600">
-            <Layers size={11} /> Each band is a read-only rollup of that board’s initiatives — Not Started / In Progress / Done. Open a board to move its work or change its flow.
+            <Layers size={11} /> Each band is another board’s initiatives flow — its own Not Started / In Progress / Done. Cards open and edit here; open a board to move its work or change its flow.
           </div>
         )}
 

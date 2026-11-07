@@ -1,14 +1,15 @@
 import { expect, test } from '@playwright/test'
 
-test('a programme board marks its linked bands as read-only', async ({ page }) => {
+test('a programme board names each linked band as another board’s initiatives flow', async ({ page }) => {
   await page.goto('/app?board=b-delivery')
   await expect(page.getByText('Linked boards', { exact: true })).toBeVisible()
 
-  // The section says it once, and each linked band says it at its own header.
-  await expect(page.getByText('read-only', { exact: true })).toBeVisible()
-  const bands = page.getByText('Read-only', { exact: true })
+  // The section explains the reading, and each band says whose flow it is without calling the
+  // cards read-only — they open and edit here.
+  await expect(page.getByText(/each in its own initiatives flow/)).toBeVisible()
+  const bands = page.getByText('Initiatives flow', { exact: true })
   await expect(bands).toHaveCount(2)
-  await expect(bands.first()).toHaveAttribute('title', /Read-only: this band is read from/)
+  await expect(bands.first()).toHaveAttribute('title', /Viewing .+’s initiatives flow from its own board/)
 
   // The way to change a linked band's work is its own board, named by the action.
   await page.getByRole('button', { name: 'Open board' }).first().click()
@@ -19,8 +20,8 @@ test('a linked band keeps the initiative kind banner', async ({ page }) => {
   await page.goto('/app?board=b-lob')
   await expect(page.getByText('Linked boards', { exact: true })).toBeVisible()
 
-  // Growth value stream is read-only here, but its initiatives keep the kinds its own board gave
-  // them: the band is that board's flow, not a copy of it.
+  // Growth value stream is viewed here in its own flow, but its initiatives keep the kinds its
+  // own board gave them: the band is that board's flow, not a copy of it.
   const band = page.locator('[data-linked-board="b-portfolio"]')
   await expect(band.getByLabel('Kind: Workstream').first()).toBeVisible()
 })
