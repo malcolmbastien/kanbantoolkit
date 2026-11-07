@@ -138,7 +138,23 @@ interface Ctx {
  */
 const HEAD_ROW = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1'
 
-function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRoot: boolean; hideHeader?: boolean }) {
+function LaneBox({
+  lane,
+  ctx,
+  isRoot,
+  hideHeader,
+  gridRef,
+  holdHeight,
+}: {
+  lane: Lane
+  ctx: Ctx
+  isRoot: boolean
+  hideHeader?: boolean
+  /** The root's row of columns — the thing whose height a lift holds. */
+  gridRef?: React.Ref<HTMLDivElement>
+  /** The height that row had when the gesture began, applied while a card is in the air. */
+  holdHeight?: number | null
+}) {
   const { lanes, issueTypes, graph, editMode, boardItems, effectiveLane } = ctx
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsBtnRef = useRef<HTMLButtonElement>(null)
@@ -403,7 +419,18 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
       orientation === 'columns' &&
       kids.length >= 2 &&
       kids.every((k) => (k.orientation ?? 'columns') === 'rows' && childrenOf(lanes, k.id).length > 0)
-    if (transposable && !collapsed) return <SwimlaneBoard lane={lane} columns={kids} ctx={ctx} isRoot={isRoot} />
+    if (transposable && !collapsed) {
+      return (
+        <SwimlaneBoard
+          lane={lane}
+          columns={kids}
+          ctx={ctx}
+          isRoot={isRoot}
+          gridRef={gridRef}
+          holdHeight={holdHeight}
+        />
+      )
+    }
 
     return (
       <div
@@ -440,6 +467,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
         {!collapsed && (
         <div
             role="group"
+            ref={isRoot ? gridRef : undefined}
+            data-lane-grid={isRoot ? '' : undefined}
             className={cn(
               'flex w-full flex-1 min-h-0',
               // Stacked rows get a gap, and so do nested cells: a split is air between two
@@ -447,8 +476,8 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               // own header shelf is what says where one cell ends and the next begins.
               stacked ? 'flex-col gap-2' : cn('grid', isRoot ? 'gap-3' : 'gap-2'),
             )}
-            style={
-              orientation === 'columns'
+            style={{
+              ...(orientation === 'columns'
                 ? {
                     gridTemplateColumns: kids
                       .map((k) =>
@@ -460,8 +489,14 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                       )
                       .join(' '),
                   }
-                : undefined
-            }
+                : {}),
+              // A lift takes its card out of the column, and the tallest column is what sets the
+              // row's height. Holding the row at its starting height keeps the workflow from
+              // jumping mid-drag: the columns keep their full height, so the gap under the
+              // pointer is still where the drop looks for it, and the board gives the space back
+              // once the card is down.
+              ...(isRoot && holdHeight != null ? { minHeight: holdHeight } : {}),
+            }}
           >
             {kids.map((k, i) => (
               <div
@@ -622,7 +657,21 @@ function countInLane(laneId: string, ctx: Ctx): number {
 }
 
 /** columns × lanes grid: lanes span the columns; cells in a lane share its height. */
-function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: Lane[]; ctx: Ctx; isRoot: boolean }) {
+function SwimlaneBoard({
+  lane,
+  columns,
+  ctx,
+  isRoot,
+  gridRef,
+  holdHeight,
+}: {
+  lane: Lane
+  columns: Lane[]
+  ctx: Ctx
+  isRoot: boolean
+  gridRef?: React.Ref<HTMLDivElement>
+  holdHeight?: number | null
+}) {
   const { lanes, editMode } = ctx
   const rowNames: string[] = []
   for (const col of columns) {
@@ -657,8 +706,13 @@ function SwimlaneBoard({ lane, columns, ctx, isRoot }: { lane: Lane; columns: La
       )}
       <div
         role="group"
+        ref={isRoot ? gridRef : undefined}
+        data-lane-grid={isRoot ? '' : undefined}
         className="grid w-full flex-1 min-h-0"
-        style={{ gridTemplateColumns: `160px repeat(${columns.length}, minmax(min-content, 1fr))` }}
+        style={{
+          gridTemplateColumns: `160px repeat(${columns.length}, minmax(min-content, 1fr))`,
+          ...(isRoot && holdHeight != null ? { minHeight: holdHeight } : {}),
+        }}
       >
         {/* column headers */}
         <div />
@@ -793,9 +847,11 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   // The chosen level is untouched and returns when design mode ends.
   const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, boardId)
   const rowRef = useRef<HTMLDivElement>(null)
-  // The workflow's height when the gesture began. A lift takes its card out of the lane and the
-  // gap only appears under the pointer, so the tallest column can shrink mid-drag. Hold the
-  // starting height until the card is down; the board may give space back after the gesture.
+  // The row of columns when the gesture began. A lift takes its card out of the lane and the gap
+  // only appears under the pointer, so the tallest column can shrink mid-drag. Hold that row —
+  // not the outer workflow — because the columns stretching with it is what keeps the drop area
+  // where the reader is aiming; the workflow's height follows the row.
+  const laneGridRef = useRef<HTMLDivElement>(null)
   const dragStartHeight = useRef<number | null>(null)
   // Drag empty workflow space to move the board. See usePanScroll.
   const pan = usePanScroll<HTMLDivElement>()
@@ -909,7 +965,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const lifting = lift !== null
   // Measure before the lift's first render, while the card is still in its lane.
   const beginLift = (event: React.PointerEvent, itemId: string) => {
-    dragStartHeight.current = rowRef.current?.getBoundingClientRect().height ?? null
+    dragStartHeight.current = laneGridRef.current?.getBoundingClientRect().height ?? null
     startLift(event, itemId)
   }
 
@@ -986,7 +1042,6 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
       data-workflow="cards"
       data-flow={flowId}
       className="relative flex min-h-0 flex-1"
-      style={lifting && dragStartHeight.current !== null ? { minHeight: dragStartHeight.current } : undefined}
     >
       <div
         ref={pan.ref}
@@ -1021,7 +1076,17 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
           aria-label={boardName ? `${boardName} — ${flowName ?? 'cards'} lanes` : 'Lanes'}
           className="min-h-[120px] w-full min-w-min"
         >
-          {root ? <LaneBox lane={root} ctx={ctx} isRoot /> : <p className="text-meta text-slate-600">This board has no lanes.</p>}
+          {root ? (
+            <LaneBox
+              lane={root}
+              ctx={ctx}
+              isRoot
+              gridRef={laneGridRef}
+              holdHeight={lifting ? dragStartHeight.current : null}
+            />
+          ) : (
+            <p className="text-meta text-slate-600">This board has no lanes.</p>
+          )}
         </div>
       </div>
     </div>

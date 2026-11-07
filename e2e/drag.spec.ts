@@ -20,7 +20,10 @@ test('a card dragged to another lane lands above the card it was dropped above',
 test('a workflow holds its starting height while a card is in the air', async ({ page }) => {
   await openBoard(page)
   const flow = page.locator('[data-flow-band]').first().locator('[data-workflow="cards"]')
+  const grid = flow.locator('[data-lane-grid]')
   const before = (await flow.boundingBox())!.height
+  const gridBefore = (await grid.boundingBox())!.height
+  const laneBefore = (await lane(page, 'Done').boundingBox())!.height
   const card = page.locator('[data-card-id="st-signup-rebuild"]')
   const target = lane(page, 'Done')
   const cardBox = (await card.boundingBox())!
@@ -32,12 +35,15 @@ test('a workflow holds its starting height while a card is in the air', async ({
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height - 10, { steps: 12 })
 
   await expect(page.locator('[data-drag-layer]')).toHaveCount(1)
-  const minHeight = await flow.evaluate((el) => (el as HTMLElement).style.minHeight)
-  expect(Number.parseFloat(minHeight)).toBeCloseTo(before, 0)
+  // The row of columns is pinned, so the tallest column — and the lane in it — keeps the shape
+  // the drop is aimed at. Only the outer workflow can be measured afterwards.
+  const minHeight = await grid.evaluate((el) => (el as HTMLElement).style.minHeight)
+  expect(Number.parseFloat(minHeight)).toBeCloseTo(gridBefore, 0)
   expect((await flow.boundingBox())!.height).toBeGreaterThanOrEqual(before - 1)
+  expect((await lane(page, 'Done').boundingBox())!.height).toBeCloseTo(laneBefore, 0)
 
   await page.mouse.up()
-  await expect.poll(() => flow.evaluate((el) => (el as HTMLElement).style.minHeight)).toBe('')
+  await expect.poll(() => grid.evaluate((el) => (el as HTMLElement).style.minHeight)).toBe('')
 })
 
 test('a card dragged within its lane reorders, and the order survives a reload', async ({ page }) => {
