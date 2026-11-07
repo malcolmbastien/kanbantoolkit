@@ -601,16 +601,18 @@ export function openapi(table: RouteSpec[]) {
         in: 'query',
         required: false,
         description: query.description,
-        schema: { type: 'string', ...(query.example ? { example: query.example } : {}) },
+        schema: query.example
+          ? { type: 'string', example: query.example }
+          : { type: 'string' },
       })
     }
     paths[spec.path] = {
-      ...(paths[spec.path] ?? {}),
+      ...paths[spec.path],
       [spec.method.toLowerCase()]: {
         summary: spec.summary,
         ...(spec.scope ? { description: `Requires the \`${spec.scope}\` scope.`, security: [{ bearer: [] }] } : { security: [] }),
-        ...(parameters.length ? { parameters } : {}),
-        ...(spec.body ? { requestBody: { required: true, content: { 'application/json': { schema: spec.body } } } } : {}),
+        parameters: parameters.length ? parameters : undefined,
+        requestBody: spec.body ? { required: true, content: { 'application/json': { schema: spec.body } } } : undefined,
         responses: Object.fromEntries(
           Object.entries(spec.responses).map(([status, response]) => [
             status,

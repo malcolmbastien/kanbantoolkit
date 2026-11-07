@@ -71,7 +71,6 @@ function store(path, secret) {
 }
 
 function readStored(path, args) {
-  const explicit = args['token-file'] ?? process.env.KANBANTOOLKIT_TOKEN_FILE
   if (!existsSync(path)) {
     console.error(`No credential at ${path}. Run "kanbantoolkit login --url ${baseUrl(args)}" first.`)
     process.exit(2)

@@ -223,7 +223,7 @@ export function workspaceRoutes(runtime: Runtime) {
     })
     if (!result.ok) {
       return c.json(
-        { error: result.failure.message, ...(result.failure.details ?? {}) },
+        { error: result.failure.message, ...result.failure.details },
         result.failure.status,
       )
     }

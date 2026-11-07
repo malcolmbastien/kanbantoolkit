@@ -951,7 +951,7 @@ describe('the lease on a card', () => {
     const { cookie } = await signedIn(db)
     const request = instance(db)
     const as = (tab: string, path: string, init: RequestInit = {}) =>
-      request(path, { ...init, headers: { ...(init.headers ?? {}), cookie, 'x-kanbantoolkit-tab': tab } })
+      request(path, { ...init, headers: { ...init.headers, cookie, 'x-kanbantoolkit-tab': tab } })
     return { db, request, as }
   }
 
