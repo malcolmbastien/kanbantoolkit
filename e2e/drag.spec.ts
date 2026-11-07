@@ -17,6 +17,29 @@ test('a card dragged to another lane lands above the card it was dropped above',
   await expect.poll(() => cardsIn(page, 'Backlog')).toEqual(backlog.slice(1))
 })
 
+test('a workflow holds its starting height while a card is in the air', async ({ page }) => {
+  await openBoard(page)
+  const flow = page.locator('[data-flow-band]').first().locator('[data-workflow="cards"]')
+  const before = (await flow.boundingBox())!.height
+  const card = page.locator('[data-card-id="st-signup-rebuild"]')
+  const target = lane(page, 'Done')
+  const cardBox = (await card.boundingBox())!
+  const targetBox = (await target.boundingBox())!
+
+  await page.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + 18)
+  await page.mouse.down()
+  await page.mouse.move(cardBox.x + cardBox.width / 2 + 20, cardBox.y + 24, { steps: 5 })
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height - 10, { steps: 12 })
+
+  await expect(page.locator('[data-drag-layer]')).toHaveCount(1)
+  const minHeight = await flow.evaluate((el) => (el as HTMLElement).style.minHeight)
+  expect(Number.parseFloat(minHeight)).toBeCloseTo(before, 0)
+  expect((await flow.boundingBox())!.height).toBeGreaterThanOrEqual(before - 1)
+
+  await page.mouse.up()
+  await expect.poll(() => flow.evaluate((el) => (el as HTMLElement).style.minHeight)).toBe('')
+})
+
 test('a card dragged within its lane reorders, and the order survives a reload', async ({ page }) => {
   await openBoard(page)
   const order = await cardsIn(page, 'Not Started')

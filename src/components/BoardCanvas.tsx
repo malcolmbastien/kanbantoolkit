@@ -793,6 +793,10 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   // The chosen level is untouched and returns when design mode ends.
   const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, boardId)
   const rowRef = useRef<HTMLDivElement>(null)
+  // The workflow's height when the gesture began. A lift takes its card out of the lane and the
+  // gap only appears under the pointer, so the tallest column can shrink mid-drag. Hold the
+  // starting height until the card is down; the board may give space back after the gesture.
+  const dragStartHeight = useRef<number | null>(null)
   // Drag empty workflow space to move the board. See usePanScroll.
   const pan = usePanScroll<HTMLDivElement>()
   const openCardMenu = useStore((s) => s.openCardMenu)
@@ -903,6 +907,11 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     },
   })
   const lifting = lift !== null
+  // Measure before the lift's first render, while the card is still in its lane.
+  const beginLift = (event: React.PointerEvent, itemId: string) => {
+    dragStartHeight.current = rowRef.current?.getBoundingClientRect().height ?? null
+    startLift(event, itemId)
+  }
 
   // A gesture that ends without a drop — a pointercancel, a lost pointer — leaves no shadow
   // behind: the preview belongs to the gesture, and this is the only canvas that can see its end.
@@ -933,7 +942,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
       index: dragPreview?.index ?? null,
       height: dragPreview?.height ?? lift?.height ?? null,
       dropTargetId: lifting ? dropTargetId : null,
-      start: startLift,
+      start: beginLift,
     },
     openCard: (itemId) => {
       if (justDragged.current) return
@@ -972,7 +981,13 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   }
 
   const canvas = (
-    <div ref={rowRef} data-workflow="cards" data-flow={flowId} className="relative flex min-h-0 flex-1">
+    <div
+      ref={rowRef}
+      data-workflow="cards"
+      data-flow={flowId}
+      className="relative flex min-h-0 flex-1"
+      style={lifting && dragStartHeight.current !== null ? { minHeight: dragStartHeight.current } : undefined}
+    >
       <div
         ref={pan.ref}
         {...pan.handlers}

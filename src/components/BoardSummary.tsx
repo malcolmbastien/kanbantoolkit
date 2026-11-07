@@ -204,6 +204,11 @@ export function BoardSummary({
   // much of the band's initiatives to draw. A team board's own flow uses its own choice.
   const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, viewedBoardId ?? boardId)
   const collapsedLanes = useStore((s) => s.collapsedLanes)
+  const flowRef = useRef<HTMLDivElement>(null)
+  // The initiatives flow's height when the gesture began. Taking a card out of a cell can make
+  // the tallest section shorter before the gap appears under the pointer; hold the starting
+  // height until the card is down, and let the board settle afterwards.
+  const dragStartHeight = useRef<number | null>(null)
 
   /** The initiative currently in flight, if any. */
   // The same lift the cards workflow uses — one implementation, so a card in the air behaves
@@ -236,6 +241,11 @@ export function BoardSummary({
     },
   })
   const [dropCell, setDropCell] = useState<{ cellId: string; index: number } | null>(null)
+  // Measure before the lift's first render, while the card is still in its cell.
+  const beginLift = (event: React.PointerEvent, itemId: string) => {
+    dragStartHeight.current = flowRef.current?.getBoundingClientRect().height ?? null
+    startLift(event, itemId)
+  }
   // The highlighted cell is live only while an initiative is actually in the air — the same
   // rule the cards workflow keeps. A pointercancel ends a gesture without a drop, so the
   // preview must answer to the gesture, not to whichever cell was last under the pointer.
@@ -351,7 +361,7 @@ export function BoardSummary({
         // picking up ours rather than the browser's. A native drag dies the moment its source
         // leaves the document, and lifting the card out of its cell is the point.
         draggable={interactive}
-        onLift={interactive ? startLift : undefined}
+        onLift={interactive ? beginLift : undefined}
         locked={editMode}
         // The menu is new here: initiative cards never had one.
         onContextMenu={openCardMenu}
@@ -403,7 +413,12 @@ export function BoardSummary({
 
 
   return (
-    <div data-workflow="initiatives" className="flex gap-2 p-2">
+    <div
+      ref={flowRef}
+      data-workflow="initiatives"
+      className="flex gap-2 p-2"
+      style={lift && dragStartHeight.current !== null ? { minHeight: dragStartHeight.current } : undefined}
+    >
       {lift && (
         <DragLayer html={lift.html} x={lift.x} y={lift.y} grabX={lift.grabX} grabY={lift.grabY} width={lift.width} height={lift.height} />
       )}
