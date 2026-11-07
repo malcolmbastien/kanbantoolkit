@@ -74,10 +74,11 @@ every string on the board.
 
 Only edges with **both ends rendered on this board** are drawn. A card that is archived, filtered
 out or in a folded flow has no element to connect to; attribution to an objective is not a
-card-to-card edge. A **boundary** link is included: its string runs from the boundary card below to
-the card here that waits on it, so the boundary band is the same graph seen at its edge. The strings
-sit above the workflow headers, never take a click, and are `aria-hidden` — the chips, the boundary
-cards and the drawer already say the same relationships in words.
+card-to-card edge. A **boundary** link is included: it is the same dependency string, running from
+the card here that waits to the boundary card below — circle on the waiting card, arrow on the
+boundary card — so the boundary band is the same graph seen at its edge. The strings sit above the
+workflow headers, never take a click, and are `aria-hidden` — the chips, the boundary cards and the
+drawer already say the same relationships in words.
 
 The view is off by default and is remembered in this browser per board; it is a reading, not a
 permission or workspace data. Turning it off leaves every card and placement untouched.
@@ -235,10 +236,12 @@ and the cards here that wait on it are named beside it.*
 - Boundary cards follow the board's **Detail** level: **Full** names the dependent cards,
   **Summary** keeps the type, title, state, home board and dependent count, and **Mini** is a
   type-coloured tile with a state marker. Selection and the **linked** badge work at every level.
-- Selecting a boundary card — the one wearing the **linked** badge — draws a red string from it to
-  each card on this board that waits on it, and highlights those dependents. Nothing is drawn at
-  rest, and the string is a reading aid, not a control. A satisfied or closed link keeps its entry
-  in the band but has no string, because the work is no longer waiting.
+- Selecting a boundary card — the one wearing the **linked** badge — draws the same dependency
+  string the Connections lens draws for each open link: from the card here that waits to the
+  boundary card, with the circle on the waiting card and the arrow on the boundary card. It also
+  highlights those dependents. Nothing is drawn at rest, and the string is a reading aid, not a
+  control. A satisfied or closed link keeps its entry in the band but has no string, because the
+  work is no longer waiting.
 - The section is a **lens**, not an editor: nothing can be dragged into it, and the only way to move
   the external work is to open it on the board that owns it.
 

@@ -70,27 +70,53 @@ test('both ends name each other, and either one enters the focus state', async (
   await expect(title).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('a red string joins a boundary card to the card it waits on, only while selected', async ({ page }) => {
+test('a selected boundary card draws the same dependency string the lens draws', async ({ page }) => {
   await openBoard(page)
   const identity = page.locator('[data-boundary-card="init-identity"]')
   const sso = page.locator('[data-card-id="st-enterprise-sso"]')
   await expect(sso).toBeAttached()
-  const link = page.locator('[data-boundary-link="init-identity:st-enterprise-sso"]')
+  const edge = 'boundary:init-identity:st-enterprise-sso'
+  const link = page.locator(`[data-connection-link="${edge}"]`)
+  // The connector as drawn: red, the dependency weight, with the arrow that says which end is
+  // waited on. Nothing about it changes with the way the reading was asked for.
+  const drawn = () =>
+    link.locator('path').evaluate((el) => ({
+      stroke: el.getAttribute('stroke'),
+      width: el.getAttribute('stroke-width'),
+      marker: el.getAttribute('marker-end'),
+      opacity: el.getAttribute('stroke-opacity'),
+    }))
 
-  // At rest the boundary is a list. The string is the reading of one selected edge.
-  await expect(page.locator('[data-boundary-link]')).toHaveCount(0)
+  // At rest the boundary is a list, and the lens is off. The string is a reading, not a fixture.
+  await expect(page.locator('[data-connection-link]')).toHaveCount(0)
 
+  // What the Connections toggle draws for this edge is the definition of the connector.
+  await page.getByRole('button', { name: 'Connections', exact: true }).click()
+  await expect(link).toHaveCount(1)
+  const fromLens = await drawn()
+  expect(fromLens.stroke).toBe('#dc2626')
+  expect(fromLens.width).toBe('2.5')
+  expect(fromLens.marker).toContain('dependency')
+  await expect(link).toHaveAttribute('data-connection-kind', 'dependency')
+  // The attributes carry the model's direction (blocker → waiting item); the drawing turns it
+  // round, so the circle starts on the waiting card and the arrow lands on the boundary card.
+  await expect(link).toHaveAttribute('data-connection-from', 'init-identity')
+  await expect(link).toHaveAttribute('data-connection-to', 'st-enterprise-sso')
+  await page.getByRole('button', { name: 'Connections', exact: true }).click()
+  await expect(page.locator('[data-connection-link]')).toHaveCount(0)
+
+  // Selecting the boundary card asks for the same edge, drawn the same way: the circle leaves the
+  // waiting card and the arrow lands on the boundary card below.
   await identity.getByText('Open · live blockage').click()
   await expect(identity).toContainText('linked')
   await expect(link).toHaveCount(1)
-  await expect(link).toHaveAttribute('data-boundary-link-active', '')
-  await expect(link.locator('path')).toHaveAttribute('stroke', '#b91c1c')
-  await expect(link.locator('path')).toHaveAttribute('stroke-width', '5')
+  expect(await drawn()).toEqual(fromLens)
+  await expect(link.locator('[data-connection-start]')).toHaveCount(1)
 
   // Clearing the selection takes the string with it.
   await identity.getByText('Open · live blockage').click()
   await expect(identity).not.toContainText('linked')
-  await expect(page.locator('[data-boundary-link]')).toHaveCount(0)
+  await expect(page.locator('[data-connection-link]')).toHaveCount(0)
 })
 
 test('clicking away ends the focus, and a card takes it over', async ({ page }) => {

@@ -1,5 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useState, type RefObject } from 'react'
+import { boundaryEntries } from '@/domain/boundary'
 import { boardConnections, type ConnectionEdge } from '@/domain/connections'
+import { isOpen } from '@/domain/derive'
 import { useStore } from '@/store'
 
 interface Line extends ConnectionEdge {
@@ -26,12 +28,16 @@ type ConnectionSide = 'top' | 'bottom' | 'left' | 'right'
 /**
  * The connections overlay: one string per hierarchy or dependency edge the board renders.
  *
- * It is the same drawing idea as `BoundaryLinks` — an absolutely positioned SVG inside the board's
- * content, measured from the cards on screen — but it is a second reading rather than a second
- * layout. Hierarchy is a blue solid string and dependency a red solid string; both wear a circle
- * where they leave the source and an arrow where they enter the target. A dependency is drawn from
- * the waiting item to the blocker it waits on, so the circle and arrow read as "this waits on that".
- * The legend in the toggle names both, so the colours are not the only reading.
+ * An absolutely positioned SVG inside the board's content, measured from the cards on screen — so
+ * it is a second reading rather than a second layout. Hierarchy is a blue solid string and
+ * dependency a red solid string; both wear a circle where they leave the source and an arrow where
+ * they enter the target. A dependency is drawn from the waiting item to the blocker it waits on, so
+ * the circle and arrow read as "this waits on that". The legend in the toggle names both, so the
+ * colours are not the only reading.
+ *
+ * The boundary band is the edge of the same graph, so its strings are the same strings: selecting a
+ * boundary card scopes this overlay to the dependency edges that touch it, and they are drawn
+ * exactly as the toggle draws them — one definition of a connector, whichever way it is asked for.
  *
  * An edge is drawn only when the DOM has a card at both ends. A filtered, folded or archived item
  * has no element, and a line to nowhere would be a claim the board cannot support.
@@ -52,7 +58,10 @@ export function ConnectionsLinks({
   const filters = useStore((s) => s.filters)
   const on = useStore((s) => s.connectionsOn[boardId] === true)
   const connectionScopeId = useStore((s) => s.connectionScopeId)
-  const active = on || Boolean(connectionScopeId)
+  // The boundary card the reader selected — the one wearing the "linked" badge. It is a scope of
+  // this same lens: selecting it asks for the dependency strings that touch it.
+  const boundaryId = useStore((s) => s.boundaryId)
+  const active = on || Boolean(connectionScopeId) || Boolean(boundaryId)
   const arrowId = `connection-arrow-${useId().replace(/:/g, '')}`
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [lines, setLines] = useState<Line[]>([])
@@ -94,9 +103,24 @@ export function ConnectionsLinks({
     const drawn: DrawnEdge[] = []
     const edgesOnBoard = boardConnections({ items, edges, links, placements, lanes }, boardId, rendered)
     // A drawer can narrow the same lens to one card: only the strings that touch it are drawn.
+    // A selected boundary card is the same reading at the edge of the board, and only its **open**
+    // links: a satisfied or closed dependency is history, and a red string would say "waiting"
+    // about work that is no longer waited on. With the board-wide lens on, its strings are already
+    // part of that reading, so the selection adds no second set.
+    const openBoundary = boundaryId && !on
+      ? new Set(
+          boundaryEntries({ items, edges, links, placements, lanes }, boardId)
+            .filter((entry) => entry.dependency.id === boundaryId && isOpen(entry.state))
+            .flatMap((entry) =>
+              entry.dependents.map((dependent) => `boundary:${entry.dependency.id}:${dependent.id}`),
+            ),
+        )
+      : null
     const scoped = connectionScopeId
       ? edgesOnBoard.filter((edge) => edge.from === connectionScopeId || edge.to === connectionScopeId)
-      : edgesOnBoard
+      : openBoundary
+        ? edgesOnBoard.filter((edge) => openBoundary.has(edge.id))
+        : edgesOnBoard
     for (const edge of scoped) {
       // A dependency is stored blocker → dependent; the lens reads it the other way round, so the
       // circle sits on the item that waits and the arrow points at what it waits for.
@@ -150,7 +174,7 @@ export function ConnectionsLinks({
     }
     setSize({ width: content.offsetWidth, height: content.offsetHeight })
     setLines(next)
-  }, [active, boardId, boardDetail, connectionScopeId, edges, filters, items, lanes, links, placements, reflow, contentRef])
+  }, [active, boardId, boardDetail, boundaryId, connectionScopeId, edges, filters, items, lanes, links, placements, reflow, contentRef])
 
   if (!active || lines.length === 0 || size.width === 0 || size.height === 0) return null
 
