@@ -5,8 +5,6 @@ import { QuarantineBanner } from './components/QuarantineBanner'
 import { StaleTabBanner } from './components/StaleTabBanner'
 import { Announcer } from './components/Announcer'
 
-import { FocusChip } from './components/FocusChip'
-
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
 import { boardCardTypeId, canAddInitiative, defaultDropLane, initiativeTypeId, isAggregating } from './domain/board'
@@ -126,11 +124,11 @@ export default function App() {
         return
       }
       if (s.multiSelect.length > 0) s.clearMultiSelect()
-      else if (s.selectedItemId || s.lensId) s.openItem(null)
+      else if (s.selectedItemId) s.openItem(null)
     }
     const onDown = (e: MouseEvent) => {
       const s = useStore.getState()
-      if (s.multiSelect.length === 0 && !s.selectedItemId && !s.lensId) return
+      if (s.multiSelect.length === 0 && !s.selectedItemId) return
       const target = e.target as HTMLElement | null
       if (
         target?.closest('[data-card-id]') ||
@@ -148,7 +146,6 @@ export default function App() {
       }
       if (s.multiSelect.length > 0) {
         s.clearMultiSelect()
-        s.clearLens()
       } else s.openItem(null)
     }
     window.addEventListener('keydown', onKey)
@@ -305,7 +302,6 @@ export default function App() {
           <BoardSettings />
         </Suspense>
       )}
-      <FocusChip />
       {confirm && (
         <Suspense fallback={null}>
           <ConfirmDialog />

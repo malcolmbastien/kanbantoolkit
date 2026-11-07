@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, laneHoldsCards, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
-import { boardTags, canDesignBoard, canFocusBoard, canLinkBoard, canRetype, canServeObjective, canSetParent, defaultDropLane, isAggregating, isPortfolio, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
+import { boardTags, canDesignBoard, canLinkBoard, canRetype, canServeObjective, canSetParent, defaultDropLane, isAggregating, isPortfolio, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
 import { canDepend, canPlaceInSection, decompositionParent, descendants, isComplete, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import {
   canRemoveFlow,
@@ -121,8 +121,6 @@ export interface ViewState {
   editMode: boolean
   /** Snapshot taken on entering edit mode; Cancel restores it, Save drops it. */
   draft: Draft | null
-  /** Focus lens: highlight this item and its ancestors/descendants; dim the rest. */
-  lensId: string | null
   /** Show the board settings dialog. */
   showBoardSettings: boolean
   /** Show the Objectives & KRs view instead of a board. */
@@ -166,6 +164,12 @@ export interface ViewState {
    * must not turn their board into a diagram.
    */
   connectionsOn: Record<string, boolean>
+  /**
+   * The item whose own hierarchy and dependency strings the Connections lens draws, or null for
+   * the whole board. It belongs to the open drawer: closing the drawer or changing board clears it,
+   * and it is never written down.
+   */
+  connectionScopeId: string | null
   /**
    * How wide the timeline draws a day. A lens on the board rather than workspace data: it is written
    * into the place (the URL) and never into the vocabulary, so a link is what reproduces it.
@@ -245,18 +249,13 @@ export interface Actions {
   /** Keep a board on the home, or take it off. This browser's shortcut, not the workspace's. */
   toggleFavouriteBoard: (id: string) => void
   /**
-   * Open an item's drawer. Reading an item does not enter the initiative focus lens: the lens is
-   * a reading mode a person asks for with the drawer's focus button. `focus: true` is the one way
-   * to enter it as part of the selection, for a surface that is about the lineage itself.
+   * Open an item's drawer. Reading an item does not change the board behind it.
    */
-  openItem: (id: string | null, options?: { focus?: boolean }) => void
+  openItem: (id: string | null) => void
   setSearch: (q: string) => void
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
-  toggleLens: (id: string) => void
-  setLens: (id: string | null) => void
-  clearLens: () => void
   setObjectives: (v: boolean) => void
   /** The board itself as the active view — a tab, not a toggle: every view flag clears. */
   setBoard: () => void
@@ -279,6 +278,8 @@ export interface Actions {
   setBoardDetail: (boardId: string, detail: BoardDetail) => void
   /** Show or hide every hierarchy and dependency edge on one board. */
   setBoardConnections: (boardId: string, on: boolean) => void
+  /** Narrow the Connections lens to one item's strings, or clear it with `null`. */
+  setConnectionScope: (id: string | null) => void
   /** The timeline's zoom — a lens on the board, kept in the URL rather than in the workspace. */
   setTimelineZoom: (zoom: TimelineZoom) => void
   toggleBoards: () => void
@@ -1093,7 +1094,6 @@ const initialView: ViewState = {
   search: '',
   editMode: false,
   draft: null,
-  lensId: null,
   showObjectives: false,
   showBoardSettings: false,
   showDashboard: false,
@@ -1110,6 +1110,7 @@ const initialView: ViewState = {
   metricsTypeId: null,
   boardDetail: {},
   connectionsOn: readBoardConnections(),
+  connectionScopeId: null,
   timelineZoom: DEFAULT_TIMELINE_ZOOM,
   recentItemIds: [],
   favouriteBoardIds: [],
@@ -1737,10 +1738,7 @@ export const useStore = create<Store>()(
       },
       selectBoard: (boardId) => {
         const state = get()
-        // Objectives are a portfolio board's own surface, so opening another board leaves it. A
-        // portfolio also ends any focus: its outcomes live on the boards beneath it, and there is
-        // no board of its own to dim (see `canFocusBoard`).
-        const portfolio = !canFocusBoard(state.boards.find((b) => b.id === boardId))
+        // Objectives are a portfolio board's own surface, so opening another board leaves it.
         set({
           boardId,
           selectedItemId: null,
@@ -1754,9 +1752,9 @@ export const useStore = create<Store>()(
           metricsFlowId: null,
           metricsTypeId: null,
           boundaryId: null,
+          connectionScopeId: null,
           multiSelect: [],
           cardMenu: null,
-                  ...(portfolio ? { lensId: null } : {}),
           // Opening a board is what the recent list means. Only a board that is here is a visit:
           // a URL naming a deleted board is not a place the person went.
           ...(state.boards.some((b) => b.id === boardId)
@@ -1771,22 +1769,14 @@ export const useStore = create<Store>()(
         if (!state.boards.some((board) => board.id === boardId)) return
         set({ favouriteBoardIds: toggleFavourite(state.favouriteBoardIds, boardId) })
       },
-      openItem: (selectedItemId, options) => {
+      openItem: (selectedItemId) => {
         const s = get()
-        // Focus is a mode a person turns on, not a side effect of reading: opening an initiative
-        // shows it in the drawer and leaves the board whole. The drawer's focus button is the way
-        // in (`toggleLens`), and `focus: true` is for a surface whose whole subject is the lineage.
-        const focus = options?.focus ?? false
-        // Except on a portfolio, whose outcomes live on the boards beneath it: there is no board
-        // of its own to dim, so even an explicit focus is not offered there (`canFocusBoard`).
-        const focusHere = focus && canFocusBoard(s.boards.find((b) => b.id === s.boardId))
-        const opened = selectedItemId ? s.items.find((i) => i.id === selectedItemId) : undefined
-        // An ordinary card is not a lineage, and closing the selection leaves nothing to focus.
-        const lensId = focusHere && opened && isInitiativeItem(opened, s.issueTypes) ? opened.id : null
         set({
           selectedItemId,
           multiSelect: [],
-          lensId,
+          // An item's own connections belong to its open drawer; opening another item or closing
+          // the drawer ends that reading, the same way it ends the boundary focus below.
+          connectionScopeId: null,
           // Opening or closing a card ends the boundary lens. It is a highlight of *one*
           // relationship, and a card's own panel is the next focus — leaving the board dimmed
           // behind the drawer would say two things at once.
@@ -1865,7 +1855,7 @@ export const useStore = create<Store>()(
         // A group is a different selection from the open card, so the focus the open card may have
         // set ends with it — a highlighted lineage under a bulk action would read as part of the
         // group.
-        set({ multiSelect: group, selectedItemId: null, showFilters: false, lensId: null })
+        set({ multiSelect: group, selectedItemId: null, showFilters: false })
       },
       clearMultiSelect: () => set({ multiSelect: [] }),
       askConfirm: (confirm) => set({ confirm }),
@@ -2145,18 +2135,6 @@ export const useStore = create<Store>()(
         })
       },
       saveEdit: () => set({ editMode: false, draft: null }),
-      toggleLens: (id) => {
-        // A portfolio has no board of its own to dim: its outcomes live elsewhere and its strategy
-        // map is already grouped by what the work is for.
-        if (!canFocusBoard(get().boards.find((b) => b.id === get().boardId))) return
-        set({ lensId: get().lensId === id ? null : id })
-      },
-      setLens: (id) => {
-        // Clearing is always allowed; setting one is not offered on a portfolio.
-        if (id && !canFocusBoard(get().boards.find((b) => b.id === get().boardId))) return
-        set({ lensId: id })
-      },
-      clearLens: () => set({ lensId: null }),
       toggleBoardSettings: () => set({ showBoardSettings: !get().showBoardSettings }),
       setMyWork: (v) =>
         set({
@@ -2230,8 +2208,9 @@ export const useStore = create<Store>()(
         if (on) next[boardId] = true
         else delete next[boardId]
         writeBoardConnections(next)
-        set({ connectionsOn: next })
+        set({ connectionsOn: next, ...(on ? {} : { connectionScopeId: null }) })
       },
+      setConnectionScope: (id) => set({ connectionScopeId: id }),
       setTimelineZoom: (timelineZoom) => set({ timelineZoom }),
       toggleBoards: () => {
         const on = !get().showBoards
@@ -2936,7 +2915,6 @@ export const useStore = create<Store>()(
           selectedItemId: null,
           editMode: false,
           draft: null,
-          lensId: null,
           multiSelect: [],
           boundaryId: null,
           filters: NO_FILTERS,

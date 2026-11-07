@@ -4,7 +4,6 @@ import {
   boardsByBand,
   canAddInitiative,
   canDesignBoard,
-  canFocusBoard,
   canRetype,
   canServeObjective,
   duplicateBoard,
@@ -131,10 +130,6 @@ describe('what a board is a person’s to shape', () => {
     expect(canDesignBoard(undefined)).toBe(true)
     expect(canAddInitiative(undefined)).toBe(true)
     expect(isPortfolio(undefined)).toBe(false)
-    // The lineage focus is a team's and a programme's reading, never a portfolio's.
-    expect(canFocusBoard(board('b-atlas'))).toBe(true)
-    expect(canFocusBoard(board('b-lob'))).toBe(true)
-    expect(canFocusBoard(board('b-strategy'))).toBe(false)
   })
 })
 

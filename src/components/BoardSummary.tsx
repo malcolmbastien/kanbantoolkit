@@ -10,7 +10,6 @@ import { CtlDivider, CtlGroup, LaneCtl } from './LaneCtl'
 import { LaneSettings } from './LaneSettings'
 import {
   checklistProgress,
-  lensRole,
   canPlaceInSection,
   type Graph,
 } from '@/domain/derive'
@@ -99,7 +98,6 @@ export function BoardSummary({
   const dropTargetId = useDrag((s) => s.dropTargetId)
   const setDropTarget = useDrag((s) => s.setDropTarget)
   const openItem = useStore((s) => s.openItem)
-  const lensId = useStore((s) => s.lensId)
   const editMode = useStore((s) => s.editMode)
   const boardDetail = useStore((s) => s.boardDetail)
   const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
@@ -349,7 +347,6 @@ export function BoardSummary({
         tags={tagsOf(boards, c)}
         selected={selectedItemId === c.id}
         dropTarget={dropTargetId === c.id}
-        lens={lensRole(c.id, lensId, graph)}
         // `draggable` gates whether a card can be picked up at all; `onLift` is what makes the
         // picking up ours rather than the browser's. A native drag dies the moment its source
         // leaves the document, and lifting the card out of its cell is the point.

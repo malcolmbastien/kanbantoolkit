@@ -113,8 +113,6 @@ interface Props {
   detail?: BoardDetail
   /** This item's tags, already resolved. A set, so the footer shows a few and counts the rest. */
   tags?: Tag[]
-  /** Lens: 'self' | 'in' (lineage) | 'out' (dimmed). */
-  lens?: 'self' | 'in' | 'out'
   /** Native HTML5 drag (cards workflow). */
   draggable?: boolean
   /**
@@ -128,7 +126,7 @@ interface Props {
    * and taking the card out of its lane is the whole point of the lift.
    */
   onLift?: (e: React.PointerEvent, itemId: string) => void
-  /** Locked (edit mode): no drag, no click-to-open, no lens. */
+  /** Locked (edit mode): no drag, no click-to-open. */
   locked?: boolean
   selected?: boolean
   /** Highlighted because it waits on the selected boundary card. */
@@ -289,7 +287,7 @@ function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (depend
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', lens, draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -326,20 +324,15 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       : {}
 
   // Highlight priority: a selected boundary dependency (amber) > multi-select
-  // (indigo-600) > item selection (indigo-400) > lens.
-  const lensCls = cn(
-    lens === 'out' ? 'opacity-40 saturate-50' : '',
+  // (indigo-600) > item selection (indigo-400).
+  const selectionCls = cn(
     boundary
       ? 'ring-2 ring-slate-900'
       : multi
         ? 'ring-2 ring-indigo-600'
         : selected
           ? 'ring-2 ring-indigo-400'
-          : lens === 'in'
-            ? 'ring-2 ring-indigo-400'
-            : lens === 'self'
-              ? 'ring-2 ring-indigo-600'
-              : '',
+          : '',
   )
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
   // While a multi-select group is active, the cards outside it recede.
@@ -501,7 +494,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           FOCUS_RING,
           draggable && !locked && 'touch-pan-y',
           locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-md',
-          lensCls,
+          selectionCls,
           lockCls,
           dimCls,
           dropTarget && 'ring-2 ring-indigo-500',
@@ -619,7 +612,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           FOCUS_RING,
           draggable && !locked && 'touch-pan-y',
           locked ? 'cursor-default' : 'cursor-pointer hover:brightness-95',
-          lensCls,
+          selectionCls,
           lockCls,
           dimCls,
           dropTarget && 'ring-2 ring-indigo-500',
@@ -775,7 +768,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           // undraggable.
           draggable && !locked && 'touch-pan-y',
           locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-lg',
-          lensCls,
+          selectionCls,
           lockCls,
           dimCls,
           // Last, so it wins: `cn` keeps the last ring of the group, and the target is what the
@@ -989,7 +982,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         FOCUS_RING,
         draggable && !locked && 'touch-pan-y',
         locked ? 'cursor-default' : 'cursor-pointer hover:shadow-lg',
-        lensCls,
+        selectionCls,
         lockCls,
         dimCls,
       )}
@@ -1122,7 +1115,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   // a real change and the same reference is not.
   if (a.item !== b.item || a.type !== b.type || a.users !== b.users || a.detail !== b.detail) return false
   if (a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
-  if (a.draggable !== b.draggable || a.locked !== b.locked || a.lens !== b.lens) return false
+  if (a.draggable !== b.draggable || a.locked !== b.locked) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
   if (a.waitingOn?.length !== b.waitingOn?.length) return false
   if (a.waitingOn && b.waitingOn && a.waitingOn.some((w, i) => w.id !== b.waitingOn![i].id || w.title !== b.waitingOn![i].title)) return false

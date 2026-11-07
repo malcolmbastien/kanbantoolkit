@@ -26,7 +26,7 @@ export interface ConnectionEdge {
 /**
  * The edges between items the board draws.
  *
- * Hierarchy and on-board dependencies need both ends placed here. A **boundary** dependency is
+ * Hierarchy and on-board dependencies need both ends rendered here. A **boundary** dependency is
  * the other case: its dependent is placed here and the external item is drawn in the boundary band
  * below the cards, so it is the same graph seen at its edge. The overlay still drops any edge whose
  * two ends are not both in the DOM — a folded band or a filtered card has no element to connect.
@@ -34,12 +34,21 @@ export interface ConnectionEdge {
  * An archived item is not rendered, so an edge to it has no second end. A filtered or collapsed
  * item is still in this list — filtering is a view of the board, not a different graph — and the
  * overlay drops the line when the DOM has no card for it.
+ *
+ * `rendered` is the set of item ids the surface actually drew. A portfolio's strategy map and a
+ * programme's bands draw initiatives that live on other boards, so their cards have no placement
+ * here; the overlay passes what it found in the DOM rather than asking placement, which is what
+ * keeps the lens drawing what a reader can see. Without it, the board's own placements are the
+ * population, which is the team board's case.
  */
-export function boardConnections(graph: Graph, boardId: string): ConnectionEdge[] {
-  const onBoard = new Set<string>()
-  for (const placement of graph.placements as Placement[]) {
-    if (placement.boardId === boardId) onBoard.add(placement.itemId)
-  }
+export function boardConnections(
+  graph: Graph,
+  boardId: string,
+  rendered?: ReadonlySet<string>,
+): ConnectionEdge[] {
+  const onBoard = rendered ?? new Set(
+    (graph.placements as Placement[]).filter((p) => p.boardId === boardId).map((p) => p.itemId),
+  )
   const items = new Map<string, Item>()
   for (const item of graph.items) {
     if (onBoard.has(item.id) && !item.archived) items.set(item.id, item)

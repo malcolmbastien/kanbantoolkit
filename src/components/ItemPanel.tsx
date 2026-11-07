@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, ArchiveX, ArrowRight, Ban, Bell, BellOff, CalendarClock, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Eye, Flag, Link2, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Archive, ArchiveX, ArrowRight, Ban, Bell, BellOff, CalendarClock, CalendarDays, Check, ChevronDown, Copy, CornerLeftUp, Flag, Link2, Minus, MoreHorizontal, Plus, RotateCcw, Send, SquareArrowOutUpRight, Target, Trash2, TriangleAlert, Waypoints, X } from 'lucide-react'
 import {
   archiveOutcome,
   attributedObjectives,
@@ -12,7 +12,7 @@ import {
   objectiveRollup,
   type Graph,
 } from '@/domain/derive'
-import { boardInitiativeTypes, boardTags, canFocusBoard, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, NONE_TYPE_ID, placementOn, tagsOf } from '@/domain/board'
+import { boardInitiativeTypes, boardTags, canServeObjective, canSetParent, cardTypes, initiativeTypeById, isPortfolio, NONE_TYPE_ID, placementOn, tagsOf } from '@/domain/board'
 import { periodNameOf } from '@/domain/periods'
 import { lanePath, STAGE_LABELS } from '@/domain/lanes'
 import { initiativeHealth } from '@/domain/health'
@@ -112,8 +112,8 @@ export function ItemPanel({ itemId }: Props) {
   const onPortfolioBoard = useStore((s) => isPortfolio(s.boards.find((b) => b.id === s.boardId)))
   const selectBoard = useStore((s) => s.selectBoard)
   const setObjectives = useStore((s) => s.setObjectives)
-  const toggleLens = useStore((s) => s.toggleLens)
-  const lensId = useStore((s) => s.lensId)
+  const connectionScopeId = useStore((s) => s.connectionScopeId)
+  const setConnectionScope = useStore((s) => s.setConnectionScope)
   // A watch is not a permission — a Viewer can watch — so this is not behind `canWrite`.
   const watching = useStore((s) => s.watchedItemIds.includes(itemId))
 
@@ -346,10 +346,7 @@ export function ItemPanel({ itemId }: Props) {
       lineage.flatMap((n) => attributedObjectives(n.id, edges, objectives)).map((o) => [o.id, o]),
     ).values(),
   ]
-  const focusOn = lensId === item.id
-  // Focus dims the board behind the drawer to this initiative's line. A portfolio has no board of
-  // its own to dim — its outcomes live on the programmes beneath it — so the control is not offered.
-  const focusable = canFocusBoard(boards.find((b) => b.id === boardId))
+  const connectionsOnItem = connectionScopeId === item.id
   const boardOf = (id: string) =>
     boards.find((b) => b.id === placements.find((p) => p.itemId === id)?.boardId)
   // Where this item actually sits — its own board, never the one behind the panel. The two differ
@@ -687,13 +684,13 @@ export function ItemPanel({ itemId }: Props) {
             >
               {watching ? <BellOff size={15} /> : <Bell size={15} />}
             </IconButton>
-            {!archived && focusable && (
+            {!archived && (
               <IconButton
-                title={focusOn ? 'Stop focusing this line' : 'Focus this line on the board'}
-                active={focusOn}
-                onClick={() => toggleLens(item.id)}
+                title={connectionsOnItem ? 'Hide this item’s connections' : 'Show this item’s connections on the board'}
+                active={connectionsOnItem}
+                onClick={() => setConnectionScope(connectionsOnItem ? null : item.id)}
               >
-                <Eye size={15} />
+                <Waypoints size={15} />
               </IconButton>
             )}
             {canWrite && !archived && (

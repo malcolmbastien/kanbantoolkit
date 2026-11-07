@@ -344,18 +344,6 @@ export function canDesignBoard(board: Board | undefined): boolean {
 }
 
 /**
- * Whether the lineage **focus** lens is offered on this board.
- *
- * Focus dims a board to one initiative's line — what it rolls up to and what it is made of. A
- * portfolio has no board of its own to dim: the initiatives it reads live on the programmes and
- * teams below it, and the strategy map is already grouped by what the work is for. So opening an
- * initiative there reads it without entering focus, and the lens is not offered.
- */
-export function canFocusBoard(board: Board | undefined): boolean {
-  return !isPortfolio(board)
-}
-
-/**
  * Whether a new initiative is made *here*.
  *
  * A team board's initiatives are how its cards roll up, and a programme board's are the outcomes it

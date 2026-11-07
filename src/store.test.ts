@@ -1462,66 +1462,6 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === card)!.rev).toBe(rev)
   })
 
-  it('focus is off by default; the drawer button starts it, and another selection ends it', () => {
-    // Opening an initiative reads it without dimming the board.
-    s().openItem('init-signup')
-    expect(s().selectedItemId).toBe('init-signup')
-    expect(s().lensId).toBe(null)
-
-    // The drawer's focus button is the way in, and the same button turns it off.
-    s().toggleLens('init-signup')
-    expect(s().lensId).toBe('init-signup')
-    s().toggleLens('init-signup')
-    expect(s().lensId).toBe(null)
-
-    // A surface whose whole subject is the lineage can ask for it as part of the selection.
-    s().openItem('init-signup', { focus: true })
-    expect(s().lensId).toBe('init-signup')
-
-    // Selecting a card is another subject: the line's focus ends.
-    s().openItem('st-email')
-    expect(s().selectedItemId).toBe('st-email')
-    expect(s().lensId).toBe(null)
-
-    // Closing the drawer leaves nothing focused.
-    s().setLens('init-signup')
-    s().openItem(null)
-    expect(s().selectedItemId).toBe(null)
-    expect(s().lensId).toBe(null)
-
-    // Starting a shift+click group is another selection, so it ends the focus too.
-    s().setLens('init-signup')
-    s().toggleMultiSelect('st-email')
-    expect(s().lensId).toBe(null)
-
-    // The Archive reads an initiative without entering focus, explicitly.
-    s().setLens('init-signup')
-    s().openItem('init-signup', { focus: false })
-    expect(s().selectedItemId).toBe('init-signup')
-    expect(s().lensId).toBe(null)
-  })
-
-  it('a portfolio board does not enter focus: its outcomes live elsewhere', () => {
-    s().selectBoard('b-strategy')
-    // Selecting an initiative reads it, but there is no board of the portfolio's own to dim.
-    s().openItem('init-activation')
-    expect(s().selectedItemId).toBe('init-activation')
-    expect(s().lensId).toBe(null)
-
-    // Neither way in offers the lens.
-    s().setLens('init-activation')
-    expect(s().lensId).toBe(null)
-    s().toggleLens('init-activation')
-    expect(s().lensId).toBe(null)
-
-    // A focus opened on a team board ends when a portfolio is opened.
-    s().selectBoard('b-atlas')
-    s().openItem('init-signup', { focus: true })
-    expect(s().lensId).toBe('init-signup')
-    s().selectBoard('b-strategy')
-    expect(s().lensId).toBe(null)
-  })
-
   it('a lane is ordered by rank, and reordering renumbers it cleanly', () => {
     const dev = laneByName('b-atlas', 'Dev')
     const done = laneByName('b-atlas', 'Done')

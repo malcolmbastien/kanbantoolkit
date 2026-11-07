@@ -92,7 +92,7 @@ export function ArchiveView() {
                   <tr
                     key={item.id}
                     data-item-row={item.id}
-                    onClick={() => openItem(item.id, { focus: false })}
+                    onClick={() => openItem(item.id)}
                     className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-200"
                   >
                     <td className="max-w-[320px] px-4 py-2.5">
@@ -104,7 +104,7 @@ export function ArchiveView() {
                       <button
                         onClick={(event) => {
                           event.stopPropagation()
-                          openItem(item.id, { focus: false })
+                          openItem(item.id)
                         }}
                         className="block max-w-full truncate text-left text-body font-semibold text-slate-800 hover:text-indigo-600"
                       >

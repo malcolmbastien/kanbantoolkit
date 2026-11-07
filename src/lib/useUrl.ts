@@ -11,7 +11,7 @@ import { titleFor } from './title'
  *
  * One owner for both directions, because they are one fact — where the app is. On the way in it
  * applies what a link asked for: the place (board, view, open card) and the intentions the app
- * also understands (`?q=`, `?filters=`, `?collapse=`, `?select=`, `?lens=`, `?boundary=`,
+ * also understands (`?q=`, `?filters=`, `?collapse=`, `?select=`, `?boundary=`,
  * `?stress=`, `?edit=`). On the way out it keeps the query in step with the place, so anywhere the
  * app can be is a link somebody can send.
  *
@@ -107,8 +107,6 @@ export function useUrl() {
     // and a view on its way in (the workspace, notably) clears a selection.
     if (known(place.itemId, s().items)) s().openItem(place.itemId!)
 
-    const lens = params.get('lens')
-    if (lens) s().setLens(lens)
     const boundary = params.get('boundary')
     if (boundary && s().boundaryId !== boundary) s().toggleBoundary(boundary)
     // ?select=id1,id2 pre-selects cards in the multi-select group.

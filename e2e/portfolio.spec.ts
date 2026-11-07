@@ -58,16 +58,47 @@ test('an initiative on a team board links to a portfolio objective', async ({ pa
   await expect(group.getByText('New initiative')).toBeVisible()
 })
 
-test('selecting an initiative on a portfolio does not enter focus', async ({ page }) => {
+test('a portfolio initiative offers the item-scoped connections reading', async ({ page }) => {
   await page.goto('/app?board=b-strategy')
   // A mapped outcome, drawn in its objective's flow but living on a programme board.
   await page.locator('[data-objective-group="Grow activation"]').getByText('Recurring revenue engine').click()
 
   const panel = page.locator('[data-item-panel]')
   await expect(panel).toBeVisible()
-  // No focus lens and no control to start one: there is no portfolio board to dim behind the drawer.
-  await expect(page.locator('[data-focus-chip]')).toHaveCount(0)
-  await expect(panel.getByTitle('Focus this line on the board')).toHaveCount(0)
+  // The drawer narrows the same connections lens a team board offers.
+  await expect(panel.getByTitle(/Show this item.s connections/)).toBeVisible()
+})
+
+test('the connections lens draws between the initiatives a portfolio renders', async ({ page }) => {
+  await page.goto('/app?board=b-strategy')
+  await expect(page.locator('[data-card-id="init-revenue"]')).toBeVisible()
+
+  // The demo has no dependency between two root outcomes, so give this reading one. Neither card
+  // is placed on the portfolio — both are drawn in its strategy map, from the boards they live on.
+  const changed = await page.evaluate(() => {
+    const key = 'kanbantoolkit-state-v3'
+    const raw = localStorage.getItem(key)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as {
+      state?: { links?: Array<{ id: string; from: string; to: string }> }
+    }
+    const links = parsed.state?.links
+    if (!links) return false
+    links.push({ id: 'lnk-portfolio-check', from: 'init-revenue', to: 'init-margin' })
+    localStorage.setItem(key, JSON.stringify(parsed))
+    return true
+  })
+  expect(changed).toBe(true)
+
+  await page.reload()
+  const toggle = page.locator('[data-connections-toggle]')
+  await expect(toggle).toBeVisible()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+
+  // The string joins the two rendered cards even though neither has a placement here.
+  await expect(page.locator('[data-connection-kind="dependency"]')).toHaveCount(1)
 })
 
 test('a portfolio board offers no card-shaped settings', async ({ page }) => {

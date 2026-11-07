@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ExternalLink, Layers, Lock, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, Layers, Link2, Lock, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
+import { LinkBoardDialog } from './LinkBoardDialog'
 import { BoardSummary } from './BoardSummary'
 import { DetailDial } from './DetailDial'
 import { ConnectionsLegend, ConnectionsToggle } from './ConnectionsToggle'
@@ -29,7 +30,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const setObjectives = useStore((s) => s.setObjectives)
   const editMode = useStore((s) => s.editMode)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
-  const [pick, setPick] = useState('')
+  const [linkOpen, setLinkOpen] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
   const board = boards.find((b) => b.id === boardId)
@@ -190,13 +191,18 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
                       >
                         <ExternalLink size={10} /> Open board
                       </button>
-                      <button
-                        onClick={() => removeLinkedBoard(board.id, t.id)}
-                        className="rounded p-0.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                        title="Unlink this board"
-                      >
-                        <X size={12} />
-                      </button>
+                      {/* Unlinking is a change to the board's design, so it belongs with the other
+                          design actions in Edit board — a reader is never offered a control that
+                          would silently take a band away. */}
+                      {editMode && (
+                        <button
+                          onClick={() => removeLinkedBoard(board.id, t.id)}
+                          className="rounded p-0.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                          title="Unlink this board"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </span>
                   </div>
                   {!isCollapsed && <BoardSummary boardId={t.id} viewedBoardId={board.id} />}
@@ -204,28 +210,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
               )
             })}
           </div>,
-          <>
-            <select
-              value={pick}
-              onChange={(e) => setPick(e.target.value)}
-              className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-meta text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-            >
-              <option value="">Link a board…</option>
-              {candidates.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <button
-              disabled={!pick}
-              onClick={() => {
-                addLinkedBoard(board.id, pick)
-                setPick('')
-              }}
-              className="flex items-center gap-1 rounded-md bg-indigo-500 px-2 py-1 text-meta font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
-            >
-              <Plus size={12} /> Link
-            </button>
-          </>,
+          undefined,
           false,
         )}
 
@@ -234,9 +219,38 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             <Layers size={11} /> Each band is a read-only rollup of that board’s initiatives — Not Started / In Progress / Done. Open a board to move its work or change its flow.
           </div>
         )}
+
+        {/* A link is part of the board's design, so it is made in Edit board — at the foot of the
+            board, where a team adds a cards flow, rather than in the section header where it
+            competed with reading the bands. */}
+        {!portfolio && editMode && (
+          <button
+            onClick={() => setLinkOpen(true)}
+            title="Choose a team or coordination board to roll up here"
+            aria-label="Link a board"
+            className={cn(
+              'flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed px-3 py-2 text-meta font-medium text-slate-700 transition hover:bg-white',
+              accent.section,
+            )}
+          >
+            <Link2 size={13} /> Link a board
+          </button>
+        )}
         <ConnectionsLinks contentRef={contentRef} boardId={board.id} />
         </div>
       </div>
+
+      {editMode && linkOpen && (
+        <LinkBoardDialog
+          candidates={candidates}
+          hostName={board.name}
+          onLink={(id) => {
+            addLinkedBoard(board.id, id)
+            setLinkOpen(false)
+          }}
+          onClose={() => setLinkOpen(false)}
+        />
+      )}
     </div>
   )
 }

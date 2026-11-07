@@ -66,8 +66,7 @@ browser. There is no account and nothing is collected.
     reaches Done.
   - Mark a card blocked with a reason; give it a parent and children by dropping it on an initiative.
   - The creator is recorded and cannot be changed afterwards.
-  - Bulk move, retype, assign, reparent, archive, discard or delete a selection; focus on one item
-    and its hierarchy.
+  - Bulk move, retype, assign, reparent, archive, discard or delete a selection.
 - **Initiatives**
   - Status and percentage computed from the cards below, with no estimate or status of their own.
   - The section is derived from the rollup; the cell inside it is arranged by hand.

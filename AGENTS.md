@@ -214,7 +214,7 @@ task-master list            # terminal 2
   stopped. A held move carries the place the gesture offered, so answering lands the card where it
   was dropped rather than at the end. WIP is the cards flows' own — an initiatives lane neither
   shows a limit nor enforces one. Counts read the **column**, not the view: narrowing what you
-  *see* (search, filters, focus) never changes the load a column carries.
+  *see* (search, filters) never changes the load a column carries.
 - **An error report is about the code, never the workspace.** `POST /api/errors` accepts a
   message, a stack, the path, the view, the build and the browser — not a place's query, which is
   where board and item ids live. Reporting is silent in development, capped per page, and the

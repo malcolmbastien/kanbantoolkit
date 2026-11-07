@@ -17,7 +17,7 @@
  * app does not recognise is dropped, so one place has exactly one URL and two people looking at
  * the same thing hold the same link.
  *
- * The other parameters the app understands (`?q=`, `?filters=`, `?collapse=`, `?select=`, `?lens=`,
+ * The other parameters the app understands (`?q=`, `?filters=`, `?collapse=`, `?select=`,
  * `?boundary=`, `?stress=`, `?edit=`) are *intentions* rather than places: they say what to do on
  * arrival and are consumed, normalised away, and never written back. `?edit=` is deliberately one
  * of them — edit mode is a mode, not a place, and the back button must never be the thing that
@@ -139,7 +139,7 @@ const VIEW_NAMES: Record<string, ViewName> = {
  * A view name nobody knows lands on the board's flow: a URL with a view this build does not know is
  * still asking for a board surface, and the board is a real place to be.
  */
-const BOARD_INTENTIONS = ['q', 'filters', 'stress', 'lens', 'boundary', 'collapse', 'select', 'edit'] as const
+const BOARD_INTENTIONS = ['q', 'filters', 'stress', 'boundary', 'collapse', 'select', 'edit'] as const
 
 export function placeFromQuery(search: string): Partial<Place> {
   const params = new URLSearchParams(search)

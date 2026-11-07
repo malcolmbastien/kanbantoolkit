@@ -65,9 +65,9 @@ test('the whole query is carried across, before the app normalises it', async ({
     if (frame === page.mainFrame()) visited.push(frame.url())
   })
 
-  await page.goto(`/?board=b-atlas&lens=init-signup&q=signup&filters=${encodeURIComponent('[]')}`)
+  await page.goto(`/?board=b-atlas&select=st-email&q=signup&filters=${encodeURIComponent('[]')}`)
   await expect
-    .poll(() => visited.some((url) => url.includes('/app?board=b-atlas&lens=init-signup&q=signup&filters=')))
+    .poll(() => visited.some((url) => url.includes('/app?board=b-atlas&select=st-email&q=signup&filters=')))
     .toBe(true)
 })
 

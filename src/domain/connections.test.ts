@@ -71,4 +71,18 @@ describe('the edges a board can draw', () => {
   it('is empty for a board with no items of its own', () => {
     expect(boardConnections(graph(), 'b-empty')).toEqual([])
   })
+
+  it('draws between items a surface renders even when they are placed on another board', () => {
+    // A portfolio's strategy map or a programme's band renders another board's initiatives: the
+    // cards are in the DOM, so their edges are drawn even though no placement names this board.
+    const rendered = new Set(['init', 'child', 'dependent'])
+    expect(boardConnections(graph(), 'b-strategy', rendered)).toEqual([
+      { id: 'h-1', kind: 'hierarchy', from: 'init', to: 'child' },
+    ])
+  })
+
+  it('still refuses an archived item and drops an edge with one end not rendered', () => {
+    const rendered = new Set(['init', 'archived'])
+    expect(boardConnections(graph(), 'b-strategy', rendered)).toEqual([])
+  })
 })

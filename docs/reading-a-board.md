@@ -48,7 +48,7 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done**,
   and the cards here that wait on it.
 
 The level changes only the drawing. The same items are in the same cells, with the same counts, WIP,
-filters, search, focus, selection, drag, card menu and keyboard moves. It is remembered in this
+filters, search, selection, drag, card menu and keyboard moves. It is remembered in this
 browser per board, not in the workspace, so two people may read one board differently and a shared
 link opens the reader's own choice. It is not a permission — a Viewer gets it too. **Board design
 mode** always draws Full and disables the dial; Save or Cancel returns to the chosen level.
@@ -57,9 +57,20 @@ mode** always draws Full and disables the dial; Save or Cancel returns to the ch
 
 The **Connections** toggle in the secondary bar draws the board's relationships over the work:
 
-- **Hierarchy** — a parent → child decomposition edge, as a dashed red string.
-- **Dependency** — a blocker → dependent link, as a solid red string with an arrow at the
-  dependent end.
+- **Hierarchy** — a parent → child decomposition edge, as a solid blue string with a circle where
+  it leaves the parent and an arrow at the child.
+- **Dependency** — a waiting item → blocker link, as a solid red string with a circle where it
+  leaves the waiting item and an arrow at the blocker. Read it as **“this (circle) waits on that
+  (arrow)”**.
+
+Strings leave the source near its bottom-left corner, inside the card rather than on the border,
+and land just inside the target's nearest edge. Several strings on one card fan out from the same
+start, so two children or two dependents never draw over one another.
+
+A card's drawer has a **Connections** button. It narrows the lens to that item's own strings — its
+parent and children, and any blocker or dependent either way — while the board stays whole. Closing
+the drawer or opening another board ends that item reading; the board-wide toggle still controls
+every string on the board.
 
 Only edges with **both ends rendered on this board** are drawn. A card that is archived, filtered
 out or in a folded flow has no element to connect to; attribution to an objective is not a
@@ -136,10 +147,9 @@ it, and the fields stay closed to you until they finish. A Viewer, and an archiv
 are read-only. A Viewer can still comment in **Comments**, but an archived item accepts no edits or
 comments.
 
-The eye button on an initiative starts **Focus**, which highlights its lineage on the board. Opening
-an initiative does not start it — the button is the only way in — and opening an archived item does
-not start it either. A **portfolio** has no focus mode: its outcomes live on the program
-and team boards beneath it, and the strategy map is already grouped by what the work is for.
+The **Connections** button in the drawer narrows the board's connection lens to this item's own
+strings. Opening an item does not start that reading — the button is the way in — and an archived
+item does not offer it.
 
 People are chosen from the workspace's own directory, shown with their photo or their initials. Typing
 a name searches that directory. The picker never creates a person, because an account arrives by

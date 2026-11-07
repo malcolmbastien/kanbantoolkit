@@ -51,10 +51,13 @@ marker. It is one person's reading, remembered in this browser per board. It cha
 the keyboard all work the same. **Edit board** always shows Full and disables the dial.
 
 The same secondary bar has a **Connections** toggle. When it is on, every hierarchy edge (parent →
-child, dashed) and dependency (blocker → dependent, solid with an arrow) between items this board
-renders is drawn as a red string above the board — including a boundary dependency, whose string
-runs from the bottom band to the card that waits. It is a reading aid: off by default, remembered in
-this browser per board, and it does not change the work or intercept a click.
+child, solid blue) and dependency (waiting item → blocker, solid red) between items this board
+renders is drawn above the board — both with a circle at the start and an arrow at the end. A red
+dependency is read from its circle to its arrow as “this waits on that”, including a boundary
+dependency whose circle sits on the card here and whose arrow points at the boundary item below. It
+is a reading aid: off by default, remembered in this browser per board, and it does not change the
+work or intercept a click. A card's drawer adds a **Connections** button that narrows the same lens
+to that item's own strings until the drawer closes or the board changes.
 
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a

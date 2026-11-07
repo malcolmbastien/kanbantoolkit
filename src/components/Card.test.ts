@@ -46,7 +46,6 @@ describe('card memo', () => {
     expect(cardPropsEqual(props(), props({ dimmed: true }))).toBe(false)
     expect(cardPropsEqual(props(), props({ boundary: true }))).toBe(false)
     expect(cardPropsEqual(props(), props({ locked: true }))).toBe(false)
-    expect(cardPropsEqual(props(), props({ lens: 'out' }))).toBe(false)
     expect(cardPropsEqual(props(), props({ item: item({ title: 'Renamed' }) }))).toBe(false)
     expect(cardPropsEqual(props(), props({ summary: { ...summary, blockedBelow: 1 } }))).toBe(false)
     expect(cardPropsEqual(props(), props({ summary: { ...summary, checklist: { done: 2, total: 2 } } }))).toBe(false)

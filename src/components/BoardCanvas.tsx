@@ -18,7 +18,6 @@ import { DropColumn } from './DropColumn'
 import { LanePolicy, LaneSettings } from './LaneSettings'
 import {
   checklistProgress,
-  lensRole,
   type Graph,
 } from '@/domain/derive'
 import { boardCardTypeId, tagsOf } from '@/domain/board'
@@ -80,8 +79,6 @@ interface Ctx {
   boardItems: Item[]
   /** The board being read — needed for the boundary links, which are about the edge of *this* board. */
   boardId: string
-  /** The focused item, for the lineage highlight. */
-  lensId: string | null
   /** The card waiting for a parent, if any. See `startParentPick`. */
   parentPickId: string | null
   effectiveLane: Map<string, string>
@@ -546,7 +543,6 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
               onLift={ctx.drag.start}
-              lens={lensRole(c.id, ctx.lensId, graph)}
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
               onOpen={ctx.openCard}
@@ -740,7 +736,6 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const renameLane = useStore((s) => s.renameLane)
   const addCard = useStore((s) => s.addCard)
   const moveCardToIndex = useStore((s) => s.moveCardToIndex)
-  const lensId = useStore((s) => s.lensId)
   const parentPickId = useStore((s) => s.parentPickId)
   const setParent = useStore((s) => s.setParent)
   const cancelParentPick = useStore((s) => s.cancelParentPick)
@@ -897,7 +892,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     return map
   }, [placements, boardId])
   const ctx: Ctx = {
-    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, lensId, effectiveLane,
+    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
     model,
     waits,
     ageOf: (itemId) => ageDays(boardPlacement.get(itemId)),
