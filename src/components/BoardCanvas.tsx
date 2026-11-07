@@ -437,7 +437,17 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             )}
             style={
               orientation === 'columns'
-                ? { gridTemplateColumns: kids.map((k) => (ctx.collapsedLanes[k.id] ? '36px' : 'minmax(min-content, 1fr)')).join(' ') }
+                ? {
+                    gridTemplateColumns: kids
+                      .map((k) =>
+                        ctx.collapsedLanes[k.id]
+                          ? isRoot
+                            ? '36px'
+                            : '48px'
+                          : 'minmax(min-content, 1fr)',
+                      )
+                      .join(' '),
+                  }
                 : undefined
             }
           >
@@ -454,7 +464,13 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                     // separates it from the rows beside it, and adding to that is what made it
                     // stand out as different.
                     ? cn('w-full', ctx.collapsedLanes[k.id] ? 'shrink-0' : i === kids.length - 1 && 'grow')
-                    : cn('flex-1', isRoot && !ctx.collapsedLanes[k.id] && 'overflow-hidden rounded-xl'),
+                    : cn(
+                        'flex-1',
+                        isRoot && !ctx.collapsedLanes[k.id] && 'overflow-hidden rounded-xl',
+                        // A folded rail inside a column needs air from that column's edge; without
+                        // it the parent's rounded overflow still shaves the rail's outline.
+                        !isRoot && ctx.collapsedLanes[k.id] && 'm-1.5',
+                      ),
                 )}
               >
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />

@@ -235,11 +235,23 @@ test('a folded column at any depth is a strip, and its outline is not clipped', 
   expect(top.radius).toBe('0px')
   expect(top.overflow).toBe('visible')
 
-  // Dev is a cell of a columns-split inside In Progress, and it folds now too.
+  // Dev is a cell of a columns-split inside In Progress, and it folds now too. The rail keeps its
+  // 36px width but sits inset from the parent column, so the parent's rounded overflow cannot
+  // shave its outline.
   await fold('Dev')
   const dev = strip('Dev')
   await expect(dev).toBeVisible()
   expect((await dev.boundingBox())!.width).toBeLessThan(50)
+  const inside = await dev.evaluate((el) => {
+    const parent = el.closest('[role="treeitem"][aria-expanded="true"]')
+    if (!parent) return null
+    const rail = el.getBoundingClientRect()
+    const column = parent.getBoundingClientRect()
+    return { left: rail.left - column.left, right: column.right - rail.right }
+  })
+  expect(inside).not.toBeNull()
+  expect(inside!.left).toBeGreaterThanOrEqual(5)
+  expect(inside!.right).toBeGreaterThanOrEqual(5)
   await expect(laneRegion(page, 'Dev')).toHaveCount(0)
 })
 
