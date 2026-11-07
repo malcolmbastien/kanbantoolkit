@@ -63,7 +63,9 @@ Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress**
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a
 stage is the team's. **Edit board** splits a column into cells, renames them, adds a lane, or removes
 one. A lane is removed only while it is **empty**: deleting a column never moves a card, and a split
-whose remaining cell holds cards is left as it is rather than folded over them.
+whose remaining cell holds cards is left as it is rather than folded over them. Any column folds to
+a narrow rail, including the subcolumns of a split — Dev and Test under In Progress can be folded
+independently, and expanding one gives its cards back.
 
 <img src="img/guide/board-overview.webp" alt="The Team Atlas demo board: the initiatives flow above the team's Cards flow, with Backlog, Not Started, In Progress and Done columns" width="1100">
 

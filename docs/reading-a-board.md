@@ -108,6 +108,10 @@ stay, and the columns give their room to the workflow below. Opening it brings t
 and the columns back underneath, so the band opens where you are looking. The initiatives, cards and
 boundary bands each fold on their own, and the state is a view choice rather than an edit.
 
+Every column folds too, at any depth: a top-level column becomes a narrow rail, and a subcolumn such
+as Dev or Test under In Progress becomes its own rail. A folded rail keeps its name, count and stage
+accent, and expanding it gives the cards back.
+
 Each workflow can also carry an optional line under its name — what the workflow is for, in the
 board's own words. In **Edit board** the line is edited in place beside the name: Enter or a click
 away saves it, Escape reverts, and the clear control removes it. A workflow with no line shows only

@@ -151,11 +151,10 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
   const canMovePrev = sibIdx > 0
   const canMoveNext = sibIdx >= 0 && sibIdx < siblings.length - 1
   const parentOrientation = parent?.orientation ?? 'columns'
-  // A top-level column folds away, and so does a row of a rows-split — the shape where one lane
-  // spans the whole width, so folding it gives the other rows their space back. Not a cell of a
-  // columns-split: those share the width they have, and folding one would be folding a column
-  // the board has already divided. And never the board itself, which would leave nothing.
-  const canCollapse = !isRoot && (top || parentOrientation === 'rows')
+  // A top-level column folds away, and so does any nested lane — a cell of a columns-split, a
+  // row of a rows-split, or a leaf. Never the board itself, which would leave nothing, and never
+  // a transposed swimlane cell, whose header is the shared row/column grid rather than its own.
+  const canCollapse = !isRoot && !hideHeader
   const collapsed = ctx.collapsedLanes[lane.id] === true && canCollapse
   const typeOf = (typeId: string): IssueType =>
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
@@ -337,15 +336,16 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
     )
   }
 
-  // A folded top-level column becomes a strip, because it has to fit in a row of columns and a
-  // strip is what a column looks like when it has no width. It wears the column's own accent, so
-  // a folded column is identifiable from across the board without being read — the point of
-  // folding it rather than deleting it: it is still there, and still this column.
+  // A folded column becomes a strip, because it has to fit in a row of columns and a strip is
+  // what a column looks like when it has no width. It wears the column's own accent, so a folded
+  // column is identifiable from across the board without being read — the point of folding it
+  // rather than deleting it: it is still there, and still this column. This holds at every depth:
+  // Dev and Test under In Progress fold to their own strips just as the top-level columns do.
   //
   // A folded *row* is a different thing and gets a different answer: it already has a
   // horizontal header, so folding it means hiding what is under that header. Drawing a strip
   // instead would give one row a header that looks nothing like the rows beside it.
-  if (collapsed && top) {
+  if (collapsed && parentOrientation === 'columns') {
     const accent = stage ? STAGE_ACCENT[stage] : undefined
     const count = countInLane(lane.id)
     return (
@@ -437,9 +437,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
             )}
             style={
               orientation === 'columns'
-                ? isRoot
-                  ? { gridTemplateColumns: kids.map((k) => (ctx.collapsedLanes[k.id] ? '36px' : 'minmax(min-content, 1fr)')).join(' ') }
-                  : { gridAutoFlow: 'column', gridAutoColumns: 'minmax(min-content, 1fr)' }
+                ? { gridTemplateColumns: kids.map((k) => (ctx.collapsedLanes[k.id] ? '36px' : 'minmax(min-content, 1fr)')).join(' ') }
                 : undefined
             }
           >
@@ -456,7 +454,7 @@ function LaneBox({ lane, ctx, isRoot, hideHeader }: { lane: Lane; ctx: Ctx; isRo
                     // separates it from the rows beside it, and adding to that is what made it
                     // stand out as different.
                     ? cn('w-full', ctx.collapsedLanes[k.id] ? 'shrink-0' : i === kids.length - 1 && 'grow')
-                    : cn('flex-1', isRoot && 'overflow-hidden rounded-xl'),
+                    : cn('flex-1', isRoot && !ctx.collapsedLanes[k.id] && 'overflow-hidden rounded-xl'),
                 )}
               >
                 <LaneBox lane={k} ctx={ctx} isRoot={false} />

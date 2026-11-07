@@ -211,6 +211,38 @@ test('a board type is named, never offered as a setting', async ({ page }) => {
   await expect(dialog.locator('[data-board-band-fixed]')).toHaveCount(0)
 })
 
+test('a folded column at any depth is a strip, and its outline is not clipped', async ({ page }) => {
+  await openBoard(page)
+
+  const fold = (name: string) => laneRegion(page, name).getByTitle('Collapse column').click()
+  const strip = (name: string) => page.locator('[role="treeitem"][aria-expanded="false"]').filter({ hasText: name })
+
+  // A top-level column folds to a 36px rail. Its wrapper must not round or clip the rail's own
+  // outline: the blue border of Not Started used to be cut at the corners.
+  await fold('Not Started')
+  const notStarted = strip('Not Started')
+  await expect(notStarted).toBeVisible()
+  const top = await notStarted.evaluate((el) => {
+    const box = el.getBoundingClientRect()
+    const wrapper = el.parentElement
+    return {
+      width: box.width,
+      radius: wrapper ? getComputedStyle(wrapper).borderRadius : '',
+      overflow: wrapper ? getComputedStyle(wrapper).overflow : '',
+    }
+  })
+  expect(top.width).toBeLessThan(50)
+  expect(top.radius).toBe('0px')
+  expect(top.overflow).toBe('visible')
+
+  // Dev is a cell of a columns-split inside In Progress, and it folds now too.
+  await fold('Dev')
+  const dev = strip('Dev')
+  await expect(dev).toBeVisible()
+  expect((await dev.boundingBox())!.width).toBeLessThan(50)
+  await expect(laneRegion(page, 'Dev')).toHaveCount(0)
+})
+
 test('the fold and policy controls have usable hit targets', async ({ page }) => {
   await openBoard(page)
   const size = async (locator: ReturnType<typeof page.locator>) => {
