@@ -4,8 +4,8 @@ import { cardsIn, dropAtEnd, lane, openBoard } from './support'
 /**
  * The board's level-of-detail dial.
  *
- * Full is the card the app has always drawn. Summary keeps the key facts and a single blocked or
- * warning badge, and Mini is a colour tile per item. What the levels must not change is the work
+ * Full is the card the app has always drawn. Summary keeps the key facts and no warning badge, and
+ * Mini is a colour tile per item. What the levels must not change is the work
  * itself — the same cards, the same count, the same click, drag and design mode — so each test
  * checks the board's behaviour as well as the drawing.
  */
@@ -49,26 +49,11 @@ test('Summary keeps the title, type, due date and people, and drops the extras',
   expect(dueBox.x - cardBox.x).toBeLessThan(24)
   await expect(due.locator('[title="Diego Santos"]')).toBeVisible()
 
-  // One badge, not a row: the most urgent finding, red for a risk and amber for a warning.
-  const blocked = page.locator('[data-card-id="st-enterprise-sso"]')
-  await expect(blocked.locator('[data-card-warning]')).toHaveCount(1)
-  await expect(blocked.locator('[data-card-warning]')).toHaveAttribute('data-card-warning', 'risk')
-  await expect(blocked.locator('[data-card-warning]')).toHaveText('Blocked')
-
-  // A card with several warnings of both tones still wears one badge: the risk outranks the rest.
-  const billing = page.locator('[data-card-id="init-billing"]')
-  await expect(billing.locator('[data-card-warning]')).toHaveCount(1)
-  await expect(billing.locator('[data-card-warning]')).toHaveAttribute('data-card-warning', 'risk')
-
-  // One warning wears its own words; several become a count, so the badge stays a badge.
-  const trial = page.locator('[data-card-id="init-trial"]')
-  await expect(trial.locator('[data-card-warning]')).toHaveCount(1)
-  await expect(trial.locator('[data-card-warning]')).toHaveAttribute('data-card-warning', 'watch')
-  await expect(trial.locator('[data-card-warning]')).toHaveText('2 warnings')
-
-  await expect(rebuilt.locator('[data-card-warning]')).toHaveCount(1)
-  await expect(rebuilt.locator('[data-card-warning]')).toHaveAttribute('data-card-warning', 'watch')
-  await expect(rebuilt.locator('[data-card-warning]')).not.toContainText('warnings')
+  // No warnings at Summary: the badge is Full's to spell out and Mini's to mark. A compact face
+  // that carries a warning is a face asking to be read like Full, half-equipped to be.
+  for (const id of ['st-enterprise-sso', 'init-billing', 'init-trial', 'st-signup-rebuild']) {
+    await expect(page.locator(`[data-card-id="${id}"] [data-card-warning]`)).toHaveCount(0)
+  }
 
   // The same cards are there: a level changes the drawing, not the work.
   expect(await cardsIn(page, 'Backlog')).toEqual(backlog)

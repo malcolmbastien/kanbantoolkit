@@ -35,10 +35,9 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done**,
 
 - **Full** is the card described on this page — every field, badge and control.
 - **Summary** keeps the title, type, due date and people, with the due date at the foot where Full
-  puts it. The card face carries **one** badge, not a row: red for a blockage or risk, amber for a
-  warning. One warning wears its own words (a block, a rolled-up block, the work it waits on); two
-  or more say **2 warnings**, with each reason in the badge's tooltip. The description, tags,
-  checklist, links, parent, age, priority and counts are not drawn.
+  puts it. It carries **no warnings**: a compact face is for reading the work, and the warning
+  badges belong to Full, where each has room to say what it means. The description, tags,
+  checklist, links, parent, age, priority, counts and warning badges are not drawn.
 - **Mini** draws each item as a small colour tile in a wrapping grid: the type's colour, a red marker
   when the card is blocked, and an amber marker when it has a warning. Hovering or focusing a tile
   opens a reading card with the title and type, what it rolls up to, who is assigned (or

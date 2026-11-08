@@ -445,24 +445,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     }
     return [...new Map(found.map((entry) => [entry.label, entry])).values()]
   }
-  const summaryAttention = attention(false)
   const miniAttention = attention(true)
-  // The compact card face carries one badge, not a row of them: red for a blockage or risk and
-  // amber for a warning. A single finding keeps its own words, so the badge says *what* rather
-  // than only that something is wrong; several warnings become a count, because their labels are
-  // unrelated facts and "27d in lane, 2 depend on it" is a sentence, not a badge. Full is where
-  // the whole set is read.
-  const risk = summaryAttention.find((warning) => warning.tone === 'risk')
-  const warnings = summaryAttention.filter((warning) => warning.tone === 'watch')
-  const summaryBadge =
-    risk ??
-    (warnings.length > 1
-      ? {
-          label: `${warnings.length} warnings`,
-          tone: 'watch' as const,
-          why: warnings.map((warning) => warning.why ?? warning.label).join(' · '),
-        }
-      : warnings[0])
 
   const openOnClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
@@ -522,20 +505,12 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         </div>
 
         <div className="mt-auto flex items-end justify-between gap-2 px-2 pb-1.5 pt-1">
-          {/* The due date sits at the foot, where the Full card puts it; the single badge follows
-              it. The people stay on the right, so scanning down the column reads the same shape at
-              either level. */}
+          {/* The due date sits at the foot, where the Full card puts it, and the people stay on
+              the right, so scanning down the column reads the same shape at either level. Summary
+              carries no warnings: a compact face is for reading the work, and its badges are
+              Full's to spell out and Mini's to mark. */}
           <div className="flex min-w-0 flex-wrap items-center gap-1">
             <DueChip item={item} complete={complete} />
-            {summaryBadge && (
-              <span
-                data-card-warning={summaryBadge.tone}
-                className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE[summaryBadge.tone])}
-                title={summaryBadge.why ?? summaryBadge.label}
-              >
-                {summaryBadge.label}
-              </span>
-            )}
           </div>
           {assignees.length > 0 && (
             <span className="flex shrink-0 items-center -space-x-1">
