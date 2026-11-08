@@ -153,6 +153,12 @@ interface Props {
    * nothing: the card is drawn only to be read, not acted on, until the pick ends.
    */
   inert?: boolean
+  /**
+   * The item the pick is being made for — the card waiting for a parent, or the initiative
+   * waiting for a card. Kept lit and ringed while every other non-choice recedes, so the reader
+   * can see at a glance which card the edge is being formed around.
+   */
+  connectRoot?: boolean
   /** Open an item. The surface brings the card into view as part of opening it. */
   onOpen: (id: string) => void
   /** Shift+click — start/extend the multi-select group. */
@@ -292,7 +298,7 @@ function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (depend
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, inert, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -347,6 +353,9 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   const lockCls = locked ? 'opacity-50 saturate-75' : ''
   // While a multi-select group is active, the cards outside it recede.
   const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
+  // The pick's root: the one card the edge is being formed around. It keeps a halo while the
+  // cards that are neither the root nor a choice recede.
+  const connectRootCls = connectRoot ? 'ring-2 ring-indigo-600 ring-offset-2 ring-offset-white shadow-lg' : ''
   // A removed member keeps their chip: the card still belongs partly to the person who did the
   // work, and "Former member" is a truer chip than a name silently disappearing (task 144).
   const assignees = peopleOf(users ?? [], item.assignees)
@@ -485,6 +494,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         data-card-id={item.id}
         data-card-detail="summary"
         data-card-initiative={wide ? '' : undefined}
+        data-pick-root={connectRoot ? '' : undefined}
         onClick={openOnClick}
         onContextMenu={openOnContextMenu}
         className={cn(
@@ -497,6 +507,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           lockCls,
           dimCls,
           dropTarget && 'ring-2 ring-indigo-500',
+          connectRootCls,
         )}
         style={{ borderLeftColor: type.color }}
       >
@@ -574,6 +585,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         data-card-initiative={wide ? '' : undefined}
         data-card-blocked={blocked ? '' : undefined}
         data-card-warning={warned ? '' : undefined}
+        data-pick-root={connectRoot ? '' : undefined}
         onClick={openOnClick}
         onContextMenu={openOnContextMenu}
         // A pointer over the tile is a reader asking what it is; a press is a reader acting on
@@ -607,6 +619,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           lockCls,
           dimCls,
           dropTarget && 'ring-2 ring-indigo-500',
+          connectRootCls,
         )}
         style={{ backgroundColor: tintOn(type.color, 0.28), borderColor: type.color }}
       >
@@ -735,6 +748,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         // The wide card is the initiative, and an initiative is what a card can roll up to — so
         // the marker is how a drop finds the cards that could be its target. A card is not one.
         data-card-initiative=""
+        data-pick-root={connectRoot ? '' : undefined}
         onContextMenu={(e) => {
           if (inert) {
             e.preventDefault()
@@ -770,6 +784,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           // Last, so it wins: `cn` keeps the last ring of the group, and the target is what the
           // gesture is about to do rather than what the card is.
           dropTarget && 'ring-2 ring-indigo-500',
+          connectRootCls,
         )}
       >
         {/* The kind, as a band across the top — the initiative's identity, and the one thing a
@@ -941,6 +956,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
       data-card-id={item.id}
       data-card-detail="full"
+      data-pick-root={connectRoot ? '' : undefined}
       style={{
         // The type is the rail down the left edge and the badge in the identity row. The rest of
         // the surface is white, as the board's card spec asks: the lane is already tinted, and a
@@ -986,6 +1002,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         selectionCls,
         lockCls,
         dimCls,
+        connectRootCls,
       )}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1118,7 +1135,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
   if (a.draggable !== b.draggable || a.locked !== b.locked) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
-  if (a.inert !== b.inert) return false
+  if (a.inert !== b.inert || a.connectRoot !== b.connectRoot) return false
   if (a.waitingOn?.length !== b.waitingOn?.length) return false
   if (a.waitingOn && b.waitingOn && a.waitingOn.some((w, i) => w.id !== b.waitingOn![i].id || w.title !== b.waitingOn![i].title)) return false
   if (a.dropTarget !== b.dropTarget) return false

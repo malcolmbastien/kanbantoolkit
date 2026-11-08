@@ -590,14 +590,16 @@ function LaneBox({
           const parent: CardParent | undefined = p ? { id: p.id, title: p.title, type: typeOf(p.typeId) } : undefined
           const roll = ctx.model.rollup.get(c.id)!
           const stage = ctx.effectiveLane.get(c.id) ? effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) : undefined
-          // Waiting for a parent, only the initiatives are choices. Choosing a card for an
-          // initiative, the cards already under it are the link that is already there, and an
-          // initiative is not a card at all. Either way, what is not a choice is dimmed and does
-          // not answer a press.
+          // The pick's root is the card the edge is being formed for: it keeps its place and its
+          // ring while everything that is not a choice recedes. Waiting for a parent, only the
+          // initiatives are choices; choosing a card for an initiative, the cards already under
+          // it are the link that is already there, and an initiative is not a card at all.
+          const pickRoot = ctx.parentPickId === c.id || ctx.childPickId === c.id
           const picking =
-            (ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative') ||
-            (ctx.childPickId !== null &&
-              (typeOf(c.typeId).name === 'Initiative' || ctx.model.parentOf.get(c.id) === ctx.childPickId))
+            !pickRoot &&
+            ((ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative') ||
+              (ctx.childPickId !== null &&
+                (typeOf(c.typeId).name === 'Initiative' || ctx.model.parentOf.get(c.id) === ctx.childPickId)))
           return {
             id: c.id,
             node: (
@@ -621,6 +623,7 @@ function LaneBox({
                 picking
               }
               inert={picking}
+              connectRoot={pickRoot}
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}

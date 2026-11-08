@@ -449,6 +449,10 @@ test('Set parent from the card menu links on a click, and does not open the draw
   await page.locator('[data-card-id="st-signup-rebuild"]').click({ button: 'right' })
   await page.locator('[data-card-menu][role="menu"]').first().getByText('Set parent…').click()
   await expect(page.locator('[data-parent-pick]')).toBeVisible()
+  // The card waiting for the parent is the root: it keeps its ring while the cards that are not
+  // an initiative recede.
+  await expect(page.locator('[data-card-id="st-signup-rebuild"]')).toHaveAttribute('data-pick-root', '')
+  await expect(page.locator('[data-card-id="st-signup-rebuild"]')).not.toHaveClass(/opacity-40/)
   // A boundary card is never a parent on this board: it is external work, and it recedes too.
   await expect(page.locator('[data-boundary-card="init-identity"]')).toHaveClass(/opacity-40/)
 
@@ -464,6 +468,7 @@ test('Set parent from the card menu links on a click, and does not open the draw
   await expect(page.locator('[data-parent-pick]')).toHaveCount(0)
   // …and the card now rolls up to it.
   await expect(page.locator('[data-card-id="st-signup-rebuild"]')).toContainText('Billing migration')
+  await expect(page.locator('[data-card-id="st-signup-rebuild"]')).not.toHaveAttribute('data-pick-root')
 })
 
 test('Connect a card dims the cards the initiative already holds, and links on a click', async ({ page }) => {
@@ -473,6 +478,10 @@ test('Connect a card dims the cards the initiative already holds, and links on a
   await page.locator('[data-card-id="init-billing"]').first().click({ button: 'right' })
   await page.locator('[data-card-menu][role="menu"]').first().getByText('Connect a card…').click()
   await expect(page.locator('[data-child-pick]')).toBeVisible()
+  // The initiative the edge is being formed for keeps a ring, while the cards not in the pick
+  // recede around it.
+  await expect(page.locator('[data-card-id="init-billing"]')).toHaveAttribute('data-pick-root', '')
+  await expect(page.locator('[data-card-id="init-billing"]')).not.toHaveClass(/opacity-40/)
 
   // What is already connected is not a choice again: it recedes, while the cards still to connect
   // stay lit, so the eye lands on the ones that would change something.
@@ -503,4 +512,5 @@ test('Connect a card dims the cards the initiative already holds, and links on a
   await expect(page.locator('[data-card-id="st-signup-rebuild"]')).toContainText('Billing migration')
   await expect(page.locator('[data-card-id="st-usage-billing"]')).not.toHaveClass(/opacity-40/)
   await expect(page.locator('[data-boundary-card="init-identity"]')).not.toHaveClass(/opacity-40/)
+  await expect(page.locator('[data-card-id="init-billing"]')).not.toHaveAttribute('data-pick-root')
 })
