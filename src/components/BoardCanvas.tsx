@@ -81,6 +81,8 @@ interface Ctx {
   boardId: string
   /** The card waiting for a parent, if any. See `startParentPick`. */
   parentPickId: string | null
+  /** The initiative waiting for a card, if any. See `startChildPick`. */
+  childPickId: string | null
   effectiveLane: Map<string, string>
   /** The board's derived facts, built once for the render rather than per card. */
   model: BoardModel
@@ -609,7 +611,12 @@ function LaneBox({
                 // on it recedes, so the relationship is visible across the whole board.
                 (ctx.boundaryId !== null && !ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId)) ||
                 // Waiting for a parent, only the initiatives are choices.
-                (ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative')
+                (ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative') ||
+                // Choosing a card for an initiative: the cards already under it are the link
+                // that is already there, so they recede and the cards still to connect stay lit.
+                // An initiative is not a card, so it is not a choice either.
+                (ctx.childPickId !== null &&
+                  (typeOf(c.typeId).name === 'Initiative' || ctx.model.parentOf.get(c.id) === ctx.childPickId))
               }
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
@@ -837,6 +844,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const addCard = useStore((s) => s.addCard)
   const moveCardToIndex = useStore((s) => s.moveCardToIndex)
   const parentPickId = useStore((s) => s.parentPickId)
+  const childPickId = useStore((s) => s.childPickId)
   const setParent = useStore((s) => s.setParent)
   const cancelParentPick = useStore((s) => s.cancelParentPick)
   const cancelChildPick = useStore((s) => s.cancelChildPick)
@@ -1022,6 +1030,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     initiativeScope: initiativeScope(filters, graph),
     interactive,
     parentPickId,
+    childPickId,
     drag: {
       // The card in the air may be over another canvas, which has no `lift` of its own: the shared
       // preview is what tells it a card is coming and where it would land.

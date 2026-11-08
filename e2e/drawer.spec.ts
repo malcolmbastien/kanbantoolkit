@@ -458,3 +458,27 @@ test('Set parent from the card menu links on a click, and does not open the draw
   // …and the card now rolls up to it.
   await expect(page.locator('[data-card-id="st-signup-rebuild"]')).toContainText('Billing migration')
 })
+
+test('Connect a card dims the cards the initiative already holds, and links on a click', async ({ page }) => {
+  await openBoard(page)
+
+  // The same edge, named from the initiative. Billing already holds five cards on this board.
+  await page.locator('[data-card-id="init-billing"]').first().click({ button: 'right' })
+  await page.locator('[data-card-menu][role="menu"]').first().getByText('Connect a card…').click()
+  await expect(page.locator('[data-child-pick]')).toBeVisible()
+
+  // What is already connected is not a choice again: it recedes, while the cards still to connect
+  // stay lit, so the eye lands on the ones that would change something.
+  await expect(page.locator('[data-card-id="st-usage-billing"]')).toHaveClass(/opacity-40/)
+  await expect(page.locator('[data-card-id="st-payment-retries"]')).toHaveClass(/opacity-40/)
+  await expect(page.locator('[data-card-id="st-signup-rebuild"]')).not.toHaveClass(/opacity-40/)
+  await expect(page.locator('[data-card-id="st-enterprise-sso"]')).not.toHaveClass(/opacity-40/)
+
+  // The click is the answer: the card joins the initiative and the pick ends, and the board
+  // returns to its normal reading.
+  await page.locator('[data-card-id="st-signup-rebuild"]').click()
+  await expect(page.locator('[data-child-pick]')).toHaveCount(0)
+  await expect(page.locator('[data-item-panel]')).toHaveCount(0)
+  await expect(page.locator('[data-card-id="st-signup-rebuild"]')).toContainText('Billing migration')
+  await expect(page.locator('[data-card-id="st-usage-billing"]')).not.toHaveClass(/opacity-40/)
+})
