@@ -452,6 +452,11 @@ test('Set parent from the card menu links on a click, and does not open the draw
   // A boundary card is never a parent on this board: it is external work, and it recedes too.
   await expect(page.locator('[data-boundary-card="init-identity"]')).toHaveClass(/opacity-40/)
 
+  // A dimmed card is not a parent, and pressing it changes nothing: the pick stays open.
+  await page.locator('[data-card-id="st-usage-billing"]').click()
+  await expect(page.locator('[data-parent-pick]')).toBeVisible()
+  await expect(page.locator('[data-item-panel]')).toHaveCount(0)
+
   await page.locator('[data-card-id="init-billing"]').click()
 
   // The click is the answer, not a request to read the initiative: no drawer, and the pick is over.
@@ -478,6 +483,17 @@ test('Connect a card dims the cards the initiative already holds, and links on a
   // The boundary band is read at the edge of this board, so its cards live on another board and
   // are not candidates for this initiative: they recede with the rest of what is not a choice.
   await expect(page.locator('[data-boundary-card="init-identity"]')).toHaveClass(/opacity-40/)
+
+  // A press on a dimmed card does nothing: no link, no drawer, and the pick stays open.
+  await page.locator('[data-card-id="st-usage-billing"]').click()
+  await expect(page.locator('[data-child-pick]')).toBeVisible()
+  await expect(page.locator('[data-item-panel]')).toHaveCount(0)
+  // A dimmed boundary card does nothing either: it does not become the "linked" reading, so no
+  // string is drawn, and the pick is still waiting for a card.
+  await page.locator('[data-boundary-card="init-identity"]').click()
+  await expect(page.locator('[data-child-pick]')).toBeVisible()
+  await expect(page.locator('[data-boundary-card="init-identity"]')).not.toContainText('linked')
+  await expect(page.locator('[data-connection-link]')).toHaveCount(0)
 
   // The click is the answer: the card joins the initiative and the pick ends, and the board
   // returns to its normal reading.

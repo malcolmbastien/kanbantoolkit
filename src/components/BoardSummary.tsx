@@ -323,6 +323,10 @@ export function BoardSummary({
     const parent: CardParent | undefined = p
       ? { id: p.id, title: p.title, type: typeOf(p.typeId) }
       : undefined
+    // A pick mode is open and this card is not one of its choices: choosing a card for an
+    // initiative happens on the cards workflow, and a parent must be an initiative on the board
+    // being viewed. Either way the card recedes and does not answer a press.
+    const picking = childPickId !== null || (parentPickId !== null && !onViewedBoard(c.id))
     // The direct children — archived ones included, because the rollup counts them and the count
     // beside the pips has to be the same number the percentage is about. Filtering them out here
     // is what made a card with one filed-away child read "nothing below" and "1 below" at once.
@@ -365,12 +369,8 @@ export function BoardSummary({
         locked={editMode}
         // The menu is new here: initiative cards never had one.
         onContextMenu={openCardMenu}
-        dimmed={
-          childPickId !== null ||
-          // Waiting for a parent, only the initiatives on this board are choices — so on a
-          // Program board the bands' initiatives dim and the board's own stay lit.
-          (parentPickId !== null && !onViewedBoard(c.id))
-        }
+        dimmed={picking}
+        inert={picking}
         onOpen={(id) => {
           if (justDragged.current) return
           // The pick state is read when the click happens, not captured: a memoized card keeps

@@ -148,6 +148,11 @@ interface Props {
   dropTarget?: boolean
   /** Dimmed because another card is part of the active multi-select group. */
   dimmed?: boolean
+  /**
+   * Not a choice in the pick mode that is open. A press, a right-click, a lift or a key does
+   * nothing: the card is drawn only to be read, not acted on, until the pick ends.
+   */
+  inert?: boolean
   /** Open an item. The surface brings the card into view as part of opening it. */
   onOpen: (id: string) => void
   /** Shift+click — start/extend the multi-select group. */
@@ -287,7 +292,7 @@ function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (depend
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, inert, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -299,8 +304,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   const hoverAllowed = useRef(true)
   const closeHover = useCallback(() => setHovered(false), [])
 
-  const dragProps =
-    draggable && !locked
+  const dragProps = inert
+    ? {
+        // Swallow the press here rather than let it reach the ground beneath and become a pan or
+        // a click-away: the card is in the pick mode's picture, not in its list of choices.
+        onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+      }
+    : draggable && !locked
       ? onLift
         ? {
             // The lift is ours rather than the browser's. A native drag is cancelled the
@@ -449,12 +459,18 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
 
   const openOnClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
-    if (locked) return
+    if (locked || inert) return
     closeHover()
     if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
     else onOpen(item.id)
   }
   const openOnContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (inert) {
+      // A menu on a card that is not a choice would offer edits unrelated to the pick.
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
     if (locked || !onContextMenu) return
     e.preventDefault()
     e.stopPropagation()
@@ -465,7 +481,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     return (
       <div
         {...dragProps}
-        {...cardKeyboard(item, locked, onOpen, onContextMenu)}
+        {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
         data-card-id={item.id}
         data-card-detail="summary"
         data-card-initiative={wide ? '' : undefined}
@@ -475,8 +491,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           'group relative flex min-h-[76px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] border-slate-300/80 bg-white text-left shadow-sm transition',
           summary.done && 'bg-slate-50',
           FOCUS_RING,
-          draggable && !locked && 'touch-pan-y',
-          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-md',
+          draggable && !locked && !inert && 'touch-pan-y',
+          locked || inert ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-md',
           selectionCls,
           lockCls,
           dimCls,
@@ -551,7 +567,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       <div
         ref={tileRef}
         {...dragProps}
-        {...cardKeyboard(item, locked, onOpen, onContextMenu)}
+        {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
         aria-label={label}
         data-card-id={item.id}
         data-card-detail="mini"
@@ -562,18 +578,18 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         onContextMenu={openOnContextMenu}
         // A pointer over the tile is a reader asking what it is; a press is a reader acting on
         // it, so the layer goes first and does not reappear until the pointer has left.
-        onMouseEnter={() => {
+        onMouseEnter={inert ? undefined : () => {
           hoverAllowed.current = true
           setHovered(true)
         }}
-        onMouseLeave={() => {
+        onMouseLeave={inert ? undefined : () => {
           hoverAllowed.current = true
           setHovered(false)
         }}
-        onFocus={() => {
+        onFocus={inert ? undefined : () => {
           if (hoverAllowed.current) setHovered(true)
         }}
-        onBlur={closeHover}
+        onBlur={inert ? undefined : closeHover}
         // Capture, so the tile's own press-to-lift handler still runs.
         onPointerDownCapture={() => {
           hoverAllowed.current = false
@@ -585,8 +601,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         className={cn(
           'relative h-6 w-6 shrink-0 rounded-[5px] border-2 transition',
           FOCUS_RING,
-          draggable && !locked && 'touch-pan-y',
-          locked ? 'cursor-default' : 'cursor-pointer hover:brightness-95',
+          draggable && !locked && !inert && 'touch-pan-y',
+          locked || inert ? 'cursor-default' : 'cursor-pointer hover:brightness-95',
           selectionCls,
           lockCls,
           dimCls,
@@ -608,7 +624,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         )}
         {multi && <span className="pointer-events-none absolute inset-0 rounded-[4px] bg-indigo-500/20" aria-hidden />}
 
-        <MiniHoverCard open={hovered && !locked} anchor={tileRef} onClose={closeHover}>
+        <MiniHoverCard open={hovered && !locked && !inert} anchor={tileRef} onClose={closeHover}>
           <div>
             <div className="flex items-center gap-1.5">
               {type.id !== NONE_TYPE_ID && (
@@ -713,13 +729,18 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     return (
       <div
         {...dragProps}
-        {...cardKeyboard(item, locked, onOpen, onContextMenu)}
+        {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
         data-card-id={item.id}
         data-card-detail="full"
         // The wide card is the initiative, and an initiative is what a card can roll up to — so
         // the marker is how a drop finds the cards that could be its target. A card is not one.
         data-card-initiative=""
         onContextMenu={(e) => {
+          if (inert) {
+            e.preventDefault()
+            e.stopPropagation()
+            return
+          }
           if (locked || !onContextMenu) return
           e.preventDefault()
           e.stopPropagation()
@@ -727,7 +748,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         }}
         onClick={(e) => {
           e.stopPropagation()
-          if (locked) return
+          if (locked || inert) return
           if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
           else onOpen(item.id)
         }}
@@ -741,8 +762,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           // lift aborts on `pointercancel`), while a horizontal swipe is the drag. Both axes ours
           // would make the board unscrollable from a card; both the browser's would make a card
           // undraggable.
-          draggable && !locked && 'touch-pan-y',
-          locked ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-lg',
+          draggable && !locked && !inert && 'touch-pan-y',
+          locked || inert ? 'cursor-default' : 'cursor-pointer hover:border-slate-400 hover:shadow-lg',
           selectionCls,
           lockCls,
           dimCls,
@@ -917,7 +938,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   return (
     <div
       {...dragProps}
-      {...cardKeyboard(item, locked, onOpen, onContextMenu)}
+      {...cardKeyboard(item, locked || inert, onOpen, onContextMenu)}
       data-card-id={item.id}
       data-card-detail="full"
       style={{
@@ -937,11 +958,16 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       }}
       onClick={(e) => {
         e.stopPropagation()
-        if (locked) return
+        if (locked || inert) return
         if (e.shiftKey && onMultiSelect) onMultiSelect(item.id)
         else onOpen(item.id)
       }}
       onContextMenu={(e) => {
+        if (inert) {
+          e.preventDefault()
+          e.stopPropagation()
+          return
+        }
         if (locked || !onContextMenu) return
         e.preventDefault()
         e.stopPropagation()
@@ -955,8 +981,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         'group relative flex min-h-[116px] w-full flex-col overflow-hidden rounded-lg border border-l-[4px] border-slate-300/80 text-left shadow-md transition',
         summary.done ? 'bg-slate-50' : 'bg-white',
         FOCUS_RING,
-        draggable && !locked && 'touch-pan-y',
-        locked ? 'cursor-default' : 'cursor-pointer hover:shadow-lg',
+        draggable && !locked && !inert && 'touch-pan-y',
+        locked || inert ? 'cursor-default' : 'cursor-pointer hover:shadow-lg',
         selectionCls,
         lockCls,
         dimCls,
@@ -1092,6 +1118,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.wide !== b.wide || a.blockedTone !== b.blockedTone) return false
   if (a.draggable !== b.draggable || a.locked !== b.locked) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
+  if (a.inert !== b.inert) return false
   if (a.waitingOn?.length !== b.waitingOn?.length) return false
   if (a.waitingOn && b.waitingOn && a.waitingOn.some((w, i) => w.id !== b.waitingOn![i].id || w.title !== b.waitingOn![i].title)) return false
   if (a.dropTarget !== b.dropTarget) return false

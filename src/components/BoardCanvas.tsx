@@ -590,6 +590,14 @@ function LaneBox({
           const parent: CardParent | undefined = p ? { id: p.id, title: p.title, type: typeOf(p.typeId) } : undefined
           const roll = ctx.model.rollup.get(c.id)!
           const stage = ctx.effectiveLane.get(c.id) ? effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) : undefined
+          // Waiting for a parent, only the initiatives are choices. Choosing a card for an
+          // initiative, the cards already under it are the link that is already there, and an
+          // initiative is not a card at all. Either way, what is not a choice is dimmed and does
+          // not answer a press.
+          const picking =
+            (ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative') ||
+            (ctx.childPickId !== null &&
+              (typeOf(c.typeId).name === 'Initiative' || ctx.model.parentOf.get(c.id) === ctx.childPickId))
           return {
             id: c.id,
             node: (
@@ -610,14 +618,9 @@ function LaneBox({
                 // A selected boundary card is the thing being read: everything that does not wait
                 // on it recedes, so the relationship is visible across the whole board.
                 (ctx.boundaryId !== null && !ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId)) ||
-                // Waiting for a parent, only the initiatives are choices.
-                (ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative') ||
-                // Choosing a card for an initiative: the cards already under it are the link
-                // that is already there, so they recede and the cards still to connect stay lit.
-                // An initiative is not a card, so it is not a choice either.
-                (ctx.childPickId !== null &&
-                  (typeOf(c.typeId).name === 'Initiative' || ctx.model.parentOf.get(c.id) === ctx.childPickId))
+                picking
               }
+              inert={picking}
               users={ctx.users}
               onMultiSelect={ctx.toggleMultiSelect}
               onContextMenu={ctx.openCardMenu}
@@ -1053,7 +1056,13 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
       // an initiative is not one.
       if (childPick) {
         const picked = items.find((i) => i.id === itemId)
-        if (picked && !isInitiative(picked.typeId)) {
+        // A card already under this initiative is the edge that is already there; a press on it
+        // changes nothing, so it must not end the pick either.
+        if (
+          picked &&
+          !isInitiative(picked.typeId) &&
+          model.parentOf.get(itemId) !== childPick
+        ) {
           setParent(itemId, childPick)
           cancelChildPick()
         }

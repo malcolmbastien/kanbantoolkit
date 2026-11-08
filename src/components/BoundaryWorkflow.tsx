@@ -235,6 +235,8 @@ function BoundaryCard({
   const hidden = entry.dependents.length - dependents.length
 
   const select = () => {
+    // A pick mode is open and this card is not one of its choices: a press here is not a press.
+    if (dimmed) return
     const wasSelected = selected
     toggleBoundary(entry.dependency.id)
     if (wasSelected) {
@@ -276,13 +278,13 @@ function BoundaryCard({
           closeHover()
           select()
         }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={closeHover}
-        onFocus={() => setHovered(true)}
-        onBlur={closeHover}
+        onMouseEnter={dimmed ? undefined : () => setHovered(true)}
+        onMouseLeave={dimmed ? undefined : closeHover}
+        onFocus={dimmed ? undefined : () => setHovered(true)}
+        onBlur={dimmed ? undefined : closeHover}
         className={cn(
           'relative h-6 w-6 shrink-0 rounded-[5px] border-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500',
-          selected ? 'ring-2 ring-slate-900' : 'hover:brightness-95',
+          dimmed ? 'cursor-default' : selected ? 'ring-2 ring-slate-900' : 'hover:brightness-95',
           dimCls,
         )}
         style={{ backgroundColor: tintOn(type.color, 0.28), borderColor: type.color }}
@@ -297,7 +299,7 @@ function BoundaryCard({
           />
         )}
 
-        <MiniHoverCard open={hovered} anchor={tileRef} onClose={closeHover}>
+        <MiniHoverCard open={hovered && !dimmed} anchor={tileRef} onClose={closeHover}>
           <div>
             <div className="flex items-center gap-1.5">
               <span
@@ -360,6 +362,7 @@ function BoundaryCard({
           <button
             onClick={(event) => {
               event.stopPropagation()
+              if (dimmed) return
               openItem(entry.dependency.id)
             }}
             className="ml-auto flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-micro font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
@@ -465,6 +468,7 @@ function BoundaryCard({
               <button
                 onClick={(event) => {
                   event.stopPropagation()
+                  if (dimmed) return
                   openItem(dependent.id)
                 }}
                 className="flex w-full items-center gap-1 rounded text-left text-micro text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
@@ -480,6 +484,7 @@ function BoundaryCard({
           <button
             onClick={(event) => {
               event.stopPropagation()
+              if (dimmed) return
               setExpanded(true)
             }}
             className="mt-0.5 text-micro font-medium text-indigo-700 hover:underline"
