@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react'
-import { Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock, ShieldAlert } from 'lucide-react'
+import { Ban, Check, Clock, CornerDownRight, Link2, ListChecks, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUCKET_DOT, chipColors, FLAG_BADGE, FLAG_BADGE_SHAPE, softChipColors, STAGE_COLOR, tintOn } from '@/lib/colors'
 import { dueLabel, dueState } from '@/domain/due'
@@ -20,8 +20,6 @@ import type { IssueType, Item, Stage, User } from '@/domain/types'
 
 export interface CardSummary {
   childCount: number
-  /** Cards that depend on this one (unresolved). */
-  dependentsCount: number
   /** How long the card has sat in its lane, when known. Shown only past a threshold. */
   ageDays?: number
   /** Descendants (any depth) explicitly blocked and still open — rolled up. */
@@ -443,13 +441,6 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
         why: `Waiting on ${waitingOn.map((wait) => wait.title).join(', ')}`,
       })
     }
-    if (!complete && summary.dependentsCount > 0) {
-      found.push({
-        label: `${summary.dependentsCount} depend on it`,
-        tone: 'watch',
-        why: `${summary.dependentsCount} item${summary.dependentsCount === 1 ? '' : 's'} depend on this — if it slips, they are blocked`,
-      })
-    }
     if (aged) {
       found.push({
         label: `${summary.ageDays}d in lane`,
@@ -717,16 +708,6 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             tone: soft ? ('watch' as const) : f.tone,
           }
         })),
-      ...(!complete && summary.dependentsCount > 0
-        ? [
-            {
-              key: 'dependents',
-              label: `${summary.dependentsCount} ${summary.dependentsCount === 1 ? 'depends' : 'depend'} on it`,
-              why: `${summary.dependentsCount} item${summary.dependentsCount === 1 ? '' : 's'} depend on this — if it slips, they are blocked`,
-              tone: 'watch' as const,
-            },
-          ]
-        : []),
       ...(!complete && boundary
         ? [
             {
@@ -1049,14 +1030,6 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           {blockedAlert}
           {rolledUpBlocked}
           <WaitChips waits={complete ? [] : waitingOn} onBoundary={onBoundary} />
-          {!complete && summary.dependentsCount > 0 && (
-            <span
-              className="flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-micro font-semibold text-amber-800 ring-1 ring-amber-300"
-              title={`${summary.dependentsCount} card${summary.dependentsCount === 1 ? '' : 's'} depend on this`}
-            >
-              <ShieldAlert size={11} /> {summary.dependentsCount} depend on it
-            </span>
-          )}
         </div>
 
         {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
@@ -1153,7 +1126,6 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
 
 const summaryEqual = (a: CardSummary, b: CardSummary) =>
   a.childCount === b.childCount &&
-  a.dependentsCount === b.dependentsCount &&
   a.blockedBelow === b.blockedBelow &&
   a.openDescendants === b.openDescendants &&
   a.rollupPercent === b.rollupPercent &&

@@ -108,3 +108,14 @@ test('a Done card keeps no lane-age warning', async ({ page }) => {
   await expect(done.locator('[title$="days in this lane"]')).toHaveCount(0)
   await expect(done.getByText(/in lane/)).toHaveCount(0)
 })
+
+test('waiting is a warning; being waited on is not', async ({ page }) => {
+  // Team Nova's identity contract blocks SSO on Team Atlas, so one card waits on it. The card
+  // that is waited on wears no badge for it: the relationship is read from the card that waits,
+  // in its Waiting-on chips and in the drawer.
+  await openBoard(page, '/app?board=b-nova')
+  const blocker = page.locator('[data-workflow="cards"] [data-card-id="st-identity-contract"]')
+  await expect(blocker).toBeVisible()
+  await expect(blocker).not.toContainText('depend on it')
+  await expect(blocker).not.toContainText('depends on it')
+})

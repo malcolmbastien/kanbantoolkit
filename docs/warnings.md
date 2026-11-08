@@ -23,16 +23,14 @@ initiative with nothing below it raises nothing.
 | --- | --- | --- |
 | **Blocked**, a full-width red band with the reason | Someone marked the card stopped for something that is not another card. | **Unblock** in the card's panel, which records the change in its history. |
 | **N blocked**, a red pill on an initiative card | N cards below are explicitly blocked and still open. On a program or portfolio board the count is amber and reads **N blocked below**. | Those cards are unblocked or finished. |
-| **N depend on it**, an amber shield | N unresolved items depend on this one, so a slip blocks them. Not shown once this item is done. | The dependents finish, or the links are removed. |
 | **Waiting on**, named chips | The card waits on work **outside this board** — the boundary workflow. Each chip names it and opens the other end. | The external work reaches Done, or the boundary link is removed. |
 | **Due 12 Mar**, a slate chip | The day the card is promised for. A date, not a state: the target start/end pair in the drawer is the plan a management surface reads, this is the promise a reader is held to. | The due date is moved in the drawer, or cleared. |
 | **Due in 2d**, an amber chip | The due date is inside the week the board's **Due soon** filter names. A chip, never a block: the card can still move, and it clears when the work is done or the day moves. | The card is finished, or the date moves out. |
 | **3d overdue**, a rose chip | The due date has passed and the card is not done — the same reading as the **Overdue** filter and the dashboard's Overdue count. | The card reaches Done, or the date moves. |
 | **Nd in lane**, a grey clock | In its current committed lane (Not Started or In Progress) for at least 7 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. Not **Stale**, below. | The card moves to another lane. |
 
-A Done card keeps its history but not its warnings: the age cue, a blocked band, a dependents shield
-and a boundary chip are not drawn on its face. The same applies to a completed initiative's health
-flags.
+A Done card keeps its history but not its warnings: the age cue, a blocked band and a boundary chip
+are not drawn on its face. The same applies to a completed initiative's health flags.
 
 A card's own dependency on another card is not a badge on its face: it is read in the card's
 **Dependencies** section, and it clears when the card it waits on reaches Done. An initiative above it
@@ -61,9 +59,6 @@ The flags themselves:
 | **N unowned** | watch | N committed cards below have no assignee. | Each gets an owner, or leaves the committed stages. |
 | **N backlog** | watch | The initiative is committed, but N of its leaves are in Backlog. | Those cards leave Backlog, or the initiative returns to Backlog. |
 | **N ending later** | watch | N cards below are planned to end after the initiative's target end date. About the plan's window, not the due date: two promises on different days is not an inconsistency. | The target dates are brought into line, or the cards finish. |
-
-**N depend on it** appears on an initiative too, but it is not a health rule: it is a fact about the
-item rather than about the work below it.
 
 In the item panel, an initiative's warnings are gathered under one **N warnings** heading, and where a
 rule found particular cards its chip opens them.

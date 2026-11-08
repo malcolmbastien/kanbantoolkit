@@ -638,7 +638,6 @@ function LaneBox({
               completed={stage === 'done'}
               summary={{
                 childCount: ctx.model.childrenOf.get(c.id)?.length ?? 0,
-                dependentsCount: ctx.model.openDependents.get(c.id) ?? 0,
                 blockedBelow: ctx.model.blockedBelow.get(c.id) ?? 0,
                 openDescendants: ctx.model.openDescendants.get(c.id) ?? 0,
                 rollupPercent: (ctx.model.childrenOf.get(c.id)?.length ?? 0) > 0 ? roll.percent : undefined,

@@ -33,8 +33,6 @@ export interface BoardModel {
   dependentsOf: ReadonlyMap<string, readonly string[]>
   /** The still-open dependencies of this item. */
   openDependencies: ReadonlyMap<string, ReadonlySet<string>>
-  /** How many dependents are still open. */
-  openDependents: ReadonlyMap<string, number>
 }
 
 
@@ -140,7 +138,6 @@ export function buildBoardModel(graph: Graph): BoardModel {
   const dependenciesOf = new Map<string, string[]>()
   const dependentsOf = new Map<string, string[]>()
   const openDependencies = new Map<string, Set<string>>()
-  const openDependents = new Map<string, number>()
   for (const link of graph.links) {
     const dependencies = dependenciesOf.get(link.to)
     if (dependencies) dependencies.push(link.from)
@@ -152,9 +149,6 @@ export function buildBoardModel(graph: Graph): BoardModel {
       const waiting = openDependencies.get(link.to)
       if (waiting) waiting.add(link.from)
       else openDependencies.set(link.to, new Set([link.from]))
-    }
-    if (status.get(link.to)?.resolved !== true) {
-      openDependents.set(link.from, (openDependents.get(link.from) ?? 0) + 1)
     }
   }
 
@@ -177,6 +171,5 @@ export function buildBoardModel(graph: Graph): BoardModel {
     dependenciesOf,
     dependentsOf,
     openDependencies,
-    openDependents,
   }
 }

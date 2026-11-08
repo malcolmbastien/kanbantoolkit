@@ -3,7 +3,7 @@ import { ChartNoAxesGantt, Minus, Plus } from 'lucide-react'
 import { Card } from './Card'
 import { PersonAvatar } from './PersonAvatar'
 import { boardInitiatives, isPortfolio, portfolioInitiatives } from '@/domain/board'
-import { blockedBelow, checklistProgress, decompositionChildren, dependentsOf, isComplete, openDescendants, rollupOf, statusOf, uncommittedBelow, type Graph } from '@/domain/derive'
+import { blockedBelow, checklistProgress, decompositionChildren, isComplete, openDescendants, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { layoutTimeline, type TimelineDay } from '@/domain/timelineLayout'
 import { TIMELINE_DAY_PX, TIMELINE_ZOOM_LABELS, TIMELINE_ZOOMS, zoomIn, zoomOut } from '@/domain/timelineZoom'
 import { peopleOf } from '@/domain/users'
@@ -516,7 +516,6 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           onOpen={(id) => openItem(id)}
                           summary={{
                             childCount: decompositionChildren(item.id, edges).length,
-                            dependentsCount: dependentsOf(item.id, graph).filter((d) => !statusOf(d.dependent.id, graph).resolved).length,
                             blockedBelow: blockedBelow(item.id, graph),
                             uncommittedBelow: uncommittedBelow(item.id, graph),
                             openDescendants: openDescendants(item.id, graph).length,

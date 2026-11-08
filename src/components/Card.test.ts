@@ -13,7 +13,6 @@ const type: IssueType = { id: 't-story', name: 'User Story', color: '#0ea5e9' }
 const item = (patch: Partial<Item> = {}): Item => ({ id: 'a', title: 'A card', typeId: 't-story', createdAt: 0, ...patch })
 const summary = {
   childCount: 0,
-  dependentsCount: 0,
   linksCount: 0,
   blockedBelow: 0,
   openDescendants: 0,

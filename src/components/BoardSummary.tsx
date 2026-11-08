@@ -400,7 +400,6 @@ export function BoardSummary({
         }}
         summary={{
           childCount: model.childrenOf.get(c.id)?.length ?? 0,
-          dependentsCount: model.openDependents.get(c.id) ?? 0,
           blockedBelow: model.blockedBelow.get(c.id) ?? 0,
           uncommittedBelow:
             (model.rollup.get(c.id)?.bucket === 'notStarted' || model.rollup.get(c.id)?.bucket === 'inProgress')
