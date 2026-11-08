@@ -449,6 +449,8 @@ test('Set parent from the card menu links on a click, and does not open the draw
   await page.locator('[data-card-id="st-signup-rebuild"]').click({ button: 'right' })
   await page.locator('[data-card-menu][role="menu"]').first().getByText('Set parent…').click()
   await expect(page.locator('[data-parent-pick]')).toBeVisible()
+  // A boundary card is never a parent on this board: it is external work, and it recedes too.
+  await expect(page.locator('[data-boundary-card="init-identity"]')).toHaveClass(/opacity-40/)
 
   await page.locator('[data-card-id="init-billing"]').click()
 
@@ -473,6 +475,9 @@ test('Connect a card dims the cards the initiative already holds, and links on a
   await expect(page.locator('[data-card-id="st-payment-retries"]')).toHaveClass(/opacity-40/)
   await expect(page.locator('[data-card-id="st-signup-rebuild"]')).not.toHaveClass(/opacity-40/)
   await expect(page.locator('[data-card-id="st-enterprise-sso"]')).not.toHaveClass(/opacity-40/)
+  // The boundary band is read at the edge of this board, so its cards live on another board and
+  // are not candidates for this initiative: they recede with the rest of what is not a choice.
+  await expect(page.locator('[data-boundary-card="init-identity"]')).toHaveClass(/opacity-40/)
 
   // The click is the answer: the card joins the initiative and the pick ends, and the board
   // returns to its normal reading.
@@ -481,4 +486,5 @@ test('Connect a card dims the cards the initiative already holds, and links on a
   await expect(page.locator('[data-item-panel]')).toHaveCount(0)
   await expect(page.locator('[data-card-id="st-signup-rebuild"]')).toContainText('Billing migration')
   await expect(page.locator('[data-card-id="st-usage-billing"]')).not.toHaveClass(/opacity-40/)
+  await expect(page.locator('[data-boundary-card="init-identity"]')).not.toHaveClass(/opacity-40/)
 })

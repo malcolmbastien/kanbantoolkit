@@ -56,6 +56,12 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
   const toggleBoundary = useStore((s) => s.toggleBoundary)
   const boardDetail = useStore((s) => s.boardDetail)
   const editMode = useStore((s) => s.editMode)
+  // A pick mode is open: one end of a decomposition edge is being chosen on the board. A
+  // boundary card lives on another board, so it is never that end — it recedes with the other
+  // things that are not choices.
+  const parentPickId = useStore((s) => s.parentPickId)
+  const childPickId = useStore((s) => s.childPickId)
+  const picking = parentPickId !== null || childPickId !== null
   // Boundary cards are cards on this board's edge, so they follow the same dial as the rest.
   const detail: BoardDetail = editMode ? 'full' : detailFor(boardDetail, boardId)
   const [collapsed, setCollapsed] = useState(false)
@@ -170,6 +176,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
                     type={typeOf(entry.dependency.typeId)}
                     selected={boundaryId === entry.dependency.id}
                     detail={detail}
+                    dimmed={picking}
                   />
                 ))}
                 {inStage.length === 0 && (
@@ -200,12 +207,15 @@ function BoundaryCard({
   type,
   selected,
   detail,
+  dimmed,
 }: {
   entry: BoundaryEntry
   homeBoard: string
   type: IssueType
   selected: boolean
   detail: BoardDetail
+  /** A pick mode is open on the board; this card is not one of that edge's choices. */
+  dimmed: boolean
 }) {
   const toggleBoundary = useStore((s) => s.toggleBoundary)
   const openItem = useStore((s) => s.openItem)
@@ -219,6 +229,8 @@ function BoundaryCard({
 
   const state = DEP_STATE_STYLES[entry.state]
   const chip = chipColors(type.color)
+  // The same recede a card wears when it is not a choice in a pick mode.
+  const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
   const dependents = expanded ? entry.dependents : entry.dependents.slice(0, 3)
   const hidden = entry.dependents.length - dependents.length
 
@@ -271,6 +283,7 @@ function BoundaryCard({
         className={cn(
           'relative h-6 w-6 shrink-0 rounded-[5px] border-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500',
           selected ? 'ring-2 ring-slate-900' : 'hover:brightness-95',
+          dimCls,
         )}
         style={{ backgroundColor: tintOn(type.color, 0.28), borderColor: type.color }}
       >
@@ -332,6 +345,7 @@ function BoundaryCard({
         className={cn(
           'cursor-pointer rounded-lg border bg-white p-2 shadow-sm transition hover:shadow-md',
           selected ? 'border-slate-900 ring-2 ring-slate-900' : 'border-slate-300/80 hover:border-slate-400',
+          dimCls,
         )}
       >
         <div className="flex items-center gap-1.5">
@@ -393,6 +407,7 @@ function BoundaryCard({
       className={cn(
         'cursor-pointer rounded-lg border bg-white p-2.5 shadow-md transition hover:shadow-lg',
         selected ? 'border-slate-900 ring-2 ring-slate-900' : 'border-slate-300/80 hover:border-slate-400',
+        dimCls,
       )}
     >
       <div className="flex items-center gap-1.5">
