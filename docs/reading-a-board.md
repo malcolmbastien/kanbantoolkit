@@ -215,6 +215,10 @@ its section, and a move that would cross a section is refused because the work, 
 decides the section. If its saved cell belonged to another section, the board draws it in the derived
 section rather than in the wrong column.
 
+A parent is a hierarchy edit, not a way off the board: an initiative that is given a parent on the
+same board keeps its own card and the cell it was arranged in, and the parent's pips count it among
+their children.
+
 ## The boundary — waiting on
 
 Some work waits on something that lives on **another board**. The **Boundary — waiting on** section

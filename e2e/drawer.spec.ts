@@ -455,6 +455,10 @@ test('Set parent from the card menu links on a click, and does not open the draw
   await expect(page.locator('[data-card-id="st-signup-rebuild"]')).not.toHaveClass(/opacity-40/)
   // A boundary card is never a parent on this board: it is external work, and it recedes too.
   await expect(page.locator('[data-boundary-card="init-identity"]')).toHaveClass(/opacity-40/)
+  // The card's current parent is not a choice either — naming it again changes nothing.
+  await expect(page.locator('[data-card-id="init-signup-redesign"]')).toHaveClass(/opacity-40/)
+  await page.locator('[data-card-id="init-signup-redesign"]').click()
+  await expect(page.locator('[data-parent-pick]')).toBeVisible()
 
   // A dimmed card is not a parent, and pressing it changes nothing: the pick stays open.
   await page.locator('[data-card-id="st-usage-billing"]').click()
@@ -513,4 +517,27 @@ test('Connect a card dims the cards the initiative already holds, and links on a
   await expect(page.locator('[data-card-id="st-usage-billing"]')).not.toHaveClass(/opacity-40/)
   await expect(page.locator('[data-boundary-card="init-identity"]')).not.toHaveClass(/opacity-40/)
   await expect(page.locator('[data-card-id="init-billing"]')).not.toHaveAttribute('data-pick-root')
+})
+
+test('an initiative given a parent stays on the board, and its parent is not a choice again', async ({ page }) => {
+  await openBoard(page)
+  const trial = page.locator('[data-workflow="initiatives"] [data-card-id="init-trial"]')
+  const signup = page.locator('[data-workflow="initiatives"] [data-card-id="init-signup-redesign"]')
+
+  await trial.first().click({ button: 'right' })
+  await page.locator('[data-card-menu][role="menu"]').first().getByText('Set parent…').click()
+  await signup.first().click()
+
+  // A parent is a hierarchy edit, not a way off the board: the initiative keeps its card and the
+  // cell it was arranged in, and reads what it rolls up to.
+  await expect(trial).toHaveCount(1)
+  await expect(trial).toContainText('Signup redesign')
+
+  // Setting the same parent again is not a choice: it recedes, and a press on it does nothing.
+  await trial.first().click({ button: 'right' })
+  await page.locator('[data-card-menu][role="menu"]').first().getByText('Set parent…').click()
+  await expect(signup).toHaveClass(/opacity-40/)
+  await signup.first().click()
+  await expect(page.locator('[data-parent-pick]')).toBeVisible()
+  await expect(page.locator('[data-item-panel]')).toHaveCount(0)
 })

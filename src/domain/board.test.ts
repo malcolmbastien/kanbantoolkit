@@ -640,14 +640,13 @@ describe('boardInitiatives — the one set every initiative surface reads', () =
     expect(boardInitiatives(g, 'b-mine', types).map((i) => i.id)).toEqual(['a'])
   })
 
-  it('rootsOnly hides an initiative whose parent sits on the same board', () => {
+  it('draws an initiative whose parent sits on the same board — a parent is a hierarchy edit, not a way off the board', () => {
     const g = graphOf(
       [item('parent', INIT), item('child', INIT)],
       [edge('parent', 'child')],
       [on('parent'), on('child')],
     )
-    expect(boardInitiatives(g, 'b-mine', types).map((i) => i.id)).toEqual(['parent'])
-    expect(boardInitiatives(g, 'b-mine', types, { rootsOnly: false }).map((i) => i.id)).toEqual(['parent', 'child'])
+    expect(boardInitiatives(g, 'b-mine', types).map((i) => i.id)).toEqual(['parent', 'child'])
   })
 
   it('an initiative parented from another board is still top-level here', () => {

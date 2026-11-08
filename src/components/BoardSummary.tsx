@@ -60,7 +60,6 @@ const HEAD_ROW = 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1'
 export function BoardSummary({
   boardId,
   viewedBoardId,
-  rootsOnly,
   variant = 'team',
   interactive = false,
   onlyIds,
@@ -68,7 +67,6 @@ export function BoardSummary({
   boardId: string
   /** The board the person is looking at, when this is a band inside another board. */
   viewedBoardId?: string
-  rootsOnly?: boolean
   variant?: 'initiatives' | 'team'
   /** Own surface: drag initiatives between cells and edit the flow. Linked bands set this false. */
   interactive?: boolean
@@ -137,10 +135,9 @@ export function BoardSummary({
     issueTypes.find((t) => t.id === typeId) ?? { id: typeId, name: 'Item', color: '#64748b' }
 
   // Initiative-level work only — the same computation the dashboard and the timeline read, so
-  // the surfaces cannot disagree about what this board's initiatives are. `rootsOnly` restricts
-  // to the board's *local* top-level initiatives: ones whose parent is not on this same board,
-  // so an initiative can roll up to a top-level initiative on another management board and
-  // still appear as top-level on its own board.
+  // the surfaces cannot disagree about what this board's initiatives are. Every initiative
+  // placed on the board is drawn, including one that rolls up under another initiative here:
+  // gaining a parent is a hierarchy edit, not a way off the board.
   // A named set is drawn as named, wherever the initiatives live; otherwise this is the board's
   // own initiatives, found once so every surface that reads them agrees.
   // The board's initiatives, found when the data changes rather than on every selection: one
@@ -150,8 +147,8 @@ export function BoardSummary({
     const only = onlyKey === null ? null : new Set(onlyKey.split(',').filter(Boolean))
     return only
       ? items.filter((i) => only.has(i.id) && isInitiativeItem(i, issueTypes) && !i.archived)
-      : boardInitiatives({ items, edges, links, placements, lanes }, boardId, issueTypes, { rootsOnly })
-  }, [onlyKey, items, edges, links, placements, lanes, issueTypes, boardId, rootsOnly])
+      : boardInitiatives({ items, edges, links, placements, lanes }, boardId, issueTypes)
+  }, [onlyKey, items, edges, links, placements, lanes, issueTypes, boardId])
   const initiatives = allInitiatives
 
   /**
@@ -325,10 +322,14 @@ export function BoardSummary({
       : undefined
     // The pick's root — the card the edge is being formed for — stays lit and ringed. Everything
     // else that is not a choice recedes: choosing a card for an initiative happens on the cards
-    // workflow, and a parent must be an initiative on the board being viewed.
+    // workflow, and a parent must be an initiative on the board being viewed. A card's **current**
+    // parent is not a choice either — naming it again changes nothing — so it recedes too.
     const pickRoot = c.id === childPickId || c.id === parentPickId
+    const currentParent = parentPickId ? model.parentOf.get(parentPickId) : undefined
     const picking =
-      !pickRoot && (childPickId !== null || (parentPickId !== null && !onViewedBoard(c.id)))
+      !pickRoot &&
+      (childPickId !== null ||
+        (parentPickId !== null && (!onViewedBoard(c.id) || c.id === currentParent)))
     // The direct children — archived ones included, because the rollup counts them and the count
     // beside the pips has to be the same number the percentage is about. Filtering them out here
     // is what made a card with one filed-away child read "nothing below" and "1 below" at once.

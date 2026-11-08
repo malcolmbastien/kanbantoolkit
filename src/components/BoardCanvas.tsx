@@ -592,12 +592,15 @@ function LaneBox({
           const stage = ctx.effectiveLane.get(c.id) ? effectiveStage(lanes, ctx.effectiveLane.get(c.id)!) : undefined
           // The pick's root is the card the edge is being formed for: it keeps its place and its
           // ring while everything that is not a choice recedes. Waiting for a parent, only the
-          // initiatives are choices; choosing a card for an initiative, the cards already under
-          // it are the link that is already there, and an initiative is not a card at all.
+          // initiatives are choices — and not the card's current parent, which would change
+          // nothing. Choosing a card for an initiative, the cards already under it are the link
+          // that is already there, and an initiative is not a card at all.
           const pickRoot = ctx.parentPickId === c.id || ctx.childPickId === c.id
+          const currentParent = ctx.parentPickId ? ctx.model.parentOf.get(ctx.parentPickId) : undefined
           const picking =
             !pickRoot &&
-            ((ctx.parentPickId !== null && typeOf(c.typeId).name !== 'Initiative') ||
+            ((ctx.parentPickId !== null &&
+              (typeOf(c.typeId).name !== 'Initiative' || c.id === currentParent)) ||
               (ctx.childPickId !== null &&
                 (typeOf(c.typeId).name === 'Initiative' || ctx.model.parentOf.get(c.id) === ctx.childPickId)))
           return {
