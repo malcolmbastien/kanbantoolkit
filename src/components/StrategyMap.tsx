@@ -1,12 +1,12 @@
-import { Fragment, useState } from 'react'
-import { Plus, Target, TriangleAlert } from 'lucide-react'
+import { Fragment } from 'react'
+import { Target, TriangleAlert } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
 import { ItemPicker } from './ItemPicker'
 import { PortfolioHeatmap } from './PortfolioHeatmap'
 import { objectiveInitiatives, portfolioInitiatives } from '@/domain/board'
 import { portfolioHeatmap } from '@/domain/portfolio'
 import { objectiveRollup, okrCoverage, type Graph } from '@/domain/derive'
-import { periodById, periodNameOf, periodRank, periodsInOrder } from '@/domain/periods'
+import { periodById, periodNameOf, periodRank } from '@/domain/periods'
 import { periodRangeLabel } from '@/lib/periodRange'
 import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -30,9 +30,10 @@ import type { Item, Objective } from '@/domain/types'
  * are visible exactly where they occur.
  *
  * Attribution edges are the same ones the Objectives view edits ("one relation, two homes").
- * Editing the OKR itself (title, key results, its period) stays in the Objectives view, which this
- * links out to. An objective has no score of its own: how far along it is comes from the work that
- * serves it, and it is due when its period ends rather than on a date somebody typed for it.
+ * Authoring the OKR itself — making one, its title, key results, its period — stays in the
+ * Objectives view, which this links out to; the portfolio board reads what has been committed.
+ * An objective has no score of its own: how far along it is comes from the work that serves it,
+ * and it is due when its period ends rather than on a date somebody typed for it.
  */
 export function StrategyMap({ boardId }: { boardId: string }) {
   const items = useStore((s) => s.items)
@@ -47,10 +48,6 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const boards = useStore((s) => s.boards)
   const setAttribution = useStore((s) => s.setAttribution)
   const setObjectives = useStore((s) => s.setObjectives)
-  const addObjective = useStore((s) => s.addObjective)
-
-  /** The draft for a new objective, made here rather than sent to another page for. */
-  const [newObjective, setNewObjective] = useState('')
 
   const graph: Graph = { items, edges, links, placements, lanes }
 
@@ -84,20 +81,10 @@ export function StrategyMap({ boardId }: { boardId: string }) {
 
   // Periods read in their own order — a start date when they have one, the name when they do not —
   // so a map of two periods is a calendar, not the order somebody happened to type them in.
-  const orderedPeriods = periodsInOrder(periods)
   const ordered = [...objectives].sort(
     (a, b) => periodRank(periods, a.periodId) - periodRank(periods, b.periodId) || a.title.localeCompare(b.title),
   )
   const periodCount = new Set(ordered.map((o) => o.periodId)).size
-  // Where an objective made here lands: the latest period the map already shows, so it appears
-  // under a heading a reader recognises rather than inventing one. With no period yet there is
-  // nothing to commit for — the Objectives view is where a period is named.
-  const latestPeriod = orderedPeriods[orderedPeriods.length - 1]
-  const makeObjective = () => {
-    if (!latestPeriod || newObjective.trim().length < 2) return
-    addObjective(newObjective.trim(), latestPeriod.id)
-    setNewObjective('')
-  }
 
   /** The board an initiative is carried by, for the picker — where the work actually lives. */
   const boardNameOf = (itemId: string): string | undefined => {
@@ -211,48 +198,15 @@ export function StrategyMap({ boardId }: { boardId: string }) {
         <span>{count(objectives.length, 'objective')}</span>
         <span title="Initiatives mapped to an objective, wherever their board sits">{count(linkedCount, 'linked initiative')}</span>
         <span className={cn(gapCount > 0 && 'font-semibold text-amber-700')}>{count(gapCount, 'gap')}</span>
-
-        {/* Making an objective is the board's business too: a portfolio is where a reader notices
-            that something the organisation is committed to has no initiative serving it. The new
-            one arrives as a card with its coverage gap inline — which is the next thing to fix. */}
-        <div className="ml-auto flex items-center gap-1">
-          <input
-            value={newObjective}
-            onChange={(e) => setNewObjective(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') makeObjective()
-            }}
-            disabled={!latestPeriod}
-            placeholder={`New objective in ${latestPeriod?.name ?? 'a period'}…`}
-            className="w-48 rounded border border-slate-200 bg-white px-2 py-1 text-meta text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
-          />
-          <button
-            disabled={!latestPeriod || newObjective.trim().length < 2}
-            onClick={makeObjective}
-            title={
-              latestPeriod
-                ? `Add an objective to ${latestPeriod.name} — it appears here with its coverage gap until an initiative is mapped to it`
-                : 'Name a period in the Objectives view first — an objective is committed for one'
-            }
-            className="flex items-center gap-1 rounded-md bg-violet-600 px-2 py-1 text-meta font-medium text-white hover:bg-violet-500 disabled:opacity-40"
-          >
-            <Plus size={12} /> New objective
-          </button>
-        </div>
       </div>
 
       <PortfolioHeatmap heatmap={heatmap} />
 
       {objectives.length === 0 && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-meta text-slate-600">
-          {latestPeriod ? (
-            <>
-              No objectives yet — name one above and press{' '}
-              <span className="font-semibold text-slate-700">New objective</span>.
-            </>
-          ) : (
-            <>No periods yet. Name one in the Objectives view, set its window, then commit an objective to it.</>
-          )}
+          {periods.length === 0
+            ? 'No periods yet. Name one in the Objectives view, set its window, then commit an objective to it.'
+            : 'No objectives yet — add one in the Objectives view, with the period it is committed for.'}
         </div>
       )}
 

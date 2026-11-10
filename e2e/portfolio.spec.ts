@@ -9,6 +9,8 @@ import { expect, test } from '@playwright/test'
  */
 test('the portfolio heatmap shows coverage, health and a way into each objective', async ({ page }) => {
   await page.goto('/app?board=b-strategy')
+  // The strategy map is the board itself, so it is not a band that can be folded away.
+  await expect(page.getByRole('button', { name: 'Collapse Strategy map' })).toHaveCount(0)
   const heatmap = page.locator('[data-portfolio-heatmap]')
   await expect(heatmap).toBeVisible()
   await expect(heatmap).toContainText('Portfolio at a glance')

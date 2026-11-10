@@ -9,7 +9,7 @@ import { InlineEdit } from './InlineEdit'
 import { BoundaryWorkflow } from './BoundaryWorkflow'
 import { BoardSummary } from './BoardSummary'
 import { ManagementBoard } from './ManagementBoard'
-import { WorkflowToggle } from './WorkflowToggle'
+import { WorkflowHeader } from './WorkflowHeader'
 import { isAggregating, isInitiativeItem } from '@/domain/board'
 import { boardCsv, csvFilename } from '@/domain/csv'
 import { activeFilterCount } from '@/domain/filters'
@@ -218,21 +218,19 @@ export function BoardView({ requestMove }: Props) {
             a tinted band of its own, so a reader knows which workflow they are looking at
             before reading a single column. */}
         <section className="space-y-2.5">
-          <div className={cn('sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border px-3 py-1.5', accent.section, 'border-slate-200/70 bg-white/80 backdrop-blur-sm')}>
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <WorkflowToggle
-                name="Initiatives workflow"
-                collapsed={initiativesCollapsed}
-                onToggle={(button) => toggleWorkflow(initiativesKey, button)}
-              />
-              <span className={cn('h-2 w-2 shrink-0 rounded-full', accent.dot)} />
-              <h2 className="shrink-0 text-body font-semibold uppercase tracking-wide text-slate-700">Initiatives workflow</h2>
-              {initiativesBand && <FlowDescription flow={initiativesBand} editable={editMode && editable} />}
-            </div>
-            <span className="hidden shrink-0 text-micro font-semibold text-slate-600 sm:inline">
-              {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
-            </span>
-          </div>
+          <WorkflowHeader
+            name="Initiatives workflow"
+            collapsed={initiativesCollapsed}
+            onToggle={(button) => toggleWorkflow(initiativesKey, button)}
+            dot={accent.dot}
+            title="Initiatives workflow"
+            description={initiativesBand ? <FlowDescription flow={initiativesBand} editable={editMode && editable} /> : undefined}
+            right={
+              <span className="hidden shrink-0 text-micro font-semibold text-slate-600 sm:inline">
+                {initiativeCount} {initiativeCount === 1 ? 'initiative' : 'initiatives'}
+              </span>
+            }
+          />
           {/* `variant` says this surface is the board's *own* initiatives flow — the one that owns
               the board's kinds. Without it a team board's initiatives were read as somebody else's
               band: a kind could be set and stored, and the card never grew the header that says so. */}
@@ -256,80 +254,82 @@ export function BoardView({ requestMove }: Props) {
               data-flow-name={name}
               aria-label={`${name} — cards flow`}
             >
-              <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/80 px-3 py-1.5 backdrop-blur-sm">
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <WorkflowToggle name={name} collapsed={collapsed} onToggle={(button) => toggleWorkflow(flow.id, button)} />
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-                  <h2 className="flex shrink-0 items-center text-body font-semibold uppercase tracking-wide text-slate-700">
-                    {editMode && editable ? (
-                      <InlineEdit
-                        value={name}
-                        onSave={(next) => renameFlow(flow.id, next)}
-                        ariaLabel={`Rename ${name}`}
-                        title="Rename this flow"
-                        className="rounded px-1 py-0.5 text-left uppercase tracking-wide transition hover:bg-indigo-100"
-                        inputClassName="w-40 rounded border border-indigo-300 bg-white px-1 py-0.5 text-body font-bold uppercase tracking-wide text-slate-900 outline-none focus:ring-2 focus:ring-indigo-400"
-                      />
-                    ) : (
-                      <span className="px-1 py-0.5">{name}</span>
+              <WorkflowHeader
+                name={name}
+                collapsed={collapsed}
+                onToggle={(button) => toggleWorkflow(flow.id, button)}
+                dot="bg-indigo-600"
+                title={
+                  editMode && editable ? (
+                    <InlineEdit
+                      value={name}
+                      onSave={(next) => renameFlow(flow.id, next)}
+                      ariaLabel={`Rename ${name}`}
+                      title="Rename this flow"
+                      className="rounded px-1 py-0.5 text-left uppercase tracking-wide transition hover:bg-indigo-100"
+                      inputClassName="w-40 rounded border border-indigo-300 bg-white px-1 py-0.5 text-body font-bold uppercase tracking-wide text-slate-900 outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                  ) : (
+                    <span className="px-1 py-0.5">{name}</span>
+                  )
+                }
+                description={<FlowDescription flow={flow} editable={editMode && editable} />}
+                right={
+                  <>
+                    {editMode && editable && (
+                      <>
+                        <button
+                          onClick={() => moveFlow(flow.id, -1)}
+                          disabled={index <= 0}
+                          title="Move this flow up"
+                          aria-label={`Move ${name} up`}
+                          className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
+                        >
+                          <ChevronUp size={13} />
+                        </button>
+                        <button
+                          onClick={() => moveFlow(flow.id, 1)}
+                          disabled={index >= flowsOnBoard.length - 1}
+                          title="Move this flow down"
+                          aria-label={`Move ${name} down`}
+                          className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
+                        >
+                          <ChevronDown size={13} />
+                        </button>
+                        <button
+                          onClick={() =>
+                            askConfirm({
+                              title: `Remove the “${name}” flow?`,
+                              body: 'Its columns go with it. A flow holding cards cannot be removed.',
+                              confirmLabel: 'Remove flow',
+                              danger: true,
+                              onConfirm: () => removeFlow(flow.id),
+                            })
+                          }
+                          disabled={!removable}
+                          // Said separately, because the two refusals are different facts: the last
+                          // flow is the board's floor, and an occupied one is a decision to make
+                          // elsewhere. Neither is offered as if it might work.
+                          title={
+                            removable
+                              ? 'Remove this flow and its columns'
+                              : flowsOnBoard.length <= 1
+                                ? 'A board needs at least one cards flow'
+                                : 'Move its cards to another flow first'
+                          }
+                          aria-label={`Remove ${name}`}
+                          className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:pointer-events-none disabled:opacity-30"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
                     )}
-                  </h2>
-                  <FlowDescription flow={flow} editable={editMode && editable} />
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {editMode && editable && (
-                    <>
-                      <button
-                        onClick={() => moveFlow(flow.id, -1)}
-                        disabled={index <= 0}
-                        title="Move this flow up"
-                        aria-label={`Move ${name} up`}
-                        className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
-                      >
-                        <ChevronUp size={13} />
-                      </button>
-                      <button
-                        onClick={() => moveFlow(flow.id, 1)}
-                        disabled={index >= flowsOnBoard.length - 1}
-                        title="Move this flow down"
-                        aria-label={`Move ${name} down`}
-                        className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
-                      >
-                        <ChevronDown size={13} />
-                      </button>
-                      <button
-                        onClick={() =>
-                          askConfirm({
-                            title: `Remove the “${name}” flow?`,
-                            body: 'Its columns go with it. A flow holding cards cannot be removed.',
-                            confirmLabel: 'Remove flow',
-                            danger: true,
-                            onConfirm: () => removeFlow(flow.id),
-                          })
-                        }
-                        disabled={!removable}
-                        // Said separately, because the two refusals are different facts: the last
-                        // flow is the board's floor, and an occupied one is a decision to make
-                        // elsewhere. Neither is offered as if it might work.
-                        title={
-                          removable
-                            ? 'Remove this flow and its columns'
-                            : flowsOnBoard.length <= 1
-                              ? 'A board needs at least one cards flow'
-                              : 'Move its cards to another flow first'
-                        }
-                        aria-label={`Remove ${name}`}
-                        className="grid h-6 w-6 place-items-center rounded text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:pointer-events-none disabled:opacity-30"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </>
-                  )}
-                  <span className="text-micro font-semibold text-slate-600">
-                    {count} {count === 1 ? 'card' : 'cards'}
-                  </span>
-                </div>
-              </div>
+                    <span className="text-micro font-semibold text-slate-600">
+                      {count} {count === 1 ? 'card' : 'cards'}
+                    </span>
+                  </>
+                }
+              />
               {!collapsed && (
                 <BoardCanvas boardId={boardId} flowId={flow.id} interactive={editable} onMove={requestMove} />
               )}

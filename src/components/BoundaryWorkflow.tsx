@@ -8,7 +8,7 @@ import { announce } from '@/lib/announce'
 import { stillScrolling } from '@/lib/useStillScroll'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
-import { WorkflowToggle } from './WorkflowToggle'
+import { WorkflowHeader } from './WorkflowHeader'
 import { MiniHoverCard, MiniHoverReasons } from './MiniHoverCard'
 import type { IssueType } from '@/domain/types'
 
@@ -112,24 +112,29 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
         if (boundaryId && !(event.target as HTMLElement).closest?.('[data-boundary-card]')) toggleBoundary(boundaryId)
       }}
     >
-      <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/80 px-3 py-1.5 backdrop-blur-sm">
-        <div className="flex min-w-0 items-center gap-2">
-          <WorkflowToggle name="Boundary — waiting on" collapsed={collapsed} onToggle={toggleWorkflow} />
-          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-600" />
-          <h2 id="boundary-workflow-title" className="shrink-0 text-body font-semibold uppercase tracking-wide text-slate-700">
-            Boundary — waiting on
-          </h2>
-          <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-amber-200 sm:inline">
-            {countLabel(entries.length)}
+      <WorkflowHeader
+        name="Boundary — waiting on"
+        collapsed={collapsed}
+        onToggle={toggleWorkflow}
+        dot="bg-amber-600"
+        title="Boundary — waiting on"
+        titleId="boundary-workflow-title"
+        description={
+          <>
+            <span className="hidden shrink-0 rounded-full bg-white px-2 py-0.5 text-micro font-semibold text-slate-600 ring-1 ring-amber-200 sm:inline">
+              {countLabel(entries.length)}
+            </span>
+            <span className="truncate text-meta text-slate-600">
+              external work this board waits on — read from where it lives, never moved here
+            </span>
+          </>
+        }
+        right={
+          <span className="hidden shrink-0 text-micro text-slate-600 sm:inline">
+            {count} open · {entries.length - count} cleared
           </span>
-          <span className="truncate text-meta text-slate-600">
-            external work this board waits on — read from where it lives, never moved here
-          </span>
-        </div>
-        <span className="hidden shrink-0 text-micro text-slate-600 sm:inline">
-          {count} open · {entries.length - count} cleared
-        </span>
-      </div>
+        }
+      />
 
       {/* Four stages in one row, as the cards workflow's columns are: the board is read across, and
           a column that wrapped to a second row would break that reading. Below the width four

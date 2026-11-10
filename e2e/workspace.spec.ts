@@ -87,15 +87,15 @@ test('None is a card type, always offered', async ({ page }) => {
   await expect(card).not.toContainText('None')
 })
 
-test('objectives open from a portfolio board, not the top bar', async ({ page }) => {
+test('objectives are a portfolio tab in the top bar, and only there', async ({ page }) => {
   await openBoard(page)
-  // A team board offers no global Objectives tab.
+  // A team board offers no Objectives tab.
   await expect(page.getByRole('button', { name: 'Objectives', exact: true })).toHaveCount(0)
 
-  // The portfolio board has the one entry: its own Strategy map.
+  // A portfolio board carries the one entry in its own navigation — not inside the strategy map.
   await page.goto('/app?board=b-strategy')
   await expect(page.getByText('Strategy map')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Objectives', exact: true })).toBeVisible()
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Objectives', exact: true })).toBeVisible()
 })
 
 test('the demo is reset from the admin screen, not from the board toolbar', async ({ page }) => {

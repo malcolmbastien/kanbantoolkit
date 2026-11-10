@@ -243,6 +243,7 @@ export default function App() {
         onShowTimeline={() => setView('timeline')}
         onShowMetrics={() => setView('flow')}
         onShowArchive={() => setView('archive')}
+        onShowObjectives={() => setView('objectives')}
         onGoToBoards={() => setView('boards')}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}

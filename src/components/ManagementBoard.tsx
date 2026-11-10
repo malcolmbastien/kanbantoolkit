@@ -1,8 +1,9 @@
 import { lazy, Suspense, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ExternalLink, Layers, Link2, X } from 'lucide-react'
+import { ExternalLink, Layers, Link2, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
+import { WorkflowHeader } from './WorkflowHeader'
 import { DetailDial } from './DetailDial'
 import { ConnectionsLegend, ConnectionsToggle } from './ConnectionsToggle'
 import { ConnectionsLinks } from './ConnectionsLinks'
@@ -31,7 +32,6 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const addLinkedBoard = useStore((s) => s.addLinkedBoard)
   const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const selectBoard = useStore((s) => s.selectBoard)
-  const setObjectives = useStore((s) => s.setObjectives)
   const editMode = useStore((s) => s.editMode)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [linkOpen, setLinkOpen] = useState(false)
@@ -57,43 +57,45 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   // A card opened from a band is brought into view in this board's own scroller.
   useRevealSelection(pan.ref)
   /**
-   * A section is the same slim bar a team board uses — a dot in the band's colour, a title,
-   * a subtitle and a rule — so a program or portfolio reads like a team board. Only the
-   * colour changes with the board type; the shape is the product's.
+   * A section wears the same workflow header a team board uses — a dot in the band's colour, a
+   * name, a subtitle and the same sticky shelf — so a program or portfolio reads like a team
+   * board. Only the colour changes with the board type; the shape is the product's.
    */
   const section = (
     key: string,
-    title: React.ReactNode,
+    name: string,
     body: React.ReactNode,
     right?: React.ReactNode,
     collapsible = true,
     tone: 'band' | 'slate' = 'slate',
+    description?: React.ReactNode,
   ) => {
     const isCollapsed = collapsed[key]
     const dot = tone === 'band' ? accent.dot : 'bg-slate-400'
-    const rule = tone === 'band' ? accent.rule : 'border-slate-200'
     return (
       <section key={key} className="space-y-2">
-        <div className={cn('flex items-center gap-2 border-b pb-1.5', rule)}>
-          {collapsible && (
-            <button
-              onClick={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))}
-              className="shrink-0 rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
-            >
-              {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-            </button>
-          )}
-          <span className={cn('h-2 w-2 shrink-0 rounded-full', dot)} />
-          {title}
-          {right && <span className="ml-auto flex shrink-0 items-center gap-1">{right}</span>}
-        </div>
+        <WorkflowHeader
+          name={name}
+          collapsed={collapsible ? isCollapsed : undefined}
+          onToggle={collapsible ? () => setCollapsed((c) => ({ ...c, [key]: !c[key] })) : undefined}
+          dot={dot}
+          title={name}
+          description={description}
+          right={right}
+          // A band section is a workflow and stays in view; a slate grouping ("Linked boards")
+          // is a label over other bands, so it scrolls away with them.
+          sticky={tone === 'band'}
+        />
         {!isCollapsed && <div>{body}</div>}
       </section>
     )
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-200">
+    // The same ground a team board uses. `slate-200` was the same colour an unsplit Backlog
+    // column is tinted with, so on a program board that column disappeared into the page and the
+    // columns stopped reading as objects — the one thing the ground exists to carry.
+    <div className="flex h-full min-h-0 flex-col bg-board-ground">
       {/* A coordination board has the same secondary bar as a team board: its state on the left,
           and the reading controls on the right. A retired board says so here too — it has no other
           strip to carry the chip. */}
@@ -113,31 +115,22 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
         {portfolio
           ? section(
               `${board.id}-strategy`,
-              <>
-                <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Strategy map</span>
-                <span className="truncate text-meta text-slate-600">each objective with the initiatives that serve it, in this board’s own flow</span>
-              </>,
+              'Strategy map',
               <StrategyMap boardId={board.id} />,
-              <button
-                onClick={() => setObjectives(true)}
-                className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-micro font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                title="Open the Objectives view"
-              >
-                <ExternalLink size={10} /> Objectives
-              </button>,
-              true,
+              undefined,
+              // The map is what a portfolio is for; folding it would leave the board empty.
+              false,
               'band',
+              'each objective with the initiatives that serve it, in this board’s own flow',
             )
           : section(
               `${board.id}-initiatives`,
-              <>
-                <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Initiatives workflow</span>
-                <span className="truncate text-meta text-slate-600">the outcomes this board owns</span>
-              </>,
+              'Initiatives workflow',
               <BoardSummary boardId={board.id} variant="initiatives" interactive />,
               undefined,
               true,
               'band',
+              'the outcomes this board owns',
             )}
 
         {/* Linked boards — teams or other coordination boards. A portfolio does not show them:
@@ -147,12 +140,7 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
             and not about the data. */}
         {!portfolio && section(
           `${board.id}-linked`,
-          <>
-            <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-slate-900">Linked boards</span>
-            <span className="text-micro text-slate-600">
-              {linked.length} board{linked.length === 1 ? '' : 's'} roll up here · each in its own initiatives flow
-            </span>
-          </>,
+          'Linked boards',
           <div className="space-y-3 p-2">
             {linked.length === 0 && (
               <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-meta text-slate-600">
@@ -163,44 +151,49 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
               const isCollapsed = collapsed[`linked-${t.id}`]
               return (
                 <div key={t.id} data-linked-board={t.id} className="space-y-2">
-                  <div className={cn('flex items-center gap-2 border-b pb-1.5', BAND_ACCENT[t.band].rule)}>
-                    <button
-                      onClick={() => setCollapsed((c) => ({ ...c, [`linked-${t.id}`]: !c[`linked-${t.id}`] }))}
-                      className="shrink-0 rounded text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
-                    >
-                      {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                    </button>
-                    <span className={cn('h-2 w-2 shrink-0 rounded-full', BAND_ACCENT[t.band].dot)} />
-                    <BandBadge band={t.band} />
-                    <span className="min-w-0 truncate text-meta font-semibold text-slate-800">{t.name}</span>
-                    <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200"
-                      title={`Viewing ${t.name}’s initiatives flow from its own board. Cards open and edit here; open the board to move them.`}
-                    >
-                      <Layers size={9} aria-hidden /> Initiatives flow
-                    </span>
-                    <span className="ml-auto flex shrink-0 items-center gap-1">
-                      <button
-                        onClick={() => selectBoard(t.id)}
-                        className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-micro font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                        title={`Open ${t.name} in its own board`}
+                  <WorkflowHeader
+                    name={t.name}
+                    collapsed={isCollapsed ?? false}
+                    onToggle={() => setCollapsed((c) => ({ ...c, [`linked-${t.id}`]: !c[`linked-${t.id}`] }))}
+                    dot={BAND_ACCENT[t.band].dot}
+                    title={
+                      <>
+                        <BandBadge band={t.band} />
+                        <span className="min-w-0 truncate px-1">{t.name}</span>
+                      </>
+                    }
+                    description={
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-micro font-medium text-slate-600 ring-1 ring-slate-200"
+                        title={`Viewing ${t.name}’s initiatives flow from its own board. Cards open and edit here; open the board to move them.`}
                       >
-                        <ExternalLink size={10} /> Open board
-                      </button>
-                      {/* Unlinking is a change to the board's design, so it belongs with the other
-                          design actions in Edit board — a reader is never offered a control that
-                          would silently take a band away. */}
-                      {editMode && (
+                        <Layers size={9} aria-hidden /> Initiatives flow
+                      </span>
+                    }
+                    right={
+                      <>
                         <button
-                          onClick={() => removeLinkedBoard(board.id, t.id)}
-                          className="rounded p-0.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                          title="Unlink this board"
+                          onClick={() => selectBoard(t.id)}
+                          className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-micro font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                          title={`Open ${t.name} in its own board`}
                         >
-                          <X size={12} />
+                          <ExternalLink size={10} /> Open board
                         </button>
-                      )}
-                    </span>
-                  </div>
+                        {/* Unlinking is a change to the board's design, so it belongs with the other
+                            design actions in Edit board — a reader is never offered a control that
+                            would silently take a band away. */}
+                        {editMode && (
+                          <button
+                            onClick={() => removeLinkedBoard(board.id, t.id)}
+                            className="rounded p-0.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                            title="Unlink this board"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </>
+                    }
+                  />
                   {!isCollapsed && <BoardSummary boardId={t.id} viewedBoardId={board.id} variant="initiatives" />}
                 </div>
               )
@@ -208,6 +201,10 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
           </div>,
           undefined,
           false,
+          'slate',
+          <span className="text-micro text-slate-600">
+            {linked.length} board{linked.length === 1 ? '' : 's'} roll up here · each in its own initiatives flow
+          </span>,
         )}
 
         {!portfolio && (

@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, Target, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InboxBell } from './InboxBell'
 import { AccountMenu } from './AccountMenu'
@@ -31,6 +31,7 @@ interface Props {
   onShowDashboard: () => void
   onShowTimeline: () => void
   onShowArchive: () => void
+  onShowObjectives: () => void
   onShowMetrics: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
@@ -49,7 +50,7 @@ export function TopBar(props: Props) {
   const mayWrite = may('item.write')
   const mayDesign = may('board.design')
   const maySettings = may('board.settings')
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowObjectives, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
@@ -138,6 +139,22 @@ export function TopBar(props: Props) {
           >
             <ChartNoAxesGantt size={12} /> Timeline
           </button>
+
+          {/* Objectives are the portfolio's own reading — the outcomes it commits to and the work
+              that serves them. A team or programme board has none of its own, so it has no tab. */}
+          {isPortfolio(board) && (
+            <button
+              onClick={onShowObjectives}
+              disabled={editMode}
+              className={cn(
+                'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                showObjectives ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+              )}
+              title="The objectives this portfolio commits to, and the initiatives that serve them"
+            >
+              <Target size={12} /> Objectives
+            </button>
+          )}
 
           {/* Flow reads a cards flow's own history. A programme or portfolio board aggregates other
               boards and has no cards flow, so it has no delivery flow of its own to report. */}
