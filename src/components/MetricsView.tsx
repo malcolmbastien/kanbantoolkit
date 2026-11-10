@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Download, TrendingUp } from 'lucide-react'
 import {
   aging,
@@ -40,6 +40,8 @@ import type { Item } from '@/domain/types'
 import { cardsFlows, kindOf } from '@/domain/flows'
 import { FLOW_WINDOWS, type FlowWindow } from '@/domain/flowWindow'
 import { fetchMovements, type BoardMove } from '@/lib/history'
+import { isDemoWorkspace } from '@/lib/demo'
+import { SEED_TODAY } from '@/domain/seed'
 
 const DAY_MS = 86_400_000
 
@@ -139,7 +141,14 @@ export function MetricsView({ boardId }: { boardId: string }) {
     .filter((card) => selectedFlow === null || flowOfCard(card.id) === selectedFlow.id)
     .filter((card) => selectedType === null || card.typeId === selectedType.id)
 
-  const now = Date.now()
+  const now = useMemo(() => {
+    // The demo is a fixed snapshot: its work, its history and its dates are all placed relative to
+    // the demo's own today. A window measured from the wall clock falls off the end of that history
+    // as the weeks pass, so an untouched demo is read at `SEED_TODAY`. A real workspace is read now
+    // — and the demo stops being the demo the moment anybody edits it.
+    const demo = isDemoWorkspace({ boards, flows, lanes, items, placements })
+    return demo ? SEED_TODAY : Date.now()
+  }, [boards, flows, lanes, items, placements])
   /** One card's moves: the board's read, and anything this tab recorded after it. */
   const movesOfCard = (card: Item): StageMove[] => {
     const merged = new Map<string, StageMove>()
