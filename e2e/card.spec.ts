@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openBoard } from './support'
+import { laneRegion, openBoard } from './support'
 
 /**
  * The card face reads top-down: what the card *is* — its type and title, then the work it rolls up
@@ -118,6 +118,16 @@ test('waiting is a warning; being waited on is not', async ({ page }) => {
   await expect(blocker).toBeVisible()
   await expect(blocker).not.toContainText('depend on it')
   await expect(blocker).not.toContainText('depends on it')
+})
+
+test('a new card is offered only in the Backlog column', async ({ page }) => {
+  await openBoard(page)
+  const cards = page.locator('[data-workflow="cards"]').first()
+  // The offer is a Backlog affordance: one per backlog cell, and nowhere downstream.
+  await expect(cards.getByRole('button', { name: /^Add card to / })).toHaveCount(1)
+  for (const name of ['Not Started', 'In Progress', 'Done']) {
+    await expect(laneRegion(page, name).getByRole('button', { name: /^Add card to / })).toHaveCount(0)
+  }
 })
 
 test('a new card is selected, with its title ready to type', async ({ page }) => {

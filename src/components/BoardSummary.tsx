@@ -15,7 +15,7 @@ import {
 } from '@/domain/derive'
 import { buildBoardModel } from '@/domain/boardModel'
 import { initiativeHealth, type HealthFlagInfo } from '@/domain/health'
-import { boardInitiatives, initiativeCellOf, initiativeRanks, initiativeTypeById, isInitiativeItem, tagsOf } from '@/domain/board'
+import { boardInitiatives, canAddInitiative, initiativeCellOf, initiativeRanks, initiativeTypeById, initiativeTypeId, isInitiativeItem, tagsOf } from '@/domain/board'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { childrenOf, isLeaf, lanePath, leavesUnder, topLevelLanes } from '@/domain/lanes'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn } from '@/lib/colors'
@@ -97,6 +97,7 @@ export function BoardSummary({
   const setDropTarget = useDrag((s) => s.setDropTarget)
   const openItem = useStore((s) => s.openItem)
   const openItemDependencies = useStore((s) => s.openItemDependencies)
+  const addCard = useStore((s) => s.addCard)
   const editMode = useStore((s) => s.editMode)
   const boardDetail = useStore((s) => s.boardDetail)
   const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
@@ -104,6 +105,14 @@ export function BoardSummary({
   const graph: Graph = { items, edges, links, placements, lanes }
   // The board's derived facts, once for the render; each initiative card reads a map.
   const model = useMemo(() => buildBoardModel(graph), [items, edges, links, placements, lanes])
+  // A new initiative is made in the cell that offered it, from the Backlog column only — the same
+  // place the cards workflow makes a card. A portfolio is read-only and never offers the door.
+  const addsInitiatives = canAddInitiative(boards.find((b) => b.id === boardId))
+  const addInitiativeTo = (laneId: string) => {
+    const typeId = initiativeTypeId(issueTypes)
+    if (!addsInitiatives || !typeId) return
+    addCard({ boardId, typeId, laneId, title: 'New initiative' })
+  }
 
   /**
    * Every initiative's health, found once per change to the work rather than once per render.
@@ -445,6 +454,7 @@ export function BoardSummary({
             interactive={interactive}
             editMode={editMode}
             detail={detail}
+            onAddInitiative={interactive && addsInitiatives ? addInitiativeTo : undefined}
             // A section with more cells claims more of the width, so every *cell* gets an
             // equal share of the board — splitting a column doesn't squeeze its own cells.
             style={{
@@ -480,6 +490,7 @@ export function BoardSummary({
                       interactive={interactive}
                       editMode={editMode}
                       detail={detail}
+                      onAddInitiative={interactive && addsInitiatives ? addInitiativeTo : undefined}
                       // Stacked cells size to their content with the last one filling what
                       // is left of the section, the same as a stacked lane in the canvas.
                       className={
@@ -520,6 +531,7 @@ function Cell({
   interactive,
   editMode,
   detail,
+  onAddInitiative,
   className,
   style,
   children,
@@ -534,6 +546,8 @@ function Cell({
   interactive: boolean
   editMode: boolean
   detail: BoardDetail
+  /** Make a new initiative in this cell — offered only by the Backlog section. */
+  onAddInitiative?: (laneId: string) => void
   className?: string
   style?: React.CSSProperties
   children: React.ReactNode
@@ -774,6 +788,17 @@ function Cell({
           children
         )}
       </div>
+
+      {onAddInitiative && !editMode && detail !== 'mini' && stage === 'backlog' && leaf ? (
+        <button
+          onClick={() => onAddInitiative(lane.id)}
+          title={`Add initiative to ${lane.name || 'this column'}`}
+          aria-label={`Add initiative to ${lane.name || 'this column'}`}
+          className="mx-auto mb-1.5 flex min-h-[32px] w-fit items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 px-3 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50/60 hover:text-indigo-600 focus-visible:border-indigo-300 focus-visible:text-indigo-600 pointer-coarse:min-h-[44px]"
+        >
+          <Plus size={14} strokeWidth={2} className="shrink-0" /> Initiative
+        </button>
+      ) : null}
 
       {settingsOpen && (
         <LaneSettings

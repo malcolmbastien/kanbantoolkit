@@ -169,25 +169,28 @@ test('the card menu names the flows, and its move lands in the one chosen', asyn
   await expect.poll(() => cardsIn(page, 'Backlog', 'Escalations')).toContain(card)
 })
 
-test('a board-wide default is where a new card lands, whichever flow names it', async ({ page }) => {
+test('the toolbar card button chooses which cards flow a new card belongs to', async ({ page }) => {
   await openBoard(page)
   await editBoard(page)
   await addFlow(page)
   await rename(page, 'Cards 2', 'Escalations')
   await saveBoard(page)
 
-  // The board says new cards land in Escalations' Not Started — one cell, naming a flow.
-  await page.getByRole('button', { name: 'Settings' }).click()
-  const settings = page.locator('[data-board-settings]')
-  await settings.getByRole('tab', { name: 'Cards', exact: true }).click()
-  const value = await page.locator('#board-default-drop optgroup[label="Escalations"] option').nth(1).getAttribute('value')
-  await page.locator('#board-default-drop').selectOption(value!)
+  const onCards = await cardsIn(page, 'Backlog', 'Cards')
+
+  // The arrow beside Card names the board's flows; choosing one makes the card there.
+  await page.getByRole('button', { name: 'Choose a workflow for the new card' }).click()
+  const menu = page.getByRole('menu', { name: 'Add a card to' })
+  await expect(menu.getByRole('menuitem', { name: 'Cards', exact: true })).toBeVisible()
+  await menu.getByRole('menuitem', { name: 'Escalations', exact: true }).click()
+  await expect.poll(() => cardsIn(page, 'Backlog', 'Escalations')).toHaveLength(1)
+  // The other flows did not grow: the choice named the destination, not a board-wide default.
+  expect(await cardsIn(page, 'Backlog', 'Cards')).toEqual(onCards)
   await page.keyboard.press('Escape')
 
-  const onCards = await cardsIn(page, 'Backlog', 'Cards')
+  // The choice is the button's next answer too, so adding a second card is one press.
   await page.getByRole('button', { name: 'Card', exact: true }).click()
-  await expect.poll(() => cardsIn(page, 'Not Started', 'Escalations')).toHaveLength(1)
-  // The other flows did not grow: the default is the board's answer, not the first flow's.
+  await expect.poll(() => cardsIn(page, 'Backlog', 'Escalations')).toHaveLength(2)
   expect(await cardsIn(page, 'Backlog', 'Cards')).toEqual(onCards)
 })
 

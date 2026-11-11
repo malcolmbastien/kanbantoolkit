@@ -20,7 +20,7 @@ it stays **acyclic** — a board cannot end up beneath itself.
 
 The working board. It carries the team's own **cards flows** — one or more sets of the four typed
 columns — and the **initiatives flow** the cards roll up into. Cards are made here, moved here, and
-limited here; the board's WIP policy, card types, tags, default drop cell and flow metrics all belong
+limited here; the board's WIP policy, card types, tags and flow metrics all belong
 to this level.
 
 An initiative on the same board is the outcome the work belongs to, and its progress is computed from

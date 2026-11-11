@@ -291,7 +291,7 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards, addsIni
             // A portfolio's settings are its title, band and links: there is no WIP or landing cell there.
             hint: isPortfolio(boards.find((b) => b.id === boardId))
               ? 'Title, board type and linked boards'
-              : 'Band, WIP enforcement, default drop cell',
+              : 'Band, WIP enforcement',
             keywords: 'configure',
             run: toggleBoardSettings,
           }]

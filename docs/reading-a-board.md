@@ -94,9 +94,10 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
   flow's columns and WIP limits apply, and the card keeps its identity and history.
 - **Edit board** is where a cards flow is added, renamed, reordered or removed. A flow can only be
   removed while it is empty, and while another cards flow remains.
-- The board's **default drop cell** and its **WIP enforcement** are board-wide, so a new card or a
-  card moved from elsewhere lands consistently wherever it came from. The Flow view can be narrowed
-  to one cards flow, and to one card type within it.
+- The board's **WIP enforcement** is board-wide, so a card moved from elsewhere follows the policy
+  of the column it lands in. A new card is made from a workflow's own Backlog, or from the toolbar
+  with its workflow chosen. The Flow view can be narrowed to one cards flow, and to one card type
+  within it.
 - A **template** captures a set of cards flows — their names, columns and limits — and a new board
   made from it gets all of them. A program or portfolio board has no cards flow of its own.
 

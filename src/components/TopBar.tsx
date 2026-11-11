@@ -1,4 +1,5 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Archive, ChartNoAxesGantt, Check, ChevronDown, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InboxBell } from './InboxBell'
 import { AccountMenu } from './AccountMenu'
@@ -36,7 +37,10 @@ interface Props {
   onSaveEdit: () => void
   onCancelEdit: () => void
   onOpenBoardSettings: () => void
-  onAddCard: () => void
+  /** The cards workflows a new card can be made in, in board order. */
+  cardFlows: Array<{ id: string; name: string }>
+  /** Make a card in the named flow, or the first one when no flow is named. */
+  onAddCard: (flowId?: string) => void
   onAddInitiative: () => void
 }
 
@@ -47,7 +51,35 @@ export function TopBar(props: Props) {
   const mayWrite = may('item.write')
   const mayDesign = may('board.design')
   const maySettings = may('board.settings')
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, cardFlows, onAddCard, onAddInitiative } = props
+
+  // The flow the main button adds to. Choosing a flow from the arrow both remembers it for the
+  // next press and makes the card now, so a second flow is one gesture, not a setting to hunt for.
+  const [targetFlowId, setTargetFlowId] = useState<string | null>(null)
+  const [flowMenuOpen, setFlowMenuOpen] = useState(false)
+  const flowMenuRef = useRef<HTMLDivElement>(null)
+  const targetFlow = cardFlows.find((flow) => flow.id === targetFlowId) ?? cardFlows[0]
+
+  useEffect(() => {
+    // A flow belongs to one board; moving boards starts the choice again.
+    setTargetFlowId(null)
+    setFlowMenuOpen(false)
+  }, [boardId])
+
+  useEffect(() => {
+    if (!flowMenuOpen) return
+    const onDown = (event: MouseEvent) => {
+      if (flowMenuRef.current && !flowMenuRef.current.contains(event.target as Node)) setFlowMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [flowMenuOpen])
+
+  const addCardTo = (flowId: string) => {
+    setTargetFlowId(flowId)
+    setFlowMenuOpen(false)
+    onAddCard(flowId)
+  }
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
@@ -185,13 +217,62 @@ export function TopBar(props: Props) {
         {boardActive && (
           <>
             {makesCards && mayWrite && (
-              <button
-                onClick={onAddCard}
-                disabled={editMode}
-                className="flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+              <div
+                ref={flowMenuRef}
+                className="relative flex items-stretch"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setFlowMenuOpen(false)
+                }}
               >
-                <Plus size={13} /> Card
-              </button>
+                <button
+                  onClick={() => onAddCard(targetFlow?.id)}
+                  disabled={editMode}
+                  title={targetFlow ? `Add a card to ${targetFlow.name}` : 'Add a card'}
+                  className={cn(
+                    'flex items-center gap-1 bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40',
+                    cardFlows.length > 1 ? 'rounded-l-md' : 'rounded-md',
+                  )}
+                >
+                  <Plus size={13} /> Card
+                </button>
+                {cardFlows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setFlowMenuOpen((open) => !open)}
+                    disabled={editMode}
+                    aria-haspopup="menu"
+                    aria-expanded={flowMenuOpen}
+                    aria-label="Choose a workflow for the new card"
+                    title="Choose a workflow for the new card"
+                    className="flex items-center rounded-r-md border-l border-indigo-400/60 bg-indigo-600 px-1.5 text-white transition hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <ChevronDown size={13} className={cn('transition', flowMenuOpen && 'rotate-180')} />
+                  </button>
+                )}
+                {flowMenuOpen && (
+                  <div
+                    role="menu"
+                    aria-label="Add a card to"
+                    className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-slate-200 bg-white py-1 text-slate-800 shadow-xl"
+                  >
+                    <p className="px-2.5 py-1 text-micro font-semibold uppercase tracking-wide text-slate-500">
+                      Add a card to
+                    </p>
+                    {cardFlows.map((flow) => (
+                      <button
+                        key={flow.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => addCardTo(flow.id)}
+                        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-meta transition hover:bg-slate-100"
+                      >
+                        <span className="min-w-0 flex-1 truncate">{flow.name}</span>
+                        {flow.id === targetFlow?.id && <Check size={12} className="shrink-0 text-indigo-600" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             {mayWrite && canAddInitiative(board) && (
             <button

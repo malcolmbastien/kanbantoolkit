@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { LayoutTemplate, Minus, Pencil, Plus, Settings, Target, Trash2, X } from 'lucide-react'
 import { BAND_STYLES } from './BandBadge'
 import { cardTypes, defaultCardTypeId, isAggregating, isPortfolio, linkableBoards, NONE_TYPE_ID } from '@/domain/board'
-import { lanePath, leafLanes } from '@/domain/lanes'
 import { initiativesCarrying, itemsCarryingTag } from '@/domain/board'
 import { nextUnusedColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
@@ -17,7 +16,7 @@ type SettingsTab = 'general' | 'cards' | 'tags' | 'boards'
  * Board settings, in the order a person reads it: **General** holds who the board is — its title
  * and description — beside how it treats work (its WIP enforcement) and what it can become (a
  * template). **Cards** holds the vocabulary a card is chosen from: the workspace's card types and
- * this board's own initiative kinds, with the type and cell new cards start in. **Tags** is the
+ * this board's own initiative kinds, with the type new cards default to. **Tags** is the
  * board's other set of labels. **Boards** is the boards a coordination board reads beneath it.
  *
  * The board's **type** is not here. It is fixed when the board is made — it decides which surfaces
@@ -25,9 +24,9 @@ type SettingsTab = 'general' | 'cards' | 'tags' | 'boards'
  * dialog's own header already names it. A setting that cannot be changed is not a setting.
  *
  * A **portfolio** board has none of the work-shaped settings: it renders no cards workflow, makes no
- * initiatives of its own and arranges no lanes, so a default card type, a landing cell, its own
- * kinds, its own tags, a WIP policy and a template of its columns would all be settings with nothing
- * to act on. What it keeps is its identity and the boards it reads beneath it.
+ * initiatives of its own and arranges no lanes, so a default card type, its own kinds, its own tags,
+ * a WIP policy and a template of its columns would all be settings with nothing to act on. What it
+ * keeps is its identity and the boards it reads beneath it.
  */
 export function BoardSettings() {
   const boards = useStore((s) => s.boards)
@@ -36,8 +35,6 @@ export function BoardSettings() {
   const renameBoard = useStore((s) => s.renameBoard)
   const setBoardDescription = useStore((s) => s.setBoardDescription)
   const setBoardDefaultCardType = useStore((s) => s.setBoardDefaultCardType)
-  const setBoardDefaultDropLane = useStore((s) => s.setBoardDefaultDropLane)
-  const lanes = useStore((s) => s.lanes)
   const flows = useStore((s) => s.flows)
   const setBoardWipEnforcement = useStore((s) => s.setBoardWipEnforcement)
   const saveBoardAsTemplate = useStore((s) => s.saveBoardAsTemplate)
@@ -468,49 +465,6 @@ export function BoardSettings() {
                   ))}
               </select>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <label htmlFor="board-default-drop" className="text-meta text-slate-600">
-                New cards land in
-              </label>
-              <select
-                id="board-default-drop"
-                value={board.defaultDropLaneId ?? ''}
-                onChange={(e) => setBoardDefaultDropLane(board.id, e.target.value || undefined)}
-                title="Where a new card starts, and where a card moved here lands"
-                className="rounded border border-slate-200 px-1.5 py-1 text-meta"
-              >
-                <option value="">the first cell</option>
-                {/* Several flows mean the same column name appears more than once, so the
-                    destinations are grouped by the flow that holds them — and the group's name is
-                    the answer to "which Backlog". */}
-                {cardsFlows(flows, board.id).length > 1
-                  ? cardsFlows(flows, board.id).map((flow) => (
-                      <optgroup key={flow.id} label={flow.name}>
-                        {leafLanes(lanes, flow.id).map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {lanePath(lanes, l.id).join(' / ')}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))
-                  : cardsFlows(flows, board.id).flatMap((flow) => leafLanes(lanes, flow.id)).map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {lanePath(lanes, l.id).join(' / ')}
-                      </option>
-                    ))}
-                {/* A named cell that has gone — deleted, or split away — is said rather than
-                    silently reading as "the first cell". */}
-                {board.defaultDropLaneId &&
-                  !cardsFlows(flows, board.id).some((flow) => leafLanes(lanes, flow.id).some((l) => l.id === board.defaultDropLaneId)) && (
-                    <option value={board.defaultDropLaneId}>the cell is gone</option>
-                  )}
-              </select>
-            </div>
-            {cardsFlows(flows, board.id).length > 1 && (
-              <p className="mt-1 text-micro text-slate-600">
-                A card made in a flow’s tab lands in that flow. Only a card moved here lands in the default.
-              </p>
-            )}
             <p className="mt-1 text-micro text-slate-600">
               Initiative is reserved for the initiatives workflow. None is built in: always available, never
               edited or removed.

@@ -73,6 +73,30 @@ test('points are gone: no card carries one, and the drawer has no estimate to en
   await expect(panel.locator('input[type="number"]')).toHaveCount(0)
 })
 
+test('a new initiative is offered only in the Backlog column of the initiatives workflow', async ({ page }) => {
+  await openBoard(page)
+  const initiatives = page.locator('[data-workflow="initiatives"]').first()
+  const add = initiatives.getByRole('button', { name: 'Add initiative to Backlog' })
+  await expect(add).toBeVisible()
+  // Like a card, the offer belongs to the backlog: one button, and no others downstream.
+  await expect(initiatives.getByRole('button', { name: /^Add initiative to / })).toHaveCount(1)
+  for (const name of ['Not Started', 'In Progress', 'Done']) {
+    await expect(initiatives.getByRole('button', { name: `Add initiative to ${name}` })).toHaveCount(0)
+  }
+
+  await add.click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toHaveAttribute('aria-label', 'Card details: New initiative')
+  const title = panel.getByLabel('Title')
+  await expect(title).toBeFocused()
+  await expect(title).toHaveValue('New initiative')
+  await title.fill('A new outcome')
+  await panel.getByRole('button', { name: 'Close' }).click()
+
+  const card = initiatives.locator('[data-card-id]').filter({ hasText: 'A new outcome' })
+  await expect(card).toBeVisible()
+})
+
 test('an initiative card counts its dependencies, and the count opens Hierarchy with connections', async ({ page }) => {
   await openBoard(page)
   const initiative = page.locator('[data-workflow="initiatives"] [data-card-id="init-billing"]')

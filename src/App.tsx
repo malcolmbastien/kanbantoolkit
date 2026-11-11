@@ -7,8 +7,8 @@ import { Announcer } from './components/Announcer'
 
 import { Overlays } from './components/Overlays'
 import { TopBar } from './components/TopBar'
-import { boardCardTypeId, canAddInitiative, defaultDropLane, initiativeTypeId, isAggregating } from './domain/board'
-import { initiativesFlow } from './domain/flows'
+import { boardCardTypeId, canAddInitiative, initiativeTypeId, isAggregating } from './domain/board'
+import { cardsFlows, initiativesFlow } from './domain/flows'
 import { leafLanes } from './domain/lanes'
 import { useUrl } from './lib/useUrl'
 import { useSignedInPerson } from './lib/identity'
@@ -175,15 +175,16 @@ export default function App() {
   }
 
   /**
-   * A new card, in the board's default drop cell — or the first leaf if it has never said.
+   * A new card, in a cards workflow the toolbar named — or the first one when it has not.
    *
-   * One cell, board-wide: with every cards flow on screen there is no "flow in front" to prefer,
-   * and the default is how a board says where new work arrives. Falling back rather than failing
-   * matters: a cell the board named can be deleted or split away, and a board that has lost its
-   * answer should still take a card.
+   * The card lands in that flow's first cell: the backlog is where work is made, and the other
+   * columns are downstream. The toolbar's chooser is the only place a flow is chosen for this
+   * button; the board's own footer sits in the Backlog cell it would add to.
    */
-  const quickAdd = () => {
-    const lane = defaultDropLane(boards.find((b) => b.id === boardId), flows, lanes, boardId)
+  const cardFlows = cardsFlows(flows, boardId).filter((flow) => leafLanes(lanes, flow.id).length > 0)
+  const quickAdd = (flowId?: string) => {
+    const flow = cardFlows.find((f) => f.id === flowId) ?? cardFlows[0]
+    const lane = flow ? leafLanes(lanes, flow.id)[0] : undefined
     if (lane) onAddCard(lane.id)
   }
 
@@ -245,6 +246,7 @@ export default function App() {
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}
         onOpenBoardSettings={toggleBoardSettings}
+        cardFlows={cardFlows.map(({ id, name }) => ({ id, name }))}
         onAddCard={quickAdd}
         onAddInitiative={quickAddInitiative}
       />

@@ -650,8 +650,8 @@ function LaneBox({
           }
         })}
         footer={
-          ctx.interactive && !ctx.editMode && ctx.detail !== 'mini' ? (
-            /* The way to make work in this column — compact, not a full-width block. A lane's
+          ctx.interactive && !ctx.editMode && ctx.detail !== 'mini' && stage === 'backlog' ? (
+            /* The way to make work in the backlog — compact, not a full-width block. A lane's
                empty ground is a place to drop work, and a wide button there catches presses meant
                for the lane. A hover/focus brings the offer forward; a coarse pointer still gets a
                full-height target. */

@@ -36,7 +36,7 @@ already holds.
 
 **Board settings** is a tabbed dialog. **General** holds the board’s name and description, its WIP
 enforcement and the template a board design can be saved as; **Cards** its card types and its
-initiative kinds, with the type and cell new cards start in; **Tags** its tags; and **Boards** the
+initiative kinds, with the type new cards default to; **Tags** its tags; and **Boards** the
 boards a program or portfolio reads beneath it. Only the tabs a board can act on are shown, and
 changes are saved as you edit. A board’s type is fixed when it is made and is not a setting: the
 dialog’s header names it, and there is nothing to change.
@@ -103,7 +103,10 @@ sits beside the name; leave it empty and the workflow shows only its name and co
 
 The drawer, card pips, initiative rollups and external dependencies are explained in [Reading a board](reading-a-board.md).
 
-A card is made in a lane's footer (**Add card to …**) or from **Card** in the toolbar. Drag it to
+A card is made in a **Backlog** column's footer (**Add card to …**) or from **Card** in the
+toolbar. When the board has more than one cards workflow, the arrow beside **Card** names the flow
+the card belongs to; choosing a flow also makes the card there. An initiative is made in the
+initiatives workflow's Backlog footer (**Initiative**) or from **Initiative** in the toolbar. Drag a card to
 another cell to move it — including into another cards flow, where the target flow's WIP limit
 applies. A column can carry a **WIP limit**; **Settings** decides what a limit does — mark the column with
 hazard tape and the words (**visualize**), hold the move until a reason is given (**justify**), or

@@ -49,7 +49,7 @@ browser. There is no account and nothing is collected.
   - One or more cards flows per board, stacked as bands, each with its own columns and limits.
   - Drag a card between cells, or between the board's flows.
   - Per-column WIP limits; a limit can tint the column, ask for a reason, or refuse the move.
-  - A default cell and card type for new cards, and settings for name, description, band, linked
+  - A default card type for new cards, and settings for name, description, band, linked
     boards, card types, tags and initiative types.
   - Edit mode for the board's structure, read mode for using it. Archive and unarchive.
   - A **Detail** dial per board: Mini (colour tiles), Summary (the key facts) or Full (the whole
