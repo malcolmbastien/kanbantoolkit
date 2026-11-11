@@ -44,8 +44,8 @@ dialog’s header names it, and there is nothing to change.
 The **Detail** dial in the board’s secondary bar — beside **Archive done**, **Export CSV** and
 **Filters** — chooses how much of a card the board draws, including an external dependency card:
 **Mini** (colour tiles, with blocked and warning markers), **Summary** (title, type, the dependency
-count beside it, people, the due date at the foot, and one red or amber badge — a single warning in
-its own words, or **2 warnings** when there are several) or **Full** (the whole card). Hover or focus a Mini
+count beside it, people, and the due date at the foot — no warning badges; those are Full's to spell
+out and Mini's to mark) or **Full** (the whole card). Hover or focus a Mini
 tile to read the card it stands for: its title and type, what it rolls up to, who is assigned, what
 it depends on, and why it has a red or amber marker. It is one person's reading, remembered in this
 browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and

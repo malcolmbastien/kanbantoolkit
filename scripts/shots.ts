@@ -75,7 +75,7 @@ const SHOTS: Shot[] = [
   {
     name: 'summary',
     path: '/app?board=b-atlas',
-    // The middle density: type, title, people, the due date at the foot and one badge.
+    // The middle density: type, title, people, due date and dependency count — no warning badges.
     prepare: async (page) => {
       await page.getByRole('radio', { name: 'Summary' }).click()
       await page.waitForTimeout(400)

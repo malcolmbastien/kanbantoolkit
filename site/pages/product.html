@@ -1,6 +1,6 @@
 <!--
 title: Features — the board, the work and the flow
-description: One card on many boards, flows you shape, three levels of detail, connections and boundary dependencies, initiatives and objectives, flow metrics, and an inbox that starts empty.
+description: One card on many boards, flows you shape, three levels of detail, connections and external dependencies, initiatives and objectives, flow metrics, and an inbox that starts empty.
 path: /product/
 -->
 <h1>Features</h1>
@@ -20,7 +20,7 @@ path: /product/
   the app never fetches, so it stays a way out to where the work lives rather than another integration.
 </p>
 <figure class="shot">
-  <img src="/img/board.webp" width="1440" height="1200" alt="The team board: the initiatives flow above the team's cards flow, with split columns, a WIP limit, blocked reasons, waiting-on chips, due dates and people on the cards." />
+  <img src="/img/board.webp" width="1440" height="1200" alt="The team board: the initiatives flow above the team's cards flow, with split columns, a WIP limit, blocked reasons, open-dependency counts, due dates and people on the cards." />
 </figure>
 
 <h2 id="flows">Flows shaped around your team</h2>
@@ -43,24 +43,24 @@ path: /product/
 <p>
   The <strong>Detail</strong> dial chooses how much of a card the board draws, per board and remembered
   in this browser. <strong>Full</strong> is every field. <strong>Summary</strong> keeps the title, type,
-  people and due date, with one badge: red for a blockage or risk, amber for a warning, with the
-  warning's own words when there is one and a count when there are several. <strong>Mini</strong> is a
-  colour tile that opens a reading card on hover or focus. It is a reading choice, not a permission, and design mode always
-  shows Full.
+  people, due date and dependency count, with no warning badges: warnings are Full's to spell out and
+  Mini's to mark. <strong>Mini</strong> is a colour tile that opens a reading card on hover or focus.
+  It is a reading choice, not a permission, and design mode always shows Full.
 </p>
 <figure class="shot">
-  <img src="/img/summary.webp" width="1440" height="1200" alt="The board at Summary: compact cards showing type, title, people, a due date at the foot and one badge — amber for a warning, red for a block." />
+  <img src="/img/summary.webp" width="1440" height="1200" alt="The board at Summary: compact cards showing type, title, people, and the due date and dependency count at the foot, with no warning badges." />
 </figure>
 
 <h2 id="connections">See the connections, not just the cards</h2>
 <p>
-  The <strong>Connections</strong> lens draws the graph the board already holds: dashed strings for a
-  parent to its children, solid arrows for a dependency, and a boundary dependency whose string runs
-  from the band below to the card that waits on it. It is off by default, remembered per board, and
+  The <strong>Connections</strong> lens draws the graph the board already holds: solid blue strings from a
+  parent to its children, solid red strings from a waiting item to the work it waits on, with a circle
+  at the start and an arrow at the end. An external dependency runs from the card here to the
+  <strong>External dependencies</strong> card below. It is off by default, remembered per board, and
   takes no click — a reading aid, not a mode.
 </p>
 <figure class="shot">
-  <img src="/img/connections.webp" width="1440" height="1200" alt="The board with Connections on: red dashed hierarchy strings and solid dependency arrows running between cards, with one arrow reaching down to the boundary band." />
+  <img src="/img/connections.webp" width="1440" height="1200" alt="The board with Connections on: blue hierarchy strings and red dependency strings running between cards, with one red arrow reaching down to the External dependencies band." />
 </figure>
 
 <h2 id="blocked">A block says why, and clears itself</h2>
@@ -70,9 +70,9 @@ path: /product/
   open, cleared when that work is done. There is no field to remember to update.
 </p>
 <p>
-  When the other end lives on another board, the <strong>Boundary</strong> band below the cards names
-  it, its state and the cards here that wait on it. The dependency is never moved or copied onto this
-  board.
+  When the other end lives on another board, the <strong>External dependencies</strong> band below the
+  cards places it in the stage its own rollup gives it, names its home board, and lists the cards here
+  that wait on it. The dependency is never moved or copied onto this board.
 </p>
 <figure class="shot shot-portrait">
   <img src="/img/blocked.webp" width="460" height="565" alt="A blocked card open in its panel: the red reason at the top beside Unblock, then the card's title, status, priority, people, tags and target dates." />
@@ -117,9 +117,10 @@ path: /product/
 <h2 id="every-view">One model, every altitude</h2>
 <p>
   A team board is one view. Program and portfolio boards aggregate the boards beneath them; the
-  dashboard surfaces what needs attention; the timeline places initiatives against their target dates;
-  the Flow view measures the same cards. The altitudes are lenses over one model, not copies of it: the
-  numbers at the top are the numbers at the bottom.
+  dashboard surfaces what needs attention; the timeline places initiatives against their target dates,
+  names each row's window, and points to bars outside the visible slice; the Flow view measures the
+  same cards. The altitudes are lenses over one model, not copies of it: the numbers at the top are
+  the numbers at the bottom.
 </p>
 <figure class="shot">
   <img src="/img/flights.webp" width="1440" height="1200" alt="The program dashboard: Team Atlas and Team Nova rolled up into Product Delivery, with its initiatives, their health and the work that needs attention." />
