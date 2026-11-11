@@ -1,10 +1,6 @@
-import { Fragment, useState } from 'react'
+import { Fragment, lazy, Suspense, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
-import { ItemPicker } from './ItemPicker'
-import { MappedInitiativeDetails } from './MappedInitiativeDetails'
-import { ObjectiveStatusPicker } from './ObjectiveStatusPicker'
-import { PeriodToolbar } from './PeriodToolbar'
 import { PortfolioHeatmap } from './PortfolioHeatmap'
 import { objectiveInitiatives, portfolioInitiatives } from '@/domain/board'
 import { OBJECTIVE_STATUS_LABELS } from '@/domain/objectives'
@@ -16,6 +12,17 @@ import { OBJECTIVE_STATUS_STYLES, OBJECTIVE_STATUS_DOT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item, Objective } from '@/domain/types'
+
+// The authoring pieces are only drawn in Edit objectives, so they load when that mode is entered
+// rather than with the board's first paint.
+const MappedInitiativeDetails = lazy(() =>
+  import('./MappedInitiativeDetails').then((module) => ({ default: module.MappedInitiativeDetails })),
+)
+const ObjectiveStatusPicker = lazy(() =>
+  import('./ObjectiveStatusPicker').then((module) => ({ default: module.ObjectiveStatusPicker })),
+)
+const PeriodToolbar = lazy(() => import('./PeriodToolbar').then((module) => ({ default: module.PeriodToolbar })))
+const ItemPicker = lazy(() => import('./ItemPicker').then((module) => ({ default: module.ItemPicker })))
 
 /**
  * The Strategy map — a portfolio board's surface, and the portfolio's own initiatives flow.
@@ -155,11 +162,13 @@ export function StrategyMap({ boardId, editing = false }: { boardId: string; edi
           )}
           {editing ? (
             <>
-              <ObjectiveStatusPicker
-                value={o.status}
-                onChange={(status) => updateObjective(o.id, { status })}
-                label={`Status of ${o.title}`}
-              />
+              <Suspense fallback={<span className={cn('h-5 w-16 shrink-0 rounded', OBJECTIVE_STATUS_STYLES[o.status])} />}>
+                <ObjectiveStatusPicker
+                  value={o.status}
+                  onChange={(status) => updateObjective(o.id, { status })}
+                  label={`Status of ${o.title}`}
+                />
+              </Suspense>
               <button
                 onClick={() => moveObjective(o.id, -1)}
                 disabled={peerIndex <= 0}
@@ -276,7 +285,11 @@ export function StrategyMap({ boardId, editing = false }: { boardId: string; edi
             )
           )}
 
-          {editing && <MappedInitiativeDetails objectiveId={o.id} />}
+          {editing && (
+            <Suspense fallback={null}>
+              <MappedInitiativeDetails objectiveId={o.id} />
+            </Suspense>
+          )}
 
           {/* The objective's own flow: this board's typed columns, the same ones a team board
               shows, narrowed to the initiatives attributed to this objective — wherever they live.
@@ -293,14 +306,16 @@ export function StrategyMap({ boardId, editing = false }: { boardId: string; edi
           {editing && (
             <div className="mt-auto">
               <div className="mt-1">
-                <ItemPicker
-                  items={available}
-                  boardOf={boardNameOf}
-                  movesFrom={(itemId) =>
-                    ordered.find((objective) => attribution.some((e) => e.from === objective.id && e.to === itemId))?.title
-                  }
-                  onPick={(itemId) => setAttribution(itemId, o.id, true)}
-                />
+                <Suspense fallback={null}>
+                  <ItemPicker
+                    items={available}
+                    boardOf={boardNameOf}
+                    movesFrom={(itemId) =>
+                      ordered.find((objective) => attribution.some((e) => e.from === objective.id && e.to === itemId))?.title
+                    }
+                    onPick={(itemId) => setAttribution(itemId, o.id, true)}
+                  />
+                </Suspense>
               </div>
             </div>
           )}
@@ -311,7 +326,11 @@ export function StrategyMap({ boardId, editing = false }: { boardId: string; edi
 
   return (
     <div className="space-y-2 p-2">
-      {editing && <PeriodToolbar />}
+      {editing && (
+        <Suspense fallback={null}>
+          <PeriodToolbar />
+        </Suspense>
+      )}
 
       <PortfolioHeatmap heatmap={heatmap} />
 
