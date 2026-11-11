@@ -144,6 +144,11 @@ interface Props {
    * The badge is a door; a surface that has no drawer leaves it out and the count is read only.
    */
   onOpenDependencies?: (itemId: string) => void
+  /**
+   * The day this card's planned start slipped, when the board still says it has not begun. The
+   * card's face and the dashboard's attention list read the same rule (`lateStartDay`).
+   */
+  lateStart?: string
   /** Part of the multi-select group (shift+click). */
   multi?: boolean
   /**
@@ -334,7 +339,7 @@ function DependencyCount({
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, multi, dimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, lateStart, multi, dimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -471,6 +476,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     }
     if (!complete) {
       for (const flag of flags ?? []) found.push({ label: flag.label, tone: flag.tone, why: flag.why })
+    }
+    if (!complete && lateStart) {
+      found.push({
+        label: 'Late start',
+        tone: 'watch',
+        why: `Its planned start (${lateStart}) passed and it has not started`,
+      })
     }
     if (aged) {
       found.push({
@@ -751,15 +763,27 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     // into this list: they are not a health flag.
     const badges: { key: string; label: string; why: string; tone: 'risk' | 'watch' }[] = complete
       ? []
-      : (flags ?? []).map((f) => {
-          const soft = f.flag === 'blocked' && blockedTone === 'aggregate'
-          return {
-            key: f.flag,
-            label: soft ? `${summary.blockedBelow} blocked below` : f.label,
-            why: soft ? `${summary.blockedBelow} blocked below — rolled up from team cards` : f.why,
-            tone: soft ? ('watch' as const) : f.tone,
-          }
-        })
+      : [
+          ...(flags ?? []).map((f) => {
+            const soft = f.flag === 'blocked' && blockedTone === 'aggregate'
+            return {
+              key: f.flag,
+              label: soft ? `${summary.blockedBelow} blocked below` : f.label,
+              why: soft ? `${summary.blockedBelow} blocked below — rolled up from team cards` : f.why,
+              tone: soft ? ('watch' as const) : f.tone,
+            }
+          }),
+          ...(lateStart
+            ? [
+                {
+                  key: 'lateStart',
+                  label: 'Late start',
+                  why: `Its planned start (${lateStart}) passed and it has not started`,
+                  tone: 'watch' as const,
+                },
+              ]
+            : []),
+        ]
 
     return (
       <div
@@ -1074,6 +1098,14 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               All of it above the telemetry row, so nothing there can be read as one of these. */}
           {blockedAlert}
           {rolledUpBlocked}
+          {!complete && lateStart && (
+            <span
+              className={cn(FLAG_BADGE_SHAPE, FLAG_BADGE.watch, 'w-fit')}
+              title={`Its planned start (${lateStart}) passed and it has not started`}
+            >
+              Late start
+            </span>
+          )}
         </div>
 
         {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
@@ -1155,6 +1187,7 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.inert !== b.inert || a.connectRoot !== b.connectRoot) return false
   if (a.openDependencies !== b.openDependencies) return false
   if (a.hasDependencies !== b.hasDependencies) return false
+  if (a.lateStart !== b.lateStart) return false
   if (a.dropTarget !== b.dropTarget) return false
   if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title) return false
   // The kind is drawn, so a change to it re-renders.

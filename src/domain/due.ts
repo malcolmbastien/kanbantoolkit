@@ -11,6 +11,7 @@
  */
 
 import { DUE_SOON_DAYS, parseDay } from './filters'
+import type { Stage } from './types'
 
 export type DueTone = 'overdue' | 'soon' | 'later'
 
@@ -79,4 +80,25 @@ export function dueWhy(state: DueState): string {
     return state.days === 0 ? `Due today — ${dueDay(state.date)}` : `Due ${dueDay(state.date)} — in ${state.days} day${plural(state.days)}`
   }
   return `Due ${dueDay(state.date)}`
+}
+
+/** The stages in which the board's own word is "this has not begun". */
+const NOT_STARTED = new Set<Stage>(['backlog', 'notStarted'])
+
+/**
+ * The day a planned start slipped, or nothing.
+ *
+ * The board's stage is the record of whether work began, the same reading WIP, rollup and
+ * staleness use; the plan is only a date. A day still to come, a stage that has begun, or no
+ * planned start at all all say nothing. This is the one rule the attention list and the card's
+ * own badge read, so "late start" cannot mean two things on two surfaces.
+ */
+export function lateStartDay(startDate: string | undefined, stage: Stage | undefined, now = Date.now()): string | undefined {
+  if (!stage || !NOT_STARTED.has(stage)) return undefined
+  const start = parseDay(startDate)
+  if (!start) return undefined
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  if (start.getTime() >= today.getTime()) return undefined
+  return dueDay(startDate!)
 }

@@ -109,6 +109,19 @@ test('a Done card keeps no lane-age warning', async ({ page }) => {
   await expect(done.getByText(/in lane/)).toHaveCount(0)
 })
 
+test('a planned start that slipped is a watch on a card that has not begun', async ({ page }) => {
+  await openBoard(page)
+
+  // Not Started, with a planned start eight days ago: the plan says it should have begun.
+  const late = page.locator('[data-card-id="st-invoice-numbering"]')
+  await expect(late).toContainText('Late start')
+  await expect(late.getByTitle(/planned start .* passed and it has not started/)).toBeVisible()
+
+  // In Progress with a past start is not late: the stage says the work has begun.
+  const started = page.locator('[data-card-id="st-payment-retries"]')
+  await expect(started).not.toContainText('Late start')
+})
+
 test('waiting is a warning; being waited on is not', async ({ page }) => {
   // Team Nova's identity contract blocks SSO on Team Atlas, so one card waits on it. The card
   // that is waited on wears no badge for it: the relationship is read from the card that waits,

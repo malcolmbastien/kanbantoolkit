@@ -27,6 +27,7 @@ initiative with nothing below it raises nothing.
 | **Due 12 Mar**, a slate chip | The day the card is promised for. A date, not a state: the target start/end pair in the drawer is the plan a management surface reads, this is the promise a reader is held to. | The due date is moved in the drawer, or cleared. |
 | **Due in 2d**, an amber chip | The due date is inside the week the board's **Due soon** filter names. A chip, never a block: the card can still move, and it clears when the work is done or the day moves. | The card is finished, or the date moves out. |
 | **3d overdue**, a rose chip | The due date has passed and the card is not done — the same reading as the **Overdue** filter and the dashboard's Overdue count. | The card reaches Done, or the date moves. |
+| **Late start**, an amber chip | The planned target start has passed and the card is still in Backlog or Not Started. A card in In Progress is not late — the stage says the work has begun. | The work starts, or the target start moves. |
 | **Nd in lane**, a grey clock | In its current committed lane (Not Started or In Progress) for at least 7 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. Not **Stale**, below. | The card moves to another lane. |
 
 A Done card keeps its history but not its warnings: the age cue, a blocked band and the dependency

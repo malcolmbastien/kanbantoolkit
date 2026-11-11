@@ -1,7 +1,7 @@
 import { openDependenciesOf, rollupOf, type Graph } from './derive'
 import { boardInitiatives, isAggregating, isPortfolio, portfolioInitiatives } from './board'
-import { ageDays, isOverdue, parseDay, STALE_AFTER_DAYS } from './filters'
-import { dueDay, dueState } from './due'
+import { ageDays, isOverdue, STALE_AFTER_DAYS } from './filters'
+import { dueDay, dueState, lateStartDay } from './due'
 import { initiativeHealth } from './health'
 import { cardsFlows } from './flows'
 import { effectiveStage, lanePath, STAGE_LABELS, workflowLanes } from './lanes'
@@ -171,24 +171,6 @@ function cardStatus(graph: Graph, placement: Placement, stage: Stage, flowName?:
   return flowName ? `${flowName} · ${where}` : where
 }
 
-/** The stages in which the board's own word is "this has not begun". */
-const NOT_STARTED = new Set<Stage>(['backlog', 'notStarted'])
-
-/**
- * The day a planned start slipped, or nothing. The board's stage is the record of whether work
- * began, the same reading WIP, rollup and staleness use; the plan is only a date. A day still to
- * come, a stage that has begun, or no planned start at all all say nothing.
- */
-function lateStartDay(item: Item, stage: Stage | undefined, now: number): string | undefined {
-  if (!stage || !NOT_STARTED.has(stage)) return undefined
-  const start = parseDay(item.targetStartDate)
-  if (!start) return undefined
-  const today = new Date(now)
-  today.setHours(0, 0, 0, 0)
-  if (start.getTime() >= today.getTime()) return undefined
-  return dueDay(item.targetStartDate!)
-}
-
 function cardSignals(
   item: Item,
   stage: Stage,
@@ -246,7 +228,7 @@ function cardSignals(
 
   // A plan that has slipped before the work began: the target start passed and the board still
   // says the item has not started. Never inferred — an item with no planned start says nothing.
-  const lateStart = lateStartDay(item, stage, now)
+  const lateStart = lateStartDay(item.targetStartDate, stage, now)
   if (lateStart) {
     signals.push({
       key: 'lateStart',
@@ -355,7 +337,7 @@ function initiativeRows(
         tone: 'watch',
       })
     }
-    const lateStart = lateStartDay(item, bucket, now)
+    const lateStart = lateStartDay(item.targetStartDate, bucket, now)
     if (lateStart) {
       signals.push({
         key: 'lateStart',

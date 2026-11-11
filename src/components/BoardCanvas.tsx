@@ -21,6 +21,7 @@ import {
 } from '@/domain/derive'
 import { boardCardTypeId, tagsOf } from '@/domain/board'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
+import { lateStartDay } from '@/domain/due'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
@@ -631,6 +632,7 @@ function LaneBox({
               locked={ctx.editMode}
               onOpen={ctx.openCard}
               onOpenDependencies={ctx.openDependencies}
+              lateStart={lateStartDay(c.targetStartDate, stage)}
               tags={tagsOf(ctx.boards, c)}
               completed={stage === 'done'}
               summary={{
