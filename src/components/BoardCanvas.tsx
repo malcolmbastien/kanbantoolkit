@@ -500,9 +500,9 @@ function LaneBox({
                           : isRoot
                             ? 'minmax(min-content, 1fr)'
                             : // A split is a set of equal cells: a longer card in one must not
-                              // widen its column at its sibling's expense. The floor keeps each
-                              // cell wide enough for a card; the parent grows to hold both.
-                              'minmax(196px, 1fr)'
+                              // widen its column at its sibling's expense. The floor is wide
+                              // enough for a card's foot row, and the parent grows to hold both.
+                              'minmax(280px, 1fr)'
                       })
                       .join(' '),
                   }
@@ -658,17 +658,15 @@ function LaneBox({
         })}
         footer={
           ctx.interactive && !ctx.editMode && ctx.detail !== 'mini' ? (
-            /* The way to make work in this column, and the largest target in it: a full-width
-               dashed block rather than a hairline of text, because "add a card here" is the one
-               thing a reader does to a lane that has nothing in it. It paints quietly — the
-               cards are what a board is for, and one affordance repeated per column must not
-               shout over the work it sits beneath. A hover/focus brings the offer forward; a
-               coarse pointer still gets the full-height target. */
+            /* The way to make work in this column — compact, not a full-width block. A lane's
+               empty ground is a place to drop work, and a wide button there catches presses meant
+               for the lane. A hover/focus brings the offer forward; a coarse pointer still gets a
+               full-height target. */
             <button
               onClick={() => ctx.onAddCard(lane.id)}
               title={`Add card to ${lane.name || 'this column'}`}
               aria-label={`Add card to ${lane.name || 'this column'}`}
-              className="flex min-h-[36px] w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-200 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50/60 hover:text-indigo-600 focus-visible:border-indigo-300 focus-visible:text-indigo-600 pointer-coarse:min-h-[44px]"
+              className="mx-auto flex min-h-[32px] w-fit items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 px-3 text-meta font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50/60 hover:text-indigo-600 focus-visible:border-indigo-300 focus-visible:text-indigo-600 pointer-coarse:min-h-[44px]"
             >
               <Plus size={14} strokeWidth={2} className="shrink-0" /> Add card
             </button>

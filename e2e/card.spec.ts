@@ -119,3 +119,24 @@ test('waiting is a warning; being waited on is not', async ({ page }) => {
   await expect(blocker).not.toContainText('depend on it')
   await expect(blocker).not.toContainText('depends on it')
 })
+
+test('a new card is selected, with its title ready to type', async ({ page }) => {
+  await openBoard(page)
+  const before = await page.locator('[data-workflow="cards"] [data-card-id]').count()
+
+  await page.getByRole('button', { name: 'Add card to Backlog' }).first().click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  const title = panel.getByLabel('Title')
+  await expect(title).toBeFocused()
+  await expect(title).toHaveValue('New card')
+
+  // The placeholder is selected, so typing replaces it rather than appending to it.
+  await page.keyboard.type('A fresh card')
+  await expect(title).toHaveValue('A fresh card')
+
+  await panel.getByRole('button', { name: 'Close' }).click()
+  await expect(panel).toHaveCount(0)
+  await expect(page.locator('[data-workflow="cards"] [data-card-id]').filter({ hasText: 'A fresh card' })).toHaveCount(1)
+  await expect(page.locator('[data-workflow="cards"] [data-card-id]')).toHaveCount(before + 1)
+})

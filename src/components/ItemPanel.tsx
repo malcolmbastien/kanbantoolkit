@@ -113,6 +113,8 @@ export function ItemPanel({ itemId }: Props) {
   const selectBoard = useStore((s) => s.selectBoard)
   const connectionScopeId = useStore((s) => s.connectionScopeId)
   const setConnectionScope = useStore((s) => s.setConnectionScope)
+  const titleFocusItemId = useStore((s) => s.titleFocusItemId)
+  const clearTitleFocus = useStore((s) => s.clearTitleFocus)
   // A watch is not a permission — a Viewer can watch — so this is not behind `canWrite`.
   const watching = useStore((s) => s.watchedItemIds.includes(itemId))
 
@@ -127,6 +129,7 @@ export function ItemPanel({ itemId }: Props) {
   const [priorityOpen, setPriorityOpen] = useState(false)
   const [typeOpen, setTypeOpen] = useState(false)
   const typeMenuRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLInputElement>(null)
   const [blockOpen, setBlockOpen] = useState(false)
   const [parentChoice, setParentChoice] = useState('')
   const [parentEditorOpen, setParentEditorOpen] = useState(false)
@@ -203,6 +206,18 @@ export function ItemPanel({ itemId }: Props) {
   const archived = Boolean(item?.archived)
   const locked = Boolean(held) || !canWrite || archived
   const refusal = useSync((s) => s.refusals[itemId])
+
+  // A card just made asks for its title once. The placeholder is selected so typing replaces it,
+  // and the request is consumed even if the field cannot take focus (a reader, a held card).
+  useEffect(() => {
+    if (titleFocusItemId !== itemId || !item) return
+    const input = titleRef.current
+    if (input && !locked) {
+      input.focus()
+      input.select()
+    }
+    clearTitleFocus()
+  }, [titleFocusItemId, itemId, item, locked, clearTitleFocus])
 
   // What this item breaks down into, and the two lists a picker offers. They are derived from the
   // graph, so they are found when it changes — not on every render of the drawer, and not at all
@@ -867,6 +882,7 @@ export function ItemPanel({ itemId }: Props) {
 
         {/* The title is the panel's heading: the one thing at the size the reading happens at. */}
         <input
+          ref={titleRef}
           value={item.title}
           disabled={locked}
           onFocus={() => startTextEdit(item.id, 'title', item.title)}

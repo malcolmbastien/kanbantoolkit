@@ -54,6 +54,12 @@ export async function cardsIn(page: Page, name: string, flow?: string): Promise<
  */
 export async function addCardTo(page: Page, name: string, flow?: string): Promise<void> {
   await laneRegion(page, name, flow).getByRole('button', { name: `Add card to ${name}` }).click()
+  // A new card opens its drawer with the title focused. The helper leaves the board in front so
+  // every test that only needs the card to exist can carry on with the board.
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toBeVisible()
+  await panel.getByRole('button', { name: 'Close' }).click()
+  await expect(panel).toHaveCount(0)
 }
 
 /** A locator's visible box, for a pointer to aim at. */

@@ -168,6 +168,11 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
   // Creating opens the board, so its backlog is ready for the first card.
   await expect(page.getByRole('button', { name: 'Add card to Backlog' })).toBeVisible()
   await page.getByRole('button', { name: 'Add card to Backlog' }).click()
+  // A new card opens its drawer with the title focused. Closing it releases the pen before a
+  // second browser reads the same card.
+  const cardPanel = page.locator('[data-item-panel]')
+  await expect(cardPanel).toBeVisible()
+  await cardPanel.getByRole('button', { name: 'Close' }).click()
 
   // The board and its card have to reach the instance before another browser can read them.
   await expect

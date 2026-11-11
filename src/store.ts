@@ -117,6 +117,11 @@ export interface InboxState {
 export interface ViewState {
   boardId: string
   selectedItemId: string | null
+  /**
+   * A card just made wants the drawer's title field once. It is view state: it is consumed when
+   * the panel focuses the field, and never persisted.
+   */
+  titleFocusItemId: string | null
   search: string
   /** Board design controls (split / add / rename / delete lanes) only show in edit mode. */
   editMode: boolean
@@ -251,6 +256,8 @@ export interface Actions {
    * Open an item's drawer. Reading an item does not change the board behind it.
    */
   openItem: (id: string | null) => void
+  /** Consume the one-shot title focus requested by a newly made card. */
+  clearTitleFocus: () => void
   setSearch: (q: string) => void
   beginEdit: () => void
   saveEdit: () => void
@@ -1088,6 +1095,7 @@ function fileAway(state: Store, ids: Set<string>, at: number): Item[] {
 const initialView: ViewState = {
   boardId: 'b-portfolio',
   selectedItemId: null,
+  titleFocusItemId: null,
   search: '',
   editMode: false,
   draft: null,
@@ -1746,6 +1754,7 @@ export const useStore = create<Store>()(
         set({
           boardId,
           selectedItemId: null,
+          titleFocusItemId: null,
           showDashboard: false,
           showTimeline: false,
           showArchive: false,
@@ -1776,6 +1785,8 @@ export const useStore = create<Store>()(
         const s = get()
         set({
           selectedItemId,
+          // A focus request belongs to the card that asked for it; opening another card ends it.
+          titleFocusItemId: null,
           multiSelect: [],
           // An item's own connections belong to its open drawer; opening another item or closing
           // the drawer ends that reading, the same way it ends the boundary focus below.
@@ -1795,6 +1806,7 @@ export const useStore = create<Store>()(
             : {}),
         })
       },
+      clearTitleFocus: () => set({ titleFocusItemId: null }),
       setSearch: (search) => set({ search }),
       toggleFilters: () => {
         const show = !get().showFilters
@@ -2808,6 +2820,10 @@ export const useStore = create<Store>()(
           rank: nextRank(get().placements, laneId),
         }
         set({ items: [...get().items, item], placements: [...get().placements, placement] })
+        // A card just made is the card in front: open it and ask its title field for the caret, so
+        // the placeholder name can be replaced in one gesture.
+        get().openItem(item.id)
+        set({ titleFocusItemId: item.id })
         // The creator watches what they made, the same rule the server applies to a token's create.
         if (currentAuthor) get().setWatching(item.id, true)
       },
