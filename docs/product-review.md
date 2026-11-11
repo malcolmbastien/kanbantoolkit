@@ -128,6 +128,7 @@ The event layer behind **C6** exists: items, health and objectives emit into one
 delivery retries from it, and the inbox and digest (**L2**) now read the same outbox. That is why a
 watched change, a bell row and an email cannot disagree about what happened. The next integration is
 a receiver — chat or phone — rather than a second history. The other constraint is the **bundle
-budget**: the first download is checked against 172 KB in CI, so the next first-download feature
-has some room. Either keep splitting screens (the templates editor and the Flow screen are the
-precedent) or raise the budget deliberately with a recorded reason, but do not let it grow by drift.
+budget**: the first download is measured and checked in CI, with a temporary 200 KB regression
+ceiling rather than a tight target. Keep splitting screens when a feature is clearly not board-path,
+and tighten the ceiling deliberately when the next first-download pass is planned — do not let it
+grow by drift.

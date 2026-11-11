@@ -73,8 +73,14 @@ const DIST = 'dist'
  * can differ by a handful of bytes between environments, and a byte-exact ceiling was failing a
  * build that printed "171.0 KB" and "over by 0.0 KB". The budget is a ceiling with room to move,
  * not a trap.
+ *
+ * 200 is a temporary regression ceiling, not a target. The tight budget was useful while the board
+ * path was being split; now ordinary board features arrive close enough to the line that the check
+ * mostly costs attention without answering a current question. Keep measuring and keep the report,
+ * but fail only on a clear regression. `SIZE_LIMIT_KB=172 npm run size` still answers the old
+ * question deliberately; tighten the default again when the next first-download pass is planned.
  */
-const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 172)
+const LIMIT_KB = Number(process.env.SIZE_LIMIT_KB ?? 200)
 
 let manifest
 try {
