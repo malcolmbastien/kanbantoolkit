@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { initiativeHealth, HEALTH_META } from './health'
-import type { Graph } from './derive'
+import { rollupOf, type Graph } from './derive'
 import type { Edge, Item, ItemLink, Lane, Placement, Stage } from './types'
 
 const DAY = 86_400_000
@@ -66,6 +66,19 @@ describe('initiative health', () => {
     // The block lifted: the rule stops speaking, because the state it reads stopped saying so.
     graph.items[2] = { ...graph.items[2], blocked: false }
     expect(initiativeHealth('init', graph, NOW).flags).toEqual([])
+  })
+
+  it('does not count discarded work in a live parent, and says so', () => {
+    const graph = healthy()
+    graph.items[1] = { ...graph.items[1], archived: true, discarded: true }
+
+    const h = initiativeHealth('init', graph, NOW)
+    expect(h.flags.map((f) => f.flag)).toEqual(['discarded'])
+    expect(h.flags[0].label).toBe('1 discarded')
+    expect(h.flags[0].why).toContain('not counted in progress')
+    expect(h.flags[0].items).toEqual(['a'])
+    // The live plan is the two leaves that remain; the discarded one is history.
+    expect(rollupOf('init', graph).total).toBe(2)
   })
 
   it('raises a risk for work waiting on something not done', () => {

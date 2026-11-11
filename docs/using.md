@@ -91,7 +91,8 @@ band names its flow, and a card belongs to exactly one of them.
 In **Edit board** a cards flow can be added (**Add a cards flow**), renamed, moved up or down, and
 removed — but only while it is empty and another cards flow remains, so a board never drops to none
 and work is never thrown away with a column set. A program or portfolio board aggregates other
-boards and has no cards flow of its own.
+boards and has no cards flow of its own. While **Edit board** is open the board switcher is disabled;
+the workspace-home link asks before leaving, because leaving would discard the unsaved design.
 
 A workflow's chevron folds its whole band away to the header, keeping the name and count in view;
 the initiatives and external dependency workflows fold the same way. Opening a folded band brings its header to
@@ -200,9 +201,12 @@ a program's outcome is decomposed into a team's initiative.
   [Lean metrics](metrics.md).
 - **Archive** — work that has left this board. Each board has its own archive, and it lists only
   the work filed from that board. A card in a Done column is **archived**; anything else is
-  **discarded**, dropped without claiming it was finished. The archive keeps that one fact, not the
-  column the work sat in, and either item can be restored. Finished work is filed automatically a
-  week after it is done — one rule for every board, and not a setting.
+  **discarded**, dropped without claiming it was finished. Discarding a parent files its whole
+  subtree: finished work is archived, unfinished work is discarded, and a parent with cards below
+  asks first. The archive keeps that one fact, not the column the work sat in, and either item can
+  be restored. A child cannot be restored while its parent is still filed away; restore the parent
+  first. Finished work is filed automatically a week after it is done — one rule for every board,
+  and not a setting.
 
 None of these is a second copy: they read the same items, placements and edges.
 

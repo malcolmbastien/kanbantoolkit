@@ -17,6 +17,30 @@ const splitIntoColumns = (page: Page, name: string) =>
 const addColumn = (page: Page) =>
   page.getByRole('button', { name: 'Add a column to this split' }).first().click()
 
+test('an open board design closes the board switcher and asks before leaving for home', async ({ page }) => {
+  await openBoard(page)
+  await editBoard(page)
+
+  // The switcher is present but closed: another board cannot be opened around an unsaved design.
+  const switcher = page.getByRole('button', { name: /Team Atlas/ })
+  await expect(switcher).toBeDisabled()
+
+  // The workspace link is still a way out, but it asks first and leaves the draft untouched on
+  // Cancel.
+  await page.getByTitle('Workspace home').click()
+  const dialog = page.getByRole('dialog', { name: 'Leave design?' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('Unsaved changes')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
+
+  // Confirming discards the draft and opens the workspace home.
+  await page.getByTitle('Workspace home').click()
+  await dialog.getByRole('button', { name: 'Discard', exact: true }).click()
+  await expect(page.getByRole('tablist', { name: 'Workspace home sections' })).toBeVisible()
+})
+
 test('a column header is a shelf over its lane, and a split’s cells stand apart', async ({ page }) => {
   await openBoard(page)
 

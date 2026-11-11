@@ -343,17 +343,20 @@ export function BoardView({ requestMove }: Props) {
           </p>
         )}
 
-        {/* The one place a second flow comes from, and it reads as a band would: the cards area
-            grows by a band, not by a tab nobody can see. */}
+        {/* The one place a second flow comes from. A compact action, not another band: the
+            button sits at the end of the stack with its own solid ground and shadow, so it reads
+            as something to press rather than the header of an empty workflow. */}
         {editMode && editable && (
-          <button
-            onClick={() => addCardsFlow()}
-            title="Another set of columns on this board"
-            aria-label="Add a cards flow"
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-indigo-300 px-3 py-2 text-meta font-medium text-indigo-700 transition hover:bg-indigo-50"
-          >
-            <Plus size={13} /> Add a cards flow
-          </button>
+          <div className="flex justify-center pt-1">
+            <button
+              onClick={() => addCardsFlow()}
+              title="Another set of columns on this board"
+              aria-label="Add a cards flow"
+              className="flex w-fit items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-meta font-semibold text-white shadow-md ring-1 ring-indigo-700/20 transition hover:bg-indigo-500 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2"
+            >
+              <Plus size={14} strokeWidth={2.5} /> Add a cards flow
+            </button>
+          </div>
         )}
 
         {/* Boundary work: the edge of this board, as a workflow of its own — below the cards, in

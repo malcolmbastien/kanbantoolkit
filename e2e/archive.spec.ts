@@ -72,6 +72,33 @@ test('a card in play is discarded, and the archive says so without keeping its c
   await expect(drawer).toHaveCount(0)
 })
 
+test('a discarded child stays in the drawer, not as a warning on the initiative card', async ({ page }) => {
+  await openBoard(page)
+
+  // A card under Billing migration: discarding it is allowed, and does not trap the initiative in
+  // an impossible completion.
+  await page.locator('[data-card-id="st-usage-billing"]').click()
+  const childPanel = page.locator('[data-item-panel]')
+  await childPanel.getByRole('button', { name: 'More', exact: true }).click()
+  await childPanel.getByRole('button', { name: 'Discard', exact: true }).click()
+  await expect(page.locator('[data-card-id="st-usage-billing"]')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  // The parent stays live without wearing the count on its face.
+  const initiative = page.locator('[data-workflow="initiatives"] [data-card-id="init-billing"]')
+  await expect(initiative).toBeVisible()
+  await expect(initiative).not.toContainText('1 discarded')
+
+  // The drawer still holds the decision: the warning names it, and Hierarchy names the card.
+  await initiative.click()
+  const drawer = page.locator('[data-item-panel]')
+  await expect(drawer).toHaveAttribute('aria-label', 'Card details: Billing migration')
+  await expect(drawer.getByText('1 discarded')).toBeVisible()
+  await drawer.getByRole('button', { name: 'Hierarchy' }).click()
+  await expect(drawer.getByText('Add usage-based billing events')).toBeVisible()
+  await expect(drawer.getByText('discarded', { exact: true })).toBeVisible()
+})
+
 test('each board’s archive lists only the work filed from that board', async ({ page }) => {
   // The demo has an archived delivery on each team board.
   await page.goto('/app?board=b-atlas&view=archive')
@@ -91,9 +118,15 @@ test('an archived initiative is read-only and raises no warnings', async ({ page
   const panel = page.locator('[data-item-panel]')
   await expect(panel.getByText(/^\d+ warnings?$/)).toBeVisible()
 
-  // Discard it: it leaves play, and its warnings leave with it.
+  // Discard it: it leaves play, and its warnings leave with it. Because it has cards below it,
+  // the discard asks first and names the cascade.
   await panel.getByRole('button', { name: 'More', exact: true }).click()
   await panel.getByRole('button', { name: 'Discard', exact: true }).click()
+  const confirm = page.locator('[data-confirm-dialog]')
+  await expect(confirm).toBeVisible()
+  await expect(confirm).toContainText('also files')
+  await expect(confirm).toContainText('below it')
+  await confirm.getByRole('button', { name: 'Discard', exact: true }).click()
   await expect(panel.getByText(/^\d+ warnings?$/)).toHaveCount(0)
   await expect(panel.getByLabel('Title')).toBeDisabled()
   await expect(panel.getByText(/read-only until you restore it/)).toBeVisible()

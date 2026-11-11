@@ -1765,6 +1765,13 @@ export const useStore = create<Store>()(
       },
       selectBoard: (boardId) => {
         const state = get()
+        // A board design is an unsaved draft of the board's own structure. Opening another board
+        // would leave that draft behind without saying so, so the one door every switcher uses
+        // refuses until the design is saved or cancelled.
+        if (state.editMode) {
+          announce('Save or cancel first.')
+          return
+        }
         // Objectives are a portfolio board's own surface, so opening another board leaves it.
         set({
           boardId,
@@ -3613,6 +3620,20 @@ export const useStore = create<Store>()(
 
       unarchiveItem: (itemId) => {
         const state = get()
+        // A live item may not have an archived ancestor. Restoring a child of a filed-away parent
+        // would create exactly that broken tree, so refuse and name the door that is still closed.
+        let ancestorId = decompositionParent(itemId, state.edges)
+        const seen = new Set<string>()
+        while (ancestorId && !seen.has(ancestorId)) {
+          seen.add(ancestorId)
+          const ancestor = state.items.find((i) => i.id === ancestorId)
+          if (ancestor?.archived) {
+            const child = state.items.find((i) => i.id === itemId)?.title ?? 'This item'
+            announce(`${child} cannot be restored: its parent ${ancestor.title} is still filed away. Restore that first.`)
+            return
+          }
+          ancestorId = decompositionParent(ancestorId, state.edges)
+        }
         const ids = new Set([itemId, ...descendants(itemId, state)])
         set({
           items: writeItems(state, (i) =>

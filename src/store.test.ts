@@ -852,6 +852,18 @@ describe('store actions', () => {
     expect(s().items.find((i) => i.id === 'init-signup')!.log?.some((e) => e.kind === 'unarchived')).toBe(true)
   })
 
+  it('refuses to restore a child while its parent is still filed away', () => {
+    s().archiveItem('init-signup')
+    // The child is filed with its parent, but restoring it alone would leave a live card under an
+    // archived initiative. The store refuses and names the parent.
+    s().unarchiveItem('st-email')
+    expect(s().items.find((i) => i.id === 'st-email')?.archived).toBe(true)
+
+    // Restoring the parent restores the subtree, and then the card is back in play.
+    s().unarchiveItem('init-signup')
+    expect(s().items.find((i) => i.id === 'st-email')?.archived).toBe(false)
+  })
+
   it('archives finished work, and keeps the verdict the item had when it was filed', () => {
     const done = laneByName('b-atlas', 'Done')
     s().moveCard('st-email', 'b-atlas', done.id)
@@ -1403,6 +1415,20 @@ describe('store actions', () => {
     s().cancelEdit()
     expect(s().flows.length).toBeGreaterThan(0)
     expect(s().lanes.every((l) => s().flows.some((f) => f.id === l.flowId))).toBe(true)
+  })
+
+  it('refuses to switch boards while a board design is open', () => {
+    s().selectBoard('b-atlas')
+    s().beginEdit()
+    expect(s().editMode).toBe(true)
+
+    s().selectBoard('b-nova')
+    expect(s().boardId).toBe('b-atlas')
+    expect(s().editMode).toBe(true)
+
+    s().cancelEdit()
+    s().selectBoard('b-nova')
+    expect(s().boardId).toBe('b-nova')
   })
 
   it('edit mode is a team’s and a programme’s — a portfolio has no design to open', () => {
@@ -3027,7 +3053,7 @@ describe('the flows of a board', () => {
     const id = s().addCardsFlow()!
     expect(id).toBeTruthy()
     const flow = s().flows.find((f) => f.id === id)!
-    expect(flow).toMatchObject({ boardId: 'b-atlas', kind: 'cards', name: 'Cards 2', order: 2 })
+    expect(flow).toMatchObject({ boardId: 'b-atlas', kind: 'cards', name: 'Cards Workflow 2', order: 2 })
     // Its own tree, starting where every flow starts — four typed columns, one cell each.
     expect(s().lanes.filter((l) => l.flowId === id)).toHaveLength(5)
     expect(topLevelLanes(s().lanes, id).map((l) => l.stage)).toEqual(['backlog', 'notStarted', 'inProgress', 'done'])
@@ -3070,11 +3096,11 @@ describe('the flows of a board', () => {
 
   it('reorders the cards flows, and leaves the initiatives flow where it is', () => {
     const id = s().addCardsFlow()!
-    // Cards, Support, Cards 2 — one step left puts it between them.
+    // Cards, Support, Cards Workflow 2 — one step left puts it between them.
     expect(s().moveFlow(id, -1)).toBe(true)
-    expect(cardsFlows(s().flows, 'b-atlas').map((f) => f.name)).toEqual(['Cards', 'Cards 2', 'Support'])
+    expect(cardsFlows(s().flows, 'b-atlas').map((f) => f.name)).toEqual(['Cards', 'Cards Workflow 2', 'Support'])
     expect(s().moveFlow(id, -1)).toBe(true)
-    expect(cardsFlows(s().flows, 'b-atlas').map((f) => f.name)).toEqual(['Cards 2', 'Cards', 'Support'])
+    expect(cardsFlows(s().flows, 'b-atlas').map((f) => f.name)).toEqual(['Cards Workflow 2', 'Cards', 'Support'])
     // The order is a clean 0..n-1, so two swaps cannot drift it.
     expect(cardsFlows(s().flows, 'b-atlas').map((f) => f.order)).toEqual([0, 1, 2])
     // The ends are ends, and the initiatives flow is not in the strip at all.

@@ -15,6 +15,8 @@ import { toggleWatch } from '@/lib/watch'
 interface Props {
   onNewCard: () => void
   onNewInitiative: () => void
+  /** The workspace home, through the same door the toolbar uses (with its unsaved-design check). */
+  onGoToBoards: () => void
   /** False on a board that renders no cards workflow — the same rule the toolbar's button keeps. */
   makesCards: boolean
   /** False on a portfolio, which connects the initiatives that exist rather than making new ones. */
@@ -32,7 +34,7 @@ interface Props {
  * An empty palette is not blank: it leads with the cards opened lately, then the boards, then the
  * actions. That list is view state — it is about this session, not about the work.
  */
-export function CommandPalette({ onNewCard, onNewInitiative, makesCards, addsInitiatives }: Props) {
+export function CommandPalette({ onNewCard, onNewInitiative, onGoToBoards, makesCards, addsInitiatives }: Props) {
   const items = useStore((s) => s.items)
   const boards = useStore((s) => s.boards)
   const boardId = useStore((s) => s.boardId)
@@ -47,7 +49,6 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards, addsIni
   const setMetrics = useStore((s) => s.setMetrics)
   const setArchive = useStore((s) => s.setArchive)
   const setMyWork = useStore((s) => s.setMyWork)
-  const setBoards = useStore((s) => s.setBoards)
   const toggleFilters = useStore((s) => s.toggleFilters)
   const toggleBoardSettings = useStore((s) => s.toggleBoardSettings)
   const beginEdit = useStore((s) => s.beginEdit)
@@ -304,12 +305,14 @@ export function CommandPalette({ onNewCard, onNewInitiative, makesCards, addsIni
         : []),
       { id: 'action:archive', kind: 'action', label: 'Archive', hint: 'Filed-away items', keywords: 'done filed old', run: () => setArchive(true) },
       { id: 'action:mywork', kind: 'action', label: 'My work', hint: 'Everything assigned to you', keywords: 'mine assigned', run: () => setMyWork(true) },
-      { id: 'action:boards', kind: 'action', label: 'All boards', hint: 'The board workspace', keywords: 'workspace switch', run: () => setBoards(true) },
+      { id: 'action:boards', kind: 'action', label: 'All boards', hint: 'The board workspace', keywords: 'workspace switch', run: onGoToBoards },
     ],
-    [addsInitiatives, beginEdit, boardId, boards, canDesign, canSettings, canWrite, editMode, itemActions, makesCards, onNewCard, onNewInitiative, setArchive, setBoard, setBoards, setDashboard, setMetrics, setMyWork, setTimeline, toggleBoardSettings, toggleFilters],
+    [addsInitiatives, beginEdit, boardId, boards, canDesign, canSettings, canWrite, editMode, itemActions, makesCards, onGoToBoards, onNewCard, onNewInitiative, setArchive, setBoard, setDashboard, setMetrics, setMyWork, setTimeline, toggleBoardSettings, toggleFilters],
   )
 
-  const liveBoards = boards.filter((b) => !b.archived)
+  // An open board design closes the board switcher. The palette follows the same rule: the
+  // current board's cards are still reachable, but another board is not.
+  const liveBoards = boards.filter((b) => !b.archived && !editMode)
 
   const entries: PaletteEntry[] = useMemo(() => {
     if (query.trim() === '') {

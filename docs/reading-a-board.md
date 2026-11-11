@@ -186,15 +186,19 @@ Progress, blue for Not Started, grey for Backlog.
 - A pip is a way into that child: clicking it opens the child and, on a board, brings it into view.
 - Pips are direct children, not every descendant. The work beneath a child is behind that child's
   own card.
-- Up to 12 pips are drawn; beyond that a **+N** says how many more there are. The count includes
-  filed-away children, because the rollup counts them too.
+- Up to 12 pips are drawn; beyond that a **+N** says how many more there are. Completed filed-away
+  children still count, because their work is part of what was delivered; a discarded child is not
+  drawn as a progress pip, and the drawer lists it with its discarded outcome. The initiative card
+  does not repeat the count on its face.
 
 ### The progress bar
 
 The percentage and the bar beside the pips are the same number: the share of the **leaf issues
 below** the initiative that are done. Every leaf counts once — however many levels of decomposition
-sit above it — and an archived leaf still counts, so filing away finished work does not lower a
-parent's progress.
+sit above it — and an archived leaf that was completed still counts, so filing away finished work
+does not lower a parent's progress. A **discarded** leaf does not count: it was thrown away, not a
+plan that remains unfinished, and leaving it in the denominator would make the parent impossible to
+finish.
 
 The denominator is all the leaves, including those still in Backlog, so planning more uncommitted
 work moves the percentage back. A Backlog leaf does not drag the initiative's *status* backwards, but

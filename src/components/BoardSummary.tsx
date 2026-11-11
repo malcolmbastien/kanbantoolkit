@@ -11,6 +11,7 @@ import { LaneSettings } from './LaneSettings'
 import {
   checklistProgress,
   canPlaceInSection,
+  isDiscarded,
   type Graph,
 } from '@/domain/derive'
 import { buildBoardModel } from '@/domain/boardModel'
@@ -340,15 +341,16 @@ export function BoardSummary({
       !pickRoot &&
       (childPickId !== null ||
         (parentPickId !== null && (!onViewedBoard(c.id) || c.id === currentParent)))
-    // The direct children — archived ones included, because the rollup counts them and the count
-    // beside the pips has to be the same number the percentage is about. Filtering them out here
-    // is what made a card with one filed-away child read "nothing below" and "1 below" at once.
+    // The direct children, including filed-away ones: the hierarchy is history, and the drawer
+    // names each child with its archived/discarded outcome. The pips are the part that counts
+    // toward progress, so a discarded child is not drawn as a normal stage pip.
     const childItems = (model.childrenOf.get(c.id) ?? [])
       .map((id) => model.itemsById.get(id))
       .filter((i): i is Item => Boolean(i))
-    // Symbols summarise the direct children — team initiatives for a top-level
+    const progressItems = childItems.filter((ci) => !isDiscarded(ci, graph))
+    // Symbols summarise the direct children that count — team initiatives for a top-level
     // initiative, cards for a team-level one — coloured by their status.
-    const symbols = childItems.map((ci) => ({ id: ci.id, bucket: model.rollup.get(ci.id)?.bucket ?? 'backlog', title: ci.title }))
+    const symbols = progressItems.map((ci) => ({ id: ci.id, bucket: model.rollup.get(ci.id)?.bucket ?? 'backlog', title: ci.title }))
     return (
       <Card
         key={c.id}
@@ -359,9 +361,10 @@ export function BoardSummary({
         wide
         users={users}
         symbols={symbols}
-        // The same health rules the dashboard's Health column reads, in the same words — so an
-        // initiative cannot be "at risk" in one place and quiet in another.
-        flags={health.get(c.id)}
+        // The same health rules the dashboard's Health column reads, in the same words — except
+        // that a discarded branch is filed history, not a card-face warning. The drawer still
+        // names every discarded child; the card does not repeat the count.
+        flags={health.get(c.id)?.filter((flag) => flag.flag !== 'discarded')}
         // How far the reader is from the work decides the tone, not which surface this is: a team
         // board's own initiatives sit one level above its cards, so a blockage there is a fact
         // about this board. A coordination board is reading work several levels down and says so

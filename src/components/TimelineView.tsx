@@ -3,7 +3,7 @@ import { ChartNoAxesGantt, Minus, Plus } from 'lucide-react'
 import { Card } from './Card'
 import { PersonAvatar } from './PersonAvatar'
 import { boardInitiatives, isPortfolio, portfolioInitiatives } from '@/domain/board'
-import { blockedBelow, checklistProgress, decompositionChildren, dependenciesOf, isComplete, openDependenciesOf, openDescendants, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
+import { blockedBelow, checklistProgress, decompositionChildren, dependenciesOf, isComplete, isDiscarded, openDependenciesOf, openDescendants, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { layoutTimeline, type TimelineDay } from '@/domain/timelineLayout'
 import { TIMELINE_DAY_PX, TIMELINE_ZOOM_LABELS, TIMELINE_ZOOMS, zoomIn, zoomOut } from '@/domain/timelineZoom'
 import { peopleOf } from '@/domain/users'
@@ -504,7 +504,9 @@ export function TimelineView({ boardId }: { boardId: string }) {
                     const childItems = decompositionChildren(item.id, edges)
                       .map((id) => items.find((i) => i.id === id))
                       .filter((i): i is Item => Boolean(i))
-                    const symbols = childItems.map((ci) => ({ id: ci.id, bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
+                    const symbols = childItems
+                      .filter((ci) => !isDiscarded(ci, graph))
+                      .map((ci) => ({ id: ci.id, bucket: rollupOf(ci.id, graph).bucket, title: ci.title }))
                     return (
                       <div key={u.id} data-timeline-unscheduled={u.id} className="w-56 shrink-0">
                         <Card

@@ -11,6 +11,8 @@ interface Props {
   boards: Board[]
   boardId: string
   onSelect: (id: string) => void
+  /** A board design is open; another board cannot be opened until it is saved or cancelled. */
+  disabled?: boolean
 }
 
 /**
@@ -18,7 +20,7 @@ interface Props {
  * board grouped by board type and names the boards each one rolls up under
  * — which is honest even where a board is linked by more than one parent.
  */
-export function BoardPicker({ boards, boardId, onSelect }: Props) {
+export function BoardPicker({ boards, boardId, onSelect, disabled = false }: Props) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -74,10 +76,10 @@ export function BoardPicker({ boards, boardId, onSelect }: Props) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         onKeyDown={onKeyDown}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400"
-        title="Switch board"
+        className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-800 outline-none transition hover:border-slate-300 focus:ring-2 focus:ring-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {current && (
           <span

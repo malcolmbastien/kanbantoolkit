@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Archive, ArchiveX, CheckSquare, Trash2, TriangleAlert, X } from 'lucide-react'
 import { canSetParent, cardTypes, defaultDropLane, isInitiativeItem } from '@/domain/board'
-import { isComplete, type Graph } from '@/domain/derive'
+import { isComplete, descendants, type Graph } from '@/domain/derive'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { heldByOther, usePresence } from '@/lib/presence'
 import { useStore } from '@/store'
@@ -87,6 +87,25 @@ export function BulkActions() {
   // offers for one item, narrowed to what the whole selection accepts — so a choice that is
   // offered is a choice the store takes.
   const graph: Graph = { items, edges, links, placements, lanes }
+  const below = new Set<string>()
+  for (const id of multiSelect) {
+    for (const child of descendants(id, graph)) {
+      if (!multiSelect.includes(child)) below.add(child)
+    }
+  }
+  const requestArchive = () => {
+    if (below.size === 0) {
+      archiveItems(multiSelect)
+      return
+    }
+    askConfirm({
+      title: `${allComplete ? 'Archive' : 'Discard'} ${count} item${count === 1 ? '' : 's'}?`,
+      body: `This also files ${below.size} item${below.size === 1 ? '' : 's'} below. Finished work is archived; unfinished work is discarded.`,
+      confirmLabel: allComplete ? 'Archive' : 'Discard',
+      danger: !allComplete,
+      onConfirm: () => archiveItems(multiSelect),
+    })
+  }
   const parentCandidates = items.filter(
     (i) => isInitiativeItem(i, issueTypes) && multiSelect.every((id) => canSetParent(id, i.id, graph, issueTypes)),
   )
@@ -256,7 +275,7 @@ export function BulkActions() {
 
       <button
         disabled={Boolean(held)}
-        onClick={() => archiveItems(multiSelect)}
+        onClick={requestArchive}
         className={SECONDARY_CLS}
         title={
           allComplete

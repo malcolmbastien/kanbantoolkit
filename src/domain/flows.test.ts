@@ -112,8 +112,10 @@ describe('a board’s flows', () => {
   })
 
   it('names a new cards flow without colliding with one already there', () => {
-    expect(nextFlowName(flows, 'b')).toBe('Cards')
-    expect(nextFlowName([flow('f-1', 'cards', 'Cards')], 'b')).toBe('Cards 2')
-    expect(nextFlowName([flow('f-1', 'cards', 'Cards'), flow('f-2', 'cards', 'Cards 2')], 'b')).toBe('Cards 3')
+    expect(nextFlowName(flows, 'b')).toBe('Cards Workflow 1')
+    expect(nextFlowName([flow('f-1', 'cards', 'Cards')], 'b')).toBe('Cards Workflow 2')
+    expect(
+      nextFlowName([flow('f-1', 'cards', 'Cards'), flow('f-2', 'cards', 'Cards Workflow 2')], 'b'),
+    ).toBe('Cards Workflow 3')
   })
 })

@@ -108,7 +108,7 @@ export function TopBar(props: Props) {
           'flex items-center gap-2 rounded-md px-1.5 py-1 transition',
           showBoards ? 'bg-white ring-1 ring-indigo-300' : 'hover:bg-white',
         )}
-        title="Every board in the organisation"
+        title="Workspace home"
       >
         <span className="grid h-6 w-6 place-items-center rounded bg-indigo-500 text-white shadow-sm">
           <LayoutGrid size={14} />
@@ -128,7 +128,7 @@ export function TopBar(props: Props) {
           <div className="flex min-w-0 shrink-0 items-center gap-x-3">
             <div className="flex items-center gap-1.5 text-meta font-medium text-slate-600">
               Board
-              <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
+              <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} disabled={editMode} />
             </div>
 
             {!portfolio && <div className="h-5 w-px bg-slate-200" />}

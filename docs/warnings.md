@@ -55,6 +55,7 @@ The flags themselves:
 | --- | --- | --- | --- |
 | **N blocked** | risk | N cards below are explicitly blocked and still open. | They are unblocked or finished. |
 | **N waiting** | risk | N cards below wait on work that is not done. | That work is done, or the links are removed. |
+| **N discarded** | watch | N items below were discarded. They remain in the hierarchy as history but no longer count toward progress. Reported in the drawer and the dashboard's health reading, not as a badge on the card face. | The items are restored, or the initiative is discarded or re-planned. |
 | **still Nd** | watch | The initiative is committed (Not Started or In Progress) and nothing below it has moved for at least 7 days. Where the last movement is unknown, the flag is not raised. | Something below moves. |
 | **N unowned** | watch | N committed cards below have no assignee. | Each gets an owner, or leaves the committed stages. |
 | **N backlog** | watch | The initiative is committed, but N of its leaves are in Backlog. | Those cards leave Backlog, or the initiative returns to Backlog. |

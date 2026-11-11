@@ -290,6 +290,25 @@ export function isArchived(item: Item | undefined): boolean {
   return item?.archived === true
 }
 
+/**
+ * Filed away as work that was thrown away rather than finished.
+ *
+ * The distinction is already stamped when an item is filed (`archiveOutcome`); this is the reading
+ * the progress rules need, so a discarded branch does not sit in a live parent's denominator for
+ * ever. A live item is never discarded, and a completed archived item is not either.
+ */
+export function isDiscarded(item: Item | undefined, graph: Graph): boolean {
+  return Boolean(item?.archived && archiveOutcome(item, graph) === 'discarded')
+}
+
+/** Discarded items anywhere below this one — what a parent stopped counting when they were filed. */
+export function discardedBelowItems(id: string, graph: Graph): Item[] {
+  return descendants(id, graph)
+    .map((d) => graph.items.find((i) => i.id === d))
+    .filter((i): i is Item => Boolean(i))
+    .filter((i) => isDiscarded(i, graph))
+}
+
 /* ------------------------------------------------------------------ *
  * Checklist — sub-tasks inside a card (never schedulable, never WIP)
  * ------------------------------------------------------------------ */
@@ -379,8 +398,40 @@ export interface Rollup {
   bucket: RollupBucket
 }
 
+/**
+ * The leaves that count toward a parent's progress.
+ *
+ * Completed work that has been filed away still counts: filing a done card must not lower its
+ * parent's percentage. **Discarded** work does not: it was thrown away, so it is not a plan that
+ * remains unfinished, and leaving it in the denominator would make the parent impossible to finish.
+ * A discarded branch takes its whole subtree with it, even a leaf that happened to be completed
+ * before the branch was thrown away. An archived parent's own rollup is a historical reading and
+ * keeps all its leaves; the rule is about a live parent's answer.
+ */
+export function progressLeaves(id: string, graph: Graph): Item[] {
+  const owner = graph.items.find((i) => i.id === id)
+  if (owner?.archived) return leafItems(id, graph)
+
+  const out: Item[] = []
+  const walk = (nodeId: string) => {
+    const kids = decompositionChildren(nodeId, graph.edges)
+    if (kids.length === 0) {
+      const item = graph.items.find((i) => i.id === nodeId)
+      if (item && !isDiscarded(item, graph)) out.push(item)
+      return
+    }
+    for (const kid of kids) {
+      const item = graph.items.find((i) => i.id === kid)
+      if (item && isDiscarded(item, graph)) continue
+      walk(kid)
+    }
+  }
+  walk(id)
+  return out
+}
+
 export function rollupOf(id: string, graph: Graph): Rollup {
-  return rollupFrom(leafItems(id, graph), graph)
+  return rollupFrom(progressLeaves(id, graph), graph)
 }
 
 /**
@@ -478,7 +529,7 @@ export function objectiveRollup(objectiveId: string, graph: Graph): Rollup | und
   if (initiatives.length === 0) return undefined
   const leaves = new Map<string, Item>()
   for (const initiative of initiatives) {
-    for (const leaf of leafItems(initiative, graph)) leaves.set(leaf.id, leaf)
+    for (const leaf of progressLeaves(initiative, graph)) leaves.set(leaf.id, leaf)
   }
   return rollupFrom([...leaves.values()], graph)
 }

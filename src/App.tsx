@@ -209,6 +209,30 @@ export default function App() {
     addCard({ boardId, typeId, laneId: firstLeaf.id, title: 'New initiative' })
   }
 
+  /**
+   * The workspace home is a way out of the board, and an open board design is an unsaved draft.
+   * Going home while it is open must say that, and the confirmation is the only thing that ends
+   * the draft: cancelling the dialog leaves the reader exactly where they were.
+   */
+  const goToBoards = () => {
+    const state = useStore.getState()
+    if (!state.editMode) {
+      setView('boards')
+      return
+    }
+    state.askConfirm({
+      title: 'Leave design?',
+      body: 'Unsaved changes lost.',
+      confirmLabel: 'Discard',
+      danger: true,
+      onConfirm: () => {
+        const after = useStore.getState()
+        after.cancelEdit()
+        after.setView('boards')
+      },
+    })
+  }
+
 
   return (
     <div className="flex h-full flex-col">
@@ -223,7 +247,7 @@ export default function App() {
           cards, and a portfolio connects initiatives rather than making them — so the two ways in
           cannot disagree. */}
       <Suspense fallback={null}>
-        <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} makesCards={makesCards} addsInitiatives={addsInitiatives} />
+        <CommandPalette onNewCard={quickAdd} onNewInitiative={quickAddInitiative} onGoToBoards={goToBoards} makesCards={makesCards} addsInitiatives={addsInitiatives} />
       </Suspense>
       <TopBar
         boards={boards}
@@ -241,7 +265,7 @@ export default function App() {
         onShowTimeline={() => setView('timeline')}
         onShowMetrics={() => setView('flow')}
         onShowArchive={() => setView('archive')}
-        onGoToBoards={() => setView('boards')}
+        onGoToBoards={goToBoards}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}

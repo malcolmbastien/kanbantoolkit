@@ -19,7 +19,7 @@ import {
   Unlink,
 } from 'lucide-react'
 import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isInitiativeItem, isPortfolio, NONE_TYPE_ID, placementOn } from '@/domain/board'
-import { decompositionParent, isComplete } from '@/domain/derive'
+import { decompositionParent, descendants, isComplete } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
 import { cn } from '@/lib/utils'
@@ -109,6 +109,27 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   // the whole group reads as the weaker of the two words rather than promising an archive it cannot
   // deliver.
   const allComplete = count > 0 && targets.every((t) => isComplete(t.id, { items, edges, links, placements, lanes }))
+  // Filing a parent files its subtree. The count is what the confirmation says, so a discard of an
+  // initiative is not a surprise to the cards below it.
+  const below = new Set<string>()
+  for (const id of itemIds) {
+    for (const child of descendants(id, { items, edges, links, placements, lanes })) {
+      if (!itemIds.includes(child)) below.add(child)
+    }
+  }
+  const requestArchive = () => {
+    if (below.size === 0) {
+      archiveItems(itemIds)
+      return
+    }
+    askConfirm({
+      title: `${allComplete ? 'Archive' : 'Discard'} ${count} item${count === 1 ? '' : 's'}?`,
+      body: `This also files ${below.size} item${below.size === 1 ? '' : 's'} below. Finished work is archived; unfinished work is discarded.`,
+      confirmLabel: allComplete ? 'Archive' : 'Discard',
+      danger: !allComplete,
+      onConfirm: () => archiveItems(itemIds),
+    })
+  }
   // Duplicating is offered for a card that is in a cell of the board in front of us: the copy
   // lands in that cell, so a card with no cell here — read inside another board's band, or on a
   // surface that has no board behind it — has nowhere for a copy to go.
@@ -468,7 +489,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
 
         <button
           className={ITEM}
-          onClick={() => run(() => archiveItems(itemIds))}
+          onClick={() => run(requestArchive)}
           title={
             allComplete
               ? 'Archive it as completed work'

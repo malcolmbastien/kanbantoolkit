@@ -81,11 +81,13 @@ export function canRemoveFlow(flows: BoardFlow[], flowId: string, lanes: Lane[],
   return !placements.some((p) => laneIds.has(p.laneId))
 }
 
-/** The name a new cards flow takes: "Cards", then "Cards 2", "Cards 3". */
+/**
+ * The name a new cards flow takes: "Cards Workflow 1" on a board whose flows were all named
+ * something else, and "Cards Workflow 2", "Cards Workflow 3" after the built-in "Cards" flow.
+ */
 export function nextFlowName(flows: BoardFlow[], boardId: string): string {
   const taken = new Set(cardsFlows(flows, boardId).map((f) => f.name.trim().toLowerCase()))
-  if (!taken.has('cards')) return 'Cards'
-  let n = 2
-  while (taken.has(`cards ${n}`)) n += 1
-  return `Cards ${n}`
+  let n = taken.has('cards') ? 2 : 1
+  while (taken.has(`cards workflow ${n}`)) n += 1
+  return `Cards Workflow ${n}`
 }

@@ -1,8 +1,9 @@
 import {
   blockedBelowItems,
-  leafItems,
+  discardedBelowItems,
   openDependenciesOf,
   openDescendants,
+  progressLeaves,
   rollupOf,
   stageOf,
   type Graph,
@@ -28,7 +29,7 @@ import { parseDay, STALE_AFTER_DAYS } from './filters'
  * "nothing below" is the interface telling a reader what the absence already told them.
  */
 
-export type HealthFlag = 'blocked' | 'waiting' | 'stale' | 'unowned' | 'uncommitted' | 'outlasted'
+export type HealthFlag = 'blocked' | 'waiting' | 'discarded' | 'stale' | 'unowned' | 'uncommitted' | 'outlasted'
 
 export interface HealthFlagInfo {
   flag: HealthFlag
@@ -103,6 +104,19 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
     })
   }
 
+  // Work that was thrown away is still in the hierarchy as history, but it is no longer part of
+  // this initiative's progress. Say so quietly: a discard is a decision, not a fault.
+  const discarded = discardedBelowItems(id, graph)
+  if (discarded.length > 0) {
+    flags.push({
+      flag: 'discarded',
+      label: `${discarded.length} discarded`,
+      why: `${discarded.length} item${plural(discarded.length)} below ${discarded.length === 1 ? 'was' : 'were'} discarded and ${discarded.length === 1 ? 'is' : 'are'} not counted in progress`,
+      tone: 'watch',
+      items: discarded.map((i) => i.id),
+    })
+  }
+
   // Stale progress: committed work nothing has moved for longer than the staleness threshold —
   // the same threshold a card's own aging cue speaks at, so the surfaces agree on "too long".
   const committed = roll.bucket === 'notStarted' || roll.bucket === 'inProgress'
@@ -153,7 +167,7 @@ export function initiativeHealth(id: string, graph: Graph, now = Date.now()): In
   // The rollup anomaly the cards themselves already warn about: committed over uncommitted. The
   // list is taken rather than the count so the badge can point at the cards it means — the same
   // leaves, in the same order, that `rollupOf` counted.
-  const backlog = committed ? leafItems(id, graph).filter((l) => stageOf(l.id, graph) === 'backlog') : []
+  const backlog = committed ? progressLeaves(id, graph).filter((l) => stageOf(l.id, graph) === 'backlog') : []
   if (backlog.length > 0) {
     flags.push({
       flag: 'uncommitted',

@@ -8,6 +8,7 @@ import {
   decompositionParent,
   dependenciesOf,
   dependentsOf,
+  descendants,
   lineageOf,
   objectiveRollup,
   type Graph,
@@ -284,6 +285,23 @@ export function ItemPanel({ itemId }: Props) {
   }
 
   if (!item) return null
+
+  // Filing a parent files its whole subtree. A person pressing that on an initiative should see
+  // the cascade before it happens; a card with nothing below it files in one press as before.
+  const requestArchive = () => {
+    const below = descendants(item.id, graph)
+    if (below.length === 0) {
+      archiveItem(item.id)
+      return
+    }
+    askConfirm({
+      title: `${complete ? 'Archive' : 'Discard'} “${item.title}”?`,
+      body: `This also files ${below.length} item${below.length === 1 ? '' : 's'} below it. Finished work is archived; unfinished work is discarded.`,
+      confirmLabel: complete ? 'Archive' : 'Discard',
+      danger: !complete,
+      onConfirm: () => archiveItem(item.id),
+    })
+  }
 
   const type = issueTypes.find((t) => t.id === item.typeId) ?? { id: item.typeId, name: 'Item', color: '#64748b' }
   const parentId = decompositionParent(item.id, edges)
@@ -760,7 +778,7 @@ export function ItemPanel({ itemId }: Props) {
                 </button>
               ) : complete ? (
                 <button
-                  onClick={() => archiveItem(item.id)}
+                  onClick={requestArchive}
                   title="Archive this item and everything under it"
                   className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 >
@@ -768,7 +786,7 @@ export function ItemPanel({ itemId }: Props) {
                 </button>
               ) : (
                 <button
-                  onClick={() => archiveItem(item.id)}
+                  onClick={requestArchive}
                   title="Archive this item and everything under it as discarded, unfinished"
                   className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-meta font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 >

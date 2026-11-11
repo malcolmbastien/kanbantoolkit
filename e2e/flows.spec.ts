@@ -51,7 +51,7 @@ test('a new flow is another band, with its own name, count and columns', async (
   await openBoard(page)
   await editBoard(page)
   await addFlow(page)
-  await rename(page, 'Cards 2', 'Escalations')
+  await rename(page, 'Cards Workflow 2', 'Escalations')
   await saveBoard(page)
 
   // Three bands, stacked in the board's order, each a tree of its own.
@@ -69,7 +69,7 @@ test('a flow is named and placed from its header, and only in edit mode', async 
   await openBoard(page)
   await editBoard(page)
   await addFlow(page)
-  await rename(page, 'Cards 2', 'Escalations')
+  await rename(page, 'Cards Workflow 2', 'Escalations')
 
   // Place is the header's too: the bands are vertical, so it is up and down.
   await band(page, 'Escalations').getByRole('button', { name: 'Move Escalations up' }).click()
@@ -86,7 +86,7 @@ test('a flow that holds nothing can be removed, and the last one cannot', async 
   await openBoard(page)
   await editBoard(page)
   await addFlow(page)
-  await rename(page, 'Cards 2', 'Spike')
+  await rename(page, 'Cards Workflow 2', 'Spike')
   await saveBoard(page)
   await expect(bands(page)).toHaveCount(3)
 
@@ -152,7 +152,7 @@ test('the card menu names the flows, and its move lands in the one chosen', asyn
   await openBoard(page)
   await editBoard(page)
   await addFlow(page)
-  await rename(page, 'Cards 2', 'Escalations')
+  await rename(page, 'Cards Workflow 2', 'Escalations')
   await saveBoard(page)
 
   const [card] = await cardsIn(page, 'Backlog', 'Cards')
@@ -173,7 +173,7 @@ test('the toolbar card button chooses which cards flow a new card belongs to', a
   await openBoard(page)
   await editBoard(page)
   await addFlow(page)
-  await rename(page, 'Cards 2', 'Escalations')
+  await rename(page, 'Cards Workflow 2', 'Escalations')
   await saveBoard(page)
 
   const onCards = await cardsIn(page, 'Backlog', 'Cards')
@@ -198,7 +198,7 @@ test('the dashboard reads every flow, one group at a time', async ({ page }) => 
   await openBoard(page)
   await editBoard(page)
   await addFlow(page)
-  await rename(page, 'Cards 2', 'Escalations')
+  await rename(page, 'Cards Workflow 2', 'Escalations')
   await saveBoard(page)
 
   await page.getByRole('button', { name: 'Dashboard' }).click()
@@ -213,7 +213,7 @@ test('a card finished in a second flow is archived as completed', async ({ page 
   await openBoard(page)
   await editBoard(page)
   await addFlow(page)
-  await rename(page, 'Cards 2', 'Escalations')
+  await rename(page, 'Cards Workflow 2', 'Escalations')
   await saveBoard(page)
 
   // The card finishes in the third flow's Done column — the menu is the deterministic door.

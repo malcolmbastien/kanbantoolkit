@@ -729,10 +729,11 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
   }
 
   if (wide) {
-    // A rollup is a statement about the work below. An initiative with nothing under it has no
-    // percentage to show and no bar to fill: both would say "0%" about work that has not been
-    // planned, which is a different fact and the wrong one.
-    const pct = summary.childCount > 0 ? summary.rollupPercent : undefined
+    // A rollup is a statement about the work below. An initiative with nothing counting below it
+    // has no percentage to show and no bar to fill: both would say "0%" about work that has not
+    // been planned, or only about work that was discarded, which is a different fact and the
+    // wrong one.
+    const pct = (symbols?.length ?? 0) > 0 ? summary.rollupPercent : undefined
     // The children's own stages, in the columns' order — so the pips read left to right the way
     // the board does, and "how much green" is a glance rather than a count.
     const stageOrder: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
