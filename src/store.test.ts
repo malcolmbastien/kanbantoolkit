@@ -1452,6 +1452,22 @@ describe('store actions', () => {
     expect(s().boundaryId).toBe(null)
   })
 
+  it('the dependency badge opens Hierarchy with the item’s own connections', () => {
+    s().openItem('st-email')
+    expect(s().panelTab).toBe('overview')
+
+    s().openItemDependencies('st-email')
+    expect(s().selectedItemId).toBe('st-email')
+    expect(s().panelTab).toBe('hierarchy')
+    expect(s().connectionScopeId).toBe('st-email')
+
+    // Closing the panel ends the scoped reading, and the next door opens on Overview again.
+    s().openItem(null)
+    expect(s().connectionScopeId).toBe(null)
+    s().openItem('st-email')
+    expect(s().panelTab).toBe('overview')
+  })
+
   it('multi-select: shift+click seeds from the open card; bulk actions apply', () => {
     s().selectBoard('b-atlas')
     // A card is open; shift+click a second → group of two, panel closed.

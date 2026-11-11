@@ -32,7 +32,7 @@ import { useMay } from '@/lib/permissions'
 import { useSync } from '@/lib/sync'
 import { fetchItemLog, mergeLog, type LogPage } from '@/lib/history'
 import { toggleWatch } from '@/lib/watch'
-import { useStore, isBoardSurface } from '@/store'
+import { useStore, isBoardSurface, type ItemPanelTab } from '@/store'
 import { buildBoardModel } from '@/domain/boardModel'
 import { TagInput } from './TagInput'
 import { PersonAvatar } from './PersonAvatar'
@@ -60,8 +60,6 @@ const LOG_STYLES: Record<string, string> = {
 /** The one field style: a white well on the card's grey ground. */
 const WELL = 'flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5'
 const CHIP = 'flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-1.5 text-meta font-medium text-slate-700 ring-1 ring-slate-200'
-
-type Tab = 'overview' | 'comments' | 'hierarchy' | 'history'
 
 /** The stages in the order a board reads them, which is the order the work below is listed in. */
 const STAGE_ORDER: Stage[] = ['backlog', 'notStarted', 'inProgress', 'done']
@@ -118,7 +116,8 @@ export function ItemPanel({ itemId }: Props) {
   // A watch is not a permission — a Viewer can watch — so this is not behind `canWrite`.
   const watching = useStore((s) => s.watchedItemIds.includes(itemId))
 
-  const [tab, setTab] = useState<Tab>('overview')
+  const tab = useStore((s) => s.panelTab)
+  const setTab = useStore((s) => s.setPanelTab)
   // The card's history from the server: `undefined` while asking, `null` when this deployment has
   // nobody to ask. A page of it is merged with what this browser already has, because the drawer
   // may be opened on a card whose log arrived with the workspace (a static build) or never did.
@@ -541,7 +540,7 @@ export function ItemPanel({ itemId }: Props) {
   // it, where it sits in the work, and what has happened to it. The tabs carry no counts: each view
   // counts what it holds in its own headings, and a number repeated on the tab only makes the tab
   // read as one.
-  const tabs: { id: Tab; label: string }[] = [
+  const tabs: { id: ItemPanelTab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'comments', label: 'Comments' },
     { id: 'hierarchy', label: 'Hierarchy' },

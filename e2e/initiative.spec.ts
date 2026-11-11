@@ -24,6 +24,8 @@ test('an initiative with nothing below shows no rollup and says nothing about it
   const empty = page.locator('[data-card-id="init-data-quality"]')
   await expect(empty).toBeVisible()
   await expect(empty).not.toContainText('nothing below')
+  // No children and no dependencies means no hierarchy door: there is nothing to read there.
+  await expect(empty.locator('[data-open-connections]')).toHaveCount(0)
   // No percentage, which is also the progress bar: both are drawn from the same rollup.
   await expect(empty).not.toContainText(/%/)
 
@@ -69,4 +71,46 @@ test('points are gone: no card carries one, and the drawer has no estimate to en
   await expect(panel).not.toContainText('Estimate')
   await expect(panel).not.toContainText('pts')
   await expect(panel.locator('input[type="number"]')).toHaveCount(0)
+})
+
+test('an initiative card counts its dependencies, and the count opens Hierarchy with connections', async ({ page }) => {
+  await openBoard(page)
+  const initiative = page.locator('[data-workflow="initiatives"] [data-card-id="init-billing"]')
+  await expect(initiative).toBeVisible()
+
+  // The door is there before any dependency exists: an initiative always has a hierarchy, so the
+  // icon is not hidden just because the count is zero.
+  const door = initiative.locator('[data-open-connections]')
+  await expect(door).toBeVisible()
+  await expect(door).not.toHaveAttribute('data-open-dependencies')
+  await door.click()
+  const panel = page.locator('[data-item-panel]')
+  await expect(panel).toHaveAttribute('aria-label', 'Card details: Billing migration')
+  await expect(panel.getByRole('button', { name: 'Hierarchy' })).toHaveClass(/text-indigo-600/)
+  await expect(panel.getByTitle(/Hide this item.s connections/)).toBeVisible()
+  await expect(page.locator('[data-connection-link]').first()).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(panel).toHaveCount(0)
+
+  // Give the initiative a dependency that is not on its own branch: the signup rebuild lives in
+  // another initiative, so the link is allowed.
+  await initiative.click()
+  await expect(panel).toHaveAttribute('aria-label', 'Card details: Billing migration')
+  await panel.getByRole('button', { name: 'Hierarchy' }).click()
+  await panel.getByRole('button', { name: 'Add a dependency' }).click()
+  const picker = page.locator('[data-item-picker]')
+  await picker.getByLabel('Search items').fill('rebuild')
+  await picker.getByRole('option', { name: /Rebuild the signup form/ }).click()
+  await expect(panel.getByText('Rebuild the signup form')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(panel).toHaveCount(0)
+
+  // The initiative wears the same count as a card does, and the badge is the same door.
+  const badge = initiative.locator('[data-open-dependencies]')
+  await expect(badge).toHaveAttribute('data-open-dependencies', '1')
+  await badge.click()
+  await expect(panel).toHaveAttribute('aria-label', 'Card details: Billing migration')
+  await expect(panel.getByRole('button', { name: 'Hierarchy' })).toHaveClass(/text-indigo-600/)
+  await expect(panel.getByTitle(/Hide this item.s connections/)).toBeVisible()
+  await expect(page.locator('[data-connection-link]').first()).toBeVisible()
 })

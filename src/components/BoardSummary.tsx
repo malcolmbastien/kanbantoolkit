@@ -96,6 +96,7 @@ export function BoardSummary({
   const dropTargetId = useDrag((s) => s.dropTargetId)
   const setDropTarget = useDrag((s) => s.setDropTarget)
   const openItem = useStore((s) => s.openItem)
+  const openItemDependencies = useStore((s) => s.openItemDependencies)
   const editMode = useStore((s) => s.editMode)
   const boardDetail = useStore((s) => s.boardDetail)
   const moveInitiativeToIndex = useStore((s) => s.moveInitiativeToIndex)
@@ -372,6 +373,9 @@ export function BoardSummary({
         locked={editMode}
         // The menu is new here: initiative cards never had one.
         onContextMenu={openCardMenu}
+        onOpenDependencies={openItemDependencies}
+        openDependencies={model.openDependencies.get(c.id)?.size ?? 0}
+        hasDependencies={Boolean(model.dependenciesOf.get(c.id)?.length)}
         dimmed={picking}
         inert={picking}
         connectRoot={pickRoot}

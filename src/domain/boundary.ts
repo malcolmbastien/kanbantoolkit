@@ -10,8 +10,9 @@
  * - **Every state is included, not only the open ones.** A satisfied dependency still had cards on
  *   this board waiting for it; if it disappeared the moment it was satisfied, the workflow would end
  *   at Done with nothing in it and a reader could never see what they were waiting for last week.
- *   The link state travels on the card (`Open · live blockage`, `Satisfied`, `Closed`), so a cleared
- *   dependency is read where it ended rather than vanishing.
+ *   The link state still orders and counts the band (`Open · live blockage`, `Satisfied`, `Closed`),
+ *   but it is not repeated as a badge on every card: being in the boundary already says the work is
+ *   a dependency, and a cleared one is read where it ended rather than vanishing.
  * - **A boundary card is a lens.** It cannot be moved here, and it does not exist as a placement on
  *   this board: moving external work from this surface would make the board a second editor of
  *   another team's state. The stage is the dependency's own rollup, read from its home board.
@@ -20,7 +21,7 @@
  * is why it cannot leak into placements, WIP counts, card counts or a rollup.
  */
 
-import { dependencyState, isArchived, isOpen, rollupOf, type DependencyState, type Graph } from './derive'
+import { dependencyState, isArchived, rollupOf, type DependencyState, type Graph } from './derive'
 import type { Item, ItemLink, Stage } from './types'
 
 export interface BoundaryEntry {
@@ -116,64 +117,4 @@ export function boundaryEntries(graph: Graph, boardId: string): BoundaryEntry[] 
 /** The entries in one column, in the workflow's documented order. */
 export function boundaryInStage(entries: BoundaryEntry[], stage: Stage): BoundaryEntry[] {
   return entries.filter((entry) => entry.stage === stage)
-}
-
-export interface ExternalWait {
-  dependency: Item
-  state: DependencyState
-}
-
-/**
- * What *one card* is still waiting on, for the chip it wears in the cards workflow.
- *
- * Only open links: a satisfied dependency is not something the card is waiting for any more, and a
- * chip saying so would be a lie. The boundary workflow still shows the satisfied entry, because the
- * workflow is a history of the edge as well as a list of what blocks today.
- */
-export function externalWaits(itemId: string, graph: Graph, boardId: string): ExternalWait[] {
-  return externalWaitsByItem(graph, boardId).get(itemId) ?? []
-}
-
-/**
- * The same answer for **every card on the board**, in one pass.
- *
- * `externalWaits` rebuilds the board's placement set and walks every link for the one item it is
- * asked about, so asking it once per card is quadratic — on a board of a thousand cards that is the
- * single largest per-render cost the canvas has. The board asks for every card at once, after every
- * change to the data, and the whole question costs one pass over the links.
- *
- * The shape of an answer is the one the chip needs: the dependency and how the link stands, worst
- * first, and deduplicated by the dependency (a card waiting on the same work through two links is
- * waiting on it once).
- */
-export function externalWaitsByItem(graph: Graph, boardId: string): Map<string, ExternalWait[]> {
-  const onBoard = new Set(graph.placements.filter((p) => p.boardId === boardId).map((p) => p.itemId))
-  const itemsById = new Map(graph.items.map((item) => [item.id, item]))
-  const waits = new Map<string, ExternalWait[]>()
-  const seen = new Map<string, Set<string>>()
-
-  for (const link of graph.links) {
-    // Work on this board is not across its edge; a card waiting on its own board waits on a card.
-    if (onBoard.has(link.from)) continue
-    const dependency = itemsById.get(link.from)
-    if (!dependency || isArchived(dependency)) continue
-    const depended = seen.get(link.to) ?? new Set<string>()
-    if (depended.has(link.from)) continue
-    const state = dependencyState(link.from, link.to, graph)
-    if (!isOpen(state)) continue
-    depended.add(link.from)
-    seen.set(link.to, depended)
-    const list = waits.get(link.to)
-    if (list) list.push({ dependency, state })
-    else waits.set(link.to, [{ dependency, state }])
-  }
-
-  for (const list of waits.values()) {
-    list.sort(
-      (a, b) =>
-        boundaryStateRank(a.state) - boundaryStateRank(b.state) ||
-        a.dependency.title.localeCompare(b.dependency.title),
-    )
-  }
-  return waits
 }

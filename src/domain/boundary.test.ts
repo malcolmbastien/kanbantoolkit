@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { boundaryEntries, boundaryInStage, externalWaits, externalWaitsByItem } from './boundary'
+import { boundaryEntries, boundaryInStage } from './boundary'
+import { buildBoardModel } from './boardModel'
 import type { Graph } from './derive'
 import type { Item, ItemLink, Lane, Placement } from './types'
 
@@ -167,30 +168,14 @@ describe('the boundary workflow', () => {
 })
 
 describe('what one card is still waiting on', () => {
-  it('names open external dependencies, and only those', () => {
-    const waits = externalWaits('a-1', graph(), 'a')
-    // ext-live is open; ext-archived and ext-own are not waiting-ons at all.
-    expect(waits.map((wait) => wait.dependency.id)).toEqual(['ext-live'])
-  })
-
-  it('leaves a satisfied link off the card, because it is no longer waiting', () => {
-    expect(externalWaits('a-3', graph(), 'a')).toEqual([])
-  })
-
-  it('answers for every card in one pass, with the same results as one at a time', () => {
+  it('is counted by the board model, whatever edge the dependency crosses', () => {
+    // The card face reads `buildBoardModel(...).openDependencies`, which is one pass over every
+    // link and deduplicated per dependency. These two cards are the cases the count folds
+    // together: a-1 waits across the board's edge and on its own board, and a filed-away
+    // dependency is no longer work in play.
     const g = graph()
-    const all = externalWaitsByItem(g, 'a')
-    // Only the cards that wait on something appear: a card with nothing across the edge is absent,
-    // not an empty list, so the canvas can pass `undefined` and the card draws no chip.
-    for (const item of g.items) {
-      expect(all.get(item.id) ?? [], item.id).toEqual(externalWaits(item.id, g, 'a'))
-    }
-    expect(all.get('a-1')?.map((wait) => wait.dependency.id)).toEqual(['ext-live'])
-    expect(all.has('a-3')).toBe(false)
-    // The edge is the board's: the same graph read from the other board waits on *this* board's
-    // work, so the map is not the same one reflected.
-    for (const [id, waits] of externalWaitsByItem(g, 'b')) {
-      expect(waits.map((wait) => wait.dependency.id)).toEqual(externalWaits(id, g, 'b').map((wait) => wait.dependency.id))
-    }
+    const model = buildBoardModel(g)
+    expect([...(model.openDependencies.get('a-1') ?? [])].sort()).toEqual(['ext-live', 'ext-own'])
+    expect([...(model.openDependencies.get('a-4') ?? [])].sort()).toEqual(['a-5'])
   })
 })

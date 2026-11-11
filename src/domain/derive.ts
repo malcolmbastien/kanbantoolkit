@@ -219,9 +219,9 @@ export function dependentsOf(itemId: string, graph: Graph): DependencyInfo[] {
     .filter((x): x is DependencyInfo => x !== null)
 }
 
-/** Open dependencies of this item — the dependency is not yet done. */
+/** Open dependencies of this item — the dependency is not yet done, and is still in play. */
 export function openDependenciesOf(itemId: string, graph: Graph): DependencyInfo[] {
-  return dependenciesOf(itemId, graph).filter((d) => isOpen(d.state))
+  return dependenciesOf(itemId, graph).filter((d) => isOpen(d.state) && !isArchived(d.dependency))
 }
 
 /**

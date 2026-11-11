@@ -42,22 +42,26 @@ changes are saved as you edit. A board’s type is fixed when it is made and is 
 dialog’s header names it, and there is nothing to change.
 
 The **Detail** dial in the board’s secondary bar — beside **Archive done**, **Export CSV** and
-**Filters** — chooses how much of a card the board draws, including a Boundary card:
-**Mini** (colour tiles, with blocked and warning markers), **Summary** (title, type, people, the due
-date at the foot, and one red or amber badge — a single warning in its own words, or **2 warnings**
-when there are several) or **Full** (the whole card). Hover or focus a Mini tile to read the card it
-stands for: its title and type, what it rolls up to, who is assigned, and why it has a red or amber
-marker. It is one person's reading, remembered in this browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and
+**Filters** — chooses how much of a card the board draws, including an external dependency card:
+**Mini** (colour tiles, with blocked and warning markers), **Summary** (title, type, the dependency
+count beside it, people, the due date at the foot, and one red or amber badge — a single warning in
+its own words, or **2 warnings** when there are several) or **Full** (the whole card). Hover or focus a Mini
+tile to read the card it stands for: its title and type, what it rolls up to, who is assigned, what
+it depends on, and why it has a red or amber marker. It is one person's reading, remembered in this
+browser per board. It changes only the drawing: counts, WIP, filters, search, drag, the card menu and
 the keyboard all work the same. **Edit board** always shows Full and disables the dial.
 
 The same secondary bar has a **Connections** toggle. When it is on, every hierarchy edge (parent →
 child, solid blue) and dependency (waiting item → blocker, solid red) between items this board
 renders is drawn above the board — both with a circle at the start and an arrow at the end. A red
-dependency is read from its circle to its arrow as “this waits on that”, including a boundary
-dependency whose circle sits on the card here and whose arrow points at the boundary item below. It
+dependency is read from its circle to its arrow as “this waits on that”, including an external
+dependency whose circle sits on the card here and whose arrow points at the external item below. It
 is a reading aid: off by default, remembered in this browser per board, and it does not change the
 work or intercept a click. A card's drawer adds a **Connections** button that narrows the same lens
-to that item's own strings until the drawer closes or the board changes.
+to that item's own strings until the drawer closes or the board changes. The chain-link badge on a
+waiting card is the shortcut: it opens that item's **Hierarchy** tab and turns the scoped lens on in
+one press. An initiative card carries that door when it has child work or a dependency to read,
+even with a count of zero; an empty initiative is left quiet.
 
 Every board has four fixed stages: **Backlog**, **Not Started**, **In Progress** and **Done**. The
 stage belongs to the column, so a card's status is never a word somebody chose; the shape inside a
@@ -90,14 +94,14 @@ and work is never thrown away with a column set. A program or portfolio board ag
 boards and has no cards flow of its own.
 
 A workflow's chevron folds its whole band away to the header, keeping the name and count in view;
-the initiatives and boundary workflows fold the same way. Opening a folded band brings its header to
+the initiatives and external dependency workflows fold the same way. Opening a folded band brings its header to
 the top and puts the columns back underneath it, rather than above the fold. Folding is a view
 choice, not an edit, so it is offered without **Edit board**.
 
 Each workflow can carry an optional line under its name — what it is for. In **Edit board** the field
 sits beside the name; leave it empty and the workflow shows only its name and count.
 
-The drawer, card pips, initiative rollups and the boundary are explained in [Reading a board](reading-a-board.md).
+The drawer, card pips, initiative rollups and external dependencies are explained in [Reading a board](reading-a-board.md).
 
 A card is made in a lane's footer (**Add card to …**) or from **Card** in the toolbar. Drag it to
 another cell to move it — including into another cards flow, where the target flow's WIP limit

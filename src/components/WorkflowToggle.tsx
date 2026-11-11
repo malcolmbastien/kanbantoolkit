@@ -14,7 +14,7 @@ export function WorkflowToggle({
   onToggle,
   className,
 }: {
-  /** The workflow's own name — "Cards", "Initiatives workflow", "Boundary — waiting on". */
+  /** The workflow's own name — "Cards", "Initiatives workflow", "External dependencies". */
   name: string
   collapsed: boolean
   onToggle: (button: HTMLButtonElement) => void

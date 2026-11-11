@@ -1,7 +1,7 @@
 # Reading a board
 
 A board has columns, one or more cards flows, initiatives that roll work up, a side drawer for the
-detail, and a boundary for work that lives somewhere else. This page explains what each part shows.
+detail, and external dependencies for work that lives somewhere else. This page explains what each part shows.
 
 <img src="img/guide/board-overview.webp" alt="The Team Atlas board with its initiatives flow above the Cards flow, and the four typed columns in each" width="1100">
 
@@ -43,8 +43,8 @@ Every board has a **Detail** dial in its secondary bar, beside **Archive done**,
   opens a reading card with the title and type, what it rolls up to, who is assigned (or
   **Unassigned**) and the reason behind each red or amber marker — the same words the tile's
   accessible name carries. The layer is visual only: it takes no click, and it closes on a press,
-  a scroll or when focus leaves. A **Boundary** tile opens the same way, with its state, home board
-  and the cards here that wait on it.
+  a scroll or when focus leaves. An **external dependency** tile opens the same way, with its state,
+  home board and the cards here that wait on it.
 
 The level changes only the drawing. The same items are in the same cells, with the same counts, WIP,
 filters, search, selection, drag, card menu and keyboard moves. It is remembered in this
@@ -73,11 +73,12 @@ every string on the board.
 
 Only edges with **both ends rendered on this board** are drawn. A card that is archived, filtered
 out or in a folded flow has no element to connect to; attribution to an objective is not a
-card-to-card edge. A **boundary** link is included: it is the same dependency string, running from
-the card here that waits to the boundary card below — circle on the waiting card, arrow on the
-boundary card — so the boundary band is the same graph seen at its edge. The strings sit above the
-workflow headers, never take a click, and are `aria-hidden` — the chips, the boundary cards and the
-drawer already say the same relationships in words.
+card-to-card edge. An **external dependency** link is included: it is the same dependency string,
+running from the card here that waits to the external dependency card below — circle on the waiting
+card, arrow on the external card — so the external dependencies band is the same graph seen at its
+edge. The strings sit above the workflow headers, never take a click, and are `aria-hidden` — the
+dependency counts, the external dependency cards and the drawer already say the same relationships
+in words.
 
 The view is off by default and is remembered in this browser per board; it is a reading, not a
 permission or workspace data. Turning it off leaves every card and placement untouched.
@@ -100,13 +101,14 @@ A board has exactly **one initiatives flow** and **one or more cards flows**.
   made from it gets all of them. A program or portfolio board has no cards flow of its own.
 
 Each flow's header stays on screen while its columns scroll, so a reader in a long lane keeps the
-flow, and its set of columns, in view. The initiatives and boundary bands behave the same way. A cards
+flow, and its set of columns, in view. The initiatives and external dependency bands behave the same
+way. A cards
 flow lines up with the bands above and below it, and a wide flow takes the width its columns need.
 
 A workflow's chevron folds that whole band away to its header: the name, the count and the controls
 stay, and the columns give their room to the workflow below. Opening it brings the header to the top
 and the columns back underneath, so the band opens where you are looking. The initiatives, cards and
-boundary bands each fold on their own, and the state is a view choice rather than an edit.
+external dependency bands each fold on their own, and the state is a view choice rather than an edit.
 
 Every column folds too, at any depth: a top-level column becomes a narrow rail, and a subcolumn such
 as Dev or Test under In Progress becomes its own rail. A folded rail keeps its name, count and stage
@@ -219,36 +221,38 @@ A parent is a hierarchy edit, not a way off the board: an initiative that is giv
 same board keeps its own card and the cell it was arranged in, and the parent's pips count it among
 their children.
 
-## The boundary — waiting on
+## External dependencies — linked work from other boards
 
-Some work waits on something that lives on **another board**. The **Boundary — waiting on** section
+Some work waits on something that lives on **another board**. The **External dependencies** section
 below the cards is where that edge is read.
 
-<img src="img/guide/boundary-workflow.webp" alt="The Boundary — waiting on workflow, with external items in their stages and the cards here that wait on them" width="1000">
+<img src="img/guide/boundary-workflow.webp" alt="The External dependencies workflow, with external items in their stages and the cards here that wait on them" width="1000">
 
-*The boundary is a lens over external work: the item is shown in the stage its own rollup gives it,
+*The section is a lens over external work: the item is shown in the stage its own rollup gives it,
 and the cards here that wait on it are named beside it.*
 
 - It appears only when at least one card on this board depends on an item placed on another board.
 - The external item is shown in the column its **own rollup** selects, on its own home board. It is
   not copied or moved here, and it is not a placement: it creates no WIP, no card count and no
   rollup on this board.
-- Each entry names the home board, its state, and the cards here that wait on it. The card that
-  waits wears a **Waiting on …** chip; selecting a boundary card highlights its dependents, and
-  selecting a dependent's chip takes you to the boundary card.
-- Boundary cards follow the board's **Detail** level: **Full** names the dependent cards,
-  **Summary** keeps the type, title, state, home board and dependent count, and **Mini** is a
-  type-coloured tile with a state marker. Selection and the **linked** badge work at every level.
-- Selecting a boundary card — the one wearing the **linked** badge — draws the same dependency
-  string the Connections lens draws for each open link: from the card here that waits to the
-  boundary card, with the circle on the waiting card and the arrow on the boundary card. It also
+- Each entry names the home board, its state, and the cards here that wait on it. A card that waits
+  wears a chain-link badge with the number of its open dependencies — here or on another board; the
+  card's panel names them. Selecting that badge opens the card's **Hierarchy** tab and scopes the
+  **Connections** lens to that item. Selecting a dependency card highlights its dependents.
+- External dependency cards follow the board's **Detail** level: **Full** names the dependent
+  cards, **Summary** keeps the type, title, home board and dependent count, and **Mini** is a
+  type-coloured tile. Selection and the **linked** badge work at every level.
+- Selecting an external dependency card — the one wearing the **linked** badge — draws the same
+  dependency string the Connections lens draws for each open link: from the card here that waits to
+  the external card, with the circle on the waiting card and the arrow on the external card. It also
   highlights those dependents. Nothing is drawn at rest, and the string is a reading aid, not a
   control. A satisfied or closed link keeps its entry in the band but has no string, because the
   work is no longer waiting.
 - The section is a **lens**, not an editor: nothing can be dragged into it, and the only way to move
   the external work is to open it on the board that owns it.
 
-The entries have four states:
+The entries have four states, used to order and count the band. The state is not repeated as a badge
+on every card: being in the external dependencies workflow already says the work is a dependency.
 
 | State | What it means |
 | --- | --- |
@@ -258,9 +262,9 @@ The entries have four states:
 | **Closed** | The card here is done. |
 
 A cleared entry stays in the workflow after it is satisfied or closed, so a reader can see what the
-board was waiting for last week. The **Waiting on** chip on a card disappears as soon as the link is
-no longer open; the workflow keeps the history. The header counts what is **open** and what has been
-**cleared**.
+board was waiting for last week. The dependency count on a card drops as each link is no longer open,
+and disappears when none are; the workflow keeps the history. The header counts what is **open** and
+what has been **cleared**.
 
 ## Related
 

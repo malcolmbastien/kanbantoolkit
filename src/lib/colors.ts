@@ -30,19 +30,6 @@ export function tintOn(hex: string, alpha: number, base = '#ffffff'): string {
   return mix(hex, base, 1 - alpha)
 }
 
-export const DEP_STATE_STYLES: Record<string, { label: string; className: string }> = {
-  Closed: { label: 'Closed', className: 'bg-slate-200 text-slate-600 ring-slate-300' },
-  Satisfied: { label: 'Satisfied', className: 'bg-emerald-100 text-emerald-800 ring-emerald-300' },
-  OpenPlanningRisk: {
-    label: 'Open · planning risk',
-    className: 'bg-amber-100 text-amber-800 ring-amber-300',
-  },
-  OpenLiveBlockage: {
-    label: 'Open · live blockage',
-    className: 'bg-rose-100 text-rose-800 ring-rose-300',
-  },
-}
-
 /** Objective status chip. */
 export const OBJECTIVE_STATUS_STYLES: Record<Objective['status'], string> = {
   draft: 'bg-slate-100 text-slate-700 ring-slate-200',

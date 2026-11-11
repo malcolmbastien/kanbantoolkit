@@ -23,17 +23,17 @@ initiative with nothing below it raises nothing.
 | --- | --- | --- |
 | **Blocked**, a full-width red band with the reason | Someone marked the card stopped for something that is not another card. | **Unblock** in the card's panel, which records the change in its history. |
 | **N blocked**, a red pill on an initiative card | N cards below are explicitly blocked and still open. On a program or portfolio board the count is amber and reads **N blocked below**. | Those cards are unblocked or finished. |
-| **Waiting on**, named chips | The card waits on work **outside this board** — the boundary workflow. Each chip names it and opens the other end. | The external work reaches Done, or the boundary link is removed. |
+| **2**, in a chain-link badge | The card waits on two items that are not done — on this board or beyond its edge. The count is the summary; the card's **Dependencies** section names each one. Selecting it opens that section and draws this item's connections. An initiative shows the link door when it has child work or a dependency, even at zero; an empty initiative stays quiet. | Every dependency reaches Done, or the links are removed. |
 | **Due 12 Mar**, a slate chip | The day the card is promised for. A date, not a state: the target start/end pair in the drawer is the plan a management surface reads, this is the promise a reader is held to. | The due date is moved in the drawer, or cleared. |
 | **Due in 2d**, an amber chip | The due date is inside the week the board's **Due soon** filter names. A chip, never a block: the card can still move, and it clears when the work is done or the day moves. | The card is finished, or the date moves out. |
 | **3d overdue**, a rose chip | The due date has passed and the card is not done — the same reading as the **Overdue** filter and the dashboard's Overdue count. | The card reaches Done, or the date moves. |
 | **Nd in lane**, a grey clock | In its current committed lane (Not Started or In Progress) for at least 7 days. Backlog is uncommitted inventory and rests; Done is finished, so neither is aged. Not **Stale**, below. | The card moves to another lane. |
 
-A Done card keeps its history but not its warnings: the age cue, a blocked band and a boundary chip
-are not drawn on its face. The same applies to a completed initiative's health flags.
+A Done card keeps its history but not its warnings: the age cue, a blocked band and the dependency
+count are not drawn on its face. The same applies to a completed initiative's health flags.
 
-A card's own dependency on another card is not a badge on its face: it is read in the card's
-**Dependencies** section, and it clears when the card it waits on reaches Done. An initiative above it
+A card's own dependency on another card is counted on its face and named in the card's
+**Dependencies** section; it clears when the card it waits on reaches Done. An initiative above it
 reports that wait as **N waiting**.
 
 **Unassigned** is a dashboard signal, below, not a mark on the card.
@@ -117,5 +117,5 @@ a column carries.
 
 ## Related
 
-- [Reading a board](reading-a-board.md) — the columns, pips, rollups, multiple flows and the boundary.
+- [Reading a board](reading-a-board.md) — the columns, pips, rollups, multiple flows and external dependencies.
 - [Board types](board-types.md) — team, program and portfolio boards.

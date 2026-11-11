@@ -182,5 +182,5 @@ and the portfolio asks which objective it serves.
 ## Related
 
 - [Using the application](using.md) — the board, a card, an initiative and the views.
-- [Reading a board](reading-a-board.md) — the drawer, columns, pips, rollups, multiple flows and the boundary.
+- [Reading a board](reading-a-board.md) — the drawer, columns, pips, rollups, multiple flows and external dependencies.
 - [Lean metrics](metrics.md) — the Flow view, which is a team board's own reading.

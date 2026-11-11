@@ -130,13 +130,20 @@ interface Props {
   /** Highlighted because it waits on the selected boundary card. */
   boundary?: boolean
   /**
-   * The external work this card is still waiting on, named. Always drawn — the relationship is a
-   * fact about the card, not something a reader has to select a pin to discover — and each chip is
-   * the way to the boundary card at the other end.
+   * How many items this card waits on that are not done — on this board or beyond its edge. A
+   * summary of the relationship, not a chip per dependency: the card's panel names them.
    */
-  waitingOn?: Wait[]
-  /** Select a boundary card from this end of the relationship. */
-  onBoundary?: (dependencyId: string, title: string) => void
+  openDependencies?: number
+  /**
+   * Whether the item has any dependency links at all — open, satisfied or closed. An initiative's
+   * hierarchy door is shown when there is a child or a link to read, even with no open count.
+   */
+  hasDependencies?: boolean
+  /**
+   * Open the card's dependencies — the drawer's Hierarchy face, with its connections showing.
+   * The badge is a door; a surface that has no drawer leaves it out and the count is read only.
+   */
+  onOpenDependencies?: (itemId: string) => void
   /** Part of the multi-select group (shift+click). */
   multi?: boolean
   /**
@@ -256,47 +263,78 @@ const cardKeyboard = (
   },
 })
 
-export interface Wait {
-  /** The external dependency. */
-  id: string
-  title: string
-}
-
 /**
- * "Waiting on …", named and always there.
+ * The open dependencies, counted rather than named.
  *
- * A card that waits on work outside the board says so on its face, and the chip is the way to the
- * boundary card at the other end: the boundary workflow is below the cards, so without this the
- * relationship is only visible from one direction.
+ * A card can wait on work in its own cells or across the board's edge, and the two are the same
+ * fact to a reader: the card cannot finish yet. A compact count is what fits beside the weight a
+ * reader scans for; the card's panel lists the named rows. A dependency that has reached Done is
+ * not waiting, so it is not counted.
+ *
+ * An initiative card offers the door when it has a hierarchy or a link to read, even with a count
+ * of zero; an empty initiative is left quiet.
  */
-function WaitChips({ waits, onBoundary }: { waits?: Wait[]; onBoundary?: (dependencyId: string, title: string) => void }) {
-  if (!waits?.length) return null
+function DependencyCount({
+  count,
+  onOpen,
+  always = false,
+}: {
+  count?: number
+  onOpen?: () => void
+  /** Draw the door even with no open dependencies — an initiative always has a hierarchy. */
+  always?: boolean
+}) {
+  if (!count && (!always || !onOpen)) return null
+  const countLabel = count ? `${count} open ${count === 1 ? 'dependency' : 'dependencies'}` : ''
+  const label = count ? `${countLabel} — open its hierarchy and connections` : 'Open hierarchy and connections'
+  const shape = cn(
+    'flex shrink-0 items-center gap-0.5 rounded bg-slate-100 py-0.5 text-micro font-semibold tabular-nums text-slate-700 ring-1 ring-slate-300',
+    count ? 'px-1.5' : 'px-1',
+  )
+  const content = (
+    <>
+      <Link2 size={11} className="shrink-0 text-slate-600" aria-hidden />
+      {count ? count : null}
+    </>
+  )
+  if (!onOpen) {
+    return (
+      <span data-open-dependencies={count} role="img" aria-label={countLabel} title={countLabel} className={shape}>
+        {content}
+      </span>
+    )
+  }
   return (
-    <div className="flex flex-wrap items-center gap-1" data-waiting-on>
-      {waits.map((wait) => (
-        <button
-          key={wait.id}
-          onClick={(event) => {
-            // The chip is a link, not "open this card".
-            event.stopPropagation()
-            onBoundary?.(wait.id, wait.title)
-          }}
-          onKeyDown={(event) => event.stopPropagation()}
-          title={`Waiting on “${wait.title}”, outside this board. Select it in the boundary workflow below.`}
-          className="flex min-w-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-900 ring-1 ring-amber-300 transition hover:bg-amber-100"
-        >
-          <Link2 size={11} className="shrink-0" />
-          <span className="max-w-[15rem] truncate">Waiting on {wait.title}</span>
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      data-open-connections=""
+      data-open-dependencies={count || undefined}
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpen()
+      }}
+      onKeyDown={(event) => {
+        // The card's own keyboard handler opens the card on Enter/Space; the badge has already
+        // done its work, and Escape must still reach the app to close the drawer.
+        if (event.key === 'Enter' || event.key === ' ') event.stopPropagation()
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+      className={cn(
+        shape,
+        'cursor-pointer transition hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500',
+      )}
+    >
+      {content}
+    </button>
   )
 }
 
 /** The ring a focused card wears — inside, so the board's geometry does not move. */
 const FOCUS_RING = 'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500'
 
-function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, waitingOn, onBoundary, multi, dimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
+function CardBase({ item, type, summary, completed = false, parent, wide, symbols, flags, kind, detail = 'full', tags, dropTarget, blockedTone = 'detail', draggable, onDragStateChange, locked, selected, boundary, openDependencies, hasDependencies, onOpenDependencies, multi, dimmed, inert, connectRoot, users, onOpen, onMultiSelect, onContextMenu, onLift }: Props) {
   const complete = summary.done || completed
   const held = heldByOther(usePresence((state) => state.locks), item.id)
 
@@ -434,13 +472,6 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     if (!complete) {
       for (const flag of flags ?? []) found.push({ label: flag.label, tone: flag.tone, why: flag.why })
     }
-    if (!complete && waitingOn?.length) {
-      found.push({
-        label: waitingOn.length === 1 ? 'Waiting on 1' : `Waiting on ${waitingOn.length}`,
-        tone: 'watch',
-        why: `Waiting on ${waitingOn.map((wait) => wait.title).join(', ')}`,
-      })
-    }
     if (aged) {
       found.push({
         label: `${summary.ageDays}d in lane`,
@@ -456,6 +487,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
     return [...new Map(found.map((entry) => [entry.label, entry])).values()]
   }
   const miniAttention = attention(true)
+  const openDependenciesDoor = onOpenDependencies && !locked && !inert ? () => onOpenDependencies(item.id) : undefined
 
   const openOnClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
@@ -511,6 +543,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               {type.name}
             </span>
           )}
+          <span className="ml-auto">
+            <DependencyCount
+              count={complete ? 0 : openDependencies}
+              onOpen={openDependenciesDoor}
+              always={wide && (summary.childCount > 0 || Boolean(hasDependencies))}
+            />
+          </span>
         </div>
 
         <div
@@ -561,6 +600,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       type.name,
       parent ? `Rolls up to ${parent.title}` : null,
       assignees.length > 0 ? `Assigned to ${assignees.map((person) => person.name).join(', ')}` : 'Unassigned',
+      openDependencies ? `${openDependencies} open ${openDependencies === 1 ? 'dependency' : 'dependencies'}` : null,
       ...miniAttention.map((warning) => warning.why ?? warning.label),
     ]
       .filter(Boolean)
@@ -671,6 +711,16 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               )}
             </div>
 
+            {!complete && Boolean(openDependencies) && (
+              <p
+                data-mini-hover-dependencies
+                className="mt-2 flex items-center gap-1 text-micro text-slate-600"
+              >
+                <Link2 size={11} className="shrink-0 text-slate-500" />
+                {openDependencies} open {openDependencies === 1 ? 'dependency' : 'dependencies'}
+              </p>
+            )}
+
             <MiniHoverReasons reasons={miniAttention} />
           </div>
         </MiniHoverCard>
@@ -694,12 +744,13 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
       .join(', ')
     const MAX_PIPS = 12
     // One set, one place. The health rules are the source — the same words and tones the
-    // dashboard reads — with two exceptions the card is responsible for: a blockage rolled up
-    // from team cards keeps the softer tone the card has always given it, so a programme reader is
-    // not shouted at with a fact three levels down; and "Waiting on" joins them, because it is the
-    // one warning the health rules do not own — it is about the item itself, not the work below.
-    const badges: { key: string; label: string; why: string; tone: 'risk' | 'watch' }[] = [
-      ...(complete ? [] : (flags ?? []).map((f) => {
+    // dashboard reads — with one exception the card is responsible for: a blockage rolled up from
+    // team cards keeps the softer tone the card has always given it, so a programme reader is not
+    // shouted at with a fact three levels down. Dependencies are counted separately, not folded
+    // into this list: they are not a health flag.
+    const badges: { key: string; label: string; why: string; tone: 'risk' | 'watch' }[] = complete
+      ? []
+      : (flags ?? []).map((f) => {
           const soft = f.flag === 'blocked' && blockedTone === 'aggregate'
           return {
             key: f.flag,
@@ -707,18 +758,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             why: soft ? `${summary.blockedBelow} blocked below — rolled up from team cards` : f.why,
             tone: soft ? ('watch' as const) : f.tone,
           }
-        })),
-      ...(!complete && boundary
-        ? [
-            {
-              key: 'boundary',
-              label: 'waiting on',
-              why: 'Waiting on something outside this board — see the boundary workflow below',
-              tone: 'watch' as const,
-            },
-          ]
-        : []),
-    ]
+        })
 
     return (
       <div
@@ -790,6 +830,11 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
                   <Lock size={12} />
                 </span>
               )}
+              <DependencyCount
+                count={complete ? 0 : openDependencies}
+                onOpen={openDependenciesDoor}
+                always={summary.childCount > 0 || Boolean(hasDependencies)}
+              />
               <PriorityBadge priority={item.priority} />
             </span>
           </div>
@@ -893,9 +938,8 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
           {blockedAlert}
 
           {/* The warnings, as one set of badges in one place — always here, above the rule, so a
-              reader scanning a column knows where to look. Never hidden, and never softened into
-              the values around them. */}
-          <WaitChips waits={complete ? [] : waitingOn} onBoundary={onBoundary} />
+              reader scanning a column knows where to look. Dependencies are counted in the header
+              of the card, not folded into this list: they are not a health flag. */}
           {badges.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               {badges.map((b) => (
@@ -1002,6 +1046,7 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
               leading chip, and with one child the row would start the marks at the left edge.
               The weight a reader scans for stays in the top-right corner whatever the type. */}
           <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            <DependencyCount count={complete ? 0 : openDependencies} onOpen={openDependenciesDoor} />
             <PriorityBadge priority={item.priority} />
           </span>
         </div>
@@ -1024,12 +1069,10 @@ function CardBase({ item, type, summary, completed = false, parent, wide, symbol
             </div>
           )}
 
-          {/* What the card is asking a reader to look at: its own blockage, a rolled-up blockage,
-              the work waiting on it, a card waiting on something outside the board. All of it
-              above the telemetry row, so nothing there can be read as one of these. */}
+          {/* What the card is asking a reader to look at: its own blockage, a rolled-up blockage.
+              All of it above the telemetry row, so nothing there can be read as one of these. */}
           {blockedAlert}
           {rolledUpBlocked}
-          <WaitChips waits={complete ? [] : waitingOn} onBoundary={onBoundary} />
         </div>
 
         {/* Tier 3 — execution telemetry and ownership, on one quiet rule at the foot. */}
@@ -1109,8 +1152,8 @@ export function cardPropsEqual(a: Props, b: Props): boolean {
   if (a.draggable !== b.draggable || a.locked !== b.locked) return false
   if (a.selected !== b.selected || a.boundary !== b.boundary || a.multi !== b.multi || a.dimmed !== b.dimmed) return false
   if (a.inert !== b.inert || a.connectRoot !== b.connectRoot) return false
-  if (a.waitingOn?.length !== b.waitingOn?.length) return false
-  if (a.waitingOn && b.waitingOn && a.waitingOn.some((w, i) => w.id !== b.waitingOn![i].id || w.title !== b.waitingOn![i].title)) return false
+  if (a.openDependencies !== b.openDependencies) return false
+  if (a.hasDependencies !== b.hasDependencies) return false
   if (a.dropTarget !== b.dropTarget) return false
   if (a.parent?.id !== b.parent?.id || a.parent?.title !== b.parent?.title) return false
   // The kind is drawn, so a change to it re-renders.

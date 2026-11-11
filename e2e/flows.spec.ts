@@ -362,9 +362,9 @@ test('a workflow folds away and keeps its name and count in view', async ({ page
   await expect(initiatives).toBeVisible()
 
   await expect(boundary.locator('[data-boundary-stage]')).toHaveCount(4)
-  await page.getByRole('button', { name: 'Collapse Boundary — waiting on' }).click()
+  await page.getByRole('button', { name: 'Collapse External dependencies' }).click()
   await expect(boundary.locator('[data-boundary-stage]')).toHaveCount(0)
-  await expect(boundary.getByRole('heading', { name: 'Boundary — waiting on' })).toBeVisible()
-  await page.getByRole('button', { name: 'Expand Boundary — waiting on' }).click()
+  await expect(boundary.getByRole('heading', { name: 'External dependencies' })).toBeVisible()
+  await page.getByRole('button', { name: 'Expand External dependencies' }).click()
   await expect(boundary.locator('[data-boundary-stage]')).toHaveCount(4)
 })

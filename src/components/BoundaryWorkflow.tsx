@@ -2,14 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Link2, Rows3 } from 'lucide-react'
 import { boundaryInStage, boundaryEntries, type BoundaryEntry } from '@/domain/boundary'
 import { STAGES, STAGE_LABELS } from '@/domain/lanes'
-import { chipColors, DEP_STATE_STYLES, STAGE_ACCENT, STAGE_DOT, STAGE_SURFACE, tintOn } from '@/lib/colors'
+import { chipColors, STAGE_ACCENT, STAGE_DOT, STAGE_SURFACE, tintOn } from '@/lib/colors'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
 import { announce } from '@/lib/announce'
 import { stillScrolling } from '@/lib/useStillScroll'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import { WorkflowHeader } from './WorkflowHeader'
-import { MiniHoverCard, MiniHoverReasons } from './MiniHoverCard'
+import { MiniHoverCard } from './MiniHoverCard'
 import type { IssueType } from '@/domain/types'
 
 /**
@@ -17,10 +17,10 @@ import type { IssueType } from '@/domain/types'
  *
  * It used to be a sticky rail on the right — a list outside the lane tree, with no stages, and thin
  * dashed curves to the cards that waited on it. Both ends of the relationship now say so in words:
- * a boundary card names its dependents, and each dependent card wears a "Waiting on …" chip that
- * targets the boundary card. The workflow is below the cards, in the same four typed stages as
- * everything else, because a reader who has learned the board should not learn a second shape for
- * the edge of it.
+ * a dependency card names its dependents, and each dependent card wears a summary badge counting
+ * what it waits on. The workflow is below the cards, in the same four typed stages as everything
+ * else, because a reader who has learned the board should not learn a second shape for the edge of
+ * it.
  *
  * It is a **lens**, not a third lane tree: no placement is created, nothing is dragged here, and the
  * column a card sits in is the dependency's own rollup, read from the board it lives on. That is why
@@ -40,7 +40,7 @@ function reveal(selector: string) {
 
 /** Select a boundary card and take the reader to it — the direction a dependent's chip travels. */
 export function focusBoundary(dependencyId: string, title: string) {
-  announce(`Boundary: ${title}. Its cards on this board are highlighted.`)
+  announce(`External dependency: ${title}. Its cards on this board are highlighted.`)
   reveal(`[data-boundary-card="${dependencyId}"]`)
 }
 
@@ -113,11 +113,11 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
       }}
     >
       <WorkflowHeader
-        name="Boundary — waiting on"
+        name="External dependencies"
         collapsed={collapsed}
         onToggle={toggleWorkflow}
         dot="bg-amber-600"
-        title="Boundary — waiting on"
+        title="External dependencies"
         titleId="boundary-workflow-title"
         description={
           <>
@@ -125,7 +125,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
               {countLabel(entries.length)}
             </span>
             <span className="truncate text-meta text-slate-600">
-              external work this board waits on — read from where it lives, never moved here
+              linked work this board waits on from other boards — read where it lives, never moved here
             </span>
           </>
         }
@@ -148,7 +148,7 @@ export function BoundaryWorkflow({ boardId }: { boardId: string }) {
               key={stage}
               data-boundary-stage={stage}
               role="group"
-              aria-label={`${STAGE_LABELS[stage]} — boundary`}
+              aria-label={`${STAGE_LABELS[stage]} — external dependencies`}
               className={cn(
                 'flex min-h-[140px] min-w-[196px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-300/80 shadow-sm',
                 STAGE_SURFACE[stage],
@@ -232,7 +232,6 @@ function BoundaryCard({
   const [hovered, setHovered] = useState(false)
   const closeHover = useCallback(() => setHovered(false), [])
 
-  const state = DEP_STATE_STYLES[entry.state]
   const chip = chipColors(type.color)
   // The same recede a card wears when it is not a choice in a pick mode.
   const dimCls = dimmed ? 'opacity-40 saturate-50' : ''
@@ -245,7 +244,7 @@ function BoundaryCard({
     const wasSelected = selected
     toggleBoundary(entry.dependency.id)
     if (wasSelected) {
-      announce('Boundary highlight cleared.')
+      announce('External dependency highlight cleared.')
       return
     }
     focusBoundary(entry.dependency.id, entry.dependency.title)
@@ -254,20 +253,15 @@ function BoundaryCard({
     if (first) reveal(`[data-card-id="${first.id}"]`)
   }
 
-  const stateTone = entry.state === 'OpenLiveBlockage' ? 'risk' : entry.state === 'OpenPlanningRisk' ? 'watch' : undefined
   const dependentCount = `${entry.dependents.length} card${entry.dependents.length === 1 ? '' : 's'}`
 
   if (detail === 'mini') {
-    // The accessible name carries what the hover layer shows: the work, its state and home, and
-    // which of this board's cards wait on it.
+    // The accessible name carries what the hover layer shows: the work, its home, and which of
+    // this board's cards wait on it.
     const namedDependents = entry.dependents.slice(0, 3).map((dependent) => dependent.title)
     const moreDependents = entry.dependents.length - namedDependents.length
     const waitedOnNames = namedDependents.join(', ') + (moreDependents > 0 ? ` and ${moreDependents} more` : '')
-    const label = `${entry.dependency.title} — ${type.name}; ${state.label}; ${homeBoard}; waited on by ${waitedOnNames}`
-    const stateWhy =
-      entry.state === 'OpenLiveBlockage'
-        ? 'Work here has started and is waiting on it — a live blockage.'
-        : 'Work here has not started yet, so this is a planning risk rather than a live blockage.'
+    const label = `${entry.dependency.title} — ${type.name}; ${homeBoard}; waited on by ${waitedOnNames}`
     const shownDependents = entry.dependents.slice(0, 3)
     return (
       <button
@@ -294,16 +288,6 @@ function BoundaryCard({
         )}
         style={{ backgroundColor: tintOn(type.color, 0.28), borderColor: type.color }}
       >
-        {stateTone && (
-          <span
-            data-boundary-marker={stateTone}
-            className={cn(
-              'absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-white',
-              stateTone === 'risk' ? 'bg-rose-600' : 'bg-amber-500',
-            )}
-          />
-        )}
-
         <MiniHoverCard open={hovered && !dimmed} anchor={tileRef} onClose={closeHover}>
           <div>
             <div className="flex items-center gap-1.5">
@@ -313,17 +297,12 @@ function BoundaryCard({
               >
                 {type.name}
               </span>
-              <span className={cn('ml-auto shrink-0 rounded px-1.5 py-px text-micro font-semibold ring-1', state.className)}>
-                {state.label}
-              </span>
             </div>
 
             <p className="mt-1.5 break-words text-meta font-semibold leading-snug text-slate-900">
               {entry.dependency.title}
             </p>
             <p className="mt-1 text-micro text-slate-600">On {homeBoard}</p>
-
-            {stateTone && <MiniHoverReasons reasons={[{ label: state.label, tone: stateTone, why: stateWhy }]} />}
 
             <div className="mt-2 border-t border-slate-200 pt-1.5">
               <p className="text-micro font-semibold uppercase tracking-wide text-slate-500">
@@ -390,7 +369,6 @@ function BoundaryCard({
         </button>
 
         <div className="mt-1 flex flex-wrap items-center gap-1">
-          <span className={cn('shrink-0 rounded px-1.5 py-px text-micro font-semibold ring-1', state.className)}>{state.label}</span>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-micro font-medium text-slate-700" title={`This dependency sits on ${homeBoard}`}>
             {homeBoard}
           </span>
@@ -456,7 +434,6 @@ function BoundaryCard({
       </h3>
 
       <div className="mt-1 flex flex-wrap items-center gap-1">
-        <span className={cn('shrink-0 rounded px-1.5 py-px text-micro font-semibold ring-1', state.className)}>{state.label}</span>
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-micro font-medium text-slate-700" title={`This dependency sits on ${homeBoard}`}>
           {homeBoard}
         </span>

@@ -6,8 +6,7 @@ import {
   ChevronsRight,
   Plus,
 } from 'lucide-react'
-import { focusBoundary } from './BoundaryWorkflow'
-import { Card, type CardParent, type Wait } from './Card'
+import { Card, type CardParent } from './Card'
 import { LaneEditControls } from './LaneCtl'
 import { DragLayer } from './DragLayer'
 import { InlineEdit } from './InlineEdit'
@@ -22,7 +21,6 @@ import {
 } from '@/domain/derive'
 import { boardCardTypeId, tagsOf } from '@/domain/board'
 import { detailFor, type BoardDetail } from '@/domain/boardDetail'
-import { externalWaitsByItem } from '@/domain/boundary'
 import { childrenOf, effectiveStage, isTopLevel, laneDepth, laneHoldsCards, rootLane, subtreeIds, wipState } from '@/domain/lanes'
 import { ageDays, initiativeScope, matchesFilters, type CardFilters } from '@/domain/filters'
 import { STAGE_ACCENT, STAGE_SURFACE, tintOn, WIP_PILL, WIP_SURFACE } from '@/lib/colors'
@@ -66,8 +64,6 @@ interface Ctx {
   filters: CardFilters
   /** External dependency (the boundary workflow) whose local dependents are highlighted. */
   boundaryId: string | null
-  /** Select a boundary card from a dependent's chip, and take the reader to it. */
-  onBoundary: (dependencyId: string, title: string) => void
   /** Multi-select group (shift+click). */
   multiSelect: string[]
   toggleMultiSelect: (id: string) => void
@@ -86,11 +82,6 @@ interface Ctx {
   effectiveLane: Map<string, string>
   /** The board's derived facts, built once for the render rather than per card. */
   model: BoardModel
-  /**
-   * What each card waits on across this board's edge, resolved once for the whole board. Asking
-   * per card rebuilt the board's placement set and walked every link for every card.
-   */
-  waits: ReadonlyMap<string, Wait[]>
   /** How long a card has sat in its lane, when the placement knows. See `ageDays`. */
   ageOf: (itemId: string) => number | undefined
   /** The ids an initiative filter narrows to, when one is active. See `initiativeScope`. */
@@ -114,6 +105,8 @@ interface Ctx {
   }
   /** Open a card's panel — unless the press that led here was a drag. */
   openCard: (itemId: string) => void
+  /** Open a card at its dependencies: Hierarchy, with its own connections showing. */
+  openDependencies: (itemId: string) => void
   openItem: (id: string) => void
   splitLane: (laneId: string, orientation: 'columns' | 'rows', count?: number) => void
   addLane: (parentId: string) => void
@@ -620,8 +613,7 @@ function LaneBox({
               selected={ctx.selectedItemId === c.id}
               dropTarget={ctx.drag.dropTargetId === c.id}
               boundary={ctx.boundaryId ? ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId) === true : false}
-              waitingOn={ctx.waits.get(c.id)}
-              onBoundary={ctx.onBoundary}
+              openDependencies={ctx.model.openDependencies.get(c.id)?.size ?? 0}
               multi={ctx.multiSelect.includes(c.id)}
               dimmed={
                 (ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)) ||
@@ -639,6 +631,7 @@ function LaneBox({
               draggable={ctx.interactive && !ctx.editMode}
               locked={ctx.editMode}
               onOpen={ctx.openCard}
+              onOpenDependencies={ctx.openDependencies}
               tags={tagsOf(ctx.boards, c)}
               completed={stage === 'done'}
               summary={{
@@ -827,12 +820,6 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const filters = useStore((s) => s.filters)
   const boundaryId = useStore((s) => s.boundaryId)
   const toggleBoundary = useStore((s) => s.toggleBoundary)
-  // From this end, selecting never toggles off: the chip is a link to the boundary card, and a
-  // second press should take you there again rather than put the light out.
-  const onBoundary = (dependencyId: string, title: string) => {
-    if (boundaryId !== dependencyId) toggleBoundary(dependencyId)
-    focusBoundary(dependencyId, title)
-  }
   const multiSelect = useStore((s) => s.multiSelect)
   const toggleMultiSelect = useStore((s) => s.toggleMultiSelect)
   const askConfirm = useStore((s) => s.askConfirm)
@@ -840,6 +827,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const boardDetail = useStore((s) => s.boardDetail)
   const storeEdit = useStore((s) => s.editMode)
   const openItem = useStore((s) => s.openItem)
+  const openItemDependencies = useStore((s) => s.openItemDependencies)
   const splitLane = useStore((s) => s.splitLane)
   const addLane = useStore((s) => s.addLane)
   const insertLaneAfter = useStore((s) => s.insertLaneAfter)
@@ -870,14 +858,6 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
   const graph: Graph = { items, edges, links, placements, lanes }
   // One pass over the workspace arrays; every card below reads a map instead of scanning them.
   const model = useMemo(() => buildBoardModel(graph), [items, edges, links, placements, lanes])
-  // The boundary waits, once for the board: `externalWaitsByItem` answers for every card in one
-  // pass, where asking per card was quadratic in the size of the board.
-  const waits = useMemo(() => {
-    const found = externalWaitsByItem(graph, boardId)
-    const out = new Map<string, Wait[]>()
-    for (const [id, list] of found) out.set(id, list.map((wait) => ({ id: wait.dependency.id, title: wait.dependency.title })))
-    return out
-  }, [items, edges, links, placements, lanes, boardId])
   const root = rootLane(lanes, flowId)
   const boardName = boards.find((b) => b.id === boardId)?.name
   const flowName = flows.find((f) => f.id === flowId)?.name
@@ -1034,9 +1014,8 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
     return map
   }, [placements, boardId])
   const ctx: Ctx = {
-    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, boundaryId, boardId, onBoundary, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
+    lanes, items, issueTypes, graph, users, boards, editMode, detail, filters, boundaryId, boardId, multiSelect, toggleMultiSelect, askConfirm, selectedItemId, boardItems, effectiveLane,
     model,
-    waits,
     ageOf: (itemId) => ageDays(boardPlacement.get(itemId)),
     initiativeScope: initiativeScope(filters, graph),
     interactive,
@@ -1087,6 +1066,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
       openItem(itemId)
     },
     openItem, splitLane, addLane, insertLaneAfter, duplicateLane, toggleCollapse, collapsedLanes, moveLane, setLaneOrientation, setLaneWip, setLaneDescription, removeLane, renameLane,
+    openDependencies: openItemDependencies,
     onAddCard: (laneId) => {
       const typeId = boardCardTypeId(boards.find((b) => b.id === boardId), issueTypes)
       if (typeId) addCard({ boardId, typeId, laneId, title: 'New card' })
@@ -1109,7 +1089,7 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
         // card, which `openItem` treats as the next focus; this is the case where nothing was
         // clicked but the ground.
         onPointerDown={(event) => {
-          if (boundaryId && !(event.target as HTMLElement).closest?.('[data-boundary-card],[data-waiting-on]')) {
+          if (boundaryId && !(event.target as HTMLElement).closest?.('[data-boundary-card]')) {
             toggleBoundary(boundaryId)
           }
           pan.handlers.onPointerDown(event)

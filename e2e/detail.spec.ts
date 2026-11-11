@@ -34,6 +34,13 @@ test('Summary keeps the title, type, due date and people, and drops the extras',
   await expect(rebuilt).toContainText('Rebuild the signup form')
   await expect(rebuilt).toContainText('User Story')
   await expect(rebuilt.locator('[title="Maya Blake"]')).toBeVisible()
+  // The dependency count is a fact, not a warning: it stays at Summary, beside the type.
+  await expect(page.locator('[data-card-id="st-enterprise-sso"] [data-open-dependencies]')).toHaveAttribute(
+    'data-open-dependencies',
+    '2',
+  )
+  // An initiative always carries the hierarchy/connections door, even when it waits on nothing.
+  await expect(page.locator('[data-card-id="init-billing"] [data-open-connections]')).toBeVisible()
   // The extras are gone: no checklist, no priority, no tags.
   await expect(rebuilt).not.toContainText('2/4')
   await expect(rebuilt.locator('[aria-label^="Priority"]')).toHaveCount(0)
@@ -107,6 +114,7 @@ test('a Mini tile explains itself on hover, including why it is marked', async (
   await expect(hover).toContainText('Jonah Tran')
   await expect(hover.locator('[data-mini-hover-reason="risk"]')).toContainText('Blocked')
   await expect(hover).toContainText('Waiting on the identity contract')
+  await expect(hover.locator('[data-mini-hover-dependencies]')).toContainText('2 open dependencies')
 
   // The layer is a reading, not a control: it takes no pointer and adds no second accessible name.
   await expect(hover).toHaveAttribute('aria-hidden', 'true')
@@ -148,7 +156,7 @@ test('boundary cards follow the board detail level too', async ({ page }) => {
   await choose(page, 'Summary')
   await expect(identity).toHaveAttribute('data-boundary-detail', 'summary')
   await expect(identity).toContainText('Identity platform')
-  await expect(identity).toContainText('Open · live blockage')
+  await expect(identity).not.toContainText('Open · live blockage')
   await expect(identity).toContainText('Waited on by 1 card')
 
   await choose(page, 'Mini')
@@ -170,10 +178,10 @@ test('a boundary Mini tile explains the external work it stands for', async ({ p
   await expect(hover).toBeVisible()
   await expect(hover).toContainText('Identity platform')
   await expect(hover).toContainText('Initiative')
-  await expect(hover).toContainText('Open · live blockage')
+  await expect(hover).not.toContainText('Open · live blockage')
   await expect(hover).toContainText('On Team Nova')
   await expect(hover).toContainText('Waited on by 1 card')
-  await expect(hover.locator('[data-mini-hover-reason="risk"]')).toContainText('live blockage')
+  await expect(hover.locator('[data-mini-hover-reason="risk"]')).toHaveCount(0)
 
   // Selecting the tile still works, and closes the reading layer rather than leaving it over the
   // cards it highlights.

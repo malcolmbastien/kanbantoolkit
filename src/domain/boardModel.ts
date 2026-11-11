@@ -1,4 +1,4 @@
-import { dependencyState, isOpen, type Graph, type Rollup, type Status } from './derive'
+import { dependencyState, isArchived, isOpen, type Graph, type Rollup, type Status } from './derive'
 import { effectiveStage } from './lanes'
 import type { Item, Lane, Placement, Stage } from './types'
 
@@ -31,7 +31,7 @@ export interface BoardModel {
   dependenciesOf: ReadonlyMap<string, readonly string[]>
   /** The dependent ids that wait for this item. */
   dependentsOf: ReadonlyMap<string, readonly string[]>
-  /** The still-open dependencies of this item. */
+  /** The still-open dependencies of this item, excluding work that has been filed away. */
   openDependencies: ReadonlyMap<string, ReadonlySet<string>>
 }
 
@@ -145,6 +145,7 @@ export function buildBoardModel(graph: Graph): BoardModel {
     const dependents = dependentsOf.get(link.from)
     if (dependents) dependents.push(link.to)
     else dependentsOf.set(link.from, [link.to])
+    if (isArchived(itemsById.get(link.from))) continue
     if (isOpen(dependencyState(link.from, link.to, graph))) {
       const waiting = openDependencies.get(link.to)
       if (waiting) waiting.add(link.from)

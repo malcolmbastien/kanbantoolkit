@@ -114,9 +114,16 @@ export interface InboxState {
   inboxUnread: number
 }
 
+export type ItemPanelTab = 'overview' | 'comments' | 'hierarchy' | 'history'
+
 export interface ViewState {
   boardId: string
   selectedItemId: string | null
+  /**
+   * The face of the open drawer. It is view state: another item opens on Overview, while the
+   * dependency badge opens Hierarchy with the item's own connections showing.
+   */
+  panelTab: ItemPanelTab
   /**
    * A card just made wants the drawer's title field once. It is view state: it is consumed when
    * the panel focuses the field, and never persisted.
@@ -256,6 +263,13 @@ export interface Actions {
    * Open an item's drawer. Reading an item does not change the board behind it.
    */
   openItem: (id: string | null) => void
+  /**
+   * Open an item at its dependencies: the drawer's Hierarchy face, and the Connections lens
+   * narrowed to that one item. The badge on a card is the door.
+   */
+  openItemDependencies: (id: string) => void
+  /** Choose the open drawer's face. */
+  setPanelTab: (tab: ItemPanelTab) => void
   /** Consume the one-shot title focus requested by a newly made card. */
   clearTitleFocus: () => void
   setSearch: (q: string) => void
@@ -1095,6 +1109,7 @@ function fileAway(state: Store, ids: Set<string>, at: number): Item[] {
 const initialView: ViewState = {
   boardId: 'b-portfolio',
   selectedItemId: null,
+  panelTab: 'overview',
   titleFocusItemId: null,
   search: '',
   editMode: false,
@@ -1785,6 +1800,9 @@ export const useStore = create<Store>()(
         const s = get()
         set({
           selectedItemId,
+          // Every door opens on the same face unless it says otherwise; the dependency badge is
+          // the one that asks for Hierarchy below.
+          panelTab: 'overview',
           // A focus request belongs to the card that asked for it; opening another card ends it.
           titleFocusItemId: null,
           multiSelect: [],
@@ -1807,6 +1825,13 @@ export const useStore = create<Store>()(
         })
       },
       clearTitleFocus: () => set({ titleFocusItemId: null }),
+      setPanelTab: (panelTab) => set({ panelTab }),
+      openItemDependencies: (itemId) => {
+        // The drawer opens through the one door, then says which face and which reading it was
+        // asked for. `openItem` has already cleared the old scope; this is the new one.
+        get().openItem(itemId)
+        set({ panelTab: 'hierarchy', connectionScopeId: itemId })
+      },
       setSearch: (search) => set({ search }),
       toggleFilters: () => {
         const show = !get().showFilters

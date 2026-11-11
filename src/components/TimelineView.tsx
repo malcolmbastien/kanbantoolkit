@@ -3,7 +3,7 @@ import { ChartNoAxesGantt, Minus, Plus } from 'lucide-react'
 import { Card } from './Card'
 import { PersonAvatar } from './PersonAvatar'
 import { boardInitiatives, isPortfolio, portfolioInitiatives } from '@/domain/board'
-import { blockedBelow, checklistProgress, decompositionChildren, isComplete, openDescendants, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
+import { blockedBelow, checklistProgress, decompositionChildren, dependenciesOf, isComplete, openDependenciesOf, openDescendants, rollupOf, uncommittedBelow, type Graph } from '@/domain/derive'
 import { layoutTimeline, type TimelineDay } from '@/domain/timelineLayout'
 import { TIMELINE_DAY_PX, TIMELINE_ZOOM_LABELS, TIMELINE_ZOOMS, zoomIn, zoomOut } from '@/domain/timelineZoom'
 import { peopleOf } from '@/domain/users'
@@ -129,6 +129,7 @@ export function TimelineView({ boardId }: { boardId: string }) {
   const boards = useStore((s) => s.boards)
   const users = useStore((s) => s.users)
   const openItem = useStore((s) => s.openItem)
+  const openItemDependencies = useStore((s) => s.openItemDependencies)
   const timelineZoom = useStore((s) => s.timelineZoom)
   const setTimelineZoom = useStore((s) => s.setTimelineZoom)
 
@@ -514,6 +515,9 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           symbols={symbols}
                           blockedTone="aggregate"
                           onOpen={(id) => openItem(id)}
+                          onOpenDependencies={openItemDependencies}
+                          openDependencies={openDependenciesOf(item.id, graph).length}
+                          hasDependencies={dependenciesOf(item.id, graph).length > 0}
                           summary={{
                             childCount: decompositionChildren(item.id, edges).length,
                             blockedBelow: blockedBelow(item.id, graph),
