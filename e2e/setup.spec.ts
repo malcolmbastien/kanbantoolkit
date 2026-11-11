@@ -165,7 +165,7 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
   await page.getByRole('button', { name: 'New board' }).first().click()
   await page.getByLabel('New board name').fill('Team Atlas')
   await page.getByRole('button', { name: 'Create board' }).click()
-  await page.getByRole('button', { name: 'Team Atlas', exact: true }).click()
+  // Creating opens the board, so its backlog is ready for the first card.
   await expect(page.getByRole('button', { name: 'Add card to Backlog' })).toBeVisible()
   await page.getByRole('button', { name: 'Add card to Backlog' }).click()
 

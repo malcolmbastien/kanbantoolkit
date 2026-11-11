@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { addLaneNode, defaultColumns, duplicateLaneNode, effectiveStage, insertLaneAfterNode, isLeaf, laneHoldsCards, lanePath, leafLanes, moveLaneNode, nextRank, placementsInOrder, removeLaneNodes, setLaneOrientationNode, splitLaneNodes, STAGES, STAGE_LABELS } from '@/domain/lanes'
 import { moveCard as moveCardOperation, moveInitiative as moveInitiativeOperation, moveSentence, movedEntry } from '@/domain/move'
-import { boardTags, canDesignBoard, canLinkBoard, canRetype, canServeObjective, canSetParent, defaultDropLane, isAggregating, isPortfolio, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
+import { boardTags, canDesignBoard, canLinkBoard, canRetype, canServeObjective, canSetParent, defaultDropLane, isAggregating, duplicateBoard as copyBoardDesign, initiativeTypeById, initiativeTypeId, initiativesCarrying, isInitiativeItem, itemsCarryingTag, lanesFromTemplate, NONE_TYPE, NONE_TYPE_ID, placementOn, templateFromBoard } from '@/domain/board'
 import { canDepend, canPlaceInSection, decompositionParent, descendants, isComplete, statusOf, uncommittedBelow, withChecklistEntry, withChecklistEntryText, withToggledChecklistEntry, withoutChecklistEntry } from '@/domain/derive'
 import {
   canRemoveFlow,
@@ -17,6 +17,7 @@ import {
 import { hasActiveFilters, NO_FILTERS, type CardFilters, type SavedFilter } from '@/domain/filters'
 import { STRESS_PREFIX, stressBoard } from '@/domain/stressBoard'
 import { createSeed, BUILT_IN_TEMPLATES } from '@/domain/seed'
+import { normalizeObjectiveStatus } from '@/domain/objectives'
 import { workspaceVocabulary } from '@/domain/demo'
 import { quarantineUnreadable } from '@/lib/quarantine'
 import { announce } from '@/lib/announce'
@@ -123,8 +124,6 @@ export interface ViewState {
   draft: Draft | null
   /** Show the board settings dialog. */
   showBoardSettings: boolean
-  /** Show the Objectives & KRs view instead of a board. */
-  showObjectives: boolean
   /** Show the management dashboard for the current board (management boards only). */
   showDashboard: boolean
   /** Show the timeline view — the board's initiatives laid out over time. */
@@ -256,7 +255,6 @@ export interface Actions {
   beginEdit: () => void
   saveEdit: () => void
   cancelEdit: () => void
-  setObjectives: (v: boolean) => void
   /** The board itself as the active view — a tab, not a toggle: every view flag clears. */
   setBoard: () => void
   /** Go to a view by name — the URL's names, and the one door for all seven. */
@@ -357,6 +355,8 @@ export interface Actions {
 
   addObjective: (title: string, periodId: string) => void
   updateObjective: (id: string, patch: Partial<Objective>) => void
+  /** Move an objective one place earlier or later among the objectives of its own period. */
+  moveObjective: (id: string, direction: -1 | 1) => void
   removeObjective: (id: string) => void
   /** A new period, refused when the name is already taken (two periods called Q4 are one period). */
   addPeriod: (name: string, start?: string, end?: string) => string | undefined
@@ -388,11 +388,12 @@ export interface Actions {
   removeIssueType: (id: string) => void
 
   /**
-   * Create a board. `open` (the default) switches to it in edit mode, as the TopBar's create
-   * does; the board workspace passes false so a new board simply lands in the list without
-   * leaving it. `templateId` supplies the design — otherwise the standard typed columns.
+   * Create a board, and return its id. `open` (the default) switches to it — in edit mode when the
+   * board has a design to shape; `false` leaves the reader where they are, and the caller can open
+   * it with the normal navigation. `templateId` supplies the design — otherwise the standard typed
+   * columns — and is applied only to a team board, the only kind with a cards flow to design.
    */
-  addBoard: (name: string, band?: BoardBand, open?: boolean, templateId?: string) => void
+  addBoard: (name: string, band?: BoardBand, open?: boolean, templateId?: string) => string
   /**
    * Add one board from an import plan, as a single update. The plan is already parsed and mapped;
    * this creates the flows, lanes, tags, people, cards, placements and parent edges together and
@@ -655,20 +656,16 @@ export type Store = FlowState & WorkspaceIdentity & ViewState & InboxState & Act
 
 /**
  * Is the board itself the surface in front? Every other view — dashboard, timeline, archive,
- * objectives, boards — shows work without the board's cells around it, so an action
+ * boards — shows work without the board's cells around it, so an action
  * that needs a cell (duplicating a card, which lands where the original sits) has nothing to
  * act on there. One definition, read by the surfaces that ask.
  */
 export const isBoardSurface = (
-  s: Pick<
-    ViewState,
-    'showDashboard' | 'showTimeline' | 'showArchive' | 'showObjectives' | 'showBoards' | 'showMetrics' | 'showAdmin'
-  >,
+  s: Pick<ViewState, 'showDashboard' | 'showTimeline' | 'showArchive' | 'showBoards' | 'showMetrics' | 'showAdmin'>,
 ): boolean =>
   !s.showDashboard &&
   !s.showTimeline &&
   !s.showArchive &&
-  !s.showObjectives &&
   !s.showBoards &&
   !s.showMetrics &&
   !s.showAdmin
@@ -1094,7 +1091,6 @@ const initialView: ViewState = {
   search: '',
   editMode: false,
   draft: null,
-  showObjectives: false,
   showBoardSettings: false,
   showDashboard: false,
   showTimeline: false,
@@ -1461,7 +1457,7 @@ export function migrateState(persisted: unknown): Partial<Store> {
     periodId?: string
     period?: string
     score?: number
-    status: Objective['status'] | 'scored'
+    status: Objective['status'] | 'reviewed' | 'scored'
   }
   if (Array.isArray(p.objectives)) {
     const periods: Period[] = Array.isArray(p.periods) ? (p.periods as Period[]) : []
@@ -1473,12 +1469,20 @@ export function migrateState(persisted: unknown): Partial<Store> {
       periods.push({ id, name: label })
       return id
     }
+    const orderAt = new Map<string, number>()
     p.objectives = (p.objectives as LegacyObjective[]).map((objective) => {
       const { period, score: _score, ...rest } = objective
+      const periodId = objective.periodId ?? idOfName(period ?? '')
+      // Ordering arrived after periods did: give every existing objective a place in its period,
+      // in the order the list already read. A number that is already there is kept.
+      const current = orderAt.get(periodId) ?? 0
+      const order = typeof objective.order === 'number' ? objective.order : current
+      orderAt.set(periodId, Math.max(current, order + 1))
       return {
         ...rest,
-        periodId: objective.periodId ?? idOfName(period ?? ''),
-        status: objective.status === 'scored' ? 'reviewed' : objective.status,
+        periodId,
+        status: normalizeObjectiveStatus(objective.status),
+        order,
       }
     })
     p.periods = periods
@@ -1747,7 +1751,6 @@ export const useStore = create<Store>()(
           showArchive: false,
           showBoards: false,
           showAdmin: false,
-          showObjectives: false,
           showMetrics: false,
           metricsFlowId: null,
           metricsTypeId: null,
@@ -2144,19 +2147,9 @@ export const useStore = create<Store>()(
         }),
       /** Whose work the My work view shows — no default: the person picks themselves. */
       setUser: (id: string | undefined) => set({ meUserId: id }),
-      /**
-       * OKRs are a portfolio board's own work. The view opens from that board's Strategy map and
-       * nowhere else — not from a team or programme board, and not from a URL that names it there.
-       * Closing it is always allowed.
-       */
-      setObjectives: (v) => {
-        const board = get().boards.find((b) => b.id === get().boardId)
-        if (v && !isPortfolio(board)) return
-        set({ showObjectives: v, ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) })
-      },
       // The nav is tabs, not toggles: a tab selects its view and never switches off, and the
       // Board tab is the board itself — every view flag clears, the workspace with it.
-      setBoard: () => set({ showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false }),
+      setBoard: () => set({ showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false }),
       /**
        * Go to a view by name — what a URL says, and the one door for all seven.
        *
@@ -2173,12 +2166,11 @@ export const useStore = create<Store>()(
         else if (view === 'archive') s.setArchive(true)
         else if (view === 'boards') s.setBoards(true)
         else if (view === 'admin') s.setAdmin(true)
-        else if (view === 'objectives') s.setObjectives(true)
         else s.setBoard()
       },
-      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showObjectives: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
-      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showObjectives: false, showDashboard: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
-      setArchive: (v) => set({ showArchive: v, ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
+      setDashboard: (v) => set({ showDashboard: v, ...(v ? { showTimeline: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
+      setTimeline: (v) => set({ showTimeline: v, ...(v ? { showDashboard: false, showArchive: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
+      setArchive: (v) => set({ showArchive: v, ...(v ? { showDashboard: false, showTimeline: false, showBoards: false, showAdmin: false, showMetrics: false } : {}) }),
       // Flow is a board's own view: derived from its cards, so it sits with the board tabs and
       // clears them like every other view does.
       setMetrics: (v) => {
@@ -2188,7 +2180,7 @@ export const useStore = create<Store>()(
         if (v && isAggregating(get().boards.find((board) => board.id === get().boardId))) return
         set({
           showMetrics: v,
-          ...(v ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false } : {}),
+          ...(v ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showAdmin: false } : {}),
         })
       },
       setFlowWindow: (flowWindow) => set({ flowWindow }),
@@ -2216,7 +2208,6 @@ export const useStore = create<Store>()(
         const on = !get().showBoards
         set({
           showBoards: on,
-          showObjectives: false,
           showDashboard: false,
           showTimeline: false,
           showArchive: false,
@@ -2228,7 +2219,7 @@ export const useStore = create<Store>()(
         set({
           showBoards: v,
           ...(v
-            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showAdmin: false, showFilters: false, selectedItemId: null }
+            ? { showDashboard: false, showTimeline: false, showArchive: false, showAdmin: false, showFilters: false, selectedItemId: null }
             : {}),
         }),
 
@@ -2237,7 +2228,7 @@ export const useStore = create<Store>()(
         set({
           showAdmin: v,
           ...(v
-            ? { showObjectives: false, showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false, showFilters: false, selectedItemId: null }
+            ? { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false, showFilters: false, selectedItemId: null }
             : {}),
         }),
 
@@ -2264,10 +2255,36 @@ export const useStore = create<Store>()(
         if (state.objectives.some((o) => o.periodId === id)) return
         set({ periods: state.periods.filter((p) => p.id !== id) })
       },
-      addObjective: (title, periodId) =>
-        set({ objectives: [...get().objectives, { id: uid(), title, periodId, status: 'active' }] }),
+      addObjective: (title, periodId) => {
+        const state = get()
+        const peers = state.objectives.filter((o) => o.periodId === periodId)
+        const order = peers.reduce((last, o) => Math.max(last, o.order ?? 0), -1) + 1
+        set({ objectives: [...state.objectives, { id: uid(), title, periodId, status: 'active', order }] })
+      },
       updateObjective: (id, patch) =>
         set({ objectives: get().objectives.map((o) => (o.id === id ? { ...o, ...patch } : o)) }),
+      moveObjective: (id, direction) => {
+        const state = get()
+        const target = state.objectives.find((o) => o.id === id)
+        if (!target) return
+        const peers = state.objectives
+          .filter((o) => o.periodId === target.periodId)
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        const at = peers.findIndex((o) => o.id === id)
+        const to = at + direction
+        if (at < 0 || to < 0 || to >= peers.length) return
+        const ordered = [...peers]
+        ;[ordered[at], ordered[to]] = [ordered[to], ordered[at]]
+        // Rewrite the whole period as 0…n-1: the swap leaves the same set, and a contiguous rank
+        // is what a later insert, a reload and the server all read the same way.
+        const rank = new Map(ordered.map((o, index) => [o.id, index]))
+        set({
+          objectives: state.objectives.map((o) => {
+            const next = rank.get(o.id)
+            return next === undefined ? o : { ...o, order: next }
+          }),
+        })
+      },
       removeObjective: (id) =>
         set({
           objectives: get().objectives.filter((o) => o.id !== id),
@@ -2379,7 +2396,6 @@ export const useStore = create<Store>()(
         const s = get()
         const view = {
           ...initialView,
-          showObjectives: s.showObjectives,
           showDashboard: s.showDashboard,
           showTimeline: s.showTimeline,
           showArchive: s.showArchive,
@@ -2453,18 +2469,21 @@ export const useStore = create<Store>()(
         const template = templateId ? get().boardTemplates.find((t) => t.id === templateId) : undefined
         // A template's band is the sensible default; an explicit band always wins.
         const resolvedBand = band ?? template?.band ?? 'team'
+        // A template designs the cards flow, and only a team board has one to render. A
+        // coordination board keeps the standard shape even if an old caller names a template.
+        const applied = resolvedBand === 'team' ? template : undefined
         const board: Board = {
           id: boardId,
           name,
           band: resolvedBand,
           description: '',
           ...(resolvedBand !== 'team' ? { linkedBoardIds: [] } : {}),
-          ...(template?.defaultCardTypeId ? { defaultCardTypeId: template.defaultCardTypeId } : {}),
-          ...(template?.wipEnforcement ? { wipEnforcement: template.wipEnforcement } : {}),
+          ...(applied?.defaultCardTypeId ? { defaultCardTypeId: applied.defaultCardTypeId } : {}),
+          ...(applied?.wipEnforcement ? { wipEnforcement: applied.wipEnforcement } : {}),
         }
         // A template designs the **cards flows** — the team's own — while the **initiatives**
         // flow always starts standard: the shape the organisation reads is not the team's design.
-        const design = template && template.flows.length > 0 ? lanesFromTemplate(template, boardId, uid) : undefined
+        const design = applied && applied.flows.length > 0 ? lanesFromTemplate(applied, boardId, uid) : undefined
         const cardsFlowsForBoard: BoardFlow[] = design?.flows ?? [
           { id: uid(), boardId, kind: 'cards', name: 'Cards', order: 0 },
         ]
@@ -2491,6 +2510,7 @@ export const useStore = create<Store>()(
           lanes: [...get().lanes, ...cardsRoots, initRoot, ...cards, ...initiatives],
           ...(open ? { boardId, editMode: canDesignBoard(board) } : {}),
         })
+        return boardId
       },
 
       saveBoardAsTemplate: (boardId, name) => {
@@ -2918,7 +2938,6 @@ export const useStore = create<Store>()(
           multiSelect: [],
           boundaryId: null,
           filters: NO_FILTERS,
-          showObjectives: false,
           showDashboard: false,
           showTimeline: false,
           showArchive: false,

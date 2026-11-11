@@ -392,6 +392,7 @@ export async function listObjectives(caller: OpCaller) {
       return {
         id: objective.id,
         title: objective.title,
+        ...(objective.description ? { description: objective.description } : {}),
         periodId: objective.periodId,
         period: period
           ? {
@@ -402,6 +403,7 @@ export async function listObjectives(caller: OpCaller) {
             }
           : null,
         status: objective.status,
+        ...(objective.order !== undefined ? { order: objective.order } : {}),
         // The completeness the app shows: the rollup of the work that serves it, and `null` when
         // nothing does — 0% would be a worse way of saying "nothing serves this".
         completeness: objectiveRollup(objective.id, state) ?? null,

@@ -1,4 +1,4 @@
-import { Archive, ChartNoAxesGantt, Check, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, Target, TrendingUp, X } from 'lucide-react'
+import { Archive, ChartNoAxesGantt, Check, Kanban, Keyboard, LayoutDashboard, LayoutGrid, Pencil, Plus, Settings, TrendingUp, X } from 'lucide-react'
 import { GlobalSearch } from './GlobalSearch'
 import { InboxBell } from './InboxBell'
 import { AccountMenu } from './AccountMenu'
@@ -19,8 +19,6 @@ interface Props {
   showDashboard: boolean
   showTimeline: boolean
   showArchive: boolean
-  /** The objectives view sits over the board too, so the Board tab must not light up behind it. */
-  showObjectives: boolean
   /** Flow metrics are the board's own view — derived from its cards' history. */
   showMetrics: boolean
   showBoards: boolean
@@ -31,7 +29,6 @@ interface Props {
   onShowDashboard: () => void
   onShowTimeline: () => void
   onShowArchive: () => void
-  onShowObjectives: () => void
   onShowMetrics: () => void
   /** The logo: leave the board section for the board workspace. */
   onGoToBoards: () => void
@@ -50,12 +47,12 @@ export function TopBar(props: Props) {
   const mayWrite = may('item.write')
   const mayDesign = may('board.design')
   const maySettings = may('board.settings')
-  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showObjectives, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowObjectives, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
+  const { boards, boardId, editMode, showDashboard, showTimeline, showArchive, showMetrics, showBoards, showAdmin, onSelectBoard, onShowBoard, onShowDashboard, onShowTimeline, onShowArchive, onShowMetrics, onGoToBoards, onEditBoard, onSaveEdit, onCancelEdit, onOpenBoardSettings, onAddCard, onAddInitiative } = props
 
   // The Board tab is the board itself, so it is lit when no view sits over it — and not while
   // the organisation workspace is open, because that is not a board either. One definition of
   // "the board is the surface", shared with the panels that read it.
-  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showObjectives, showBoards, showMetrics, showAdmin })
+  const boardActive = isBoardSurface({ showDashboard, showTimeline, showArchive, showBoards, showMetrics, showAdmin })
   // A card belongs to a board that renders a cards workflow. A coordination board — a programme or
   // a portfolio — shows bands or objective-grouped flows and no cards workflow at all, so a card
   // made here would be one nobody could see on the board that made it. An initiative is different:
@@ -63,6 +60,7 @@ export function TopBar(props: Props) {
   // so it has no Initiative button either. Flow is the same rule as cards: it reads a cards flow's
   // history, so a board with no cards flow has none.
   const board = boards.find((b) => b.id === boardId)
+  const portfolio = isPortfolio(board)
   const makesCards = !isAggregating(board)
   // Edit board is a team's and a programme's act: a portfolio's shape is its objectives, made in the
   // strategy map, so there is no lane tree there for it to open. A mode already open is finished or
@@ -101,59 +99,49 @@ export function TopBar(props: Props) {
               <BoardPicker boards={boards} boardId={boardId} onSelect={onSelectBoard} />
             </div>
 
-            <div className="h-5 w-px bg-slate-200" />
+            {!portfolio && <div className="h-5 w-px bg-slate-200" />}
 
-
-          <button
-            onClick={onShowBoard}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              boardActive ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+            {!portfolio && (
+              <>
+                <button
+                  onClick={onShowBoard}
+                  disabled={editMode}
+                  className={cn(
+                    'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                    boardActive ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+                  )}
+                  title="Board"
+                >
+                  <Kanban size={12} /> Board
+                </button>
+              </>
             )}
-            title="Board"
-          >
-            <Kanban size={12} /> Board
-          </button>
+          {!portfolio && (
+            <>
+              <button
+                onClick={onShowDashboard}
+                disabled={editMode}
+                className={cn(
+                  'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                  showDashboard ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+                )}
+                title="This board's initiatives at a glance"
+              >
+                <LayoutDashboard size={12} /> Dashboard
+              </button>
 
-          <button
-            onClick={onShowDashboard}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showDashboard ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-            )}
-            title="This board's initiatives at a glance"
-          >
-            <LayoutDashboard size={12} /> Dashboard
-          </button>
-
-          <button
-            onClick={onShowTimeline}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showTimeline ? 'border-teal-300 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-            )}
-            title="This board's initiatives over time"
-          >
-            <ChartNoAxesGantt size={12} /> Timeline
-          </button>
-
-          {/* Objectives are the portfolio's own reading — the outcomes it commits to and the work
-              that serves them. A team or programme board has none of its own, so it has no tab. */}
-          {isPortfolio(board) && (
-            <button
-              onClick={onShowObjectives}
-              disabled={editMode}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-                showObjectives ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-              )}
-              title="The objectives this portfolio commits to, and the initiatives that serve them"
-            >
-              <Target size={12} /> Objectives
-            </button>
+              <button
+                onClick={onShowTimeline}
+                disabled={editMode}
+                className={cn(
+                  'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                  showTimeline ? 'border-teal-300 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+                )}
+                title="This board's initiatives over time"
+              >
+                <ChartNoAxesGantt size={12} /> Timeline
+              </button>
+            </>
           )}
 
           {/* Flow reads a cards flow's own history. A programme or portfolio board aggregates other
@@ -172,17 +160,19 @@ export function TopBar(props: Props) {
             </button>
           )}
 
-          <button
-            onClick={onShowArchive}
-            disabled={editMode}
-            className={cn(
-              'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
-              showArchive ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
-            )}
-            title="Filed-away items, still searchable"
-          >
-            <Archive size={12} /> Archive
-          </button>
+          {!portfolio && (
+            <button
+              onClick={onShowArchive}
+              disabled={editMode}
+              className={cn(
+                'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
+                showArchive ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900',
+              )}
+              title="Filed-away items, still searchable"
+            >
+              <Archive size={12} /> Archive
+            </button>
+          )}
 
 
           </div>

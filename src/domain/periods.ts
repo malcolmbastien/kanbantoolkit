@@ -12,6 +12,67 @@ import type { Period } from './types'
  * and a surface that wants to say "past its period" reads them through `periodById`.
  */
 
+/** How far into a period a reader is, measured in whole days. */
+export interface PeriodProgress {
+  state: 'no-window' | 'upcoming' | 'running' | 'ended'
+  /** The 1-based day into the period, once it has started. */
+  day?: number
+  /** The inclusive length, when both ends are known. */
+  totalDays?: number
+  /** 0–100, when both ends are known. */
+  percent?: number
+  /** Whole days until a future start. */
+  daysUntilStart?: number
+  /** Whole days left, including today, while running. */
+  daysLeft?: number
+  /** Whole days since a past end. */
+  daysSinceEnd?: number
+}
+
+const DAY_MS = 86_400_000
+
+/** An ISO day at UTC midnight — the same clock for every reader. */
+const dayOf = (iso: string | undefined): number | undefined => {
+  if (!iso) return undefined
+  const at = Date.parse(`${iso}T00:00:00Z`)
+  return Number.isFinite(at) ? at : undefined
+}
+const dayCount = (from: number, to: number) => Math.round((to - from) / DAY_MS)
+
+/**
+ * Where today sits in a period: before it, inside it (with the day and percentage), or after it.
+ *
+ * A period with one end set says what that one date can say; a period with no window says so rather
+ * than inventing a start. Both ends are read at UTC midnight, so the answer is the same in every
+ * timezone the instance is read in.
+ */
+export function periodProgress(period: Period, now = Date.now()): PeriodProgress {
+  const start = dayOf(period.start)
+  const end = dayOf(period.end)
+  const today = Math.floor(now / DAY_MS) * DAY_MS
+  if (start === undefined && end === undefined) return { state: 'no-window' }
+  if (start !== undefined && end !== undefined) {
+    if (end < start) return { state: 'no-window' }
+    const totalDays = dayCount(start, end) + 1
+    if (today < start) return { state: 'upcoming', daysUntilStart: dayCount(today, start), totalDays, percent: 0 }
+    if (today > end) return { state: 'ended', daysSinceEnd: dayCount(end, today), totalDays, percent: 100 }
+    const day = dayCount(start, today) + 1
+    return {
+      state: 'running',
+      day,
+      totalDays,
+      percent: Math.round((day / totalDays) * 100),
+      daysLeft: dayCount(today, end),
+    }
+  }
+  if (start !== undefined) {
+    if (today < start) return { state: 'upcoming', daysUntilStart: dayCount(today, start) }
+    return { state: 'running', day: dayCount(start, today) + 1 }
+  }
+  if (today > end!) return { state: 'ended', daysSinceEnd: dayCount(end!, today) }
+  return { state: 'running', daysLeft: dayCount(today, end!) }
+}
+
 /** The period a record names, or `undefined` when the id is stale (a period removed under it). */
 export function periodById(periods: Period[], id: string | undefined): Period | undefined {
   return id ? periods.find((p) => p.id === id) : undefined

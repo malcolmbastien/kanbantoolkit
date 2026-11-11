@@ -4,7 +4,6 @@ import { placeFromQuery, urlQuery, viewOf, type Place, type ViewFlags } from './
 const flags = (over: Partial<ViewFlags> = {}): ViewFlags => ({
   showBoards: false,
   showArchive: false,
-  showObjectives: false,
   showDashboard: false,
   showMetrics: false,
   showTimeline: false,
@@ -22,11 +21,10 @@ describe('the view a place is in', () => {
     expect(viewOf(flags({ showMetrics: true }))).toBe('flow')
     expect(viewOf(flags({ showArchive: true }))).toBe('archive')
     expect(viewOf(flags({ showBoards: true }))).toBe('boards')
-    expect(viewOf(flags({ showObjectives: true }))).toBe('objectives')
   })
 
   it('resolves a state holding two flags to the view App would actually render', () => {
-    // App's order: workspace, archive, objectives, dashboard, flow, timeline, board.
+    // App's order: workspace, archive, dashboard, flow, timeline, board.
     expect(viewOf(flags({ showBoards: true, showDashboard: true }))).toBe('boards')
     expect(viewOf(flags({ showArchive: true, showTimeline: true }))).toBe('archive')
     expect(viewOf(flags({ showDashboard: true, showTimeline: true }))).toBe('dashboard')
@@ -162,8 +160,12 @@ describe('the place a query names', () => {
     expect(placeFromQuery('?view=flow').view).toBe('flow')
   })
 
+  it('drops a view this build no longer has, so an old objectives link lands on the board', () => {
+    expect(placeFromQuery('?board=b-strategy&view=objectives').view).toBe('board')
+  })
+
   it('reads every view the app has', () => {
-    for (const name of ['dashboard', 'timeline', 'flow', 'archive', 'boards', 'objectives']) {
+    for (const name of ['dashboard', 'timeline', 'flow', 'archive', 'boards']) {
       expect(placeFromQuery(`?view=${name}`).view).toBe(name)
     }
   })

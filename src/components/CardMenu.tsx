@@ -18,7 +18,7 @@ import {
   CornerDownRight,
   Unlink,
 } from 'lucide-react'
-import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isInitiativeItem, NONE_TYPE_ID, placementOn } from '@/domain/board'
+import { boardInitiativeTypes, cardTypes, initiativeTypeById, isAggregating, isInitiativeItem, isPortfolio, NONE_TYPE_ID, placementOn } from '@/domain/board'
 import { decompositionParent, isComplete } from '@/domain/derive'
 import { PRIORITY_META, PRIORITY_ORDER, type Priority } from './PriorityBadge'
 import { lanePath, leafLanes } from '@/domain/lanes'
@@ -54,8 +54,12 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const boardId = useStore((s) => s.boardId)
   const duplicateCard = useStore((s) => s.duplicateCard)
   const boards = useStore((s) => s.boards)
+  const board = boards.find((b) => b.id === boardId)
   // An aggregating board shows bands, not a cards workflow: there is no card to connect to.
-  const aggregating = isAggregating(boards.find((b) => b.id === boardId))
+  const aggregating = isAggregating(board)
+  // A portfolio is read for outcomes, not for the decomposition under them; parenting is a
+  // board-design act, so the menu does not offer it there.
+  const portfolio = isPortfolio(board)
   const lanes = useStore((s) => s.lanes)
   const flows = useStore((s) => s.flows)
   const issueTypes = useStore((s) => s.issueTypes)
@@ -383,8 +387,9 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
         )}
 
         {/* Lineage, for one card: point at the initiative it rolls up to, rather than hunting
-            for it in a list of every item by name. */}
-        {single && (
+            for it in a list of every item by name. A portfolio reads outcomes, not the
+            decomposition under them, so it does not offer the hierarchy edit. */}
+        {single && !portfolio && (
           <button className={ITEM} onClick={() => run(() => startParentPick(only!.id))}>
             <span className="shrink-0 text-slate-600">
               <CornerDownRight size={13} />

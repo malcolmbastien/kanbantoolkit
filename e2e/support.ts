@@ -123,7 +123,8 @@ export async function makeBoard(page: Page, name = 'Team Atlas'): Promise<void> 
   await newBoard.click()
   await page.getByLabel('New board name').fill(name)
   await page.getByRole('button', { name: 'Create board' }).click()
-  await expect(page.getByRole('button', { name, exact: true })).toBeVisible({ timeout: 20_000 })
+  // Creating a board opens it, so the cards workflow is the landing surface.
+  await expect(page.locator('[data-workflow="cards"]')).toBeVisible({ timeout: 20_000 })
 }
 
 /**
@@ -146,7 +147,10 @@ export async function openInstanceBoard(
   const empty = page.getByText('This workspace is empty')
   const board = page.getByRole('button', { name, exact: true }).first()
   await expect(empty.or(board)).toBeVisible({ timeout: 20_000 })
-  if (await empty.isVisible().catch(() => false)) await makeBoard(page, name)
-  await board.click()
+  if (await empty.isVisible().catch(() => false)) {
+    await makeBoard(page, name)
+  } else {
+    await board.click()
+  }
   await expect(page.locator('[data-workflow="cards"]')).toBeVisible({ timeout: 20_000 })
 }

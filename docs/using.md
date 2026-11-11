@@ -72,8 +72,11 @@ independently, and expanding one gives its cards back.
 *The Team Atlas demo board. The initiatives flow sits above the team's Cards flow; both read the same
 four stages, and the cards' progress rolls into the initiatives above them.*
 
-A **portfolio** board has no **Edit board**. Its shape comes from its objectives, which are made in the
-strategy map, and its sections are the organisation's standard reading, not something a team reworks.
+A **portfolio** board has no **Edit board** in the lane sense. Its shape comes from its objectives, which
+are edited on the board itself: **Edit objectives** makes the strategy map editable and brings the
+period controls, key results and re-order controls into it. Read mode stays the map of objectives and the initiatives that
+serve them; its navigation is **Board** alone, because the dashboard, timeline and archive report on
+work a portfolio does not hold itself.
 
 A board carries **flows**, each a set of those four columns. It has exactly one **initiatives** flow —
 where the same work is read as outcomes — and **one or more cards flows**: the team's own. Each cards
@@ -200,11 +203,12 @@ None of these is a second copy: they read the same items, placements and edges.
 because it is about the person rather than the open board. The board stays in front; clicking a card
 replaces the drawer with that card's item panel on the same side.
 
-Objectives and key results live on a **Portfolio** board, in its Strategy map, with the initiatives
-mapped to them. A **period** is a record with a window: choose it in the **Period** field, set its
-start and end dates once, and every objective committed for it is due then. An objective has no
-target date of its own. [Board types](board-types.md) walks through periods, key results and mapping
-an initiative to an objective.
+Objectives and key results live on a **Portfolio** board: read them on the board, then choose
+**Edit objectives** to manage periods, write the objectives, their key results and descriptions, and
+order them. A **period** is a record with a window: choose it in the **Period** field, set its start and
+end dates once, and every objective committed for it is due then. An objective has no target date of
+its own. [Board types](board-types.md) walks through periods, key results and mapping an initiative to
+an objective.
 
 ## Keeping a copy
 

@@ -481,13 +481,20 @@ export interface Edge {
   to: string
 }
 
+/** The lifecycle of an objective: being written, committed, closed, or dropped. */
+export type ObjectiveStatus = 'draft' | 'active' | 'archived' | 'cancelled'
+
 /** Objectives and KRs are commitment-limited entities, never cards. */
 export interface Objective {
   id: string
   title: string
+  /** What the objective means, in the words of the people who set it. */
+  description?: string
   /** The period it is committed for — see `Period`. A period is a record, not a label. */
   periodId: string
-  status: 'active' | 'reviewed'
+  status: ObjectiveStatus
+  /** Reading order within its period; lower comes first. Absent on data written before ordering. */
+  order?: number
 }
 
 /**

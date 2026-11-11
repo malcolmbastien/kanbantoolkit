@@ -1,5 +1,5 @@
-import { lazy, Suspense, useRef, useState } from 'react'
-import { ExternalLink, Layers, Link2, X } from 'lucide-react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { Check, ExternalLink, Layers, Link2, Pencil, X } from 'lucide-react'
 import { ArchivedBoardChip } from './ArchivedBoardChip'
 import { BandBadge } from './BandBadge'
 import { BoardSummary } from './BoardSummary'
@@ -12,6 +12,7 @@ import { BAND_ACCENT } from '@/lib/colors'
 import { linkableBoards } from '@/domain/board'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
+import { useMay } from '@/lib/permissions'
 import { usePanScroll } from '@/lib/usePanScroll'
 import { useRevealSelection } from '@/lib/useRevealSelection'
 
@@ -33,9 +34,14 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
   const removeLinkedBoard = useStore((s) => s.removeLinkedBoard)
   const selectBoard = useStore((s) => s.selectBoard)
   const editMode = useStore((s) => s.editMode)
+  const may = useMay()
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [linkOpen, setLinkOpen] = useState(false)
+  const [editingObjectives, setEditingObjectives] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+  // Editing OKRs belongs to the board in front of the reader; switching boards puts the reading
+  // view back rather than carrying the editor onto a program board.
+  useEffect(() => setEditingObjectives(false), [boardId])
 
   const board = boards.find((b) => b.id === boardId)
   if (!board) return null
@@ -102,6 +108,23 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 text-meta text-slate-600">
         {board.archived && <ArchivedBoardChip />}
         <div className="ml-auto flex items-center gap-2">
+          {portfolio && may('objective.write') && (
+            <button
+              type="button"
+              onClick={() => setEditingObjectives((editing) => !editing)}
+              aria-pressed={editingObjectives}
+              className={cn(
+                'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition',
+                editingObjectives
+                  ? 'border-violet-300 bg-violet-50 text-violet-700'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
+              )}
+              title={editingObjectives ? 'Finish editing the objectives' : 'Edit the periods, objectives and key results'}
+            >
+              {editingObjectives ? <Check size={12} /> : <Pencil size={12} />}
+              {editingObjectives ? 'Done' : 'Edit objectives'}
+            </button>
+          )}
           <ConnectionsLegend boardId={board.id} />
           <DetailDial boardId={board.id} editMode={editMode} />
           <ConnectionsToggle boardId={board.id} />
@@ -112,26 +135,19 @@ export function ManagementBoard({ boardId }: { boardId: string }) {
         <div ref={contentRef} className="relative space-y-3">
         {/* A portfolio leads with strategy: objectives and the initiatives that serve
             them on one page. Other coordination boards show the initiatives workflow. */}
-        {portfolio
-          ? section(
-              `${board.id}-strategy`,
-              'Strategy map',
-              <StrategyMap boardId={board.id} />,
-              undefined,
-              // The map is what a portfolio is for; folding it would leave the board empty.
-              false,
-              'band',
-              'each objective with the initiatives that serve it, in this board’s own flow',
-            )
-          : section(
-              `${board.id}-initiatives`,
-              'Initiatives workflow',
-              <BoardSummary boardId={board.id} variant="initiatives" interactive />,
-              undefined,
-              true,
-              'band',
-              'the outcomes this board owns',
-            )}
+        {portfolio ? (
+          <StrategyMap boardId={board.id} editing={editingObjectives} />
+        ) : (
+          section(
+            `${board.id}-initiatives`,
+            'Initiatives workflow',
+            <BoardSummary boardId={board.id} variant="initiatives" interactive />,
+            undefined,
+            true,
+            'band',
+            'the outcomes this board owns',
+          )
+        )}
 
         {/* Linked boards — teams or other coordination boards. A portfolio does not show them:
             its job is the objectives and the initiatives that serve them, and a band of another

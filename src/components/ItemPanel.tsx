@@ -111,7 +111,6 @@ export function ItemPanel({ itemId }: Props) {
   const boardId = useStore((s) => s.boardId)
   const onPortfolioBoard = useStore((s) => isPortfolio(s.boards.find((b) => b.id === s.boardId)))
   const selectBoard = useStore((s) => s.selectBoard)
-  const setObjectives = useStore((s) => s.setObjectives)
   const connectionScopeId = useStore((s) => s.connectionScopeId)
   const setConnectionScope = useStore((s) => s.setConnectionScope)
   // A watch is not a permission — a Viewer can watch — so this is not behind `canWrite`.
@@ -1670,14 +1669,16 @@ export function ItemPanel({ itemId }: Props) {
                         onPortfolioBoard
                           ? () => {
                               close(null)
-                              setObjectives(true)
+                              requestAnimationFrame(() =>
+                                document.getElementById(`objective-${o.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                              )
                             }
                           : undefined
                       }
                       disabled={!onPortfolioBoard}
                       title={
                         onPortfolioBoard
-                          ? 'Open Objectives & Key Results'
+                          ? 'Show this objective on the board'
                           : 'Objectives live on a portfolio board'
                       }
                       className={cn(

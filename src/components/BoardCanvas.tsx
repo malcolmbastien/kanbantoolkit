@@ -497,7 +497,12 @@ function LaneBox({
                           ? isRoot
                             ? '36px'
                             : '48px'
-                          : 'minmax(min-content, 1fr)'
+                          : isRoot
+                            ? 'minmax(min-content, 1fr)'
+                            : // A split is a set of equal cells: a longer card in one must not
+                              // widen its column at its sibling's expense. The floor keeps each
+                              // cell wide enough for a card; the parent grows to hold both.
+                              'minmax(196px, 1fr)'
                       })
                       .join(' '),
                   }

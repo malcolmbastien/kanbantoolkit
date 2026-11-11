@@ -4,7 +4,7 @@ import { BAND_STYLES, BOARD_BANDS } from './BandBadge'
 import { NewBoardDialog } from './NewBoardDialog'
 import { TemplateEditor } from './TemplateEditor'
 import { ImportBoardButton } from './ImportBoardButton'
-import { boardsByBand } from '@/domain/board'
+import { boardsByBand, isPortfolio } from '@/domain/board'
 import { favouriteBoardList, recentBoardList } from '@/domain/boardShortcuts'
 import { useMay } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
@@ -78,9 +78,10 @@ export function BoardWorkspace() {
   const lastBoard = boards.length <= 1
 
   const createBoard = (name: string, band: BoardBand, templateId?: string) => {
-    // `open: false` — creating here is browsing, so the board lands in the list rather
-    // than switching to it in edit mode the way the TopBar's create does.
-    addBoard(name, band, false, templateId)
+    // Creating a board is the end of browsing: it opens immediately through the normal navigation,
+    // rather than landing in the list for a second visit.
+    const boardId = addBoard(name, band, false, templateId)
+    selectBoard(boardId)
     setShowNewBoard(false)
     setQ('')
   }
@@ -319,6 +320,7 @@ export function BoardWorkspace() {
                 return (
                   <div
                     key={b.id}
+                    data-board-card={b.id}
                     className={cn(
                       'flex flex-col gap-2.5 rounded-xl border border-slate-300 bg-white p-3 shadow-sm transition',
                       b.archived ? 'opacity-60' : 'hover:border-indigo-300 hover:shadow-md',
@@ -385,31 +387,37 @@ export function BoardWorkspace() {
                         </button>
                         {/* A real link — the URL carries the board and the view, so it can be
                             copied or opened in a new tab; the click itself stays in-app. */}
-                        <a
-                          href={`?board=${b.id}&view=dashboard`}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            selectBoard(b.id)
-                            setDashboard(true)
-                          }}
-                          className="rounded p-1 text-slate-600 transition hover:text-slate-700"
-                          title={`Open ${b.name}'s dashboard`}
-                        >
-                          <LayoutDashboard size={13} />
-                        </a>
+                        {/* A portfolio has one reading — its objectives — so it has no
+                            dashboard or timeline link to offer here. */}
+                        {!isPortfolio(b) && (
+                          <>
+                            <a
+                              href={`?board=${b.id}&view=dashboard`}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                selectBoard(b.id)
+                                setDashboard(true)
+                              }}
+                              className="rounded p-1 text-slate-600 transition hover:text-slate-700"
+                              title={`Open ${b.name}'s dashboard`}
+                            >
+                              <LayoutDashboard size={13} />
+                            </a>
 
-                        <a
-                          href={`?board=${b.id}&view=timeline`}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            selectBoard(b.id)
-                            setTimeline(true)
-                          }}
-                          className="rounded p-1 text-slate-600 transition hover:text-slate-700"
-                          title={`Open ${b.name}'s timeline`}
-                        >
-                          <ChartNoAxesGantt size={13} />
-                        </a>
+                            <a
+                              href={`?board=${b.id}&view=timeline`}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                selectBoard(b.id)
+                                setTimeline(true)
+                              }}
+                              className="rounded p-1 text-slate-600 transition hover:text-slate-700"
+                              title={`Open ${b.name}'s timeline`}
+                            >
+                              <ChartNoAxesGantt size={13} />
+                            </a>
+                          </>
+                        )}
 
                         {(canCreate || canManage || canDelete) && (
                           <div className="relative">

@@ -87,14 +87,12 @@ column reads the target window, with the initiative's due date — and its own o
 
 ## On a portfolio board
 
-The strategy map and the objectives view add warnings about coverage, not flow:
+The portfolio board and its **Edit objectives** mode add warnings about coverage, not flow:
 
 | What you see | What it means | What clears it |
 | --- | --- | --- |
-| **No initiative is mapped to this objective**, an amber line on an objective card | The objective has no work mapped to it, and no completeness figure. | Map a top-level initiative to the objective. |
-| **N gaps** in amber in the strategy map's header | Objectives with nothing serving them, plus top-level initiatives in the portfolio's remit serving no objective. | Either gap is closed. |
-| **No objective yet**, an amber group on the strategy map | Strategic initiatives on the portfolio that no objective carries, shown as a flow of their own. | Map each to an objective. |
-| **over the commitment limit**, a red badge in the objectives header | The period holds more than five objectives. The limit is a commitment, not a capacity: the view warns, it does not block. | Move an objective to another period or remove one. |
+| **No initiative is mapped to this objective**, an amber line on an objective | The objective has no work mapped to it, and no completeness figure. | Map a top-level initiative to the objective. |
+| **over the commitment limit**, a red badge in the period toolbar | The period holds more than five objectives. The limit is a commitment, not a capacity: the view warns, it does not block. | Move an objective to another period or remove one. |
 
 Mapping is attribution, never WIP: moving an initiative between objectives does not move a card or
 raise a limit.

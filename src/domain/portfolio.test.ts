@@ -124,6 +124,15 @@ describe('the portfolio risk heatmap', () => {
     expect(portfolioHeatmap([], [q4], graph, now)).toMatchObject({ rows: [], periods: [], counts: { objectives: 0 } })
   })
 
+  it('reads objectives in the board order, not alphabetically', () => {
+    const graph = graphOf([], [], [])
+    const ordered = [
+      { ...objective('o-b', 'p-q4', 'B'), order: 0 },
+      { ...objective('o-a', 'p-q4', 'A'), order: 1 },
+    ]
+    expect(portfolioHeatmap(ordered, [q4], graph, now).rows.map((row) => row.objective.title)).toEqual(['B', 'A'])
+  })
+
   it('counts a shared leaf once, and a flag once per initiative that raises it', () => {
     const one = project('i-one', 'l-todo')
     const two = project('i-two', 'l-todo')

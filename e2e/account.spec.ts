@@ -72,7 +72,7 @@ test('an empty workspace makes its first board, and the board outlives the brows
   await page.getByRole('button', { name: 'New board' }).first().click()
   await page.getByLabel('New board name').fill(BOARD)
   await page.getByRole('button', { name: 'Create board' }).click()
-  await page.getByRole('button', { name: BOARD, exact: true }).click()
+  // The board opens as soon as it is created.
   await expect(page.locator('[data-workflow="cards"]')).toBeVisible()
 
   // A card, so the board has something in it — a lane's own footer is the one way in for new work.

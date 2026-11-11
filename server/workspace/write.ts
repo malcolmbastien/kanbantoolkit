@@ -368,12 +368,16 @@ function addVocabulary(statements: Statement[], vocabulary: Vocabulary, workspac
     }, workspaceId)
   }
 
-  for (const objective of vocabulary.objectives) {
+  for (const [index, objective] of vocabulary.objectives.entries()) {
     add(statements, 'objectives', {
       id: objective.id,
       title: objective.title,
+      description: value(objective.description),
       period_id: value(objective.periodId),
       status: objective.status,
+      // The document's own order is the fallback for a client written before objectives could be
+      // reordered; a number on the objective is the reader's order and wins.
+      position: objective.order ?? index,
     }, workspaceId)
   }
 

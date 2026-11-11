@@ -33,13 +33,12 @@ import {
 } from '@/domain/timelineZoom'
 
 /** Every view the app can be in. `board` is the board's own flow — the Board tab. */
-export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'boards' | 'objectives' | 'admin'
+export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'boards' | 'admin'
 
 /** The view flags a place is read from. */
 export interface ViewFlags {
   showBoards: boolean
   showArchive: boolean
-  showObjectives: boolean
   showDashboard: boolean
   showMetrics: boolean
   showTimeline: boolean
@@ -78,7 +77,6 @@ export interface Place {
 export function viewOf(flags: ViewFlags): ViewName {
   if (flags.showBoards) return 'boards'
   if (flags.showArchive) return 'archive'
-  if (flags.showObjectives) return 'objectives'
   if (flags.showDashboard) return 'dashboard'
   if (flags.showMetrics) return 'flow'
   if (flags.showTimeline) return 'timeline'
@@ -125,7 +123,6 @@ const VIEW_NAMES: Record<string, ViewName> = {
   metrics: 'flow',
   archive: 'archive',
   boards: 'boards',
-  objectives: 'objectives',
   admin: 'admin',
 }
 

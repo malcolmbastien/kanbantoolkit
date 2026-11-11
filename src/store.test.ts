@@ -396,7 +396,7 @@ describe('store actions', () => {
     s().addBoard('Squad', 'team')
     expect(s().boards[s().boards.length - 1].linkedBoardIds).toBeUndefined()
 
-    // The board workspace creates without leaving the board it is browsing.
+    // An explicit `open: false` leaves the reader where they are.
     s().cancelEdit()
     const current = s().boardId
     s().addBoard('Another stream', 'program', false)
@@ -491,6 +491,12 @@ describe('store actions', () => {
     const created2 = s().boards[s().boards.length - 1]
     expect(created2.band).toBe('program')
     expect(created2.linkedBoardIds).toEqual([])
+
+    // A template designs a cards flow, and a coordination board has none to design: it starts
+    // standard even if an old caller names a template.
+    s().addBoard('Program with a team template', 'program', false, template.id)
+    const coordination = s().boards[s().boards.length - 1]
+    expect(cardsFlows(s().flows, coordination.id).map((f) => f.name)).toEqual(['Cards'])
 
     // An explicit band still wins over the template's.
     s().addBoard('Explicit', 'team', false, program.id)
@@ -1045,8 +1051,44 @@ describe('store actions', () => {
     const objective = s().objectives.at(-1)!
     expect(objective.periodId).toBe(id)
     expect(objective.status).toBe('active')
-    // No score and no date of its own: an objective is a title, a period and a review state.
-    expect(Object.keys(objective).sort()).toEqual(['id', 'periodId', 'status', 'title'])
+    expect(objective.order).toBe(0)
+    // No score and no date of its own: an objective is a title, a period, a state and a place.
+    expect(Object.keys(objective).sort()).toEqual(['id', 'order', 'periodId', 'status', 'title'])
+  })
+
+  it('reorders objectives inside one period, and leaves every other period alone', () => {
+    const id = s().addPeriod('FY27 Q3')!
+    s().addObjective('First', id)
+    s().addObjective('Second', id)
+    s().addObjective('Third', id)
+    const peers = () =>
+      s().objectives
+        .filter((o) => o.periodId === id)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const titles = () => peers().map((o) => o.title)
+    const ids = peers().map((o) => o.id)
+
+    expect(titles()).toEqual(['First', 'Second', 'Third'])
+    expect(peers().map((o) => o.order)).toEqual([0, 1, 2])
+
+    // Down then up; the order is always a contiguous rank, not a pair of swapped numbers.
+    s().moveObjective(ids[2], -1)
+    expect(titles()).toEqual(['First', 'Third', 'Second'])
+    expect(peers().map((o) => o.order)).toEqual([0, 1, 2])
+    s().moveObjective(ids[2], 1)
+    expect(titles()).toEqual(['First', 'Second', 'Third'])
+
+    // The ends are ends: a move past them is a no-op rather than a wrap.
+    s().moveObjective(ids[0], -1)
+    s().moveObjective(ids[2], 1)
+    expect(titles()).toEqual(['First', 'Second', 'Third'])
+
+    // Another period's reading is untouched by any of it.
+    expect(s().objectives.filter((o) => o.periodId === 'p-fy26-q1').map((o) => o.title)).toEqual([
+      'Grow activation',
+      'Reduce cost-to-serve',
+      'Improve reliability',
+    ])
   })
 
   it('a period retires only when no objective is committed for it', () => {
@@ -1067,7 +1109,7 @@ describe('store actions', () => {
         { id: 'o-3', title: 'C', period: 'FY27 Q1', status: 'active' },
       ],
     }) as {
-      objectives: { id: string; periodId: string; status: string; score?: number; period?: string }[]
+      objectives: { id: string; periodId: string; status: string; order?: number; score?: number; period?: string }[]
       periods: { id: string; name: string; start?: string; end?: string }[]
     }
     expect(migrated.periods.map((p) => p.name)).toEqual(['FY26 Q4', 'FY27 Q1'])
@@ -1076,8 +1118,10 @@ describe('store actions', () => {
 
     const q4 = migrated.periods[0].id
     expect(migrated.objectives.map((o) => o.periodId)).toEqual([q4, q4, migrated.periods[1].id])
-    // `scored` was the old word for a reviewed objective; the score itself is gone.
-    expect(migrated.objectives[1].status).toBe('reviewed')
+    // Ordering is backfilled inside each period, in the order the list already read.
+    expect(migrated.objectives.map((o) => o.order)).toEqual([0, 1, 0])
+    // `scored` was the old word for a reviewed objective; both now name the archived state.
+    expect(migrated.objectives[1].status).toBe('archived')
     expect(migrated.objectives.every((o) => o.score === undefined && o.period === undefined)).toBe(true)
   })
 
@@ -1907,7 +1951,7 @@ describe('store actions', () => {
   })
 
   it('the board is the surface only when no view sits over it', () => {
-    const base = { showDashboard: false, showTimeline: false, showArchive: false, showObjectives: false, showBoards: false, showMetrics: false, showAdmin: false }
+    const base = { showDashboard: false, showTimeline: false, showArchive: false, showBoards: false, showMetrics: false, showAdmin: false }
     expect(isBoardSurface(base)).toBe(true)
     // Every view counts, including the ones added later — a flag this list forgets would put the
     // board's own controls in front of a view that reports on work.
@@ -1949,17 +1993,15 @@ describe('store actions', () => {
     // The URL says which view the app is in, and `setView` is the door it comes through. A name
     // that mapped to the wrong flag — or a view with no name — would make a link land somewhere
     // else, so the two directions are checked against each other rather than each on its own.
-    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'boards', 'objectives', 'admin']
+    const names: ViewName[] = ['board', 'dashboard', 'timeline', 'flow', 'archive', 'boards', 'admin']
     for (const name of names) {
-      // Objectives open only on a portfolio board, and Flow only on a team board; the loop visits
-      // the board each one needs.
-      if (name === 'objectives') s().selectBoard('b-strategy')
+      // Flow only opens on a team board; the loop visits the board it needs.
       if (name === 'flow') s().selectBoard('b-atlas')
       s().setView(name)
       expect(viewOf(s()), name).toBe(name)
       // And exactly one view at a time: two flags set would make `viewOf`'s precedence — and so
       // the URL — disagree with what is on screen.
-      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showObjectives, s().showBoards, s().showAdmin]
+      const flags = [s().showDashboard, s().showTimeline, s().showMetrics, s().showArchive, s().showBoards, s().showAdmin]
       expect(flags.filter(Boolean), name).toHaveLength(name === 'board' ? 0 : 1)
     }
     // The workspace is organisation-level: a board's side panel has no place in it.
@@ -2926,7 +2968,6 @@ describe('timeline view state', () => {
     s().setTimeline(true)
     expect(s().showTimeline).toBe(true)
     expect(s().showDashboard).toBe(false)
-    expect(s().showObjectives).toBe(false)
     expect(s().showArchive).toBe(false)
     expect(s().showBoards).toBe(false)
   })
@@ -2945,30 +2986,6 @@ describe('timeline view state', () => {
     expect(s().showBoards).toBe(false)
     expect(s().showDashboard).toBe(false)
     expect(s().showArchive).toBe(false)
-    expect(s().showObjectives).toBe(false)
-  })
-
-  it('opening another view closes the timeline', () => {
-    // OKRs are a portfolio board's own surface, so open one before asking for the view.
-    s().selectBoard('b-strategy')
-    s().setTimeline(true)
-    s().setObjectives(true)
-    expect(s().showTimeline).toBe(false)
-    expect(s().showObjectives).toBe(true)
-  })
-
-  it('opens objectives only from a portfolio board', () => {
-    s().selectBoard('b-atlas')
-    s().setObjectives(true)
-    expect(s().showObjectives).toBe(false)
-
-    s().selectBoard('b-strategy')
-    s().setObjectives(true)
-    expect(s().showObjectives).toBe(true)
-
-    // Leaving the portfolio board closes it: it is that board's own surface, not a global tab.
-    s().selectBoard('b-atlas')
-    expect(s().showObjectives).toBe(false)
   })
 
   it('selecting a board leaves the timeline', () => {

@@ -11,6 +11,7 @@
  */
 
 import type { SavedFilter } from '../../src/domain/filters'
+import { normalizeObjectiveStatus } from '../../src/domain/objectives'
 import type {
   Board,
   BoardBand,
@@ -519,7 +520,7 @@ export async function readWorkspace(
       db.all<Row>('SELECT * FROM edges WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM links WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       db.all<Row>('SELECT * FROM periods WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
-      db.all<Row>('SELECT * FROM objectives WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
+      db.all<Row>('SELECT * FROM objectives WHERE workspace_id = ?1 ORDER BY position, id', [workspaceId]),
       db.all<Row>('SELECT * FROM key_results WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
       readTemplates(db, workspaceId),
       db.all<Row>('SELECT * FROM people WHERE workspace_id = ?1 ORDER BY id', [workspaceId]),
@@ -539,11 +540,15 @@ export async function readWorkspace(
     edges: edges.map(edgeFrom),
     links: links.map(linkFrom),
     objectives: objectives.map((row): Objective => {
+      const description = maybeText(row.description)
+      const order = typeof row.position === 'number' ? row.position : undefined
       return {
         id: text(row.id),
         title: text(row.title),
+        ...(description ? { description } : {}),
         periodId: text(row.period_id),
-        status: text(row.status) === 'reviewed' ? 'reviewed' : 'active',
+        status: normalizeObjectiveStatus(row.status),
+        ...(order !== undefined ? { order } : {}),
       }
     }),
     periods: periods.map((row): Period => {

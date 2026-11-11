@@ -20,10 +20,6 @@ const BOARD = 'Team Atlas'
 test.describe.configure({ mode: 'serial' })
 test.setTimeout(120_000)
 
-/** The one objective card on screen — its title is the input the card is edited in. */
-const objectiveCard = (page: Page) =>
-  page.locator('section').filter({ has: page.getByRole('button', { name: 'Delete objective' }) })
-
 /** The vocabulary write, and only one that landed: a debounced write that failed is not a save. */
 const saved = (page: Page) =>
   page.waitForResponse(
@@ -71,13 +67,16 @@ test('a type, a template and an objective outlive the browser', async ({ page })
   await page.getByRole('button', { name: 'New board' }).first().click()
   const creator = page.getByRole('dialog')
   await creator.getByLabel('New board name').fill('Strategy')
+  // Starting columns are a team board's design, so the choice is absent for both coordination kinds.
+  await creator.getByRole('button', { name: /^Program/ }).click()
+  await expect(creator.getByLabel('New board template')).toHaveCount(0)
   await creator.getByRole('button', { name: /^Portfolio/ }).click()
+  await expect(creator.getByLabel('New board template')).toHaveCount(0)
   await creator.getByRole('button', { name: 'Create board' }).click()
-  // The card lands on the home; opening it reads the portfolio: the strategy map, not its design.
-  await page.getByRole('button', { name: /Strategy/ }).first().click()
-  await expect(page.getByText('Strategy map')).toBeVisible()
+  // Creating opens the portfolio: its objectives, with nothing committed yet.
+  await expect(page.getByRole('button', { name: 'Edit objectives' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Objectives', exact: true }).click()
+  await page.getByRole('button', { name: 'Edit objectives' }).click()
   await page.getByRole('button', { name: 'New period' }).click()
   await page.getByLabel('New period', { exact: true }).fill('FY27 Q1')
   const periodSave = saved(page)
@@ -88,7 +87,7 @@ test('a type, a template and an objective outlive the browser', async ({ page })
   const objective = 'A probe objective'
   await page.getByPlaceholder(/New objective in/).fill(objective)
   await page.getByRole('button', { name: 'New objective' }).click()
-  await expect(objectiveCard(page).locator('input').first()).toHaveValue(objective)
+  await expect(page.getByLabel(`Title of ${objective}`)).toHaveValue(objective)
   await landing
 
   // Nothing above was in this browser's storage for the reload to keep: the account has it.
@@ -108,8 +107,8 @@ test('a type, a template and an objective outlive the browser', async ({ page })
 
   await home(page, 'Boards')
   await page.getByRole('button', { name: 'Strategy', exact: true }).first().click()
-  await page.getByRole('button', { name: 'Objectives', exact: true }).click()
-  await expect(objectiveCard(page).locator('input').first()).toHaveValue('A probe objective')
+  await page.getByRole('button', { name: 'Edit objectives' }).click()
+  await expect(page.getByLabel('Title of A probe objective')).toHaveValue('A probe objective')
 })
 
 test('a second device sees the type the first one made', async ({ page, browser }) => {

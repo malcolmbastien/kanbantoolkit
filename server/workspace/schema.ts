@@ -112,5 +112,16 @@ export const WORKSPACE_SCHEMA = 1
  * 46 adds `item_watch.since_seq`: the outbox position a watch began at. The inbox reads after it, so
  * watching a card shows what happens next rather than its whole history. A database without it
  * would answer every watch with the past — the behaviour this column exists to stop.
+ *
+ * 47 moves an objective's stored state to the lifecycle vocabulary — a reviewed objective becomes
+ * archived. A database that has not run it would read those rows as active, which is the wrong
+ * statement about work that has been closed.
+ *
+ * 48 adds `objectives.description`: the sentence that says what an objective means, beside its key
+ * results. A database without it has nowhere to keep that sentence, so the write is refused rather
+ * than silently dropping it.
+ *
+ * 49 adds `objectives.position`: the reader's order inside a period. A database without it cannot
+ * keep the order the page shows, and the strategy map would fall back to sorting by title.
  */
-export const REQUIRED_SCHEMA = 46
+export const REQUIRED_SCHEMA = 49

@@ -24,6 +24,13 @@ test('the app opens on the workspace home', async ({ page }) => {
   await expect(page.locator('[data-workflow]')).toHaveCount(0)
   // OKRs are a portfolio board's own work, not a banner on the organisation's home.
   await expect(page.getByText('Objectives & Key Results')).toHaveCount(0)
+
+  // A portfolio is read for its objectives: no dashboard or timeline shortcuts on its card.
+  const portfolioCard = page.locator('[data-board-card="b-strategy"]')
+  await expect(portfolioCard).toBeVisible()
+  await expect(portfolioCard.getByTitle(/Open .*'s dashboard/)).toHaveCount(0)
+  await expect(portfolioCard.getByTitle(/Open .*'s timeline/)).toHaveCount(0)
+  await expect(page.locator('[data-board-card="b-atlas"]').getByTitle(/Open .*'s dashboard/)).toHaveCount(1)
 })
 
 test('a template opens from its card', async ({ page }) => {
@@ -87,15 +94,30 @@ test('None is a card type, always offered', async ({ page }) => {
   await expect(card).not.toContainText('None')
 })
 
-test('objectives are a portfolio tab in the top bar, and only there', async ({ page }) => {
+test('objectives live on the portfolio board, not in the top bar', async ({ page }) => {
   await openBoard(page)
-  // A team board offers no Objectives tab.
+  // No board has a separate Objectives screen.
   await expect(page.getByRole('button', { name: 'Objectives', exact: true })).toHaveCount(0)
 
-  // A portfolio board carries the one entry in its own navigation — not inside the strategy map.
   await page.goto('/app?board=b-strategy')
-  await expect(page.getByText('Strategy map')).toBeVisible()
-  await expect(page.getByRole('banner').getByRole('button', { name: 'Objectives', exact: true })).toBeVisible()
+  await expect(page.getByText('Portfolio at a glance')).toBeVisible()
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Objectives', exact: true })).toHaveCount(0)
+  // There is no separate workflow header, and mapping is an editing act.
+  await expect(page.getByText('Strategy map')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Map an initiative' })).toHaveCount(0)
+  // Board is the only view, so even its tab is gone; the board picker remains.
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Board', exact: true })).toHaveCount(0)
+  // A portfolio is read for objectives, not for the board reports underneath it.
+  for (const name of ['Dashboard', 'Timeline', 'Archive']) {
+    await expect(page.getByRole('banner').getByRole('button', { name, exact: true })).toHaveCount(0)
+  }
+
+  // Editing OKRs is a mode on the map itself: the period controls and the in-place editors appear.
+  await page.getByRole('button', { name: 'Edit objectives' }).click()
+  await expect(page.getByLabel('Period', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Map an initiative' }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByText('Portfolio at a glance')).toBeVisible()
 })
 
 test('the demo is reset from the admin screen, not from the board toolbar', async ({ page }) => {

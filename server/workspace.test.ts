@@ -178,8 +178,8 @@ const workspace: Workspace = {
   ],
   links: [{ id: 'lk-1', from: 'i-outcome', to: 'i-signin', reason: 'needs it first' }],
   objectives: [
-    { id: 'o-1', title: 'Ship the server', periodId: 'p-q4', status: 'active' },
-    { id: 'o-2', title: 'Grow', periodId: 'p-q3', status: 'reviewed' },
+    { id: 'o-1', title: 'Ship the server', description: 'A server that holds the workspace.', periodId: 'p-q4', status: 'active', order: 0 },
+    { id: 'o-2', title: 'Grow', periodId: 'p-q3', status: 'archived', order: 0 },
   ],
   periods: [
     { id: 'p-q3', name: '2026-Q3', start: '2026-07-01', end: '2026-09-30' },
@@ -1222,7 +1222,7 @@ describe('writing the workspace vocabulary', () => {
       },
     ],
     periods: [{ id: 'p-q1', name: '2026-Q1', start: '2026-01-01', end: '2026-03-31' }],
-    objectives: [{ id: 'o-1', title: 'Sign in without a password', periodId: 'p-q1', status: 'active' as const }],
+    objectives: [{ id: 'o-1', title: 'Sign in without a password', description: 'A passwordless door.', periodId: 'p-q1', status: 'active' as const, order: 0 }],
     keyResults: [{ id: 'k-1', objectiveId: 'o-1', title: 'Every member can sign in' }],
   })
 

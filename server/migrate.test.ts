@@ -117,8 +117,8 @@ describe('the server schema', () => {
     expect(objectives[0].period_id).toBe(objectives[1].period_id)
     expect(objectives[0].period_id).toBe(periods[0].id)
     expect(objectives[2].period_id).toBe(periods[1].id)
-    // `scored` was the old word for a reviewed objective; the score itself is gone.
-    expect(objectives[0].status).toBe('reviewed')
+    // `scored` was the old word for a reviewed objective; the lifecycle now calls that archived.
+    expect(objectives[0].status).toBe('archived')
 
     const columns = (await db.all<{ name: string }>('PRAGMA table_info(objectives)')).map((column) => column.name)
     expect(columns).not.toContain('score')

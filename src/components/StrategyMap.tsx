@@ -1,14 +1,18 @@
-import { Fragment } from 'react'
-import { Target, TriangleAlert } from 'lucide-react'
+import { Fragment, useState } from 'react'
+import { ChevronDown, ChevronUp, Plus, Target, Trash2, TriangleAlert, X } from 'lucide-react'
 import { BoardSummary } from './BoardSummary'
 import { ItemPicker } from './ItemPicker'
+import { MappedInitiativeDetails } from './MappedInitiativeDetails'
+import { ObjectiveStatusPicker } from './ObjectiveStatusPicker'
+import { PeriodToolbar } from './PeriodToolbar'
 import { PortfolioHeatmap } from './PortfolioHeatmap'
 import { objectiveInitiatives, portfolioInitiatives } from '@/domain/board'
+import { OBJECTIVE_STATUS_LABELS } from '@/domain/objectives'
 import { portfolioHeatmap } from '@/domain/portfolio'
 import { objectiveRollup, okrCoverage, type Graph } from '@/domain/derive'
 import { periodById, periodNameOf, periodRank } from '@/domain/periods'
 import { periodRangeLabel } from '@/lib/periodRange'
-import { OBJECTIVE_STATUS_STYLES } from '@/lib/colors'
+import { OBJECTIVE_STATUS_STYLES, OBJECTIVE_STATUS_DOT } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store'
 import type { Item, Objective } from '@/domain/types'
@@ -29,13 +33,13 @@ import type { Item, Objective } from '@/domain/types'
  * gets a flow of its own at the end. That replaces the separate "OKR coverage" section: the gaps
  * are visible exactly where they occur.
  *
- * Attribution edges are the same ones the Objectives view edits ("one relation, two homes").
- * Authoring the OKR itself — making one, its title, key results, its period — stays in the
- * Objectives view, which this links out to; the portfolio board reads what has been committed.
+ * Attribution edges are the same ones the portfolio board edits ("one relation, two homes").
+ * In **Edit objectives** the map itself becomes the authoring surface: titles, descriptions, status,
+ * key results, periods and ordering are edited in place, and the same view returns when editing ends.
  * An objective has no score of its own: how far along it is comes from the work that serves it,
  * and it is due when its period ends rather than on a date somebody typed for it.
  */
-export function StrategyMap({ boardId }: { boardId: string }) {
+export function StrategyMap({ boardId, editing = false }: { boardId: string; editing?: boolean }) {
   const items = useStore((s) => s.items)
   const edges = useStore((s) => s.edges)
   const placements = useStore((s) => s.placements)
@@ -47,7 +51,13 @@ export function StrategyMap({ boardId }: { boardId: string }) {
   const keyResults = useStore((s) => s.keyResults)
   const boards = useStore((s) => s.boards)
   const setAttribution = useStore((s) => s.setAttribution)
-  const setObjectives = useStore((s) => s.setObjectives)
+  const updateObjective = useStore((s) => s.updateObjective)
+  const moveObjective = useStore((s) => s.moveObjective)
+  const removeObjective = useStore((s) => s.removeObjective)
+  const addKeyResult = useStore((s) => s.addKeyResult)
+  const updateKeyResult = useStore((s) => s.updateKeyResult)
+  const removeKeyResult = useStore((s) => s.removeKeyResult)
+  const [krDraft, setKrDraft] = useState<Record<string, string>>({})
 
   const graph: Graph = { items, edges, links, placements, lanes }
 
@@ -74,15 +84,16 @@ export function StrategyMap({ boardId }: { boardId: string }) {
 
   // Both coverage gaps, on the initiatives this portfolio reads: one served by no objective, and an
   // objective served by no initiative.
-  const { unmapped, unserved } = okrCoverage(inScope, objectives, edges)
+  const { unserved } = okrCoverage(inScope, objectives, edges)
   const unservedIds = new Set(unserved.map((o) => o.id))
-  const gapCount = unmapped.length + unserved.length
-  const linkedCount = new Set(attribution.map((e) => e.to)).size
 
   // Periods read in their own order — a start date when they have one, the name when they do not —
   // so a map of two periods is a calendar, not the order somebody happened to type them in.
   const ordered = [...objectives].sort(
-    (a, b) => periodRank(periods, a.periodId) - periodRank(periods, b.periodId) || a.title.localeCompare(b.title),
+    (a, b) =>
+      periodRank(periods, a.periodId) - periodRank(periods, b.periodId) ||
+      (a.order ?? 0) - (b.order ?? 0) ||
+      a.title.localeCompare(b.title),
   )
   const periodCount = new Set(ordered.map((o) => o.periodId)).size
 
@@ -105,22 +116,30 @@ export function StrategyMap({ boardId }: { boardId: string }) {
     const rows = serving(o.id)
     const available = candidates.filter((i) => !rows.some((r) => r.id === i.id))
     const roll = objectiveRollup(o.id, graph)
+    const peers = ordered.filter((peer) => peer.periodId === o.periodId)
+    const peerIndex = peers.findIndex((peer) => peer.id === o.id)
     return (
       <div
         key={o.id}
         id={`objective-${o.id}`}
+        data-objective-id={o.id}
         data-objective-group={o.title}
         className="flex scroll-mt-2 flex-col overflow-hidden rounded-lg border border-slate-300 border-l-4 border-l-violet-500 bg-white shadow-sm"
       >
         <div className="flex items-center gap-2 border-b border-violet-100 bg-violet-50/70 px-3 py-2">
           <Target size={15} className="shrink-0 text-violet-600" />
-          <button
-            onClick={() => setObjectives(true)}
-            className="min-w-0 flex-1 truncate text-left text-heading font-semibold tracking-tight text-slate-900 hover:text-violet-700"
-            title="Edit this objective in the Objectives view"
-          >
-            {o.title}
-          </button>
+          {editing ? (
+            <input
+              value={o.title}
+              onChange={(e) => updateObjective(o.id, { title: e.target.value })}
+              aria-label={`Title of ${o.title}`}
+              className="min-w-0 flex-1 rounded border border-transparent bg-transparent text-heading font-semibold tracking-tight text-slate-900 hover:border-violet-200 focus:border-indigo-300 focus:outline-none"
+            />
+          ) : (
+            <span className="min-w-0 flex-1 truncate text-left text-heading font-semibold tracking-tight text-slate-900">
+              {o.title}
+            </span>
+          )}
           {/* What is connected, in one number, before the columns say it in detail — and how far
               along the work that serves it is, from the same rollup an initiative uses. */}
           <span className="shrink-0 text-micro text-slate-600" title="Initiatives mapped to this objective">
@@ -134,32 +153,130 @@ export function StrategyMap({ boardId }: { boardId: string }) {
               {roll.percent}%
             </span>
           )}
-          <span className={cn('shrink-0 rounded px-1 py-px text-micro font-semibold uppercase ring-1', OBJECTIVE_STATUS_STYLES[o.status])}>
-            {o.status}
-          </span>
+          {editing ? (
+            <>
+              <ObjectiveStatusPicker
+                value={o.status}
+                onChange={(status) => updateObjective(o.id, { status })}
+                label={`Status of ${o.title}`}
+              />
+              <button
+                onClick={() => moveObjective(o.id, -1)}
+                disabled={peerIndex <= 0}
+                aria-label={`Move ${o.title} up`}
+                title="Move this objective up"
+                className="grid h-6 w-6 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
+              >
+                <ChevronUp size={13} />
+              </button>
+              <button
+                onClick={() => moveObjective(o.id, 1)}
+                disabled={peerIndex < 0 || peerIndex >= peers.length - 1}
+                aria-label={`Move ${o.title} down`}
+                title="Move this objective down"
+                className="grid h-6 w-6 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-indigo-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30"
+              >
+                <ChevronDown size={13} />
+              </button>
+              <button
+                onClick={() => removeObjective(o.id)}
+                aria-label={`Delete ${o.title}`}
+                title="Delete this objective"
+                className="grid h-6 w-6 shrink-0 place-items-center rounded text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
+              >
+                <Trash2 size={12} />
+              </button>
+            </>
+          ) : (
+            <span className={cn('inline-flex shrink-0 items-center gap-1 rounded px-1 py-px text-micro font-semibold uppercase ring-1', OBJECTIVE_STATUS_STYLES[o.status])}>
+              <span className={cn('h-1.5 w-1.5 rounded-full', OBJECTIVE_STATUS_DOT[o.status])} aria-hidden="true" />
+              {OBJECTIVE_STATUS_LABELS[o.status]}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-1 flex-col gap-2 p-2.5">
-          {krs.length > 0 && (
+          {editing ? (
+            <label className="flex flex-col gap-1">
+              <span className={subLabel}>Description</span>
+              <textarea
+                value={o.description ?? ''}
+                onChange={(e) => updateObjective(o.id, { description: e.target.value })}
+                aria-label={`Description of ${o.title}`}
+                placeholder="What this objective means…"
+                rows={2}
+                className="min-w-0 resize-y rounded border border-slate-200 px-1.5 py-1 text-meta text-slate-700 placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-300 focus:outline-none"
+              />
+            </label>
+          ) : (
+            o.description && <p className="whitespace-pre-line text-meta leading-relaxed text-slate-600">{o.description}</p>
+          )}
+
+          {editing ? (
             <div>
               <div className={subLabel}>Key results</div>
-              {/* A key result is a sentence a person reads, not a column of the flow: chips wrap
-                  beside each other so two short statements share a line instead of each taking the
-                  full width. The chip carries the whole text as its title for a long one. */}
-              <ul className="flex flex-wrap gap-1">
+              <div className="space-y-1">
                 {krs.map((k) => (
-                  <li
-                    key={k.id}
-                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-meta text-slate-600"
-                    title={k.title}
-                  >
-                    <span className="h-1 w-1 shrink-0 rounded-full bg-violet-400" aria-hidden="true" />
-                    <span className="truncate">{k.title}</span>
-                  </li>
+                  <div key={k.id} className="flex items-center gap-2">
+                    <input
+                      value={k.title}
+                      onChange={(e) => updateKeyResult(k.id, { title: e.target.value })}
+                      aria-label={`Key result ${k.title}`}
+                      className="min-w-0 flex-1 rounded border border-transparent px-1 py-px text-meta text-slate-700 hover:border-slate-200 focus:border-indigo-300 focus:outline-none"
+                    />
+                    <button
+                      onClick={() => removeKeyResult(k.id)}
+                      className="text-slate-400 hover:text-rose-500"
+                      title="Remove this key result"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 ))}
-              </ul>
+              </div>
+              <div className="mt-1 flex items-center gap-1">
+                <input
+                  value={krDraft[o.id] ?? ''}
+                  onChange={(e) => setKrDraft((draft) => ({ ...draft, [o.id]: e.target.value }))}
+                  placeholder="Add a key result…"
+                  className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-0.5 text-meta"
+                />
+                <button
+                  disabled={(krDraft[o.id] ?? '').trim().length < 2}
+                  onClick={() => {
+                    addKeyResult(o.id, (krDraft[o.id] ?? '').trim())
+                    setKrDraft((draft) => ({ ...draft, [o.id]: '' }))
+                  }}
+                  className="flex items-center gap-1 rounded bg-slate-800 px-2 py-0.5 text-meta font-medium text-white disabled:opacity-40"
+                >
+                  <Plus size={11} /> Add
+                </button>
+              </div>
             </div>
+          ) : (
+            krs.length > 0 && (
+              <div>
+                <div className={subLabel}>Key results</div>
+                {/* A key result is a sentence a person reads, not a column of the flow: chips wrap
+                    beside each other so two short statements share a line instead of each taking the
+                    full width. The chip carries the whole text as its title for a long one. */}
+                <ul className="flex flex-wrap gap-1">
+                  {krs.map((k) => (
+                    <li
+                      key={k.id}
+                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-meta text-slate-600"
+                      title={k.title}
+                    >
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-violet-400" aria-hidden="true" />
+                      <span className="truncate">{k.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
           )}
+
+          {editing && <MappedInitiativeDetails objectiveId={o.id} />}
 
           {/* The objective's own flow: this board's typed columns, the same ones a team board
               shows, narrowed to the initiatives attributed to this objective — wherever they live.
@@ -173,40 +290,40 @@ export function StrategyMap({ boardId }: { boardId: string }) {
 
           {rows.length > 0 && <BoardSummary boardId={boardId} onlyIds={rows.map((r) => r.id)} variant="initiatives" />}
 
-          <div className="mt-auto">
-            <div className="mt-1">
-              <ItemPicker
-                items={available}
-                boardOf={boardNameOf}
-                movesFrom={(itemId) =>
-                  ordered.find((objective) => attribution.some((e) => e.from === objective.id && e.to === itemId))?.title
-                }
-                onPick={(itemId) => setAttribution(itemId, o.id, true)}
-              />
+          {editing && (
+            <div className="mt-auto">
+              <div className="mt-1">
+                <ItemPicker
+                  items={available}
+                  boardOf={boardNameOf}
+                  movesFrom={(itemId) =>
+                    ordered.find((objective) => attribution.some((e) => e.from === objective.id && e.to === itemId))?.title
+                  }
+                  onPick={(itemId) => setAttribution(itemId, o.id, true)}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     )
   }
 
-  const count = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
-
   return (
     <div className="space-y-2 p-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-meta text-slate-600">
-        <span>{count(objectives.length, 'objective')}</span>
-        <span title="Initiatives mapped to an objective, wherever their board sits">{count(linkedCount, 'linked initiative')}</span>
-        <span className={cn(gapCount > 0 && 'font-semibold text-amber-700')}>{count(gapCount, 'gap')}</span>
-      </div>
+      {editing && <PeriodToolbar />}
 
       <PortfolioHeatmap heatmap={heatmap} />
 
       {objectives.length === 0 && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-meta text-slate-600">
           {periods.length === 0
-            ? 'No periods yet. Name one in the Objectives view, set its window, then commit an objective to it.'
-            : 'No objectives yet — add one in the Objectives view, with the period it is committed for.'}
+            ? editing
+              ? 'No periods yet. Name one above, set its window, then add an objective.'
+              : 'No periods yet. Choose Edit objectives to name one, then commit an objective to it.'
+            : editing
+              ? 'No objectives yet — name one above, with the period it is committed for.'
+              : 'No objectives yet — choose Edit objectives to add one.'}
         </div>
       )}
 
@@ -231,24 +348,6 @@ export function StrategyMap({ boardId }: { boardId: string }) {
           )
         })}
 
-        {unmapped.length > 0 && (
-          <div className="flex flex-col rounded-md border border-amber-300 bg-amber-50/70 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2 rounded-t-md border-b border-amber-200 px-2.5 py-1.5">
-              <TriangleAlert size={12} className="shrink-0 text-amber-600" />
-              <span className="min-w-0 flex-1 truncate text-meta font-bold uppercase tracking-wide text-amber-800">
-                No objective yet
-              </span>
-              <span className="shrink-0 text-micro text-amber-700">
-                {count(unmapped.length, 'initiative')} in this portfolio serving no objective — map one from the objective it belongs to
-              </span>
-            </div>
-            <div className="p-2.5">
-              {/* The same flow again, so the gap is read in the same language as the work: an
-                  initiative waiting to be claimed, in the column its own progress puts it in. */}
-              <BoardSummary boardId={boardId} onlyIds={unmapped.map((i) => i.id)} variant="initiatives" />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

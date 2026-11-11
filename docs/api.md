@@ -165,8 +165,10 @@ Content-Type: application/json
 ```
 
 A period is a record — `{ "id", "name", "start"?, "end"? }` — and an objective names one
-(`periodId`). An objective has no target date and no score: the period's window is when it is due,
-and its completeness comes from the work below it.
+(`periodId`). An objective is `{ "id", "title", "description"?, "periodId", "status", "order"? }`,
+where `status` is `draft`, `active`, `archived` or `cancelled` and `order` is the reading order
+inside its period; `reviewed` and the older `scored` read as `archived`. It has no target date and
+no score: the period's window is when it is due, and its completeness comes from the work below it.
 
 The document is the whole truth about those lists: a row the sender did not send is deleted, so a
 malformed list is refused rather than filtered. The answer is the next revision. A stale one is

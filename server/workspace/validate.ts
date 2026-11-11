@@ -28,6 +28,7 @@ import type {
   User,
 } from '../../src/domain/types'
 import { safeExternalUrl } from '../../src/domain/externalLink'
+import { normalizeObjectiveStatus } from '../../src/domain/objectives'
 import type { Vocabulary, Workspace } from './types'
 
 const LIMITS = { id: 100, title: 300, description: 20_000, text: 2_000, list: 200, log: 2_000 } as const
@@ -386,12 +387,17 @@ const parseObjective = (raw: Record<string, unknown>): Objective | null => {
   const id = requiredText(raw.id, LIMITS.id)
   const title = requiredText(raw.title, LIMITS.title)
   if (!id || !title) return null
+  const description = text(raw.description, LIMITS.text)
+  const order = number(raw.order)
   return {
     id,
     title,
+    ...(description ? { description } : {}),
     periodId: text(raw.periodId, LIMITS.id) ?? '',
-    // `scored` is what an older client called a reviewed objective; the score itself is gone.
-    status: raw.status === 'reviewed' || raw.status === 'scored' ? 'reviewed' : 'active',
+    // Draft, active, archived and cancelled are the current words. `reviewed` and `scored` are
+    // older names for an objective closed after its period, so they read as archived.
+    status: normalizeObjectiveStatus(raw.status),
+    ...(order !== undefined ? { order } : {}),
   }
 }
 
@@ -439,8 +445,10 @@ export const canonicalPeriod = (period: Period): Period => ({
 export const canonicalObjective = (objective: Objective): Objective => ({
   id: objective.id,
   title: objective.title,
+  ...(objective.description ? { description: objective.description } : {}),
   periodId: objective.periodId,
   status: objective.status,
+  ...(objective.order !== undefined ? { order: objective.order } : {}),
 })
 
 export const canonicalKeyResult = (result: KeyResult): KeyResult => ({

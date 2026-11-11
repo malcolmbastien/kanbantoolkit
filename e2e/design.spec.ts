@@ -51,10 +51,12 @@ test('a column header is a shelf over its lane, and a split’s cells stand apar
     if (!dev || !test) return null
     const a = dev.getBoundingClientRect()
     const b = test.getBoundingClientRect()
-    return { devRight: Math.round(a.right), testLeft: Math.round(b.left) }
+    return { devRight: Math.round(a.right), testLeft: Math.round(b.left), devWidth: Math.round(a.width), testWidth: Math.round(b.width) }
   })
   expect(cells, 'both cells of the split are on the board').not.toBeNull()
   expect(cells!.testLeft, 'the cells are apart, so neither reads as part of the other').toBeGreaterThan(cells!.devRight)
+  // Siblings share the column equally, whatever their cards happen to say.
+  expect(Math.abs(cells!.devWidth - cells!.testWidth), 'the split cells are equal').toBeLessThanOrEqual(1)
 })
 
 test('splitting a cell gives it the columns it promised, and the cards move into the first', async ({ page }) => {

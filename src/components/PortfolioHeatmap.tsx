@@ -24,12 +24,9 @@ export function PortfolioHeatmap({ heatmap }: { heatmap: Heatmap }) {
   return (
     <section data-portfolio-heatmap aria-labelledby="portfolio-heatmap-title" className="rounded-lg border border-slate-300 bg-white shadow-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200 px-3 py-2">
-        <h2 id="portfolio-heatmap-title" className="text-body font-semibold text-slate-800">
+        <h2 id="portfolio-heatmap-title" className="text-title font-semibold tracking-tight text-slate-900">
           Portfolio at a glance
         </h2>
-        <span className="text-micro text-slate-600">
-          {heatmap.counts.objectives} objective{heatmap.counts.objectives === 1 ? '' : 's'} by period
-        </span>
       </div>
 
       <div className="overflow-x-auto">

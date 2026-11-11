@@ -152,6 +152,7 @@ export function portfolioHeatmap(
     .sort(
       (a, b) =>
         periodRank(periods, a.objective.periodId) - periodRank(periods, b.objective.periodId) ||
+        (a.objective.order ?? 0) - (b.objective.order ?? 0) ||
         a.objective.title.localeCompare(b.objective.title),
     )
 

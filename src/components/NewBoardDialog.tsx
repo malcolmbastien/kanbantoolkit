@@ -62,7 +62,9 @@ export function NewBoardDialog({
   const create = () => {
     const trimmed = name.trim()
     if (!trimmed) return
-    onCreate(trimmed, band, templateId || undefined)
+    // A starting-columns template is a team board's cards design. A coordination board has no
+    // cards flow of its own to apply it to, so the dialog does not offer one there.
+    onCreate(trimmed, band, band === 'team' ? templateId || undefined : undefined)
   }
 
   const dialogRef = useRef<HTMLFormElement>(null)
@@ -132,7 +134,13 @@ export function NewBoardDialog({
                     key={b}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => setBand(b)}
+                    onClick={() => {
+                      setBand(b)
+                      // Starting columns belong to a team board. Dropping the choice rather than
+                      // keeping it hidden means a program or portfolio cannot be created with a
+                      // template the reader can no longer see.
+                      if (b !== 'team') setTemplateId('')
+                    }}
                     className={cn(
                       'flex h-full flex-col rounded-lg border p-2.5 text-left transition',
                       selected
@@ -164,33 +172,29 @@ export function NewBoardDialog({
             </div>
           </fieldset>
 
-          <label className="flex flex-col gap-1">
-            <span className="text-meta font-medium text-slate-600">Starting columns</span>
-            <select
-              value={templateId}
-              onChange={(e) => {
-                const id = e.target.value
-                setTemplateId(id)
-                // A template carries a board type, so offer it as the default.
-                const chosen = templates.find((t) => t.id === id)
-                if (chosen) setBand(chosen.band)
-              }}
-              aria-label="New board template"
-              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
-            >
-              <option value="">Standard columns</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <span className="text-micro text-slate-600">
-              {templateId
-                ? 'Uses that template’s columns, types and WIP policy.'
-                : 'Backlog to Done. Shape it after.'}
-            </span>
-          </label>
+          {band === 'team' && (
+            <label className="flex flex-col gap-1">
+              <span className="text-meta font-medium text-slate-600">Starting columns</span>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                aria-label="New board template"
+                className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-meta outline-none focus:ring-2 focus:ring-indigo-300"
+              >
+                <option value="">Standard columns</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <span className="text-micro text-slate-600">
+                {templateId
+                  ? 'Uses that template’s columns, types and WIP policy.'
+                  : 'Backlog to Done. Shape it after.'}
+              </span>
+            </label>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">

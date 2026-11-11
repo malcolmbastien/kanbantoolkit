@@ -61,6 +61,7 @@ export function ItemPicker({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const openedAt = useRef(0)
   const listId = useId()
   const listLabel = `${noun[0]?.toUpperCase() ?? ''}${noun.slice(1)}s`
 
@@ -98,6 +99,7 @@ export function ItemPicker({
     setQuery('')
     setActive(0)
     setOpen(true)
+    openedAt.current = Date.now()
   }
 
   useEffect(() => {
@@ -112,6 +114,9 @@ export function ItemPicker({
     // board scrolling beside the drawer does not move a control inside the drawer, and closing on
     // it made an unrelated smooth scroll dismiss a picker the reader had just opened.
     const onScroll = (event: Event) => {
+      // The trigger deep in a long surface is scrolled into view as it is clicked; that scroll
+      // belongs to opening the picker, not to dismissing it.
+      if (Date.now() - openedAt.current < 200) return
       if (panelRef.current?.contains(event.target as Node)) return
       const target = event.target
       if (!(target instanceof Node)) return

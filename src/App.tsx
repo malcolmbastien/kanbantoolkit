@@ -26,7 +26,6 @@ import { isBoardSurface, useStore } from './store'
 const BoardWorkspace = lazy(() => import('./components/BoardWorkspace').then((m) => ({ default: m.BoardWorkspace })))
 const ArchiveView = lazy(() => import('./components/ArchiveView').then((m) => ({ default: m.ArchiveView })))
 const MyWorkView = lazy(() => import('./components/MyWorkView').then((m) => ({ default: m.MyWorkView })))
-const ObjectivesView = lazy(() => import('./components/ObjectivesView').then((m) => ({ default: m.ObjectivesView })))
 const ManagementDashboard = lazy(() => import('./components/ManagementDashboard').then((m) => ({ default: m.ManagementDashboard })))
 const MetricsView = lazy(() => import('./components/MetricsView').then((m) => ({ default: m.MetricsView })))
 const TimelineView = lazy(() => import('./components/TimelineView').then((m) => ({ default: m.TimelineView })))
@@ -50,7 +49,6 @@ export default function App() {
   const cancelEdit = useStore((s) => s.cancelEdit)
   const selectedItemId = useStore((s) => s.selectedItemId)
   const editMode = useStore((s) => s.editMode)
-  const showObjectives = useStore((s) => s.showObjectives)
   const showMetrics = useStore((s) => s.showMetrics)
   const showDashboard = useStore((s) => s.showDashboard)
   const showArchive = useStore((s) => s.showArchive)
@@ -233,7 +231,6 @@ export default function App() {
         showDashboard={showDashboard}
         showTimeline={showTimeline}
         showArchive={showArchive}
-        showObjectives={showObjectives}
         showMetrics={showMetrics}
         showBoards={showBoards}
         showAdmin={showAdmin}
@@ -243,7 +240,6 @@ export default function App() {
         onShowTimeline={() => setView('timeline')}
         onShowMetrics={() => setView('flow')}
         onShowArchive={() => setView('archive')}
-        onShowObjectives={() => setView('objectives')}
         onGoToBoards={() => setView('boards')}
         onEditBoard={beginEdit}
         onSaveEdit={saveEdit}
@@ -264,8 +260,6 @@ export default function App() {
               <BoardWorkspace />
             ) : showArchive ? (
               <ArchiveView />
-            ) : showObjectives ? (
-              <ObjectivesView />
             ) : showDashboard ? (
               <ManagementDashboard boardId={boardId} />
             ) : showMetrics ? (

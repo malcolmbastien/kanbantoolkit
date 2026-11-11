@@ -9,8 +9,6 @@ import { expect, test } from '@playwright/test'
  */
 test('the portfolio heatmap shows coverage, health and a way into each objective', async ({ page }) => {
   await page.goto('/app?board=b-strategy')
-  // The strategy map is the board itself, so it is not a band that can be folded away.
-  await expect(page.getByRole('button', { name: 'Collapse Strategy map' })).toHaveCount(0)
   const heatmap = page.locator('[data-portfolio-heatmap]')
   await expect(heatmap).toBeVisible()
   await expect(heatmap).toContainText('Portfolio at a glance')
@@ -45,6 +43,7 @@ test('an initiative on a team board links to a portfolio objective', async ({ pa
   await expect(page.getByText('New initiative').first()).toBeVisible()
 
   await page.goto('/app?board=b-strategy')
+  await page.getByRole('button', { name: 'Edit objectives' }).click()
   const group = page.locator('[data-objective-group="Grow activation"]')
   await expect(group).toBeVisible()
   // The picker is a compact trigger and a searchable panel, not a select the width of the page.
@@ -57,7 +56,7 @@ test('an initiative on a team board links to a portfolio objective', async ({ pa
 
   // It is counted, and drawn in the objective's flow, without being on the portfolio board.
   await expect(group.getByText('2 mapped')).toBeVisible()
-  await expect(group.getByText('New initiative')).toBeVisible()
+  await expect(group.getByRole('button', { name: 'New initiative' })).toBeVisible()
 })
 
 test('a portfolio initiative offers the item-scoped connections reading', async ({ page }) => {
@@ -124,4 +123,14 @@ test('a portfolio board offers no card-shaped settings', async ({ page }) => {
   await expect(dialog.getByLabel('Title')).toHaveValue('Company Strategy')
   await dialog.getByRole('tab', { name: 'Boards', exact: true }).click()
   await expect(dialog.getByText('Linked boards', { exact: true })).toBeVisible()
+})
+
+test('a portfolio card menu does not offer the hierarchy edit', async ({ page }) => {
+  await page.goto('/app?board=b-strategy')
+  const card = page.locator('[data-objective-group="Grow activation"] [data-card-id]').first()
+  await expect(card).toBeVisible()
+  await card.click({ button: 'right' })
+  const menu = page.locator('[data-card-menu][role="menu"]').first()
+  await expect(menu).toBeVisible()
+  await expect(menu.getByText('Set parent…')).toHaveCount(0)
 })

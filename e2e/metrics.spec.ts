@@ -13,12 +13,13 @@ const FLOW = '/app?board=b-atlas&view=flow'
 
 test('a coordination board offers no Flow tab, and a Flow link lands on the board', async ({ page }) => {
   // A programme and a portfolio aggregate other boards. Neither has a cards flow, so neither has a
-  // delivery flow to report.
-  for (const boardId of ['b-lob', 'b-strategy']) {
-    await page.goto(`/app?board=${boardId}`)
-    await expect(page.getByRole('button', { name: 'Board', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Flow', exact: true })).toHaveCount(0)
-  }
+  // delivery flow to report. A portfolio has only its objectives, so it has no Board tab either.
+  await page.goto('/app?board=b-lob')
+  await expect(page.getByRole('button', { name: 'Board', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Flow', exact: true })).toHaveCount(0)
+  await page.goto('/app?board=b-strategy')
+  await expect(page.getByRole('button', { name: 'Board', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Flow', exact: true })).toHaveCount(0)
 
   // A team board still reads its own flow.
   await page.goto('/app?board=b-atlas')
@@ -27,7 +28,7 @@ test('a coordination board offers no Flow tab, and a Flow link lands on the boar
   // A link written before this rule is not an empty report: it lands on the board and the URL is
   // normalised to the place actually shown.
   await page.goto('/app?board=b-strategy&view=flow')
-  await expect(page.getByText('Strategy map')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Portfolio at a glance' })).toBeVisible()
   await expect(page.locator('[data-flow-view]')).toHaveCount(0)
   await expect(page).not.toHaveURL(/view=flow/)
 })

@@ -93,22 +93,27 @@ and arranges no lanes of its own.
 
 ### Using objectives on a portfolio board
 
-Open the portfolio board and choose **Objectives**. This is the only place objectives and key
-results are authored; they are not a global view.
+Open the portfolio board and choose **Edit objectives**. The board stays in place: the objectives you
+are already reading become editable, and the period controls appear above them. Objectives and key
+results are authored here; there is no separate Objectives screen.
 
 **Periods.** A period is a record with a name and the window it covers, not a label typed onto each
 objective. Choose one in **Period**, or press **New period**, name it (for example `FY27 Q1`) and give
-it a **Starts** and **Ends** date; its first objective joins it. The window belongs to the period, so
-setting it once is the deadline for every objective committed for it: an objective has no target date
-of its own. Set or change the dates beside the **Period** select at any time; a period can be deleted
-only while no objective is committed for it. Periods read in calendar order — start date, then name —
-and a period with no window yet sorts after the dated ones.
+it a **Starts** and **Ends** date; its first objective joins it. The selected period has its own
+header — name, window, and how many days into the window today sits, with a progress bar. The window
+belongs to the period, so setting it once is the deadline for every objective committed for it: an
+objective has no target date of its own. The name and dates are read-only until **Edit period** is
+pressed; **Save period** writes them, and **Cancel** leaves the record as it was. A period can be
+deleted only while no objective is committed for it. Periods read in calendar order — start date,
+then name — and a period with no window yet sorts after the dated ones.
 
 **Add an objective.** With the period chosen, type the outcome beside **New objective** and press
-Enter or the button. The card's title is editable in place. Aim for three to five objectives in a
-period; the view warns above five, because the limit is a commitment rather than a capacity. Keep
-the status **active** while the period is running and move it to **reviewed** at the end. There is
-no score: the completeness read from the work below is the measure.
+Enter or the button. The card's title and description are editable in place. Aim for three to five
+objectives in a period; the view warns above five, because the limit is a commitment rather than a
+capacity. The arrow buttons on an objective move it up or down inside its period, in the map's reading
+order, and that order is what the map keeps. An objective is **Draft** while it is being written,
+**Active** while its period is running, **Archived** once that period is done, or **Cancelled** if it
+was dropped. There is no score: the completeness read from the work below is the measure.
 
 **Key results.** Add the statements that say what the objective means. A key result is a line of
 text, not a number or a target: the objective's completeness is computed from the work below the
@@ -118,10 +123,11 @@ initiatives that serve it, so there is no hand-entered percentage that can disag
 of another initiative — can be mapped to an objective, wherever its board sits: a team's own
 initiative, a program's, or one placed on the portfolio. At the bottom of an objective card,
 **Map an initiative** opens a searchable list: type a title or a board to narrow it, and choose the
-outcome. The board it lives on is named beside each one. An initiative serves one objective, so
-choosing one that already serves another moves it; the row says “moves from …” before you commit.
-Detach one with the × beside it. Mapping is attribution: it never counts as WIP, and it does not
-move a card.
+outcome. Each mapped initiative shows its kind, progress, the board that carries it (team or
+program) and that board's name, how many direct children sit below it, and its assignees. An
+initiative serves one objective, so choosing one that already serves another moves it; the row says
+“moves from …” before you commit. Detach one with the × beside it. Mapping is attribution: it does
+not count as WIP, and it does not move a card.
 
 **Why only a top-level outcome.** An objective's completeness is the work below its mapped
 initiatives. A nested initiative inherits its parent's objective through the hierarchy, so mapping it
@@ -130,11 +136,9 @@ different numbers. The rule keeps progress a partition: each piece of work count
 objective, and a mapped initiative's percentage is its own rollup. An initiative that is already
 mapped cannot be rolled up under another; unmap it first if the work belongs elsewhere.
 
-**See the gaps.** The strategy map groups the initiatives mapped to each objective, wherever they
-live, and shows both coverage gaps: an objective that nothing serves, and a top-level initiative in
-the portfolio's remit — its own and those of the boards beneath it — that serves nothing. An
-objective's completeness is the union of the leaves below its initiatives — each leaf once — and an
-objective nothing serves has no percentage at all, because there is no work to read.
+**See the gaps.** An objective that nothing serves says so on the board and has no percentage at
+all, because there is no work to read. An objective's completeness is the union of the leaves below
+its initiatives — each leaf once.
 
 **Read the risk.** Above the flows, **Portfolio at a glance** is one row per objective, grouped by
 period: the period's window, how many initiatives are mapped to it, its completeness and the health

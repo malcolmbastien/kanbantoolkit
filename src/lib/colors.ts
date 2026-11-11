@@ -45,8 +45,18 @@ export const DEP_STATE_STYLES: Record<string, { label: string; className: string
 
 /** Objective status chip. */
 export const OBJECTIVE_STATUS_STYLES: Record<Objective['status'], string> = {
+  draft: 'bg-slate-100 text-slate-700 ring-slate-200',
   active: 'bg-indigo-100 text-indigo-700 ring-indigo-200',
-  reviewed: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+  archived: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+  cancelled: 'bg-rose-100 text-rose-700 ring-rose-200',
+}
+
+/** The dot a status wears in a picker or a chip, so the four states read apart at a glance. */
+export const OBJECTIVE_STATUS_DOT: Record<Objective['status'], string> = {
+  draft: 'bg-slate-400',
+  active: 'bg-indigo-500',
+  archived: 'bg-emerald-500',
+  cancelled: 'bg-rose-500',
 }
 
 /**
