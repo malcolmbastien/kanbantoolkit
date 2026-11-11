@@ -616,7 +616,6 @@ function LaneBox({
               openDependencies={ctx.model.openDependencies.get(c.id)?.size ?? 0}
               multi={ctx.multiSelect.includes(c.id)}
               dimmed={
-                (ctx.multiSelect.length > 0 && !ctx.multiSelect.includes(c.id)) ||
                 // A selected boundary card is the thing being read: everything that does not wait
                 // on it recedes, so the relationship is visible across the whole board.
                 (ctx.boundaryId !== null && !ctx.model.openDependencies.get(c.id)?.has(ctx.boundaryId)) ||

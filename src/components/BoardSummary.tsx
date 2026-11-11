@@ -94,6 +94,7 @@ export function BoardSummary({
   const users = useStore((s) => s.users)
   const links = useStore((s) => s.links)
   const selectedItemId = useStore((s) => s.selectedItemId)
+  const multiSelect = useStore((s) => s.multiSelect)
   const dropTargetId = useDrag((s) => s.dropTargetId)
   const setDropTarget = useDrag((s) => s.setDropTarget)
   const openItem = useStore((s) => s.openItem)
@@ -388,8 +389,10 @@ export function BoardSummary({
         onOpenDependencies={openItemDependencies}
         openDependencies={model.openDependencies.get(c.id)?.size ?? 0}
         hasDependencies={Boolean(model.dependenciesOf.get(c.id)?.length)}
-        dimmed={picking}
-        inert={picking}
+        // A multi-select group is a group of cards. Initiatives cannot join it, so they recede and
+        // stop answering the pointer rather than inviting a click that the store would refuse.
+        dimmed={picking || multiSelect.length > 0}
+        inert={picking || multiSelect.length > 0}
         connectRoot={pickRoot}
         onOpen={(id) => {
           if (justDragged.current) return

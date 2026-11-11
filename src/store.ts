@@ -1896,8 +1896,22 @@ export const useStore = create<Store>()(
 
       toggleMultiSelect: (id) => {
         const s = get()
-        // Seed from the open card so a shift+click on a second card starts a group.
-        const base = s.multiSelect.length > 0 ? s.multiSelect : s.selectedItemId ? [s.selectedItemId] : []
+        const item = s.items.find((i) => i.id === id)
+        if (!item) return
+        const clickedInitiative = isInitiativeItem(item, s.issueTypes)
+        // A group is one kind of work: cards or initiatives. Seeding from the open card only works
+        // when it is the same kind as the one being shift-clicked; otherwise the click starts the
+        // group from itself rather than mixing a card with an initiative.
+        const seed = s.multiSelect.length === 0 && s.selectedItemId ? s.items.find((i) => i.id === s.selectedItemId) : undefined
+        const seeded = seed && isInitiativeItem(seed, s.issueTypes) === clickedInitiative ? [seed.id] : []
+        const base = s.multiSelect.length > 0 ? s.multiSelect : seeded
+        if (base.length > 0) {
+          const first = s.items.find((i) => i.id === base[0])
+          if (!first || isInitiativeItem(first, s.issueTypes) !== clickedInitiative) {
+            announce(clickedInitiative ? 'An initiative cannot join a card selection.' : 'A card cannot join an initiative selection.')
+            return
+          }
+        }
         const group = base.includes(id) ? base.filter((x) => x !== id) : [...base, id]
         // A group is a different selection from the open card, so the focus the open card may have
         // set ends with it — a highlighted lineage under a bulk action would read as part of the

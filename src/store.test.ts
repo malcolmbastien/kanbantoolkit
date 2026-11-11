@@ -1532,6 +1532,30 @@ describe('store actions', () => {
     expect(s().multiSelect).toEqual([])
   })
 
+  it('a multi-select group is cards or initiatives, never both', () => {
+    s().selectBoard('b-atlas')
+
+    // An initiative is open, but shift-clicking a card starts a card group from the card rather
+    // than dragging the initiative into it.
+    s().openItem('init-signup')
+    s().toggleMultiSelect('st-email')
+    expect(s().multiSelect).toEqual(['st-email'])
+
+    s().toggleMultiSelect('st-sso')
+    expect([...s().multiSelect].sort()).toEqual(['st-email', 'st-sso'])
+
+    // The other kind cannot join a group that has already chosen its kind.
+    s().toggleMultiSelect('init-signup')
+    expect([...s().multiSelect].sort()).toEqual(['st-email', 'st-sso'])
+
+    // The same rule from the other direction: an initiative group refuses a card.
+    s().clearMultiSelect()
+    s().toggleMultiSelect('init-signup')
+    expect(s().multiSelect).toEqual(['init-signup'])
+    s().toggleMultiSelect('st-email')
+    expect(s().multiSelect).toEqual(['init-signup'])
+  })
+
   it('adds a person by id, and never creates one from a name', () => {
     const card = 'st-signup-form'
     const before = s().users.length

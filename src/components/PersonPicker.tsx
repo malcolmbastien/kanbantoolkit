@@ -34,6 +34,7 @@ export function PersonPicker({ users, exclude = [], onPick, label, placeholder =
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const [open, setOpen] = useState(false)
+  const [up, setUp] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const listId = useId()
 
@@ -43,6 +44,16 @@ export function PersonPicker({ users, exclude = [], onPick, label, placeholder =
     .filter((user) => !excluded.has(user.id) && (!needle || user.name.toLowerCase().includes(needle)))
     .sort((a, b) => a.name.localeCompare(b.name))
   const current = matches.length === 0 ? -1 : Math.min(active, matches.length - 1)
+
+  // The bulk bar sits at the bottom of the viewport, so a list that always opens downward falls off
+  // the screen. Open upward only when there is more room there than below.
+  const place = () => {
+    const input = inputRef.current
+    if (!input) return
+    const rect = input.getBoundingClientRect()
+    const below = window.innerHeight - rect.bottom
+    setUp(below < 260 && rect.top > below)
+  }
 
   const pick = (user: User) => {
     onPick(user)
@@ -60,14 +71,23 @@ export function PersonPicker({ users, exclude = [], onPick, label, placeholder =
         onChange={(event) => {
           setQuery(event.target.value)
           setActive(0)
+          place()
           setOpen(true)
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          place()
+          setOpen(true)
+        }}
+        onClick={() => {
+          place()
+          setOpen(true)
+        }}
         onBlur={() => setOpen(false)}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault()
             if (!open) {
+              place()
               setOpen(true)
               return
             }
@@ -112,7 +132,10 @@ export function PersonPicker({ users, exclude = [], onPick, label, placeholder =
           id={listId}
           role="listbox"
           aria-label="People in this workspace"
-          className="absolute left-0 top-full z-20 mt-1 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-300 bg-white py-1 shadow-xl"
+          className={cn(
+            'absolute left-0 z-20 max-h-64 w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-slate-300 bg-white py-1 shadow-xl',
+            up ? 'bottom-full mb-1' : 'top-full mt-1',
+          )}
         >
           {matches.map((user, index) => (
             <button
