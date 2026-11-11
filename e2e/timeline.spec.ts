@@ -19,6 +19,26 @@ const dayWidth = async (page: Page): Promise<number> => {
   return Math.round(box!.width)
 }
 
+test('the label column carries the dates, and off-screen work says which way it lies', async ({ page }) => {
+  await page.goto('/app?board=b-strategy&view=timeline')
+  await expect(page.locator('[data-timeline-body]')).toBeVisible()
+
+  // The frozen column names the window, so a row whose bar is out of view is not a blank mystery.
+  const revenue = page.locator('[data-timeline-label-id="init-revenue"]')
+  await expect(revenue).toContainText('Oct 1, 2026 – Mar 31, 2027')
+  const margin = page.locator('[data-timeline-label-id="init-margin"]')
+  await expect(margin).toContainText('Jun 30')
+
+  // This milestone is months to the right of the opening view. Its row says so, and the pill is a
+  // way to it rather than a second label.
+  const hint = page.locator('[data-timeline-edge-hint-id="init-margin"]')
+  await expect(hint).toBeVisible()
+  await expect(hint).toContainText('Jun 2027')
+  await hint.click()
+  await expect(page.locator('[data-timeline-milestone-id="init-margin"]')).toBeInViewport()
+  await expect(hint).toHaveCount(0)
+})
+
 test('a block names its people, and the frozen column keeps to the name', async ({ page }) => {
   await openTimeline(page)
 

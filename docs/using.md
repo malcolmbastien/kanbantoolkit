@@ -188,10 +188,12 @@ a program's outcome is decomposed into a team's initiative.
   date and their health, each read as its own fact.
 - **Timeline** — the same initiatives over their target dates. Each block carries its own people,
   as initials beside its dates; a bar too narrow for them keeps its title, and the names travel in
-  its tooltip. The grid is one line per day with the weeks and months a shade stronger, so the axis
-  reads at one rhythm. It zooms from **Compact** to **Wide** — the narrowest step is still wide
-  enough to print a day number with room around it — and the width is kept in the page's address,
-  so a link opens the reading it names.
+  its tooltip. The frozen Initiative column names each target window, so a row remains readable when
+  its bar is outside the visible slice; a small edge pill points the way to that bar and brings it
+  into view when pressed. The grid is one line per day with the weeks and months a shade stronger,
+  so the axis reads at one rhythm. It zooms from **Compact** to **Wide** — the narrowest step is
+  still wide enough to print a day number with room around it — and the width is kept in the page's
+  address, so a link opens the reading it names.
 - **Flow** — on a team board, lead time (how long a card takes from start to finish) and cycle time
   (how long it takes to finish once work has started), throughput, their distributions, aging, a
   service level expectation (how long most work takes) and a forecast of when the open work could

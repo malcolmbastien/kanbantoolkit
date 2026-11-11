@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { ChartNoAxesGantt, Minus, Plus } from 'lucide-react'
 import { Card } from './Card'
 import { PersonAvatar } from './PersonAvatar'
@@ -37,6 +37,9 @@ const HEADER_PX = MONTH_PX + DAY_ROW_PX
 
 /** A single day, read at a glance — the chart's own headers carry the year. */
 const fmtDay = (iso: string): string => parseDay(iso)!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+/** A month and year, for the edge hint that points at work outside the visible axis. */
+const fmtMonth = (iso: string): string => parseDay(iso)!.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
 
 /** A span, precise about what it claims: the year appears when the span crosses one. */
 const fmtRange = (fromIso: string, toIso: string): string => {
@@ -174,6 +177,38 @@ export function TimelineView({ boardId }: { boardId: string }) {
     drawnAt.current = dayPx
   }, [dayPx])
 
+  // What part of the axis is on screen, in axis pixels. The labels are sticky and cover the first
+  // LABEL_PX of the scroller, so the visible axis begins at `scrollLeft` and is `clientWidth -
+  // LABEL_PX` wide. A bar outside that window gets an edge hint in its own row.
+  const [axisWindow, setAxisWindow] = useState({ left: 0, right: Number.POSITIVE_INFINITY })
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    const measure = () =>
+      setAxisWindow({
+        left: el.scrollLeft,
+        right: el.scrollLeft + Math.max(0, el.clientWidth - LABEL_PX),
+      })
+    measure()
+    el.addEventListener('scroll', measure, { passive: true })
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(el)
+    return () => {
+      el.removeEventListener('scroll', measure)
+      observer?.disconnect()
+    }
+  }, [dayPx, layout.totalDays])
+
+  /** Bring a bar into the middle of what the reader can see. */
+  const revealBar = (bar: (typeof layout.bars)[number]) => {
+    const el = scroller.current
+    if (!el) return
+    const visible = Math.max(0, el.clientWidth - LABEL_PX)
+    const target = Math.max(0, bar.start * dayPx - visible / 2)
+    const end = Math.max(0, el.scrollWidth - el.clientWidth)
+    el.scrollTo({ left: Math.min(target, end), behavior: 'smooth' })
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-slate-200 p-4">
       <div className="mx-auto w-full">
@@ -288,9 +323,12 @@ export function TimelineView({ boardId }: { boardId: string }) {
                         <button
                           type="button"
                           onClick={() => openItem(bar.id)}
-                          className="min-w-0 flex-1 truncate text-left text-meta font-medium text-slate-800 hover:text-indigo-700"
+                          className="min-w-0 flex-1 text-left"
                         >
-                          {bar.title}
+                          <span className="block truncate text-meta font-medium text-slate-800 hover:text-indigo-700">
+                            {bar.title}
+                          </span>
+                          <span className="block truncate text-micro text-slate-500">{shown}</span>
                         </button>
                         <span className="shrink-0 text-micro font-semibold tabular-nums text-slate-600" title="Share of the work below that is done">
                           {rollupOf(bar.id, graph).percent}%
@@ -447,6 +485,39 @@ export function TimelineView({ boardId }: { boardId: string }) {
                           <span className="shrink-0 text-micro text-slate-600">&nbsp;· {shown}</span>
                         </span>
                         <PeopleStack people={people} className="ml-1.5" />
+                      </button>
+                    )
+                  })}
+
+                  {/* A bar outside the visible slice of the axis leaves a row that looks empty.
+                      The label now carries its dates, and this small edge pill says which side it
+                      is on; pressing it brings the bar into the middle of the view. */}
+                  {layout.bars.map((bar) => {
+                    const startPx = bar.start * dayPx
+                    const endPx = bar.end * dayPx
+                    const edge = endPx <= axisWindow.left ? 'left' : startPx >= axisWindow.right ? 'right' : null
+                    if (!edge) return null
+                    const date = fmtMonth(edge === 'left' ? bar.endIso ?? bar.dateIso : bar.dateIso)
+                    return (
+                      <button
+                        key={`edge-${bar.id}`}
+                        type="button"
+                        data-timeline-edge-hint={edge}
+                        data-timeline-edge-hint-id={bar.id}
+                        onClick={() => revealBar(bar)}
+                        aria-label={`${edge === 'left' ? '← ' : ''}${date}${edge === 'right' ? ' →' : ''} — ${bar.title}. Scroll into view.`}
+                        title={`${bar.title} \u00b7 ${fmtRange(bar.dateIso, bar.endIso ?? bar.dateIso)}`}
+                        className="absolute z-10 flex items-center rounded-full bg-white/95 px-2 py-0.5 text-micro font-semibold text-slate-600 shadow-sm ring-1 ring-slate-300 transition hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        style={{
+                          top: bar.row * ROW_PX + 14,
+                          ...(edge === 'left'
+                            ? { left: axisWindow.left + 4 }
+                            : { right: layout.totalDays * dayPx - axisWindow.right + 4 }),
+                        }}
+                      >
+                        {edge === 'left' ? '← ' : ''}
+                        {date}
+                        {edge === 'right' ? ' →' : ''}
                       </button>
                     )
                   })}
