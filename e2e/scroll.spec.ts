@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test'
  * reflows taller) or moving a card between columns changes the height of the page while nobody asked
  * the view to move. `useStillScroll` holds the first card in view where it is; these are its two
  * cases — a change above the fold with the reader mid-page, and a move with the reader at the
- * bottom, where the browser would otherwise clamp the scroll to the new end.
+ * bottom, where the scroll is already at its end and a reflow must not pull it away.
  */
 
 const VIEWPORT = { width: 1400, height: 900 }
@@ -80,15 +80,35 @@ test('moving a card at the bottom of the board keeps the bottom', async ({ page 
     const visible = [...box.querySelectorAll<HTMLElement>('[data-workflow="cards"] [data-card-id]')]
       .map((c) => ({ id: c.dataset.cardId!, y: Math.round(c.getBoundingClientRect().top) }))
       .filter((c) => c.y > 150 && c.y < 860)
-    // The tallest column, and its last card — taking it out is what shortens the page.
-    const columns = [...box.querySelectorAll<HTMLElement>('[data-workflow="cards"] [data-lane-cell]')]
-      .map((cell) => ({ cell, height: cell.getBoundingClientRect().height }))
-      .sort((a, b) => b.height - a.height)
-    const tallest = columns[0]?.cell
-    const cards = [...(tallest?.querySelectorAll<HTMLElement>('[data-card-id]') ?? [])]
-    return { visible, card: cards[cards.length - 1]?.dataset.cardId ?? null }
+    // The page's height is its tallest column. Pick a card from a column that is not setting that
+    // height, so moving it out cannot shrink the page and clamp the view: the bottom staying still
+    // is then about the board's own anchoring, not about the browser having nowhere to scroll.
+    const leaves = [...box.querySelectorAll<HTMLElement>('[data-workflow="cards"] [data-lane-cell]')]
+      .filter((cell) => !cell.querySelector('[data-lane-cell]'))
+    const content = new Map<HTMLElement, number>(
+      leaves.map((cell) => [
+        cell,
+        [...cell.querySelectorAll<HTMLElement>('[data-card-id]')].reduce(
+          (sum, card) => sum + card.getBoundingClientRect().height,
+          0,
+        ),
+      ]),
+    )
+    const tallest = Math.max(...content.values())
+    const candidate = leaves
+      .filter((cell) => content.get(cell)! < tallest)
+      .flatMap((cell) => {
+        const cards = [...cell.querySelectorAll<HTMLElement>('[data-card-id]')]
+        const last = cards[cards.length - 1]
+        if (!last) return []
+        const top = last.getBoundingClientRect().top
+        return top > 150 && top < 860 ? [{ id: last.dataset.cardId!, height: content.get(cell)! }] : []
+      })
+      .sort((a, b) => a.height - b.height)[0]
+    return { visible, card: candidate?.id ?? null }
   })
-  expect(before.card, 'the tallest column has a card to move').toBeTruthy()
+  expect(before.card, 'a short column has a visible card to move').toBeTruthy()
+  const beforeHeight = (await scrollState(page)).height
 
   const card = await page.locator(`[data-card-id="${before.card}"]`).boundingBox()
   const done = await page
@@ -106,9 +126,11 @@ test('moving a card at the bottom of the board keeps the bottom', async ({ page 
   await page.mouse.up()
 
   // Still at the end of the board, and the cards the reader was looking at have not slid. The
-  // destination column is excluded: it gained a card, so its own cards move down — that is the
-  // arrangement the reader asked for, not a jump.
+  // source was a short column, so the tallest column — the page height — did not change; the
+  // destination column is excluded because it gained a card and its own cards move down, which is
+  // the arrangement the reader asked for.
   await expect.poll(async () => (await scrollState(page)).distance).toBeLessThanOrEqual(2)
+  expect((await scrollState(page)).height, 'the move did not change the board height').toBe(beforeHeight)
   const landed = await page
     .locator('[data-flow-band]')
     .first()
