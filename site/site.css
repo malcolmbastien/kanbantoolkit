@@ -26,6 +26,8 @@
   --blue-dark: #2b1ebb;
   --blue-wash: #eaedff;
   --green: #047857;
+  --sky: #0369a1;
+  --violet: #6d28d9;
   --amber: #b45309;
   --radius: 0.65rem;
   --radius-lg: 1rem;
@@ -574,12 +576,12 @@ pre code {
 figcaption {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.55rem;
   margin: 0;
-  padding: 0.6rem 0.5rem 0.25rem;
+  padding: 0.7rem 0.6rem 0.3rem;
   max-width: none;
-  font-size: 0.72rem;
-  line-height: 1.55;
+  font-size: 0.88rem;
+  line-height: 1.6;
   color: var(--muted);
 }
 
@@ -587,7 +589,7 @@ figcaption {
   flex: none;
   width: 0.4rem;
   height: 0.4rem;
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
   border-radius: 50%;
   background: var(--blue);
 }
@@ -688,10 +690,26 @@ figcaption {
   color: var(--muted);
 }
 
+/* The price is one sentence, said plainly: there is nothing to buy. */
+.free-line {
+  margin-top: 0.9rem;
+  font-size: 0.98rem;
+  color: var(--ink);
+}
+
+.free-line strong {
+  color: var(--green);
+}
+
 .split {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.1rem;
+}
+
+/* Three levels of work read side by side on a wide screen, and stack like any other split. */
+.split-3 {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .panel {
@@ -732,6 +750,22 @@ figcaption {
 .panel-badge.strategic {
   background: rgba(4, 120, 87, 0.1);
   color: var(--green);
+}
+
+/* A board's type uses the app's own colours: Team green, Program blue, Portfolio violet. */
+.panel-badge.team {
+  background: var(--green);
+  color: #fff;
+}
+
+.panel-badge.program {
+  background: var(--sky);
+  color: #fff;
+}
+
+.panel-badge.portfolio {
+  background: var(--violet);
+  color: #fff;
 }
 
 .panel h3 {
@@ -989,7 +1023,7 @@ figcaption {
 
 .signals {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 0.9rem;
   margin: 0;
   padding: 0;
@@ -1034,6 +1068,27 @@ figcaption {
   color: var(--muted);
 }
 
+/* The roll-up: the same rules read one level up, so the reading is repeated rather than retyped. */
+.signals-note {
+  margin: 1rem 0 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  max-width: none;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.signals-note strong {
+  color: var(--ink);
+}
+
+.signals-note em {
+  font-style: normal;
+  font-weight: 650;
+  color: var(--ink);
+}
+
 /* The promises: one claim in three parts, each with the proof beside it. */
 .promises {
   display: grid;
@@ -1075,40 +1130,6 @@ figcaption {
 
 .promises strong {
   color: var(--ink);
-}
-
-/* The FAQ: ordinary headings with the answers always visible — no disclosures to open. */
-.narrow {
-  max-width: 48rem;
-}
-
-.faq {
-  display: grid;
-  gap: 0.6rem;
-}
-
-.faq-item {
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--line);
-  border-radius: 0.8rem;
-  background: var(--card);
-}
-
-.faq-item h3 {
-  margin: 0 0 0.4rem;
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
-  color: var(--ink);
-}
-
-.faq-item p {
-  margin: 0;
-  max-width: none;
-  font-size: 0.84rem;
-  line-height: 1.7;
-  color: var(--muted);
 }
 
 /* The closing band: the only dark surface on the site, because it is the one place that asks. */

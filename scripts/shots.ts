@@ -98,15 +98,17 @@ const SHOTS: Shot[] = [
   { name: 'flow', path: '/app?board=b-atlas&view=flow' },
   // The program dashboard: the team boards rolled up, and what needs attention.
   { name: 'flights', path: '/app?board=b-delivery&view=dashboard' },
+  // The team's own dashboard: its cards flows, initiatives and the signals worth a look.
+  { name: 'dashboard', path: '/app?board=b-atlas&view=dashboard' },
 ]
 
 /**
- * The home page's showcase shows one picture per tab, so those four are written twice: the full
- * capture, for the product page where a single shot is the subject, and a narrower copy for the
- * tabbed frame. The home page's transfer budget counts every image it names, and a 1440px capture
- * shown at 900 is bytes nobody sees.
+ * The home page's showcase shows one picture per tab, so those are written twice: the full capture,
+ * for a page where a single shot is the subject, and a narrower copy for the tabbed frame. The home
+ * page's transfer budget counts every image it names, and a 1440px capture shown at 900 is bytes
+ * nobody sees.
  */
-const SHOWCASE = ['board', 'lanes', 'initiatives', 'blocked', 'flow']
+const SHOWCASE = ['board', 'lanes', 'initiatives', 'flow', 'dashboard', 'portfolio']
 
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true })
@@ -181,14 +183,14 @@ async function main(): Promise<void> {
     server.kill()
   }
 
-  // The same four pictures at the width the home page's frame draws them. 1000px is enough for a
-  // 58rem frame on a 2x screen at the size the tab shows; quality 72 is the point where the board's
-  // column rules still read.
+  // The same pictures at the width the home page's frame draws them. 900px is enough for a 58rem
+  // frame on a normal screen; quality 64 is the point where the board's column rules still read.
+  // Two more views share the budget, so the copies are narrower than they once were.
   for (const name of SHOWCASE) {
     const file = join(OUT, `home-${name}.webp`)
     await sharp(join(OUT, `${name}.webp`))
-      .resize({ width: 1000, withoutEnlargement: true })
-      .webp({ quality: 72 })
+      .resize({ width: 900, withoutEnlargement: true })
+      .webp({ quality: 64 })
       .toFile(file)
     const meta = await sharp(file).metadata()
     console.log(`  home-${name}.webp — ${meta.width}px wide`)

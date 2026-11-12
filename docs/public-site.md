@@ -96,37 +96,42 @@ every page, and the security address is in `security.txt`.
 
 One screen must answer three questions: what is this, why is it different, and what do I do next.
 
-1. **Nav** — Features · FAQ · Install · Docs · GitHub, then **Open the demo** (`/app`) and the
-   primary action **Install**, which points at the install documentation on GitHub rather than a
-   summary page on this site. One line, no mega-menu.
+1. **Nav** — Features · Install · Docs · GitHub, then **Open the demo** (`/app`) and the primary
+   action **Install**, which points at the install documentation on GitHub rather than a summary
+   page on this site. One line, no mega-menu.
 2. **Hero** — an H1 in the product's own words, not a category label: *the truth is derived, not
    typed* is the claim the whole app is built to keep. One sentence under it naming the two audiences
    (the team's flow, management's read of it) and the one promise they share: nothing is entered
    twice. Two actions: **Open the demo — no account**, because the seeded board is the product's best
-   argument and it needs no server at all, and **Install**.
-3. **The strip under the hero** — four short, checkable facts, each a link into `/product/`: one card
-   on several boards with one identity; status rolled up from the work, never typed; edits made
-   offline land when the line comes back; no trackers, no third-party scripts.
-4. **The product, shown** — one real screenshot of the shipped board (captured from the built app,
-   never a mock-up), with alt text that describes what it shows.
-5. **The three ideas** — the graph, derived facts, and one truth for two audiences. Three paragraphs,
-   each ending in the consequence for the reader.
-6. **How it starts** — open the demo, shape a board, install it when it needs to be yours.
-7. **Who it is for** — three situations, plainly: the program whose board no longer matches the
-   work; the team whose column names are its own; the person who reads for a living and is tired of
-   asking. No invented logos, no invented quotes.
-8. **The promises that are unusual** — no trackers; your export always works; it runs on your own
-   machine, from one process and one file. Each links to the page that proves it.
-9. **Questions** — four, with real answers: Do I need an account? What happens offline? How do we run
-   it ourselves? Do you train anything on our data?
+   argument and it needs no server at all, and **GitHub**.
+3. **The product, shown** — a tabbed showcase of real screenshots captured from the built app and
+   never a mock-up: the board, the team's cards flow, the initiatives lane, the team dashboard and
+   the Flow view. The dashboard is where the warnings and the roll-up read together.
+4. **The strip under the hero** — four short, checkable facts, each a link into `/product/`: one
+   shared board, one card in every view, progress counted from the cards, and open source.
+5. **The whole team** — one board read two ways, one panel each. The **cards flow** is the team's own
+   kanban: columns, splits, WIP limits, and a second flow for a different kind of work. The
+   **initiatives lane** above it reads the same cards as the summary leaders and stakeholders see,
+   so nothing is entered twice.
+6. **Warnings and roll-ups** — the five signals a card carries (late start, overdue, stale, blocked,
+   waiting on a dependency), then the same counts read one level up: an initiative's blocked,
+   waiting, stale and unowned work, derived from the cards below. Nothing is flagged by hand.
+7. **Every level of work** — team, program and portfolio boards side by side: the day-to-day work,
+   how teams coordinate to deliver, and how initiatives align to organisational goals and strategy.
+   A portfolio screenshot shows objectives, coverage and the initiatives mapped to them.
+8. **Private by default** — the work stays on your own server, with no ads, analytics or third-party
+   scripts; running it yourself is one process and one file.
+9. **The promises that are unusual** — completely free, with no plans, seats or paid tier; no
+   trackers; your export always works; it runs on your own machine, from one process and one file.
+   Each links to the page that proves it.
 10. **Footer** — the brand and one quiet line of small print (the licence, the privacy notice, "no
     tracking, no cookies" and the security address), then two groups: **Product** (the board, private
     by default, the live demo, install) and **Project** (the documentation, the REST and MCP docs,
     GitHub, the support address). Four groups of promotional labels was more footer than product;
     the shape is super-productivity's — a name, a handful of destinations, the licence said once.
 
-**There is no cost section and no "how is this free?" section.** There is nothing to sell and nothing
-to explain away. What stands in their place is evidence: the licence, the install page, the demo.
+**There is no cost section.** The price is one sentence in the promises — completely free, with no
+plans, seats or paid tier — and the rest is evidence: the licence, the install page, the demo.
 
 **The rule for every sentence:** it must be true of the code in this repository, and there must be
 something to point at. A claim with no proof does not ship.

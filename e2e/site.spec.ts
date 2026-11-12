@@ -21,12 +21,17 @@ test('the front page is the site, and it is readable with no JavaScript at all',
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
     await expect(page.getByRole('contentinfo')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Open the demo (no account needed)' }).first()).toBeVisible()
-    // The five pictures the page is about (the board, a split column, the initiatives, the panel
-    // and the Flow view) and the questions it answers, including the one about email.
-    await expect(page.locator('main img')).toHaveCount(5)
+    // The six pictures the page is about (the board, a split column, the initiatives, the team
+    // dashboard, the Flow view and the portfolio) and the three levels of work it describes.
+    await expect(page.locator('main img')).toHaveCount(6)
     await expect(page.getByText('Flow metrics', { exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Straightforward answers' })).toBeVisible()
-    await expect(page.locator('.faq-item')).toHaveCount(5)
+    await expect(page.getByText('Team dashboard', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Team, program and portfolio boards, in one workspace.' }),
+    ).toBeVisible()
+    // The price is said plainly, and there is no FAQ section to open.
+    await expect(page.getByText('Completely free.', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Straightforward answers' })).toHaveCount(0)
     // The two things a visitor can do, and where the documentation is.
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Features' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Install' })).toBeVisible()
