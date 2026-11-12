@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   Archive,
   ArchiveX,
@@ -82,6 +82,9 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const [subPos, setSubPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null)
   const [draft, setDraft] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
+  const flyoutRef = useRef<HTMLDivElement>(null)
+  /** The row a flyout is opening beside, kept so the measurement can place it again. */
+  const anchorRef = useRef<{ top: number; left: number; right: number } | null>(null)
   const closeTimer = useRef<number | null>(null)
 
   const targets = items.filter((i) => itemIds.includes(i.id))
@@ -195,21 +198,54 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
   const openSub = (key: Panel, el: HTMLElement, initial = '') => {
     cancelClose()
     const r = el.getBoundingClientRect()
+    anchorRef.current = { top: r.top, left: r.left, right: r.right }
+    // The first paint puts the flyout at the row with whatever room is below it. The measurement
+    // below then fits it to its real content: a date field is short and stays put, while a long
+    // list lifts only as far as it must, and scrolls only when the viewport itself is too short.
     const width = 240
     const flip = r.right + width + 8 > window.innerWidth
-    // A flyout is only useful if it fits. It opens beside the row, but never lower than the space
-    // its content needs: the height is capped to the room below, so a long list (three boards,
-    // each with four cells) scrolls inside the viewport rather than disappearing off the bottom.
-    const desired = Math.min(window.innerHeight * 0.6, 520)
-    const top = Math.max(8, Math.min(r.top - 4, window.innerHeight - desired - 8))
     setOpen(key)
     setDraft(initial)
     setSubPos({
-      top,
+      top: Math.max(8, r.top - 4),
       left: flip ? r.left - width - 4 : r.right + 4,
-      maxHeight: Math.max(160, Math.min(desired, window.innerHeight - top - 8)),
+      maxHeight: Math.max(0, window.innerHeight - Math.max(8, r.top - 4) - 8),
     })
   }
+
+  // A flyout's place is decided by how tall it actually is, not by what a menu might need. Placing
+  // it before it renders is what pushed a short date picker to the top of a bottom-of-screen card.
+  useLayoutEffect(() => {
+    const el = flyoutRef.current
+    const anchor = anchorRef.current
+    if (!open || !el || !anchor) return
+    const margin = 8
+    // `scrollHeight` counts the padding but not the border, while `max-height` is measured on the
+    // border box. The two pixels of border are the difference between a flyout that ends cleanly
+    // and one that carries a scrollbar for its own edge.
+    const border = el.offsetHeight - el.clientHeight
+    const height = el.scrollHeight
+    const width = el.offsetWidth
+    const room = window.innerHeight - margin * 2
+    const maxHeight = height + border <= room ? height + border : room
+    const beside = Math.max(margin, anchor.top - 4)
+    // Stay flush with the row when the content fits beneath it; otherwise lift just enough to fit,
+    // and only a flyout taller than the viewport ends up scrolling at the top.
+    const top =
+      height <= window.innerHeight - beside - margin
+        ? beside
+        : Math.max(margin, window.innerHeight - maxHeight - margin)
+    // The date field is wider than the lists, so the flip is decided from the measured width.
+    const left =
+      anchor.right + width + margin <= window.innerWidth
+        ? anchor.right + 4
+        : Math.max(margin, anchor.left - width - 4)
+    setSubPos((prev) =>
+      prev && prev.top === top && prev.left === left && prev.maxHeight === maxHeight
+        ? prev
+        : { top, left, maxHeight },
+    )
+  }, [open, subPos])
 
   const onArrow = (e: React.KeyboardEvent) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
@@ -240,6 +276,7 @@ export function CardMenu({ itemIds, x, y, onClose }: Props) {
     if (!open || !subPos) return null
     const wrap = (children: React.ReactNode, width = 'w-60') => (
       <div
+        ref={flyoutRef}
         data-card-menu
         data-card-flyout
         role="menu"
