@@ -78,9 +78,11 @@ jobs:
   # a container that starts but cannot reach its database is worse than one that does not start.
   # This builds from the checkout, runs against a fresh volume, signs in through the development
   # door, then replaces the container with the same volume to prove the work outlives it.
+  #
+  # It runs beside the checks rather than behind them: one failed check should not hide the image's
+  # result. Publishing still waits for both.
   image:
     name: image
-    needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -138,7 +140,7 @@ jobs:
   # says so rather than handing out a command that fails.
   publish:
     name: publish
-    needs: [image]
+    needs: [checks, image]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -215,11 +217,10 @@ jobs:
         run: docker logs kanbantoolkit-published || true
 
   # The flows unit tests cannot see: the drag, the drawer, board design and the workspace file,
-  # through the built app. It waits on the checks so a broken unit run does not spend two minutes
-  # installing a browser to prove it, and publishing waits on this in turn.
+  # through the built app. It runs beside the checks rather than behind them, so a failed check does
+  # not hide the browser suite's result; Deploy and Preview still wait on both.
   e2e:
     name: e2e
-    needs: checks
     runs-on: ubuntu-latest
     # The suite runs in about thirty seconds. The slow part is not the tests: installing the
     # browser's system packages with apt on every run, whether or not the browser itself was
