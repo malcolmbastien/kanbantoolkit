@@ -52,6 +52,13 @@ describe('the query a place writes', () => {
     expect(urlQuery(place({ view: 'flow', range: 26, flowId: 'f-support', typeId: 't-bug' }))).toBe(
       '?board=b-atlas&view=flow&range=26&flow=f-support&type=t-bug',
     )
+    // A service-level clock and confidence are part of the Flow reading; the defaults are silent.
+    expect(urlQuery(place({ view: 'flow', serviceBasis: 'cycle', serviceShare: 85 }))).toBe('?board=b-atlas&view=flow')
+    expect(urlQuery(place({ view: 'flow', serviceBasis: 'lead' }))).toBe('?board=b-atlas&view=flow&sle=lead')
+    expect(urlQuery(place({ view: 'flow', serviceShare: 90 }))).toBe('?board=b-atlas&view=flow&sle-share=90')
+    expect(urlQuery(place({ view: 'flow', serviceBasis: 'lead', serviceShare: 87.5 }))).toBe(
+      '?board=b-atlas&view=flow&sle=lead&sle-share=87.5',
+    )
     // A window, a flow and a type mean nothing on a board's own flow or on another view: one place,
     // one URL.
     expect(urlQuery(place({ range: 4 }))).toBe('?board=b-atlas')
@@ -143,6 +150,21 @@ describe('the place a query names', () => {
     expect(placeFromQuery('?view=flow&type=').typeId).toBeUndefined()
   })
 
+  it('reads a Flow service-level basis and confidence, dropping the ones it does not know', () => {
+    expect(placeFromQuery('?board=b-atlas&view=flow&sle=lead&sle-share=90')).toEqual({
+      boardId: 'b-atlas',
+      view: 'flow',
+      serviceBasis: 'lead',
+      serviceShare: 90,
+    })
+    expect(placeFromQuery('?view=flow&sle=cycle').serviceBasis).toBe('cycle')
+    expect(placeFromQuery('?view=flow&sle=nonsense').serviceBasis).toBeUndefined()
+    expect(placeFromQuery('?view=flow&sle-share=87.5').serviceShare).toBe(87.5)
+    expect(placeFromQuery('?view=flow&sle-share=0').serviceShare).toBeUndefined()
+    expect(placeFromQuery('?view=flow&sle-share=100').serviceShare).toBeUndefined()
+    expect(placeFromQuery('?view=flow&sle-share=nonsense').serviceShare).toBeUndefined()
+  })
+
   it('reads a Timeline zoom, dropping the ones it does not know', () => {
     expect(placeFromQuery('?board=b-atlas&view=timeline&zoom=wide')).toEqual({
       boardId: 'b-atlas',
@@ -179,6 +201,7 @@ describe('a place survives the round trip', () => {
       place({ view: 'flow', itemId: 'st-email' }),
       place({ view: 'flow', range: 4, flowId: 'f-support' }),
       place({ view: 'flow', range: 'all' }),
+      place({ view: 'flow', serviceBasis: 'lead', serviceShare: 87.5 }),
       place({ boardId: 'b-strategy', view: 'boards' }),
       place({ itemId: 'init-revenue' }),
     ]

@@ -4,6 +4,9 @@ import {
   aging,
   bucketsFor,
   cumulativeFlow,
+  cycleByWeek,
+  cycleTimes,
+  dailyBuckets,
   deliveredSince,
   firstRecordedMove,
   flowRecord,
@@ -12,6 +15,7 @@ import {
   forecastBy,
   forecastWhen,
   histogram,
+  leadTimes,
   MIN_FORECAST_DELIVERED,
   MIN_FORECAST_WEEKS,
   MIN_SAMPLE,
@@ -20,17 +24,22 @@ import {
   percentile,
   sampleStats,
   scatterPoints,
-  serviceLevel,
+  serviceLevelOf,
+  shareWithinDays,
   throughput,
+  throughputStability,
   WEEK_MS,
   windowStart,
+  wipAgeSeries,
+  type CycleWeek,
   type FlowRecord,
   type ScatterPoint,
   type StageMove,
+  type WipAgeBucket,
 } from '@/domain/metrics'
 import { isInitiativeItem } from '@/domain/board'
 import { effectiveStage, STAGE_LABELS, STAGES } from '@/domain/lanes'
-import { chipColors, STAGE_ACCENT, STAGE_PILL } from '@/lib/colors'
+import { chipColors, STAGE_PILL, STAGE_STACK } from '@/lib/colors'
 import { csvFilename, flowCsv, type FlowCsvRow } from '@/domain/csv'
 import { downloadText } from '@/lib/download'
 import { cn } from '@/lib/utils'
@@ -44,9 +53,28 @@ import { isDemoWorkspace } from '@/lib/demo'
 import { SEED_TODAY } from '@/domain/seed'
 
 const DAY_MS = 86_400_000
+/** The confidences offered as one-click readings; any other value is custom. */
+const SERVICE_PRESETS = [50, 85, 90, 95] as const
+
+/** The WIP age bands, youngest first, with the labels and tones the chart uses. */
+const WIP_AGE_ORDER: WipAgeBucket[] = ['le1', 'le7', 'le14', 'gt14']
+const WIP_AGE_LABELS: Record<WipAgeBucket, string> = {
+  le1: '≤1 day',
+  le7: '≤7 days',
+  le14: '≤14 days',
+  gt14: '>14 days',
+}
+const WIP_AGE_ACCENTS: Record<WipAgeBucket, string> = {
+  le1: '#c7d2fe',
+  le7: '#818cf8',
+  le14: '#6366f1',
+  gt14: '#4338ca',
+}
 
 /** Days, quiet: a whole number, or one decimal for an in-between median. */
 const days = (n: number | undefined) => (n === undefined ? '—' : `${Number.isInteger(n) ? n : n.toFixed(1)}d`)
+/** A confidence, with a decimal only when the day-first input produced one. */
+const shareLabel = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)}%`
 const shortDate = (at: number) => new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 const calendarDate = (at: number | undefined) =>
   at === undefined
@@ -74,7 +102,13 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const issueTypes = useStore((s) => s.issueTypes)
   const openItem = useStore((s) => s.openItem)
   const selectedItemId = useStore((s) => s.selectedItemId)
-  const [serviceShare, setServiceShare] = useState(85)
+  const serviceBasis = useStore((s) => s.metricsServiceBasis)
+  const serviceShare = useStore((s) => s.metricsServiceShare)
+  const setServiceBasis = useStore((s) => s.setMetricsServiceBasis)
+  const setServiceShare = useStore((s) => s.setMetricsServiceShare)
+  const [customShare, setCustomShare] = useState(false)
+  const [dayDraft, setDayDraft] = useState<string | null>(null)
+  const [cycleWeekFocus, setCycleWeekFocus] = useState<number | null>(null)
   const [includeBacklog, setIncludeBacklog] = useState(false)
   const [byDate, setByDate] = useState(() => new Date(Date.now() + 8 * 7 * DAY_MS).toISOString().slice(0, 10))
   const [atLeast, setAtLeast] = useState('')
@@ -84,6 +118,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const setFlowWindow = useStore((s) => s.setFlowWindow)
   const setMetricsFlow = useStore((s) => s.setMetricsFlow)
   const setMetricsType = useStore((s) => s.setMetricsType)
+
+  // A focused week belongs to one reading. Changing the window, flow or type is a different
+  // sample, so the pick is cleared rather than left pointing at a week that is no longer drawn.
+  useEffect(() => setCycleWeekFocus(null), [flowWindow, metricsFlowId, metricsTypeId])
 
   /**
    * The board's moves, fetched once when the view opens.
@@ -184,6 +222,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
   // once so the screen and the file cannot disagree about what was delivered.
   const flowPoints = scatterPoints(records, since)
   const cycles = flowPoints.map((point) => point.cycle)
+  const cycleCap = Math.max(1, Math.ceil(percentile(cycles, 98) ?? 1))
   const firstMove = firstRecordedMove(records)
   const coverage = moveCoverage(records)
   const deliveredTotal = delivered.reduce((sum, n) => sum + n, 0)
@@ -212,7 +251,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
     return counts
   })
 
-  const sle = serviceLevel(records, since, serviceShare)
+  const serviceSample = serviceBasis === 'lead' ? leadTimes(deliveredRecords) : cycleTimes(deliveredRecords)
+  const sle = serviceLevelOf(serviceSample, serviceShare)
   const openCommitted = openScope(records, now, false)
   // What the shared scope control would add: the cards still in play *because* they are in Backlog.
   const backlogCards = Math.max(0, openScope(records, now, true) - openCommitted)
@@ -224,6 +264,29 @@ export function MetricsView({ boardId }: { boardId: string }) {
   const atLeastCount = atLeast.trim() === '' ? remaining : Math.max(0, Math.min(remaining, Number(atLeast) || 0))
   const byDateAt = new Date(`${byDate}T12:00:00`).getTime()
   const by = forecastBy(remaining, delivered, now, byDateAt, { atLeast: atLeastCount })
+
+  // The service level is read both ways: a confidence gives a duration, and a duration the reader
+  // types gives back the share of the sample that finished within it.
+  const serviceShareRounded = Math.round(serviceShare * 10) / 10
+  const servicePreset = SERVICE_PRESETS.some((preset) => preset === serviceShareRounded)
+  const showCustomShare = customShare || !servicePreset
+  const serviceDayValue = sle.days === undefined ? '' : String(Math.round(sle.days * 10) / 10)
+  const applyServiceDay = () => {
+    if (dayDraft === null) return
+    const value = Number(dayDraft)
+    if (Number.isFinite(value) && value >= 0) {
+      const share = shareWithinDays(serviceSample, value)
+      if (share !== undefined) {
+        setServiceShare(share)
+        setCustomShare(!SERVICE_PRESETS.some((preset) => preset === Math.round(share)))
+      }
+    }
+    setDayDraft(null)
+  }
+  // The scatter and the distribution are cycle-time charts, so the chosen line belongs on them
+  // only when the reading is cycle time. A lead-time line on a cycle plot would compare two clocks.
+  const serviceLine =
+    serviceBasis === 'cycle' && sle.days !== undefined ? { share: sle.share, days: sle.days } : undefined
 
   // Each diagram has its own scale: a flow column is as tall as the most work the board carried at
   // a week's end, a throughput bar as tall as the busiest week in the window.
@@ -424,9 +487,19 @@ export function MetricsView({ boardId }: { boardId: string }) {
               selectedItemId={selectedItemId}
               typeFor={typeFor}
               typeOrder={typeOrder}
+              service={serviceLine}
+              focusWeek={cycleWeekFocus}
             />
 
-            <CycleHistogram cycles={cycles} p50={summary.cycle.p50} p85={summary.cycle.p85} />
+            <WeeklyCycleRange
+              weeks={cycleByWeek(records, buckets)}
+              cap={cycleCap}
+              median={summary.cycle.p50}
+              focus={cycleWeekFocus}
+              onFocus={setCycleWeekFocus}
+            />
+
+            <CycleHistogram cycles={cycles} p50={summary.cycle.p50} p85={summary.cycle.p85} service={serviceLine} />
 
             <AgingWork
               records={records}
@@ -440,6 +513,8 @@ export function MetricsView({ boardId }: { boardId: string }) {
               p85={summary.cycle.p85}
               openItem={openItem}
             />
+
+            <WipAging records={records} since={since} flowWindow={flowWindow} buckets={buckets} now={now} />
 
             <Panel
               title="Cumulative flow"
@@ -464,7 +539,10 @@ export function MetricsView({ boardId }: { boardId: string }) {
                                 title={`${STAGE_LABELS[stage]}: ${counts[stage]}`}
                                 style={{
                                   height: `${(counts[stage] / Math.max(1, total)) * 100}%`,
-                                  backgroundColor: STAGE_ACCENT[stage],
+                                  backgroundColor: STAGE_STACK[stage],
+                                  // A hairline between bands, so a thin stage stays a band rather
+                                  // than dissolving into the one above it.
+                                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65)',
                                 }}
                               />
                             ),
@@ -479,7 +557,7 @@ export function MetricsView({ boardId }: { boardId: string }) {
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600">
                 {STAGES.map((stage) => (
                   <span key={stage} className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: STAGE_ACCENT[stage] }} />
+                    <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: STAGE_STACK[stage] }} />
                     {STAGE_LABELS[stage]}
                   </span>
                 ))}
@@ -529,39 +607,114 @@ export function MetricsView({ boardId }: { boardId: string }) {
               <TypeLegend types={throughputTypes} />
             </Panel>
 
+            <FlowStability records={records} buckets={buckets} />
+
             {/* One planning row, not three stacked sections: the past reading (service level) sits
                 beside the two questions about the future, and they share a window and a model. */}
             <Panel title="Planning" note="The same window and throughput, read three ways.">
               <div className="grid gap-3 lg:grid-cols-3">
                 <section data-sle className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 lg:row-span-2">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-micro font-semibold uppercase tracking-wide text-slate-600">
                       Service level
                     </div>
-                    <select
-                      aria-label="Service level share"
-                      value={serviceShare}
-                      onChange={(event) => setServiceShare(Number(event.target.value))}
-                      className="rounded border border-slate-200 bg-white px-1 py-0.5 text-micro text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
-                    >
-                      {[50, 85, 95].map((share) => (
-                        <option key={share} value={share}>
-                          {share}%
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center gap-1">
+                      <select
+                        aria-label="Service level share"
+                        value={servicePreset ? String(serviceShareRounded) : 'custom'}
+                        onChange={(event) => {
+                          if (event.target.value === 'custom') {
+                            setCustomShare(true)
+                            return
+                          }
+                          setCustomShare(false)
+                          setServiceShare(Number(event.target.value))
+                        }}
+                        className="rounded border border-slate-200 bg-white px-1 py-0.5 text-micro text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                      >
+                        {SERVICE_PRESETS.map((share) => (
+                          <option key={share} value={share}>
+                            {share}%
+                          </option>
+                        ))}
+                        <option value="custom">Custom</option>
+                      </select>
+                      {showCustomShare && (
+                        <input
+                          type="number"
+                          aria-label="Custom service level share"
+                          min={1}
+                          max={99}
+                          step={1}
+                          value={serviceShareRounded}
+                          onChange={(event) => setServiceShare(Number(event.target.value))}
+                          className="w-12 rounded border border-slate-200 bg-white px-1 py-0.5 text-micro text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-2 text-heading font-semibold tabular-nums text-slate-900">
-                    {sle.days === undefined ? '—' : days(sle.days)}
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-micro text-slate-600">
+                    <span>Measured</span>
+                    <div
+                      role="group"
+                      aria-label="Service level basis"
+                      className="inline-flex overflow-hidden rounded border border-slate-200 bg-white"
+                    >
+                      {(['cycle', 'lead'] as const).map((basis) => (
+                        <button
+                          key={basis}
+                          type="button"
+                          aria-pressed={serviceBasis === basis}
+                          onClick={() => setServiceBasis(basis)}
+                          className={cn(
+                            'px-1.5 py-0.5 transition',
+                            serviceBasis === basis ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50',
+                          )}
+                        >
+                          {basis === 'cycle' ? 'Cycle' : 'Lead'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <input
+                      type="number"
+                      aria-label="Service level days"
+                      data-sle-days
+                      min={0}
+                      step={0.5}
+                      value={dayDraft ?? serviceDayValue}
+                      placeholder="—"
+                      onFocus={() => setDayDraft(serviceDayValue)}
+                      onChange={(event) => setDayDraft(event.target.value)}
+                      onBlur={applyServiceDay}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return
+                        event.preventDefault()
+                        applyServiceDay()
+                      }}
+                      className="w-20 rounded border border-slate-200 bg-white px-1 py-0.5 text-heading font-semibold tabular-nums text-slate-900 outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <span className="text-meta text-slate-600">days or less</span>
                   </div>
                   <div
                     data-sle-line
-                    className="text-micro text-slate-600"
-                    title="Leaving Backlog to done, for the cards finished in this window"
+                    className="mt-1 text-micro text-slate-600"
+                    title={
+                      serviceBasis === 'lead'
+                        ? 'Created to done, for the cards finished in this window'
+                        : 'Leaving Backlog to done, for the cards finished in this window'
+                    }
                   >
                     {sle.days === undefined
                       ? 'No cards finished in this window.'
-                      : `${sle.share}% of the ${sle.n} card${sle.n === 1 ? '' : 's'} finished here took this long or less from leaving Backlog.`}
+                      : `${shareLabel(sle.share)} of the ${sle.n} card${sle.n === 1 ? '' : 's'} finished here took this long or less ${
+                          serviceBasis === 'lead' ? 'from creation' : 'from leaving Backlog'
+                        }.`}
+                  </div>
+                  <div className="mt-1 text-micro text-slate-500">
+                    {serviceBasis === 'lead' ? 'Lead time: created → done.' : 'Cycle time: committed → done.'}{' '}
+                    Type a duration to read the share, or choose a confidence to read the duration.
                   </div>
                   {sle.n > 0 && sle.n < MIN_SAMPLE && (
                     <div className="mt-1 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-micro font-medium text-amber-800">
@@ -708,7 +861,17 @@ export function MetricsView({ boardId }: { boardId: string }) {
  * so a bimodal flow — quick fixes and long features — is visible as two humps, and a single very
  * long card becomes a tail bucket rather than a chart nobody can read.
  */
-function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; p85?: number }) {
+function CycleHistogram({
+  cycles,
+  p50,
+  p85,
+  service,
+}: {
+  cycles: number[]
+  p50?: number
+  p85?: number
+  service?: { share: number; days: number }
+}) {
   const buckets = histogram(cycles, 1, 60)
   if (buckets.length === 0) {
     return (
@@ -728,8 +891,10 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
       : `${peak.from}–${peak.to - 1} days`
   const marker = (value: number | undefined) =>
     value === undefined ? undefined : Math.min(buckets.length - 1, Math.max(0, Math.floor(value)))
-  const p50Index = marker(p50)
+  const medianIndex = marker(p50)
   const p85Index = marker(p85)
+  const serviceIndex = marker(service?.days)
+  const serviceMarkerKind = service?.share === 85 ? 'p85' : 'service'
 
   return (
     <Panel
@@ -757,34 +922,58 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
             </div>
           ))}
         </div>
-        {p50Index !== undefined && (
+        {medianIndex !== undefined && service?.share !== 50 && (
           <span
             data-cycle-marker="p50"
             className="pointer-events-none absolute inset-y-0 w-0.5 bg-slate-600 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]"
-            style={{ left: `${((p50Index + 0.5) / buckets.length) * 100}%` }}
+            style={{ left: `${((medianIndex + 0.5) / buckets.length) * 100}%` }}
             title={`p50: ${days(p50)}`}
           />
         )}
-        {p85Index !== undefined && (
+        {serviceIndex !== undefined && service !== undefined ? (
           <span
-            data-cycle-marker="p85"
+            data-cycle-marker={serviceMarkerKind}
             className="pointer-events-none absolute inset-y-0 w-0.5 bg-rose-600 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]"
-            style={{ left: `${((p85Index + 0.5) / buckets.length) * 100}%` }}
-            title={`p85: ${days(p85)}`}
+            style={{ left: `${((serviceIndex + 0.5) / buckets.length) * 100}%` }}
+            title={`${shareLabel(service.share)} service level: ${days(service.days)}`}
           />
+        ) : (
+          p85Index !== undefined && (
+            <span
+              data-cycle-marker="p85"
+              className="pointer-events-none absolute inset-y-0 w-0.5 bg-rose-600 shadow-[0_0_0_1px_rgba(255,255,255,0.85)]"
+              style={{ left: `${((p85Index + 0.5) / buckets.length) * 100}%` }}
+              title={`p85: ${days(p85)}`}
+            />
+          )
         )}
         </div>
         <div className="mt-1 flex justify-between text-micro text-slate-600">
           <span>0d</span>
           <span>{buckets.length > 1 ? `${buckets[buckets.length - 1].tail ? `${buckets[buckets.length - 1].from}+` : `${buckets[buckets.length - 1].to - 1}`}d` : '1d'}</span>
         </div>
-        <div className="mt-0.5 flex gap-3 text-micro text-slate-600">
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-0.5 bg-slate-600" /> p50
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-0.5 bg-rose-600" /> p85
-          </span>
+        <div className="mt-0.5 flex flex-wrap gap-3 text-micro text-slate-600">
+          {service === undefined ? (
+            <>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-0.5 bg-slate-600" /> p50
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-0.5 bg-rose-600" /> p85
+              </span>
+            </>
+          ) : (
+            <>
+              {service.share !== 50 && (
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-0.5 bg-slate-600" /> median
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-0.5 bg-rose-600" /> {shareLabel(service.share)} service level
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -811,6 +1000,189 @@ function CycleHistogram({ cycles, p50, p85 }: { cycles: number[]; p50?: number; 
 }
 
 const MAX_AGING_ROWS = 100
+
+/**
+ * The cycle-time shape of each week, under the scatter.
+ *
+ * The scatter shows every delivery; this shows whether the middle and the tail are moving together.
+ * A week with fewer than MIN_SAMPLE deliveries is drawn faintly rather than as a confident box. The
+ * panel is descriptive, with no trend line: a straight line over a week's cloud would promise more
+ * than the history can.
+ */
+function WeeklyCycleRange({
+  weeks,
+  cap,
+  median,
+  focus,
+  onFocus,
+}: {
+  weeks: CycleWeek[]
+  cap: number
+  median?: number
+  focus: number | null
+  onFocus: (at: number | null) => void
+}) {
+  const drawn = weeks.some((week) => week.n > 0)
+  const labelEvery = Math.max(1, Math.ceil(weeks.length / 12))
+  const clipped = weeks.filter((week) => week.max !== undefined && week.max > cap).length
+
+  return (
+    <Panel
+      title="Cycle time by week"
+      note={`Each week: the whisker is the range, the box the middle half, the line the median. The axis stops at p98 (${days(cap)})${
+        clipped > 0 ? `, so ${clipped} week${clipped === 1 ? '' : 's'} draw at the top` : ''
+      }. A week with fewer than ${MIN_SAMPLE} cards is faint. Click a week to pick it out on the scatter.`}
+    >
+      {!drawn ? (
+        <div className="text-meta text-slate-600">No cards finished in this window.</div>
+      ) : (
+        <div data-cycle-week-range className="mt-5">
+          <div className="relative h-40">
+            <div className="flex h-full items-end gap-1">
+              {weeks.map((week, index) => {
+                const min = week.min === undefined ? 0 : Math.min(week.min, cap)
+                const max = week.max === undefined ? 0 : Math.min(week.max, cap)
+                return (
+                  <button
+                    key={week.at}
+                    type="button"
+                    data-cycle-week={week.at}
+                    data-cycle-week-n={week.n}
+                    aria-pressed={focus === week.at}
+                    aria-label={`Week ending ${shortDate(week.at)}: ${week.n} card${week.n === 1 ? '' : 's'}${
+                      week.p50 === undefined ? '' : `, median ${days(week.p50)}`
+                    }`}
+                    onClick={() => onFocus(focus === week.at ? null : week.at)}
+                    className={cn(
+                      'relative h-full min-w-0 flex-1 rounded-sm outline-none transition focus-visible:ring-2 focus-visible:ring-indigo-400',
+                      focus === week.at ? 'bg-indigo-50 ring-1 ring-indigo-300' : 'hover:bg-slate-50',
+                    )}
+                  >
+                    {week.n > 0 && (
+                      <>
+                        <span
+                          data-cycle-week-whisker
+                          className="absolute left-1/2 w-px -translate-x-1/2 bg-slate-400"
+                          style={{
+                            bottom: `${(min / cap) * 100}%`,
+                            height: `${Math.max(0, ((max - min) / cap) * 100)}%`,
+                          }}
+                        />
+                        <span
+                          data-cycle-week-box
+                          className={cn(
+                            'absolute left-1/2 w-3/5 -translate-x-1/2 rounded-sm bg-indigo-300/70',
+                            week.n < MIN_SAMPLE && 'opacity-40',
+                          )}
+                          style={{
+                            bottom: `${((week.p25 ?? 0) / cap) * 100}%`,
+                            height: `${Math.max(1, (((week.p75 ?? 0) - (week.p25 ?? 0)) / cap) * 100)}%`,
+                          }}
+                        />
+                        <span
+                          data-cycle-week-median
+                          className="absolute left-1/2 w-3/5 -translate-x-1/2 border-t-2 border-slate-700"
+                          style={{ bottom: `${((week.p50 ?? 0) / cap) * 100}%` }}
+                        />
+                      </>
+                    )}
+                    {week.n > 0 && week.n < MIN_SAMPLE && (
+                      <span
+                        data-cycle-week-dot
+                        className="absolute left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500 opacity-50"
+                        style={{ bottom: `${((week.p50 ?? 0) / cap) * 100}%` }}
+                      />
+                    )}
+                    {week.n > 0 && (index % labelEvery === 0 || index === weeks.length - 1) && (
+                      <span className="absolute inset-x-0 -top-4 text-center text-micro font-bold tabular-nums text-slate-600">
+                        {week.n}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {median !== undefined && (
+              <span
+                data-cycle-week-overall
+                className="pointer-events-none absolute inset-x-0 border-t border-dashed border-slate-400"
+                style={{ bottom: `${Math.min(100, (median / cap) * 100)}%` }}
+              >
+                <span className="absolute right-0 -top-2 bg-white px-1 text-micro tabular-nums text-slate-600">
+                  median {days(median)}
+                </span>
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex gap-1 text-micro text-slate-500">
+            {weeks.map((week, index) => (
+              <span key={week.at} className="min-w-0 flex-1 text-center">
+                {index % labelEvery === 0 || index === weeks.length - 1 ? shortDate(week.at) : ''}
+              </span>
+            ))}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-indigo-300/70" /> middle half
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-0.5 w-2 bg-slate-700" /> median
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-px bg-slate-400" /> range
+            </span>
+            {focus !== null && (
+              <button
+                type="button"
+                onClick={() => onFocus(null)}
+                className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-micro text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                Clear week
+              </button>
+            )}
+          </div>
+          {weeks.some((week) => week.n > 0 && week.n < MIN_SAMPLE) && (
+            <div className="mt-1 text-micro text-slate-500">
+              Faint weeks have fewer than {MIN_SAMPLE} delivered cards.
+            </div>
+          )}
+
+          <details data-cycle-week-details className="mt-2 border-t border-slate-100 pt-2 text-micro text-slate-600">
+            <summary className="cursor-pointer select-none">All {weeks.length} weeks</summary>
+            <table data-cycle-week-table className="mt-1 w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-200 uppercase tracking-wide text-slate-600">
+                  <th className="py-1 pr-2 font-semibold">Week</th>
+                  <th className="px-1 py-1 text-right font-semibold">Cards</th>
+                  <th className="px-1 py-1 text-right font-semibold">Min</th>
+                  <th className="px-1 py-1 text-right font-semibold">p25</th>
+                  <th className="px-1 py-1 text-right font-semibold">Median</th>
+                  <th className="px-1 py-1 text-right font-semibold">p75</th>
+                  <th className="px-1 py-1 text-right font-semibold">Max</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weeks.map((week) => (
+                  <tr key={week.at} className="border-b border-slate-100 last:border-0">
+                    <td className="py-1 pr-2">{shortDate(week.at)}</td>
+                    <td className="px-1 py-1 text-right tabular-nums">{week.n}</td>
+                    {([week.min, week.p25, week.p50, week.p75, week.max] as (number | undefined)[]).map(
+                      (value, index) => (
+                        <td key={index} className="px-1 py-1 text-right tabular-nums">
+                          {value === undefined ? '—' : days(value)}
+                        </td>
+                      ),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        </div>
+      )}
+    </Panel>
+  )
+}
 
 /**
  * What is old right now, oldest commitment first.
@@ -995,6 +1367,253 @@ function AgingWork({
 const MAX_SCATTER_POINTS = 400
 
 /**
+ * Started versus finished each week, with the stability reading that follows.
+ *
+ * The Throughput panel above answers how much was delivered; this answers whether the team is
+ * finishing what it starts and whether the pace is even. A quiet week is left out of the sample
+ * rather than counted as a success. The reading is descriptive: no target, no grade.
+ */
+function FlowStability({ records, buckets }: { records: FlowRecord[]; buckets: number[] }) {
+  const stability = throughputStability(records, buckets)
+  const { started, completed, net } = stability
+  const maxAbs = Math.max(1, ...net.map((value) => Math.abs(value)))
+  const startedTotal = started.reduce((sum, value) => sum + value, 0)
+  const completedTotal = completed.reduce((sum, value) => sum + value, 0)
+  const netTotal = completedTotal - startedTotal
+  const empty = stability.weeksWithMovement === 0
+  const showNetValues = buckets.length <= 26
+
+  return (
+    <Panel
+      title="Flow stability"
+      note="Net flow each week: finished minus started. A week counts toward predictability only when something moved."
+    >
+      {empty ? (
+        <div className="text-meta text-slate-600">No work started or finished in this window.</div>
+      ) : (
+        <div data-flow-stability>
+          <div data-flow-net className="mt-1 flex gap-2">
+            <div className="flex h-24 w-7 shrink-0 flex-col justify-between text-right text-micro tabular-nums text-slate-500">
+              <span>+{maxAbs}</span>
+              <span>0</span>
+              <span>-{maxAbs}</span>
+            </div>
+            <div className="relative flex h-24 flex-1 items-stretch gap-2">
+              <div className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-slate-300" />
+              {net.map((value, index) => (
+                <div
+                  key={buckets[index]}
+                  data-stability-net={value}
+                  className="relative flex h-full min-w-0 flex-1"
+                  title={`Week ending ${shortDate(buckets[index])}: ${started[index]} started, ${completed[index]} finished, net ${
+                    value >= 0 ? '+' : ''
+                  }${value}`}
+                >
+                  {value > 0 && (
+                    <span
+                      className="absolute bottom-1/2 left-1/2 w-4 max-w-full -translate-x-1/2 rounded-t-sm bg-emerald-500"
+                      style={{ height: `${(value / maxAbs) * 50}%` }}
+                    />
+                  )}
+                  {value < 0 && (
+                    <span
+                      className="absolute left-1/2 top-1/2 w-4 max-w-full -translate-x-1/2 rounded-b-sm bg-rose-400"
+                      style={{ height: `${(Math.abs(value) / maxAbs) * 50}%` }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          {showNetValues && (
+            <div className="mt-1 flex gap-2 text-micro tabular-nums">
+              <span className="w-7 shrink-0 text-right text-slate-500">net</span>
+              {net.map((value, index) => (
+                <span
+                  key={buckets[index]}
+                  className={cn(
+                    'min-w-0 flex-1 text-center font-semibold',
+                    value > 0 ? 'text-emerald-700' : value < 0 ? 'text-rose-700' : 'text-slate-400',
+                  )}
+                >
+                  {value > 0 ? '+' : ''}
+                  {value}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-1 flex justify-between text-micro text-slate-500">
+            <span>{shortDate(buckets[0])}</span>
+            <span>{shortDate(buckets[buckets.length - 1])}</span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-emerald-500" /> above the line: clearing
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-rose-400" /> below: accumulating
+            </span>
+            <span data-stability-summary>
+              {stability.completedAtLeastStarted} of {stability.weeksWithMovement} week
+              {stability.weeksWithMovement === 1 ? '' : 's'} with movement finished at least as much as
+              they started.
+            </span>
+          </div>
+          <div className="mt-1 text-micro text-slate-500">
+            Net flow over the window: {netTotal >= 0 ? '+' : ''}
+            {netTotal} ({completedTotal} finished, {startedTotal} started). Throughput per week: median{' '}
+            {stability.median ?? '—'} · p85 {stability.p85 ?? '—'} · min {stability.min ?? '—'} · max{' '}
+            {stability.max ?? '—'} · mean {stability.mean.toFixed(1)}.
+          </div>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+/**
+ * Work in flight at each day of the window, split by age since commitment.
+ *
+ * The aging table answers "what is old right now"; this is the same clock over time, so a rising
+ * pile of old work is visible before it becomes a row somebody has to notice. Backlog is inventory,
+ * not in flight, and Done or filed work has left the flow. The 12-week window is drawn daily;
+ * longer windows are drawn weekly so the columns stay readable.
+ */
+function WipAging({
+  records,
+  since,
+  flowWindow,
+  buckets,
+  now,
+}: {
+  records: FlowRecord[]
+  since: number | undefined
+  flowWindow: FlowWindow
+  buckets: number[]
+  now: number
+}) {
+  const daily = since !== undefined && flowWindow !== 'all' && flowWindow <= 12
+  const grain = daily ? 'day' : 'week'
+  const boundaries = daily && since !== undefined ? dailyBuckets(since, now) : buckets
+  const points = wipAgeSeries(records, boundaries)
+  const totals = points.map((point) => point.total)
+  const tallest = Math.max(1, ...totals)
+  const average = points.length === 0 ? 0 : totals.reduce((sum, n) => sum + n, 0) / points.length
+  const empty = totals.every((total) => total === 0)
+  const labelEvery = Math.max(1, Math.ceil(points.length / 12))
+  const middle = points[Math.floor((points.length - 1) / 2)]
+
+  return (
+    <Panel
+      title="WIP and age"
+      note={`Work in flight, aged from commitment. ${
+        grain === 'day' ? 'Each column is a day' : 'Each column is a week'
+      }; Backlog, Done and filed work are not counted.`}
+    >
+      {empty ? (
+        <div className="text-meta text-slate-600">No work was in flight in this window.</div>
+      ) : (
+        <>
+          <div data-wip-age data-wip-age-grain={grain} className="relative">
+            <div className="flex gap-px text-center text-micro font-bold tabular-nums text-slate-600">
+              {points.map((point, index) => (
+                <div key={point.at} className="min-w-0 flex-1">
+                  {index % labelEvery === 0 || index === points.length - 1 ? point.total : ''}
+                </div>
+              ))}
+            </div>
+            <div className="relative mt-1 h-36">
+              <div className="flex h-full items-end gap-px">
+                {points.map((point) => (
+                  <div
+                    key={point.at}
+                    data-wip-age-column
+                    className="flex h-full min-w-0 flex-1 flex-col justify-end"
+                    title={`${shortDate(point.at)}: ${point.total} in flight · ${WIP_AGE_ORDER.map(
+                      (bucket) => `${WIP_AGE_LABELS[bucket]} ${point.counts[bucket]}`,
+                    ).join(' · ')}`}
+                  >
+                    {point.total > 0 &&
+                      WIP_AGE_ORDER.map((bucket) =>
+                        point.counts[bucket] === 0 ? null : (
+                          <div
+                            key={bucket}
+                            data-wip-age-bucket={bucket}
+                            style={{
+                              height: `${(point.counts[bucket] / tallest) * 100}%`,
+                              backgroundColor: WIP_AGE_ACCENTS[bucket],
+                            }}
+                          />
+                        ),
+                      )}
+                  </div>
+                ))}
+              </div>
+              {average > 0 && (
+                <span
+                  data-wip-age-average
+                  className="pointer-events-none absolute inset-x-0 border-t border-dashed border-slate-500"
+                  style={{ bottom: `${(average / tallest) * 100}%` }}
+                >
+                  <span className="absolute right-0 -top-2 bg-white px-1 text-micro tabular-nums text-slate-600">
+                    avg {average.toFixed(1)}
+                  </span>
+                </span>
+              )}
+            </div>
+            <div className="mt-1 flex justify-between text-micro text-slate-500">
+              <span>{shortDate(points[0].at)}</span>
+              {middle && middle !== points[0] && middle !== points[points.length - 1] && (
+                <span>{shortDate(middle.at)}</span>
+              )}
+              <span>{shortDate(points[points.length - 1].at)}</span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600">
+              {WIP_AGE_ORDER.map((bucket) => (
+                <span key={bucket} className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: WIP_AGE_ACCENTS[bucket] }} />
+                  {WIP_AGE_LABELS[bucket]}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <details data-wip-age-details className="mt-2 border-t border-slate-100 pt-2 text-micro text-slate-600">
+            <summary className="cursor-pointer select-none">All {points.length} {grain}{points.length === 1 ? '' : 's'}</summary>
+            <table data-wip-age-table className="mt-1 w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-200 uppercase tracking-wide text-slate-600">
+                  <th className="py-1 pr-2 font-semibold">{grain === 'day' ? 'Day' : 'Week'}</th>
+                  {WIP_AGE_ORDER.map((bucket) => (
+                    <th key={bucket} className="px-1 py-1 text-right font-semibold">
+                      {WIP_AGE_LABELS[bucket]}
+                    </th>
+                  ))}
+                  <th className="px-1 py-1 text-right font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {points.map((point) => (
+                  <tr key={point.at} className="border-b border-slate-100 last:border-0">
+                    <td className="py-1 pr-2">{shortDate(point.at)}</td>
+                    {WIP_AGE_ORDER.map((bucket) => (
+                      <td key={bucket} className="px-1 py-1 text-right tabular-nums">
+                        {point.counts[bucket]}
+                      </td>
+                    ))}
+                    <td className="px-1 py-1 text-right font-semibold tabular-nums">{point.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        </>
+      )}
+    </Panel>
+  )
+}
+
+/**
  * Cycle time against the date work was delivered.
  *
  * One dot per card, so the shape and the outliers are visible rather than collapsed into a median.
@@ -1010,6 +1629,8 @@ function CycleScatter({
   selectedItemId,
   typeFor,
   typeOrder,
+  service,
+  focusWeek,
 }: {
   records: FlowRecord[]
   since: number | undefined
@@ -1017,6 +1638,8 @@ function CycleScatter({
   selectedItemId: string | null
   typeFor: (id: string) => IssueType
   typeOrder: Map<string, number>
+  service?: { share: number; days: number }
+  focusWeek: number | null
 }) {
   const wrap = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<{ point: ScatterPoint; left: number; top: number; below: boolean } | null>(null)
@@ -1053,11 +1676,18 @@ function CycleScatter({
   const plot = { left: 42, right: 700, top: 14, bottom: 218 }
   const x = (at: number) => plot.left + ((at - from) / (to - from)) * (plot.right - plot.left)
   const y = (value: number) => plot.bottom - (Math.min(value, cap) / cap) * (plot.bottom - plot.top)
-  const lines = [
-    { label: 'p50', value: stats.p50 },
-    { label: 'p85', value: stats.p85 },
-    { label: 'p95', value: stats.p95 },
-  ].filter((line): line is { label: string; value: number } => line.value !== undefined)
+  const lines: { label: string; value: number; service: boolean }[] = service
+    ? [
+        ...(stats.p50 !== undefined && service.share !== 50
+          ? [{ label: 'p50', value: stats.p50, service: false }]
+          : []),
+        { label: shareLabel(service.share), value: service.days, service: true },
+      ]
+    : [
+        { label: 'p50', value: stats.p50 },
+        { label: 'p85', value: stats.p85 },
+        { label: 'p95', value: stats.p95 },
+      ].flatMap((line) => (line.value === undefined ? [] : [{ ...line, value: line.value, service: false }]))
 
   const show = (point: ScatterPoint, element: SVGCircleElement) => {
     const box = element.getBoundingClientRect()
@@ -1081,10 +1711,19 @@ function CycleScatter({
       title="Cycle time by delivery"
       note={`One dot per delivered card. The axis stops at p98 (${days(cap)})${
         above > 0 ? `, so ${above} card${above === 1 ? '' : 's'} sit on the top line` : ''
-      }. The percentile lines use every card.${
+      }. ${
+        service
+          ? 'The rose line is the chosen service level; the grey line is the median. Both use every card.'
+          : 'The percentile lines use every card.'
+      }${
         points.length < MIN_SAMPLE ? ` Only ${points.length} delivered card${points.length === 1 ? '' : 's'} — read the lines as a hint.` : ''
       }`}
     >
+      {focusWeek !== null && (
+        <div data-scatter-focus className="mb-1 text-micro text-slate-600">
+          Week ending {shortDate(focusWeek)} is picked out; the rest of the window stays as context.
+        </div>
+      )}
       {points.length > shown.length && (
         <div className="mb-1 text-micro text-slate-600">
           Showing the most recent {shown.length} of {points.length} delivered cards.
@@ -1109,16 +1748,23 @@ function CycleScatter({
         </text>
 
         {lines.map((line) => (
-          <g key={line.label}>
+          <g key={line.label} data-scatter-line={line.service ? 'service' : undefined}>
             <line
               x1={plot.left}
               x2={plot.right}
               y1={y(line.value)}
               y2={y(line.value)}
-              stroke="#94a3b8"
-              strokeDasharray="4 3"
+              stroke={line.service ? '#e11d48' : '#94a3b8'}
+              strokeWidth={line.service ? 1.5 : 1}
+              strokeDasharray={line.service ? undefined : '4 3'}
             />
-            <text x={plot.right} y={y(line.value) - 3} textAnchor="end" fontSize={9} fill="#64748b">
+            <text
+              x={plot.right}
+              y={y(line.value) - 3}
+              textAnchor="end"
+              fontSize={9}
+              fill={line.service ? '#be123c' : '#64748b'}
+            >
               {line.label} {days(line.value)}
             </text>
           </g>
@@ -1141,6 +1787,10 @@ function CycleScatter({
               // The tail keeps a rose ring rather than a rose fill: the type is the colour now.
               point.cycle > cap && 'stroke-rose-500 stroke-2',
               selectedItemId === point.id && 'stroke-2 stroke-slate-900',
+              // A picked week stays fully drawn; the rest of the window is quiet context.
+              focusWeek !== null &&
+                !(point.resolvedAt > focusWeek - WEEK_MS && point.resolvedAt <= focusWeek) &&
+                'opacity-20',
             )}
             onClick={() => openItem(point.id)}
             onMouseEnter={(event) => show(point, event.currentTarget)}

@@ -3,7 +3,7 @@ import { filtersFromParam } from '@/domain/filters'
 import { useStore } from '@/store'
 import { DEFAULT_FLOW_WINDOW } from '@/domain/flowWindow'
 import { DEFAULT_TIMELINE_ZOOM } from '@/domain/timelineZoom'
-import { placeFromQuery, urlQuery, viewOf, type Place } from './url'
+import { DEFAULT_SERVICE_BASIS, DEFAULT_SERVICE_SHARE, placeFromQuery, urlQuery, viewOf, type Place } from './url'
 import { titleFor } from './title'
 
 /**
@@ -35,6 +35,8 @@ export function useUrl() {
   const flowWindow = useStore((s) => s.flowWindow)
   const metricsFlowId = useStore((s) => s.metricsFlowId)
   const metricsTypeId = useStore((s) => s.metricsTypeId)
+  const metricsServiceBasis = useStore((s) => s.metricsServiceBasis)
+  const metricsServiceShare = useStore((s) => s.metricsServiceShare)
   // The Timeline's reading, subscribed for the same reason: a change to it changes the place.
   const timelineZoom = useStore((s) => s.timelineZoom)
   // The document's name, derived the same way the URL is: the board and the view. The open card
@@ -71,6 +73,10 @@ export function useUrl() {
       (item) => item.typeId === typeId && s.placements.some((p) => p.itemId === item.id && p.boardId === s.boardId),
     )
     s.setMetricsType(onBoard ? typeId! : null)
+    // The service-level clock and confidence are part of the reading too; a link without them
+    // opens the default 85% cycle-time reading, not whatever the last person left behind.
+    s.setMetricsServiceBasis(place.serviceBasis ?? DEFAULT_SERVICE_BASIS)
+    s.setMetricsServiceShare(place.serviceShare ?? DEFAULT_SERVICE_SHARE)
   }, [])
 
   /**
@@ -154,7 +160,7 @@ export function useUrl() {
       boardId: s.boardId,
       view: viewOf(s),
       itemId: s.selectedItemId,
-      ...(flow ? { range: s.flowWindow, flowId: s.metricsFlowId, typeId: s.metricsTypeId } : {}),
+      ...(flow ? { range: s.flowWindow, flowId: s.metricsFlowId, typeId: s.metricsTypeId, serviceBasis: s.metricsServiceBasis, serviceShare: s.metricsServiceShare } : {}),
       ...(viewOf(s) === 'timeline' ? { zoom: s.timelineZoom } : {}),
     }
     const before = last.current
@@ -169,7 +175,7 @@ export function useUrl() {
     const samePlace = before !== null && before.boardId === place.boardId && before.view === place.view
     if (wasFirst || samePlace) window.history.replaceState(null, '', query)
     else window.history.pushState(null, '', query)
-  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId, metricsTypeId, timelineZoom])
+  }, [boardId, view, selectedItemId, flowWindow, metricsFlowId, metricsTypeId, metricsServiceBasis, metricsServiceShare, timelineZoom])
 
   // ---- And back: the places the app has been ----
   useEffect(() => {

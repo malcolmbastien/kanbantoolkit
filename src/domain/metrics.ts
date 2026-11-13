@@ -214,6 +214,51 @@ export function aging(
     })
 }
 
+/** The four age bands a day's work in flight is drawn in. */
+export type WipAgeBucket = 'le1' | 'le7' | 'le14' | 'gt14'
+
+export interface WipAgePoint {
+  at: number
+  total: number
+  counts: Record<WipAgeBucket, number>
+}
+
+/**
+ * Work in flight at one moment, split by how long it has been committed.
+ *
+ * Only Not Started and In Progress are in flight: Backlog is inventory, and Done or an archived
+ * card has left the flow. Age runs from the first commitment, the same clock as cycle time, so a
+ * card that waited a month in Backlog does not arrive as a month-old card on its first day of work.
+ */
+export function wipAgesAt(records: FlowRecord[], at: number): Record<WipAgeBucket, number> {
+  const counts: Record<WipAgeBucket, number> = { le1: 0, le7: 0, le14: 0, gt14: 0 }
+  for (const record of records) {
+    if (record.createdAt > at) continue
+    const stage = stageAt(record, at)
+    if (stage !== 'notStarted' && stage !== 'inProgress') continue
+    if (record.resolvedAt !== undefined && record.resolvedAt <= at) continue
+    if (record.archivedAt !== undefined && record.archivedAt <= at) continue
+    const committed = committedAt(record)
+    if (committed === undefined || committed > at) continue
+    const age = Math.max(0, days(committed, at))
+    const bucket: WipAgeBucket = age <= 1 ? 'le1' : age <= 7 ? 'le7' : age <= 14 ? 'le14' : 'gt14'
+    counts[bucket] += 1
+  }
+  return counts
+}
+
+/** The same reading at each boundary, with the total the chart draws above the stack. */
+export function wipAgeSeries(records: FlowRecord[], boundaries: number[]): WipAgePoint[] {
+  return boundaries.map((at) => {
+    const counts = wipAgesAt(records, at)
+    return {
+      at,
+      counts,
+      total: counts.le1 + counts.le7 + counts.le14 + counts.gt14,
+    }
+  })
+}
+
 /** One bucket of a histogram; `tail` is the last bucket, which holds everything past the cap. */
 export interface HistogramBucket {
   from: number
@@ -276,6 +321,15 @@ export function weeklyBuckets(now: number, weeks: number): number[] {
 }
 
 /**
+ * The day-end boundaries between `since` and `now`, for a daily reading. The last boundary is
+ * `now`, so the final column is the current day and not one that ended yesterday.
+ */
+export function dailyBuckets(since: number, now: number): number[] {
+  const count = Math.max(1, Math.ceil((now - since) / DAY_MS))
+  return Array.from({ length: count }, (_, i) => Math.min(now, since + (i + 1) * DAY_MS))
+}
+
+/**
  * The start of a window, or `undefined` for all recorded history.
  *
  * A week is elapsed time, not a calendar week: two readings made a minute apart see different
@@ -316,6 +370,101 @@ export function throughput(records: FlowRecord[], buckets: number[]): number[] {
   )
 }
 
+/** Items whose first commitment fell in each bucket's week: work the team took on. */
+export function startedCounts(records: FlowRecord[], buckets: number[]): number[] {
+  return buckets.map((b) =>
+    records.filter((record) => {
+      const started = committedAt(record)
+      return started !== undefined && started > b - WEEK_MS && started <= b
+    }).length,
+  )
+}
+
+export interface ThroughputStability {
+  /** Work taken on in each week. */
+  started: number[]
+  /** Work delivered in each week. */
+  completed: number[]
+  /** Completed minus started, per week: positive is clearing the queue. */
+  net: number[]
+  /** Weeks with at least one start or completion; a quiet week is not evidence of predictability. */
+  weeksWithMovement: number
+  /** Of those, the weeks that finished at least as much as they started. */
+  completedAtLeastStarted: number
+  mean: number
+  median?: number
+  min?: number
+  p85?: number
+  max?: number
+}
+
+/** One week's cycle-time shape: the whisker, the middle half, the median and the sample. */
+export interface CycleWeek {
+  at: number
+  n: number
+  min?: number
+  p25?: number
+  p50?: number
+  p75?: number
+  max?: number
+}
+
+/**
+ * Cycle times read week by week, in the same buckets the throughput uses.
+ *
+ * The scatter shows every delivery; this is the shape of each week, so a team can see whether the
+ * middle and the tail are moving together. A week with no deliveries is a gap, not a zero.
+ */
+export function cycleByWeek(records: FlowRecord[], buckets: number[]): CycleWeek[] {
+  return buckets.map((at) => {
+    const values = cycleTimes(
+      records.filter(
+        (record) => record.resolvedAt !== undefined && record.resolvedAt > at - WEEK_MS && record.resolvedAt <= at,
+      ),
+    )
+    if (values.length === 0) return { at, n: 0 }
+    return {
+      at,
+      n: values.length,
+      min: Math.min(...values),
+      p25: percentile(values, 25),
+      p50: median(values),
+      p75: percentile(values, 75),
+      max: Math.max(...values),
+    }
+  })
+}
+
+/**
+ * Started versus completed, week by week, with the stability reading that follows from it.
+ *
+ * A quiet week (nothing started, nothing finished) is not counted as a predictable one: it says
+ * nothing about the team's pace. The summary is descriptive; it is not a target and carries no
+ * grade.
+ */
+export function throughputStability(records: FlowRecord[], buckets: number[]): ThroughputStability {
+  const started = startedCounts(records, buckets)
+  const completed = throughput(records, buckets)
+  const net = completed.map((count, index) => count - started[index])
+  const moving = buckets.flatMap((_, index) =>
+    started[index] > 0 || completed[index] > 0 ? [index] : [],
+  )
+  const finishedAtLeastAsMuch = moving.filter((index) => completed[index] >= started[index]).length
+  const sample = sampleStats(completed)
+  return {
+    started,
+    completed,
+    net,
+    weeksWithMovement: moving.length,
+    completedAtLeastStarted: finishedAtLeastAsMuch,
+    mean: completed.length === 0 ? 0 : completed.reduce((sum, count) => sum + count, 0) / completed.length,
+    median: sample.p50,
+    min: completed.length === 0 ? undefined : Math.min(...completed),
+    p85: sample.p85,
+    max: completed.length === 0 ? undefined : Math.max(...completed),
+  }
+}
+
 /**
  * Items per stage at each bucket boundary — the cumulative flow diagram.
  *
@@ -346,6 +495,25 @@ export interface ServiceLevel {
   n: number
 }
 
+/** Which clock a service level is read from: the whole life, or the work after commitment. */
+export type ServiceBasis = 'cycle' | 'lead'
+
+/**
+ * A service level expectation read from a set of times, in days.
+ *
+ * The same reading is used for lead and cycle time: the share is a statement about the sample,
+ * and the day is the smallest whole day at or below which that share falls.
+ */
+export function serviceLevelOf(values: number[], share = 85): ServiceLevel {
+  return { share, days: percentile(values, share), n: values.length }
+}
+
+/** The share of a sample that finished within `days`, as a percentage, or absent with no sample. */
+export function shareWithinDays(values: number[], days: number): number | undefined {
+  if (values.length === 0 || !Number.isFinite(days) || days < 0) return undefined
+  return (values.filter((value) => value <= days).length / values.length) * 100
+}
+
 /**
  * A service level expectation read from the cycle-time distribution.
  *
@@ -355,7 +523,7 @@ export interface ServiceLevel {
  */
 export function serviceLevel(records: FlowRecord[], since: number | undefined, share = 85): ServiceLevel {
   const cycle = cycleTimes(deliveredSince(records, since))
-  return { share, days: percentile(cycle, share), n: cycle.length }
+  return serviceLevelOf(cycle, share)
 }
 
 /** The least history a forecast is allowed to stand on. */

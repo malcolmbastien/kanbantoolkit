@@ -31,8 +31,9 @@ import { onFeedExpired, onLiveItem, startLive, stopLive } from '@/lib/live'
 import { reflectAccount } from '@/lib/workspaceSync'
 import { uid as makeUid } from '@/lib/utils'
 import type { ImportPlan } from '@/domain/import'
-import type { ViewName } from '@/lib/url'
+import { DEFAULT_SERVICE_BASIS, DEFAULT_SERVICE_SHARE, type ViewName } from '@/lib/url'
 import { DEFAULT_FLOW_WINDOW, type FlowWindow } from '@/domain/flowWindow'
+import type { ServiceBasis } from '@/domain/metrics'
 import { DEFAULT_TIMELINE_ZOOM, type TimelineZoom } from '@/domain/timelineZoom'
 import { AUTO_ARCHIVE_DAYS } from '@/domain/autoArchive'
 import { externalLabelOf, safeExternalUrl } from '@/domain/externalLink'
@@ -165,6 +166,16 @@ export interface ViewState {
    */
   metricsTypeId: string | null
   /**
+   * The Flow view's service-level clock: cycle (after commitment) or lead (from creation). A
+   * reading of the same sample, so it is view state rather than workspace data.
+   */
+  metricsServiceBasis: ServiceBasis
+  /**
+   * The Flow view's confidence, in percent. The days are read from it; a custom value is kept as a
+   * decimal so a duration the reader typed can round-trip through the URL.
+   */
+  metricsServiceShare: number
+  /**
    * How much of a card each board draws, by board id. A reading choice, not workspace data: two
    * people on one board may choose different levels, and a missing board is `full`.
    */
@@ -293,6 +304,10 @@ export interface Actions {
   setMetricsFlow: (flowId: string | null) => void
   /** The Flow view's card type, or `null` for every type on the board. */
   setMetricsType: (typeId: string | null) => void
+  /** The Flow view's service-level clock: cycle or lead. */
+  setMetricsServiceBasis: (basis: ServiceBasis) => void
+  /** The Flow view's service-level confidence, in percent. Kept between 1 and 99. */
+  setMetricsServiceShare: (share: number) => void
   /** How much of a card one board draws. Remembered in this browser, per board. */
   setBoardDetail: (boardId: string, detail: BoardDetail) => void
   /** Show or hide every hierarchy and dependency edge on one board. */
@@ -1127,6 +1142,8 @@ const initialView: ViewState = {
   flowWindow: DEFAULT_FLOW_WINDOW,
   metricsFlowId: null,
   metricsTypeId: null,
+  metricsServiceBasis: DEFAULT_SERVICE_BASIS,
+  metricsServiceShare: DEFAULT_SERVICE_SHARE,
   boardDetail: {},
   connectionsOn: readBoardConnections(),
   connectionScopeId: null,
@@ -1785,6 +1802,8 @@ export const useStore = create<Store>()(
           showMetrics: false,
           metricsFlowId: null,
           metricsTypeId: null,
+          metricsServiceBasis: DEFAULT_SERVICE_BASIS,
+          metricsServiceShare: DEFAULT_SERVICE_SHARE,
           boundaryId: null,
           connectionScopeId: null,
           multiSelect: [],
@@ -2244,6 +2263,13 @@ export const useStore = create<Store>()(
       setFlowWindow: (flowWindow) => set({ flowWindow }),
       setMetricsFlow: (metricsFlowId) => set({ metricsFlowId }),
       setMetricsType: (metricsTypeId) => set({ metricsTypeId }),
+      setMetricsServiceBasis: (metricsServiceBasis) => set({ metricsServiceBasis }),
+      setMetricsServiceShare: (share) => {
+        // A share outside 1–99 is not a confidence this screen can draw; keep the old one rather
+        // than clamping a typo into a reading somebody might plan against.
+        if (!Number.isFinite(share) || share < 1 || share > 99) return
+        set({ metricsServiceShare: Math.round(share * 10) / 10 })
+      },
       setBoardDetail: (boardId, detail) => {
         // A value this build cannot draw is not written; the default is Full, and a stale entry
         // would keep a board on a level no renderer knows.

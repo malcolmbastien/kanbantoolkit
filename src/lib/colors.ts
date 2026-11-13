@@ -260,6 +260,20 @@ export const BUCKET_DOT: Record<Stage, string> = {
 export const STAGE_ACCENT: Record<Stage, string> = STAGE_COLOR
 
 /**
+ * The stage colours for a *stacked* chart, where four bands sit against one another rather than
+ * beside a label. The board's own accents are chosen for a column header and a dot; in a stack the
+ * blue and violet are too close and the thin bands disappear. These use the Okabe-Ito qualitative
+ * hues — grey, sky, amber and bluish green — which stay apart for the common colour-vision types.
+ * This palette is chart-only: a stage's column, pill and dot keep `STAGE_COLOR`.
+ */
+export const STAGE_STACK: Record<Stage, string> = {
+  backlog: '#64748b',
+  notStarted: '#56b4e9',
+  inProgress: '#e69f00',
+  done: '#009e73',
+}
+
+/**
  * A lane body, tinted by the stage it belongs to. The stage is then legible from the
  * column itself rather than from a label — and it is the *column's* stage, so a team
  * splitting a column into cells does not lose it.

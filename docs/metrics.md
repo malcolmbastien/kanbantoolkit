@@ -12,6 +12,29 @@ the cumulative flow diagram, throughput, and one **Planning** panel with three r
 level expectation, when the open work will be done, and how many by a date. The controls row also
 exports the window's delivered cards — the rows the scatter used to list — as CSV.
 
+The **service level** reads both ways. Choose a confidence and it names the days; type a duration and
+it names the share of the window's cards that finished within it. It can read **cycle time**
+(committed → done) or **lead time** (created → done), and on cycle time the chosen percentile is the
+line drawn on the scatter and the distribution. The confidence, clock and window are part of the
+place, so a link carries the reading.
+
+**WIP and age** draws the window a day at a time (a week at a time for the 26-week and all-history
+readings): work in flight stacked by time since commitment, the total on top, and the window's
+average WIP as a line. Backlog is inventory, not in flight, and Done or filed work has left the flow.
+The chart is descriptive; it carries no warning threshold or score.
+
+**Flow stability** sits beside **Throughput**, which keeps its own weekly bars. Its chart is **net
+flow** — finished minus started — for each week: work above the line is clearing, work below it is
+accumulating, and a negative week carries its number. It also reads how many weeks with movement
+finished at least as much as they started, and the median, p85, min and max of weekly throughput.
+A quiet week is left out of the predictability sample rather than counted as a success. No target
+and no grade.
+
+**Cycle time by week** gives each week under the scatter its own shape: the range, the middle half
+and the median, with the sample count and the window median as a reference. A week with fewer than
+five deliveries is drawn faintly rather than as a confident box, and a week with none is a gap.
+Clicking a week picks its deliveries out on the scatter; the rest of the window stays as context.
+
 Under the header a short **How times are measured** glossary defines the four moments the numbers
 are built from: **Created** (when the card was made), **Committed** (the first time it leaves
 Backlog; a card made into a committed column counts from creation), **Lead time** (Created → Done,
@@ -248,6 +271,12 @@ Taken:
 - **Cycle starts when the card leaves Backlog** — the team's commitment point. That matches
   Planview's commitment-point framing, not "work started", and the screen says which.
 - **Lead is created → done; cycle is committed → done.** One definition each, everywhere.
+- **The service level is read both ways.** A confidence gives a duration; a duration gives the
+  share of the same sample. The chosen percentile replaces the fixed p85 line on the cycle-time
+  charts, with the median kept as context. A lead-time reading does not draw a line on the cycle
+  charts, because the two clocks are not the same measurement.
+- **The weekly cycle band is descriptive.** It carries no trend line; a week is a shape, not a
+  forecast. Clicking a week picks its deliveries out on the scatter rather than changing the window.
 - **Aging is time in the current column**, falling back to the last stage move when a lane stamp is
   missing.
 - **The forecast is weekly and scope-based**, not per-card. Per-card forecasting needs size, and
@@ -269,6 +298,9 @@ Open, to settle before Phase 2:
 
 - Troy Magennis, *Forecasting and Coaching Using Data* (Crisp, 2019):
   <https://www.crisp.se/kurser/forecasting-and-coaching-using-data-november-6-2019>
+- Focused Objective, *Team Dashboard*: <https://focusedobjective.com/team-dashboard>
+- Planview, *AgilePlace's New Speed Report*:
+  <https://blog.planview.com/leankits-new-speed-report/>
 - Planview, *Measuring and Reporting with Planview AgilePlace*:
   <https://blog.planview.com/measuring-and-reporting-with-leankit/>
 - Planview, *Lean Metrics to Improve Flow*:

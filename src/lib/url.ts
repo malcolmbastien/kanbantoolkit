@@ -9,6 +9,7 @@
  *     /app?board=b-atlas&view=flow&range=26       the Flow view over a longer window
  *     /app?board=b-atlas&view=flow&flow=f-cards   the Flow view of one cards flow
  *     /app?board=b-atlas&view=flow&type=t-bug     the Flow view of one card type
+ *     /app?board=b-atlas&view=flow&sle=lead&sle-share=90  its service level on lead time at 90%
  *     /app?board=b-atlas&view=timeline&zoom=wide  the Timeline drawn day by day
  *     /app?board=b-atlas&item=init-signup         a card or initiative open on it
  *     /app?board=b-atlas&view=dashboard&item=…    both at once
@@ -25,6 +26,7 @@
  */
 
 import { DEFAULT_FLOW_WINDOW, flowWindowParam, isFlowWindow, type FlowWindow } from '@/domain/flowWindow'
+import type { ServiceBasis } from '@/domain/metrics'
 import {
   DEFAULT_TIMELINE_ZOOM,
   isTimelineZoom,
@@ -34,6 +36,10 @@ import {
 
 /** Every view the app can be in. `board` is the board's own flow — the Board tab. */
 export type ViewName = 'board' | 'dashboard' | 'timeline' | 'flow' | 'archive' | 'boards' | 'admin'
+
+/** The Flow view's service-level defaults, left out of the URL so an ordinary link stays short. */
+export const DEFAULT_SERVICE_BASIS: ServiceBasis = 'cycle'
+export const DEFAULT_SERVICE_SHARE = 85
 
 /** The view flags a place is read from. */
 export interface ViewFlags {
@@ -60,6 +66,10 @@ export interface Place {
   flowId?: string | null
   /** The Flow view's card type, when it is one rather than every type on the board. */
   typeId?: string | null
+  /** The Flow view's service-level clock, when it is lead rather than cycle. */
+  serviceBasis?: ServiceBasis
+  /** The Flow view's service-level confidence, when it is not the default 85 percent. */
+  serviceShare?: number
   /**
    * The Timeline's zoom, when it is not the default. Like the Flow view's window, it is part of the
    * place: a link that opens the axis a week at a time must open that, not the default width.
@@ -98,6 +108,12 @@ export function urlQuery(place: Place): string {
     if (place.range !== undefined && place.range !== DEFAULT_FLOW_WINDOW) params.set('range', flowWindowParam(place.range))
     if (place.flowId) params.set('flow', place.flowId)
     if (place.typeId) params.set('type', place.typeId)
+    if (place.serviceBasis !== undefined && place.serviceBasis !== DEFAULT_SERVICE_BASIS) {
+      params.set('sle', place.serviceBasis)
+    }
+    if (place.serviceShare !== undefined && place.serviceShare !== DEFAULT_SERVICE_SHARE) {
+      params.set('sle-share', String(Math.round(place.serviceShare * 10) / 10))
+    }
   }
   // The same rule for the Timeline's width: the default is left out, so an ordinary link stays
   // the shortest true thing to say.
@@ -163,6 +179,13 @@ export function placeFromQuery(search: string): Partial<Place> {
   if (flow) place.flowId = flow
   const type = params.get('type')
   if (type) place.typeId = type
+  const sle = params.get('sle')
+  if (sle === 'cycle' || sle === 'lead') place.serviceBasis = sle
+  const sleShare = params.get('sle-share')
+  if (sleShare !== null) {
+    const share = Number(sleShare)
+    if (Number.isFinite(share) && share >= 1 && share <= 99) place.serviceShare = Math.round(share * 10) / 10
+  }
   const zoom = params.get('zoom')
   if (zoom !== null && isTimelineZoom(zoom)) place.zoom = zoom
   return place

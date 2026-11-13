@@ -167,6 +167,32 @@ test('a dot in the scatter is the card it stands for', async ({ page }) => {
   expect(await panel.getAttribute('aria-label')).toContain(title)
 })
 
+test('cycle time by week shows each week’s shape, and a week picks itself out on the scatter', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+  const weeks = view.locator('[data-cycle-week]')
+
+  await expect(weeks.first()).toBeVisible()
+  expect(await weeks.count()).toBe(12)
+  await expect(view.locator('[data-cycle-week-box]').first()).toBeVisible()
+  await expect(view.locator('[data-cycle-week-overall]')).toBeVisible()
+
+  const withCards = weeks.filter({ has: page.locator('[data-cycle-week-box]') })
+  const week = withCards.last()
+  await week.click()
+  await expect(view.locator('[data-scatter-focus]')).toBeVisible()
+  await expect(week).toHaveAttribute('aria-pressed', 'true')
+  // The rest of the window stays as context rather than disappearing.
+  expect(await view.locator('[data-flow-scatter-point].opacity-20').count()).toBeGreaterThan(0)
+
+  await view.getByRole('button', { name: 'Clear week' }).click()
+  await expect(view.locator('[data-scatter-focus]')).toHaveCount(0)
+
+  // Every week's numbers are available, including the empty ones.
+  await view.locator('[data-cycle-week-details] summary').click()
+  await expect(view.locator('[data-cycle-week-table] tbody tr')).toHaveCount(12)
+})
+
 test('aging work lists what is old, and a row opens the card', async ({ page }) => {
   await page.goto(FLOW)
   const view = page.locator('[data-flow-view]')
@@ -211,6 +237,54 @@ test('aging work chooses its columns, with Backlog off by default', async ({ pag
   await notStarted.uncheck()
   await inProgress.uncheck()
   await expect(view.getByText('No cards in the selected columns.')).toBeVisible()
+})
+
+test('WIP is shown by age over the window, and a longer window is drawn by week', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+  const chart = view.locator('[data-wip-age]')
+
+  await expect(chart).toBeVisible()
+  await expect(chart).toHaveAttribute('data-wip-age-grain', 'day')
+  await expect(chart.getByText('≤1 day', { exact: true })).toBeVisible()
+  await expect(chart.getByText('>14 days', { exact: true })).toBeVisible()
+  await expect(view.locator('[data-wip-age-bucket]').first()).toBeVisible()
+  await expect(view.locator('[data-wip-age-average]')).toBeVisible()
+  // Every day's numbers are available, but folded away until asked for.
+  await expect(view.locator('[data-wip-age-table]')).toHaveCount(1)
+  // The chart is descriptive: no warning marker or score.
+  await expect(view.locator('[data-wip-age-warning]')).toHaveCount(0)
+
+  // A quarter is daily; 26 weeks is weekly, and the table keeps every point.
+  await view.getByLabel('Range').selectOption('26')
+  await expect(view.locator('[data-wip-age]')).toHaveAttribute('data-wip-age-grain', 'week')
+  const summary = view.locator('[data-wip-age-details] summary')
+  await expect(summary).toBeVisible()
+  await summary.click()
+  await expect(view.locator('[data-wip-age-table] tbody tr')).toHaveCount(26)
+})
+
+test('flow stability sits beside the throughput, not in place of it', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+  const stability = view.locator('[data-flow-stability]')
+
+  // The throughput bars are still the throughput reading.
+  await expect(view.locator('[data-flow-week]').first()).toBeVisible()
+  expect(await view.locator('[data-flow-week]').count()).toBe(12)
+
+  await expect(stability).toBeVisible()
+  const net = stability.locator('[data-stability-net]')
+  expect(await net.count()).toBe(12)
+  const netValues = await net.evaluateAll((nodes) =>
+    nodes.map((node) => Number(node.getAttribute('data-stability-net'))),
+  )
+  // Both directions are real: work left the system some weeks and accumulated in others.
+  expect(netValues.some((value) => value > 0)).toBe(true)
+  expect(netValues.some((value) => value < 0)).toBe(true)
+  await expect(stability.locator('[data-flow-net]')).toBeVisible()
+  await expect(stability.locator('[data-stability-summary]')).toContainText(/of \d+ weeks? with movement/)
+  await expect(stability.getByText(/Net flow over the window:/)).toBeVisible()
 })
 
 test('the cycle time distribution is drawn, with the shape said in words', async ({ page }) => {
@@ -313,6 +387,35 @@ test('the service level expectation follows the share chosen', async ({ page }) 
   await expect(line).toContainText('50% of the')
   await view.getByLabel('Service level share').selectOption('95')
   await expect(line).toContainText('95% of the')
+})
+
+test('the service level reads a duration as well as a confidence, on either clock', async ({ page }) => {
+  await page.goto(FLOW)
+  const view = page.locator('[data-flow-view]')
+  const line = view.locator('[data-sle-line]')
+  const day = view.getByLabel('Service level days')
+
+  // The day-first direction: a duration gives back the share of the same sample.
+  await day.fill('8')
+  await day.press('Enter')
+  await expect(line).toContainText('% of the')
+  await expect(line).toContainText('from leaving Backlog')
+  // The chosen line is drawn on the cycle-time charts, not just stated in the panel.
+  await expect(view.locator('[data-scatter-line="service"]')).toBeVisible()
+
+  // The other clock: lead time counts from creation, and the URL carries the reading.
+  await view.getByRole('group', { name: 'Service level basis' }).getByRole('button', { name: 'Lead' }).click()
+  await expect(line).toContainText('from creation')
+  await expect(page).toHaveURL(/sle=lead/)
+  await expect(page).toHaveURL(/sle-share=/)
+  // A lead-time reading has no line on the cycle-time charts.
+  await expect(view.locator('[data-scatter-line="service"]')).toHaveCount(0)
+
+  const shared = page.url()
+  await page.goto(shared)
+  const reloaded = page.locator('[data-flow-view] [data-sle-line]')
+  await expect(reloaded).toContainText('from creation')
+  await expect(reloaded).toContainText('% of the')
 })
 
 test('says how much history there is, and calls a thin sample thin', async ({ page }) => {

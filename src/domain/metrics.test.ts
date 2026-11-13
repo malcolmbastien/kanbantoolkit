@@ -5,6 +5,8 @@ import {
   bucketsFor,
   committedAt,
   cumulativeFlow,
+  cycleByWeek,
+  dailyBuckets,
   cycleTimes,
   deliveredSince,
   flowRecord,
@@ -23,10 +25,16 @@ import {
   sampleStats,
   scatterPoints,
   serviceLevel,
+  serviceLevelOf,
+  shareWithinDays,
   stageAt,
+  startedCounts,
   throughput,
+  throughputStability,
   weeklyBuckets,
   windowStart,
+  wipAgeSeries,
+  wipAgesAt,
   type FlowRecord,
   type StageMove,
 } from './metrics'
@@ -162,6 +170,58 @@ describe('flow metrics', () => {
       rec({ id: 'e' }), // never resolved
     ]
     expect(throughput(records, buckets)).toEqual([0, 1, 2])
+  })
+
+  it('reads starts, completions and predictability from the same weeks', () => {
+    const buckets = weeklyBuckets(T, 3) // T-14, T-7, T
+    const records = [
+      rec({ id: 'early', createdAt: T - 20 * DAY, moves: [move(T - 15 * DAY, 'inProgress', 'backlog')], resolvedAt: T - 10 * DAY }),
+      rec({ id: 'mid', createdAt: T - 20 * DAY, moves: [move(T - 8 * DAY, 'inProgress', 'backlog')], resolvedAt: T - 3 * DAY }),
+      rec({ id: 'late', createdAt: T - 2 * DAY, startedIn: 'notStarted', resolvedAt: T - 1 * DAY }),
+      rec({ id: 'waiting', createdAt: T - 30 * DAY }),
+      rec({ id: 'before', createdAt: T - 40 * DAY, moves: [move(T - 30 * DAY, 'inProgress', 'backlog')] }),
+    ]
+    expect(startedCounts(records, buckets)).toEqual([1, 1, 1])
+    expect(throughput(records, buckets)).toEqual([0, 1, 2])
+    const stability = throughputStability(records, buckets)
+    expect(stability.started).toEqual([1, 1, 1])
+    expect(stability.completed).toEqual([0, 1, 2])
+    expect(stability.net).toEqual([-1, 0, 1])
+    // The first week started work without finishing it; the other two finished at least as much.
+    expect(stability.weeksWithMovement).toBe(3)
+    expect(stability.completedAtLeastStarted).toBe(2)
+    expect(stability).toMatchObject({ mean: 1, median: 1, min: 0, p85: 2, max: 2 })
+  })
+
+  it('leaves a quiet week out of the predictability sample', () => {
+    const buckets = weeklyBuckets(T, 3)
+    const records = [rec({ id: 'only', createdAt: T - 2 * DAY, startedIn: 'inProgress' })]
+    const stability = throughputStability(records, buckets)
+    expect(stability.weeksWithMovement).toBe(1)
+    expect(stability.completedAtLeastStarted).toBe(0)
+    expect(throughputStability([], buckets).weeksWithMovement).toBe(0)
+  })
+
+  it('reads each week’s cycle shape, and leaves a week with no deliveries empty', () => {
+    const buckets = weeklyBuckets(T, 3) // T-14, T-7, T
+    const make = (id: string, cycle: number, resolvedAt: number) =>
+      rec({
+        id,
+        createdAt: resolvedAt - cycle * DAY - DAY,
+        resolvedAt,
+        moves: [move(resolvedAt - cycle * DAY, 'inProgress', 'backlog'), move(resolvedAt, 'done', 'inProgress')],
+      })
+    const records = [
+      make('a', 2, T - 16 * DAY),
+      make('b', 4, T - 15 * DAY),
+      make('c', 6, T - 20 * DAY),
+      make('d', 8, T - 10 * DAY),
+      make('e', 10, T - 9 * DAY),
+    ]
+    const weeks = cycleByWeek(records, buckets)
+    expect(weeks[0]).toMatchObject({ n: 3, min: 2, p25: 2, p50: 4, p75: 6, max: 6 })
+    expect(weeks[1]).toMatchObject({ n: 2, min: 8, p25: 8, p50: 9, p75: 10, max: 10 })
+    expect(weeks[2]).toEqual({ at: T, n: 0 })
   })
 
   it('the cumulative flow diagram counts where the work is at each boundary', () => {
@@ -338,6 +398,42 @@ describe('aging work', () => {
   })
 })
 
+describe('WIP by age', () => {
+  it('splits work in flight by age since commitment, and leaves Backlog, Done and filed work out', () => {
+    const fresh = rec({ id: 'fresh', createdAt: T - 3 * DAY, moves: [move(T - 2 * DAY, 'inProgress', 'backlog')] })
+    const week = rec({ id: 'week', createdAt: T - 20 * DAY, moves: [move(T - 6 * DAY, 'notStarted', 'backlog')] })
+    const old = rec({ id: 'old', createdAt: T - 30 * DAY, moves: [move(T - 15 * DAY, 'inProgress', 'backlog')] })
+    const backlog = rec({ id: 'backlog' })
+    const done = rec({
+      id: 'done',
+      resolvedAt: T - DAY,
+      moves: [move(T - 10 * DAY, 'inProgress', 'backlog'), move(T - DAY, 'done', 'inProgress')],
+    })
+    const archived = rec({ id: 'archived', archivedAt: T - 2 * DAY, moves: [move(T - 20 * DAY, 'inProgress', 'backlog')] })
+    expect(wipAgesAt([fresh, week, old, backlog, done, archived], T)).toEqual({ le1: 0, le7: 2, le14: 0, gt14: 1 })
+  })
+
+  it('counts a card created into a committed stage from creation, with inclusive day boundaries', () => {
+    const one = rec({ id: 'one', createdAt: T - DAY, startedIn: 'inProgress' })
+    const two = rec({ id: 'two', createdAt: T - 2 * DAY, startedIn: 'notStarted' })
+    const seven = rec({ id: 'seven', createdAt: T - 7 * DAY, startedIn: 'inProgress' })
+    const eight = rec({ id: 'eight', createdAt: T - 8 * DAY, startedIn: 'inProgress' })
+    const fourteen = rec({ id: 'fourteen', createdAt: T - 14 * DAY, startedIn: 'inProgress' })
+    expect(wipAgesAt([one, two, seven, eight, fourteen], T)).toEqual({ le1: 1, le7: 2, le14: 2, gt14: 0 })
+  })
+
+  it('draws one point per day, ending at now, with the total on top', () => {
+    const boundaries = dailyBuckets(T - 3 * DAY, T)
+    expect(boundaries).toHaveLength(3)
+    expect(boundaries[boundaries.length - 1]).toBe(T)
+    const card = rec({ id: 'a', createdAt: T - 10 * DAY, moves: [move(T - 5 * DAY, 'inProgress', 'backlog')] })
+    const series = wipAgeSeries([card], boundaries)
+    expect(series).toHaveLength(3)
+    expect(series.map((point) => point.total)).toEqual([1, 1, 1])
+    expect(series[0].counts).toEqual({ le1: 0, le7: 1, le14: 0, gt14: 0 })
+  })
+})
+
 describe('the histograms', () => {
   it('counts whole days, keeps the empty buckets, and folds the tail into one', () => {
     const buckets = histogram([0, 0.4, 1, 1.9, 2, 60, 61, 100], 1, 60)
@@ -391,6 +487,19 @@ describe('the service level expectation', () => {
     // All history includes the old card.
     expect(serviceLevel(records, undefined, 85)).toEqual({ share: 85, days: 20, n: 5 })
     expect(serviceLevel([], undefined)).toEqual({ share: 85, days: undefined, n: 0 })
+  })
+
+  it('answers the day-first question from the same sample', () => {
+    const values = [2, 4, 6, 8]
+    expect(serviceLevelOf(values, 50)).toEqual({ share: 50, days: 4, n: 4 })
+    expect(serviceLevelOf(values, 87.5)).toEqual({ share: 87.5, days: 8, n: 4 })
+    expect(serviceLevelOf([], 90)).toEqual({ share: 90, days: undefined, n: 0 })
+    expect(shareWithinDays(values, 5)).toBe(50)
+    expect(shareWithinDays(values, 8)).toBe(100)
+    expect(shareWithinDays(values, 0)).toBe(0)
+    expect(shareWithinDays([], 5)).toBeUndefined()
+    expect(shareWithinDays(values, -1)).toBeUndefined()
+    expect(shareWithinDays(values, Number.NaN)).toBeUndefined()
   })
 })
 
