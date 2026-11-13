@@ -8,7 +8,7 @@ path: /
     <div class="hero-copy">
       <h1>The open-source <br class="hero-break" /><span>Kanban board for teams</span></h1>
       <p class="lede">
-        Manage the day-to-day work and see how it adds up to larger initiatives. Where the work waits —
+        Manage day-to-day work and see how it connects to larger initiatives. Where the work waits —
         and why — is on the card, so progress and risk need no separate status report.
       </p>
       <p class="cta">
@@ -59,7 +59,7 @@ path: /
           <img src="/img/home-lanes.webp" width="900" height="403" alt="A split column: its cells side by side, each with the name the team gave it, its card count, and the cards inside." />
           <figcaption>
             <span class="dot" aria-hidden="true"></span>
-            Shape the board around the way your team works, with a WIP limit where it helps.
+            Shape the board around the way your team works, putting a WIP limit where it helps.
           </figcaption>
         </figure>
         <figure class="slide slide-2">
@@ -77,10 +77,10 @@ path: /
           </figcaption>
         </figure>
         <figure class="slide slide-4">
-          <img src="/img/home-flow.webp" width="900" height="750" alt="The Flow view: lead and cycle time, a delivery scatter, a cycle-time distribution and aging work, with range, cards-flow and card-type filters." />
+          <img src="/img/home-flow.webp" width="900" height="750" alt="The Flow view: lead and cycle time with a chosen service level, a delivery scatter and weekly range, and the cycle-time distribution, with range, cards-flow and card-type filters." />
           <figcaption>
             <span class="dot" aria-hidden="true"></span>
-            Lead time, cycle time, throughput and a forecast — read from the cards' own moves.
+            Percentile service levels, weekly ranges, aging WIP, net flow and a forecast — read from the cards' own moves.
           </figcaption>
         </figure>
       </div>
@@ -101,10 +101,10 @@ path: /
       <p class="kicker">For the whole team</p>
       <h2>The cards hold the detail. The initiatives show how it adds up.</h2>
       <p>
-        A team board is both at once. Its <strong>cards flows</strong> are a kanban the team shapes
-        for its own work — columns, splits and WIP limits, and a second flow when another kind of
-        work needs its own lane. The <strong>initiatives lane</strong> above reads those same cards
-        as the summary leaders and stakeholders see, so nothing is entered twice.
+        A team board does both at once. Its <strong>cards flows</strong> are a kanban the team shapes
+        for its own work — columns, splits and WIP limits, and a second flow when another kind of work
+        needs its own lane. The <strong>initiatives lane</strong> above reads those same cards as the
+        summary that leaders and stakeholders see, so nothing is entered twice.
       </p>
     </div>
 
@@ -133,16 +133,15 @@ path: /
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-6 4 3 5-8"/></svg>
           The initiatives lane
         </p>
-        <h3>The summary leaders and stakeholders read</h3>
+        <h3>The summary that leaders and stakeholders read</h3>
         <p>
           Above the cards, the initiatives lane groups the outcomes the team delivers and counts
-          progress, dates and health from the cards beneath them — the same work, not a second
-          report.
+          progress, dates and health from the cards beneath it — the same work, not a second report.
         </p>
         <ul class="checked">
           <li>Progress and health rolled up as the cards move</li>
           <li>One summary to share with leaders and stakeholders</li>
-          <li>The detail stays on the card, where the team works</li>
+          <li>The working detail stays with the team, not in the summary</li>
           <li>Both views read one board and one set of cards</li>
         </ul>
       </article>
@@ -150,23 +149,18 @@ path: /
 
     <div class="signals-block">
       <p class="signals-head">
-        <strong>Warnings and roll-ups, counted from the work.</strong> A card says when it started
-        late, is overdue, has gone stale, is blocked or waits on a dependency. The same rules read
-        the hierarchy, so an initiative reports what needs attention below it. No flag is set by
-        hand, and each clears when the work moves.
+        <strong>Warnings and roll-ups, counted from the work.</strong> A card says when its planned
+        start has slipped, when it is overdue or stale, when it is blocked, or when it is waiting on a
+        dependency. The same rules read the hierarchy, so an initiative reports what needs attention
+        below it. No flag is set by hand, and each clears when the work moves.
       </p>
       <ul class="signals">
-        <li><span class="signal watch">late start</span>The planned start passed and the work has not begun.</li>
-        <li><span class="signal risk">3d overdue</span>The promise passed and the work is not done.</li>
-        <li><span class="signal watch">still 17d</span>Committed work that has not moved in a week.</li>
-        <li><span class="signal risk">blocked</span>The reason is written on the card, where the team sees it.</li>
-        <li><span class="signal quiet">2 open</span>Waiting on work that is not done, here or on another board.</li>
+        <li><span class="signal watch">late start</span>The planned start has passed, but the work has not begun.</li>
+        <li><span class="signal risk">3d overdue</span>The promised day has passed, and the work is not done.</li>
+        <li><span class="signal watch">still 17d</span>Committed work that has not moved for a week.</li>
+        <li><span class="signal risk">blocked</span>The reason is written on the card, not hidden in a chat.</li>
+        <li><span class="signal quiet">2 open</span>Work it depends on, whether here or on another board.</li>
       </ul>
-      <p class="signals-note">
-        <strong>It rolls up.</strong> The initiative above repeats the counts — <em>1 blocked</em>,
-        <em>2 waiting</em>, <em>still 29d</em>, <em>1 unowned</em> — read from its cards, so a
-        leader's summary and the team's board cannot disagree.
-      </p>
     </div>
   </div>
 </section>
@@ -191,8 +185,8 @@ path: /
         </p>
         <h3>The day-to-day work</h3>
         <p>
-          The team's own cards flows, columns and WIP limits, with the initiatives its work rolls up
-          into. This is where cards are made and moved.
+          The team's own cards flows, columns and WIP limits, together with the initiatives its work
+          rolls up into. This is where cards are created and moved.
         </p>
         <ul class="checked">
           <li>Cards, cards flows and the initiatives lane</li>
@@ -208,8 +202,8 @@ path: /
         </p>
         <h3>How teams deliver together</h3>
         <p>
-          A coordination board over the teams beneath it: its own initiatives and a band per linked
-          board, read for progress, dependencies and where one team is waiting on another.
+          A coordination board over the teams beneath it: its own initiatives, plus a band for each
+          linked board, read for progress, dependencies, and where one team is waiting on another.
         </p>
         <ul class="checked">
           <li>One band per linked team or program</li>
@@ -230,7 +224,7 @@ path: /
         </p>
         <ul class="checked">
           <li>Objectives and the initiatives mapped to them</li>
-          <li>Coverage: what nothing serves, and what serves nothing</li>
+          <li>Coverage: objectives with no initiative, and initiatives serving no objective</li>
           <li>Progress and health for each objective</li>
         </ul>
       </article>
@@ -262,8 +256,9 @@ path: /
         </p>
         <h3>Your work stays yours</h3>
         <p>
-          Changes save as you make them, or as soon as the connection returns, and land in the order
-          they were made, so everybody reads the same copy.
+          Your board is not a tenant inside somebody else's service. It is a database file on a
+          machine you control, with no vendor account in the path — copy it, move it or restore it
+          whenever you want.
         </p>
       </article>
 

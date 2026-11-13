@@ -75,8 +75,8 @@ browser. There is no account and nothing is collected.
   - Health flags for blocked, waiting, stale, unowned, unplanned work below, and past target date.
 - **Views**
   - Dashboard and timeline of a board's initiatives.
-  - Flow metrics on team boards: lead time, cycle time, throughput, distributions, aging and a
-    forecast.
+  - Flow metrics on team boards: lead and cycle time, throughput, distributions, weekly ranges,
+    aging and WIP by age, net flow, a two-way service level and a forecast.
   - Strategy map on portfolio boards: objectives, key results, the initiatives that serve them, and
     coverage gaps. An objective's completeness comes from the work below it.
   - Archive of completed and discarded work, with restore; finished cards are filed a week after

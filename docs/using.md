@@ -195,8 +195,9 @@ a program's outcome is decomposed into a team's initiative.
   still wide enough to print a day number with room around it — and the width is kept in the page's
   address, so a link opens the reading it names.
 - **Flow** — on a team board, lead time (how long a card takes from start to finish) and cycle time
-  (how long it takes to finish once work has started), throughput, their distributions, aging, a
-  service level expectation (how long most work takes) and a forecast of when the open work could
+  (how long it takes to finish once work has started), their distributions and weekly ranges,
+  throughput, aging work, WIP by age, net flow, a service level you can read from either end (a
+  confidence gives the days, a duration gives the share) and a forecast of when the open work could
   finish. The time window (4 to 26 weeks, or all history), the cards-flow filter and the card-type
   filter are kept in the page's address. A program or portfolio board has no
   cards flow, so it offers no Flow view. The definitions and the reasoning are in

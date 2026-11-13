@@ -27,8 +27,8 @@ path: /product/
 <p>
   Every top-level column is one of four stages — Backlog, Not Started, In Progress, Done — and that is
   fixed. The shape between them is yours: split a column into the cells the team actually uses, name
-  them, and put a WIP limit on the one that needs it. A limit can tint the lane, ask for a reason, or
-  hold the move.
+  them, and put a WIP limit on the one that needs it. A limit can tint the lane, ask for a reason
+  before a move, or hold the move.
 </p>
 <p>
   A board carries one initiatives flow and one or more cards flows — a delivery flow and a support
@@ -80,10 +80,11 @@ path: /product/
 
 <h2 id="initiatives">Initiatives, computed from the work below</h2>
 <p>
-  An initiative has no status field and nothing to estimate. Its status is the rollup of its leaves,
-  and its completion is the share of them that are done — one issue, one share, counted rather than
-  weighted. A Backlog leaf counts in the percentage without dragging a committed initiative backwards,
-  and when committed work sits over unplanned leaves the card warns rather than correcting itself.
+  An initiative has no status field and nothing to estimate on its own. Its status is the rollup of
+  its leaves, and its completion is the share of them that are done — one issue, one share, counted
+  rather than weighted. A Backlog leaf counts in the percentage without dragging a committed
+  initiative backwards, and when committed work sits over unplanned leaves the card warns rather than
+  correcting itself.
 </p>
 <figure class="shot">
   <img src="/img/initiatives.webp" width="1408" height="499" alt="The initiatives flow: four initiatives under their stage headings, each with its progress bar, people and badges for warnings and rollups." />
@@ -93,7 +94,8 @@ path: /product/
 <p>
   A portfolio board leads with a strategy map. Each objective heads the board's own initiatives flow,
   narrowed to the initiatives attributed to it — from any board — and the two coverage gaps are said
-  where they occur: an objective nothing serves, and an initiative serving nothing.
+  where they occur: an objective with no initiative behind it, and an initiative that serves no
+  objective.
 </p>
 <p>
   Progress comes from the leaves below, and a period says when it is due. Key results are statements,
@@ -105,13 +107,15 @@ path: /product/
 
 <h2 id="flow">Flow, measured from the moves</h2>
 <p>
-  Every move is already in the card's history, so lead time, cycle time, throughput and a forecast are
-  read from the log rather than compiled by hand. The Flow view shows the delivery scatter, the
-  cycle-time distribution and aging work, with range, flow and card-type filters. Done means the card
-  reached Done.
+  Every move is already in the card's history, so lead and cycle time, their distributions,
+  throughput and a forecast are read from the log rather than compiled by hand. The Flow view shows
+  the delivery scatter and its weekly range, the cycle-time distribution, aging work, WIP by age,
+  net flow and a service level you can read from either end — choose a confidence for the days, or a
+  duration for the share. Range, flow and card-type filters make it one team's reading, and the
+  address carries it. Done means the card reached Done.
 </p>
 <figure class="shot">
-  <img src="/img/flow.webp" width="1440" height="1200" alt="The Flow view: in-flight and delivered counts, lead and cycle time with percentiles, a cycle-time scatter, a distribution and an aging-work table." />
+  <img src="/img/flow.webp" width="1440" height="1200" alt="The Flow view: in-flight and delivered counts, lead and cycle time with a chosen service level, a cycle-time scatter and weekly range, and the cycle-time distribution beneath." />
 </figure>
 
 <h2 id="every-view">One model, every altitude</h2>

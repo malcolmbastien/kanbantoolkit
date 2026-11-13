@@ -7,10 +7,11 @@ work visible, and forecast with a range instead of a date.
 
 ## What the Flow view is now
 
-The screen is the header reading, the cycle-time scatter, the cycle-time distribution, aging work,
-the cumulative flow diagram, throughput, and one **Planning** panel with three readings: the service
-level expectation, when the open work will be done, and how many by a date. The controls row also
-exports the window's delivered cards — the rows the scatter used to list — as CSV.
+The screen is the header reading, the two-way service-level explorer, the cycle-time scatter and its
+weekly range, the cycle-time distribution, aging work, WIP and age, the cumulative flow diagram,
+throughput, flow stability, and one **Planning** panel with three readings: the service level
+expectation, when the open work will be done, and how many by a date. The controls row also exports
+the window's delivered cards — the rows the scatter used to list — as CSV.
 
 The **service level** reads both ways. Choose a confidence and it names the days; type a duration and
 it names the share of the window's cards that finished within it. It can read **cycle time**
@@ -45,9 +46,9 @@ The cycle-time dots and the throughput bars are coloured by the card's **type**,
 own type colours. Each chart carries a legend naming the types in its window; the tooltip names the
 type again, and so does the CSV.
 
-<img src="img/guide/flow-view.webp" alt="The Flow view for Team Atlas: the header reading, cycle-time scatter and distribution, aging work, cumulative flow, throughput and the planning panel" width="1100">
+<img src="img/guide/flow-view.webp" alt="The Flow view for Team Atlas: the header reading, the chosen service level on the cycle-time scatter, the weekly cycle range, and the cycle-time distribution beneath" width="1200">
 
-*The Flow view: the window, cards flow and card type at the top, with the delivery history beneath them.*
+*The Flow view: the window, cards flow and card type at the top, the chosen service level and the weekly shape beneath, with the distribution below them.*
 
 Three things were built and then removed when the screen was narrowed: **blocked work**, **Little's
 Law**, and the **data-quality section**. The **CSV export** went with them, and came back once the
@@ -143,7 +144,7 @@ Minimums before forecasting: at least 4 weeks in the window and at least 8 deliv
 that the screen says what is missing and shows nothing else. Range estimates are not built: a typed
 range would be a second source of truth beside the board.
 
-<img src="img/guide/flow-planning.webp" alt="The Planning panel: service level, when the open work will be done, and how many by a date" width="1100">
+<img src="img/guide/flow-planning.webp" alt="The panels above Planning — cumulative flow, throughput and flow stability — then the service-level controls, the forecast range and the chance of a number by a date" width="1200">
 
 *The Planning panel reads the same window and throughput three ways: the service level of the past,
 the forecast range for the open scope, and the chance of a number by a date. The two forecasts share

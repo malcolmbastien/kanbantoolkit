@@ -1068,27 +1068,6 @@ figcaption {
   color: var(--muted);
 }
 
-/* The roll-up: the same rules read one level up, so the reading is repeated rather than retyped. */
-.signals-note {
-  margin: 1rem 0 0;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--line);
-  max-width: none;
-  font-size: 0.8rem;
-  line-height: 1.65;
-  color: var(--muted);
-}
-
-.signals-note strong {
-  color: var(--ink);
-}
-
-.signals-note em {
-  font-style: normal;
-  font-weight: 650;
-  color: var(--ink);
-}
-
 /* The promises: one claim in three parts, each with the proof beside it. */
 .promises {
   display: grid;
