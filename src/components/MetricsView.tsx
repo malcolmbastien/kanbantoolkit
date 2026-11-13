@@ -952,6 +952,7 @@ function CycleHistogram({
           <span>0d</span>
           <span>{buckets.length > 1 ? `${buckets[buckets.length - 1].tail ? `${buckets[buckets.length - 1].from}+` : `${buckets[buckets.length - 1].to - 1}`}d` : '1d'}</span>
         </div>
+        <div className="mt-0.5 text-center text-micro text-slate-500">Calendar days</div>
         <div className="mt-0.5 flex flex-wrap gap-3 text-micro text-slate-600">
           {service === undefined ? (
             <>
@@ -1037,7 +1038,13 @@ function WeeklyCycleRange({
         <div className="text-meta text-slate-600">No cards finished in this window.</div>
       ) : (
         <div data-cycle-week-range className="mt-5">
-          <div className="relative h-40">
+          <div className="flex gap-2">
+            <div className="flex h-40 w-7 shrink-0 flex-col justify-between text-right text-micro tabular-nums text-slate-500">
+              <span>{cap}d</span>
+              <span>{Math.round(cap / 2)}d</span>
+              <span>0d</span>
+            </div>
+            <div className="relative h-40 min-w-0 flex-1">
             <div className="flex h-full items-end gap-1">
               {weeks.map((week, index) => {
                 const min = week.min === undefined ? 0 : Math.min(week.min, cap)
@@ -1067,6 +1074,16 @@ function WeeklyCycleRange({
                             bottom: `${(min / cap) * 100}%`,
                             height: `${Math.max(0, ((max - min) / cap) * 100)}%`,
                           }}
+                        />
+                        <span
+                          data-cycle-week-cap
+                          className="absolute left-1/2 h-px w-2.5 -translate-x-1/2 bg-slate-400"
+                          style={{ bottom: `${(min / cap) * 100}%` }}
+                        />
+                        <span
+                          data-cycle-week-cap
+                          className="absolute left-1/2 h-px w-2.5 -translate-x-1/2 bg-slate-400"
+                          style={{ bottom: `${(max / cap) * 100}%` }}
                         />
                         <span
                           data-cycle-week-box
@@ -1113,8 +1130,9 @@ function WeeklyCycleRange({
                 </span>
               </span>
             )}
+            </div>
           </div>
-          <div className="mt-1 flex gap-1 text-micro text-slate-500">
+          <div className="mt-1 flex gap-1 pl-9 text-micro text-slate-500">
             {weeks.map((week, index) => (
               <span key={week.at} className="min-w-0 flex-1 text-center">
                 {index % labelEvery === 0 || index === weeks.length - 1 ? shortDate(week.at) : ''}

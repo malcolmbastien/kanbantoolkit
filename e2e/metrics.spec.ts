@@ -175,6 +175,7 @@ test('cycle time by week shows each week’s shape, and a week picks itself out 
   await expect(weeks.first()).toBeVisible()
   expect(await weeks.count()).toBe(12)
   await expect(view.locator('[data-cycle-week-box]').first()).toBeVisible()
+  await expect(view.locator('[data-cycle-week-cap]').first()).toBeVisible()
   await expect(view.locator('[data-cycle-week-overall]')).toBeVisible()
 
   const withCards = weeks.filter({ has: page.locator('[data-cycle-week-box]') })
@@ -292,6 +293,7 @@ test('the cycle time distribution is drawn, with the shape said in words', async
   const view = page.locator('[data-flow-view]')
 
   await expect(view.locator('[data-cycle-histogram]')).toBeVisible()
+  await expect(view.getByText('Calendar days', { exact: true })).toBeVisible()
   expect(await view.locator('[data-cycle-histogram-bar]').count()).toBeGreaterThan(0)
   await expect(view.getByText(/Most finished in/)).toBeVisible()
   // The numbers are part of the panel, not folded away behind a summary — and neither table
