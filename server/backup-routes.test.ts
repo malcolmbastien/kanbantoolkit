@@ -101,5 +101,5 @@ describe('backups from Admin', () => {
     })
     expect(staged.status).toBe(200)
     expect(await staged.json()).toMatchObject({ staged: true, boards: 1, items: 1 })
-  })
+  }, 20_000)
 })

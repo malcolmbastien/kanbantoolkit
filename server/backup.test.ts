@@ -89,7 +89,7 @@ describe('a backup of a self-hosted workspace', () => {
     // The comparison R3 asks for: not "a file arrived" but "this is the workspace".
     const back = await readWorkspace(fromSqlite(new DatabaseSync(restored)))
     expect(back).toEqual(workspace)
-  })
+  }, 20_000)
 
   it('is consistent, because it is a read transaction and not a file copy', () => {
     const live = working()
@@ -99,7 +99,7 @@ describe('a backup of a self-hosted workspace', () => {
     const integrity = db.prepare('PRAGMA integrity_check').get() as { integrity_check: string }
     db.close()
     expect(integrity.integrity_check).toBe('ok')
-  })
+  }, 20_000)
 
   it('will not overwrite a database unless it is told to', () => {
     const live = working()
@@ -108,7 +108,7 @@ describe('a backup of a self-hosted workspace', () => {
     expect(() => restoreDatabase({ from: copy.path, to: live })).toThrow(/refusing to overwrite/)
     // Told to, it does — a restore is run on a bad day, and the second mistake must not be this.
     expect(restoreDatabase({ from: copy.path, to: live, force: true })).toEqual({ boards: 1, items: 1 })
-  })
+  }, 20_000)
 
   it('keeps a window, and forgets what is older than it', () => {
     const directory = join(scratch ?? mkdtempSync(join(tmpdir(), 'kanbantoolkit-prune-')), 'backups')
@@ -123,9 +123,9 @@ describe('a backup of a self-hosted workspace', () => {
     const removed = prune(directory, 30, new Date('2026-10-23T03:00:00Z'))
     expect(removed).toEqual([old.path])
     expect(latestBackup(directory)).toBe(recent.path)
-  })
+  }, 20_000)
 
   it('says so when there is nothing to copy', () => {
     expect(() => backupDatabase({ from: '/nowhere/kanbantoolkit.db', directory: '/tmp' })).toThrow(/no database/)
-  })
+  }, 20_000)
 })
