@@ -40,7 +40,7 @@ browser. There is no account and nothing is collected.
    initiatives flow — what is planned, what is moving and what depends on what — from the same
    cards.
 
-<img src="site/img/initiatives.webp" alt="The initiatives flow: three initiatives under their stage headings, each showing progress and the work beneath it" width="960">
+<img src="site/img/initiatives.webp" alt="The initiatives flow: four initiatives under their stage headings, each showing progress and the work beneath it" width="960">
 
 ## Features
 
