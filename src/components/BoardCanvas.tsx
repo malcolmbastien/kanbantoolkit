@@ -1110,9 +1110,13 @@ export function BoardCanvas({ boardId, flowId, interactive, onMove }: BoardCanva
         {/* The lane tree, as a tree. Every lane is one item of it, at its own level, and a
             container says whether it is open — so the shape a sighted reader gets from the
             nesting is the shape a screen reader gets from the structure. */}
+        <p id={`card-help-${flowId ?? 'cards'}`} className="sr-only">
+          Each card is a focusable card. Press Enter to open it; press Shift+F10 for its actions.
+        </p>
         <div
           role="tree"
           aria-label={boardName ? `${boardName} — ${flowName ?? 'cards'} lanes` : 'Lanes'}
+          aria-describedby={`card-help-${flowId ?? 'cards'}`}
           className="min-h-[120px] w-full min-w-min"
         >
           {root ? (

@@ -46,7 +46,7 @@ path: /security/
   Known gaps, stated plainly:
 </p>
 <ul class="points">
-  <li><strong>The board is a dense grid.</strong> Dragging a card is the fluent way to move it; the item's own menu is the keyboard way, and both go through the same rule. A screen-reader audit of every screen has not been done.</li>
+  <li><strong>The board is a dense grid.</strong> Dragging a card is the fluent way to move it; the item's own menu is the keyboard way, and both go through the same rule. An automated accessibility pass runs over the board, the drawer and the other views on every build, and a structured screen-reader semantics pass covers the lane tree, the cards, the drawer sections and the dialogs. A full manual NVDA or VoiceOver audit of every screen has not been done, and the accessibility work is never finished.</li>
   <li><strong>Some states are told in colour</strong> — a lane at its WIP limit, an item's type — and each has a word beside it, but not always a symbol.</li>
 </ul>
 <p>

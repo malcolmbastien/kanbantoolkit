@@ -137,6 +137,7 @@ export function TopBar(props: Props) {
               <>
                 <button
                   onClick={onShowBoard}
+                  aria-pressed={boardActive}
                   disabled={editMode}
                   className={cn(
                     'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
@@ -152,6 +153,7 @@ export function TopBar(props: Props) {
             <>
               <button
                 onClick={onShowDashboard}
+                aria-pressed={showDashboard}
                 disabled={editMode}
                 className={cn(
                   'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
@@ -164,6 +166,7 @@ export function TopBar(props: Props) {
 
               <button
                 onClick={onShowTimeline}
+                aria-pressed={showTimeline}
                 disabled={editMode}
                 className={cn(
                   'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
@@ -181,6 +184,7 @@ export function TopBar(props: Props) {
           {makesCards && (
             <button
               onClick={onShowMetrics}
+              aria-pressed={showMetrics}
               disabled={editMode}
               className={cn(
                 'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',
@@ -195,6 +199,7 @@ export function TopBar(props: Props) {
           {!portfolio && (
             <button
               onClick={onShowArchive}
+              aria-pressed={showArchive}
               disabled={editMode}
               className={cn(
                 'flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition disabled:pointer-events-none disabled:opacity-40',

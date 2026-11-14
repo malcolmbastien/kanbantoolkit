@@ -20,9 +20,14 @@ const VIEW_LABEL: Record<ViewName, string | null> = {
   admin: 'Admin',
 }
 
-export function titleFor(place: { view: ViewName; board?: string }): string {
+export function headingFor(place: { view: ViewName; board?: string }): string {
   const parts = [place.board, VIEW_LABEL[place.view]].filter((part): part is string => Boolean(part))
   // A board called "Admin" should not read "Admin · Admin"; a repeated part is said once.
   const said = parts.filter((part, i) => parts.indexOf(part) === i)
-  return [...said, PRODUCT].join(' · ')
+  return said.join(' · ') || PRODUCT
+}
+
+export function titleFor(place: { view: ViewName; board?: string }): string {
+  const heading = headingFor(place)
+  return heading === PRODUCT ? PRODUCT : `${heading} · ${PRODUCT}`
 }

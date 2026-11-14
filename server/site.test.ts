@@ -99,7 +99,8 @@ describe('the trust pages', () => {
   it('states the accessibility target, its tests and its gaps', () => {
     expect(security).toContain('WCAG 2.2 level AA')
     expect(security).toContain('Known gaps')
-    expect(security).toContain('screen-reader audit')
+    expect(security).toContain('screen-reader semantics pass')
+    expect(security).toContain('manual NVDA or VoiceOver audit')
   })
 
   it('names the licence on the security page rather than a page of its own', () => {

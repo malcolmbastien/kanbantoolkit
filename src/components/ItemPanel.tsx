@@ -916,6 +916,7 @@ export function ItemPanel({ itemId }: Props) {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
+                aria-pressed={on}
                 className={cn(
                   'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-meta font-medium transition',
                   on ? 'bg-white font-semibold text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900',

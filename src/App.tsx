@@ -15,6 +15,8 @@ import { useSignedInPerson } from './lib/identity'
 import { useStructureSync } from './lib/structure'
 import { useVocabularySync } from './lib/vocabularySync'
 import { isBoardSurface, useStore } from './store'
+import { viewOf } from './lib/url'
+import { headingFor } from './lib/title'
 
 /**
  * The board is the app's own path, so it is downloaded with the app. The workspace home — the
@@ -62,6 +64,8 @@ export default function App() {
   // The tabs go through the same door the URL does, so a tab and a link mean the same thing.
   const setView = useStore((s) => s.setView)
   const showFilters = useStore((s) => s.showFilters)
+  const view = useStore(viewOf)
+  const heading = headingFor({ view, board: boards.find((board) => board.id === boardId)?.name })
   // The filter panel belongs to the board surface: it narrows one board, so it does not trail
   // into the dashboard, timeline, archive, objectives, the workspace or My work. Leaving for a
   // view keeps the choice — coming back shows it again.
@@ -280,7 +284,12 @@ export default function App() {
       <StaleTabBanner />
 
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1">
+        <main aria-label={heading} className="min-w-0 flex-1">
+          {view !== 'boards' && view !== 'admin' && (
+            <h1 className="sr-only">
+              {heading}
+            </h1>
+          )}
           <Suspense fallback={<ViewLoading />}>
             {showBoards ? (
               <BoardWorkspace />
@@ -298,7 +307,7 @@ export default function App() {
               <BoardView requestMove={requestMove} />
             )}
           </Suspense>
-        </div>
+        </main>
         {showMyWork ? (
           <Suspense
             fallback={<aside aria-busy="true" className="h-full w-[420px] shrink-0 border-l border-slate-300 bg-slate-100" />}

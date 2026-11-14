@@ -42,9 +42,20 @@ async function barriers(page: Page, { nestedInteractive = false } = {}) {
 test('the board has no barrier a machine can find', async ({ page }) => {
   await page.goto('/app?board=b-atlas')
   await expect(page.locator('[data-workflow="cards"]').first()).toBeVisible()
+  // The app has one main landmark named by the visible board, and a top-level heading for a
+  // screen reader's heading list.
+  await expect(page.getByRole('main', { name: 'Team Atlas' })).toBeVisible()
+  await expect(page.locator('h1')).toHaveText('Team Atlas')
   // One tree per cards flow; each names itself, so a reader is never told "lanes" twice.
   await expect(page.getByRole('tree', { name: /Cards lanes/ })).toBeVisible()
   await expect(page.getByRole('tree', { name: /Support lanes/ })).toBeVisible()
+  // A card says what it is and how to open it, even though it is a group because it holds its
+  // own controls.
+  const card = page.locator('[data-workflow="cards"] [data-card-id]').first()
+  await expect(card).toHaveAttribute('aria-roledescription', 'card')
+  await expect(card).toHaveAttribute('aria-keyshortcuts', /Enter/)
+  // The current view is a pressed state, not only a colour.
+  await expect(page.getByRole('button', { name: 'Board', exact: true })).toHaveAttribute('aria-pressed', 'true')
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 
@@ -91,6 +102,10 @@ test('a card open in its panel has none either', async ({ page }) => {
   await page.goto('/app?board=b-atlas')
   await page.locator('[data-workflow="cards"] [data-card-id]').first().click()
   await expect(page.getByLabel('Title')).toBeVisible()
+  // The drawer sits beside the board rather than taking it away, and says whose details it holds.
+  await expect(page.getByRole('complementary', { name: /Card details:/ })).toBeVisible()
+  // Its sections are a pressed group, so a screen reader can say which one is showing.
+  await expect(page.getByRole('button', { name: 'Overview', exact: true })).toHaveAttribute('aria-pressed', 'true')
   expect(await barriers(page, { nestedInteractive: true })).toEqual([])
 })
 

@@ -253,6 +253,10 @@ const cardKeyboard = (
 ) => ({
   role: 'group' as const,
   'aria-label': item.title,
+  // A group is the honest container — the card holds its own actions — but "group" alone does not
+  // tell a screen reader this is a card or that it can be opened. Say both.
+  'aria-roledescription': 'card',
+  'aria-keyshortcuts': 'Enter Space Shift+F10',
   tabIndex: locked ? -1 : 0,
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (locked) return
