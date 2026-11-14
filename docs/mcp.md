@@ -33,7 +33,7 @@ in the image, so it needs a checkout.
 
 A token is a secret that identifies you to the instance. Create one in one of two ways.
 
-**From the app.** Sign in, open **Admin → Connect an agent**, choose a name, and choose whether the
+**From the app.** Sign in, open **Developer → Connect an agent** in your account menu, choose a name, and choose whether the
 agent may write. The app shows the configuration with the secret in it, once.
 
 - Read-only mints `boards:read`, `items:read`, `people:read` and `items:comment`.

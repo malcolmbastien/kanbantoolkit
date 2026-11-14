@@ -47,7 +47,7 @@ export function AuditPanel() {
   return (
     <section className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
       <div className="flex flex-wrap items-baseline gap-2">
-        <h2 className="text-body font-semibold text-slate-900">Audit</h2>
+        <h2 className="text-body font-semibold text-slate-900">Audit log</h2>
         <span className="text-meta text-slate-500">
           {scope === 'workspace' ? 'what this workspace did' : 'every change in this instance'} · kept
           for 90 days

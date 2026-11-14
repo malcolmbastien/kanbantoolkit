@@ -196,6 +196,16 @@ test('a Viewer reads the board, and is offered nothing that would refuse', async
     await grace.getByRole('button', { name: 'Sign in', exact: true }).last().click()
     await expect(grace.getByRole('button', { name: /Grace Hopper/ })).toBeVisible()
 
+    // A personal Developer surface is for every signed-in person, not only administrators:
+    // the agent token acts as Grace, so it cannot live behind Admin.
+    await grace.getByRole('button', { name: /Grace Hopper/ }).click()
+    await grace.getByRole('button', { name: 'Developer', exact: true }).click()
+    const developer = grace.getByRole('dialog', { name: 'Developer' })
+    await expect(developer).toBeVisible()
+    await expect(developer.getByText('Connect an agent', { exact: true })).toBeVisible()
+    await expect(developer.locator('[data-token-panel]')).toBeVisible()
+    await developer.getByRole('button', { name: 'Close' }).click()
+
     // The workspace home: every board, and no way to make, copy, archive, template or import one.
     await grace.goto(`${ORIGIN}/app?view=boards`)
     await expect(grace.getByRole('button', { name: 'Team Atlas', exact: true })).toBeVisible()

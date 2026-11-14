@@ -32,7 +32,7 @@ https://<your instance>/scim/v2
 
 ### The token
 
-**Admin → Directory provisioning → Make a token.** Name it after the provider, choose the
+**Admin → Directory → Make a token.** Name it after the provider, choose the
 **workspace role** a provisioned person gets, and copy the secret into the provider's "provisioning"
 screen. It is shown once; the server keeps a hash. Revoke it in the same panel, and the provider is
 refused on its next call.

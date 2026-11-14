@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { ListChecks, LifeBuoy, LogOut, Settings2, ShieldCheck, UserRound } from 'lucide-react'
+import { Code2, ListChecks, LifeBuoy, LogOut, Settings2, ShieldCheck, UserRound } from 'lucide-react'
 import { useStore } from '@/store'
 
 // A dialog nobody has opened yet is not part of the first download — and neither is the sign-in
 // surface, which a person uses once and then never again.
 const ProfileDialog = lazy(() => import('./ProfileDialog').then((module) => ({ default: module.ProfileDialog })))
+const DeveloperDialog = lazy(() => import('./DeveloperDialog').then((module) => ({ default: module.DeveloperDialog })))
 const SignInPanel = lazy(() => import('./SignInPanel').then((module) => ({ default: module.SignInPanel })))
 import { loadAuth, signOut, useAuth } from '@/lib/auth'
 import { signedInAs } from '@/lib/identity'
@@ -26,6 +27,7 @@ export function AccountMenu() {
     // The preferences link in a digest arrives here: it names the profile, not the menu.
     return new URLSearchParams(window.location.search).get('profile') === '1'
   })
+  const [developerOpen, setDeveloperOpen] = useState(false)
   const [open, setOpen] = useState(() => {
     if (typeof window === 'undefined') return false
     const query = new URLSearchParams(window.location.search)
@@ -71,6 +73,11 @@ export function AccountMenu() {
       {profileOpen && (
         <Suspense fallback={null}>
           <ProfileDialog onClose={() => setProfileOpen(false)} onSaved={() => void loadAuth()} />
+        </Suspense>
+      )}
+      {developerOpen && (
+        <Suspense fallback={null}>
+          <DeveloperDialog onClose={() => setDeveloperOpen(false)} />
         </Suspense>
       )}
 
@@ -127,6 +134,16 @@ export function AccountMenu() {
                 className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               >
                 <Settings2 size={13} /> Profile
+              </button>
+
+              <button
+                onClick={() => {
+                  setOpen(false)
+                  setDeveloperOpen(true)
+                }}
+                className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-meta text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              >
+                <Code2 size={13} /> Developer
               </button>
 
               {/* Admin is the instance's own administration, so it is offered only to the people

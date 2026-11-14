@@ -319,7 +319,7 @@ in?" and an administrator "why is this account still active?":
 Do **not** copy IP binding in v1. `log` is harmless but noisy; `strict` breaks mobile and office
 networks. If it is ever added, it is an operator setting with `log` as the default.
 
-### 3.6 Audit
+### 3.6 Audit log
 
 One append-only table, written by the same middleware that performs the mutation, not by each
 handler separately.
@@ -350,6 +350,22 @@ A `2xx` is delivered, anything else is retried on a backoff up to five attempts,
 the endpoint. Delivery is out of the request path, so a slow receiver cannot make a card save slow or
 fail. The full event catalogue, envelope and signature verification are in
 [Webhooks](webhooks.md).
+
+### 3.8 Health
+
+**Admin → Health** is the instance administrator's reading of the deployment. It is read-only and
+instance-scoped: a workspace administrator or an editor does not see the tab, and the routes refuse
+them anyway.
+
+It shows the schema version against the version this build expects, `database: ok | behind`, the
+release when the runtime supplies one, the account counts, and the client-error inbox. An error row
+opens its message, stack, path, view, build and browser. The report never contains a query string or
+an address, so neither can leak from the screen.
+
+The page reads on open and when **Refresh** is pressed; it does not poll, send a report anywhere or
+start a second logging pipeline. **Diagnostics** downloads the visible health reading and error list
+as JSON for a support thread. Backups and Webhooks remain their own tabs, linked from this one rather
+than duplicated.
 
 ---
 
@@ -470,7 +486,9 @@ refusals, and `422` for validation.
 | `POST /api/admin/users/:id/erase` | Erase personal data, keep id |
 | `PATCH /api/admin/users/:id/instance-role` | `admin` \| `member`, last-admin guard |
 | `GET /api/admin/audit` | Filter by actor, action, target, date |
-| `GET /api/admin/errors` | The error inbox task 107 promised |
+| `GET /api/admin/health` | Schema against expected, database state, release. counts and error totals |
+| `GET /api/admin/errors` | Recent client reports, newest first |
+| `GET /api/admin/errors/:id` | One report with its stack; never a query or an address |
 
 ### Admin — invitations
 
@@ -523,10 +541,11 @@ Admin
 ├── Workspace         its name
 ├── People            search, filters, table, row menu, bulk actions, invite, roles
 ├── Invitations       pending / accepted / expired / revoked, copy link, revoke
-├── Audit             export the trail as a file
+├── Audit log         export the trail as a file
 ├── Webhooks          endpoints, events, signing secrets and deliveries
 ├── Backups           take, download, verify and stage a copy of the database
-├── Tools & agents    agent tokens, directory provisioning
+├── Health            schema, database, release, accounts and the client-error inbox
+├── Directory         SCIM provisioning
 ├── Snapshots         the browser's copies, and the demo reset
 ├── Workspace data    export, import a workspace, import a board, and what the browser keeps
 └── Danger            delete this workspace
@@ -597,7 +616,7 @@ attributable.
 13. Session list and sign-out-everywhere.
 14. Allowed email domains as an alternative to invitations.
 15. Bulk actions on the people table; CSV export.
-16. Error inbox on Admin → Health.
+16. Error inbox on Admin → Health. *Built.*
 17. Delete vs erase, with the request flow from 126.
 18. Board share links (123) under the Administrator role.
 

@@ -208,6 +208,7 @@ export function auditRoutes(runtime: Runtime) {
       schema: version,
       expected: REQUIRED_SCHEMA,
       database: version >= REQUIRED_SCHEMA ? 'ok' : 'behind',
+      ...(runtime.version ? { release: runtime.version } : {}),
       counts: {
         accounts: counts?.accounts ?? 0,
         inactive: counts?.inactive ?? 0,

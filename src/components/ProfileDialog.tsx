@@ -3,7 +3,6 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { mySessions, revokeSession, signOutEverywhere, type SessionInfo } from '@/lib/sessions'
 import { useAuth } from '@/lib/auth'
-import { TokenPanel } from './TokenPanel'
 import { useDialogFocus } from '@/lib/useDialogFocus'
 import { useStore } from '@/store'
 
@@ -422,8 +421,6 @@ export function ProfileDialog({ onClose, onSaved }: { onClose(): void; onSaved()
                 </button>
               )}
             </div>
-
-            <TokenPanel role={account?.role} instanceRole={account?.instanceRole} />
 
             <div className="flex items-center justify-end gap-2 pt-1">
               <button onClick={onClose} className="rounded-md border border-slate-200 px-2.5 py-1 text-meta font-medium text-slate-600 hover:text-slate-900">

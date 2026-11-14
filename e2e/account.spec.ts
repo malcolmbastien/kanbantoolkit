@@ -280,8 +280,8 @@ test('an administrator sees the people, and cannot close their own door', async 
   await expect(page.getByText('You cannot deactivate yourself. Ask another administrator.')).toHaveCount(0)
 
   // The trail is its own tab, not a column below the directory.
-  await page.getByRole('tab', { name: 'Audit' }).click()
-  await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible()
+  await page.getByRole('tab', { name: 'Audit log' }).click()
+  await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible()
   await expect(page.getByText('90 days')).toBeVisible()
 })
 

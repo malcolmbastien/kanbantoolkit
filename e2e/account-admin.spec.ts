@@ -56,6 +56,55 @@ test('the workspace has a name and an end, and no bill at all', async ({ page })
   await expect(page.getByRole('button', { name: 'Delete this workspace…' })).toBeVisible()
 })
 
+test('the instance administrator reads health and the error inbox', async ({ page }) => {
+  await signIn(page)
+  await openAdmin(page)
+
+  // A client error is the one thing this screen exists to show; seed one through the same public
+  // route the browser uses, then open the tab.
+  expect(
+    (
+      await page.request.post(`${ORIGIN}/api/errors`, {
+        data: {
+          message: 'Cannot read properties of undefined',
+          stack: 'TypeError: Cannot read properties of undefined\n    at Board',
+          url: '/app?board=b-atlas',
+          view: 'board',
+          release: 'abc1234',
+          ua: 'Mozilla/5.0',
+        },
+      })
+    ).status(),
+  ).toBe(204)
+
+  await page.getByRole('tab', { name: 'Health' }).click()
+  const health = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Health' }) }).first()
+  await expect(health).toContainText('Schema')
+  await expect(health).toContainText('Database ok')
+  await expect(health.locator('[data-health-errors]')).toBeVisible()
+
+  // The row opens the report without a query or an address in it.
+  await health.getByRole('button', { name: /Cannot read properties/ }).click()
+  const detail = health.locator('[data-health-error-detail]')
+  await expect(detail).toBeVisible()
+  await expect(detail).toContainText('TypeError')
+  await expect(detail).toContainText('/app')
+
+  // The diagnostics file is a local read, not a report to anywhere.
+  const download = page.waitForEvent('download')
+  await health.getByRole('button', { name: 'Diagnostics' }).click()
+  expect((await download).suggestedFilename()).toMatch(/^kanbantoolkit-health-.*\.json$/)
+
+  // The screen links to the other operator surfaces rather than duplicating them.
+  await health.getByRole('button', { name: 'Backups' }).click()
+  await expect(page.getByText('Backups', { exact: true }).first()).toBeVisible()
+
+  // Directory is the instance-level provisioning door, not a home for personal agent tools.
+  await page.getByRole('tab', { name: 'Directory' }).click()
+  await expect(page.getByText('Directory provisioning')).toBeVisible()
+  await expect(page.getByRole('tab', { name: /Tools & agents/ })).toHaveCount(0)
+})
+
 test('a member is removed, and the account goes with them', async ({ page, browser }) => {
   await signIn(page)
   await openAdmin(page)

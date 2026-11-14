@@ -4,13 +4,13 @@ import { PeoplePanel } from './PeoplePanel'
 import { MembersPanel } from './MembersPanel'
 import { InvitationsPanel } from './InvitationsPanel'
 import { WorkspacePanel } from './WorkspacePanel'
-import { ConnectAgent } from './ConnectAgent'
 import { ScimPanel } from './ScimPanel'
 import { AuditPanel } from './AuditPanel'
 import { DangerPanel } from './DangerPanel'
 import { WorkspaceDataPanel } from './WorkspaceDataPanel'
 import { WebhooksPanel } from './WebhooksPanel'
 import { BackupsPanel } from './BackupsPanel'
+import { HealthPanel } from './HealthPanel'
 import { useAuth } from '@/lib/auth'
 import { listSnapshots, readSnapshot, writeSnapshot, type SnapshotMeta } from '@/lib/snapshots'
 import { PERSIST_VERSION, persistedSlice, useStore } from '@/store'
@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
  * administrator sees this team's people and its end, and somebody using the browser-only demo sees
  * the copies it keeps of itself. A tab that would only be able to say "not for you" is not drawn.
  */
-type TabId = 'workspace' | 'people' | 'invitations' | 'audit' | 'webhooks' | 'backups' | 'tools' | 'snapshots' | 'data' | 'danger'
+type TabId = 'workspace' | 'people' | 'invitations' | 'audit' | 'webhooks' | 'backups' | 'health' | 'directory' | 'snapshots' | 'data' | 'danger'
 
 export function AdminView() {
   // The People section exists only where there is somebody to administer: a session, and the
@@ -37,16 +37,16 @@ export function AdminView() {
   // not they run the instance.
   const workspaceAdmin = useAuth((s) => s.user?.role === 'admin' || s.user?.instanceRole === 'admin')
   const setView = useStore((s) => s.setView)
-  const signedIn = useAuth((s) => Boolean(s.user))
 
   const tabs: Array<{ id: TabId; label: string }> = [
     ...(workspaceAdmin ? [{ id: 'workspace' as const, label: 'Workspace' }] : []),
     ...(workspaceAdmin ? [{ id: 'people' as const, label: 'People' }] : []),
     ...(admin ? [{ id: 'invitations' as const, label: 'Invitations' }] : []),
-    ...(workspaceAdmin ? [{ id: 'audit' as const, label: 'Audit' }] : []),
+    ...(workspaceAdmin ? [{ id: 'audit' as const, label: 'Audit log' }] : []),
     ...(workspaceAdmin ? [{ id: 'webhooks' as const, label: 'Webhooks' }] : []),
     ...(admin ? [{ id: 'backups' as const, label: 'Backups' }] : []),
-    ...(signedIn ? [{ id: 'tools' as const, label: 'Tools & agents' }] : []),
+    ...(admin ? [{ id: 'health' as const, label: 'Health' }] : []),
+    ...(admin ? [{ id: 'directory' as const, label: 'Directory' }] : []),
     { id: 'snapshots', label: 'Snapshots' },
     { id: 'data', label: 'Workspace data' },
     ...(workspaceAdmin ? [{ id: 'danger' as const, label: 'Danger' }] : []),
@@ -123,12 +123,8 @@ export function AdminView() {
           {active === 'audit' && <AuditPanel />}
           {active === 'webhooks' && <WebhooksPanel />}
           {active === 'backups' && <BackupsPanel />}
-          {active === 'tools' && (
-            <div className="space-y-3">
-              <ConnectAgent />
-              {admin && <ScimPanel />}
-            </div>
-          )}
+          {active === 'health' && <HealthPanel onOpenTab={setTab} />}
+          {active === 'directory' && <ScimPanel />}
           {active === 'snapshots' && <SnapshotsPanel />}
           {active === 'data' && <WorkspaceDataPanel />}
           {active === 'danger' && <DangerPanel />}
